@@ -9,10 +9,6 @@ pub enum Key<T: grdf::Entity> {
 	Term(T)
 }
 
-pub struct TermDefinition {
-	// ...
-}
-
 pub enum ExpandError {
 	InvalidLocalContext,
 
@@ -36,6 +32,70 @@ pub enum ExpandError {
 	LoadingRemoteContextFailed,
 
 	InvalidRemoteContext,
+}
+
+pub enum Container {
+	Graph,
+	Id,
+	Index,
+	Language,
+	List,
+	Set,
+	Type
+}
+
+// Type of a definition.
+pub enum Type {
+	// @id
+	Id
+}
+
+// A term definition.
+pub struct TermDefinition {
+	ty: Option<Type>,
+	iri: Iri,
+	container: Vec<Container>,
+	protected: bool
+}
+
+fn parse_container(json: &JsonValue) -> Result<Vec<Container>> {
+	let mut container = Vec::new();
+	if let Some(id) = json.as_str() {
+		container.push(container_by_id(id)?)
+	} else {
+		match json {
+			JsonValue::Array(vec) {
+				for e in vec {
+					if let Some(id) = json.as_str() {
+						container.push(container_by_id(id)?)
+					} else {
+						return Err(Error::InvalidContainerMapping)
+					}
+				}
+			},
+			_ => return Err(Error::InvalidContainerMapping)
+		}
+	}
+
+	let mut is_valid = true;
+
+	if container.contains(Container::List) {
+		if container.len() > 1 {
+			return Err(Error::InvalidContainerMapping)
+		}
+	} else if container.contains(Container::Graph) {
+		for c in &container {
+			if c != Container::Graph && c != Container::Id && c != Container::Index && c != Container::Set {
+				return Err(Error::InvalidContainerMapping)
+			}
+		}
+	} else if container.contains(Container::Graph) {
+		is_valid &= container.len() <= 2
+	} else {
+		is_valid &= container.len() <= 1
+	}
+
+	return container;
 }
 
 /// JSON-LD context.
@@ -327,7 +387,6 @@ impl Context for LocalContext {
 
 				// 5.12) Create a map `defined_terms` to keep track of whether or not a term
 				// has already been defined or is currently being defined during recursion.
-				// done.
 				let mut env = DefinitionEnvironment {
 					map,
 					defined: HashMap::new()
@@ -351,6 +410,7 @@ impl Context for LocalContext {
 	}
 
 	fn define<'a>(&mut self, env: &mut DefinitionEnvironment<'a>, term: &str, value: &JsonValue) -> Result<(), Self::Error> {
+		// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 		match env.defined.get(term) {
 			// 1) If defined contains the entry term and the associated value is true
 			// (indicating that the term definition has already been created), return
@@ -546,28 +606,110 @@ impl Context for LocalContext {
 		// 16) If value contains the entry @id and its value does not equal term:
 		let id_value = map["@id"];
 		if id_value.is_some() && id_value.unwrap().as_str() != Some(term) {
-			panic!("TODO")
+			let id_value = id_value.as_ref().unwrap();
+			if id_value.is_null() {
+				// 16.1) If value associated to the @id entry is null, the term is not used for
+				// IRI expansion, but is retained to be able to detect future redefinitions of
+				// this term.
+				panic!("TODO 16.1");
+			} else {
+				if let Some(str) = id_value.as_str() {
+					if is_keyword_like(str) && !is_keyword(str) {
+						// 16.3) If the value associated with the @id entry is not a keyword, but
+						// has the form of a keyword, return; processors SHOULD generate a warning.
+						// TODO warning
+						return Ok(())
+					} else {
+						// 16.4) Otherwise, set the IRI mapping of definition to the result of
+						// using the IRI Expansion algorithm, passing active context, the value
+						// associated with the @id entry for value, true for vocab, local
+						// context, and defined.
+						let iri = self.expand_iri(str, env, true)?;
+
+						// If the resulting IRI mapping is neither a keyword, nor an IRI, nor a
+						// blank node identifier, an invalid IRI mapping error has been
+						// detected and processing is aborted; if it equals @context, an
+						// invalid keyword alias error has been detected and processing is
+						// aborted.
+						if is_keyword(iri) || is_iri_or_blank_id(iri) {
+							definition.iri = iri;
+
+							// 16.5) If the term contains a colon (:) anywhere but as the first or
+							// last character of term, or if it contains a slash (/) anywhere, and
+							// for either case, the result of expanding term using the IRI
+							// Expansion algorithm, passing active context, term for value, true
+							// for vocab, local context, and defined, is not the same as the IRI
+							// mapping of definition, an invalid IRI mapping error has been
+							// detected and processing is aborted.
+							if contains_column_inside(term) || term.contains('/') {
+								let iri = self.expand_iri(term, env, true)?;
+								if iri != definition.iri {
+									return Err(ExpandError::InvalidIriMapping.into())
+								}
+							}
+
+							// 16.6) If term contains neither a colon (:) nor a slash (/), simple
+							// term is true, and if the IRI mapping of definition is either an IRI
+							// ending with a gen-delim character, or a blank node identifier, set
+							// the prefix flag in definition to true.
+							if simple_term && !term.contains(':') && !term.contains('/') && (iri_ending_with_gen_delim(definition.iri) || is_blank_id(definition.iri)) {
+								definition.prefix = true;
+							}
+						} else {
+							return Err(ExpandError::InvalidIriMapping.into())
+						}
+					}
+				} else {
+					// 16.2) Otherwise, if the value associated with the @id entry is not a string,
+					// an invalid IRI mapping error has been detected and processing is aborted.
+					return Err(ExpandError::InvalidIriMapping.into())
+				}
+			}
 		} else {
 			// 17) Otherwise if the term contains a colon (:) anywhere after the first
 			// character:
-			if is_curie_or_blank_id(term) {
-				panic!("TODO");
+			if contains_column_after_first(term) {
+				// 17.1) If term is a compact IRI with a prefix that is an entry in local context a
+				// dependency has been found. Use this algorithm recursively passing active
+				// context, local context, the prefix as term, and defined.
+				if let Some(iri) = as_compact_iri(term) {
+					// 17.2) If term's prefix has a term definition in active context, set the IRI
+					// mapping of definition to the result of concatenating the value associated
+					// with the prefix's IRI mapping and the term's suffix.
+					self.ensure_defined(iri.prefix, env);
+					let iri = self.get(iri.prefix).iri + iri.suffix;
+					definition.iri = iri;
+				} else {
+					// 17.3) Otherwise, term is an IRI or blank node identifier. Set the IRI
+					// mapping of definition to term.
+					definition.iri = term;
+				}
 			} else {
 				// 18) Otherwise if the term contains a slash (/):
 				if is_relative_iri_ref(term) {
-					panic!("TODO");
+					// 18.1) Term is a relative IRI reference.
+					// 18.2) Set the IRI mapping of definition to the result of using the IRI
+					// Expansion algorithm, passing active context, term for value, and true for
+					// vocab. If the resulting IRI mapping is not an IRI, an invalid IRI mapping
+					// error has been detected and processing is aborted.
+					let iri = self.expand_iri(term, env, true)?;
+					if is_iri(iri) {
+						definition.iri = iri
+					} else {
+						return Err(ExpandError::InvalidIriMapping.into())
+					}
 				} else {
 					// 19) Otherwise, if term is @type...
 					if term == "@type" {
 						// ...set the IRI mapping of definition to @type.
-						panic!("TODO");
+						definition.iri = "@type";
 					} else {
 						// 20) Otherwise, if active context has a vocabulary mapping...
-						if let Some(vocab) = ctx.vocabulary_mapping() {
+						if let Some(vocab) = self.vocabulary_mapping() {
 							// ...the IRI mapping of definition is set to the result of
 							// concatenating the value associated with the vocabulary
 							// mapping and term.
-							panic!("TODO");
+							definition.iri = vocab + term;
 						} else {
 							// If it does not have a vocabulary mapping,
 							// an invalid IRI mapping error been detected.
@@ -580,17 +722,71 @@ impl Context for LocalContext {
 
 		// 21) If value contains the entry @container:
 		if let Some(container_value) = map["@container"] {
-			panic!("TODO")
+			// 21.1) Initialize container to the value associated with the @container entry, which
+			// MUST be either @graph, @id, @index, @language, @list, @set, @type, or an array
+			// containing exactly any one of those keywords, an array containing @graph and either
+			// @id or @index optionally including @set, or an array containing a combination of
+			// @set and any of @index, @id, @type, @language in any order.
+			// Otherwise, an invalid container mapping has been detected and processing is aborted.
+			let container = parse_container(container_value);
+
+			// 21.3) Set the container mapping of definition to container coercing to an array,
+			// if necessary.
+			definition.container = container;
+
+			// 21.4) If the container mapping of definition includes @type
+			if definition.container.contains(Container::Type) {
+				match definition.ty {
+					None => definition.ty = Some(Type::Id),
+					Some(Type::Id) => (),
+					Some(Type::Vocab) => (),
+					Some(_) => return Err(ExpandError::InvalidTypeMapping.into())
+				}
+			}
 		}
 
 		// 22) If value contains the entry @index:
-		if let Some(container_value) = map["@index"] {
-			panic!("TODO")
+		if let Some(index_value) = map["@index"] {
+			// TODO processing modes.
+			// 22.1) If processing mode is json-ld-1.0 or container mapping does not include
+			// @index, an invalid term definition has been detected and processing is aborted.
+			if !definition.container.contains(Container::Index) {
+				return Err(ExpandError::InvalidTermDefinition.into())
+			}
+
+			// 22.2) Initialize index to the value associated with the @index entry, which MUST be
+			// a string expanding to an IRI. Otherwise, an invalid term definition has been
+			// detected and processing is aborted.
+			if let Some(index_value) = index_value.as_str() {
+				// TODO check if `index_value` expand to an IRI?
+				definition.index = index_value;
+			} else {
+				return Err(ExpandError::InvalidTermDefinition.into())
+			}
 		}
 
 		// 23) If value contains the entry @context:
 		if let Some(context_value) = map["@context"] {
-			panic!("TODO")
+			// 23.1) If processing mode is json-ld-1.0, an invalid term definition has been
+			// detected and processing is aborted.
+			// TODO processing modes.
+
+			// 23.2) Initialize `context` to the value associated with the @context entry, which is
+			// treated as a local context.
+			let context = context_value;
+
+			// 23.3) Invoke the Context Processing algorithm using the active context, `context` as
+			// local context, and true for override protected. If any error is detected, an invalid
+			// scoped context error has been detected and processing is aborted.
+			match LocalContext::load(self, context, false, false) {
+				Ok(_) => (),
+				Err(_) => {
+					return Err(ExpandError::InvalidScopedContext.into())
+				}
+			}
+
+			// 23.4) Set the local context of definition to context.
+			definition.local_context = context;
 		}
 
 		let has_type = map["@type"].is_some();
