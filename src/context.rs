@@ -186,23 +186,29 @@ impl Context for LocalContext {
 			JsonValue::Array(items) => {
 				// 5) For each item context in local context:
 				for context in items {
-					ctx = load_context_definition(ctx, context)?;
+					ctx = load_context_definition(ctx, json, context)?;
 				}
 			},
 			context => {
-				ctx = load_context_definition(ctx, context)?;
+				ctx = load_context_definition(ctx, json, context)?;
 			}
 		}
 	}
 
-	fn load_context_definition(mut ctx: Context, context: &JsonValue) -> Result<Context, Self::Error> {
+	fn load_context_definition(mut ctx: Context, json: &JsonValue, context: &JsonValue) -> Result<Context, Self::Error> {
 		match context {
 			// 5.1) If context is null:
 			JsonValue::Null => {
 				if !ctx.override_protected && ctx.has_protected_items() {
 					return Err(ExpandError::InvalidContextNullification.into())
 				} else {
-					ctx.parent = None;
+					let previous_context = ctx;
+					ctx = LocalContext::new();
+					ctx.previous_context = if ctx.propagate {
+						Some(Rc::new(previous_context))
+					} else {
+						None
+					};
 				}
 			},
 
@@ -778,12 +784,12 @@ impl Context for LocalContext {
 			// 23.3) Invoke the Context Processing algorithm using the active context, `context` as
 			// local context, and true for override protected. If any error is detected, an invalid
 			// scoped context error has been detected and processing is aborted.
-			match LocalContext::load(self, context, false, false) {
-				Ok(_) => (),
-				Err(_) => {
-					return Err(ExpandError::InvalidScopedContext.into())
-				}
-			}
+			// match LocalContext::load(self, context, false, false) {
+			// 	Ok(_) => (),
+			// 	Err(_) => {
+			// 		return Err(ExpandError::InvalidScopedContext.into())
+			// 	}
+			// }
 
 			// 23.4) Set the local context of definition to context.
 			definition.local_context = context;
@@ -794,30 +800,96 @@ impl Context for LocalContext {
 		if !has_type {
 			// 24) If value contains the entry @language and does not contain the entry @type:
 			if let Some(language_value) = map["@language"] {
-				panic!("TODO")
+				// Initialize language to the value associated with the @language entry, which MUST
+				// be either null or a string. If language is not well-formed according to section
+				// 2.2.9 of [BCP47], processors SHOULD issue a warning. Otherwise, an invalid
+				// language mapping error has been detected and processing is aborted.
+				match language_value {
+					JsonValue::String(str) => {
+						definition.language = Some(str);
+					},
+					JsonValue::Short(str) => {
+						definition.language = Some(str);
+					},
+					JsonValue::Null => {
+						definition.language = None;
+					},
+					_ => {
+						return Err(ExpandError::InvalidLanguageMapping.into())
+					}
+				}
 			}
 
 			// 25) If value contains the entry @direction and does not contain the entry @type:
 			if let Some(direction_value) = map["@direction"] {
-				panic!("TODO")
+				// Initialize direction to the value associated with the @direction entry, which
+				// MUST be either null, "ltr", or "rtl". Otherwise, an invalid base direction error
+				// has been detected and processing is aborted.
+				definition.direction = if direction_value.is_null() {
+					None;
+				} else if let Some(str) = direction_value.as_str() {
+					match str {
+						"ltr" => Some(Direction::Ltr),
+						"rtl" => Some(Direction::Rtl),
+						_ => return Err(ExpandError::InvalidBaseDirection.into())
+					}
+				} else {
+					return Err(ExpandError::InvalidBaseDirection.into())
+				}
 			}
 		}
 
 		// 26) If value contains the entry @nest:
 		if let Some(nest_value) = map["@nest"] {
-			panic!("TODO")
+			// If processing mode is json-ld-1.0, an invalid term definition has been detected and
+			// processing is aborted.
+			// TODO processing modes.
+
+			// Initialize nest value in definition to the value associated with the @nest entry,
+			// which MUST be a string and MUST NOT be a keyword other than @nest. Otherwise, an
+			// invalid @nest value error has been detected and processing is aborted.
+			if let Some(nest_value) = nest_value.as_str() {
+				if is_keyword(nest_value) && nest_value != "@nest" {
+					return Err(ExpandError::InvalidNestValue.into())
+				}
+
+				definition.nest = Some(nest_value);
+			} else {
+				return Err(ExpandError::InvalidNestValue.into())
+			}
 		}
 
 		// 27) If value contains the entry @prefix:
 		if let Some(prefix_value) = map["@prefix"] {
-			panic!("TODO")
+			// If processing mode is json-ld-1.0, or if term contains a colon (:) or slash (/),
+			// an invalid term definition has been detected and processing is aborted.
+			// TODO processing modes.
+			if term.contains(':') || term.contains('/') {
+				return Err(ExpandError::InvalidTermDefinition.into())
+			}
+
+			// Set the prefix flag to the value associated with the @prefix entry, which MUST be a
+			// boolean. Otherwise, an invalid @prefix value error has been detected and processing
+			// is aborted.
+			if let Some(is_prefix) = prefix_value.as_bool() {
+				definition.prefix = is_prefix;
+			} else {
+				return Err(ExpandError::InvalidPrefixValue.into())
+			}
+
+			// If the prefix flag of definition is set to true, and its IRI mapping is a keyword,
+			// an invalid term definition has been detected and processing is aborted.
+			if definition.prefix && is_keyword(efinition.iri) {
+				return Err(ExpandError::InvalidTermDefinition.into())
+			}
 		}
 
-		for (key, v) in map.iter() {
+		// 28) If the value contains any entry other than @id, @reverse,
+		// @container, @context, @language, @nest, @prefix, or @type, an
+		// invalid term definition error has been detected.
+		for (key, _) in map.iter() {
 			match key {
-				// 28) If the value contains any entry other than @id, @reverse,
-				// @container, @context, @language, @nest, @prefix, or @type, an
-				// invalid term definition error has been detected.
+				"@id" | "@reverse" | "@container" | "@context" | "@language" | "@nest" | "prefix" | "@type" => ()
 				_ => return Err(ExpandError::InvalidTermDefinition.into())
 			}
 		}
@@ -875,7 +947,7 @@ impl Loader {
 		} else {
 			// 2) If value has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
 			// from [RFC5234]), a processor SHOULD generate a warning and return null.
-			// TODO
+			// TODO warning.
 
 			// 3)
 			// 4)
