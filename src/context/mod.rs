@@ -59,6 +59,11 @@ trait ActiveContext<T> : Sized + Default {
 	// Current base IRI.
 	fn base_iri(&self) -> String;
 
+	// URI Reference Resolution.
+	fn resolve(&self, relative_uri: &str) -> String {
+		self.base_iri() + relative_uri
+	}
+
 	// Optional vocabulary mapping.
 	fn vocabulary(&self) -> Option<String>;
 

@@ -145,6 +145,16 @@ pub fn as_array(json: &JsonValue) -> &[JsonValue] {
 	}
 }
 
+pub fn has_protected_items<T, C: ActiveContext<T>>(active_context: &C) -> bool {
+	for (term, definition) in active_context.iter() {
+		if definition.protected = Some(true) {
+			return true
+		}
+	}
+
+	false
+}
+
 // This function tries to follow the recommended context proessing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
@@ -178,10 +188,10 @@ pub fn process_context<T, C: ActiveContext<T>>(active_context: &C, local_context
 		match context {
 			// 5.1) If context is null:
 			JsonValue::Null => {
-				// If override protected is false and active context contains any protected term
+				// If override_protected is false and active_context contains any protected term
 				// definitions, an invalid context nullification has been detected and processing
 				// is aborted.
-				if !override_protected && ctx.has_protected_items() {
+				if !override_protected && has_protected_items(active_context) {
 					return Err(ExpandError::InvalidContextNullification.into())
 				} else {
 					// Otherwise, initialize result as a newly-initialized active context, setting
