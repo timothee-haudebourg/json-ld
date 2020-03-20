@@ -1,44 +1,77 @@
-use crate::Keyword;
+mod processing;
 
-pub enum Key<T> {
+use std::pin::Pin;
+use std::future::Future;
+use async_trait::async_trait;
+use iref::{Iri, IriRef, IriBuf};
+use crate::{Error, Keyword, Direction};
+
+pub use processing::*;
+
+pub trait Id: Clone {
+	fn from_iri(iri: Iri) -> Self;
+
+	fn from_blank_id(id: &str) -> Self;
+
+	fn iri(&self) -> Option<IriBuf>;
+}
+
+#[derive(Clone)]
+pub enum Key<T: Id> {
 	Id(T),
 	Keyword(Keyword)
 }
 
+impl<T: Id> Key<T> {
+	pub fn is_keyword(&self) -> bool {
+		match self {
+			Key::Keyword(_) => true,
+			_ => false
+		}
+	}
+
+	pub fn iri(&self) -> Option<IriBuf> {
+		match self {
+			Key::Id(k) => k.iri(),
+			_ => None
+		}
+	}
+}
+
 // A term definition.
-pub struct TermDefinition<T> {
+pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	// IRI mapping.
-	iri: Key<T>,
+	pub value: Key<T>,
 
 	// Reverse proxy flag.
-	reverse_proxy: bool,
+	pub reverse_proxy: bool,
 
 	// Optional type mapping.
-	typ: Option<Key>,
+	pub typ: Option<IriBuf>,
 
 	// Optional language mapping.
-	language: Option<String>,
+	pub language: Option<String>,
 
 	// Optional direction mapping.
-	direction: Option<Direction>,
+	pub direction: Option<Direction>,
 
 	// Optional context.
-	context: Option<LocalContext>,
+	pub context: Option<Box<dyn LocalContext<T, C>>>,
 
 	// Optional nest value.
-	nest: Option<String>,
+	pub nest: Option<String>,
 
 	// Optional prefix flag.
-	prefix: Option<bool>,
+	pub prefix: Option<bool>,
 
 	// Optional index mapping.
-	index: Option<String>,
+	pub index: Option<String>,
 
 	// Protected flag.
-	protected: bool,
+	pub protected: bool,
 
 	// Container mapping.
-	container: Vec<Container>
+	pub container: Vec<Container>
 }
 
 pub enum Container {
@@ -51,51 +84,60 @@ pub enum Container {
 	Type
 }
 
-trait ActiveContext<T> : Sized + Default {
-	type CopiedContext : MutableActiveContext<T>;
+/// JSON-LD active context.
+///
+/// An active context holds all the term definitions used to expand a JSON-LD value.
+pub trait ActiveContext<T: Id> : Sized {
+	type Definitions<'a>: Iterator<Item = (&'a str, TermDefinition<T, Self>)>;
 
-	fn get(&self, term: &str) -> TermDefinition<T>;
+	/// Create a newly-initialized active context with the given *base IRI*.
+	fn new(original_base_url: Iri, base_iri: Iri) -> Self;
 
-	// Current base IRI.
-	fn base_iri(&self) -> String;
+	/// Original base URL of the context.
+	fn original_base_url(&self) -> Iri;
 
-	// URI Reference Resolution.
-	fn resolve(&self, relative_uri: &str) -> String {
-		self.base_iri() + relative_uri
-	}
+	/// Current *base IRI* of the context.
+	fn base_iri(&self) -> Option<Iri>;
 
-	// Optional vocabulary mapping.
-	fn vocabulary(&self) -> Option<String>;
+	/// Get the definition of a term.
+	fn get(&self, term: &str) -> Option<TermDefinition<T, Self>>;
 
-	// Optional default language.
+	/// Optional vocabulary mapping.
+	fn vocabulary(&self) -> Option<&Key<T>>;
+
+	/// Optional default language.
 	fn default_language(&self) -> Option<String>;
 
-	// Optional default base direction.
+	/// Optional default base direction.
 	fn default_base_direction(&self) -> Option<Direction>;
 
-	// Get the previous context.
-	fn previous_context(&self) -> Option<&Self::CopiedContext>;
+	/// Get the previous context.
+	fn previous_context(&self) -> Option<&Self>;
 
-	// Make a copy of this active context.
-	fn copy(&self) -> Self::CopiedContext;
+	/// Make a copy of this active context.
+	fn copy(&self) -> Self;
+
+	fn definitions<'a>(&'a self) -> Self::Definitions<'a>;
 }
 
-trait MutableActiveContext<T> : ActiveContext<T> {
-	fn set(&mut self, term: &str, definition: Option<TermDefinition>) -> Option<TermDefinition>;
+pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
+	fn set(&mut self, term: &str, definition: Option<TermDefinition<T, Self>>) -> Option<TermDefinition<T, Self>>;
 
-	fn set_base_iri(&mut self, iri: String);
+	fn set_base_iri(&mut self, iri: Option<Iri>);
 
-	fn set_vocabulary(&mut self, vocab: String);
+	fn set_vocabulary(&mut self, vocab: Option<Key<T>>);
 
-	fn set_default_language(&mut self, lang: String);
+	fn set_default_language(&mut self, lang: Option<String>);
 
-	fn set_default_base_direction(&mut self, dir: Direction);
+	fn set_default_base_direction(&mut self, dir: Option<Direction>);
 
-	fn set_previous_context(&mut self, previous: Self::CopiedContext);
+	fn set_previous_context(&mut self, previous: Self);
 }
 
-trait LocalContext<T, C: ActiveContext<T>> {
-	type Error;
-
-	pub fn process(&self, active_context: &C) -> Result<C::CopiedContext, Error>;
+/// Local context used for context expansion.
+///
+/// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
+/// existing active context.
+pub trait LocalContext<T: Id, C: ActiveContext<T>> {
+	fn process<'a>(&'a self, active_context: &'a C, base_url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>>;
 }
