@@ -1,5 +1,3 @@
-#![feature(generic_associated_types)]
-
 extern crate json;
 extern crate iref;
 

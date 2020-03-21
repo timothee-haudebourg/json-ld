@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::pin::Pin;
@@ -8,7 +7,7 @@ use std::convert::TryFrom;
 use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
-use crate::{Error, Keyword, is_keyword, is_keyword_like, Direction, Container, ContainerType, expansion};
+use crate::{Keyword, is_keyword, is_keyword_like, Direction, Container, ContainerType, expansion};
 use super::{LocalContext, ActiveContext, MutableActiveContext, Id, Key, TermDefinition};
 
 pub enum ContextProcessingError {
@@ -85,7 +84,6 @@ impl From<reqwest::Error> for ContextProcessingError {
 // 	Id
 // }
 //
-#[async_trait]
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue {
 	/// Load a local context.
 	fn process<'a>(&'a self, active_context: &'a C, base_url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>> {
@@ -199,7 +197,7 @@ pub fn as_array(json: &JsonValue) -> &[JsonValue] {
 }
 
 pub fn has_protected_items<T: Id, C: ActiveContext<T>>(active_context: &C) -> bool {
-	for (term, definition) in active_context.definitions() {
+	for (_, definition) in active_context.definitions() {
 		if definition.protected {
 			return true
 		}
@@ -267,7 +265,7 @@ impl RemoteContexts {
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C, local_context: &'a JsonValue, base_url: Iri, remote_contexts: Arc<RemoteContexts>, mut override_protected: bool, mut propagate: bool) -> LocalBoxFuture<'a, Result<C, ContextProcessingError>> {
+fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C, local_context: &'a JsonValue, base_url: Iri, remote_contexts: Arc<RemoteContexts>, override_protected: bool, mut propagate: bool) -> LocalBoxFuture<'a, Result<C, ContextProcessingError>> {
 	let base_url = IriBuf::from(base_url);
 	async move {
 		// 1) Initialize result to the result of cloning active context.
@@ -537,7 +535,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C,
 					// invoke the Create Term Definition algorithm passing result for
 					// active context, context for local context, key, defined, base URL,
 					// and the value of the @protected entry from context, if any, for protected.
-					for (key, value) in context.iter() {
+					for (key, _) in context.iter() {
 						if !is_keyword(key) {
 							define(&mut result, context, key, &mut defined, Some(base_url.as_iri()), protected, false).await?;
 						}
@@ -705,13 +703,13 @@ fn contains_nz(id: &str, c: char) -> bool {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), ContextProcessingError>> {
+pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, _base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), ContextProcessingError>> {
 	let term = term.to_string();
-	let base_url = if let Some(base_url) = base_url {
-		Some(IriBuf::from(base_url))
-	} else {
-		None
-	};
+	// let base_url = if let Some(base_url) = base_url {
+	// 	Some(IriBuf::from(base_url))
+	// } else {
+	// 	None
+	// };
 
 	async move {
 		match defined.get(term.as_str()) {
@@ -1033,7 +1031,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						}
 					} else if term.contains('/') {
 						// Term is a relative IRI reference.
-						/// Set the IRI mapping of definition to the result of IRI expanding
+						// Set the IRI mapping of definition to the result of IRI expanding
 						// term.
 						match expansion::expand_iri(active_context, term.as_str(), false, false) {
 							Some(Key::Id(id)) => {

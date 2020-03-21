@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use iref::{Iri, IriRef, IriBuf};
+use iref::{Iri, IriRef};
 use crate::{Keyword, context::{ActiveContext, Id, Key}};
 
 pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Option<Key<T>> {

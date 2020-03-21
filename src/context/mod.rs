@@ -2,9 +2,8 @@ mod processing;
 
 use std::pin::Pin;
 use std::future::Future;
-use async_trait::async_trait;
-use iref::{Iri, IriRef, IriBuf};
-use crate::{Error, Keyword, Direction, Container};
+use iref::Iri;
+use crate::{Keyword, Direction, Container};
 
 pub use processing::*;
 
@@ -13,7 +12,7 @@ pub trait Id: Clone + PartialEq + Eq {
 
 	fn from_blank_id(id: &str) -> Self;
 
-	fn iri(&self) -> Option<IriBuf>;
+	fn iri(&self) -> Option<Iri>;
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -30,7 +29,7 @@ impl<T: Id> Key<T> {
 		}
 	}
 
-	pub fn iri(&self) -> Option<IriBuf> {
+	pub fn iri(&self) -> Option<Iri> {
 		match self {
 			Key::Id(k) => k.iri(),
 			_ => None
@@ -78,7 +77,8 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 ///
 /// An active context holds all the term definitions used to expand a JSON-LD value.
 pub trait ActiveContext<T: Id> : Sized {
-	type Definitions<'a>: Iterator<Item = (&'a str, TermDefinition<T, Self>)>;
+	// Later
+	// type Definitions<'a>: Iterator<Item = (&'a str, TermDefinition<T, Self>)>;
 
 	/// Create a newly-initialized active context with the given *base IRI*.
 	fn new(original_base_url: Iri, base_iri: Iri) -> Self;
@@ -107,7 +107,7 @@ pub trait ActiveContext<T: Id> : Sized {
 	/// Make a copy of this active context.
 	fn copy(&self) -> Self;
 
-	fn definitions<'a>(&'a self) -> Self::Definitions<'a>;
+	fn definitions<'a>(&'a self) -> Box<dyn 'a + Iterator<Item = (&'a str, TermDefinition<T, Self>)>>;
 }
 
 pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
