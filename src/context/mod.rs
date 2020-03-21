@@ -140,7 +140,7 @@ pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct JsonLdContext<T: Id> {
+pub struct Context<T: Id> {
 	original_base_url: IriBuf,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Key<T>>,
@@ -150,11 +150,11 @@ pub struct JsonLdContext<T: Id> {
 	definitions: HashMap<String, TermDefinition<T, Self>>
 }
 
-impl<T: Id> ActiveContext<T> for JsonLdContext<T> {
+impl<T: Id> ActiveContext<T> for Context<T> {
 	type LocalContext = JsonValue;
 
-	fn new(original_base_url: Iri, base_iri: Iri) -> JsonLdContext<T> {
-		JsonLdContext {
+	fn new(original_base_url: Iri, base_iri: Iri) -> Context<T> {
+		Context {
 			original_base_url: original_base_url.into(),
 			base_iri: Some(base_iri.into()),
 			vocabulary: None,
@@ -210,7 +210,7 @@ impl<T: Id> ActiveContext<T> for JsonLdContext<T> {
 	}
 }
 
-impl<T: Id> MutableActiveContext<T> for JsonLdContext<T> {
+impl<T: Id> MutableActiveContext<T> for Context<T> {
 	fn set(&mut self, term: &str, definition: Option<TermDefinition<T, Self>>) -> Option<TermDefinition<T, Self>> {
 		match definition {
 			Some(def) => {
