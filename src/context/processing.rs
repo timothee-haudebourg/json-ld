@@ -1,5 +1,4 @@
 use std::ops::Deref;
-use std::sync::Arc;
 use std::pin::Pin;
 use std::future::Future;
 use std::collections::HashMap;
@@ -8,7 +7,7 @@ use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
 use crate::{Keyword, is_keyword, is_keyword_like, Direction, Container, ContainerType, expansion};
-use super::{LocalContext, ActiveContext, MutableActiveContext, Id, Key, TermDefinition};
+use super::{LocalContext, ActiveContext, MutableActiveContext, ContextLoader, Id, Key, TermDefinition};
 
 pub enum ContextProcessingError {
 	InvalidIri,
@@ -77,117 +76,16 @@ impl From<reqwest::Error> for ContextProcessingError {
 	}
 }
 
-//
-// // Type of a definition.
-// pub enum Type {
-// 	// @id
-// 	Id
-// }
-//
-impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue {
+impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
 	/// Load a local context.
-	fn process<'a>(&'a self, active_context: &'a C, base_url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>> {
-		process_context(active_context, self, base_url, Arc::new(RemoteContexts::new()), false, true)
+	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Iri, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>> {
+		process_context(active_context, self, loader, base_url, is_remote, override_protected, propagate)
+	}
+
+	fn as_json_ld(&self) -> &JsonValue {
+		self
 	}
 }
-//
-// fn parse_container(json: &JsonValue) -> Result<Vec<Container>> {
-// 	let mut container = Vec::new();
-//
-// 	match json.as_str() {
-// 		Some(id) => {
-// 			container.push(container_by_id(id)?)
-// 		},
-// 		None => {
-// 			match json {
-// 				JsonValue::Array(vec) => {
-// 					for e in vec {
-// 						if let Some(id) = json.as_str() {
-// 							container.push(container_by_id(id)?)
-// 						} else {
-// 							return Err(Error::InvalidContainerMapping)
-// 						}
-// 					}
-// 				},
-// 				_ => return Err(Error::InvalidContainerMapping)
-// 			}
-// 		}
-// 	}
-//
-// 	let mut is_valid = true;
-//
-// 	if container.contains(Container::List) {
-// 		if container.len() > 1 {
-// 			return Err(Error::InvalidContainerMapping)
-// 		}
-// 	} else if container.contains(Container::Graph) {
-// 		for c in &container {
-// 			if c != Container::Graph && c != Container::Id && c != Container::Index && c != Container::Set {
-// 				return Err(Error::InvalidContainerMapping)
-// 			}
-// 		}
-// 	} else if container.contains(Container::Graph) {
-// 		is_valid &= container.len() <= 2
-// 	} else {
-// 		is_valid &= container.len() <= 1
-// 	}
-//
-// 	return container;
-// }
-//
-// /// JSON-LD context.
-// pub trait Context: Sized + Clone {
-// 	type Term: grdf::Entity;
-// 	type Error;
-//
-// 	/// Retreive the key bound to the given id.
-// 	fn key(&self, id: &str) -> Result<Key<T>, Self::Error>;
-//
-// 	/// Set (or unset) the definition of a term, and return the previous definition if any.
-// 	fn set(&mut self, term: &str, definition: Option<TermDefinition>) -> Result<Option<TermDefinition>, Self::Error>;
-// }
-//
-// fn is_keyword(str: &str) -> bool {
-// 	match str {
-// 		"@base" | "@container" | "@context" | "@direction" | "@graph" | "@id" |
-// 		"@import" | "@imported" | "@index" | "@json" | "@language" | "@list" |
-// 		"@nest" | "@none" | "@prefix" | "@propagate" | "@protected" | "@reverse" |
-// 		"@set" | "@value" | "@version" | "@vocab" => true,
-// 		_ => false
-// 	}
-// }
-//
-// pub struct Loader<'a, C: 'a + Context> {
-// 	/// Active context. The one beeing modified.
-// 	ctx: &'a mut C,
-//
-// 	/// Terms that are beeing loaded, or are already loaded.
-// 	defined: HashMap<String, bool>,
-//
-// 	/// Local contexts beeing loaded.
-// 	stack: Vec<&'a JsonObject>
-// }
-//
-// trait IriContext {
-// 	fn resolve(iri: Iri) -> Result<Iri, Error>;
-// }
-//
-// impl<T: Context> IriContext for T {
-// 	fn resolve(iri: Iri) -> Result<Iri, Error> {
-// 		// ...
-// 	}
-// }
-//
-// pub struct LocalContext {
-// 	/// The parent context.
-// 	parent: Option<Rc<dyn Context>>,
-//
-// 	/// Does the context propagates to sub nodes.
-// 	propagate: bool,
-//
-// 	/// Is it possible to redefine protected terms.
-// 	override_protected: bool
-// }
 
 pub fn as_array(json: &JsonValue) -> &[JsonValue] {
 	match json {
@@ -206,66 +104,12 @@ pub fn has_protected_items<T: Id, C: ActiveContext<T>>(active_context: &C) -> bo
 	false
 }
 
-struct RemoteContext {
-	//
-}
-
-impl RemoteContext {
-	pub fn context(&self) -> &JsonValue {
-		panic!("TODO context")
-	}
-
-	pub fn url(&self) -> Iri {
-		panic!("TODO url")
-	}
-}
-
-struct RemoteContexts {
-	// ...
-}
-
-impl RemoteContexts {
-	pub fn new() -> RemoteContexts {
-		RemoteContexts {
-			// ...
-		}
-	}
-
-	pub fn is_empty(&self) -> bool {
-		panic!("TODO")
-	}
-
-	pub async fn load(&self, url: Iri<'_>) -> Result<RemoteContext, ContextProcessingError> {
-		use reqwest::header::*;
-
-		let client = reqwest::Client::new();
-		let request = client.get(url.as_str()).header(ACCEPT, "application/ld+json, application/json");
-		let response = request.send().await?;
-
-		// // ...
-		//
-		// response.headers().get_all(CONTENT_TYPE).find(|&value| value == "").is_some();
-		// let bytes = response.bytes().await?;
-		//
-		// // ...
-		panic!("TODO")
-	}
-}
-
-// fn resolve<T, C: ActiveContext<T>>(context: &C, iri_ref: IriRef) -> Result<IriBuf, ContextProcessingError> {
-// 	if let Some(base_iri) = context.base_iri() {
-// 		Ok(iri_ref.resolved(base_iri))
-// 	} else {
-// 		Err(ContextProcessingError::InvalidBaseIri)
-// 	}
-// }
-
 // This function tries to follow the recommended context proessing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C, local_context: &'a JsonValue, base_url: Iri, remote_contexts: Arc<RemoteContexts>, override_protected: bool, mut propagate: bool) -> LocalBoxFuture<'a, Result<C, ContextProcessingError>> {
+fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, local_context: &'a JsonValue, remote_contexts: &'a mut L, base_url: Iri, is_remote: bool, override_protected: bool, mut propagate: bool) -> LocalBoxFuture<'a, Result<C, ContextProcessingError>> where C::LocalContext: From<JsonValue> {
 	let base_url = IriBuf::from(base_url);
 	async move {
 		// 1) Initialize result to the result of cloning active context.
@@ -358,7 +202,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C,
 					// Set result to the result of recursively calling this algorithm, passing result
 					// for active context, loaded context for local context, the documentUrl of context
 					// document for base URL, and a copy of remote contexts.
-					result = process_context(&result, loaded_context, context_document.url(), remote_contexts.clone(), false, true).await?;
+					result = loaded_context.process(&result, remote_contexts, context_document.url(), true, false, true).await?;
 				},
 
 				// 5.4) Context definition.
@@ -377,7 +221,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C,
 					// TODO
 
 					// 5.6) If context has an @import entry:
-					if let Some(import_value) = context.get(Keyword::Import.into()) {
+					let context = if let Some(import_value) = context.get(Keyword::Import.into()) {
 						// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected.
 						// TODO
@@ -400,17 +244,24 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C,
 							// (i.e., it is not an map), an invalid remote context has been
 							// detected and processing is aborted; otherwise, set import context
 							// to the value of that entry.
-							if let JsonValue::Object(loaded_context) = import_context {
+							if let JsonValue::Object(import_context) = import_context.as_json_ld() {
 								// If `import_context` has a @import entry, an invalid context entry
 								// error has been detected and processing is aborted.
-								if let Some(_) = loaded_context.get(Keyword::Import.into()) {
+								if let Some(_) = import_context.get(Keyword::Import.into()) {
 									return Err(ContextProcessingError::InvalidContextEntry);
 								}
 
 								// Set `context` to the result of merging context into
 								// `import context`, replacing common entries with those from
 								// `context`.
-								panic!("TODO");
+								let mut context = context.clone();
+								for (key, value) in import_context.iter() {
+									if context.get(key).is_none() {
+										context.insert(key, value.clone());
+									}
+								}
+
+								JsonObjectRef::Owned(context)
 							} else {
 								return Err(ContextProcessingError::InvalidRemoteContext)
 							}
@@ -419,11 +270,13 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C,
 							// @import value error has been detected.
 							return Err(ContextProcessingError::InvalidImportValue)
 						}
-					}
+					} else {
+						JsonObjectRef::Borrowed(context)
+					};
 
 					// 5.7) If context has a @base entry and remote contexts is empty, i.e.,
 					// the currently being processed context is not a remote context:
-					if remote_contexts.is_empty() {
+					if !is_remote {
 						// Initialize value to the value associated with the @base entry.
 						if let Some(value) = context.get(Keyword::Base.into()) {
 							match value {
@@ -537,7 +390,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C,
 					// and the value of the @protected entry from context, if any, for protected.
 					for (key, _) in context.iter() {
 						if !is_keyword(key) {
-							define(&mut result, context, key, &mut defined, Some(base_url.as_iri()), protected, false).await?;
+							define(&mut result, context.as_ref(), key, &mut defined, Some(base_url.as_iri()), protected, false).await?;
 						}
 					}
 				},
@@ -545,7 +398,8 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C,
 				_ => return Err(ContextProcessingError::InvalidLocalContext)
 			}
 		}
-		panic!("TODO")
+
+		Ok(result)
 	}.boxed_local()
 }
 
@@ -554,14 +408,20 @@ enum JsonObjectRef<'a> {
 	Borrowed(&'a JsonObject)
 }
 
-impl<'a> Deref for JsonObjectRef<'a> {
-	type Target = JsonObject;
-
-	fn deref(&self) -> &JsonObject {
+impl<'a> JsonObjectRef<'a> {
+	fn as_ref(&self) -> &JsonObject {
 		match self {
 			JsonObjectRef::Owned(obj) => &obj,
 			JsonObjectRef::Borrowed(obj) => obj
 		}
+	}
+}
+
+impl<'a> Deref for JsonObjectRef<'a> {
+	type Target = JsonObject;
+
+	fn deref(&self) -> &JsonObject {
+		self.as_ref()
 	}
 }
 
@@ -589,7 +449,7 @@ pub struct PartialTermDefinition<T: Id, C: ActiveContext<T>> {
 	pub direction: Option<Direction>,
 
 	// Optional context.
-	pub context: Option<Box<dyn LocalContext<T, C>>>,
+	pub context: Option<C::LocalContext>,
 
 	// Optional nest value.
 	pub nest: Option<String>,
@@ -703,7 +563,7 @@ fn contains_nz(id: &str, c: char) -> bool {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, _base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), ContextProcessingError>> {
+pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, _base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), ContextProcessingError>> where C::LocalContext: From<JsonValue> {
 	let term = term.to_string();
 	// let base_url = if let Some(base_url) = base_url {
 	// 	Some(IriBuf::from(base_url))
@@ -1154,14 +1014,14 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// Invoke the Context Processing algorithm using the `active_context`,
 						// `context` as local context, `base_url`, and `true` for override
 						// protected.
-						// if let Err(_) = process_context(active_context, context, base_url, Arc::new(RemoteContexts::new()), true, true).await {
+						// if let Err(_) = process_context(active_context, context, base_url, false, Arc::new(RemoteContexts::new()), true, true).await {
 						// 	// If any error is detected, an invalid scoped context error has been
 						// 	// detected and processing is aborted.
 						// 	return Err(ContextProcessingError::InvalidScopedContext)
 						// }
 
 						// Set the local context of definition to context, and base URL to base URL.
-						definition.context = Some(Box::new(context.clone()));
+						definition.context = Some(context.clone().into());
 					}
 
 					// If `value` contains the entry `@language` and does not contain the entry
@@ -1300,7 +1160,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 }
 
 /// Default values for `document_relative` and `vocab` should be `false`.
-pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>) -> impl 'a + Future<Output = Result<Key<T>, ContextProcessingError>> {
+pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>) -> impl 'a + Future<Output = Result<Key<T>, ContextProcessingError>> where C::LocalContext: From<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {

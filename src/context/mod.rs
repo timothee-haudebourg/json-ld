@@ -1,3 +1,4 @@
+mod loader;
 mod processing;
 
 use std::pin::Pin;
@@ -5,6 +6,7 @@ use std::future::Future;
 use iref::Iri;
 use crate::{Keyword, Direction, Container};
 
+pub use loader::*;
 pub use processing::*;
 
 pub trait Id: Clone + PartialEq + Eq {
@@ -61,7 +63,7 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	pub direction: Option<Direction>,
 
 	// Optional context.
-	pub context: Option<Box<dyn LocalContext<T, C>>>,
+	pub context: Option<C::LocalContext>,
 
 	// Optional nest value.
 	pub nest: Option<String>,
@@ -79,6 +81,9 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 pub trait ActiveContext<T: Id> : Sized {
 	// Later
 	// type Definitions<'a>: Iterator<Item = (&'a str, TermDefinition<T, Self>)>;
+
+	/// The type of local contexts associated to this type of contexts.
+	type LocalContext: LocalContext<T, Self>;
 
 	/// Create a newly-initialized active context with the given *base IRI*.
 	fn new(original_base_url: Iri, base_iri: Iri) -> Self;
@@ -128,6 +133,8 @@ pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
-pub trait LocalContext<T: Id, C: ActiveContext<T>> {
-	fn process<'a>(&'a self, active_context: &'a C, base_url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>>;
+pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
+	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Iri, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>>;
+
+	fn as_json_ld(&self) -> &json::JsonValue;
 }
