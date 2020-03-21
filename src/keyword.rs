@@ -188,6 +188,17 @@ pub fn is_keyword(str: &str) -> bool {
 	Keyword::try_from(str).is_ok()
 }
 
+fn is_alpha(c: char) -> bool {
+	let c = c as u32;
+	(c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a)
+}
+
 pub fn is_keyword_like(str: &str) -> bool {
-	panic!("TODO is_keyword_like")
+	for (i, c) in str.chars().enumerate() {
+		if (i == 0 && c != '@') || (i > 0 && !is_alpha(c)) {
+			return false
+		}
+	}
+
+	true
 }
