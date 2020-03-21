@@ -113,7 +113,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 	let base_url = IriBuf::from(base_url);
 	async move {
 		// 1) Initialize result to the result of cloning active context.
-		let mut result = active_context.copy();
+		let mut result = active_context.clone();
 
 		// 2) If `local_context` is an object containing the member @propagate,
 		// its value MUST be boolean true or false, set `propagate` to that value.
@@ -130,7 +130,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 		// 3) If propagate is false, and result does not have a previous context,
 		// set previous context in result to active context.
 		if !propagate && result.previous_context().is_none() {
-			result.set_previous_context(active_context.copy());
+			result.set_previous_context(active_context.clone());
 		}
 
 		// 4) If local context is not an array, set it to an array containing only local context.
