@@ -46,7 +46,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 				// mapping and the prefix flag of the term definition is true, return the result
 				// of concatenating the IRI mapping associated with prefix and suffix.
 				if let Some(term_definition) = active_context.get(prefix) {
-					if term_definition.prefix == Some(true) {
+					if term_definition.prefix {
 						if let Some(iri) = term_definition.value.iri() {
 							let mut result = iri.as_str().to_string();
 							result.push_str(suffix);

@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use std::ops::Deref;
 use std::sync::Arc;
 use std::pin::Pin;
 use std::future::Future;
@@ -7,8 +8,8 @@ use std::convert::TryFrom;
 use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
-use crate::{Error, Keyword, is_keyword, is_keyword_like, expansion};
-use super::{LocalContext, ActiveContext, MutableActiveContext, Id, Key, Direction};
+use crate::{Error, Keyword, is_keyword, is_keyword_like, Direction, Container, ContainerType, expansion};
+use super::{LocalContext, ActiveContext, MutableActiveContext, Id, Key, TermDefinition};
 
 pub enum ContextProcessingError {
 	InvalidIri,
@@ -44,9 +45,31 @@ pub enum ContextProcessingError {
 
 	InvalidContextEntry,
 
+	InvalidTermDefinition,
+
+	InvalidProtectedValue,
+
+	InvalidTypeMapping,
+
+	InvalidReverseProperty,
+
+	InvalidIriMapping,
+
+	InvalidKeywordAlias,
+
 	CyclicIriMapping,
 
-	KeywordRedefinition
+	KeywordRedefinition,
+
+	InvalidContainerMapping,
+
+	InvalidLanguageMapping,
+
+	InvalidNestValue,
+
+	InvalidPrefixValue,
+
+	ProtectedTermRedefinition
 }
 
 impl From<reqwest::Error> for ContextProcessingError {
@@ -528,11 +551,161 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a C,
 	}.boxed_local()
 }
 
+enum JsonObjectRef<'a> {
+	Owned(JsonObject),
+	Borrowed(&'a JsonObject)
+}
+
+impl<'a> Deref for JsonObjectRef<'a> {
+	type Target = JsonObject;
+
+	fn deref(&self) -> &JsonObject {
+		match self {
+			JsonObjectRef::Owned(obj) => &obj,
+			JsonObjectRef::Borrowed(obj) => obj
+		}
+	}
+}
+
+// A partial term definition.
+pub struct PartialTermDefinition<T: Id, C: ActiveContext<T>> {
+	// IRI mapping, maybe undefined.
+	pub value: Option<Key<T>>,
+
+	// Prefix flag.
+	pub prefix: bool,
+
+	// Protected flag.
+	pub protected: bool,
+
+	// Reverse property flag.
+	pub reverse_property: bool,
+
+	// Optional type mapping.
+	pub typ: Option<Key<T>>,
+
+	// Optional language mapping.
+	pub language: Option<String>,
+
+	// Optional direction mapping.
+	pub direction: Option<Direction>,
+
+	// Optional context.
+	pub context: Option<Box<dyn LocalContext<T, C>>>,
+
+	// Optional nest value.
+	pub nest: Option<String>,
+
+	// Optional index mapping.
+	pub index: Option<String>,
+
+	// Container mapping.
+	pub container: Container
+}
+
+impl<T: Id, C: ActiveContext<T>> PartialEq<TermDefinition<T, C>> for PartialTermDefinition<T, C> {
+	fn eq(&self, other: &TermDefinition<T, C>) -> bool {
+		// NOTE we ignore the `protected` flag.
+
+		// FIXME `context` comparison!
+
+		self.prefix == other.prefix &&
+		self.reverse_property == other.reverse_property &&
+		self.language == other.language &&
+		self.direction == other.direction &&
+		self.nest == other.nest &&
+		self.index == other.index &&
+		self.container == other.container &&
+		*self.value.as_ref().unwrap() == other.value &&
+		self.typ == other.typ
+	}
+}
+
+impl<T: Id, C: ActiveContext<T>> Default for PartialTermDefinition<T, C> {
+	fn default() -> PartialTermDefinition<T, C> {
+		PartialTermDefinition {
+			value: None,
+			prefix: false,
+			protected: false,
+			reverse_property: false,
+			typ: None,
+			language: None,
+			direction: None,
+			context: None,
+			nest: None,
+			index: None,
+			container: Container::new()
+		}
+	}
+}
+
+impl<T: Id, C: ActiveContext<T>> From<PartialTermDefinition<T, C>> for TermDefinition<T, C> {
+	fn from(d: PartialTermDefinition<T, C>) -> TermDefinition<T, C> {
+		TermDefinition {
+			value: d.value.unwrap(),
+			prefix: d.prefix,
+			protected: d.protected,
+			reverse_property: d.reverse_property,
+			typ: d.typ,
+			language: d.language,
+			direction: d.direction,
+			context: d.context,
+			nest: d.nest,
+			index: d.index,
+			container: d.container
+		}
+	}
+}
+
+fn is_valid_type<T: Id>(t: &Key<T>) -> bool {
+	match t {
+		Key::Keyword(kw) => {
+			match kw {
+				Keyword::Id | Keyword::JSON | Keyword::None | Keyword::Vocab => true,
+				_ => false
+			}
+		},
+		Key::Id(_) => true
+	}
+}
+
+fn is_gen_delim(c: char) -> bool {
+	match c {
+		':' | '/' | '?' | '#' | '[' | ']' | '@' => true,
+		_ => false
+	}
+}
+
+fn is_gen_delim_or_blank<T: Id>(t: &Key<T>) -> bool {
+	match t {
+		Key::Keyword(_) => false,
+		Key::Id(id) => {
+			if let Some(iri) = id.iri() {
+				if let Some(c) = iri.as_str().chars().last() {
+					is_gen_delim(c)
+				} else {
+					false
+				}
+			} else {
+				true
+			}
+		}
+	}
+}
+
+fn contains_nz(id: &str, c: char) -> bool {
+	if let Some(i) = id.find(c) {
+		i > 0
+	} else {
+		false
+	}
+}
+
 // fn define<'a>(&mut self, env: &mut DefinitionEnvironment<'a>, term: &str, value: &JsonValue) -> Result<(), Self::Error> {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, base_url: Option<Iri>, protected: bool, override_protected: bool) -> impl 'a + Future<Output = Result<(), ContextProcessingError>> {
+pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), ContextProcessingError>> {
 	let term = term.to_string();
 	let base_url = if let Some(base_url) = base_url {
 		Some(IriBuf::from(base_url))
@@ -548,14 +721,14 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 			// Otherwise, if the value is false, a cyclic IRI mapping error has been detected and processing is aborted.
 			Some(false) => Err(ContextProcessingError::CyclicIriMapping),
 			None => {
-				// Set the value associated with defined's term entry to false.
-				// This indicates that the term definition is now being created but is not yet
-				// complete.
-				defined.insert(term.to_string(), false);
-
 				// Initialize `value` to a copy of the value associated with the entry `term` in
 				// `local_context`.
 				if let Some(value) = local_context.get(term.as_str()) {
+					// Set the value associated with defined's term entry to false.
+					// This indicates that the term definition is now being created but is not yet
+					// complete.
+					defined.insert(term.to_string(), false);
+
 					// If term is @type, ...
 					if term.as_str() == "@type" {
 						// ... and processing mode is json-ld-1.0, a keyword
@@ -580,485 +753,552 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							return Err(ContextProcessingError::KeywordRedefinition)
 						}
 					}
+
+					// Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and
+					// a keyword redefinition error has been detected and processing is aborted.
+					// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
+					// from [RFC5234]), return; processors SHOULD generate a warning.
+					if is_keyword_like(term.as_str()) {
+						// TODO warning
+						return Ok(())
+					}
+
+					// Initialize `previous_definition` to any existing term definition for `term` in
+					// `active_context`, removing that term definition from active context.
+					let previous_definition = active_context.set(term.as_str(), None);
+
+					let mut simple_term = true;
+					let value = match value {
+						JsonValue::Null => {
+							// If `value` is null, convert it to a map consisting of a single entry
+							// whose key is @id and whose value is null.
+							let mut map = JsonObject::with_capacity(1);
+							map.insert("@id", json::Null);
+							JsonObjectRef::Owned(map)
+						},
+						JsonValue::String(_) | JsonValue::Short(_) => {
+							// Otherwise, if value is a string, convert it to a map consisting of a
+							// single entry whose key is @id and whose value is value. Set simple
+							// term to true (it already is).
+							let mut map = JsonObject::with_capacity(1);
+							map.insert("@id", value.clone());
+							JsonObjectRef::Owned(map)
+						},
+						JsonValue::Object(value) => {
+							simple_term = false;
+							JsonObjectRef::Borrowed(value)
+						},
+						_ => {
+							return Err(ContextProcessingError::InvalidTermDefinition)
+						}
+					};
+
+					// Create a new term definition, `definition`, initializing `prefix` flag to
+					// `false`, `protected` to `protected`, and `reverse_property` to `false`.
+					let mut definition = PartialTermDefinition::<T, C>::default();
+					definition.protected = protected;
+
+					// If the @protected entry in value is true set the protected flag in
+					// definition to true. If the value of @protected is not a boolean, an invalid
+					// @protected value error has been detected and processing is aborted.
+					// If processing mode is json-ld-1.0, an invalid term definition has been
+					// detected and processing is aborted.
+
+					// If the @protected entry in value is true set the protected flag in
+					// definition to true.
+					if let Some(protected_value) = value.get("@protected") {
+						if let JsonValue::Boolean(b) = protected_value {
+							if *b {
+								definition.protected = true;
+							}
+						} else {
+							// If the value of @protected is not a boolean, an invalid @protected
+							// value error has been detected.
+							return Err(ContextProcessingError::InvalidProtectedValue)
+
+							// If processing mode is json-ld-1.0, an invalid term definition has
+							// been detected and processing is aborted.
+							// TODO
+						}
+					}
+
+					// If value contains the entry @type:
+					if let Some(type_value) = value.get("@type") {
+						// Initialize `typ` to the value associated with the `@type` entry, which
+						// MUST be a string. Otherwise, an invalid type mapping error has been
+						// detected and processing is aborted.
+						if let Some(typ) = type_value.as_str() {
+							// Set `typ` to the result of IRI expanding type, using local context,
+							// and defined.
+							let typ = expand_iri(active_context, typ, false, false, local_context, defined).await?;
+
+							// If the expanded type is @json or @none, and processing mode is
+							// json-ld-1.0, an invalid type mapping error has been detected and
+							// processing is aborted.
+							// TODO
+
+							// Otherwise, if the expanded type is neither @id, nor @json, nor
+							// @none, nor @vocab, nor an IRI, an invalid type mapping error has
+							// been detected and processing is aborted.
+							if !is_valid_type(&typ) {
+								return Err(ContextProcessingError::InvalidTypeMapping)
+							}
+
+							// Set the type mapping for definition to type.
+							definition.typ = Some(typ);
+						} else {
+							return Err(ContextProcessingError::InvalidTypeMapping)
+						}
+					}
+
+					// If `value` contains the entry @reverse:
+					if let Some(reverse_value) = value.get("@reverse") {
+						// If `value` contains `@id` or `@nest`, entries, an invalid reverse
+						// property error has been detected and processing is aborted.
+						if value.get("@id").is_some() || value.get("@nest").is_some() {
+							return Err(ContextProcessingError::InvalidReverseProperty)
+						}
+
+						if let Some(reverse_value) = reverse_value.as_str() {
+							// If the value associated with the @reverse entry is a string having
+							// the form of a keyword, return; processors SHOULD generate a warning.
+							if is_keyword_like(reverse_value) {
+								// TODO warning
+								return Ok(())
+							}
+
+							// Otherwise, set the IRI mapping of definition to the result of IRI
+							// expanding the value associated with the @reverse entry, using
+							// local context, and defined.
+							// If the result does not have the form of an IRI or a blank node
+							// identifier, an invalid IRI mapping error has been detected and
+							// processing is aborted.
+							let mapping = expand_iri(active_context, reverse_value, false, false, local_context, defined).await?;
+							if mapping.is_keyword() {
+								return Err(ContextProcessingError::InvalidIriMapping)
+							} else {
+								definition.value = Some(mapping);
+							}
+
+							// If `value` contains an `@container` entry, set the `container`
+							// mapping of `definition` to an array containing its value;
+							// if its value is neither `@set`, nor `@index`, nor null, an
+							// invalid reverse property error has been detected (reverse properties
+							// only support set- and index-containers) and processing is aborted.
+							if let Some(container_value) = value.get("@container") {
+								match container_value {
+									JsonValue::Null => (),
+									JsonValue::String(_) | JsonValue::Short(_) => {
+										if let Ok(container_value) = ContainerType::try_from(container_value.as_str().unwrap()) {
+											match container_value {
+												ContainerType::Set | ContainerType::Index => {
+													definition.container.add(container_value);
+												},
+												_ => return Err(ContextProcessingError::InvalidReverseProperty)
+											}
+										} else {
+											return Err(ContextProcessingError::InvalidReverseProperty)
+										}
+									},
+									_ => return Err(ContextProcessingError::InvalidReverseProperty)
+								};
+							}
+
+							// Set the `reverse_property` flag of `definition` to `true`.
+							definition.reverse_property = true;
+
+							// Set the term definition of `term` in `active_context` to
+							// `definition` and the value associated with `defined`'s entry `term`
+							// to `true` and return.
+							active_context.set(term.as_str(), Some(definition.into()));
+							defined.insert(term, true);
+							return Ok(())
+						} else {
+							// If the value associated with the `@reverse` entry is not a string,
+							// an invalid IRI mapping error has been detected and processing is
+							// aborted.
+							return Err(ContextProcessingError::InvalidIriMapping)
+						}
+					}
+
+					// If `value` contains the entry `@id` and its value does not equal `term`:
+					let id_value = value.get("@id");
+					if id_value.is_some() && id_value.unwrap().as_str() != Some(term.as_str()) {
+						let id_value = id_value.unwrap();
+						// If the `@id` entry of value is `null`, the term is not used for IRI
+						// expansion, but is retained to be able to detect future redefinitions
+						// of this term.
+						if !id_value.is_null() {
+							// Otherwise:
+							if let Some(id_value) = id_value.as_str() {
+								// If the value associated with the `@id` entry is not a
+								// keyword, but has the form of a keyword, return;
+								// processors SHOULD generate a warning.
+								if is_keyword_like(id_value) && !is_keyword(id_value) {
+									// TODO warning
+									return Ok(())
+								}
+
+								// Otherwise, set the IRI mapping of `definition` to the result
+								// of IRI expanding the value associated with the `@id` entry,
+								// using `local_context`, and `defined`.
+								definition.value = if let Ok(value) = expand_iri(active_context, id_value, false, false, local_context, defined).await {
+									// if it equals `@context`, an invalid keyword alias error has
+									// been detected and processing is aborted.
+									if value == Key::Keyword(Keyword::Context) {
+										return Err(ContextProcessingError::InvalidKeywordAlias)
+									}
+
+									Some(value)
+								} else {
+									// If the resulting IRI mapping is neither a keyword,
+									// nor an IRI, nor a blank node identifier, an
+									// invalid IRI mapping error has been detected and processing
+									// is aborted;
+									return Err(ContextProcessingError::InvalidIriMapping)
+								};
+
+								// If `term` contains a colon (:) anywhere but as the first or
+								// last character of `term`, or if it contains a slash (/)
+								// anywhere:
+								if contains_nz(term.as_str(), ':') || term.contains('/') {
+									// Set the value associated with `defined`'s `term` entry
+									// to `true`.
+									defined.insert(term.clone(), true);
+
+									// If the result of IRI expanding `term` using
+									// `local_context`, and `defined`, is not the same as the
+									// IRI mapping of definition, an invalid IRI mapping error
+									// has been detected and processing is aborted.
+									let expanded_term = expand_iri(active_context, term.as_str(), false, false, local_context, defined).await?;
+									if expanded_term != *definition.value.as_ref().unwrap() {
+										return Err(ContextProcessingError::InvalidIriMapping)
+									}
+								}
+
+								// If `term` contains neither a colon (:) nor a slash (/),
+								// simple term is true, and if the IRI mapping of definition
+								// is either an IRI ending with a gen-delim character,
+								// or a blank node identifier, set the `prefix` flag in
+								// `definition` to true.
+								if !term.contains(':') && term.contains('/') && simple_term && is_gen_delim_or_blank(definition.value.as_ref().unwrap()) {
+									definition.prefix = true;
+								}
+							} else {
+								// If the value associated with the `@id` entry is not a
+								// string, an invalid IRI mapping error has been detected and
+								// processing is aborted.
+								return Err(ContextProcessingError::InvalidIriMapping)
+							}
+						}
+					} else if contains_nz(term.as_str(), ':') {
+						// Otherwise if the `term` contains a colon (:) anywhere after the first
+						// character:
+						let i = term.find(':').unwrap();
+						let (prefix, suffix) = term.split_at(i);
+
+						// If `term` is a compact IRI with a prefix that is an entry in local
+						// context a dependency has been found.
+						// Use this algorithm recursively passing `active_context`,
+						// `local_context`, the prefix as term, and `defined`.
+						define(active_context, local_context, prefix, defined, None, false, false).await?;
+
+						// If `term`'s prefix has a term definition in `active_context`, set the
+						// IRI mapping of `definition` to the result of concatenating the value
+						// associated with the prefix's IRI mapping and the term's suffix.
+						if let Some(prefix_definition) = active_context.get(prefix) {
+							if let Some(prefix_iri) = prefix_definition.value.iri() {
+								let mut result = prefix_iri.as_str().to_string();
+								result.push_str(suffix);
+								if let Ok(iri) = Iri::new(result.as_str()) {
+									definition.value = Some(Key::Id(Id::from_iri(iri)))
+								} else {
+									return Err(ContextProcessingError::InvalidIriMapping)
+								}
+							} else {
+								return Err(ContextProcessingError::InvalidIriMapping)
+							}
+						} else {
+							// Otherwise, `term` is an IRI or blank node identifier.
+							// Set the IRI mapping of `definition` to `term`.
+							if prefix == "_" { // blank node
+								definition.value = Some(Key::Id(Id::from_blank_id(suffix)))
+							} else {
+								if let Ok(iri) = Iri::new(term.as_str()) {
+									definition.value = Some(Key::Id(Id::from_iri(iri)))
+								} else {
+									return Err(ContextProcessingError::InvalidIriMapping)
+								}
+							}
+						}
+					} else if term.contains('/') {
+						// Term is a relative IRI reference.
+						/// Set the IRI mapping of definition to the result of IRI expanding
+						// term.
+						match expansion::expand_iri(active_context, term.as_str(), false, false) {
+							Some(Key::Id(id)) => {
+								definition.value = Some(Key::Id(id))
+							},
+							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
+							// error has been detected and processing is aborted.
+							_ => return Err(ContextProcessingError::InvalidIriMapping)
+						}
+					} else if term == "@type" {
+						// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
+						// `@type`.
+						definition.value = Some(Key::Keyword(Keyword::Type))
+					} else if let Some(vocabulary) = active_context.vocabulary() {
+						// Otherwise, if `active_context` has a vocabulary mapping, the IRI mapping
+						// of `definition` is set to the result of concatenating the value
+						// associated with the vocabulary mapping and `term`.
+						// If it does not have a vocabulary mapping, an invalid IRI mapping error
+						// been detected and processing is aborted.
+						if let Some(vocabulary_iri) = vocabulary.iri() {
+							let mut result = vocabulary_iri.as_str().to_string();
+							result.push_str(term.as_str());
+							if let Ok(iri) = Iri::new(result.as_str()) {
+								definition.value = Some(Key::Id(Id::from_iri(iri)))
+							} else {
+								return Err(ContextProcessingError::InvalidIriMapping)
+							}
+						} else {
+							return Err(ContextProcessingError::InvalidIriMapping)
+						}
+					}
+
+					// If value contains the entry @container:
+					if let Some(container_value) = value.get("@container") {
+						// Initialize `container` to the value associated with the `@container`
+						// entry, which MUST be either `@graph`, `@id`, `@index`, `@language`,
+						// `@list`, `@set`, `@type`, or an array containing exactly any one of
+						// those keywords, an array containing `@graph` and either `@id` or
+						// `@index` optionally including `@set`, or an array containing a
+						// combination of `@set` and any of `@index`, `@graph`, `@id`, `@type`,
+						// `@language` in any order.
+						// Otherwise, an invalid container mapping has been detected and processing
+						// is aborted.
+						for entry in as_array(container_value) {
+							if let Some(entry) = entry.as_str() {
+								match ContainerType::try_from(entry) {
+									Ok(c) => {
+										if !definition.container.add(c) {
+											return Err(ContextProcessingError::InvalidContainerMapping)
+										}
+									},
+									Err(_) => return Err(ContextProcessingError::InvalidContainerMapping)
+								}
+							} else {
+								return Err(ContextProcessingError::InvalidContainerMapping)
+							}
+						}
+
+						// If the container value is @graph, @id, or @type, or is otherwise not a
+						// string, generate an invalid container mapping error and abort processing
+						// if processing mode is json-ld-1.0.
+						// TODO
+
+						// Set the container mapping of definition to container coercing to an
+						// array, if necessary.
+						// already done.
+
+						// If the `container` mapping of definition includes `@type`:
+						if definition.container.contains(ContainerType::Type) {
+							if let Some(typ) = &definition.typ {
+								// If type mapping in definition is neither `@id` nor `@vocab`,
+								// an invalid type mapping error has been detected and processing
+								// is aborted.
+								match typ {
+									Key::Keyword(Keyword::Id) | Key::Keyword(Keyword::Vocab) => (),
+									_ => return Err(ContextProcessingError::InvalidTypeMapping)
+								}
+							} else {
+								// If type mapping in definition is undefined, set it to @id.
+								definition.typ = Some(Key::Keyword(Keyword::Id))
+							}
+						}
+					}
+
+					// If value contains the entry @index:
+					if let Some(index_value) = value.get("@index") {
+						// If processing mode is json-ld-1.0 or container mapping does not include
+						// `@index`, an invalid term definition has been detected and processing
+						// is aborted.
+						// TODO json-ld-1.0
+						if !definition.container.contains(ContainerType::Index) {
+							return Err(ContextProcessingError::InvalidTermDefinition)
+						}
+
+						// Initialize `index` to the value associated with the `@index` entry,
+						// which MUST be a string expanding to an IRI.
+						// Otherwise, an invalid term definition has been detected and processing
+						// is aborted.
+						if let Some(index) = index_value.as_str() {
+							if expansion::expand_iri(active_context, index, false, false).is_none() {
+								return Err(ContextProcessingError::InvalidTermDefinition)
+							}
+
+							definition.index = Some(index.to_string())
+						} else {
+							return Err(ContextProcessingError::InvalidTermDefinition)
+						}
+					}
+
+					// If `value` contains the entry `@context`:
+					if let Some(context) = value.get("@context") {
+						// If processing mode is json-ld-1.0, an invalid term definition has been
+						// detected and processing is aborted.
+						// TODO
+
+						// Initialize `context` to the value associated with the @context entry,
+						// which is treated as a local context.
+						// done.
+
+						// Invoke the Context Processing algorithm using the `active_context`,
+						// `context` as local context, `base_url`, and `true` for override
+						// protected.
+						// if let Err(_) = process_context(active_context, context, base_url, Arc::new(RemoteContexts::new()), true, true).await {
+						// 	// If any error is detected, an invalid scoped context error has been
+						// 	// detected and processing is aborted.
+						// 	return Err(ContextProcessingError::InvalidScopedContext)
+						// }
+
+						// Set the local context of definition to context, and base URL to base URL.
+						definition.context = Some(Box::new(context.clone()));
+					}
+
+					// If `value` contains the entry `@language` and does not contain the entry
+					// `@type`:
+					if value.get("@type").is_none() {
+						if let Some(language_value) = value.get("@language") {
+							// Initialize `language` to the value associated with the `@language`
+							// entry, which MUST be either null or a string.
+							// If `language` is not well-formed according to section 2.2.9 of
+							// [BCP47], processors SHOULD issue a warning.
+							// Otherwise, an invalid language mapping error has been detected and
+							// processing is aborted.
+							// Set the `language` mapping of definition to `language`.
+							definition.language = match language_value {
+								JsonValue::Null => None,
+								JsonValue::String(_) | JsonValue::Short(_) => {
+									// TODO lang tags
+									Some(language_value.as_str().unwrap().to_string())
+								},
+								_ => {
+									return Err(ContextProcessingError::InvalidLanguageMapping)
+								}
+							};
+						}
+
+						// If `value` contains the entry `@direction` and does not contain the
+						// entry `@type`:
+						if let Some(direction_value) = value.get("@direction") {
+							// Initialize `direction` to the value associated with the `@direction`
+							// entry, which MUST be either null, "ltr", or "rtl".
+							definition.direction = match direction_value.as_str() {
+								Some("ltr") => Some(Direction::Ltr),
+								Some("rtl") => Some(Direction::Rtl),
+								_ => {
+									if direction_value.is_null() {
+										None
+									} else {
+										// Otherwise, an invalid base direction error has been
+										// detected and processing is aborted.
+										return Err(ContextProcessingError::InvalidBaseDirection)
+									}
+								}
+							};
+						}
+					}
+
+					// If value contains the entry @nest:
+					if let Some(nest_value) = value.get("@nest") {
+						// If processing mode is json-ld-1.0, an invalid term definition has been
+						// detected and processing is aborted.
+						// TODO json-ld-1.0
+
+						// Initialize `nest` value in `definition` to the value associated with the
+						// `@nest` entry, which MUST be a string and MUST NOT be a keyword other
+						// than @nest.
+						if let Some(nest_value) = nest_value.as_str() {
+							if is_keyword(nest_value) && nest_value != "@nest" {
+								return Err(ContextProcessingError::InvalidNestValue)
+							}
+
+							definition.nest = Some(nest_value.to_string());
+						} else {
+							// Otherwise, an invalid @nest value error has been detected and
+							// processing is aborted.
+							return Err(ContextProcessingError::InvalidNestValue)
+						}
+					}
+
+					// If value contains the entry @prefix:
+					if let Some(prefix_value) = value.get("@prefix") {
+						// If processing mode is json-ld-1.0, or if `term` contains a colon (:) or
+						// slash (/), an invalid term definition has been detected and processing
+						// is aborted.
+						if term.contains(':') || term.contains('/') {
+							// TODO json-ld-1.0
+							return Err(ContextProcessingError::InvalidTermDefinition)
+						}
+
+						// Set the `prefix` flag to the value associated with the @prefix entry,
+						// which MUST be a boolean.
+						// Otherwise, an invalid @prefix value error has been detected and
+						// processing is aborted.
+						if let Some(prefix) = prefix_value.as_bool() {
+							definition.prefix = prefix
+						} else {
+							return Err(ContextProcessingError::InvalidPrefixValue)
+						}
+
+						// If the `prefix` flag of `definition` is set to `true`, and its IRI
+						// mapping is a keyword, an invalid term definition has been detected and
+						// processing is aborted.
+						if definition.prefix && definition.value.as_ref().unwrap().is_keyword() {
+							return Err(ContextProcessingError::InvalidTermDefinition)
+						}
+					}
+
+					// If the value contains any entry other than @id, @reverse,
+					// @container, @context, @language, @nest, @prefix, or @type, an
+					// invalid term definition error has been detected.
+					for (key, _) in value.iter() {
+						match key {
+							"@id" | "@reverse" | "@container" | "@context" | "@language" | "@nest" | "@prefix" | "@type" => (),
+							_ => return Err(ContextProcessingError::InvalidTermDefinition)
+						}
+					}
+
+					// If override protected is false and previous_definition exists and is protected;
+					if !override_protected {
+						if let Some(previous_definition) = previous_definition {
+							if previous_definition.protected {
+								// If `definition` is not the same as `previous_definition`
+								// (other than the value of protected), a protected term
+								// redefinition error has been detected, and processing is aborted.
+								if definition != previous_definition {
+									return Err(ContextProcessingError::ProtectedTermRedefinition)
+								}
+
+								// Set `definition` to `previous definition` to retain the value of
+								// protected.
+								definition.protected = true;
+							}
+						}
+					}
+
+					// Set the term definition of `term` in `active_context` to `definition` and
+					// set the value associated with `defined`'s entry term to true.
+					active_context.set(term.as_str(), Some(definition.into()));
+					defined.insert(term.clone(), true);
 				}
 
-				// Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and
-				// a keyword redefinition error has been detected and processing is aborted.
-				// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
-				// from [RFC5234]), return; processors SHOULD generate a warning.
-				if is_keyword_like(term.as_str()) {
-					// TODO warning
-					return Ok(())
-				}
-
-				// Initialize `previous_definition` to any existing term definition for `term` in
-				// `active_context`, removing that term definition from active context.
-				let previous_definition = active_context.set(term.as_str(), None);
-
+				// if the term is not in `local_context`.
 				Ok(())
 			}
 		}
-//
-// 			// 6) Initialize previous definition to any existing term definition for term in
-// 			// active context, removing that term definition from active context.
-// 			let previous = ctx.set(term, None)?;
-//
-// 			// 7) If value is null, convert it to a map consisting of a single entry whose key
-// 			// is @id and whose value is null.
-// 			if value.is_null() {
-// 				let map = object![ "@id" => json::Null ];
-// 				self.define_map(env, term, &map)?;
-// 			} else {
-// 				// 8) Otherwise, if value is a string, convert it to a map consisting of a single
-// 				// entry whose key is @id and whose value is value.
-// 				if value.is_string() {
-// 					let value = value.clone();
-// 					let map = object![ "@id" => value ];
-// 					self.define_map(env, term, &map)?;
-// 				} else {
-// 					// 9) Otherwise, value MUST be a map...
-// 					if let JsonValue::Object(map) = value {
-// 						self.define_map(env, term, map)?;
-// 					} else {
-// 						// ...if not, an invalid term definition error has been detected.
-// 						return Err(ExpandError::InvalidTermDefinition.into())
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-//
-// fn define_map<'a>(&mut self, env: &mut DefinitionEnvironment<'a>, term: &str, map: &JsonObject) -> Result<(), Self::Error> {
-// 	// 10) Create a new term definition, definition.
-// 	let mut definition = TermDefinition::default();
-//
-// 	// 11) If the @protected entry in value is true set the protected flag in
-// 	// definition to true.
-// 	if let Some(protected_value) = map["@protected"] {
-// 		if let JsonValue::Boolean(b) = protected_value {
-// 			definition.protected = b;
-// 		} else {
-// 			// If the value of @protected is not a boolean, an invalid @protected
-// 			// value error has been detected.
-// 			return Err(ExpandError::InvalidProtectedValue.into())
-//
-// 			// If processing mode is json-ld-1.0, an invalid term definition has
-// 			// been detected.
-// 			// TODO
-// 		}
-// 	} else {
-// 		// 12) Otherwise, if there is no @protected entry in value and the
-// 		// protected parameter is true, set the protected in definition to true.
-// 		definition.protected = protected;
-// 	}
-//
-// 	// 13) If value contains the entry @type:
-// 	if let Some(ty_value) = map["@type"] {
-// 		// 13.1) Initialize type to the value associated with the @type entry,
-// 		// which MUST be a string.
-// 		if let Some(str) = ty_value.as_str() {
-// 			// 13.2) Set type to the result of using the IRI Expansion algorithm.
-// 			let ty = self.expand_iri(str, env, true)?;
-//
-// 			// 13.3) If the expanded type is @json or @none, and processing mode is
-// 			// json-ld-1.0, an invalid type mapping error has been detected.
-// 			// TODO
-//
-// 			// 13.4) Otherwise, if the expanded type is neither @id, nor @vocab, nor @json, nor
-// 			// an IRI, an invalid type mapping error has been detected.
-// 			// 13.5) Set the type mapping for definition to type.
-// 			match ty {
-// 				"@id" => definition.ty = Type::Id,
-// 				"@vocab" => definition.ty = Type::Vocab,
-// 				"@json" => definition.ty = Type::Json,
-// 				_ if is_iri(ty) => {
-// 					definition.ty = Type::Ref(ty)
-// 				},
-// 				_ => return Err(ExpandError::InvalidTypeMapping.into())
-// 			}
-// 		} else {
-// 			// Otherwise, an invalid type mapping error has been detected.
-// 			return Err(ExpandError::InvalidTypeMapping.into())
-// 		}
-// 	}
-//
-// 	// 14) If value contains the entry @reverse:
-// 	if let Some(reverse_value) = map["@reverse"] {
-// 		// 14.1) If value contains @id or @nest, entries, an invalid reverse property error has
-// 		// been detected and processing is aborted.
-// 		if map["@id"].is_some() || map["nest"].is_some() {
-// 			return Err(ExpandError::InvalidReverseProperty.into())
-// 		}
-//
-// 		if let Some(str) = reverse_value.as_str() {
-// 			// 14.3) If the value associated with the @reverse entry is a string having the
-// 			// form of a keyword, return.
-// 			if is_keyword_like(str) {
-// 				// TODO processors SHOULD generate a warning.
-// 				return Ok(())
-// 			}
-//
-// 			// 14.4) Otherwise, set the IRI mapping of definition to the result of using the
-// 			// IRI Expansion algorithm.
-// 			let iri = self.expand_iri(str, env, true)?;
-// 			if !is_iri_or_blank_id(iri) {
-// 				// If the result does not have the form of an IRI or a blank node identifier,
-// 				// an invalid IRI mapping error has been detected and processing is aborted.
-// 				return Err(ExpandError::InvalidIriMapping.into())
-// 			}
-//
-// 			definition.iri = iri;
-//
-// 			if let Some(container_value) = map["@container"] {
-// 				// 14.5) If value contains an @container entry, set the container mapping of
-// 				// definition to an array containing its value; if its value is neither @set,
-// 				// nor @index, nor null, an invalid reverse property error has been detected
-// 				// (reverse properties only support set- and index-containers).
-// 				let container = if let Some(str) = container_value.as_str() {
-// 					match str {
-// 						"@set" => vec![Container::Set],
-// 						"@index" => vec![Container::Index],
-// 						_ => return Err(ExpandError::InvalidReverseProperty.into())
-// 					}
-// 				} else {
-// 				   if container_value.is_null() {
-// 					   vec![]
-// 				   } else {
-// 					   return Err(ExpandError::InvalidReverseProperty.into())
-// 				   }
-// 				};
-//
-// 				definition.container = container;
-//
-// 				// 14.6) Set the reverse property flag of definition to true.
-// 				definition.reverse_property = true;
-//
-// 				// 14.7) Set the term definition of term in active context to definition and
-// 				// the value associated with defined's entry term to true and return.
-// 				self.set(term, Some(definition))?;
-// 				env.defined.insert(term.to_string(), true);
-// 				return Ok(())
-// 			}
-// 		} else {
-// 			// 14.2) If the value associated with the @reverse entry is not a string, an invalid
-// 			// IRI mapping error has been detected.
-// 			return Err(ExpandError::InvalidIriMapping.into())
-// 		}
-// 	}
-//
-// 	// 15) Set the reverse property flag of definition to false.
-// 	// Done by default.
-//
-// 	// 16) If value contains the entry @id and its value does not equal term:
-// 	let id_value = map["@id"];
-// 	if id_value.is_some() && id_value.unwrap().as_str() != Some(term) {
-// 		let id_value = id_value.as_ref().unwrap();
-// 		if id_value.is_null() {
-// 			// 16.1) If value associated to the @id entry is null, the term is not used for
-// 			// IRI expansion, but is retained to be able to detect future redefinitions of
-// 			// this term.
-// 			panic!("TODO 16.1");
-// 		} else {
-// 			if let Some(str) = id_value.as_str() {
-// 				if is_keyword_like(str) && !is_keyword(str) {
-// 					// 16.3) If the value associated with the @id entry is not a keyword, but
-// 					// has the form of a keyword, return; processors SHOULD generate a warning.
-// 					// TODO warning
-// 					return Ok(())
-// 				} else {
-// 					// 16.4) Otherwise, set the IRI mapping of definition to the result of
-// 					// using the IRI Expansion algorithm, passing active context, the value
-// 					// associated with the @id entry for value, true for vocab, local
-// 					// context, and defined.
-// 					let iri = self.expand_iri(str, env, true)?;
-//
-// 					// If the resulting IRI mapping is neither a keyword, nor an IRI, nor a
-// 					// blank node identifier, an invalid IRI mapping error has been
-// 					// detected and processing is aborted; if it equals @context, an
-// 					// invalid keyword alias error has been detected and processing is
-// 					// aborted.
-// 					if is_keyword(iri) || is_iri_or_blank_id(iri) {
-// 						definition.iri = iri;
-//
-// 						// 16.5) If the term contains a colon (:) anywhere but as the first or
-// 						// last character of term, or if it contains a slash (/) anywhere, and
-// 						// for either case, the result of expanding term using the IRI
-// 						// Expansion algorithm, passing active context, term for value, true
-// 						// for vocab, local context, and defined, is not the same as the IRI
-// 						// mapping of definition, an invalid IRI mapping error has been
-// 						// detected and processing is aborted.
-// 						if contains_column_inside(term) || term.contains('/') {
-// 							let iri = self.expand_iri(term, env, true)?;
-// 							if iri != definition.iri {
-// 								return Err(ExpandError::InvalidIriMapping.into())
-// 							}
-// 						}
-//
-// 						// 16.6) If term contains neither a colon (:) nor a slash (/), simple
-// 						// term is true, and if the IRI mapping of definition is either an IRI
-// 						// ending with a gen-delim character, or a blank node identifier, set
-// 						// the prefix flag in definition to true.
-// 						if simple_term && !term.contains(':') && !term.contains('/') && (iri_ending_with_gen_delim(definition.iri) || is_blank_id(definition.iri)) {
-// 							definition.prefix = true;
-// 						}
-// 					} else {
-// 						return Err(ExpandError::InvalidIriMapping.into())
-// 					}
-// 				}
-// 			} else {
-// 				// 16.2) Otherwise, if the value associated with the @id entry is not a string,
-// 				// an invalid IRI mapping error has been detected and processing is aborted.
-// 				return Err(ExpandError::InvalidIriMapping.into())
-// 			}
-// 		}
-// 	} else {
-// 		// 17) Otherwise if the term contains a colon (:) anywhere after the first
-// 		// character:
-// 		if contains_column_after_first(term) {
-// 			// 17.1) If term is a compact IRI with a prefix that is an entry in local context a
-// 			// dependency has been found. Use this algorithm recursively passing active
-// 			// context, local context, the prefix as term, and defined.
-// 			if let Some(iri) = as_compact_iri(term) {
-// 				// 17.2) If term's prefix has a term definition in active context, set the IRI
-// 				// mapping of definition to the result of concatenating the value associated
-// 				// with the prefix's IRI mapping and the term's suffix.
-// 				self.ensure_defined(iri.prefix, env);
-// 				let iri = self.get(iri.prefix).iri + iri.suffix;
-// 				definition.iri = iri;
-// 			} else {
-// 				// 17.3) Otherwise, term is an IRI or blank node identifier. Set the IRI
-// 				// mapping of definition to term.
-// 				definition.iri = term;
-// 			}
-// 		} else {
-// 			// 18) Otherwise if the term contains a slash (/):
-// 			if is_relative_iri_ref(term) {
-// 				// 18.1) Term is a relative IRI reference.
-// 				// 18.2) Set the IRI mapping of definition to the result of using the IRI
-// 				// Expansion algorithm, passing active context, term for value, and true for
-// 				// vocab. If the resulting IRI mapping is not an IRI, an invalid IRI mapping
-// 				// error has been detected and processing is aborted.
-// 				let iri = self.expand_iri(term, env, true)?;
-// 				if is_iri(iri) {
-// 					definition.iri = iri
-// 				} else {
-// 					return Err(ExpandError::InvalidIriMapping.into())
-// 				}
-// 			} else {
-// 				// 19) Otherwise, if term is @type...
-// 				if term == "@type" {
-// 					// ...set the IRI mapping of definition to @type.
-// 					definition.iri = "@type";
-// 				} else {
-// 					// 20) Otherwise, if active context has a vocabulary mapping...
-// 					if let Some(vocab) = self.vocabulary_mapping() {
-// 						// ...the IRI mapping of definition is set to the result of
-// 						// concatenating the value associated with the vocabulary
-// 						// mapping and term.
-// 						definition.iri = vocab + term;
-// 					} else {
-// 						// If it does not have a vocabulary mapping,
-// 						// an invalid IRI mapping error been detected.
-// 						return Err(ExpandError::InvalidIriMapping.into())
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-//
-// 	// 21) If value contains the entry @container:
-// 	if let Some(container_value) = map["@container"] {
-// 		// 21.1) Initialize container to the value associated with the @container entry, which
-// 		// MUST be either @graph, @id, @index, @language, @list, @set, @type, or an array
-// 		// containing exactly any one of those keywords, an array containing @graph and either
-// 		// @id or @index optionally including @set, or an array containing a combination of
-// 		// @set and any of @index, @id, @type, @language in any order.
-// 		// Otherwise, an invalid container mapping has been detected and processing is aborted.
-// 		let container = parse_container(container_value);
-//
-// 		// 21.3) Set the container mapping of definition to container coercing to an array,
-// 		// if necessary.
-// 		definition.container = container;
-//
-// 		// 21.4) If the container mapping of definition includes @type
-// 		if definition.container.contains(Container::Type) {
-// 			match definition.ty {
-// 				None => definition.ty = Some(Type::Id),
-// 				Some(Type::Id) => (),
-// 				Some(Type::Vocab) => (),
-// 				Some(_) => return Err(ExpandError::InvalidTypeMapping.into())
-// 			}
-// 		}
-// 	}
-//
-// 	// 22) If value contains the entry @index:
-// 	if let Some(index_value) = map["@index"] {
-// 		// TODO processing modes.
-// 		// 22.1) If processing mode is json-ld-1.0 or container mapping does not include
-// 		// @index, an invalid term definition has been detected and processing is aborted.
-// 		if !definition.container.contains(Container::Index) {
-// 			return Err(ExpandError::InvalidTermDefinition.into())
-// 		}
-//
-// 		// 22.2) Initialize index to the value associated with the @index entry, which MUST be
-// 		// a string expanding to an IRI. Otherwise, an invalid term definition has been
-// 		// detected and processing is aborted.
-// 		if let Some(index_value) = index_value.as_str() {
-// 			// TODO check if `index_value` expand to an IRI?
-// 			definition.index = index_value;
-// 		} else {
-// 			return Err(ExpandError::InvalidTermDefinition.into())
-// 		}
-// 	}
-//
-// 	// 23) If value contains the entry @context:
-// 	if let Some(context_value) = map["@context"] {
-// 		// 23.1) If processing mode is json-ld-1.0, an invalid term definition has been
-// 		// detected and processing is aborted.
-// 		// TODO processing modes.
-//
-// 		// 23.2) Initialize `context` to the value associated with the @context entry, which is
-// 		// treated as a local context.
-// 		let context = context_value;
-//
-// 		// 23.3) Invoke the Context Processing algorithm using the active context, `context` as
-// 		// local context, and true for override protected. If any error is detected, an invalid
-// 		// scoped context error has been detected and processing is aborted.
-// 		// match LocalContext::load(self, context, false, false) {
-// 		// 	Ok(_) => (),
-// 		// 	Err(_) => {
-// 		// 		return Err(ExpandError::InvalidScopedContext.into())
-// 		// 	}
-// 		// }
-//
-// 		// 23.4) Set the local context of definition to context.
-// 		definition.local_context = context;
-// 	}
-//
-// 	let has_type = map["@type"].is_some();
-//
-// 	if !has_type {
-// 		// 24) If value contains the entry @language and does not contain the entry @type:
-// 		if let Some(language_value) = map["@language"] {
-// 			// Initialize language to the value associated with the @language entry, which MUST
-// 			// be either null or a string. If language is not well-formed according to section
-// 			// 2.2.9 of [BCP47], processors SHOULD issue a warning. Otherwise, an invalid
-// 			// language mapping error has been detected and processing is aborted.
-// 			match language_value {
-// 				JsonValue::String(str) => {
-// 					definition.language = Some(str);
-// 				},
-// 				JsonValue::Short(str) => {
-// 					definition.language = Some(str);
-// 				},
-// 				JsonValue::Null => {
-// 					definition.language = None;
-// 				},
-// 				_ => {
-// 					return Err(ExpandError::InvalidLanguageMapping.into())
-// 				}
-// 			}
-// 		}
-//
-// 		// 25) If value contains the entry @direction and does not contain the entry @type:
-// 		if let Some(direction_value) = map["@direction"] {
-// 			// Initialize direction to the value associated with the @direction entry, which
-// 			// MUST be either null, "ltr", or "rtl". Otherwise, an invalid base direction error
-// 			// has been detected and processing is aborted.
-// 			definition.direction = if direction_value.is_null() {
-// 				None;
-// 			} else if let Some(str) = direction_value.as_str() {
-// 				match str {
-// 					"ltr" => Some(Direction::Ltr),
-// 					"rtl" => Some(Direction::Rtl),
-// 					_ => return Err(ExpandError::InvalidBaseDirection.into())
-// 				}
-// 			} else {
-// 				return Err(ExpandError::InvalidBaseDirection.into())
-// 			}
-// 		}
-// 	}
-//
-// 	// 26) If value contains the entry @nest:
-// 	if let Some(nest_value) = map["@nest"] {
-// 		// If processing mode is json-ld-1.0, an invalid term definition has been detected and
-// 		// processing is aborted.
-// 		// TODO processing modes.
-//
-// 		// Initialize nest value in definition to the value associated with the @nest entry,
-// 		// which MUST be a string and MUST NOT be a keyword other than @nest. Otherwise, an
-// 		// invalid @nest value error has been detected and processing is aborted.
-// 		if let Some(nest_value) = nest_value.as_str() {
-// 			if is_keyword(nest_value) && nest_value != "@nest" {
-// 				return Err(ExpandError::InvalidNestValue.into())
-// 			}
-//
-// 			definition.nest = Some(nest_value);
-// 		} else {
-// 			return Err(ExpandError::InvalidNestValue.into())
-// 		}
-// 	}
-//
-// 	// 27) If value contains the entry @prefix:
-// 	if let Some(prefix_value) = map["@prefix"] {
-// 		// If processing mode is json-ld-1.0, or if term contains a colon (:) or slash (/),
-// 		// an invalid term definition has been detected and processing is aborted.
-// 		// TODO processing modes.
-// 		if term.contains(':') || term.contains('/') {
-// 			return Err(ExpandError::InvalidTermDefinition.into())
-// 		}
-//
-// 		// Set the prefix flag to the value associated with the @prefix entry, which MUST be a
-// 		// boolean. Otherwise, an invalid @prefix value error has been detected and processing
-// 		// is aborted.
-// 		if let Some(is_prefix) = prefix_value.as_bool() {
-// 			definition.prefix = is_prefix;
-// 		} else {
-// 			return Err(ExpandError::InvalidPrefixValue.into())
-// 		}
-//
-// 		// If the prefix flag of definition is set to true, and its IRI mapping is a keyword,
-// 		// an invalid term definition has been detected and processing is aborted.
-// 		if definition.prefix && is_keyword(efinition.iri) {
-// 			return Err(ExpandError::InvalidTermDefinition.into())
-// 		}
-// 	}
-//
-// 	// 28) If the value contains any entry other than @id, @reverse,
-// 	// @container, @context, @language, @nest, @prefix, or @type, an
-// 	// invalid term definition error has been detected.
-// 	for (key, _) in map.iter() {
-// 		match key {
-// 			"@id" | "@reverse" | "@container" | "@context" | "@language" | "@nest" | "prefix" | "@type" => ()
-// 			_ => return Err(ExpandError::InvalidTermDefinition.into())
-// 		}
-// 	}
-//
-// 	// 29) If override protected is false...
-// 	if !override_protected {
-// 		// ...and previous definition exists...
-// 		if let Some(previous) = previous {
-// 			// ...and is protected;
-// 			if previous.protected && previous != definition {
-// 				// 29.1) If definition is not the same as previous definition
-// 				// (other than the value of protected), a protected term
-// 				// redefinition error has been detected.
-// 				return Err(ExpandError::ProtectedTermRedefinition.into())
-// 			} else {
-// 				// 29.2) Set definition to previous definition to retain the value
-// 				// of protected.
-// 				// Note: in our case we change the value of protected in the new
-// 				// definition.
-// 				definition.protected = previous.protected;
-// 			}
-// 		}
-// 	}
-//
-// 	ctx.set(term, Some(definition))?;
-// 	defined.insert(term.to_string(), true);
-// }
-	}
+	}.boxed_local()
 }
 
 /// Default values for `document_relative` and `vocab` should be `false`.
@@ -1122,7 +1362,7 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 					// mapping and the prefix flag of the term definition is true, return the result
 					// of concatenating the IRI mapping associated with prefix and suffix.
 					if let Some(term_definition) = active_context.get(prefix) {
-						if term_definition.prefix == Some(true) {
+						if term_definition.prefix {
 							if let Some(iri) = term_definition.value.iri() {
 								let mut result = iri.as_str().to_string();
 								result.push_str(suffix);

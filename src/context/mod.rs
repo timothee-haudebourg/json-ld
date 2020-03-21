@@ -4,11 +4,11 @@ use std::pin::Pin;
 use std::future::Future;
 use async_trait::async_trait;
 use iref::{Iri, IriRef, IriBuf};
-use crate::{Error, Keyword, Direction};
+use crate::{Error, Keyword, Direction, Container};
 
 pub use processing::*;
 
-pub trait Id: Clone {
+pub trait Id: Clone + PartialEq + Eq {
 	fn from_iri(iri: Iri) -> Self;
 
 	fn from_blank_id(id: &str) -> Self;
@@ -16,7 +16,7 @@ pub trait Id: Clone {
 	fn iri(&self) -> Option<IriBuf>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Key<T: Id> {
 	Id(T),
 	Keyword(Keyword)
@@ -43,11 +43,17 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	// IRI mapping.
 	pub value: Key<T>,
 
-	// Reverse proxy flag.
-	pub reverse_proxy: bool,
+	// Prefix flag.
+	pub prefix: bool,
+
+	// Protected flag.
+	pub protected: bool,
+
+	// Reverse property flag.
+	pub reverse_property: bool,
 
 	// Optional type mapping.
-	pub typ: Option<IriBuf>,
+	pub typ: Option<Key<T>>,
 
 	// Optional language mapping.
 	pub language: Option<String>,
@@ -61,27 +67,11 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	// Optional nest value.
 	pub nest: Option<String>,
 
-	// Optional prefix flag.
-	pub prefix: Option<bool>,
-
 	// Optional index mapping.
 	pub index: Option<String>,
 
-	// Protected flag.
-	pub protected: bool,
-
 	// Container mapping.
-	pub container: Vec<Container>
-}
-
-pub enum Container {
-	Graph,
-	Id,
-	Index,
-	Language,
-	List,
-	Set,
-	Type
+	pub container: Container
 }
 
 /// JSON-LD active context.
