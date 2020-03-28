@@ -6,40 +6,10 @@ use std::future::Future;
 use std::collections::HashMap;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{Keyword, Direction, Container};
+use crate::{Keyword, Direction, Container, Id, Key};
 
 pub use loader::*;
 pub use processing::*;
-
-pub trait Id: Clone + PartialEq + Eq {
-	fn from_iri(iri: Iri) -> Self;
-
-	fn from_blank_id(id: &str) -> Self;
-
-	fn iri(&self) -> Option<Iri>;
-}
-
-#[derive(Clone, PartialEq, Eq)]
-pub enum Key<T: Id> {
-	Id(T),
-	Keyword(Keyword)
-}
-
-impl<T: Id> Key<T> {
-	pub fn is_keyword(&self) -> bool {
-		match self {
-			Key::Keyword(_) => true,
-			_ => false
-		}
-	}
-
-	pub fn iri(&self) -> Option<Iri> {
-		match self {
-			Key::Id(k) => k.iri(),
-			_ => None
-		}
-	}
-}
 
 // A term definition.
 #[derive(Clone, PartialEq, Eq)]
@@ -56,26 +26,29 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	// Reverse property flag.
 	pub reverse_property: bool,
 
-	// Optional type mapping.
-	pub typ: Option<Key<T>>,
-
-	// Optional language mapping.
-	pub language: Option<String>,
-
-	// Optional direction mapping.
-	pub direction: Option<Direction>,
+	// Optional base URL.
+	pub base_url: Option<IriBuf>,
 
 	// Optional context.
 	pub context: Option<C::LocalContext>,
 
-	// Optional nest value.
-	pub nest: Option<String>,
+	// Container mapping.
+	pub container: Container,
+
+	// Optional direction mapping.
+	pub direction: Option<Direction>,
 
 	// Optional index mapping.
 	pub index: Option<String>,
 
-	// Container mapping.
-	pub container: Container
+	// Optional language mapping.
+	pub language: Option<String>,
+
+	// Optional nest value.
+	pub nest: Option<String>,
+
+	// Optional type mapping.
+	pub typ: Option<Key<T>>
 }
 
 /// JSON-LD active context.
@@ -93,6 +66,14 @@ pub trait ActiveContext<T: Id> : Clone {
 
 	/// Get the definition of a term.
 	fn get(&self, term: &str) -> Option<&TermDefinition<T, Self>>;
+
+	fn get_opt(&self, term: Option<&str>) -> Option<&TermDefinition<T, Self>> {
+		if let Some(term) = term {
+			self.get(term)
+		} else {
+			None
+		}
+	}
 
 	/// Original base URL of the context.
 	fn original_base_url(&self) -> Iri;
@@ -134,7 +115,7 @@ pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
 pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
-	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Iri, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>>;
+	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>>;
 
 	fn as_json_ld(&self) -> &json::JsonValue;
 }

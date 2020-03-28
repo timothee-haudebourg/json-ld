@@ -1,7 +1,8 @@
 use std::convert::TryFrom;
 use iref::{Iri, IriRef};
-use crate::{Keyword, context::{ActiveContext, Id, Key}};
+use crate::{Keyword, Id, Key, context::ActiveContext};
 
+// Default value for `document_relative` and `vocab` is `false`.
 pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Option<Key<T>> {
 	if let Ok(keyword) = Keyword::try_from(value) {
 		Some(Key::Keyword(keyword))
@@ -46,7 +47,9 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 				// mapping and the prefix flag of the term definition is true, return the result
 				// of concatenating the IRI mapping associated with prefix and suffix.
 				if let Some(term_definition) = active_context.get(prefix) {
+					info!("found entry for {}", prefix);
 					if term_definition.prefix {
+						info!("found prefix entry for {}", prefix);
 						if let Some(iri) = term_definition.value.iri() {
 							let mut result = iri.as_str().to_string();
 							result.push_str(suffix);

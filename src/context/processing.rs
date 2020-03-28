@@ -6,9 +6,10 @@ use std::convert::TryFrom;
 use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
-use crate::{Keyword, is_keyword, is_keyword_like, Direction, Container, ContainerType, expansion};
+use crate::{Keyword, is_keyword, is_keyword_like, Direction, Container, ContainerType, expansion, as_array};
 use super::{LocalContext, ActiveContext, MutableActiveContext, ContextLoader, Id, Key, TermDefinition};
 
+#[derive(Clone, Copy, Debug)]
 pub enum ContextProcessingError {
 	InvalidIri,
 
@@ -70,27 +71,14 @@ pub enum ContextProcessingError {
 	ProtectedTermRedefinition
 }
 
-impl From<reqwest::Error> for ContextProcessingError {
-	fn from(e: reqwest::Error) -> ContextProcessingError {
-		ContextProcessingError::LoadingDocumentFailed
-	}
-}
-
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
 	/// Load a local context.
-	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Iri, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>> {
+	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>> {
 		process_context(active_context, self, loader, base_url, is_remote, override_protected, propagate)
 	}
 
 	fn as_json_ld(&self) -> &JsonValue {
 		self
-	}
-}
-
-pub fn as_array(json: &JsonValue) -> &[JsonValue] {
-	match json {
-		JsonValue::Array(ary) => ary,
-		_ => unsafe { std::mem::transmute::<&JsonValue, &[JsonValue; 1]>(json) as &[JsonValue] }
 	}
 }
 
@@ -104,14 +92,33 @@ pub fn has_protected_items<T: Id, C: ActiveContext<T>>(active_context: &C) -> bo
 	false
 }
 
+fn resolve_iri(iri_ref: IriRef, base_iri: Option<Iri>) -> Option<IriBuf> {
+	match base_iri {
+		Some(base_iri) => Some(iri_ref.resolved(base_iri)),
+		None => match iri_ref.into_iri() {
+			Ok(iri) => Some(iri.into()),
+			Err(_) => None
+		}
+	}
+}
+
 // This function tries to follow the recommended context proessing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, local_context: &'a JsonValue, remote_contexts: &'a mut L, base_url: Iri, is_remote: bool, override_protected: bool, mut propagate: bool) -> LocalBoxFuture<'a, Result<C, ContextProcessingError>> where C::LocalContext: From<JsonValue> {
-	let base_url = IriBuf::from(base_url);
+fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, local_context: &'a JsonValue, remote_contexts: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, mut propagate: bool) -> LocalBoxFuture<'a, Result<C, ContextProcessingError>> where C::LocalContext: From<JsonValue> {
+	let base_url = match base_url {
+		Some(base_url) => Some(IriBuf::from(base_url)),
+		None => None
+	};
+
 	async move {
+		let base_url = match base_url.as_ref() {
+			Some(base_url) => Some(base_url.as_iri()),
+			None => None
+		};
+
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = active_context.clone();
 
@@ -171,7 +178,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
 					let context = if let Ok(iri_ref) = IriRef::new(context.as_str().unwrap()) {
-						iri_ref.resolved(base_url.as_iri())
+						resolve_iri(iri_ref, base_url).ok_or(ContextProcessingError::LoadingRemoteContextFailed)?
 					} else {
 						return Err(ContextProcessingError::LoadingDocumentFailed)
 					};
@@ -202,7 +209,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// Set result to the result of recursively calling this algorithm, passing result
 					// for active context, loaded context for local context, the documentUrl of context
 					// document for base URL, and a copy of remote contexts.
-					result = loaded_context.process(&result, remote_contexts, context_document.url(), true, false, true).await?;
+					result = loaded_context.process(&result, remote_contexts, Some(context_document.url()), true, false, true).await?;
 				},
 
 				// 5.4) Context definition.
@@ -230,7 +237,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 							// 5.6.3) Initialize import to the result of resolving the value of
 							// @import.
 							let import = if let Ok(iri_ref) = IriRef::new(import_value) {
-								iri_ref.resolved(base_url.as_iri())
+								resolve_iri(iri_ref, base_url).ok_or(ContextProcessingError::InvalidImportValue)?
 							} else {
 								return Err(ContextProcessingError::InvalidImportValue)
 							};
@@ -291,12 +298,8 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 												result.set_base_iri(Some(value))
 											},
 											Err(value) => {
-												if let Some(base_iri) = result.base_iri() {
-													let resolved = value.resolved(base_iri);
-													result.set_base_iri(Some(resolved.as_iri()))
-												} else {
-													return Err(ContextProcessingError::InvalidBaseIri)
-												}
+												let resolved = resolve_iri(value, result.base_iri()).ok_or(ContextProcessingError::InvalidBaseIri)?;
+												result.set_base_iri(Some(resolved.as_iri()))
 											}
 										}
 									} else {
@@ -390,7 +393,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// and the value of the @protected entry from context, if any, for protected.
 					for (key, _) in context.iter() {
 						if !is_keyword(key) {
-							define(&mut result, context.as_ref(), key, &mut defined, Some(base_url.as_iri()), protected, false).await?;
+							define(&mut result, context.as_ref(), key, &mut defined, base_url, protected, false).await?;
 						}
 					}
 				},
@@ -439,33 +442,34 @@ pub struct PartialTermDefinition<T: Id, C: ActiveContext<T>> {
 	// Reverse property flag.
 	pub reverse_property: bool,
 
-	// Optional type mapping.
-	pub typ: Option<Key<T>>,
-
-	// Optional language mapping.
-	pub language: Option<String>,
-
-	// Optional direction mapping.
-	pub direction: Option<Direction>,
+	// Optional base URL.
+	pub base_url: Option<IriBuf>,
 
 	// Optional context.
 	pub context: Option<C::LocalContext>,
 
-	// Optional nest value.
-	pub nest: Option<String>,
+	// Container mapping.
+	pub container: Container,
+
+	// Optional direction mapping.
+	pub direction: Option<Direction>,
 
 	// Optional index mapping.
 	pub index: Option<String>,
 
-	// Container mapping.
-	pub container: Container
+	// Optional language mapping.
+	pub language: Option<String>,
+
+	// Optional nest value.
+	pub nest: Option<String>,
+
+	// Optional type mapping.
+	pub typ: Option<Key<T>>
 }
 
 impl<T: Id, C: ActiveContext<T>> PartialEq<TermDefinition<T, C>> for PartialTermDefinition<T, C> {
 	fn eq(&self, other: &TermDefinition<T, C>) -> bool {
 		// NOTE we ignore the `protected` flag.
-
-		// FIXME `context` comparison!
 
 		self.prefix == other.prefix &&
 		self.reverse_property == other.reverse_property &&
@@ -474,8 +478,10 @@ impl<T: Id, C: ActiveContext<T>> PartialEq<TermDefinition<T, C>> for PartialTerm
 		self.nest == other.nest &&
 		self.index == other.index &&
 		self.container == other.container &&
+		self.base_url == other.base_url &&
 		*self.value.as_ref().unwrap() == other.value &&
-		self.typ == other.typ
+		self.typ == other.typ &&
+		self.context == other.context
 	}
 }
 
@@ -486,6 +492,7 @@ impl<T: Id, C: ActiveContext<T>> Default for PartialTermDefinition<T, C> {
 			prefix: false,
 			protected: false,
 			reverse_property: false,
+			base_url: None,
 			typ: None,
 			language: None,
 			direction: None,
@@ -504,6 +511,7 @@ impl<T: Id, C: ActiveContext<T>> From<PartialTermDefinition<T, C>> for TermDefin
 			prefix: d.prefix,
 			protected: d.protected,
 			reverse_property: d.reverse_property,
+			base_url: d.base_url,
 			typ: d.typ,
 			language: d.language,
 			direction: d.direction,
@@ -563,13 +571,13 @@ fn contains_nz(id: &str, c: char) -> bool {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, _base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), ContextProcessingError>> where C::LocalContext: From<JsonValue> {
+pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), ContextProcessingError>> where C::LocalContext: From<JsonValue> {
 	let term = term.to_string();
-	// let base_url = if let Some(base_url) = base_url {
-	// 	Some(IriBuf::from(base_url))
-	// } else {
-	// 	None
-	// };
+	let base_url = if let Some(base_url) = base_url {
+		Some(IriBuf::from(base_url))
+	} else {
+		None
+	};
 
 	async move {
 		match defined.get(term.as_str()) {
@@ -839,7 +847,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// is either an IRI ending with a gen-delim character,
 								// or a blank node identifier, set the `prefix` flag in
 								// `definition` to true.
-								if !term.contains(':') && term.contains('/') && simple_term && is_gen_delim_or_blank(definition.value.as_ref().unwrap()) {
+								if !term.contains(':') && !term.contains('/') && simple_term && is_gen_delim_or_blank(definition.value.as_ref().unwrap()) {
 									definition.prefix = true;
 								}
 							} else {
@@ -1022,6 +1030,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 
 						// Set the local context of definition to context, and base URL to base URL.
 						definition.context = Some(context.clone().into());
+						definition.base_url = base_url;
 					}
 
 					// If `value` contains the entry `@language` and does not contain the entry
@@ -1272,12 +1281,8 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 			// [RFC3987].
 			if document_relative {
 				if let Ok(iri_ref) = IriRef::new(value.as_ref() as &str) {
-					if let Some(base_iri) = active_context.base_iri() {
-						let value = iri_ref.resolved(base_iri);
-						return Ok(Key::Id(T::from_iri(value.as_iri())))
-					} else {
-						return Err(ContextProcessingError::InvalidBaseIri)
-					}
+					let value = resolve_iri(iri_ref, active_context.base_iri()).ok_or(ContextProcessingError::InvalidBaseIri)?;
+					return Ok(Key::Id(T::from_iri(value.as_iri())))
 				} else {
 					return Err(ContextProcessingError::InvalidIriRef)
 				}

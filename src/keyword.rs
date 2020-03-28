@@ -35,10 +35,10 @@ pub enum Keyword {
 	/// context definition is merged.
 	Import,
 
-	/// `@imported`.
+	/// `@included`.
 	/// Used in a top-level node object to define an included block, for including secondary node
 	/// objects within another node object.
-	Imported,
+	Included,
 
 	/// `@index`.
 	/// Used to specify that a container is used to index information and that processing should
@@ -124,7 +124,7 @@ impl Keyword {
 			Graph => "@graph",
 			Id => "@id",
 			Import => "@import",
-			Imported => "@imported",
+			Included => "@included",
 			Index => "@index",
 			JSON => "@json",
 			Language => "@language",
@@ -157,7 +157,7 @@ impl<'a> TryFrom<&'a str> for Keyword {
 			"@graph" => Ok(Graph),
 			"@id" => Ok(Id),
 			"@import" => Ok(Import),
-			"@imported" => Ok(Imported),
+			"@included" => Ok(Included),
 			"@index" => Ok(Index),
 			"@json" => Ok(JSON),
 			"@language" => Ok(Language),
