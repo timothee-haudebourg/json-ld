@@ -1,11 +1,11 @@
 use std::convert::TryFrom;
 use iref::{Iri, IriRef};
-use crate::{Keyword, Id, Key, context::ActiveContext};
+use crate::{Keyword, BlankId, Id, Key, Property, context::ActiveContext};
 
-// Default value for `document_relative` and `vocab` is `false`.
-pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Option<Key<T>> {
+// Default value for `document_relative` is `false` and for `vocab` is `true`.
+pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Result<Key<T>, String> {
 	if let Ok(keyword) = Keyword::try_from(value) {
-		Some(Key::Keyword(keyword))
+		Ok(Key::Keyword(keyword))
 	} else {
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
@@ -14,11 +14,20 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 		if let Some(term_definition) = active_context.get(value) {
 			// If active context has a term definition for value, and the associated IRI mapping
 			// is a keyword, return that keyword.
+			if let Some(value) = &term_definition.value {
+				if value.is_keyword() {
+					return Ok(value.clone())
+				}
+			}
 
 			// If vocab is true and the active context has a term definition for value, return the
 			// associated IRI mapping.
-			if term_definition.value.is_keyword() || vocab {
-				return Some(term_definition.value.clone())
+			if vocab {
+				if let Some(value) = &term_definition.value {
+					return Ok(value.clone())
+				} else {
+					return Err(value.to_string())
+				}
 			}
 		}
 
@@ -28,18 +37,19 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 			if index > 0 {
 				// Split value into a prefix and suffix at the first occurrence of a colon (:).
 				let (prefix, suffix) = value.split_at(index);
+				let suffix = &suffix[1..suffix.len()];
 
 				// If prefix is underscore (_) or suffix begins with double-forward-slash (//),
 				// return value as it is already an IRI or a blank node identifier.
 				if prefix == "_" {
-					return Some(Key::Id(T::from_blank_id(suffix)))
+					return Ok(BlankId::new(suffix).into())
 				}
 
 				if suffix.starts_with("//") {
 					if let Ok(iri) = Iri::new(value) {
-						return Some(Key::Id(T::from_iri(iri)))
+						return Ok(T::from_iri(iri).into())
 					} else {
-						return None
+						return Err(value.to_string())
 					}
 				}
 
@@ -47,17 +57,19 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 				// mapping and the prefix flag of the term definition is true, return the result
 				// of concatenating the IRI mapping associated with prefix and suffix.
 				if let Some(term_definition) = active_context.get(prefix) {
-					info!("found entry for {}", prefix);
 					if term_definition.prefix {
-						info!("found prefix entry for {}", prefix);
-						if let Some(iri) = term_definition.value.iri() {
-							let mut result = iri.as_str().to_string();
+						if let Some(mapping) = &term_definition.value {
+							let mut result = mapping.as_str().to_string();
 							result.push_str(suffix);
 
 							if let Ok(result) = Iri::new(&result) {
-								return Some(Key::Id(T::from_iri(result)))
+								return Ok(T::from_iri(result).into())
 							} else {
-								return None
+								if let Ok(blank) = BlankId::try_from(result.as_ref()) {
+									return Ok(blank.into())
+								} else {
+									return Err(result)
+								}
 							}
 						}
 					}
@@ -65,7 +77,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 
 				// If value has the form of an IRI, return value.
 				if let Ok(result) = Iri::new(value) {
-					return Some(Key::Id(T::from_iri(result)))
+					return Ok(T::from_iri(result).into())
 				}
 			}
 		}
@@ -74,21 +86,21 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 		// concatenating the vocabulary mapping with value.
 		if vocab {
 			if let Some(vocabulary) = active_context.vocabulary() {
-				if let Key::Id(id) = vocabulary {
-					if let Some(iri) = id.iri() {
-						let mut result = iri.as_str().to_string();
-						result.push_str(value);
+				if let Key::Prop(mapping) = vocabulary {
+					let mut result = mapping.as_str().to_string();
+					result.push_str(value);
 
-						if let Ok(result) = Iri::new(&result) {
-							return Some(Key::Id(T::from_iri(result)))
-						} else {
-							return None
-						}
+					if let Ok(result) = Iri::new(&result) {
+						return Ok(T::from_iri(result).into())
 					} else {
-						return None
+						if let Ok(blank) = BlankId::try_from(result.as_ref()) {
+							return Ok(blank.into())
+						} else {
+							return Err(result)
+						}
 					}
 				} else {
-					return None
+					return Err(value.to_string())
 				}
 			}
 		}
@@ -103,16 +115,16 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 			if let Ok(iri_ref) = IriRef::new(value) {
 				if let Some(base_iri) = active_context.base_iri() {
 					let value = iri_ref.resolved(base_iri);
-					return Some(Key::Id(T::from_iri(value.as_iri())))
+					return Ok(T::from_iri(value.as_iri()).into())
 				} else {
-					return None
+					return Err(value.to_string())
 				}
 			} else {
-				return None
+				return Err(value.to_string())
 			}
 		}
 
 		// Return value as is.
-		None
+		Err(value.to_string())
 	}
 }

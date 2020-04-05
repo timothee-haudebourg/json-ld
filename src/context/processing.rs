@@ -6,8 +6,8 @@ use std::convert::TryFrom;
 use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
-use crate::{Keyword, is_keyword, is_keyword_like, Direction, Container, ContainerType, expansion, as_array};
-use super::{LocalContext, ActiveContext, MutableActiveContext, ContextLoader, Id, Key, TermDefinition};
+use crate::{Keyword, BlankId, Id, Key, Property, is_keyword, is_keyword_like, Direction, Container, ContainerType, expansion, as_array};
+use super::{LocalContext, ActiveContext, MutableActiveContext, ContextLoader, TermDefinition};
 
 #[derive(Clone, Copy, Debug)]
 pub enum ContextProcessingError {
@@ -330,7 +330,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 								// error has been detected and processing is aborted.
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
-								if let Some(vocab) = expansion::expand_iri(&result, value, true, false) {
+								if let Ok(vocab) = expansion::expand_iri(&result, value, true, true) {
 									result.set_vocabulary(Some(vocab));
 								} else {
 									return Err(ContextProcessingError::InvalidVocabMapping)
@@ -346,6 +346,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					if let Some(value) = context.get(Keyword::Language.into()) {
 						if value.is_null() {
 							// 5.9.2) If value is null, remove any default language from result.
+							println!("remove language mapping");
 							result.set_default_language(None);
 						} else if let Some(str) = value.as_str() {
 							// 5.9.3) Otherwise, if value is string, the default language of result is
@@ -428,100 +429,100 @@ impl<'a> Deref for JsonObjectRef<'a> {
 	}
 }
 
-// A partial term definition.
-pub struct PartialTermDefinition<T: Id, C: ActiveContext<T>> {
-	// IRI mapping, maybe undefined.
-	pub value: Option<Key<T>>,
-
-	// Prefix flag.
-	pub prefix: bool,
-
-	// Protected flag.
-	pub protected: bool,
-
-	// Reverse property flag.
-	pub reverse_property: bool,
-
-	// Optional base URL.
-	pub base_url: Option<IriBuf>,
-
-	// Optional context.
-	pub context: Option<C::LocalContext>,
-
-	// Container mapping.
-	pub container: Container,
-
-	// Optional direction mapping.
-	pub direction: Option<Direction>,
-
-	// Optional index mapping.
-	pub index: Option<String>,
-
-	// Optional language mapping.
-	pub language: Option<String>,
-
-	// Optional nest value.
-	pub nest: Option<String>,
-
-	// Optional type mapping.
-	pub typ: Option<Key<T>>
-}
-
-impl<T: Id, C: ActiveContext<T>> PartialEq<TermDefinition<T, C>> for PartialTermDefinition<T, C> {
-	fn eq(&self, other: &TermDefinition<T, C>) -> bool {
-		// NOTE we ignore the `protected` flag.
-
-		self.prefix == other.prefix &&
-		self.reverse_property == other.reverse_property &&
-		self.language == other.language &&
-		self.direction == other.direction &&
-		self.nest == other.nest &&
-		self.index == other.index &&
-		self.container == other.container &&
-		self.base_url == other.base_url &&
-		*self.value.as_ref().unwrap() == other.value &&
-		self.typ == other.typ &&
-		self.context == other.context
-	}
-}
-
-impl<T: Id, C: ActiveContext<T>> Default for PartialTermDefinition<T, C> {
-	fn default() -> PartialTermDefinition<T, C> {
-		PartialTermDefinition {
-			value: None,
-			prefix: false,
-			protected: false,
-			reverse_property: false,
-			base_url: None,
-			typ: None,
-			language: None,
-			direction: None,
-			context: None,
-			nest: None,
-			index: None,
-			container: Container::new()
-		}
-	}
-}
-
-impl<T: Id, C: ActiveContext<T>> From<PartialTermDefinition<T, C>> for TermDefinition<T, C> {
-	fn from(d: PartialTermDefinition<T, C>) -> TermDefinition<T, C> {
-		TermDefinition {
-			value: d.value.unwrap(),
-			prefix: d.prefix,
-			protected: d.protected,
-			reverse_property: d.reverse_property,
-			base_url: d.base_url,
-			typ: d.typ,
-			language: d.language,
-			direction: d.direction,
-			context: d.context,
-			nest: d.nest,
-			index: d.index,
-			container: d.container
-		}
-	}
-}
+// // A partial term definition.
+// pub struct PartialTermDefinition<T: Id, C: ActiveContext<T>> {
+// 	// IRI mapping, maybe undefined.
+// 	pub value: Option<Key<T>>,
+//
+// 	// Prefix flag.
+// 	pub prefix: bool,
+//
+// 	// Protected flag.
+// 	pub protected: bool,
+//
+// 	// Reverse property flag.
+// 	pub reverse_property: bool,
+//
+// 	// Optional base URL.
+// 	pub base_url: Option<IriBuf>,
+//
+// 	// Optional context.
+// 	pub context: Option<C::LocalContext>,
+//
+// 	// Container mapping.
+// 	pub container: Container,
+//
+// 	// Optional direction mapping.
+// 	pub direction: Option<Option<Direction>>,
+//
+// 	// Optional index mapping.
+// 	pub index: Option<String>,
+//
+// 	// Optional language mapping.
+// 	pub language: Option<Option<String>>,
+//
+// 	// Optional nest value.
+// 	pub nest: Option<String>,
+//
+// 	// Optional type mapping.
+// 	pub typ: Option<Key<T>>
+// }
+//
+// impl<T: Id, C: ActiveContext<T>> PartialEq<TermDefinition<T, C>> for PartialTermDefinition<T, C> {
+// 	fn eq(&self, other: &TermDefinition<T, C>) -> bool {
+// 		// NOTE we ignore the `protected` flag.
+//
+// 		self.prefix == other.prefix &&
+// 		self.reverse_property == other.reverse_property &&
+// 		self.language == other.language &&
+// 		self.direction == other.direction &&
+// 		self.nest == other.nest &&
+// 		self.index == other.index &&
+// 		self.container == other.container &&
+// 		self.base_url == other.base_url &&
+// 		*self.value.as_ref().unwrap() == other.value &&
+// 		self.typ == other.typ &&
+// 		self.context == other.context
+// 	}
+// }
+//
+// impl<T: Id, C: ActiveContext<T>> Default for PartialTermDefinition<T, C> {
+// 	fn default() -> PartialTermDefinition<T, C> {
+// 		PartialTermDefinition {
+// 			value: None,
+// 			prefix: false,
+// 			protected: false,
+// 			reverse_property: false,
+// 			base_url: None,
+// 			typ: None,
+// 			language: None,
+// 			direction: None,
+// 			context: None,
+// 			nest: None,
+// 			index: None,
+// 			container: Container::new()
+// 		}
+// 	}
+// }
+//
+// impl<T: Id, C: ActiveContext<T>> From<PartialTermDefinition<T, C>> for TermDefinition<T, C> {
+// 	fn from(d: PartialTermDefinition<T, C>) -> TermDefinition<T, C> {
+// 		TermDefinition {
+// 			value: d.value.unwrap(),
+// 			prefix: d.prefix,
+// 			protected: d.protected,
+// 			reverse_property: d.reverse_property,
+// 			base_url: d.base_url,
+// 			typ: d.typ,
+// 			language: d.language,
+// 			direction: d.direction,
+// 			context: d.context,
+// 			nest: d.nest,
+// 			index: d.index,
+// 			container: d.container
+// 		}
+// 	}
+// }
 
 fn is_valid_type<T: Id>(t: &Key<T>) -> bool {
 	match t {
@@ -531,7 +532,7 @@ fn is_valid_type<T: Id>(t: &Key<T>) -> bool {
 				_ => false
 			}
 		},
-		Key::Id(_) => true
+		Key::Prop(_) => true
 	}
 }
 
@@ -545,15 +546,12 @@ fn is_gen_delim(c: char) -> bool {
 fn is_gen_delim_or_blank<T: Id>(t: &Key<T>) -> bool {
 	match t {
 		Key::Keyword(_) => false,
-		Key::Id(id) => {
-			if let Some(iri) = id.iri() {
-				if let Some(c) = iri.as_str().chars().last() {
-					is_gen_delim(c)
-				} else {
-					false
-				}
+		Key::Prop(Property::Blank(_)) => true,
+		Key::Prop(Property::Id(id)) => {
+			if let Some(c) = id.iri().as_str().chars().last() {
+				is_gen_delim(c)
 			} else {
-				true
+				false
 			}
 		}
 	}
@@ -564,6 +562,14 @@ fn contains_nz(id: &str, c: char) -> bool {
 		i > 0
 	} else {
 		false
+	}
+}
+
+fn iri_eq_opt<T: Id>(a: &Option<Key<T>>, b: &Option<Key<T>>) -> bool {
+	match (a, b) {
+		(Some(a), Some(b)) => a.iri_eq(b),
+		(None, None) => true,
+		_ => false
 	}
 }
 
@@ -661,7 +667,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 
 					// Create a new term definition, `definition`, initializing `prefix` flag to
 					// `false`, `protected` to `protected`, and `reverse_property` to `false`.
-					let mut definition = PartialTermDefinition::<T, C>::default();
+					let mut definition = TermDefinition::<T, C>::default();
 					definition.protected = protected;
 
 					// If the @protected entry in value is true set the protected flag in
@@ -696,22 +702,24 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						if let Some(typ) = type_value.as_str() {
 							// Set `typ` to the result of IRI expanding type, using local context,
 							// and defined.
-							let typ = expand_iri(active_context, typ, false, false, local_context, defined).await?;
+							if let Ok(typ) = expand_iri(active_context, typ, false, true, local_context, defined).await? {
+								// If the expanded type is @json or @none, and processing mode is
+								// json-ld-1.0, an invalid type mapping error has been detected and
+								// processing is aborted.
+								// TODO
 
-							// If the expanded type is @json or @none, and processing mode is
-							// json-ld-1.0, an invalid type mapping error has been detected and
-							// processing is aborted.
-							// TODO
+								// Otherwise, if the expanded type is neither @id, nor @json, nor
+								// @none, nor @vocab, nor an IRI, an invalid type mapping error has
+								// been detected and processing is aborted.
+								if !is_valid_type(&typ) {
+									return Err(ContextProcessingError::InvalidTypeMapping)
+								}
 
-							// Otherwise, if the expanded type is neither @id, nor @json, nor
-							// @none, nor @vocab, nor an IRI, an invalid type mapping error has
-							// been detected and processing is aborted.
-							if !is_valid_type(&typ) {
+								// Set the type mapping for definition to type.
+								definition.typ = Some(typ);
+							} else {
 								return Err(ContextProcessingError::InvalidTypeMapping)
 							}
-
-							// Set the type mapping for definition to type.
-							definition.typ = Some(typ);
 						} else {
 							return Err(ContextProcessingError::InvalidTypeMapping)
 						}
@@ -739,11 +747,11 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							// If the result does not have the form of an IRI or a blank node
 							// identifier, an invalid IRI mapping error has been detected and
 							// processing is aborted.
-							let mapping = expand_iri(active_context, reverse_value, false, false, local_context, defined).await?;
-							if mapping.is_keyword() {
-								return Err(ContextProcessingError::InvalidIriMapping)
-							} else {
-								definition.value = Some(mapping);
+							match expand_iri(active_context, reverse_value, false, true, local_context, defined).await? {
+								Ok(Key::Prop(mapping)) => {
+									definition.value = Some(Key::Prop(mapping))
+								},
+								_ => return Err(ContextProcessingError::InvalidIriMapping)
 							}
 
 							// If `value` contains an `@container` entry, set the `container`
@@ -808,7 +816,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// Otherwise, set the IRI mapping of `definition` to the result
 								// of IRI expanding the value associated with the `@id` entry,
 								// using `local_context`, and `defined`.
-								definition.value = if let Ok(value) = expand_iri(active_context, id_value, false, false, local_context, defined).await {
+								definition.value = if let Ok(value) = expand_iri(active_context, id_value, false, true, local_context, defined).await? {
 									// if it equals `@context`, an invalid keyword alias error has
 									// been detected and processing is aborted.
 									if value == Key::Keyword(Keyword::Context) {
@@ -836,8 +844,11 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 									// `local_context`, and `defined`, is not the same as the
 									// IRI mapping of definition, an invalid IRI mapping error
 									// has been detected and processing is aborted.
-									let expanded_term = expand_iri(active_context, term.as_str(), false, false, local_context, defined).await?;
-									if expanded_term != *definition.value.as_ref().unwrap() {
+									if let Ok(expanded_term) = expand_iri(active_context, term.as_str(), false, true, local_context, defined).await? {
+										if !iri_eq_opt(&Some(expanded_term), &definition.value) {
+											return Err(ContextProcessingError::InvalidIriMapping)
+										}
+									} else {
 										return Err(ContextProcessingError::InvalidIriMapping)
 									}
 								}
@@ -862,6 +873,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// character:
 						let i = term.find(':').unwrap();
 						let (prefix, suffix) = term.split_at(i);
+						let suffix = &suffix[1..suffix.len()];
 
 						// If `term` is a compact IRI with a prefix that is an entry in local
 						// context a dependency has been found.
@@ -873,14 +885,18 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// IRI mapping of `definition` to the result of concatenating the value
 						// associated with the prefix's IRI mapping and the term's suffix.
 						if let Some(prefix_definition) = active_context.get(prefix) {
-							if let Some(prefix_iri) = prefix_definition.value.iri() {
-								let mut result = prefix_iri.as_str().to_string();
-								result.push_str(suffix);
-								if let Ok(iri) = Iri::new(result.as_str()) {
-									definition.value = Some(Key::Id(Id::from_iri(iri)))
-								} else {
-									return Err(ContextProcessingError::InvalidIriMapping)
+							let mut result = String::new();
+
+							if let Some(prefix_key) = &prefix_definition.value {
+								if let Some(prefix_iri) = prefix_key.iri() {
+									result = prefix_iri.as_str().to_string()
 								}
+							}
+
+							result.push_str(suffix);
+
+							if let Ok(iri) = Iri::new(result.as_str()) {
+								definition.value = Some(Key::<T>::from(T::from_iri(iri)))
 							} else {
 								return Err(ContextProcessingError::InvalidIriMapping)
 							}
@@ -888,10 +904,10 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							// Otherwise, `term` is an IRI or blank node identifier.
 							// Set the IRI mapping of `definition` to `term`.
 							if prefix == "_" { // blank node
-								definition.value = Some(Key::Id(Id::from_blank_id(suffix)))
+								definition.value = Some(BlankId::new(suffix).into())
 							} else {
 								if let Ok(iri) = Iri::new(term.as_str()) {
-									definition.value = Some(Key::Id(Id::from_iri(iri)))
+									definition.value = Some(Key::<T>::from(T::from_iri(iri)))
 								} else {
 									return Err(ContextProcessingError::InvalidIriMapping)
 								}
@@ -901,9 +917,9 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// Term is a relative IRI reference.
 						// Set the IRI mapping of definition to the result of IRI expanding
 						// term.
-						match expansion::expand_iri(active_context, term.as_str(), false, false) {
-							Some(Key::Id(id)) => {
-								definition.value = Some(Key::Id(id))
+						match expansion::expand_iri(active_context, term.as_str(), false, true) {
+							Ok(Key::Prop(Property::Id(id))) => {
+								definition.value = Some(id.into())
 							},
 							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
 							// error has been detected and processing is aborted.
@@ -923,7 +939,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							let mut result = vocabulary_iri.as_str().to_string();
 							result.push_str(term.as_str());
 							if let Ok(iri) = Iri::new(result.as_str()) {
-								definition.value = Some(Key::Id(Id::from_iri(iri)))
+								definition.value = Some(Key::<T>::from(T::from_iri(iri)))
 							} else {
 								return Err(ContextProcessingError::InvalidIriMapping)
 							}
@@ -999,8 +1015,9 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// Otherwise, an invalid term definition has been detected and processing
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
-							if expansion::expand_iri(active_context, index, false, false).is_none() {
-								return Err(ContextProcessingError::InvalidTermDefinition)
+							match expansion::expand_iri(active_context, index, false, true) {
+								Ok(Key::Prop(Property::Id(_))) => (),
+								_ => return Err(ContextProcessingError::InvalidTermDefinition)
 							}
 
 							definition.index = Some(index.to_string())
@@ -1044,7 +1061,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							// Otherwise, an invalid language mapping error has been detected and
 							// processing is aborted.
 							// Set the `language` mapping of definition to `language`.
-							definition.language = match language_value {
+							definition.language = Some(match language_value {
 								JsonValue::Null => None,
 								JsonValue::String(_) | JsonValue::Short(_) => {
 									// TODO lang tags
@@ -1053,7 +1070,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								_ => {
 									return Err(ContextProcessingError::InvalidLanguageMapping)
 								}
-							};
+							});
 						}
 
 						// If `value` contains the entry `@direction` and does not contain the
@@ -1061,7 +1078,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						if let Some(direction_value) = value.get("@direction") {
 							// Initialize `direction` to the value associated with the `@direction`
 							// entry, which MUST be either null, "ltr", or "rtl".
-							definition.direction = match direction_value.as_str() {
+							definition.direction = Some(match direction_value.as_str() {
 								Some("ltr") => Some(Direction::Ltr),
 								Some("rtl") => Some(Direction::Rtl),
 								_ => {
@@ -1073,7 +1090,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 										return Err(ContextProcessingError::InvalidBaseDirection)
 									}
 								}
-							};
+							});
 						}
 					}
 
@@ -1168,12 +1185,12 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 	}.boxed_local()
 }
 
-/// Default values for `document_relative` and `vocab` should be `false`.
-pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>) -> impl 'a + Future<Output = Result<Key<T>, ContextProcessingError>> where C::LocalContext: From<JsonValue> {
+/// Default values for `document_relative` and `vocab` should be `false` and `true`.
+pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>) -> impl 'a + Future<Output = Result<Result<Key<T>, Option<String>>, ContextProcessingError>> where C::LocalContext: From<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {
-			Ok(Key::Keyword(keyword))
+			Ok(Ok(Key::Keyword(keyword)))
 		} else {
 			// If value has the form of a keyword, a processor SHOULD generate a warning and return
 			// null.
@@ -1189,11 +1206,20 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 			if let Some(term_definition) = active_context.get(value.as_ref()) {
 				// If active context has a term definition for value, and the associated IRI mapping
 				// is a keyword, return that keyword.
+				if let Some(value) = &term_definition.value {
+					if value.is_keyword() {
+						return Ok(Ok(value.clone()))
+					}
+				}
 
 				// If vocab is true and the active context has a term definition for value, return the
 				// associated IRI mapping.
-				if term_definition.value.is_keyword() || vocab {
-					return Ok(term_definition.value.clone())
+				if vocab {
+					if let Some(value) = &term_definition.value {
+						return Ok(Ok(value.clone()))
+					} else {
+						return Ok(Err(Some(value.to_string())))
+					}
 				}
 			}
 
@@ -1203,18 +1229,19 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 				if index > 0 {
 					// Split value into a prefix and suffix at the first occurrence of a colon (:).
 					let (prefix, suffix) = value.split_at(index);
+					let suffix = &suffix[1..suffix.len()];
 
 					// If prefix is underscore (_) or suffix begins with double-forward-slash (//),
 					// return value as it is already an IRI or a blank node identifier.
 					if prefix == "_" {
-						return Ok(Key::Id(T::from_blank_id(suffix)))
+						return Ok(Ok(BlankId::new(suffix).into()))
 					}
 
 					if suffix.starts_with("//") {
 						if let Ok(iri) = Iri::new(value.as_ref() as &str) {
-							return Ok(Key::Id(T::from_iri(iri)))
+							return Ok(Ok(T::from_iri(iri).into()))
 						} else {
-							return Err(ContextProcessingError::InvalidIri)
+							return Ok(Err(Some(value.to_string())))
 						}
 					}
 
@@ -1230,14 +1257,18 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 					// of concatenating the IRI mapping associated with prefix and suffix.
 					if let Some(term_definition) = active_context.get(prefix) {
 						if term_definition.prefix {
-							if let Some(iri) = term_definition.value.iri() {
-								let mut result = iri.as_str().to_string();
+							if let Some(mapping) = &term_definition.value {
+								let mut result = mapping.to_string();
 								result.push_str(suffix);
 
 								if let Ok(result) = Iri::new(&result) {
-									return Ok(Key::Id(T::from_iri(result)))
+									return Ok(Ok(T::from_iri(result).into()))
 								} else {
-									return Err(ContextProcessingError::InvalidIri)
+									if let Ok(blank) = BlankId::try_from(result.as_ref()) {
+										return Ok(Ok(blank.into()))
+									} else {
+										return Ok(Err(Some(result)))
+									}
 								}
 							}
 						}
@@ -1245,7 +1276,7 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 
 					// If value has the form of an IRI, return value.
 					if let Ok(result) = Iri::new(value.as_ref() as &str) {
-						return Ok(Key::Id(T::from_iri(result)))
+						return Ok(Ok(T::from_iri(result).into()))
 					}
 				}
 			}
@@ -1254,21 +1285,21 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 			// concatenating the vocabulary mapping with value.
 			if vocab {
 				if let Some(vocabulary) = active_context.vocabulary() {
-					if let Key::Id(id) = vocabulary {
-						if let Some(iri) = id.iri() {
-							let mut result = iri.as_str().to_string();
-							result.push_str(value.as_ref());
+					if let Key::Prop(mapping) = vocabulary {
+						let mut result = mapping.as_str().to_string();
+						result.push_str(value.as_ref());
 
-							if let Ok(result) = Iri::new(&result) {
-								return Ok(Key::Id(T::from_iri(result)))
-							} else {
-								return Err(ContextProcessingError::InvalidIri)
-							}
+						if let Ok(result) = Iri::new(&result) {
+							return Ok(Ok(T::from_iri(result).into()))
 						} else {
-							return Err(ContextProcessingError::InvalidIri)
+							if let Ok(blank) = BlankId::try_from(result.as_ref()) {
+								return Ok(Ok(blank.into()))
+							} else {
+								return Ok(Err(Some(result)))
+							}
 						}
 					} else {
-						return Err(ContextProcessingError::InvalidIri)
+						return Ok(Err(Some(value.to_string())))
 					}
 				}
 			}
@@ -1281,15 +1312,18 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 			// [RFC3987].
 			if document_relative {
 				if let Ok(iri_ref) = IriRef::new(value.as_ref() as &str) {
-					let value = resolve_iri(iri_ref, active_context.base_iri()).ok_or(ContextProcessingError::InvalidBaseIri)?;
-					return Ok(Key::Id(T::from_iri(value.as_iri())))
+					if let Some(value) = resolve_iri(iri_ref, active_context.base_iri()) {
+						return Ok(Ok(T::from_iri(value.as_iri()).into()))
+					} else {
+						return Ok(Err(Some(value.to_string())))
+					}
 				} else {
-					return Err(ContextProcessingError::InvalidIriRef)
+					return Ok(Err(Some(value.to_string())))
 				}
 			}
 
 			// Return value as is.
-			Err(ContextProcessingError::InvalidIri) // FIXME better error
+			Ok(Err(Some(value.to_string())))
 		}
 	}
 }

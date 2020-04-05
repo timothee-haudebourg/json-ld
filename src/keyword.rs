@@ -1,4 +1,6 @@
 use std::convert::TryFrom;
+use std::fmt;
+use iref::Iri;
 
 /// JSON-LD keywords.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -114,6 +116,13 @@ pub enum Keyword {
 }
 
 impl Keyword {
+	pub fn iri(&self) -> Option<Iri<'static>> {
+		match self {
+			Keyword::Type => Some(iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")),
+			_ => None
+		}
+	}
+
 	pub fn into_str(self) -> &'static str {
 		use Keyword::*;
 		match self {
@@ -181,6 +190,12 @@ impl<'a> TryFrom<&'a str> for Keyword {
 impl From<Keyword> for &'static str {
 	fn from(k: Keyword) -> &'static str {
 		k.into_str()
+	}
+}
+
+impl fmt::Display for Keyword {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		self.into_str().fmt(f)
 	}
 }
 
