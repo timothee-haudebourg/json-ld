@@ -1,6 +1,6 @@
 use std::fmt;
 use std::collections::HashSet;
-use crate::{Direction, Id, Key, Property, Keyword, Object, Node, Value, Literal};
+use crate::{Direction, Id, Key, Property, Keyword, Object, Value, Literal};
 
 pub struct PrettyPrinter<'a, 'b: 'a> {
 	fmt: &'a mut fmt::Formatter<'b>,
@@ -32,7 +32,7 @@ impl<'a, 'b: 'a> PrettyPrinter<'a, 'b> {
 
 	fn tab(&mut self) -> fmt::Result {
 		let depth = self.path.len();
-		for i in 0..depth {
+		for _ in 0..depth {
 			write!(self.fmt, "\t")?
 		}
 
@@ -49,7 +49,7 @@ impl<'a, 'b: 'a> PrettyPrinter<'a, 'b> {
 	pub fn keyword_entry<T: PrettyPrintable + ?Sized>(&mut self, key: Keyword, value: &T) -> fmt::Result {
 		let i = self.next();
 		if i > 0 {
-			write!(self.fmt, ",\n");
+			write!(self.fmt, ",\n")?;
 		}
 		self.tab()?;
 		write!(self.fmt, "\"{}\": ", key)?;
@@ -59,7 +59,7 @@ impl<'a, 'b: 'a> PrettyPrinter<'a, 'b> {
 	pub fn entry<I: Id, T: PrettyPrintable + ?Sized>(&mut self, key: &Property<I>, value: &T) -> fmt::Result {
 		let i = self.next();
 		if i > 0 {
-			write!(self.fmt, ",\n");
+			write!(self.fmt, ",\n")?;
 		}
 		self.tab()?;
 		write!(self.fmt, "\"{}\": ", key)?;
@@ -69,7 +69,7 @@ impl<'a, 'b: 'a> PrettyPrinter<'a, 'b> {
 	pub fn item<T: PrettyPrintable>(&mut self, value: &T) -> fmt::Result {
 		let i = self.next();
 		if i > 0 {
-			write!(self.fmt, ",\n");
+			write!(self.fmt, ",\n")?;
 		}
 		self.tab()?;
 		value.pretty_print(self)
@@ -166,6 +166,14 @@ impl<T: Id> PrettyPrintable for Object<T> {
 
 				if let Some(index) = &data.index {
 					pp.keyword_entry(Keyword::Index, index)?;
+				}
+
+				if !node.reverse_properties.is_empty() {
+					pp.begin("\"@reverse\": {")?;
+					for (key, value) in &node.reverse_properties {
+						pp.entry(key, value)?;
+					}
+					pp.end("}")?;
 				}
 
 				for (key, value) in &node.properties {

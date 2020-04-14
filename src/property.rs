@@ -23,7 +23,7 @@ impl<T: Id> Property<T> {
 		}
 	}
 
-	fn iri_eq(&self, other: &Property<T>) -> bool {
+	pub fn iri_eq(&self, other: &Property<T>) -> bool {
 		if self == other {
 			true
 		} else {

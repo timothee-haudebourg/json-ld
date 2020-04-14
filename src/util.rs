@@ -52,19 +52,19 @@ pub fn hash_set_opt<T: Hash, H: Hasher>(set_opt: &Option<HashSet<T>>, hasher: &m
 	}
 }
 
-pub fn hash_map<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H) {
-	// Elements must be combined with a associative and commutative operation •.
-	// (u64, •, 0) must form a commutative monoid.
-	// This is satisfied by • = u64::wrapping_add.
-	let mut hash = 0;
-	for entry in map {
-		let mut h = DefaultHasher::new();
-		entry.hash(&mut h);
-		hash = u64::wrapping_add(hash, h.finish());
-	}
-
-	hasher.write_u64(hash);
-}
+// pub fn hash_map<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H) {
+// 	// Elements must be combined with a associative and commutative operation •.
+// 	// (u64, •, 0) must form a commutative monoid.
+// 	// This is satisfied by • = u64::wrapping_add.
+// 	let mut hash = 0;
+// 	for entry in map {
+// 		let mut h = DefaultHasher::new();
+// 		entry.hash(&mut h);
+// 		hash = u64::wrapping_add(hash, h.finish());
+// 	}
+//
+// 	hasher.write_u64(hash);
+// }
 
 pub fn hash_map_of_sets<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, HashSet<V>>, hasher: &mut H) {
 	// Elements must be combined with a associative and commutative operation •.

@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use iref::{Iri, IriRef};
-use crate::{Keyword, BlankId, Id, Key, Property, context::ActiveContext};
+use crate::{Keyword, BlankId, Id, Key, context::ActiveContext};
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
 pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Result<Key<T>, String> {

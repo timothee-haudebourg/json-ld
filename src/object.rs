@@ -1,8 +1,8 @@
-use std::collections::{HashSet, hash_set};
-use std::hash::{Hash, Hasher};
+use std::collections::HashSet;
+use std::hash::Hash;
 use std::fmt;
 use iref::Iri;
-use crate::{util, Id, Key, Value, Node, pp::PrettyPrint};
+use crate::{Id, Key, Value, Node, pp::PrettyPrint};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ObjectData {

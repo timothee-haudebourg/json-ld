@@ -1,5 +1,4 @@
 use std::hash::{Hash, Hasher};
-use iref::Iri;
 use json::JsonValue;
 use crate::{util, Id, Key,  Direction};
 

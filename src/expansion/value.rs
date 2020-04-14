@@ -1,126 +1,166 @@
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use json::JsonValue;
-use crate::{Keyword, Direction, Id, Key, Object, Node, Value, Literal};
-use crate::context::{ActiveContext};
-use super::{ExpansionError, expand_iri};
+use crate::{Keyword, Direction, as_array, Id, Key, Value, Literal, Object, ObjectData};
+use crate::context::MutableActiveContext;
+use super::{ExpansionError, Entry, expand_iri};
 
-fn clone_default_language<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<String> {
-	match active_context.default_language() {
-		Some(lang) => Some(lang.to_string()),
-		None => None
-	}
-}
+pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Key<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Key<T>)>>, value_entry: &JsonValue) -> Result<Vec<Object<T>>, ExpansionError> {
+	// If input type is @json, set expanded value to value.
+	// If processing mode is json-ld-1.0, an invalid value object value error has
+	// been detected and processing is aborted.
 
-fn clone_default_base_direction<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<Direction> {
-	match active_context.default_base_direction() {
-		Some(dir) => Some(dir),
-		None => None
-	}
-}
-
-/// https://www.w3.org/TR/json-ld11-api/#value-expansion
-pub fn expand_value<T: Id, C: ActiveContext<T>>(active_context: &C, active_property: Option<&str>, value: &JsonValue) -> Result<Object<T>, ExpansionError> {
-	let active_property_definition = active_context.get_opt(active_property);
-
-	let active_property_type = if let Some(active_property_definition) = active_property_definition {
-		active_property_definition.typ.clone()
+	// Otherwise, if value is not a scalar or null, an invalid value object value
+	// error has been detected and processing is aborted.
+	let mut result = if input_type == Some(Key::Keyword(Keyword::JSON)) {
+		Literal::Json(value_entry.clone())
 	} else {
-		None
-	};
-
-	match active_property_type {
-		// If the `active_property` has a type mapping in `active_context` that is `@id`, and the
-		// `value` is a string, return a new map containing a single entry where the key is `@id` and
-		// the value is the result IRI expanding `value` using `true` for `document_relative` and
-		// `false` for vocab.
-		Some(Key::Keyword(Keyword::Id)) if value.is_string() => {
-			let mut node = Node::new();
-			if let Ok(id) = expand_iri(active_context, value.as_str().unwrap(), true, false) {
-				node.id = Some(id)
-			} else {
-				return Err(ExpansionError::InvalidIri)
-			}
-			Ok(node.into())
-		},
-
-		// If `active_property` has a type mapping in active context that is `@vocab`, and the
-		// value is a string, return a new map containing a single entry where the key is
-		// `@id` and the value is the result of IRI expanding `value` using `true` for
-		// document relative.
-		Some(Key::Keyword(Keyword::Vocab)) if value.is_string() => {
-			let mut node = Node::new();
-			if let Ok(id) = expand_iri(active_context, value.as_str().unwrap(), true, true) {
-				node.id = Some(id)
-			} else {
-				return Err(ExpansionError::InvalidIri)
-			}
-			Ok(node.into())
-		},
-
-		_ => {
-			// Otherwise, initialize `result` to a map with an `@value` entry whose value is set to
-			// `value`.
-			let mut result = match value {
-				JsonValue::Null => Literal::Null,
-				JsonValue::Boolean(b) => Literal::Boolean(*b),
-				JsonValue::Number(n) => Literal::Number(*n),
-				JsonValue::Short(_) | JsonValue::String(_) => Literal::String {
-					data: value.as_str().unwrap().to_string(),
+		match value_entry {
+			JsonValue::Null => {
+				Literal::Null
+			},
+			JsonValue::Short(_) | JsonValue::String(_) => {
+				Literal::String {
+					data: value_entry.as_str().unwrap().to_string(),
 					language: None,
 					direction: None
-				},
-				_ => panic!("expand_value must be called with a literal JSON value")
-			};
-
-			let mut types = HashSet::new();
-
-			// If `active_property` has a type mapping in active context, other than `@id`,
-			// `@vocab`, or `@none`, add `@type` to `result` and set its value to the value
-			// associated with the type mapping.
-			match active_property_type {
-				None | Some(Key::Keyword(Keyword::Id)) | Some(Key::Keyword(Keyword::Vocab)) | Some(Key::Keyword(Keyword::None)) => {
-					// Otherwise, if value is a string:
-					if let Literal::String { ref mut language, ref mut direction, .. } = &mut result {
-						// Initialize `language` to the language mapping for
-						// `active_property` in `active_context`, if any, otherwise to the
-						// default language of `active_context`.
-						*language = if let Some(active_property_definition) = active_property_definition {
-							if let Some(language) = &active_property_definition.language {
-								language.clone()
-							} else {
-								clone_default_language(active_context)
-							}
-						} else {
-							clone_default_language(active_context)
-						};
-
-						// Initialize `direction` to the direction mapping for
-						// `active_property` in `active_context`, if any, otherwise to the
-						// default base direction of `active_context`.
-						*direction = if let Some(active_property_definition) = active_property_definition {
-							if let Some(direction) = &active_property_definition.direction {
-								direction.clone()
-							} else {
-								clone_default_base_direction(active_context)
-							}
-						} else {
-							clone_default_base_direction(active_context)
-						};
-
-						// If `language` is not null, add `@language` to result with the value
-						// `language`.
-						// If `direction` is not null, add `@direction` to result with the
-						// value `direction`.
-						// Done.
-					}
-				},
-
-				Some(typ) => {
-					types.insert(typ);
 				}
+			},
+			JsonValue::Number(n) => {
+				Literal::Number(*n)
+			},
+			JsonValue::Boolean(b) => {
+				Literal::Boolean(*b)
+			},
+			_ => {
+				return Err(ExpansionError::InvalidValueObject);
 			}
+		}
+	};
 
-			Ok(Value::Literal(result, types).into())
+	let mut result_data = ObjectData::new();
+
+	let mut types = HashSet::new();
+	let mut language = None;
+	let mut direction = None;
+
+	for Entry((_, expanded_key), value) in expanded_entries {
+		match expanded_key {
+			// If expanded property is @language:
+			Key::Keyword(Keyword::Language) => {
+				// If value is not a string, an invalid language-tagged string
+				// error has been detected and processing is aborted.
+				if let Some(value) = value.as_str() {
+					// Otherwise, set expanded value to value. If value is not
+					// well-formed according to section 2.2.9 of [BCP47],
+					// processors SHOULD issue a warning.
+					// TODO warning.
+
+					language = Some(value);
+				} else {
+					return Err(ExpansionError::InvalidLanguageTaggedString)
+				}
+			},
+			// If expanded property is @direction:
+			Key::Keyword(Keyword::Direction) => {
+				// If processing mode is json-ld-1.0, continue with the next key
+				// from element.
+				// TODO processing mode.
+
+				// If value is neither "ltr" nor "rtl", an invalid base direction
+				// error has been detected and processing is aborted.
+				if let Some(value) = value.as_str() {
+					if let Ok(value) = Direction::try_from(value) {
+						direction = Some(value);
+					} else {
+						return Err(ExpansionError::InvalidBaseDirection)
+					}
+				} else {
+					return Err(ExpansionError::InvalidBaseDirection)
+				}
+			},
+			// If expanded property is @index:
+			Key::Keyword(Keyword::Index) => {
+				// If value is not a string, an invalid @index value error has
+				// been detected and processing is aborted.
+				if let Some(value) = value.as_str() {
+					result_data.index = Some(value.to_string())
+				} else {
+					return Err(ExpansionError::InvalidIndexValue)
+				}
+			},
+			// If expanded ...
+			Key::Keyword(Keyword::Type) => {
+				// If value is neither a string nor an array of strings, an
+				// invalid type value error has been detected and processing
+				// is aborted.
+				let value = as_array(value);
+				// Set `expanded_value` to the result of IRI expanding each
+				// of its values using `type_scoped_context` for active
+				// context, and true for document relative.
+				for ty in value {
+					if let Some(ty) = ty.as_str() {
+						if let Ok(expanded_ty) = expand_iri(type_scoped_context, ty, true, true) {
+							if expanded_ty == Key::Keyword(Keyword::JSON) {
+								result = Literal::Json(value_entry.clone())
+							}
+
+							types.insert(expanded_ty);
+						} else {
+							return Err(ExpansionError::InvalidTypedValue)
+						}
+					} else {
+						return Err(ExpansionError::InvalidTypeValue)
+					}
+				}
+			},
+			Key::Keyword(Keyword::Value) => (),
+			_ => {
+				return Err(ExpansionError::InvalidValueObject);
+			}
 		}
 	}
+
+	// If the result's @type entry is @json, then the @value entry may contain any
+	// value, and is treated as a JSON literal.
+	// NOTE already checked?
+
+	// Otherwise, if the value of result's @value entry is null, or an empty array,
+	// return null
+	let is_empty = match result {
+		Literal::Null => true,
+		// Value::Array(ary) => ary.is_empty(),
+		_ => false
+	};
+
+	if is_empty {
+		return Ok(Vec::new())
+	}
+
+	// Otherwise, if the value of result's @value entry is not a string and result
+	// contains the entry @language, an invalid language-tagged value error has
+	// been detected (only strings can be language-tagged) and processing is
+	// aborted.
+	if let Some(lang) = language {
+		if let Literal::String { ref mut language, .. } = &mut result {
+			*language = Some(lang.to_string())
+		} else {
+			return Err(ExpansionError::InvalidLanguageTaggedValue)
+		}
+	}
+
+	if let Some(dir) = direction {
+		if let Literal::String { ref mut direction, .. } = &mut result {
+			*direction = Some(dir)
+		} else {
+			return Err(ExpansionError::InvalidLanguageTaggedValue)
+		}
+	}
+
+	// If active property is null or @graph, drop free-floating values as follows:
+	// If result is a map which is empty, or contains only the entries @value or
+	// @list, set result to null.
+	// TODO
+
+	return Ok(vec![Object::Value(Value::Literal(result, types), result_data)]);
 }

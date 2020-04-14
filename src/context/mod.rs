@@ -6,7 +6,7 @@ use std::future::Future;
 use std::collections::HashMap;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{Keyword, Direction, Container, Id, Key, Property};
+use crate::{Direction, Container, Id, Key};
 
 pub use loader::*;
 pub use processing::*;

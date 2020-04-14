@@ -13,7 +13,6 @@ use iref::{Iri, IriBuf};
 use json_ld::{
 	context::{
 		ActiveContext,
-		ContextLoader,
 		JsonLdContextLoader,
 		Context,
 	}
@@ -2472,4 +2471,3 @@ fn expand_tn02() {
 	println!("@type: @none leaves inputs other than strings alone");
 	positive_test(input_url, "tests/expand/tn02-in.jsonld", output_url, "tests/expand/tn02-out.jsonld")
 }
-

@@ -25,9 +25,7 @@ pub mod expansion;
 mod pp;
 
 use std::fmt;
-use std::collections::{HashMap, HashSet, hash_set};
-use std::hash::{Hash, Hasher};
-use std::ops::{Deref, DerefMut};
+use std::hash::Hash;
 use std::convert::TryFrom;
 use iref::{Iri, IriBuf};
 pub use error::*;
@@ -90,7 +88,6 @@ impl<'a> TryFrom<&'a str> for BlankId {
 
 impl fmt::Display for BlankId {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		use fmt::Display;
 		self.0.fmt(f)
 	}
 }

@@ -126,7 +126,6 @@ use iref::{{Iri, IriBuf}};
 use json_ld::{{
 	context::{{
 		ActiveContext,
-		ContextLoader,
 		JsonLdContextLoader,
 		Context,
 	}}

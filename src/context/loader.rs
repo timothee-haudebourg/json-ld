@@ -37,13 +37,13 @@ pub enum JsonLdLoadError {
 }
 
 impl From<reqwest::Error> for JsonLdLoadError {
-	fn from(e: reqwest::Error) -> JsonLdLoadError {
+	fn from(_e: reqwest::Error) -> JsonLdLoadError {
 		JsonLdLoadError::LoadingFailed
 	}
 }
 
 impl From<JsonLdLoadError> for ContextProcessingError {
-	fn from(e: JsonLdLoadError) -> ContextProcessingError {
+	fn from(_e: JsonLdLoadError) -> ContextProcessingError {
 		ContextProcessingError::LoadingRemoteContextFailed
 	}
 }
