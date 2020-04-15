@@ -17,7 +17,6 @@ use iref::Iri;
 use json_ld::{
 	context::{
 		ActiveContext,
-		ContextLoader,
 		JsonLdContextLoader,
 		Context,
 		load_remote_json_ld_document
@@ -25,9 +24,8 @@ use json_ld::{
 	Object,
 	Node,
 	Value,
-	Literal,
+	Property,
 	VocabId,
-	PrettyPrint,
 	Key
 };
 
@@ -85,13 +83,15 @@ impl json_ld::Vocab for Vocab {
 	}
 }
 
-const NAME: &'static VocabId<Vocab> = &VocabId::Id(Vocab::Name);
-const ENTRIES: &'static VocabId<Vocab> = &VocabId::Id(Vocab::Entries);
-const ACTION: &'static VocabId<Vocab> = &VocabId::Id(Vocab::Action);
-const RESULT: &'static VocabId<Vocab> = &VocabId::Id(Vocab::Result);
-const POSITIVE: &'static VocabId<Vocab> = &VocabId::Id(Vocab::PositiveEvalTest);
-const NEGATIVE: &'static VocabId<Vocab> = &VocabId::Id(Vocab::NegativeEvalTest);
-const COMMENT: &'static VocabId<Vocab> = &VocabId::Id(Vocab::Comment);
+pub type Id = VocabId<Vocab>;
+
+const NAME: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Name));
+const ENTRIES: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Entries));
+const ACTION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Action));
+const RESULT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Result));
+// const POSITIVE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::PositiveEvalTest));
+// const NEGATIVE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::NegativeEvalTest));
+const COMMENT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Comment));
 
 fn main() {
 	let destination = std::env::args().nth(1).expect("no destination given");
@@ -107,7 +107,7 @@ fn main() {
 	let doc = runtime.block_on(load_remote_json_ld_document(url))
 		.expect("unable to load the test suite");
 
-	let active_context: Context<VocabId<Vocab>> = Context::new(url, url);
+	let active_context: Context<Id> = Context::new(url, url);
 	let expanded_doc = runtime.block_on(json_ld::expand(&active_context, None, &doc, Some(url), &mut loader))
 		.expect("expansion failed");
 
@@ -188,7 +188,7 @@ fn func_name(id: &str) -> String {
 	name
 }
 
-fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<VocabId<Vocab>>) {
+fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 	let name = entry.get(NAME).next().unwrap().as_str().unwrap();
 	let url = entry.get(ACTION).next().unwrap().as_iri().unwrap();
 
@@ -206,7 +206,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<VocabId<Voca
 
 	let func_name = func_name(url.path().file_name().unwrap());
 
-	if entry.types.contains(&Key::Id(VocabId::Id(Vocab::PositiveEvalTest))) {
+	if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::PositiveEvalTest)))) {
 		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
 
 		let mut output_filename: PathBuf = target.into();
@@ -236,7 +236,7 @@ fn {}() {{
 ",
 			func_name, url, output_url, name, comments, input_filename.to_str().unwrap(), output_filename.to_str().unwrap()
 		);
-	} else if entry.types.contains(&Key::Id(VocabId::Id(Vocab::NegativeEvalTest))) {
+	} else if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::NegativeEvalTest)))) {
 		warn!("ignoring negative example {}", url);
 	} else {
 		panic!("cannot decide how to evaluate test result")

@@ -69,10 +69,9 @@ pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<JsonValue, Jso
 	}).is_some() {
 		let body = response.text().await?;
 
-		if let Ok(doc) = json::parse(body.as_str()) {
-			Ok(doc)
-		} else {
-			panic!("invalid json")
+		match json::parse(body.as_str()) {
+			Ok(doc) => Ok(doc),
+			Err(e) => panic!("invalid json: {:?}: {}", e, body.as_str())
 		}
 	} else {
 		panic!("not a json document")

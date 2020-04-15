@@ -129,18 +129,6 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 							return Err(ExpansionError::InvalidIndexValue)
 						}
 					},
-					// // If expanded property is @list:
-					// Keyword::List => {
-					// 	// // If active property is null or @graph, continue with the
-					// 	// // next key from element to remove the free-floating list.
-					// 	// if active_property.is_none() || active_property == Some("@graph") {
-					// 	// 	continue
-					// 	// }
-					// },
-					// // If expanded property is @set
-					// Keyword::Set => {
-					// 	panic!("TODO set")
-					// },
 					// If expanded property is @reverse:
 					Keyword::Reverse => {
 						// If value is not a map, an invalid @reverse value error

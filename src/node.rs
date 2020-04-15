@@ -44,6 +44,10 @@ impl<T: Id> Node<T> {
 		}
 	}
 
+	pub fn types(&self) -> &[Key<T>] {
+		self.types.as_ref()
+	}
+
 	/// Test if the node is empty.
 	///
 	/// It is empty is every field except for `@id` is empty.
