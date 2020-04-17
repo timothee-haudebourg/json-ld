@@ -2,7 +2,7 @@ use std::fmt;
 use iref::Iri;
 use crate::{Id, BlankId};
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Property<T: Id> {
 	Id(T),
 	Blank(BlankId)

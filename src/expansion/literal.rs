@@ -35,11 +35,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		// `false` for vocab.
 		Some(Key::Keyword(Keyword::Id)) if value.is_string() => {
 			let mut node = Node::new();
-			if let Ok(id) = expand_iri(active_context, value.as_str().unwrap(), true, false) {
-				node.id = Some(id)
-			} else {
-				return Err(ExpansionError::InvalidIri)
-			}
+			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, false));
 			Ok(node.into())
 		},
 
@@ -49,11 +45,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		// document relative.
 		Some(Key::Keyword(Keyword::Vocab)) if value.is_string() => {
 			let mut node = Node::new();
-			if let Ok(id) = expand_iri(active_context, value.as_str().unwrap(), true, true) {
-				node.id = Some(id)
-			} else {
-				return Err(ExpansionError::InvalidIri)
-			}
+			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, true));
 			Ok(node.into())
 		},
 

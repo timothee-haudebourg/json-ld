@@ -41,6 +41,7 @@ pub use object::*;
 pub use vocab::*;
 pub use expansion::expand;
 pub use pp::*;
+pub use util::{AsJson, json_ld_eq};
 
 use json::JsonValue;
 
@@ -57,7 +58,7 @@ pub trait Id: Clone + PartialEq + Eq + Hash + fmt::Display {
 	fn iri(&self) -> Iri;
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct BlankId(String);
 
 impl BlankId {

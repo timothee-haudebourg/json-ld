@@ -16,8 +16,11 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 
 	// For each `key` and `value` in `element`, ordered lexicographically by key
 	// if `ordered` is `true`:
+	let len = expanded_entries.len();
 	for Entry((key, expanded_key), value) in expanded_entries {
 		match expanded_key {
+			Key::Unknown(_) => (),
+
 			// If key is @context, continue to the next key.
 			Key::Keyword(Keyword::Context) => (),
 			// Initialize `expanded_property` to the result of IRI expanding `key`.
@@ -54,9 +57,7 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 							// Otherwise, set `expanded_value` to the result of IRI
 							// expanding value using true for document relative and
 							// false for vocab.
-							if let Ok(expanded_value) = expand_iri(active_context, value, true, false) {
-								result.id = Some(expanded_value);
-							}
+							result.id = Some(expand_iri(active_context, value, true, false))
 						} else {
 							return Err(ExpansionError::InvalidIdValue)
 						}
@@ -72,9 +73,7 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 						// context, and true for document relative.
 						for ty in value {
 							if let Some(ty) = ty.as_str() {
-								if let Ok(expanded_ty) = expand_iri(type_scoped_context, ty, true, true) {
-									result.types.push(expanded_ty);
-								}
+								result.types.push(expand_iri(type_scoped_context, ty, true, true))
 							} else {
 								return Err(ExpansionError::InvalidTypeValue)
 							}
@@ -87,8 +86,7 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 						// property, `value` for element, `base_url`, and the
 						// `frame_expansion` and `ordered` flags, ensuring that
 						// `expanded_value` is an array of one or more maps.
-						let expanded_value = expand_element(active_context, Some("@graph"), value, base_url, loader, ordered, false).await?;
-						if !expanded_value.is_empty() {
+						if let Some(expanded_value) = expand_element(active_context, Some("@graph"), value, base_url, loader, ordered, false).await? {
 							result.graph = Some(expanded_value.into_iter().filter(filter_top_level_item).collect());
 						}
 					},
@@ -102,19 +100,18 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 						// recursively passing `active_context`, `active_property`,
 						// `value` for element, `base_url`, and the `frame_expansion`
 						// and `ordered` flags, ensuring that the result is an array.
-						let expanded_value = expand_element(active_context, active_property, value, base_url, loader, ordered, false).await?;
-						if !expanded_value.is_empty() {
+						if let Some(expanded_value) = expand_element(active_context, active_property, value, base_url, loader, ordered, false).await? {
 							result.included = Some(expanded_value.into_iter().collect());
 						}
 					},
 					// // If expanded property is @language:
-					// Keyword::Language => {
-					// 	// If result is a map that contains only the entry
-					// 	// @language, return null.
-					// 	// if len == 1 {
-					// 	// 	return Ok(Vec::new())
-					// 	// }
-					// },
+					Keyword::Language => {
+						// If result is a map that contains only the entry
+						// @language, return null.
+						if len == 1 {
+							return Ok(None)
+						}
+					},
 					// If expanded property is @direction:
 					Keyword::Direction => {
 						panic!("TODO direction")
@@ -135,25 +132,35 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 						// has been detected and processing is aborted.
 						if let JsonValue::Object(value) = value {
 							let mut reverse_entries = Vec::with_capacity(value.len());
-							for (reverse_prop, reverse_value) in value.iter() {
-								reverse_entries.push(Entry(reverse_prop, reverse_value));
+							for (reverse_key, reverse_value) in value.iter() {
+								reverse_entries.push(Entry(reverse_key, reverse_value));
 							}
 
 							if ordered {
 								reverse_entries.sort();
 							}
 
-							for Entry(reverse_prop, reverse_value) in reverse_entries {
-								match expand_iri(active_context, reverse_prop, false, true) {
-									Ok(Key::Keyword(_)) => {
+							for Entry(reverse_key, reverse_value) in reverse_entries {
+								match expand_iri(active_context, reverse_key, false, true) {
+									Key::Keyword(_) => {
 										return Err(ExpansionError::InvalidReverseProperty)
 									},
-									Ok(Key::Prop(reverse_prop)) => {
-										// Something's wrong here.
-										let reverse_expanded_value = expand_element(active_context, None, reverse_value, base_url, loader, ordered, false).await?;
-										result.insert_all_reverse(reverse_prop, reverse_expanded_value.into_iter())
+									Key::Prop(reverse_prop) => {
+										if let Some(reverse_expanded_value) = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, ordered, false).await? {
+											let is_double_reversed = if let Some(reverse_key_definition) = active_context.get(reverse_key) {
+												reverse_key_definition.reverse_property
+											} else {
+												false
+											};
+
+											if is_double_reversed {
+												result.insert_all(reverse_prop, reverse_expanded_value.into_iter())
+											} else {
+												result.insert_all_reverse(reverse_prop, reverse_expanded_value.into_iter())
+											}
+										}
 									},
-									_ => ()
+									Key::Unknown(_) => ()
 								}
 							}
 						} else {
@@ -190,14 +197,11 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 						panic!("TODO json")
 					}
 				}
-
-				let mut expanded_value;
-
 				// Otherwise, if container mapping includes @language and value is a map then
 				// value is expanded from a language map as follows:
-				if value.is_object() && container_mapping.contains(ContainerType::Language) {
+				let expanded_value = if value.is_object() && container_mapping.contains(ContainerType::Language) {
 					// Initialize expanded value to an empty array.
-					expanded_value = Vec::new();
+					let mut expanded_value = Vec::new();
 
 					// Initialize direction to the default base direction from active context.
 					let mut direction = active_context.default_base_direction();
@@ -266,12 +270,14 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 							}
 						}
 					}
+
+					Some(expanded_value)
 				} else if value.is_object() && container_mapping.contains(ContainerType::Index) || container_mapping.contains(ContainerType::Type) || container_mapping.contains(ContainerType::Id) {
 					// Otherwise, if container mapping includes @index, @type, or @id and value
 					// is a map then value is expanded from an map as follows:
 
 					// Initialize expanded value to an empty array.
-					expanded_value = Vec::new();
+					let mut expanded_value = Vec::new();
 
 					// Initialize `index_key` to the key's index mapping in
 					// `active_context`, or @index, if it does not exist.
@@ -330,11 +336,11 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 						// Initialize `expanded_index` to the result of IRI
 						// expanding index.
 						let expanded_index = match expand_iri(active_context, index, false, true) {
-							Ok(Key::Keyword(Keyword::None)) => None,
-							Ok(Key::Keyword(kw)) => Some(kw.into_str().to_string()),
-							Ok(Key::Prop(Property::Id(id))) => Some(id.iri().as_str().to_string()),
-							Ok(Key::Prop(Property::Blank(_))) => return Err(ExpansionError::InvalidIndexValue),
-							Err(index) => Some(index)
+							Key::Keyword(Keyword::None) => None,
+							Key::Keyword(kw) => Some(kw.into_str().to_string()),
+							Key::Prop(Property::Id(id)) => Some(id.iri().as_str().to_string()),
+							Key::Prop(Property::Blank(_)) => return Err(ExpansionError::InvalidIndexValue),
+							Key::Unknown(index) => Some(index)
 						};
 
 						// If index value is not an array set index value to
@@ -346,136 +352,140 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 						// active context, key as active property,
 						// index value as element, base URL, and the
 						// frameExpansion and ordered flags.
-						let index_value = expand_element(map_context.as_ref(), Some(key), index_value, base_url, loader, ordered, false).await?;
+						if let Some(index_value) = expand_element(map_context.as_ref(), Some(key), index_value, base_url, loader, ordered, false).await? {
+							// For each item in index value:
+							for mut item in index_value {
+								// If container mapping includes @graph,
+								// and item is not a graph object, set item to
+								// a new map containing the key-value pair
+								// @graph-item, ensuring that the value is
+								// represented using an array.
+								if container_mapping.contains(ContainerType::Graph) && !item.is_graph() {
+									let mut graph = HashSet::new();
+									graph.insert(item);
 
-						// For each item in index value:
-						for mut item in index_value {
-							// If container mapping includes @graph,
-							// and item is not a graph object, set item to
-							// a new map containing the key-value pair
-							// @graph-item, ensuring that the value is
-							// represented using an array.
-							if container_mapping.contains(ContainerType::Graph) && !item.is_graph() {
-								let mut graph = HashSet::new();
-								graph.insert(item);
+									let mut node = Node::new();
+									node.graph = Some(graph);
 
-								let mut node = Node::new();
-								node.graph = Some(graph);
-
-								item = node.into();
-							}
-
-							if expanded_index.is_some() {
-								// If `container_mapping` includes @index,
-								// index key is not @index, and expanded index is
-								// not @none:
-								// TODO the @none part.
-								if container_mapping.contains(ContainerType::Index) && index_key != "@index" {
-									// Initialize re-expanded index to the result
-									// of calling the Value Expansion algorithm,
-									// passing the active context, index key as
-									// active property, and index as value.
-									let re_expanded_index = expand_literal(active_context, Some(index_key), &JsonValue::String(index.to_string()))?;
-									let _re_expanded_index = if let Object::Value(Value::Literal(Literal::String { data, .. }, _), _) = re_expanded_index {
-										data
-									} else {
-										return Err(ExpansionError::InvalidIndexValue)
-									};
-
-									// Initialize expanded index key to the result
-									// of IRI expanding index key.
-									let _expanded_index_key = expand_iri(active_context, index_key, false, true);
-
-									// Initialize index property values to the
-									// concatenation of re-expanded index with any
-									// existing values of expanded index key in
-									// item.
-									// let index_property_values = ...;
-									panic!("I don't know what to do here...")
-
-									// Add the key-value pair (expanded index
-									// key-index property values) to item.
-									//
-
-									// If item is a value object, it MUST NOT
-									// contain any extra properties; an invalid
-									// value object error has been detected and
-									// processing is aborted.
-								} else if container_mapping.contains(ContainerType::Index) && item.data().index.is_none() {
-									// Otherwise, if container mapping includes
-									// @index, item does not have an entry @index,
-									// and expanded index is not @none, add the
-									// key-value pair (@index-index) to item.
-									item.data_mut().index = Some(index.to_string())
-								} else if container_mapping.contains(ContainerType::Id) && item.id().is_none() {
-									// Otherwise, if container mapping includes
-									// @id item does not have the entry @id,
-									// and expanded index is not @none, add the
-									// key-value pair (@id-expanded index) to
-									// item, where expanded index is set to the
-									// result of IRI expanding index using true for
-									// document relative and false for vocab.
-									//
-									panic!("TODO 2")
-								} else if container_mapping.contains(ContainerType::Type) {
-									// Otherwise, if container mapping includes
-									// @type and expanded index is not @none,
-									// initialize types to a new array consisting
-									// of expanded index followed by any existing
-									// values of @type in item. Add the key-value
-									// pair (@type-types) to item.
-									panic!("TODO 3")
+									item = node.into();
 								}
-							}
 
-							// Append item to expanded value.
-							expanded_value.push(item)
+								if expanded_index.is_some() {
+									// If `container_mapping` includes @index,
+									// index key is not @index, and expanded index is
+									// not @none:
+									// TODO the @none part.
+									if container_mapping.contains(ContainerType::Index) && index_key != "@index" {
+										// Initialize re-expanded index to the result
+										// of calling the Value Expansion algorithm,
+										// passing the active context, index key as
+										// active property, and index as value.
+										let re_expanded_index = expand_literal(active_context, Some(index_key), &JsonValue::String(index.to_string()))?;
+										let _re_expanded_index = if let Object::Value(Value::Literal(Literal::String { data, .. }, _), _) = re_expanded_index {
+											data
+										} else {
+											return Err(ExpansionError::InvalidIndexValue)
+										};
+
+										// Initialize expanded index key to the result
+										// of IRI expanding index key.
+										let _expanded_index_key = expand_iri(active_context, index_key, false, true);
+
+										// Initialize index property values to the
+										// concatenation of re-expanded index with any
+										// existing values of expanded index key in
+										// item.
+										// let index_property_values = ...;
+										panic!("I don't know what to do here...")
+
+										// Add the key-value pair (expanded index
+										// key-index property values) to item.
+										//
+
+										// If item is a value object, it MUST NOT
+										// contain any extra properties; an invalid
+										// value object error has been detected and
+										// processing is aborted.
+									} else if container_mapping.contains(ContainerType::Index) && item.data().index.is_none() {
+										// Otherwise, if container mapping includes
+										// @index, item does not have an entry @index,
+										// and expanded index is not @none, add the
+										// key-value pair (@index-index) to item.
+										item.data_mut().index = Some(index.to_string())
+									} else if container_mapping.contains(ContainerType::Id) && item.id().is_none() {
+										// Otherwise, if container mapping includes
+										// @id item does not have the entry @id,
+										// and expanded index is not @none, add the
+										// key-value pair (@id-expanded index) to
+										// item, where expanded index is set to the
+										// result of IRI expanding index using true for
+										// document relative and false for vocab.
+										//
+										panic!("TODO 2")
+									} else if container_mapping.contains(ContainerType::Type) {
+										// Otherwise, if container mapping includes
+										// @type and expanded index is not @none,
+										// initialize types to a new array consisting
+										// of expanded index followed by any existing
+										// values of @type in item. Add the key-value
+										// pair (@type-types) to item.
+										panic!("TODO 3")
+									}
+								}
+
+								// Append item to expanded value.
+								expanded_value.push(item)
+							}
 						}
 					}
+
+					Some(expanded_value)
 				} else {
 					// Otherwise, initialize expanded value to the result of using this
 					// algorithm recursively, passing active context, key for active property,
 					// value for element, base URL, and the frameExpansion and ordered flags.
-					expanded_value = expand_element(active_context, Some(key), value, base_url, loader, ordered, false).await?;
-				}
+					expand_element(active_context, Some(key), value, base_url, loader, ordered, false).await?
+				};
 
-				// If container mapping includes @list and expanded value is
-				// not already a list object, convert expanded value to a list
-				// object by first setting it to an array containing only
-				// expanded value if it is not already an array, and then by
-				// setting it to a map containing the key-value pair
-				// @list-expanded value.
-				if container_mapping.contains(ContainerType::List) {
-					if expanded_value.len() != 1 || !expanded_value[0].is_list() {
-						expanded_value = vec![Value::List(expanded_value).into()];
-					}
-				}
-
-				// If container mapping includes @graph, and includes neither
-				// @id nor @index, convert expanded value into an array, if
-				// necessary, then convert each value ev in expanded value
-				// into a graph object:
-				if container_mapping.contains(ContainerType::Graph) {
-					panic!("TODO graph container")
-				}
-
-				// If the term definition associated to key indicates that it
-				// is a reverse property:
-				if is_reverse_property {
-					// We must filter out anything that is not an object.
-					for value in &expanded_value {
-						match value {
-							Object::Value(_, _) => return Err(ExpansionError::InvalidReversePropertyValue),
-							_ => ()
+				if let Some(mut expanded_value) = expanded_value {
+					// If container mapping includes @list and expanded value is
+					// not already a list object, convert expanded value to a list
+					// object by first setting it to an array containing only
+					// expanded value if it is not already an array, and then by
+					// setting it to a map containing the key-value pair
+					// @list-expanded value.
+					if container_mapping.contains(ContainerType::List) {
+						if expanded_value.len() != 1 || !expanded_value[0].is_list() {
+							expanded_value = vec![Value::List(expanded_value).into()];
 						}
 					}
 
-					result.insert_all_reverse(prop, expanded_value.into_iter());
-				} else {
-					// Otherwise, key is not a reverse property use add value
-					// to add expanded value to the expanded property entry in
-					// result using true for as array.
-					result.insert_all(prop, expanded_value.into_iter());
+					// If container mapping includes @graph, and includes neither
+					// @id nor @index, convert expanded value into an array, if
+					// necessary, then convert each value ev in expanded value
+					// into a graph object:
+					if container_mapping.contains(ContainerType::Graph) {
+						panic!("TODO graph container")
+					}
+
+					// If the term definition associated to key indicates that it
+					// is a reverse property:
+					if is_reverse_property {
+						// We must filter out anything that is not an object.
+						for value in &expanded_value {
+							match value {
+								Object::Value(_, _) => return Err(ExpansionError::InvalidReversePropertyValue),
+								_ => ()
+							}
+						}
+
+						result.insert_all_reverse(prop, expanded_value.into_iter());
+					} else {
+						// Otherwise, key is not a reverse property use add value
+						// to add expanded value to the expanded property entry in
+						// result using true for as array.
+						result.insert_all(prop, expanded_value.into_iter());
+					}
 				}
 			}
 		}
@@ -497,10 +507,6 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 	// Otherwise, if result contains the entry @set or @list:
 	// FIXME TODO
 
-	// If result is a map that contains only the entry @language,
-	// return null.
-	// FIXME TODO
-
 	// If active property is null or @graph, drop free-floating
 	// values as follows:
 	if active_property == None || active_property == Some("@graph") {
@@ -510,11 +516,7 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 
 		// Otherwise, if result is a map whose only entry is @id, set result to null.
 		if result.is_empty() {
-			return Ok(None);
-		}
-	} else {
-		if result.is_empty() && result.id.is_none() {
-			return Ok(None);
+			return Ok(None)
 		}
 	}
 

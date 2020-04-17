@@ -9,11 +9,11 @@ use super::{ExpansionError, Entry, expand_literal, expand_array, expand_value, e
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, ordered: bool, from_map: bool) -> LocalBoxFuture<'a, Result<Vec<Object<T>>, ExpansionError>> where C::LocalContext: From<JsonValue> {
+pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, ordered: bool, from_map: bool) -> LocalBoxFuture<'a, Result<Option<Vec<Object<T>>>, ExpansionError>> where C::LocalContext: From<JsonValue> {
 	async move {
 		// If `element` is null, return null.
 		if element.is_null() {
-			return Ok(Vec::new())
+			return Ok(None)
 		}
 
 		let active_property_definition = active_context.get_opt(active_property);
@@ -34,7 +34,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 		match element {
 			JsonValue::Null => unreachable!(),
 			JsonValue::Array(element) => {
-				return Ok(expand_array(active_context, active_property, active_property_definition, element, base_url, loader, ordered, from_map).await?)
+				return Ok(Some(expand_array(active_context, active_property, active_property_definition, element, base_url, loader, ordered, from_map).await?))
 			},
 
 			JsonValue::Object(element) => {
@@ -53,10 +53,10 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 
 				for Entry(key, value) in entries.iter() {
 					match expand_iri(active_context, key, false, true) {
-						Ok(Key::Keyword(Keyword::Value)) => {
+						Key::Keyword(Keyword::Value) => {
 							value_entry = Some(value)
 						},
-						Ok(Key::Keyword(Keyword::Id)) => {
+						Key::Keyword(Keyword::Id) => {
 							id_entry = Some(value)
 						},
 						_ => ()
@@ -100,27 +100,27 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				let mut set_entry = None;
 				value_entry = None;
 				for Entry(key, value) in entries.iter() {
-					if let Ok(expanded_key) = expand_iri(active_context.as_ref(), key, false, true) {
-						match expanded_key {
-							Key::Keyword(Keyword::Value) => {
-								value_entry = Some(value)
-							},
-							Key::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
-								list_entry = Some(value)
-							},
-							Key::Keyword(Keyword::Set) => {
-								set_entry = Some(value)
-							},
-							Key::Keyword(Keyword::Type) => {
-								type_entries.push(Entry(key, value));
-							},
-							_ => ()
-						}
-
-						expanded_entries.push(Entry((*key, expanded_key), value))
-					} else {
-						warn!("failed to expand key `{}`", key)
+					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
+					match &expanded_key {
+						Key::Unknown(_) => {
+							warn!("failed to expand key `{}`", key)
+						},
+						Key::Keyword(Keyword::Value) => {
+							value_entry = Some(value)
+						},
+						Key::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
+							list_entry = Some(value)
+						},
+						Key::Keyword(Keyword::Set) => {
+							set_entry = Some(value)
+						},
+						Key::Keyword(Keyword::Type) => {
+							type_entries.push(Entry(key, value));
+						},
+						_ => ()
 					}
+
+					expanded_entries.push(Entry((*key, expanded_key), value))
 				}
 
 				type_entries.sort();
@@ -169,11 +169,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				let input_type = if let Some(Entry(_, value)) = type_entries.first() {
 					if let Some(input_type) = as_array(value).last() {
 						if let Some(input_type) = input_type.as_str() {
-							if let Ok(input_type) = expand_iri(active_context.as_ref(), input_type, false, true) {
-								Some(input_type)
-							} else {
-								None
-							}
+							Some(expand_iri(active_context.as_ref(), input_type, false, true))
 						} else {
 							None
 						}
@@ -201,10 +197,13 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// recursively passing active context, active property, value for element,
 					// base URL, and the frameExpansion and ordered flags, ensuring that the
 					// result is an array..
-					let expanded_value = expand_element(active_context.as_ref(), active_property, list_entry, base_url, loader, ordered, false).await?;
-					let result = Value::List(expanded_value);
+					let result = if let Some(expanded_value) = expand_element(active_context.as_ref(), active_property, list_entry, base_url, loader, ordered, false).await? {
+						Some(vec![Value::List(expanded_value).into()])
+					} else {
+						None
+					};
 
-					return Ok(vec![result.into()]);
+					return Ok(result)
 				} else if let Some(set_entry) = set_entry {
 					for Entry((_, expanded_key), _) in expanded_entries {
 						match expanded_key {
@@ -221,18 +220,24 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// set expanded value to the result of using this algorithm recursively,
 					// passing active context, active property, value for element, base URL, and
 					// the frameExpansion and ordered flags.
-					let expanded_value = expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, ordered, false).await?;
-					// let set: Vec<_> = expanded_value.into_iter().collect();
-					// let result = Value::Set(set);
-					// return Ok(vec![Object::Value(result)]);
-					return Ok(expanded_value)
+					let result = if let Some(expanded_value) = expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, ordered, false).await? {
+						Some(expanded_value)
+					} else {
+						Some(vec![])
+					};
+
+					return Ok(result)
 				} else if let Some(value_entry) = value_entry {
-					return expand_value(input_type, type_scoped_context, expanded_entries, value_entry)
+					if let Some(value) = expand_value(input_type, type_scoped_context, expanded_entries, value_entry)? {
+						return Ok(Some(vec![value]))
+					} else {
+						return Ok(None)
+					}
 				} else {
 					if let Some((result, result_data)) = expand_node(active_context.as_ref(), type_scoped_context, active_property, expanded_entries, base_url, loader, ordered).await? {
-						return Ok(vec![Object::Node(result, result_data)])
+						return Ok(Some(vec![Object::Node(result, result_data)]))
 					} else {
-						return Ok(vec![])
+						return Ok(None)
 					}
 				}
 			},
@@ -242,7 +247,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				// If `active_property` is `null` or `@graph`, drop the free-floating scalar by
 				// returning null.
 				if active_property.is_none() || active_property == Some("@graph") {
-					return Ok(Vec::new())
+					return Ok(None)
 				}
 
 				// If `property_scoped_context` is defined, set `active_context` to the result of the
@@ -271,7 +276,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				// `active_property`, and `element` as value.
 				let mut result = Vec::new();
 				result.push(expand_literal(active_context.as_ref(), active_property, element)?);
-				return Ok(result)
+				return Ok(Some(result))
 			}
 		}
 	}.boxed_local()

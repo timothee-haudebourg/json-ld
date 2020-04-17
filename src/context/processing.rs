@@ -330,10 +330,9 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 								// error has been detected and processing is aborted.
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
-								if let Ok(vocab) = expansion::expand_iri(&result, value, true, true) {
-									result.set_vocabulary(Some(vocab));
-								} else {
-									return Err(ContextProcessingError::InvalidVocabMapping)
+								match expansion::expand_iri(&result, value, true, true) {
+									Key::Prop(vocab) => result.set_vocabulary(Some(Key::Prop(vocab))),
+									_ => return Err(ContextProcessingError::InvalidVocabMapping)
 								}
 							},
 							_ => {
@@ -532,7 +531,8 @@ fn is_valid_type<T: Id>(t: &Key<T>) -> bool {
 				_ => false
 			}
 		},
-		Key::Prop(_) => true
+		Key::Prop(_) => true,
+		Key::Unknown(_) => false
 	}
 }
 
@@ -553,7 +553,8 @@ fn is_gen_delim_or_blank<T: Id>(t: &Key<T>) -> bool {
 			} else {
 				false
 			}
-		}
+		},
+		Key::Unknown(_) => false
 	}
 }
 
@@ -751,7 +752,9 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								Ok(Key::Prop(mapping)) => {
 									definition.value = Some(Key::Prop(mapping))
 								},
-								_ => return Err(ContextProcessingError::InvalidIriMapping)
+								_ => {
+									return Err(ContextProcessingError::InvalidIriMapping)
+								}
 							}
 
 							// If `value` contains an `@container` entry, set the `container`
@@ -918,7 +921,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// Set the IRI mapping of definition to the result of IRI expanding
 						// term.
 						match expansion::expand_iri(active_context, term.as_str(), false, true) {
-							Ok(Key::Prop(Property::Id(id))) => {
+							Key::Prop(Property::Id(id)) => {
 								definition.value = Some(id.into())
 							},
 							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
@@ -1016,7 +1019,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
 							match expansion::expand_iri(active_context, index, false, true) {
-								Ok(Key::Prop(Property::Id(_))) => (),
+								Key::Prop(Property::Id(_)) => (),
 								_ => return Err(ContextProcessingError::InvalidTermDefinition)
 							}
 

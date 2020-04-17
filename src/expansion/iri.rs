@@ -3,9 +3,9 @@ use iref::{Iri, IriRef};
 use crate::{Keyword, BlankId, Id, Key, context::ActiveContext};
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
-pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Result<Key<T>, String> {
+pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Key<T> {
 	if let Ok(keyword) = Keyword::try_from(value) {
-		Ok(Key::Keyword(keyword))
+		Key::Keyword(keyword)
 	} else {
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
@@ -16,17 +16,17 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 			// is a keyword, return that keyword.
 			if let Some(value) = &term_definition.value {
 				if value.is_keyword() {
-					return Ok(value.clone())
+					return value.clone()
 				}
 			}
 
 			// If vocab is true and the active context has a term definition for value, return the
 			// associated IRI mapping.
 			if vocab {
-				if let Some(value) = &term_definition.value {
-					return Ok(value.clone())
+				if let Some(mapped_value) = &term_definition.value {
+					return mapped_value.clone()
 				} else {
-					return Err(value.to_string())
+					return Key::Unknown(value.to_string())
 				}
 			}
 		}
@@ -42,14 +42,14 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 				// If prefix is underscore (_) or suffix begins with double-forward-slash (//),
 				// return value as it is already an IRI or a blank node identifier.
 				if prefix == "_" {
-					return Ok(BlankId::new(suffix).into())
+					return BlankId::new(suffix).into()
 				}
 
 				if suffix.starts_with("//") {
 					if let Ok(iri) = Iri::new(value) {
-						return Ok(T::from_iri(iri).into())
+						return T::from_iri(iri).into()
 					} else {
-						return Err(value.to_string())
+						return Key::Unknown(value.to_string())
 					}
 				}
 
@@ -63,12 +63,12 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 							result.push_str(suffix);
 
 							if let Ok(result) = Iri::new(&result) {
-								return Ok(T::from_iri(result).into())
+								return T::from_iri(result).into()
 							} else {
 								if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-									return Ok(blank.into())
+									return blank.into()
 								} else {
-									return Err(result)
+									return Key::Unknown(result)
 								}
 							}
 						}
@@ -77,7 +77,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 
 				// If value has the form of an IRI, return value.
 				if let Ok(result) = Iri::new(value) {
-					return Ok(T::from_iri(result).into())
+					return T::from_iri(result).into()
 				}
 			}
 		}
@@ -91,16 +91,16 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 					result.push_str(value);
 
 					if let Ok(result) = Iri::new(&result) {
-						return Ok(T::from_iri(result).into())
+						return T::from_iri(result).into()
 					} else {
 						if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-							return Ok(blank.into())
+							return blank.into()
 						} else {
-							return Err(result)
+							return Key::Unknown(result)
 						}
 					}
 				} else {
-					return Err(value.to_string())
+					return Key::Unknown(value.to_string())
 				}
 			}
 		}
@@ -115,16 +115,16 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 			if let Ok(iri_ref) = IriRef::new(value) {
 				if let Some(base_iri) = active_context.base_iri() {
 					let value = iri_ref.resolved(base_iri);
-					return Ok(T::from_iri(value.as_iri()).into())
+					return T::from_iri(value.as_iri()).into()
 				} else {
-					return Err(value.to_string())
+					return Key::Unknown(value.to_string())
 				}
 			} else {
-				return Err(value.to_string())
+				return Key::Unknown(value.to_string())
 			}
 		}
 
 		// Return value as is.
-		Err(value.to_string())
+		Key::Unknown(value.to_string())
 	}
 }

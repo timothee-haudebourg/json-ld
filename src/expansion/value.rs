@@ -5,7 +5,7 @@ use crate::{Keyword, Direction, as_array, Id, Key, Value, Literal, Object, Objec
 use crate::context::MutableActiveContext;
 use super::{ExpansionError, Entry, expand_iri};
 
-pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Key<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Key<T>)>>, value_entry: &JsonValue) -> Result<Vec<Object<T>>, ExpansionError> {
+pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Key<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Key<T>)>>, value_entry: &JsonValue) -> Result<Option<Object<T>>, ExpansionError> {
 	// If input type is @json, set expanded value to value.
 	// If processing mode is json-ld-1.0, an invalid value object value error has
 	// been detected and processing is aborted.
@@ -100,15 +100,13 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 				// context, and true for document relative.
 				for ty in value {
 					if let Some(ty) = ty.as_str() {
-						if let Ok(expanded_ty) = expand_iri(type_scoped_context, ty, true, true) {
-							if expanded_ty == Key::Keyword(Keyword::JSON) {
-								result = Literal::Json(value_entry.clone())
-							}
+						let expanded_ty = expand_iri(type_scoped_context, ty, true, true);
 
-							types.insert(expanded_ty);
-						} else {
-							return Err(ExpansionError::InvalidTypedValue)
+						if expanded_ty == Key::Keyword(Keyword::JSON) {
+							result = Literal::Json(value_entry.clone())
 						}
+
+						types.insert(expanded_ty);
 					} else {
 						return Err(ExpansionError::InvalidTypeValue)
 					}
@@ -134,7 +132,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 	};
 
 	if is_empty {
-		return Ok(Vec::new())
+		return Ok(None)
 	}
 
 	// Otherwise, if the value of result's @value entry is not a string and result
@@ -162,5 +160,5 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 	// @list, set result to null.
 	// TODO
 
-	return Ok(vec![Object::Value(Value::Literal(result, types), result_data)]);
+	return Ok(Some(Object::Value(Value::Literal(result, types), result_data)));
 }

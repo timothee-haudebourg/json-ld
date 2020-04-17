@@ -3,7 +3,7 @@ use std::fmt;
 use iref::Iri;
 
 /// JSON-LD keywords.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Keyword {
 	/// `@base`.
 	/// Used to set the base IRI against which to resolve those relative IRI references

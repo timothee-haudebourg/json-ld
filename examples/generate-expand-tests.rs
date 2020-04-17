@@ -42,6 +42,9 @@ const RDFS_COMMENT: Iri<'static> = iri!("http://www.w3.org/2000/01/rdf-schema#co
 const VOCAB_POSITIVE_EVAL_TEST: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#PositiveEvaluationTest");
 const VOCAB_NEGATIVE_EVAL_TEST: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#NegativeEvaluationTest");
 
+const VOCAB_OPTION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#option");
+const VOCAB_SPEC_VERSION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#specVersion");
+
 /// Vocabulary of the test manifest
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Vocab {
@@ -51,7 +54,9 @@ pub enum Vocab {
 	Result,
 	PositiveEvalTest,
 	NegativeEvalTest,
-	Comment
+	Comment,
+	Option,
+	SpecVersion
 }
 
 impl json_ld::Vocab for Vocab {
@@ -64,6 +69,8 @@ impl json_ld::Vocab for Vocab {
 			_ if iri == MF_RESULT => Some(Result),
 			_ if iri == VOCAB_POSITIVE_EVAL_TEST => Some(PositiveEvalTest),
 			_ if iri == VOCAB_NEGATIVE_EVAL_TEST => Some(NegativeEvalTest),
+			_ if iri == VOCAB_OPTION => Some(Option),
+			_ if iri == VOCAB_SPEC_VERSION => Some(SpecVersion),
 			_ if iri == RDFS_COMMENT => Some(Comment),
 			_ => None
 		}
@@ -78,6 +85,8 @@ impl json_ld::Vocab for Vocab {
 			Result => MF_RESULT,
 			PositiveEvalTest => VOCAB_POSITIVE_EVAL_TEST,
 			NegativeEvalTest => VOCAB_NEGATIVE_EVAL_TEST,
+			Option => VOCAB_OPTION,
+			SpecVersion => VOCAB_SPEC_VERSION,
 			Comment => RDFS_COMMENT
 		}
 	}
@@ -91,6 +100,8 @@ const ACTION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Action));
 const RESULT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Result));
 // const POSITIVE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::PositiveEvalTest));
 // const NEGATIVE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::NegativeEvalTest));
+const OPTION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Option));
+const SPEC_VERSION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::SpecVersion));
 const COMMENT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Comment));
 
 fn main() {
@@ -128,10 +139,12 @@ use json_ld::{{
 		ActiveContext,
 		JsonLdContextLoader,
 		Context,
-	}}
+	}},
+	AsJson,
+	json_ld_eq
 }};
 
-fn positive_test(input_url: Iri, input_filename: &str, output_url: Iri, output_filename: &str) {{
+fn positive_test(input_url: Iri, input_filename: &str, output_filename: &str) {{
 	let mut runtime = Runtime::new().unwrap();
 	let mut loader = JsonLdContextLoader::new();
 
@@ -150,10 +163,15 @@ fn positive_test(input_url: Iri, input_filename: &str, output_url: Iri, output_f
 	let input_context: Context<IriBuf> = Context::new(input_url, input_url);
 	let result = runtime.block_on(json_ld::expand(&input_context, None, &input, Some(input_url), &mut loader)).unwrap();
 
-	let output_context: Context<IriBuf> = Context::new(output_url, output_url);
-	let expected = runtime.block_on(json_ld::expand(&output_context, None, &output, Some(output_url), &mut loader)).unwrap();
+	let result_json = result.as_json();
+	let success = json_ld_eq(&result_json, &output);
 
-	assert_eq!(result, expected)
+	if !success {{
+		println!(\"output=\n{{}}\", result_json.pretty(2));
+		println!(\"\nexpected=\n{{}}\", output.pretty(2));
+	}}
+
+	assert!(success)
 }}
 ");
 
@@ -206,6 +224,19 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 
 	let func_name = func_name(url.path().file_name().unwrap());
 
+	for option in entry.get(OPTION) {
+		if let Object::Node(option, _) = option {
+			for spec_version in option.get(SPEC_VERSION) {
+				if let Some(spec_version) = spec_version.as_str() {
+					if spec_version != "json-ld-1.1" {
+						info!("skipping {} test {}", spec_version, url);
+						return
+					}
+				}
+			}
+		}
+	}
+
 	if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::PositiveEvalTest)))) {
 		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
 
@@ -229,12 +260,11 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 		println!("#[test]
 fn {}() {{
 	let input_url = iri!(\"{}\");
-	let output_url = iri!(\"{}\");
 	println!(\"{}\");{}
-	positive_test(input_url, \"{}\", output_url, \"{}\")
+	positive_test(input_url, \"{}\", \"{}\")
 }}
 ",
-			func_name, url, output_url, name, comments, input_filename.to_str().unwrap(), output_filename.to_str().unwrap()
+			func_name, url, name, comments, input_filename.to_str().unwrap(), output_filename.to_str().unwrap()
 		);
 	} else if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::NegativeEvalTest)))) {
 		warn!("ignoring negative example {}", url);

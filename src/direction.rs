@@ -1,5 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
+use json::JsonValue;
+use crate::AsJson;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Direction {
@@ -24,6 +26,15 @@ impl fmt::Display for Direction {
 		match self {
 			Direction::Ltr => write!(f, "ltr"),
 			Direction::Rtl => write!(f, "rtl")
+		}
+	}
+}
+
+impl AsJson for Direction {
+	fn as_json(&self) -> JsonValue {
+		match self {
+			Direction::Ltr => "ltr".into(),
+			Direction::Rtl => "rtl".into()
 		}
 	}
 }
