@@ -1,3 +1,4 @@
+mod expanded;
 mod iri;
 mod literal;
 mod value;
@@ -5,6 +6,7 @@ mod node;
 mod array;
 mod element;
 
+use std::cmp::{Ord, Ordering};
 use std::collections::HashSet;
 use futures::Future;
 use iref::{Iri, IriBuf};
@@ -12,6 +14,7 @@ use json::JsonValue;
 use crate::{Id, Object};
 use crate::context::{MutableActiveContext, ContextLoader, ContextProcessingError};
 
+pub use expanded::*;
 pub use iri::*;
 pub use literal::*;
 pub use value::*;
@@ -37,7 +40,8 @@ pub enum ExpansionError {
 	InvalidLanguageMapValue,
 	InvalidIndexValue,
 	InvalidReverseValue,
-	InvalidReversePropertyValue
+	InvalidReversePropertyValue,
+	InvalidNestValue
 }
 
 impl From<ContextProcessingError> for ExpansionError {
@@ -45,8 +49,6 @@ impl From<ContextProcessingError> for ExpansionError {
 		ExpansionError::ContextProcessing(e)
 	}
 }
-
-use std::cmp::{Ord, Ordering};
 
 #[derive(PartialEq, Eq)]
 pub struct Entry<'a, T>(T, &'a JsonValue);
@@ -76,23 +78,20 @@ pub fn expand<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 
 	async move {
 		let base_url = base_url.as_ref().map(|url| url.as_iri());
-		if let Some(expanded) = expand_element(active_context, active_property, element, base_url, loader, false, false).await? {
-			if expanded.len() == 1 {
-				match expanded.into_iter().next().unwrap().into_unnamed_graph() {
-					Ok(graph) => Ok(graph),
-					Err(obj) => {
-						let mut set = HashSet::new();
-						if filter_top_level_item(&obj) {
-							set.insert(obj);
-						}
-						Ok(set)
+		let expanded = expand_element(active_context, active_property, element, base_url, loader, false, false).await?;
+		if expanded.len() == 1 {
+			match expanded.into_iter().next().unwrap().into_unnamed_graph() {
+				Ok(graph) => Ok(graph),
+				Err(obj) => {
+					let mut set = HashSet::new();
+					if filter_top_level_item(&obj) {
+						set.insert(obj);
 					}
+					Ok(set)
 				}
-			} else {
-				Ok(expanded.into_iter().filter(filter_top_level_item).collect())
 			}
 		} else {
-			Ok(HashSet::new())
+			Ok(expanded.into_iter().filter(filter_top_level_item).collect())
 		}
 	}
 }

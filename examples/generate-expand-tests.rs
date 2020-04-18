@@ -44,6 +44,8 @@ const VOCAB_NEGATIVE_EVAL_TEST: Iri<'static> = iri!("https://w3c.github.io/json-
 
 const VOCAB_OPTION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#option");
 const VOCAB_SPEC_VERSION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#specVersion");
+const VOCAB_EXPAND_CONTEXT: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#expandContext");
+const VOCAB_BASE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#base");
 
 /// Vocabulary of the test manifest
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -56,13 +58,16 @@ pub enum Vocab {
 	NegativeEvalTest,
 	Comment,
 	Option,
-	SpecVersion
+	SpecVersion,
+	ExpandContext,
+	Base
 }
 
 impl json_ld::Vocab for Vocab {
 	fn from_iri(iri: Iri) -> Option<Vocab> {
 		use Vocab::*;
 		match iri {
+			_ if iri == RDFS_COMMENT => Some(Comment),
 			_ if iri == MF_NAME => Some(Name),
 			_ if iri == MF_ENTRIES => Some(Entries),
 			_ if iri == MF_ACTION => Some(Action),
@@ -71,7 +76,8 @@ impl json_ld::Vocab for Vocab {
 			_ if iri == VOCAB_NEGATIVE_EVAL_TEST => Some(NegativeEvalTest),
 			_ if iri == VOCAB_OPTION => Some(Option),
 			_ if iri == VOCAB_SPEC_VERSION => Some(SpecVersion),
-			_ if iri == RDFS_COMMENT => Some(Comment),
+			_ if iri == VOCAB_EXPAND_CONTEXT => Some(ExpandContext),
+			_ if iri == VOCAB_BASE => Some(Base),
 			_ => None
 		}
 	}
@@ -79,6 +85,7 @@ impl json_ld::Vocab for Vocab {
 	fn iri(&self) -> Iri {
 		use Vocab::*;
 		match self {
+			Comment => RDFS_COMMENT,
 			Name => MF_NAME,
 			Entries => MF_ENTRIES,
 			Action => MF_ACTION,
@@ -87,13 +94,15 @@ impl json_ld::Vocab for Vocab {
 			NegativeEvalTest => VOCAB_NEGATIVE_EVAL_TEST,
 			Option => VOCAB_OPTION,
 			SpecVersion => VOCAB_SPEC_VERSION,
-			Comment => RDFS_COMMENT
+			ExpandContext => VOCAB_EXPAND_CONTEXT,
+			Base => VOCAB_BASE
 		}
 	}
 }
 
 pub type Id = VocabId<Vocab>;
 
+const COMMENT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Comment));
 const NAME: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Name));
 const ENTRIES: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Entries));
 const ACTION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Action));
@@ -102,7 +111,8 @@ const RESULT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Result));
 // const NEGATIVE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::NegativeEvalTest));
 const OPTION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Option));
 const SPEC_VERSION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::SpecVersion));
-const COMMENT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Comment));
+const EXPAND_CONTEXT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::ExpandContext));
+const BASE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Base));
 
 fn main() {
 	let destination = std::env::args().nth(1).expect("no destination given");
@@ -122,58 +132,7 @@ fn main() {
 	let expanded_doc = runtime.block_on(json_ld::expand(&active_context, None, &doc, Some(url), &mut loader))
 		.expect("expansion failed");
 
-	println!("#![feature(proc_macro_hygiene)]
-
-extern crate tokio;
-extern crate iref;
-#[macro_use]
-extern crate static_iref;
-extern crate json_ld;
-
-use std::fs::File;
-use std::io::{{Read, BufReader}};
-use tokio::runtime::Runtime;
-use iref::{{Iri, IriBuf}};
-use json_ld::{{
-	context::{{
-		ActiveContext,
-		JsonLdContextLoader,
-		Context,
-	}},
-	AsJson,
-	json_ld_eq
-}};
-
-fn positive_test(input_url: Iri, input_filename: &str, output_filename: &str) {{
-	let mut runtime = Runtime::new().unwrap();
-	let mut loader = JsonLdContextLoader::new();
-
-	let input_file = File::open(input_filename).unwrap();
-	let mut input_buffer = BufReader::new(input_file);
-	let mut input_text = String::new();
-	input_buffer.read_to_string(&mut input_text).unwrap();
-	let input = json::parse(input_text.as_str()).unwrap();
-
-	let output_file = File::open(output_filename).unwrap();
-	let mut output_buffer = BufReader::new(output_file);
-	let mut output_text = String::new();
-	output_buffer.read_to_string(&mut output_text).unwrap();
-	let output = json::parse(output_text.as_str()).unwrap();
-
-	let input_context: Context<IriBuf> = Context::new(input_url, input_url);
-	let result = runtime.block_on(json_ld::expand(&input_context, None, &input, Some(input_url), &mut loader)).unwrap();
-
-	let result_json = result.as_json();
-	let success = json_ld_eq(&result_json, &output);
-
-	if !success {{
-		println!(\"output=\n{{}}\", result_json.pretty(2));
-		println!(\"\nexpected=\n{{}}\", output.pretty(2));
-	}}
-
-	assert!(success)
-}}
-");
+	println!(include_str!("template/header.rs"));
 
 	for item in &expanded_doc {
 		// println!("{}", PrettyPrint::new(item));
@@ -206,23 +165,31 @@ fn func_name(id: &str) -> String {
 	name
 }
 
-fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
-	let name = entry.get(NAME).next().unwrap().as_str().unwrap();
-	let url = entry.get(ACTION).next().unwrap().as_iri().unwrap();
+/// Download a JSON-LD document and return its local filename.
+fn load_file(target: &Path, runtime: &mut Runtime, url: Iri) -> PathBuf {
+	let mut filename: PathBuf = target.into();
+	filename.push(url.path().file_name().unwrap());
 
-	let mut input_filename: PathBuf = target.into();
-	input_filename.push(url.path().file_name().unwrap());
-
-	if !input_filename.exists() {
+	if !filename.exists() {
 		let doc = runtime.block_on(load_remote_json_ld_document(url))
-			.expect("unable to load test document");
+			.expect("unable to load context document");
 
-		info!("writing to {}", input_filename.to_str().unwrap());
-		let mut input_file = File::create(&input_filename).unwrap();
-		input_file.write_all(doc.pretty(2).as_bytes()).unwrap();
+		info!("writing to {}", filename.to_str().unwrap());
+		let mut file = File::create(&filename).unwrap();
+		file.write_all(doc.pretty(2).as_bytes()).unwrap();
 	}
 
+	filename
+}
+
+fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
+	let name = entry.get(NAME).next().unwrap().as_str().unwrap();
+	let mut url = entry.get(ACTION).next().unwrap().as_iri().unwrap();
+
+	let input_filename = load_file(target, runtime, url);
 	let func_name = func_name(url.path().file_name().unwrap());
+
+	let mut context_filename = "None".to_string();
 
 	for option in entry.get(OPTION) {
 		if let Object::Node(option, _) = option {
@@ -234,37 +201,40 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 					}
 				}
 			}
+
+			for expand_context in option.get(EXPAND_CONTEXT) {
+				if let Some(context_url) = expand_context.as_iri() {
+					context_filename = format!("Some(\"{}\")", load_file(target, runtime, context_url).to_str().unwrap())
+				}
+			}
+
+			for base in option.get(BASE) {
+				if let Some(base_url) = base.as_iri() {
+					url = base_url
+				}
+			}
 		}
 	}
 
 	if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::PositiveEvalTest)))) {
 		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
 
-		let mut output_filename: PathBuf = target.into();
-		output_filename.push(output_url.path().file_name().unwrap());
-
-		if !output_filename.exists() {
-			let output_doc = runtime.block_on(load_remote_json_ld_document(output_url))
-				.expect("unable to load result document");
-
-			info!("writing to {}", output_filename.to_str().unwrap());
-			let mut output_file = File::create(&output_filename).unwrap();
-			output_file.write_all(output_doc.pretty(2).as_bytes()).unwrap();
-		}
+		let output_filename = load_file(target, runtime, output_url);
 
 		let mut comments = String::new();
 		for comment in entry.get(COMMENT) {
 			comments += format!("\n\tprintln!(\"{}\");", comment.as_str().unwrap()).as_str()
 		}
 
-		println!("#[test]
-fn {}() {{
-	let input_url = iri!(\"{}\");
-	println!(\"{}\");{}
-	positive_test(input_url, \"{}\", \"{}\")
-}}
-",
-			func_name, url, name, comments, input_filename.to_str().unwrap(), output_filename.to_str().unwrap()
+		println!(
+			include_str!("template/positive.rs"),
+			func_name,
+			url,
+			name,
+			comments,
+			context_filename,
+			input_filename.to_str().unwrap(),
+			output_filename.to_str().unwrap()
 		);
 	} else if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::NegativeEvalTest)))) {
 		warn!("ignoring negative example {}", url);

@@ -5,6 +5,7 @@ use crate::{Id, Keyword, Property, BlankId, AsJson};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Key<T: Id> {
+	Null,
 	Prop(Property<T>),
 	Keyword(Keyword),
 	Unknown(String)
@@ -15,7 +16,8 @@ impl<T: Id> Key<T> {
 		match self {
 			Key::Prop(p) => p.as_str(),
 			Key::Keyword(k) => k.into_str(),
-			Key::Unknown(u) => u.as_str()
+			Key::Unknown(u) => u.as_str(),
+			Key::Null => ""
 		}
 	}
 
@@ -30,7 +32,7 @@ impl<T: Id> Key<T> {
 		match self {
 			Key::Prop(p) => p.iri(),
 			Key::Keyword(k) => k.iri(),
-			Key::Unknown(_) => None
+			_ => None
 		}
 	}
 
@@ -72,7 +74,8 @@ impl<T: Id> fmt::Display for Key<T> {
 		match self {
 			Key::Prop(p) => p.fmt(f),
 			Key::Keyword(kw) => kw.into_str().fmt(f),
-			Key::Unknown(u) => u.fmt(f)
+			Key::Unknown(u) => u.fmt(f),
+			Key::Null => write!(f, "null")
 		}
 	}
 }
@@ -82,7 +85,8 @@ impl<T: Id> AsJson for Key<T> {
 		match self {
 			Key::Prop(p) => p.as_str().into(),
 			Key::Keyword(kw) => kw.into_str().into(),
-			Key::Unknown(u) => u.as_str().into()
+			Key::Unknown(u) => u.as_str().into(),
+			Key::Null => JsonValue::Null
 		}
 	}
 }

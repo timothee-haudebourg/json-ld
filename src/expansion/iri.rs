@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use iref::{Iri, IriRef};
-use crate::{Keyword, BlankId, Id, Key, context::ActiveContext};
+use crate::{Keyword, BlankId, Id, Key, context::ActiveContext, is_keyword_like};
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
 pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Key<T> {
@@ -9,7 +9,9 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 	} else {
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
-		// TODO
+		if is_keyword_like(value) {
+			return Key::Null
+		}
 
 		if let Some(term_definition) = active_context.get(value) {
 			// If active context has a term definition for value, and the associated IRI mapping

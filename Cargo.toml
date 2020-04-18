@@ -14,5 +14,5 @@ futures = "0.3"
 static-iref = "*"
 
 [dev-dependencies]
-tokio = "*"
 stderrlog = "*"
+tokio = "*"

@@ -74,6 +74,7 @@ pub enum ContextProcessingError {
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
 	/// Load a local context.
 	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>> {
+		// println!("processing context ({}): {}", base_url.unwrap(), self.pretty(2));
 		process_context(active_context, self, loader, base_url, is_remote, override_protected, propagate)
 	}
 
@@ -174,6 +175,8 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 
 				// 5.2) If context is a string,
 				JsonValue::String(_) | JsonValue::Short(_) => {
+					println!("processing string context {}", context.as_str().unwrap());
+
 					// Initialize `context` to the result of resolving context against base URL.
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
@@ -203,8 +206,10 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// If the document has no top-level map with an @context entry, an invalid remote
 					// context has been detected and processing is aborted.
 					// Set loaded context to the value of that entry.
+					println!("loading {}", context.as_iri());
 					let context_document = remote_contexts.load(context.as_iri()).await?;
 					let loaded_context = context_document.context();
+
 
 					// Set result to the result of recursively calling this algorithm, passing result
 					// for active context, loaded context for local context, the documentUrl of context
@@ -532,7 +537,8 @@ fn is_valid_type<T: Id>(t: &Key<T>) -> bool {
 			}
 		},
 		Key::Prop(_) => true,
-		Key::Unknown(_) => false
+		Key::Unknown(_) => false,
+		Key::Null => false
 	}
 }
 
@@ -554,7 +560,8 @@ fn is_gen_delim_or_blank<T: Id>(t: &Key<T>) -> bool {
 				false
 			}
 		},
-		Key::Unknown(_) => false
+		Key::Unknown(_) => false,
+		Key::Null => false
 	}
 }
 
@@ -662,6 +669,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							JsonObjectRef::Borrowed(value)
 						},
 						_ => {
+							// panic!("{} (line {}): invalid term definition", file!(), line!());
 							return Err(ContextProcessingError::InvalidTermDefinition)
 						}
 					};
@@ -1010,6 +1018,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// is aborted.
 						// TODO json-ld-1.0
 						if !definition.container.contains(ContainerType::Index) {
+							// panic!("{} (line {}): invalid term definition", file!(), line!());
 							return Err(ContextProcessingError::InvalidTermDefinition)
 						}
 
@@ -1020,11 +1029,15 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						if let Some(index) = index_value.as_str() {
 							match expansion::expand_iri(active_context, index, false, true) {
 								Key::Prop(Property::Id(_)) => (),
-								_ => return Err(ContextProcessingError::InvalidTermDefinition)
+								_ => {
+									// panic!("{} (line {}): invalid term definition", file!(), line!());
+									return Err(ContextProcessingError::InvalidTermDefinition)
+								}
 							}
 
 							definition.index = Some(index.to_string())
 						} else {
+							// panic!("{} (line {}): invalid term definition", file!(), line!());
 							return Err(ContextProcessingError::InvalidTermDefinition)
 						}
 					}
@@ -1047,6 +1060,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// 	// detected and processing is aborted.
 						// 	return Err(ContextProcessingError::InvalidScopedContext)
 						// }
+						// TODO
 
 						// Set the local context of definition to context, and base URL to base URL.
 						definition.context = Some(context.clone().into());
@@ -1126,6 +1140,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// is aborted.
 						if term.contains(':') || term.contains('/') {
 							// TODO json-ld-1.0
+							// panic!("{} (line {}): invalid term definition", file!(), line!());
 							return Err(ContextProcessingError::InvalidTermDefinition)
 						}
 
@@ -1136,6 +1151,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						if let Some(prefix) = prefix_value.as_bool() {
 							definition.prefix = prefix
 						} else {
+							// panic!("{} (line {}): invalid term definition", file!(), line!());
 							return Err(ContextProcessingError::InvalidPrefixValue)
 						}
 
@@ -1143,17 +1159,21 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// mapping is a keyword, an invalid term definition has been detected and
 						// processing is aborted.
 						if definition.prefix && definition.value.as_ref().unwrap().is_keyword() {
+							// panic!("{} (line {}): invalid term definition", file!(), line!());
 							return Err(ContextProcessingError::InvalidTermDefinition)
 						}
 					}
 
-					// If the value contains any entry other than @id, @reverse,
-					// @container, @context, @language, @nest, @prefix, or @type, an
-					// invalid term definition error has been detected.
+					// If value contains any entry other than @id, @reverse, @container, @context,
+					// @direction, @index, @language, @nest, @prefix, @protected, or @type, an
+					// invalid term definition error has been detected and processing is aborted.
 					for (key, _) in value.iter() {
 						match key {
-							"@id" | "@reverse" | "@container" | "@context" | "@language" | "@nest" | "@prefix" | "@type" => (),
-							_ => return Err(ContextProcessingError::InvalidTermDefinition)
+							"@id" | "@reverse" | "@container" | "@context" | "@direction" | "@index" | "@language" | "@nest" | "@prefix" | "@type" => (),
+							_ => {
+								// panic!("{} (line {}): invalid term definition", file!(), line!());
+								return Err(ContextProcessingError::InvalidTermDefinition)
+							}
 						}
 					}
 

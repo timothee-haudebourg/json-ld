@@ -209,11 +209,15 @@ fn is_alpha(c: char) -> bool {
 }
 
 pub fn is_keyword_like(str: &str) -> bool {
-	for (i, c) in str.chars().enumerate() {
-		if (i == 0 && c != '@') || (i > 0 && !is_alpha(c)) {
-			return false
+	if str.len() > 1 {
+		for (i, c) in str.chars().enumerate() {
+			if (i == 0 && c != '@') || (i > 0 && !is_alpha(c)) {
+				return false
+			}
 		}
-	}
 
-	true
+		true
+	} else {
+		false
+	}
 }

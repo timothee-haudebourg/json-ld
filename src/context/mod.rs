@@ -243,7 +243,11 @@ impl<T: Id> MutableActiveContext<T> for Context<T> {
 
 	fn set_base_iri(&mut self, iri: Option<Iri>) {
 		self.base_iri = match iri {
-			Some(iri) => Some(iri.into()),
+			Some(iri) => {
+				let mut iri_buf: IriBuf = iri.into();
+				iri_buf.path_mut().normalize();
+				Some(iri_buf)
+			},
 			None => None
 		}
 	}

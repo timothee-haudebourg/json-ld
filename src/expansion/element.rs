@@ -5,15 +5,15 @@ use json::JsonValue;
 use crate::{Keyword, as_array, Id, Key, Value, Object};
 use crate::context::{MutableActiveContext, LocalContext, ContextLoader};
 
-use super::{ExpansionError, Entry, expand_literal, expand_array, expand_value, expand_node, expand_iri};
+use super::{ExpansionError, Expanded, Entry, expand_literal, expand_array, expand_value, expand_node, expand_iri};
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, ordered: bool, from_map: bool) -> LocalBoxFuture<'a, Result<Option<Vec<Object<T>>>, ExpansionError>> where C::LocalContext: From<JsonValue> {
+pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, ordered: bool, from_map: bool) -> LocalBoxFuture<'a, Result<Expanded<T>, ExpansionError>> where C::LocalContext: From<JsonValue> {
 	async move {
 		// If `element` is null, return null.
 		if element.is_null() {
-			return Ok(None)
+			return Ok(Expanded::Null)
 		}
 
 		let active_property_definition = active_context.get_opt(active_property);
@@ -25,7 +25,12 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 
 		// If `active_property` has a term definition in `active_context` with a local context,
 		// initialize property-scoped context to that local context.
+		let mut property_scoped_base_url = None;
 		let property_scoped_context = if let Some(definition) = active_property_definition {
+			if let Some(base_url) = &definition.base_url {
+				property_scoped_base_url = Some(base_url.as_iri());
+			}
+
 			definition.context.as_ref()
 		} else {
 			None
@@ -34,7 +39,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 		match element {
 			JsonValue::Null => unreachable!(),
 			JsonValue::Array(element) => {
-				return Ok(Some(expand_array(active_context, active_property, active_property_definition, element, base_url, loader, ordered, from_map).await?))
+				expand_array(active_context, active_property, active_property_definition, element, base_url, loader, ordered, from_map).await
 			},
 
 			JsonValue::Object(element) => {
@@ -84,7 +89,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				// definition for `active_property`, in `active_context` and `true` for
 				// `override_protected`.
 				if let Some(property_scoped_context) = property_scoped_context {
-					active_context = Mown::Owned(property_scoped_context.process(active_context.as_ref(), loader, base_url, false, true, true).await?);
+					active_context = Mown::Owned(property_scoped_context.process(active_context.as_ref(), loader, property_scoped_base_url, false, true, true).await?);
 				}
 
 				// If `element` contains the entry `@context`, set `active_context` to the result
@@ -94,33 +99,15 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					active_context = Mown::Owned(local_context.process(active_context.as_ref(), loader, base_url, false, false, true).await?);
 				}
 
-				let mut expanded_entries = Vec::with_capacity(element.len());
 				let mut type_entries = Vec::new();
-				let mut list_entry = None;
-				let mut set_entry = None;
-				value_entry = None;
 				for Entry(key, value) in entries.iter() {
 					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
 					match &expanded_key {
-						Key::Unknown(_) => {
-							warn!("failed to expand key `{}`", key)
-						},
-						Key::Keyword(Keyword::Value) => {
-							value_entry = Some(value)
-						},
-						Key::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
-							list_entry = Some(value)
-						},
-						Key::Keyword(Keyword::Set) => {
-							set_entry = Some(value)
-						},
 						Key::Keyword(Keyword::Type) => {
 							type_entries.push(Entry(key, value));
 						},
 						_ => ()
 					}
-
-					expanded_entries.push(Entry((*key, expanded_key), value))
 				}
 
 				type_entries.sort();
@@ -180,6 +167,31 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					None
 				};
 
+				let mut expanded_entries = Vec::with_capacity(element.len());
+				let mut list_entry = None;
+				let mut set_entry = None;
+				value_entry = None;
+				for Entry(key, value) in entries.iter() {
+					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
+					match &expanded_key {
+						Key::Unknown(_) => {
+							warn!("failed to expand key `{}`", key)
+						},
+						Key::Keyword(Keyword::Value) => {
+							value_entry = Some(value)
+						},
+						Key::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
+							list_entry = Some(value)
+						},
+						Key::Keyword(Keyword::Set) => {
+							set_entry = Some(value)
+						},
+						_ => ()
+					}
+
+					expanded_entries.push(Entry((*key, expanded_key), value))
+				}
+
 				if let Some(list_entry) = list_entry {
 					for Entry((_, expanded_key), _) in expanded_entries {
 						match expanded_key {
@@ -197,13 +209,12 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// recursively passing active context, active property, value for element,
 					// base URL, and the frameExpansion and ordered flags, ensuring that the
 					// result is an array..
-					let result = if let Some(expanded_value) = expand_element(active_context.as_ref(), active_property, list_entry, base_url, loader, ordered, false).await? {
-						Some(vec![Value::List(expanded_value).into()])
-					} else {
-						None
-					};
+					let mut result = Vec::new();
+					for item in as_array(list_entry) {
+						result.extend(expand_element(active_context.as_ref(), active_property, item, base_url, loader, ordered, false).await?)
+					}
 
-					return Ok(result)
+					Ok(Expanded::Object(Value::List(result).into()))
 				} else if let Some(set_entry) = set_entry {
 					for Entry((_, expanded_key), _) in expanded_entries {
 						match expanded_key {
@@ -220,24 +231,18 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// set expanded value to the result of using this algorithm recursively,
 					// passing active context, active property, value for element, base URL, and
 					// the frameExpansion and ordered flags.
-					let result = if let Some(expanded_value) = expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, ordered, false).await? {
-						Some(expanded_value)
-					} else {
-						Some(vec![])
-					};
-
-					return Ok(result)
+					expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, ordered, false).await
 				} else if let Some(value_entry) = value_entry {
 					if let Some(value) = expand_value(input_type, type_scoped_context, expanded_entries, value_entry)? {
-						return Ok(Some(vec![value]))
+						Ok(Expanded::Object(value.into()))
 					} else {
-						return Ok(None)
+						Ok(Expanded::Null)
 					}
 				} else {
 					if let Some((result, result_data)) = expand_node(active_context.as_ref(), type_scoped_context, active_property, expanded_entries, base_url, loader, ordered).await? {
-						return Ok(Some(vec![Object::Node(result, result_data)]))
+						Ok(Expanded::Object(Object::Node(result, result_data)))
 					} else {
-						return Ok(None)
+						Ok(Expanded::Null)
 					}
 				}
 			},
@@ -247,7 +252,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				// If `active_property` is `null` or `@graph`, drop the free-floating scalar by
 				// returning null.
 				if active_property.is_none() || active_property == Some("@graph") {
-					return Ok(None)
+					return Ok(Expanded::Null)
 				}
 
 				// If `property_scoped_context` is defined, set `active_context` to the result of the
@@ -274,9 +279,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 
 				// Return the result of the Value Expansion algorithm, passing the `active_context`,
 				// `active_property`, and `element` as value.
-				let mut result = Vec::new();
-				result.push(expand_literal(active_context.as_ref(), active_property, element)?);
-				return Ok(Some(result))
+				return Ok(Expanded::Object(expand_literal(active_context.as_ref(), active_property, element)?))
 			}
 		}
 	}.boxed_local()

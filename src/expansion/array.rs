@@ -1,11 +1,11 @@
 use iref::Iri;
 use json::JsonValue;
-use crate::{ContainerType, Id, Value, Object};
+use crate::{ContainerType, Id, Value};
 use crate::context::{MutableActiveContext, ContextLoader, TermDefinition};
 
-use super::{ExpansionError, expand_element};
+use super::{ExpansionError, Expanded, expand_element};
 
-pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, active_property: Option<&str>, active_property_definition: Option<&TermDefinition<T, C>>, element: &[JsonValue], base_url: Option<Iri<'_>>, loader: &mut L, ordered: bool, from_map: bool) -> Result<Vec<Object<T>>, ExpansionError> where C::LocalContext: From<JsonValue> {
+pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, active_property: Option<&str>, active_property_definition: Option<&TermDefinition<T, C>>, element: &[JsonValue], base_url: Option<Iri<'_>>, loader: &mut L, ordered: bool, from_map: bool) -> Result<Expanded<T>, ExpansionError> where C::LocalContext: From<JsonValue> {
 	// Initialize an empty array, result.
 	let mut is_list = false;
 	let mut result = Vec::new();
@@ -22,18 +22,14 @@ pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 		// Initialize `expanded_item` to the result of using this algorithm
 		// recursively, passing `active_context`, `active_property`, `item` as element,
 		// `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
-		if let Some(expanded_items) = expand_element(active_context, active_property, item, base_url, loader, ordered, from_map).await? {
-			if is_list && expanded_items.len() > 1 {
-				result.push(Value::List(expanded_items).into());
-			} else {
-				// If `expanded_item` is an array, append each of its items to result.
-				for item in expanded_items {
-					result.push(item)
-				}
-			}
-		}
+		result.extend(expand_element(active_context, active_property, item, base_url, loader, ordered, from_map).await?);
+	}
+
+	if is_list {
+		println!("list container");
+		return Ok(Expanded::Object(Value::List(result).into()))
 	}
 
 	// Return result.
-	return Ok(result)
+	return Ok(Expanded::Array(result))
 }

@@ -56,7 +56,9 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 					// processors SHOULD issue a warning.
 					// TODO warning.
 
-					language = Some(value);
+					if value != "@none" {
+						language = Some(value);
+					}
 				} else {
 					return Err(ExpansionError::InvalidLanguageTaggedString)
 				}

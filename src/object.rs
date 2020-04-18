@@ -185,6 +185,10 @@ impl<T: Id> AsJson for Object<T> {
 					obj.insert(Keyword::Graph.into(), graph.as_json())
 				}
 
+				if let Some(included) = &node.included {
+					obj.insert(Keyword::Included.into(), included.as_json())
+				}
+
 				data.add_to_json(&mut obj);
 
 				if !node.reverse_properties.is_empty() {
