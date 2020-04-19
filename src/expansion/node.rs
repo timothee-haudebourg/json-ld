@@ -3,12 +3,11 @@ use futures::future::{LocalBoxFuture, FutureExt};
 use mown::Mown;
 use iref::Iri;
 use json::JsonValue;
-use crate::{Keyword, Container, ContainerType, as_array, Id, Key, Node, Value, Literal, Object, ObjectData};
+use crate::{Error, ErrorCode, Keyword, Container, ContainerType, as_array, Id, Key, Node, Value, Literal, Object, ObjectData};
 use crate::context::{MutableActiveContext, LocalContext, ContextLoader};
+use super::{Expanded, Entry, expand_element, expand_literal, expand_iri, filter_top_level_item};
 
-use super::{ExpansionError, Expanded, Entry, expand_element, expand_literal, expand_iri, filter_top_level_item};
-
-pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Key<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, ordered: bool) -> Result<Option<(Node<T>, ObjectData)>, ExpansionError> where C::LocalContext: From<JsonValue> {
+pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Key<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, ordered: bool) -> Result<Option<(Node<T>, ObjectData)>, Error> where C::LocalContext: From<JsonValue> {
 	// Initialize two empty maps, `result` and `nests`.
 	let mut result: Node<T> = Node::new();
 	let mut result_data = ObjectData::new();
@@ -48,7 +47,7 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 	Ok(Some((result, result_data)))
 }
 
-fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(result: &'a mut Node<T>, result_data: &'a mut ObjectData, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Key<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, ordered: bool) -> LocalBoxFuture<'a, Result<(), ExpansionError>> where C::LocalContext: From<JsonValue> {
+fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(result: &'a mut Node<T>, result_data: &'a mut ObjectData, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Key<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, ordered: bool) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
 	async move {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:
@@ -69,7 +68,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
 					if active_property == Some("@reverse") {
-						return Err(ExpansionError::InvalidReverseProperty)
+						return Err(ErrorCode::InvalidReverseProperty.into())
 					}
 
 					// If `result` already has an `expanded_property` entry, other than
@@ -79,7 +78,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					if let Some(expanded_property) = result.expanded_property.as_ref() {
 						if *expanded_property != Key::Keyword(Keyword::Included) && *expanded_property != Key::Keyword(Keyword::Type) {
 							// TODO json-ld-1.0
-							return Err(ExpansionError::CollidingKeywords)
+							return Err(ErrorCode::CollidingKeywords.into())
 						}
 					}
 
@@ -94,7 +93,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 								// false for vocab.
 								result.id = Some(expand_iri(active_context, value, true, false))
 							} else {
-								return Err(ExpansionError::InvalidIdValue)
+								return Err(ErrorCode::InvalidIdValue.into())
 							}
 						},
 						// If expanded property is @type:
@@ -110,7 +109,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 								if let Some(ty) = ty.as_str() {
 									result.types.push(expand_iri(type_scoped_context, ty, true, true))
 								} else {
-									return Err(ExpansionError::InvalidTypeValue)
+									return Err(ErrorCode::InvalidTypeValue.into())
 								}
 							}
 						},
@@ -156,8 +155,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							} else {
 								// If value is not a string, an invalid @index value
 								// error has been detected and processing is aborted.
-								panic!("invalid index value");
-								return Err(ExpansionError::InvalidIndexValue)
+								return Err(ErrorCode::InvalidIndexValue.into())
 							}
 						},
 						// If expanded property is @reverse:
@@ -177,7 +175,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 								for Entry(reverse_key, reverse_value) in reverse_entries {
 									match expand_iri(active_context, reverse_key, false, true) {
 										Key::Keyword(_) => {
-											return Err(ExpansionError::InvalidReverseProperty)
+											return Err(ErrorCode::InvalidReverseProperty.into())
 										},
 										Key::Prop(reverse_prop) => {
 											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, ordered, false).await?;
@@ -198,7 +196,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 									}
 								}
 							} else {
-								return Err(ExpansionError::InvalidReverseValue)
+								return Err(ErrorCode::InvalidReverseValue.into())
 							}
 						},
 						// If expanded property is @nest
@@ -222,12 +220,12 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 
 									expand_node_entries(result, result_data, has_value_object_entries, active_context, type_scoped_context, active_property, nested_expanded_entries.collect(), base_url, loader, ordered).await?
 								} else {
-									return Err(ExpansionError::InvalidNestValue)
+									return Err(ErrorCode::InvalidNestValue.into())
 								}
 							}
 						},
 						Keyword::Value => {
-							return Err(ExpansionError::InvalidNestValue)
+							return Err(ErrorCode::InvalidNestValue.into())
 						}
 						// When the frameExpansion flag is set, if expanded property is any
 						// other framing keyword (@default, @embed, @explicit,
@@ -335,7 +333,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// item must be a string, otherwise an
 										// invalid language map value error has
 										// been detected and processing is aborted.
-										return Err(ExpansionError::InvalidLanguageMapValue)
+										return Err(ErrorCode::InvalidLanguageMapValue.into())
 									}
 								}
 							}
@@ -452,7 +450,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// 	data
 										// } else {
 										// 	panic!("invalid index value");
-										// 	return Err(ExpansionError::InvalidIndexValue)
+										// 	return Err(ErrorCode::InvalidIndexValue.into())
 										// };
 
 										// Initialize expanded index key to the result
@@ -477,7 +475,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 											// contain any extra properties; an invalid
 											// value object error has been detected and
 											// processing is aborted.
-											return Err(ExpansionError::InvalidValueObject)
+											return Err(ErrorCode::InvalidValueObject.into())
 										}
 									} else if container_mapping.contains(ContainerType::Index) && item.data().index.is_none() {
 										// Otherwise, if container mapping includes
@@ -554,7 +552,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// We must filter out anything that is not an object.
 							for value in &expanded_value {
 								match value {
-									Object::Value(_, _) => return Err(ExpansionError::InvalidReversePropertyValue),
+									Object::Value(_, _) => return Err(ErrorCode::InvalidReversePropertyValue.into()),
 									_ => ()
 								}
 							}

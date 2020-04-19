@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use json::JsonValue;
-use crate::{Keyword, Direction, Id, Key, Object, Node, Value, Literal};
+use crate::{Error, Keyword, Direction, Id, Key, Object, Node, Value, Literal};
 use crate::context::{ActiveContext};
-use super::{ExpansionError, expand_iri};
+use super::expand_iri;
 
 fn clone_default_language<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<String> {
 	match active_context.default_language() {
@@ -19,7 +19,7 @@ fn clone_default_base_direction<T: Id, C: ActiveContext<T>>(active_context: &C) 
 }
 
 /// https://www.w3.org/TR/json-ld11-api/#value-expansion
-pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_property: Option<&str>, value: &JsonValue) -> Result<Object<T>, ExpansionError> {
+pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_property: Option<&str>, value: &JsonValue) -> Result<Object<T>, Error> {
 	let active_property_definition = active_context.get_opt(active_property);
 
 	let active_property_type = if let Some(active_property_definition) = active_property_definition {

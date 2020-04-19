@@ -3,7 +3,7 @@ use std::future::Future;
 use futures::future::FutureExt;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use super::ContextProcessingError;
+use crate::{Error, ErrorCode};
 
 pub struct RemoteContext<C> {
 	url: IriBuf,
@@ -28,23 +28,12 @@ impl<C> RemoteContext<C> {
 }
 
 pub trait ContextLoader<C> {
-	fn load<'a>(&'a self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<C>, ContextProcessingError>>>>;
+	fn load<'a>(&'a self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<C>, Error>>>>;
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum JsonLdLoadError {
-	LoadingFailed
-}
-
-impl From<reqwest::Error> for JsonLdLoadError {
-	fn from(_e: reqwest::Error) -> JsonLdLoadError {
-		JsonLdLoadError::LoadingFailed
-	}
-}
-
-impl From<JsonLdLoadError> for ContextProcessingError {
-	fn from(_e: JsonLdLoadError) -> ContextProcessingError {
-		ContextProcessingError::LoadingRemoteContextFailed
+impl From<reqwest::Error> for Error {
+	fn from(e: reqwest::Error) -> Error {
+		Error::new(ErrorCode::LoadingDocumentFailed, e)
 	}
 }
 
@@ -52,7 +41,7 @@ pub fn is_json_media_type(ty: &str) -> bool {
 	ty == "application/json" || ty == "application/ld+json"
 }
 
-pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<JsonValue, JsonLdLoadError> {
+pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<JsonValue, Error> {
 	info!("loading remote document `{}'", url);
 	use reqwest::header::*;
 
@@ -78,16 +67,16 @@ pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<JsonValue, Jso
 	}
 }
 
-pub async fn load_remote_json_ld_context(url: Iri<'_>) -> Result<JsonValue, ContextProcessingError> {
+pub async fn load_remote_json_ld_context(url: Iri<'_>) -> Result<JsonValue, Error> {
 	let doc = load_remote_json_ld_document(url).await?;
 	if let JsonValue::Object(obj) = doc {
 		if let Some(context) = obj.get("@context") {
 			Ok(context.clone())
 		} else {
-			Err(ContextProcessingError::LoadingRemoteContextFailed)
+			Err(ErrorCode::LoadingRemoteContextFailed.into())
 		}
 	} else {
-		Err(ContextProcessingError::LoadingRemoteContextFailed)
+		Err(ErrorCode::LoadingRemoteContextFailed.into())
 	}
 }
 
@@ -104,7 +93,7 @@ impl JsonLdContextLoader {
 }
 
 impl ContextLoader<JsonValue> for JsonLdContextLoader {
-	fn load<'a>(&'a self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<JsonValue>, ContextProcessingError>>>> {
+	fn load<'a>(&'a self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<JsonValue>, Error>>>> {
 		let url = IriBuf::from(url);
 		async move {
 			let doc = load_remote_json_ld_context(url.as_iri()).await?;

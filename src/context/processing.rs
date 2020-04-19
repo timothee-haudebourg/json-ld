@@ -6,74 +6,12 @@ use std::convert::TryFrom;
 use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
-use crate::{Keyword, BlankId, Id, Key, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion, as_array};
+use crate::{Error, ErrorCode, Keyword, BlankId, Id, Key, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion, as_array};
 use super::{LocalContext, ActiveContext, MutableActiveContext, ContextLoader, TermDefinition};
-
-#[derive(Clone, Copy, Debug)]
-pub enum ContextProcessingError {
-	InvalidIri,
-
-	InvalidIriRef,
-
-	InvalidLocalContext,
-
-	/// The `@propagate` value is not set to a boolean.
-	InvalidPropagateValue,
-
-	InvalidVersionValue,
-
-	InvalidBaseIri,
-
-	InvalidVocabMapping,
-
-	InvalidDefaultLanguage,
-
-	InvalidBaseDirection,
-
-	InvalidContextNullification,
-
-	ContextOverflow,
-
-	LoadingDocumentFailed,
-
-	LoadingRemoteContextFailed,
-
-	InvalidRemoteContext,
-
-	InvalidImportValue,
-
-	InvalidContextEntry,
-
-	InvalidTermDefinition,
-
-	InvalidProtectedValue,
-
-	InvalidTypeMapping,
-
-	InvalidReverseProperty,
-
-	InvalidIriMapping,
-
-	InvalidKeywordAlias,
-
-	CyclicIriMapping,
-
-	KeywordRedefinition,
-
-	InvalidContainerMapping,
-
-	InvalidLanguageMapping,
-
-	InvalidNestValue,
-
-	InvalidPrefixValue,
-
-	ProtectedTermRedefinition
-}
 
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
 	/// Load a local context.
-	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>> {
+	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
 		// println!("processing context ({}): {}", base_url.unwrap(), self.pretty(2));
 		process_context(active_context, self, loader, base_url, is_remote, override_protected, propagate)
 	}
@@ -108,7 +46,7 @@ fn resolve_iri(iri_ref: IriRef, base_iri: Option<Iri>) -> Option<IriBuf> {
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, local_context: &'a JsonValue, remote_contexts: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, mut propagate: bool) -> LocalBoxFuture<'a, Result<C, ContextProcessingError>> where C::LocalContext: From<JsonValue> {
+fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, local_context: &'a JsonValue, remote_contexts: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, mut propagate: bool) -> LocalBoxFuture<'a, Result<C, Error>> where C::LocalContext: From<JsonValue> {
 	let base_url = match base_url {
 		Some(base_url) => Some(IriBuf::from(base_url)),
 		None => None
@@ -130,7 +68,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 				if let JsonValue::Boolean(b) = propagate_value {
 					propagate = *b;
 				} else {
-					return Err(ContextProcessingError::InvalidPropagateValue)
+					return Err(ErrorCode::InvalidPropagateValue.into())
 				}
 			}
 		}
@@ -153,7 +91,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// definitions, an invalid context nullification has been detected and processing
 					// is aborted.
 					if !override_protected && has_protected_items(active_context) {
-						return Err(ContextProcessingError::InvalidContextNullification)
+						return Err(ErrorCode::InvalidContextNullification.into())
 					} else {
 						// Otherwise, initialize result as a newly-initialized active context, setting
 						// previous_context in result to the previous value of result if propagate is
@@ -181,9 +119,9 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
 					let context = if let Ok(iri_ref) = IriRef::new(context.as_str().unwrap()) {
-						resolve_iri(iri_ref, base_url).ok_or(ContextProcessingError::LoadingRemoteContextFailed)?
+						resolve_iri(iri_ref, base_url).ok_or(Error::from(ErrorCode::LoadingRemoteContextFailed))?
 					} else {
-						return Err(ContextProcessingError::LoadingDocumentFailed)
+						return Err(ErrorCode::LoadingDocumentFailed.into())
 					};
 
 					// If the number of entries in the `remote_contexts` array exceeds a processor
@@ -224,7 +162,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 						// 5.5.1) If the associated value is not 1.1, an invalid @version value has
 						// been detected.
 						if version_value.as_str() != Some("1.1") && version_value.as_f32() != Some(1.1) {
-							return Err(ContextProcessingError::InvalidVersionValue)
+							return Err(ErrorCode::InvalidVersionValue.into())
 						}
 					}
 
@@ -242,9 +180,9 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 							// 5.6.3) Initialize import to the result of resolving the value of
 							// @import.
 							let import = if let Ok(iri_ref) = IriRef::new(import_value) {
-								resolve_iri(iri_ref, base_url).ok_or(ContextProcessingError::InvalidImportValue)?
+								resolve_iri(iri_ref, base_url).ok_or(Error::from(ErrorCode::InvalidImportValue))?
 							} else {
-								return Err(ContextProcessingError::InvalidImportValue)
+								return Err(ErrorCode::InvalidImportValue.into())
 							};
 
 							// 5.6.4) Dereference import.
@@ -260,7 +198,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 								// If `import_context` has a @import entry, an invalid context entry
 								// error has been detected and processing is aborted.
 								if let Some(_) = import_context.get(Keyword::Import.into()) {
-									return Err(ContextProcessingError::InvalidContextEntry);
+									return Err(ErrorCode::InvalidContextEntry.into());
 								}
 
 								// Set `context` to the result of merging context into
@@ -275,12 +213,12 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 
 								JsonObjectRef::Owned(context)
 							} else {
-								return Err(ContextProcessingError::InvalidRemoteContext)
+								return Err(ErrorCode::InvalidRemoteContext.into())
 							}
 						} else {
 							// 5.6.2) If the value of @import is not a string, an invalid
 							// @import value error has been detected.
-							return Err(ContextProcessingError::InvalidImportValue)
+							return Err(ErrorCode::InvalidImportValue.into())
 						}
 					} else {
 						JsonObjectRef::Borrowed(context)
@@ -303,16 +241,16 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 												result.set_base_iri(Some(value))
 											},
 											Err(value) => {
-												let resolved = resolve_iri(value, result.base_iri()).ok_or(ContextProcessingError::InvalidBaseIri)?;
+												let resolved = resolve_iri(value, result.base_iri()).ok_or(Error::from(ErrorCode::InvalidBaseIri))?;
 												result.set_base_iri(Some(resolved.as_iri()))
 											}
 										}
 									} else {
-										return Err(ContextProcessingError::InvalidBaseIri)
+										return Err(ErrorCode::InvalidBaseIri.into())
 									}
 								},
 								_ => {
-									return Err(ContextProcessingError::InvalidBaseIri)
+									return Err(ErrorCode::InvalidBaseIri.into())
 								}
 							}
 						}
@@ -337,11 +275,11 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 								// obsolete, and may be removed in a future version of JSON-LD.
 								match expansion::expand_iri(&result, value, true, true) {
 									Key::Prop(vocab) => result.set_vocabulary(Some(Key::Prop(vocab))),
-									_ => return Err(ContextProcessingError::InvalidVocabMapping)
+									_ => return Err(ErrorCode::InvalidVocabMapping.into())
 								}
 							},
 							_ => {
-								return Err(ContextProcessingError::InvalidVocabMapping)
+								return Err(ErrorCode::InvalidVocabMapping.into())
 							}
 						}
 					}
@@ -357,7 +295,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 							// set to value.
 							result.set_default_language(Some(str.to_string()));
 						} else {
-							return Err(ContextProcessingError::InvalidDefaultLanguage)
+							return Err(ErrorCode::InvalidDefaultLanguage.into())
 						}
 					}
 
@@ -374,11 +312,11 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 							let dir = match str {
 								"ltr" => Direction::Ltr,
 								"rtl" => Direction::Rtl,
-								_ => return Err(ContextProcessingError::InvalidBaseDirection)
+								_ => return Err(ErrorCode::InvalidBaseDirection.into())
 							};
 							result.set_default_base_direction(Some(dir));
 						} else {
-							return Err(ContextProcessingError::InvalidBaseDirection)
+							return Err(ErrorCode::InvalidBaseDirection.into())
 						}
 					}
 
@@ -404,7 +342,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					}
 				},
 				// 5.3) An invalid local context error has been detected.
-				_ => return Err(ContextProcessingError::InvalidLocalContext)
+				_ => return Err(ErrorCode::InvalidLocalContext.into())
 			}
 		}
 
@@ -586,7 +524,7 @@ fn iri_eq_opt<T: Id>(a: &Option<Key<T>>, b: &Option<Key<T>>) -> bool {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), ContextProcessingError>> where C::LocalContext: From<JsonValue> {
+pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, base_url: Option<Iri>, protected: bool, override_protected: bool) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
 	let term = term.to_string();
 	let base_url = if let Some(base_url) = base_url {
 		Some(IriBuf::from(base_url))
@@ -600,7 +538,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 			// that the term definition has already been created), return.
 			Some(true) => Ok(()),
 			// Otherwise, if the value is false, a cyclic IRI mapping error has been detected and processing is aborted.
-			Some(false) => Err(ContextProcessingError::CyclicIriMapping),
+			Some(false) => Err(ErrorCode::CyclicIriMapping.into()),
 			None => {
 				// Initialize `value` to a copy of the value associated with the entry `term` in
 				// `local_context`.
@@ -627,11 +565,11 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								match key {
 									"@container" if value == "@set" => (),
 									"@protected" => (),
-									_ => return Err(ContextProcessingError::KeywordRedefinition)
+									_ => return Err(ErrorCode::KeywordRedefinition.into())
 								}
 							}
 						} else {
-							return Err(ContextProcessingError::KeywordRedefinition)
+							return Err(ErrorCode::KeywordRedefinition.into())
 						}
 					}
 
@@ -671,7 +609,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						},
 						_ => {
 							println!("invalid term definition (line {})", line!());
-							return Err(ContextProcessingError::InvalidTermDefinition)
+							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 					};
 
@@ -694,7 +632,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						} else {
 							// If the value of @protected is not a boolean, an invalid @protected
 							// value error has been detected.
-							return Err(ContextProcessingError::InvalidProtectedValue)
+							return Err(ErrorCode::InvalidProtectedValue.into())
 
 							// If processing mode is json-ld-1.0, an invalid term definition has
 							// been detected and processing is aborted.
@@ -720,16 +658,16 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// @none, nor @vocab, nor an IRI, an invalid type mapping error has
 								// been detected and processing is aborted.
 								if !is_valid_type(&typ) {
-									return Err(ContextProcessingError::InvalidTypeMapping)
+									return Err(ErrorCode::InvalidTypeMapping.into())
 								}
 
 								// Set the type mapping for definition to type.
 								definition.typ = Some(typ);
 							} else {
-								return Err(ContextProcessingError::InvalidTypeMapping)
+								return Err(ErrorCode::InvalidTypeMapping.into())
 							}
 						} else {
-							return Err(ContextProcessingError::InvalidTypeMapping)
+							return Err(ErrorCode::InvalidTypeMapping.into())
 						}
 					}
 
@@ -738,7 +676,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// If `value` contains `@id` or `@nest`, entries, an invalid reverse
 						// property error has been detected and processing is aborted.
 						if value.get("@id").is_some() || value.get("@nest").is_some() {
-							return Err(ContextProcessingError::InvalidReverseProperty)
+							return Err(ErrorCode::InvalidReverseProperty.into())
 						}
 
 						if let Some(reverse_value) = reverse_value.as_str() {
@@ -760,7 +698,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 									definition.value = Some(Key::Prop(mapping))
 								},
 								_ => {
-									return Err(ContextProcessingError::InvalidIriMapping)
+									return Err(ErrorCode::InvalidIriMapping.into())
 								}
 							}
 
@@ -778,13 +716,13 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 												ContainerType::Set | ContainerType::Index => {
 													definition.container.add(container_value);
 												},
-												_ => return Err(ContextProcessingError::InvalidReverseProperty)
+												_ => return Err(ErrorCode::InvalidReverseProperty.into())
 											}
 										} else {
-											return Err(ContextProcessingError::InvalidReverseProperty)
+											return Err(ErrorCode::InvalidReverseProperty.into())
 										}
 									},
-									_ => return Err(ContextProcessingError::InvalidReverseProperty)
+									_ => return Err(ErrorCode::InvalidReverseProperty.into())
 								};
 							}
 
@@ -801,7 +739,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							// If the value associated with the `@reverse` entry is not a string,
 							// an invalid IRI mapping error has been detected and processing is
 							// aborted.
-							return Err(ContextProcessingError::InvalidIriMapping)
+							return Err(ErrorCode::InvalidIriMapping.into())
 						}
 					}
 
@@ -830,7 +768,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 									// if it equals `@context`, an invalid keyword alias error has
 									// been detected and processing is aborted.
 									if value == Key::Keyword(Keyword::Context) {
-										return Err(ContextProcessingError::InvalidKeywordAlias)
+										return Err(ErrorCode::InvalidKeywordAlias.into())
 									}
 
 									Some(value)
@@ -839,7 +777,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 									// nor an IRI, nor a blank node identifier, an
 									// invalid IRI mapping error has been detected and processing
 									// is aborted;
-									return Err(ContextProcessingError::InvalidIriMapping)
+									return Err(ErrorCode::InvalidIriMapping.into())
 								};
 
 								// If `term` contains a colon (:) anywhere but as the first or
@@ -856,10 +794,10 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 									// has been detected and processing is aborted.
 									if let Ok(expanded_term) = expand_iri(active_context, term.as_str(), false, true, local_context, defined).await? {
 										if !iri_eq_opt(&Some(expanded_term), &definition.value) {
-											return Err(ContextProcessingError::InvalidIriMapping)
+											return Err(ErrorCode::InvalidIriMapping.into())
 										}
 									} else {
-										return Err(ContextProcessingError::InvalidIriMapping)
+										return Err(ErrorCode::InvalidIriMapping.into())
 									}
 								}
 
@@ -875,7 +813,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// If the value associated with the `@id` entry is not a
 								// string, an invalid IRI mapping error has been detected and
 								// processing is aborted.
-								return Err(ContextProcessingError::InvalidIriMapping)
+								return Err(ErrorCode::InvalidIriMapping.into())
 							}
 						}
 					} else if contains_nz(term.as_str(), ':') {
@@ -908,7 +846,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							if let Ok(iri) = Iri::new(result.as_str()) {
 								definition.value = Some(Key::<T>::from(T::from_iri(iri)))
 							} else {
-								return Err(ContextProcessingError::InvalidIriMapping)
+								return Err(ErrorCode::InvalidIriMapping.into())
 							}
 						} else {
 							// Otherwise, `term` is an IRI or blank node identifier.
@@ -919,7 +857,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								if let Ok(iri) = Iri::new(term.as_str()) {
 									definition.value = Some(Key::<T>::from(T::from_iri(iri)))
 								} else {
-									return Err(ContextProcessingError::InvalidIriMapping)
+									return Err(ErrorCode::InvalidIriMapping.into())
 								}
 							}
 						}
@@ -933,7 +871,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							},
 							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
 							// error has been detected and processing is aborted.
-							_ => return Err(ContextProcessingError::InvalidIriMapping)
+							_ => return Err(ErrorCode::InvalidIriMapping.into())
 						}
 					} else if term == "@type" {
 						// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
@@ -951,10 +889,10 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							if let Ok(iri) = Iri::new(result.as_str()) {
 								definition.value = Some(Key::<T>::from(T::from_iri(iri)))
 							} else {
-								return Err(ContextProcessingError::InvalidIriMapping)
+								return Err(ErrorCode::InvalidIriMapping.into())
 							}
 						} else {
-							return Err(ContextProcessingError::InvalidIriMapping)
+							return Err(ErrorCode::InvalidIriMapping.into())
 						}
 					}
 
@@ -974,13 +912,13 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								match ContainerType::try_from(entry) {
 									Ok(c) => {
 										if !definition.container.add(c) {
-											return Err(ContextProcessingError::InvalidContainerMapping)
+											return Err(ErrorCode::InvalidContainerMapping.into())
 										}
 									},
-									Err(_) => return Err(ContextProcessingError::InvalidContainerMapping)
+									Err(_) => return Err(ErrorCode::InvalidContainerMapping.into())
 								}
 							} else {
-								return Err(ContextProcessingError::InvalidContainerMapping)
+								return Err(ErrorCode::InvalidContainerMapping.into())
 							}
 						}
 
@@ -1001,7 +939,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// is aborted.
 								match typ {
 									Key::Keyword(Keyword::Id) | Key::Keyword(Keyword::Vocab) => (),
-									_ => return Err(ContextProcessingError::InvalidTypeMapping)
+									_ => return Err(ErrorCode::InvalidTypeMapping.into())
 								}
 							} else {
 								// If type mapping in definition is undefined, set it to @id.
@@ -1018,7 +956,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// TODO json-ld-1.0
 						if !definition.container.contains(ContainerType::Index) {
 							println!("invalid term definition (line {})", line!());
-							return Err(ContextProcessingError::InvalidTermDefinition)
+							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 
 						// Initialize `index` to the value associated with the `@index` entry,
@@ -1030,14 +968,14 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								Key::Prop(Property::Id(_)) => (),
 								_ => {
 									println!("invalid term definition (line {})", line!());
-									return Err(ContextProcessingError::InvalidTermDefinition)
+									return Err(ErrorCode::InvalidTermDefinition.into())
 								}
 							}
 
 							definition.index = Some(index.to_string())
 						} else {
 							println!("invalid term definition (line {})", line!());
-							return Err(ContextProcessingError::InvalidTermDefinition)
+							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 					}
 
@@ -1057,7 +995,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// if let Err(_) = process_context(active_context, context, base_url, false, Arc::new(RemoteContexts::new()), true, true).await {
 						// 	// If any error is detected, an invalid scoped context error has been
 						// 	// detected and processing is aborted.
-						// 	return Err(ContextProcessingError::InvalidScopedContext)
+						// 	return Err(ErrorCode::InvalidScopedContext.into())
 						// }
 						// TODO
 
@@ -1084,7 +1022,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 									Some(language_value.as_str().unwrap().to_string())
 								},
 								_ => {
-									return Err(ContextProcessingError::InvalidLanguageMapping)
+									return Err(ErrorCode::InvalidLanguageMapping.into())
 								}
 							});
 						}
@@ -1103,7 +1041,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 									} else {
 										// Otherwise, an invalid base direction error has been
 										// detected and processing is aborted.
-										return Err(ContextProcessingError::InvalidBaseDirection)
+										return Err(ErrorCode::InvalidBaseDirection.into())
 									}
 								}
 							});
@@ -1121,14 +1059,14 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// than @nest.
 						if let Some(nest_value) = nest_value.as_str() {
 							if is_keyword(nest_value) && nest_value != "@nest" {
-								return Err(ContextProcessingError::InvalidNestValue)
+								return Err(ErrorCode::InvalidNestValue.into())
 							}
 
 							definition.nest = Some(nest_value.to_string());
 						} else {
 							// Otherwise, an invalid @nest value error has been detected and
 							// processing is aborted.
-							return Err(ContextProcessingError::InvalidNestValue)
+							return Err(ErrorCode::InvalidNestValue.into())
 						}
 					}
 
@@ -1140,7 +1078,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						if term.contains(':') || term.contains('/') {
 							// TODO json-ld-1.0
 							println!("invalid term definition (line {})", line!());
-							return Err(ContextProcessingError::InvalidTermDefinition)
+							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 
 						// Set the `prefix` flag to the value associated with the @prefix entry,
@@ -1151,7 +1089,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							definition.prefix = prefix
 						} else {
 							println!("invalid term definition (line {})", line!());
-							return Err(ContextProcessingError::InvalidPrefixValue)
+							return Err(ErrorCode::InvalidPrefixValue.into())
 						}
 
 						// If the `prefix` flag of `definition` is set to `true`, and its IRI
@@ -1159,7 +1097,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// processing is aborted.
 						if definition.prefix && definition.value.as_ref().unwrap().is_keyword() {
 							println!("invalid term definition (line {})", line!());
-							return Err(ContextProcessingError::InvalidTermDefinition)
+							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 					}
 
@@ -1171,7 +1109,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							"@id" | "@reverse" | "@container" | "@context" | "@direction" | "@index" | "@language" | "@nest" | "@prefix" | "@protected" | "@type" => (),
 							_ => {
 								println!("invalid term definition (line {})", line!());
-								return Err(ContextProcessingError::InvalidTermDefinition)
+								return Err(ErrorCode::InvalidTermDefinition.into())
 							}
 						}
 					}
@@ -1185,7 +1123,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// redefinition error has been detected, and processing is aborted.
 								if definition != previous_definition {
 									println!("defining {} = {}", term, value.pretty(2));
-									return Err(ContextProcessingError::ProtectedTermRedefinition)
+									return Err(ErrorCode::ProtectedTermRedefinition.into())
 								}
 
 								// Set `definition` to `previous definition` to retain the value of
@@ -1209,7 +1147,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>) -> impl 'a + Future<Output = Result<Result<Key<T>, Option<String>>, ContextProcessingError>> where C::LocalContext: From<JsonValue> {
+pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>) -> impl 'a + Future<Output = Result<Result<Key<T>, Option<String>>, Error>> where C::LocalContext: From<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {

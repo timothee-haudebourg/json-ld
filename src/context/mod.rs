@@ -6,7 +6,7 @@ use std::future::Future;
 use std::collections::HashMap;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{Direction, Container, Id, Key};
+use crate::{Error, Direction, Container, Id, Key};
 
 pub use loader::*;
 pub use processing::*;
@@ -153,7 +153,7 @@ pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
 pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
-	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, ContextProcessingError>>>>;
+	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>>;
 
 	fn as_json_ld(&self) -> &json::JsonValue;
 }

@@ -60,3 +60,7 @@ fn positive_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 
 	assert!(success)
 }}
+
+fn negative_test(expand_context: Option<&str>, input_url: Iri, input_filename: &str, output_filename: &str) {{
+	//
+}}

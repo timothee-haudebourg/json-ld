@@ -11,8 +11,8 @@ use std::collections::HashSet;
 use futures::Future;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{Id, Object};
-use crate::context::{MutableActiveContext, ContextLoader, ContextProcessingError};
+use crate::{Error, Id, Object};
+use crate::context::{MutableActiveContext, ContextLoader};
 
 pub use expanded::*;
 pub use iri::*;
@@ -21,34 +21,6 @@ pub use value::*;
 pub use node::*;
 pub use array::*;
 pub use element::*;
-
-#[derive(Clone, Copy, Debug)]
-pub enum ExpansionError {
-	ContextProcessing(ContextProcessingError),
-	InvalidIri,
-	InvalidReverseProperty,
-	CollidingKeywords,
-	InvalidIdValue,
-	InvalidTypeValue,
-	InvalidValueObject,
-	InvalidLanguageTaggedString,
-	InvalidBaseDirection,
-	InvalidLanguageTaggedValue,
-	InvalidTypedValue,
-	InvalidListEntry,
-	InvalidSetEntry,
-	InvalidLanguageMapValue,
-	InvalidIndexValue,
-	InvalidReverseValue,
-	InvalidReversePropertyValue,
-	InvalidNestValue
-}
-
-impl From<ContextProcessingError> for ExpansionError {
-	fn from(e: ContextProcessingError) -> ExpansionError {
-		ExpansionError::ContextProcessing(e)
-	}
-}
 
 #[derive(PartialEq, Eq)]
 pub struct Entry<'a, T>(T, &'a JsonValue);
@@ -73,7 +45,7 @@ fn filter_top_level_item<T: Id>(item: &Object<T>) -> bool {
 	}
 }
 
-pub fn expand<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri>, loader: &'a mut L) -> impl 'a + Future<Output=Result<HashSet<Object<T>>, ExpansionError>> where C::LocalContext: From<JsonValue> {
+pub fn expand<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri>, loader: &'a mut L) -> impl 'a + Future<Output=Result<HashSet<Object<T>>, Error>> where C::LocalContext: From<JsonValue> {
 	let base_url = base_url.map(|url| IriBuf::from(url));
 
 	async move {

@@ -1,3 +1,6 @@
+processing string context context.jsonld
+loading https://w3c.github.io/json-ld-api/tests/context.jsonld
+list container
 #![feature(proc_macro_hygiene)]
 
 extern crate tokio;
@@ -59,6 +62,10 @@ fn positive_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 	}
 
 	assert!(success)
+}
+
+fn negative_test(expand_context: Option<&str>, input_url: Iri, input_filename: &str, output_filename: &str) {
+	//
 }
 
 #[test]

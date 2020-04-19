@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use json::JsonValue;
-use crate::{Keyword, Direction, as_array, Id, Key, Value, Literal, Object, ObjectData};
+use crate::{Error, ErrorCode, Keyword, Direction, as_array, Id, Key, Value, Literal, Object, ObjectData};
 use crate::context::MutableActiveContext;
-use super::{ExpansionError, Entry, expand_iri};
+use super::{Entry, expand_iri};
 
-pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Key<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Key<T>)>>, value_entry: &JsonValue) -> Result<Option<Object<T>>, ExpansionError> {
+pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Key<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Key<T>)>>, value_entry: &JsonValue) -> Result<Option<Object<T>>, Error> {
 	// If input type is @json, set expanded value to value.
 	// If processing mode is json-ld-1.0, an invalid value object value error has
 	// been detected and processing is aborted.
@@ -33,7 +33,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 				Literal::Boolean(*b)
 			},
 			_ => {
-				return Err(ExpansionError::InvalidValueObject);
+				return Err(ErrorCode::InvalidValueObject.into());
 			}
 		}
 	};
@@ -60,7 +60,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 						language = Some(value);
 					}
 				} else {
-					return Err(ExpansionError::InvalidLanguageTaggedString)
+					return Err(ErrorCode::InvalidLanguageTaggedString.into())
 				}
 			},
 			// If expanded property is @direction:
@@ -75,10 +75,10 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 					if let Ok(value) = Direction::try_from(value) {
 						direction = Some(value);
 					} else {
-						return Err(ExpansionError::InvalidBaseDirection)
+						return Err(ErrorCode::InvalidBaseDirection.into())
 					}
 				} else {
-					return Err(ExpansionError::InvalidBaseDirection)
+					return Err(ErrorCode::InvalidBaseDirection.into())
 				}
 			},
 			// If expanded property is @index:
@@ -88,7 +88,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 				if let Some(value) = value.as_str() {
 					result_data.index = Some(value.to_string())
 				} else {
-					return Err(ExpansionError::InvalidIndexValue)
+					return Err(ErrorCode::InvalidIndexValue.into())
 				}
 			},
 			// If expanded ...
@@ -110,13 +110,13 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 
 						types.insert(expanded_ty);
 					} else {
-						return Err(ExpansionError::InvalidTypeValue)
+						return Err(ErrorCode::InvalidTypeValue.into())
 					}
 				}
 			},
 			Key::Keyword(Keyword::Value) => (),
 			_ => {
-				return Err(ExpansionError::InvalidValueObject);
+				return Err(ErrorCode::InvalidValueObject.into());
 			}
 		}
 	}
@@ -145,7 +145,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 		if let Literal::String { ref mut language, .. } = &mut result {
 			*language = Some(lang.to_string())
 		} else {
-			return Err(ExpansionError::InvalidLanguageTaggedValue)
+			return Err(ErrorCode::InvalidLanguageTaggedValue.into())
 		}
 	}
 
@@ -153,7 +153,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 		if let Literal::String { ref mut direction, .. } = &mut result {
 			*direction = Some(dir)
 		} else {
-			return Err(ExpansionError::InvalidLanguageTaggedValue)
+			return Err(ErrorCode::InvalidLanguageTaggedValue.into())
 		}
 	}
 

@@ -237,7 +237,9 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			output_filename.to_str().unwrap()
 		);
 	} else if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::NegativeEvalTest)))) {
-		warn!("ignoring negative example {}", url);
+		let error_code = entry.get(RESULT).next().unwrap().as_str().unwrap();
+
+		// ...
 	} else {
 		panic!("cannot decide how to evaluate test result")
 	}
