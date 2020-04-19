@@ -14,11 +14,11 @@ The test suite can be imported using the `generate-expand-tests` example:
 $ cargo run --example generate-expand-tests tests/expand > expand.rs
 ```
 
-This will download all the *positive* test challenges in the `tests/expand`
+This will download all the test challenges in the `tests/expand`
 directory, and write the associated Rust test file `expand.rs`.
 Then use `cargo test` to run the tests.
 
-Negative tests are ignored for now.
+For now, all the positive tests should pass.
 
 ## License
 
