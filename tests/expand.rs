@@ -1,6 +1,3 @@
-processing string context context.jsonld
-loading https://w3c.github.io/json-ld-api/tests/context.jsonld
-list container
 #![feature(proc_macro_hygiene)]
 
 extern crate tokio;
@@ -14,6 +11,7 @@ use std::io::{Read, BufReader};
 use tokio::runtime::Runtime;
 use iref::{Iri, IriBuf};
 use json_ld::{
+	ErrorCode,
 	context::{
 		ActiveContext,
 		JsonLdContextLoader,
@@ -64,8 +62,36 @@ fn positive_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 	assert!(success)
 }
 
-fn negative_test(expand_context: Option<&str>, input_url: Iri, input_filename: &str, output_filename: &str) {
-	//
+fn negative_test(expand_context: Option<&str>, input_url: Iri, input_filename: &str, error_code: ErrorCode) {
+	let mut runtime = Runtime::new().unwrap();
+	let mut loader = JsonLdContextLoader::new();
+
+	let input_file = File::open(input_filename).unwrap();
+	let mut input_buffer = BufReader::new(input_file);
+	let mut input_text = String::new();
+	input_buffer.read_to_string(&mut input_text).unwrap();
+	let input = json::parse(input_text.as_str()).unwrap();
+
+	let mut input_context: Context<IriBuf> = Context::new(input_url, input_url);
+
+	if let Some(context_filename) = expand_context {
+		let context_file = File::open(context_filename).unwrap();
+		let mut context_buffer = BufReader::new(context_file);
+		let mut context_text = String::new();
+		context_buffer.read_to_string(&mut context_text).unwrap();
+		let mut doc = json::parse(context_text.as_str()).unwrap();
+		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url), false, false, true)).unwrap();
+	}
+
+	match runtime.block_on(json_ld::expand(&input_context, None, &input, Some(input_url), &mut loader)) {
+		Ok(result) => {
+			println!("output=\n{}", result.as_json().pretty(2));
+			panic!("expansion succeeded where it should have failed with code: {}", error_code)
+		},
+		Err(e) => {
+			assert_eq!(e.code(), error_code)
+		}
+	}
 }
 
 #[test]
@@ -1004,6 +1030,14 @@ fn expand_0122() {
 }
 
 #[test]
+fn expand_0123() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/0123-in.jsonld");
+	println!("Value objects including invalid literal datatype IRIs are rejected");
+	println!("Processors MUST validate datatype IRIs.");
+	negative_test(None, input_url, "tests/expand/0123-in.jsonld", ErrorCode::InvalidTypedValue)
+}
+
+#[test]
 fn expand_0124() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/0124-in.jsonld");
 	println!("compact IRI as @vocab");
@@ -1284,11 +1318,43 @@ fn expand_c028() {
 }
 
 #[test]
+fn expand_c029() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/c029-in.jsonld");
+	println!("@propagate is invalid in 1.0");
+	println!("@propagate is invalid in 1.0");
+	negative_test(None, input_url, "tests/expand/c029-in.jsonld", ErrorCode::InvalidContextEntry)
+}
+
+#[test]
+fn expand_c030() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/c030-in.jsonld");
+	println!("@propagate must be boolean valued");
+	println!("@propagate must be boolean valued");
+	negative_test(None, input_url, "tests/expand/c030-in.jsonld", ErrorCode::InvalidPropagateValue)
+}
+
+#[test]
 fn expand_c031() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/c031-in.jsonld");
 	println!("@context resolutions respects relative URLs.");
 	println!("URL resolution follows RFC3986");
 	positive_test(None, input_url, "tests/expand/c031-in.jsonld", "tests/expand/c031-out.jsonld")
+}
+
+#[test]
+fn expand_c032() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/c032-in.jsonld");
+	println!("Unused embedded context with error.");
+	println!("An embedded context which is never used should still be checked.");
+	negative_test(None, input_url, "tests/expand/c032-in.jsonld", ErrorCode::InvalidScopedContext)
+}
+
+#[test]
+fn expand_c033() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/c033-in.jsonld");
+	println!("Unused context with an embedded context error.");
+	println!("An unused context with an embedded context should still be checked.");
+	negative_test(None, input_url, "tests/expand/c033-in.jsonld", ErrorCode::InvalidScopedContext)
 }
 
 #[test]
@@ -1364,6 +1430,486 @@ fn expand_di07() {
 }
 
 #[test]
+fn expand_di08() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/di08-in.jsonld");
+	println!("@direction must be one of ltr or rtl");
+	println!("Generate an error if @direction has illegal value.");
+	negative_test(None, input_url, "tests/expand/di08-in.jsonld", ErrorCode::InvalidBaseDirection)
+}
+
+#[test]
+fn expand_di09() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/di09-in.jsonld");
+	println!("@direction is incompatible with @type");
+	println!("Value objects can have either @type but not @language or @direction.");
+	negative_test(None, input_url, "tests/expand/di09-in.jsonld", ErrorCode::InvalidValueObject)
+}
+
+#[test]
+fn expand_ec01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/ec01-in.jsonld");
+	println!("Invalid keyword in term definition");
+	println!("Verifies that an exception is raised on expansion when a invalid term definition is found");
+	negative_test(None, input_url, "tests/expand/ec01-in.jsonld", ErrorCode::InvalidTermDefinition)
+}
+
+#[test]
+fn expand_ec02() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/ec02-in.jsonld");
+	println!("Term definition on @type with empty map");
+	println!("Verifies that an exception is raised if @type is defined as a term with an empty map");
+	negative_test(None, input_url, "tests/expand/ec02-in.jsonld", ErrorCode::KeywordRedefinition)
+}
+
+#[test]
+fn expand_em01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/em01-in.jsonld");
+	println!("Invalid container mapping");
+	println!("Verifies that an exception is raised on expansion when a invalid container mapping is found");
+	negative_test(None, input_url, "tests/expand/em01-in.jsonld", ErrorCode::InvalidContainerMapping)
+}
+
+#[test]
+fn expand_en01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/en01-in.jsonld");
+	println!("@nest MUST NOT have a string value");
+	println!("container: @nest");
+	negative_test(None, input_url, "tests/expand/en01-in.jsonld", ErrorCode::InvalidNestValue)
+}
+
+#[test]
+fn expand_en02() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/en02-in.jsonld");
+	println!("@nest MUST NOT have a boolen value");
+	println!("Transparent Nesting");
+	negative_test(None, input_url, "tests/expand/en02-in.jsonld", ErrorCode::InvalidNestValue)
+}
+
+#[test]
+fn expand_en03() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/en03-in.jsonld");
+	println!("@nest MUST NOT have a numeric value");
+	println!("Transparent Nesting");
+	negative_test(None, input_url, "tests/expand/en03-in.jsonld", ErrorCode::InvalidNestValue)
+}
+
+#[test]
+fn expand_en04() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/en04-in.jsonld");
+	println!("@nest MUST NOT have a value object value");
+	println!("Transparent Nesting");
+	negative_test(None, input_url, "tests/expand/en04-in.jsonld", ErrorCode::InvalidNestValue)
+}
+
+#[test]
+fn expand_en05() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/en05-in.jsonld");
+	println!("does not allow a keyword other than @nest for the value of @nest");
+	println!("Transparent Nesting");
+	negative_test(None, input_url, "tests/expand/en05-in.jsonld", ErrorCode::InvalidNestValue)
+}
+
+#[test]
+fn expand_en06() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/en06-in.jsonld");
+	println!("does not allow @nest with @reverse");
+	println!("Transparent Nesting");
+	negative_test(None, input_url, "tests/expand/en06-in.jsonld", ErrorCode::InvalidReverseProperty)
+}
+
+#[test]
+fn expand_ep02() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/ep02-in.jsonld");
+	println!("processingMode json-ld-1.0 conflicts with @version: 1.1");
+	println!("If processingMode is explicitly json-ld-1.0, it will conflict with 1.1 features.");
+	negative_test(None, input_url, "tests/expand/ep02-in.jsonld", ErrorCode::ProcessingModeConflict)
+}
+
+#[test]
+fn expand_ep03() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/ep03-in.jsonld");
+	println!("@version must be 1.1");
+	println!("If @version is specified, it must be 1.1");
+	negative_test(None, input_url, "tests/expand/ep03-in.jsonld", ErrorCode::InvalidVersionValue)
+}
+
+#[test]
+fn expand_er01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er01-in.jsonld");
+	println!("Keywords cannot be aliased to other keywords");
+	println!("Verifies that an exception is raised on expansion when processing an invalid context aliasing a keyword to another keyword");
+	negative_test(None, input_url, "tests/expand/er01-in.jsonld", ErrorCode::KeywordRedefinition)
+}
+
+#[test]
+fn expand_er04() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er04-in.jsonld");
+	println!("Error dereferencing a remote context");
+	println!("Verifies that an exception is raised on expansion when a context dereference results in an error");
+	negative_test(None, input_url, "tests/expand/er04-in.jsonld", ErrorCode::LoadingRemoteContextFailed)
+}
+
+#[test]
+fn expand_er05() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er05-in.jsonld");
+	println!("Invalid remote context");
+	println!("Verifies that an exception is raised on expansion when a remote context is not an object containing @context");
+	negative_test(None, input_url, "tests/expand/er05-in.jsonld", ErrorCode::InvalidRemoteContext)
+}
+
+#[test]
+fn expand_er06() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er06-in.jsonld");
+	println!("Invalid local context");
+	println!("Verifies that an exception is raised on expansion when a context is not a string or object");
+	negative_test(None, input_url, "tests/expand/er06-in.jsonld", ErrorCode::InvalidLocalContext)
+}
+
+#[test]
+fn expand_er07() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er07-in.jsonld");
+	println!("Invalid base IRI");
+	println!("Verifies that an exception is raised on expansion when a context contains an invalid @base");
+	negative_test(None, input_url, "tests/expand/er07-in.jsonld", ErrorCode::InvalidBaseIri)
+}
+
+#[test]
+fn expand_er08() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er08-in.jsonld");
+	println!("Invalid vocab mapping");
+	println!("Verifies that an exception is raised on expansion when a context contains an invalid @vocab mapping");
+	negative_test(None, input_url, "tests/expand/er08-in.jsonld", ErrorCode::InvalidVocabMapping)
+}
+
+#[test]
+fn expand_er09() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er09-in.jsonld");
+	println!("Invalid default language");
+	println!("Verifies that an exception is raised on expansion when a context contains an invalid @language");
+	negative_test(None, input_url, "tests/expand/er09-in.jsonld", ErrorCode::InvalidDefaultLanguage)
+}
+
+#[test]
+fn expand_er10() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er10-in.jsonld");
+	println!("Cyclic IRI mapping");
+	println!("Verifies that an exception is raised on expansion when a cyclic IRI mapping is found");
+	negative_test(None, input_url, "tests/expand/er10-in.jsonld", ErrorCode::CyclicIriMapping)
+}
+
+#[test]
+fn expand_er11() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er11-in.jsonld");
+	println!("Invalid term definition");
+	println!("Verifies that an exception is raised on expansion when a invalid term definition is found");
+	negative_test(None, input_url, "tests/expand/er11-in.jsonld", ErrorCode::InvalidTermDefinition)
+}
+
+#[test]
+fn expand_er12() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er12-in.jsonld");
+	println!("Invalid type mapping (not a string)");
+	println!("Verifies that an exception is raised on expansion when a invalid type mapping is found");
+	negative_test(None, input_url, "tests/expand/er12-in.jsonld", ErrorCode::InvalidTypeMapping)
+}
+
+#[test]
+fn expand_er13() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er13-in.jsonld");
+	println!("Invalid type mapping (not absolute IRI)");
+	println!("Verifies that an exception is raised on expansion when a invalid type mapping is found");
+	negative_test(None, input_url, "tests/expand/er13-in.jsonld", ErrorCode::InvalidTypeMapping)
+}
+
+#[test]
+fn expand_er14() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er14-in.jsonld");
+	println!("Invalid reverse property (contains @id)");
+	println!("Verifies that an exception is raised on expansion when a invalid reverse property is found");
+	negative_test(None, input_url, "tests/expand/er14-in.jsonld", ErrorCode::InvalidReverseProperty)
+}
+
+#[test]
+fn expand_er15() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er15-in.jsonld");
+	println!("Invalid IRI mapping (@reverse not a string)");
+	println!("Verifies that an exception is raised on expansion when a invalid IRI mapping is found");
+	negative_test(None, input_url, "tests/expand/er15-in.jsonld", ErrorCode::InvalidIriMapping)
+}
+
+#[test]
+fn expand_er17() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er17-in.jsonld");
+	println!("Invalid reverse property (invalid @container)");
+	println!("Verifies that an exception is raised on expansion when a invalid reverse property is found");
+	negative_test(None, input_url, "tests/expand/er17-in.jsonld", ErrorCode::InvalidReverseProperty)
+}
+
+#[test]
+fn expand_er18() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er18-in.jsonld");
+	println!("Invalid IRI mapping (@id not a string)");
+	println!("Verifies that an exception is raised on expansion when a invalid IRI mapping is found");
+	negative_test(None, input_url, "tests/expand/er18-in.jsonld", ErrorCode::InvalidIriMapping)
+}
+
+#[test]
+fn expand_er19() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er19-in.jsonld");
+	println!("Invalid keyword alias (@context)");
+	println!("Verifies that an exception is raised on expansion when a invalid keyword alias is found");
+	negative_test(None, input_url, "tests/expand/er19-in.jsonld", ErrorCode::InvalidKeywordAlias)
+}
+
+#[test]
+fn expand_er20() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er20-in.jsonld");
+	println!("Invalid IRI mapping (no vocab mapping)");
+	println!("Verifies that an exception is raised on expansion when a invalid IRI mapping is found");
+	negative_test(None, input_url, "tests/expand/er20-in.jsonld", ErrorCode::InvalidIriMapping)
+}
+
+#[test]
+fn expand_er21() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er21-in.jsonld");
+	println!("Invalid container mapping");
+	println!("Verifies that an exception is raised on expansion when a invalid container mapping is found");
+	negative_test(None, input_url, "tests/expand/er21-in.jsonld", ErrorCode::InvalidContainerMapping)
+}
+
+#[test]
+fn expand_er22() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er22-in.jsonld");
+	println!("Invalid language mapping");
+	println!("Verifies that an exception is raised on expansion when a invalid language mapping is found");
+	negative_test(None, input_url, "tests/expand/er22-in.jsonld", ErrorCode::InvalidLanguageMapping)
+}
+
+#[test]
+fn expand_er23() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er23-in.jsonld");
+	println!("Invalid IRI mapping (relative IRI in @type)");
+	println!("Verifies that an exception is raised on expansion when a invalid type mapping is found");
+	negative_test(None, input_url, "tests/expand/er23-in.jsonld", ErrorCode::InvalidTypeMapping)
+}
+
+#[test]
+fn expand_er25() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er25-in.jsonld");
+	println!("Invalid reverse property map");
+	println!("Verifies that an exception is raised in Expansion when a invalid reverse property map is found");
+	negative_test(None, input_url, "tests/expand/er25-in.jsonld", ErrorCode::InvalidReversePropertyMap)
+}
+
+#[test]
+fn expand_er26() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er26-in.jsonld");
+	println!("Colliding keywords");
+	println!("Verifies that an exception is raised in Expansion when colliding keywords are found");
+	negative_test(None, input_url, "tests/expand/er26-in.jsonld", ErrorCode::CollidingKeywords)
+}
+
+#[test]
+fn expand_er27() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er27-in.jsonld");
+	println!("Invalid @id value");
+	println!("Verifies that an exception is raised in Expansion when an invalid @id value is found");
+	negative_test(None, input_url, "tests/expand/er27-in.jsonld", ErrorCode::InvalidIdValue)
+}
+
+#[test]
+fn expand_er28() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er28-in.jsonld");
+	println!("Invalid type value");
+	println!("Verifies that an exception is raised in Expansion when an invalid type value is found");
+	negative_test(None, input_url, "tests/expand/er28-in.jsonld", ErrorCode::InvalidTypeValue)
+}
+
+#[test]
+fn expand_er29() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er29-in.jsonld");
+	println!("Invalid value object value");
+	println!("Verifies that an exception is raised in Expansion when an invalid value object value is found");
+	negative_test(None, input_url, "tests/expand/er29-in.jsonld", ErrorCode::InvalidValueObjectValue)
+}
+
+#[test]
+fn expand_er30() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er30-in.jsonld");
+	println!("Invalid language-tagged string");
+	println!("Verifies that an exception is raised in Expansion when an invalid language-tagged string value is found");
+	negative_test(None, input_url, "tests/expand/er30-in.jsonld", ErrorCode::InvalidLanguageTaggedString)
+}
+
+#[test]
+fn expand_er31() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er31-in.jsonld");
+	println!("Invalid @index value");
+	println!("Verifies that an exception is raised in Expansion when an invalid @index value value is found");
+	negative_test(None, input_url, "tests/expand/er31-in.jsonld", ErrorCode::InvalidIndexValue)
+}
+
+#[test]
+fn expand_er33() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er33-in.jsonld");
+	println!("Invalid @reverse value");
+	println!("Verifies that an exception is raised in Expansion when an invalid @reverse value is found");
+	negative_test(None, input_url, "tests/expand/er33-in.jsonld", ErrorCode::InvalidReverseValue)
+}
+
+#[test]
+fn expand_er34() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er34-in.jsonld");
+	println!("Invalid reverse property value (in @reverse)");
+	println!("Verifies that an exception is raised in Expansion when an invalid reverse property value is found");
+	negative_test(None, input_url, "tests/expand/er34-in.jsonld", ErrorCode::InvalidReversePropertyValue)
+}
+
+#[test]
+fn expand_er35() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er35-in.jsonld");
+	println!("Invalid language map value");
+	println!("Verifies that an exception is raised in Expansion when an invalid language map value is found");
+	negative_test(None, input_url, "tests/expand/er35-in.jsonld", ErrorCode::InvalidLanguageMapValue)
+}
+
+#[test]
+fn expand_er36() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er36-in.jsonld");
+	println!("Invalid reverse property value (through coercion)");
+	println!("Verifies that an exception is raised in Expansion when an invalid reverse property value is found");
+	negative_test(None, input_url, "tests/expand/er36-in.jsonld", ErrorCode::InvalidReversePropertyValue)
+}
+
+#[test]
+fn expand_er37() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er37-in.jsonld");
+	println!("Invalid value object (unexpected keyword)");
+	println!("Verifies that an exception is raised in Expansion when an invalid value object is found");
+	negative_test(None, input_url, "tests/expand/er37-in.jsonld", ErrorCode::InvalidValueObject)
+}
+
+#[test]
+fn expand_er38() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er38-in.jsonld");
+	println!("Invalid value object (@type and @language)");
+	println!("Verifies that an exception is raised in Expansion when an invalid value object is found");
+	negative_test(None, input_url, "tests/expand/er38-in.jsonld", ErrorCode::InvalidValueObject)
+}
+
+#[test]
+fn expand_er39() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er39-in.jsonld");
+	println!("Invalid language-tagged value");
+	println!("Verifies that an exception is raised in Expansion when an invalid language-tagged value is found");
+	negative_test(None, input_url, "tests/expand/er39-in.jsonld", ErrorCode::InvalidLanguageTaggedValue)
+}
+
+#[test]
+fn expand_er40() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er40-in.jsonld");
+	println!("Invalid typed value");
+	println!("Verifies that an exception is raised in Expansion when an invalid typed value is found");
+	negative_test(None, input_url, "tests/expand/er40-in.jsonld", ErrorCode::InvalidTypedValue)
+}
+
+#[test]
+fn expand_er41() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er41-in.jsonld");
+	println!("Invalid set or list object");
+	println!("Verifies that an exception is raised in Expansion when an invalid set or list object is found");
+	negative_test(None, input_url, "tests/expand/er41-in.jsonld", ErrorCode::InvalidSetOrListObject)
+}
+
+#[test]
+fn expand_er42() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er42-in.jsonld");
+	println!("Keywords may not be redefined in 1.0");
+	println!("Verifies that an exception is raised on expansion when processing an invalid context attempting to define @container on a keyword");
+	negative_test(None, input_url, "tests/expand/er42-in.jsonld", ErrorCode::KeywordRedefinition)
+}
+
+#[test]
+fn expand_er43() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er43-in.jsonld");
+	println!("Term definition with @id: @type");
+	println!("Expanding term mapping to @type uses @type syntax now illegal");
+	negative_test(None, input_url, "tests/expand/er43-in.jsonld", ErrorCode::InvalidIriMapping)
+}
+
+#[test]
+fn expand_er44() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er44-in.jsonld");
+	println!("Redefine terms looking like compact IRIs");
+	println!("Term definitions may look like compact IRIs, but must be consistent.");
+	negative_test(None, input_url, "tests/expand/er44-in.jsonld", ErrorCode::InvalidIriMapping)
+}
+
+#[test]
+fn expand_er48() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er48-in.jsonld");
+	println!("Invalid term as relative IRI");
+	println!("Verifies that a relative IRI cannot be used as a term.");
+	negative_test(None, input_url, "tests/expand/er48-in.jsonld", ErrorCode::InvalidIriMapping)
+}
+
+#[test]
+fn expand_er49() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er49-in.jsonld");
+	println!("A relative IRI cannot be used as a prefix");
+	println!("Verifies that a relative IRI cannot be used as a term.");
+	negative_test(None, input_url, "tests/expand/er49-in.jsonld", ErrorCode::InvalidTermDefinition)
+}
+
+#[test]
+fn expand_er50() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er50-in.jsonld");
+	println!("Invalid reverse id");
+	println!("Verifies that an exception is raised in Expansion when an invalid IRI is used for @reverse.");
+	negative_test(None, input_url, "tests/expand/er50-in.jsonld", ErrorCode::InvalidIriMapping)
+}
+
+#[test]
+fn expand_er51() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er51-in.jsonld");
+	println!("Invalid value object value using a value alias");
+	println!("Verifies that an exception is raised in Expansion when an invalid value object value is found using a value alias");
+	negative_test(None, input_url, "tests/expand/er51-in.jsonld", ErrorCode::InvalidValueObjectValue)
+}
+
+#[test]
+fn expand_er52() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er52-in.jsonld");
+	println!("Definition for the empty term");
+	println!("Verifies that an exception is raised on expansion when a context contains a definition for the empty term");
+	negative_test(None, input_url, "tests/expand/er52-in.jsonld", ErrorCode::InvalidTermDefinition)
+}
+
+#[test]
+fn expand_er53() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/er53-in.jsonld");
+	println!("Invalid prefix value");
+	println!("Verifies that an exception is raised on expansion when a context contains an invalid @prefix value");
+	negative_test(None, input_url, "tests/expand/er53-in.jsonld", ErrorCode::InvalidPrefixValue)
+}
+
+#[test]
+fn expand_es01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/es01-in.jsonld");
+	println!("Using an array value for @context is illegal in JSON-LD 1.0");
+	println!("Verifies that an exception is raised on expansion when a invalid container mapping is found");
+	negative_test(None, input_url, "tests/expand/es01-in.jsonld", ErrorCode::InvalidContainerMapping)
+}
+
+#[test]
+fn expand_es02() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/es02-in.jsonld");
+	println!("Mapping @container: [@list, @set] is invalid");
+	println!("Testing legal combinations of @set with other container values");
+	negative_test(None, input_url, "tests/expand/es02-in.jsonld", ErrorCode::InvalidContainerMapping)
+}
+
+#[test]
 fn expand_in01() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/in01-in.jsonld");
 	println!("Basic Included array");
@@ -1409,6 +1955,30 @@ fn expand_in06() {
 	println!("json.api example");
 	println!("Tests included blocks.");
 	positive_test(None, input_url, "tests/expand/in06-in.jsonld", "tests/expand/in06-out.jsonld")
+}
+
+#[test]
+fn expand_in07() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/in07-in.jsonld");
+	println!("Error if @included value is a string");
+	println!("Tests included blocks.");
+	negative_test(None, input_url, "tests/expand/in07-in.jsonld", ErrorCode::InvalidIncludedValue)
+}
+
+#[test]
+fn expand_in08() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/in08-in.jsonld");
+	println!("Error if @included value is a value object");
+	println!("Tests included blocks.");
+	negative_test(None, input_url, "tests/expand/in08-in.jsonld", ErrorCode::InvalidIncludedValue)
+}
+
+#[test]
+fn expand_in09() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/in09-in.jsonld");
+	println!("Error if @included value is a list object");
+	println!("Tests included blocks.");
+	negative_test(None, input_url, "tests/expand/in09-in.jsonld", ErrorCode::InvalidIncludedValue)
 }
 
 #[test]
@@ -1836,6 +2406,14 @@ fn expand_m019() {
 }
 
 #[test]
+fn expand_m020() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/m020-in.jsonld");
+	println!("string value of type map must not be a literal");
+	println!("index on @type");
+	negative_test(None, input_url, "tests/expand/m020-in.jsonld", ErrorCode::InvalidTypeMapping)
+}
+
+#[test]
 fn expand_n001() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/n001-in.jsonld");
 	println!("Expands input using @nest");
@@ -1932,6 +2510,46 @@ fn expand_p004() {
 }
 
 #[test]
+fn expand_pi01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pi01-in.jsonld");
+	println!("error if @version is json-ld-1.0 for property-valued index");
+	println!("Expanding index maps where index is a property.");
+	negative_test(None, input_url, "tests/expand/pi01-in.jsonld", ErrorCode::InvalidTermDefinition)
+}
+
+#[test]
+fn expand_pi02() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pi02-in.jsonld");
+	println!("error if @container does not include @index for property-valued index");
+	println!("Expanding index maps where index is a property.");
+	negative_test(None, input_url, "tests/expand/pi02-in.jsonld", ErrorCode::InvalidTermDefinition)
+}
+
+#[test]
+fn expand_pi03() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pi03-in.jsonld");
+	println!("error if @index is a keyword for property-valued index");
+	println!("Expanding index maps where index is a property.");
+	negative_test(None, input_url, "tests/expand/pi03-in.jsonld", ErrorCode::InvalidTermDefinition)
+}
+
+#[test]
+fn expand_pi04() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pi04-in.jsonld");
+	println!("error if @index is not a string for property-valued index");
+	println!("Expanding index maps where index is a property.");
+	negative_test(None, input_url, "tests/expand/pi04-in.jsonld", ErrorCode::InvalidTermDefinition)
+}
+
+#[test]
+fn expand_pi05() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pi05-in.jsonld");
+	println!("error if attempting to add property to value object for property-valued index");
+	println!("Expanding index maps where index is a property.");
+	negative_test(None, input_url, "tests/expand/pi05-in.jsonld", ErrorCode::InvalidValueObject)
+}
+
+#[test]
 fn expand_pi06() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pi06-in.jsonld");
 	println!("property-valued index expands to property value, instead of @index (value)");
@@ -1980,11 +2598,43 @@ fn expand_pi11() {
 }
 
 #[test]
+fn expand_pr01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr01-in.jsonld");
+	println!("Protect a term");
+	println!("Check error when overriding a protected term.");
+	negative_test(None, input_url, "tests/expand/pr01-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
 fn expand_pr02() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr02-in.jsonld");
 	println!("Set a term to not be protected");
 	println!("A term with @protected: false is not protected.");
 	positive_test(None, input_url, "tests/expand/pr02-in.jsonld", "tests/expand/pr02-out.jsonld")
+}
+
+#[test]
+fn expand_pr03() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr03-in.jsonld");
+	println!("Protect all terms in context");
+	println!("A protected context protects all term definitions.");
+	negative_test(None, input_url, "tests/expand/pr03-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
+fn expand_pr04() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr04-in.jsonld");
+	println!("Do not protect term with @protected: false");
+	println!("A protected context does not protect terms with @protected: false.");
+	negative_test(None, input_url, "tests/expand/pr04-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
+fn expand_pr05() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr05-in.jsonld");
+	println!("Clear active context with protected terms from an embedded context");
+	println!("The Active context be set to null from an embedded context.");
+	negative_test(None, input_url, "tests/expand/pr05-in.jsonld", ErrorCode::InvalidContextNullification)
 }
 
 #[test]
@@ -1996,11 +2646,43 @@ fn expand_pr06() {
 }
 
 #[test]
+fn expand_pr08() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr08-in.jsonld");
+	println!("Term with protected scoped context.");
+	println!("A scoped context can protect terms.");
+	negative_test(None, input_url, "tests/expand/pr08-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
+fn expand_pr09() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr09-in.jsonld");
+	println!("Attempt to redefine term in other protected context.");
+	println!("A protected term cannot redefine another protected term.");
+	negative_test(None, input_url, "tests/expand/pr09-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
 fn expand_pr10() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr10-in.jsonld");
 	println!("Simple protected and unprotected terms.");
 	println!("Simple protected and unprotected terms.");
 	positive_test(None, input_url, "tests/expand/pr10-in.jsonld", "tests/expand/pr10-out.jsonld")
+}
+
+#[test]
+fn expand_pr11() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr11-in.jsonld");
+	println!("Fail to override protected term.");
+	println!("Fail to override protected term.");
+	negative_test(None, input_url, "tests/expand/pr11-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
+fn expand_pr12() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr12-in.jsonld");
+	println!("Scoped context fail to override protected term.");
+	println!("Scoped context fail to override protected term.");
+	negative_test(None, input_url, "tests/expand/pr12-in.jsonld", ErrorCode::ProtectedTermRedefinition)
 }
 
 #[test]
@@ -2036,11 +2718,43 @@ fn expand_pr16() {
 }
 
 #[test]
+fn expand_pr17() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr17-in.jsonld");
+	println!("Fail to override protected terms with type.");
+	println!("Fail to override protected terms with type.");
+	negative_test(None, input_url, "tests/expand/pr17-in.jsonld", ErrorCode::InvalidContextNullification)
+}
+
+#[test]
+fn expand_pr18() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr18-in.jsonld");
+	println!("Fail to override protected terms with type+null+ctx.");
+	println!("Fail to override protected terms with type+null+ctx.");
+	negative_test(None, input_url, "tests/expand/pr18-in.jsonld", ErrorCode::InvalidContextNullification)
+}
+
+#[test]
 fn expand_pr19() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr19-in.jsonld");
 	println!("Mix of protected and unprotected terms.");
 	println!("Mix of protected and unprotected terms.");
 	positive_test(None, input_url, "tests/expand/pr19-in.jsonld", "tests/expand/pr19-out.jsonld")
+}
+
+#[test]
+fn expand_pr20() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr20-in.jsonld");
+	println!("Fail with mix of protected and unprotected terms with type+null+ctx.");
+	println!("Fail with mix of protected and unprotected terms with type+null+ctx.");
+	negative_test(None, input_url, "tests/expand/pr20-in.jsonld", ErrorCode::InvalidContextNullification)
+}
+
+#[test]
+fn expand_pr21() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr21-in.jsonld");
+	println!("Fail with mix of protected and unprotected terms with type+null.");
+	println!("Fail with mix of protected and unprotected terms with type+null.");
+	negative_test(None, input_url, "tests/expand/pr21-in.jsonld", ErrorCode::InvalidContextNullification)
 }
 
 #[test]
@@ -2076,11 +2790,27 @@ fn expand_pr25() {
 }
 
 #[test]
+fn expand_pr26() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr26-in.jsonld");
+	println!("Fails on redefinition of terms with scoped contexts using different definitions.");
+	println!("Fails on redefinition of terms with scoped contexts using different definitions.");
+	negative_test(None, input_url, "tests/expand/pr26-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
 fn expand_pr27() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr27-in.jsonld");
 	println!("Allows redefinition of protected alias term with same definition modulo protected flag.");
 	println!("Allows redefinition of protected alias term with same definition modulo protected flag.");
 	positive_test(None, input_url, "tests/expand/pr27-in.jsonld", "tests/expand/pr27-out.jsonld")
+}
+
+#[test]
+fn expand_pr28() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr28-in.jsonld");
+	println!("Fails if trying to redefine a protected null term.");
+	println!("A protected term with a null IRI mapping cannot be redefined.");
+	negative_test(None, input_url, "tests/expand/pr28-in.jsonld", ErrorCode::ProtectedTermRedefinition)
 }
 
 #[test]
@@ -2097,6 +2827,30 @@ fn expand_pr30() {
 	println!("Keywords may be protected.");
 	println!("Keywords may not be redefined other than to protect them.");
 	positive_test(None, input_url, "tests/expand/pr30-in.jsonld", "tests/expand/pr30-out.jsonld")
+}
+
+#[test]
+fn expand_pr31() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr31-in.jsonld");
+	println!("Protected keyword aliases cannot be overridden.");
+	println!("Keywords may not be redefined other than to protect them.");
+	negative_test(None, input_url, "tests/expand/pr31-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
+fn expand_pr32() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr32-in.jsonld");
+	println!("Protected @type cannot be overridden.");
+	println!("Keywords may not be redefined other than to protect them.");
+	negative_test(None, input_url, "tests/expand/pr32-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
+fn expand_pr33() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/pr33-in.jsonld");
+	println!("Fails if trying to declare a keyword alias as prefix.");
+	println!("Keyword aliases can not be used as prefixes.");
+	negative_test(None, input_url, "tests/expand/pr33-in.jsonld", ErrorCode::InvalidTermDefinition)
 }
 
 #[test]
@@ -2156,6 +2910,30 @@ fn expand_pr40() {
 }
 
 #[test]
+fn expand_so01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so01-in.jsonld");
+	println!("@import is invalid in 1.0.");
+	println!("@import is invalid in 1.0.");
+	negative_test(None, input_url, "tests/expand/so01-in.jsonld", ErrorCode::InvalidContextEntry)
+}
+
+#[test]
+fn expand_so02() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so02-in.jsonld");
+	println!("@import must be a string");
+	println!("@import must be a string.");
+	negative_test(None, input_url, "tests/expand/so02-in.jsonld", ErrorCode::InvalidImportValue)
+}
+
+#[test]
+fn expand_so03() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so03-in.jsonld");
+	println!("@import overflow");
+	println!("Processors must detect source contexts that include @import.");
+	negative_test(None, input_url, "tests/expand/so03-in.jsonld", ErrorCode::InvalidContextEntry)
+}
+
+#[test]
 fn expand_so05() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so05-in.jsonld");
 	println!("@propagate: true on type-scoped context with @import");
@@ -2169,6 +2947,14 @@ fn expand_so06() {
 	println!("@propagate: false on property-scoped context with @import");
 	println!("property-scoped context with @propagate: false do not survive node-objects (with @import)");
 	positive_test(None, input_url, "tests/expand/so06-in.jsonld", "tests/expand/so06-out.jsonld")
+}
+
+#[test]
+fn expand_so07() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so07-in.jsonld");
+	println!("Protect all terms in sourced context");
+	println!("A protected context protects all term definitions.");
+	negative_test(None, input_url, "tests/expand/so07-in.jsonld", ErrorCode::ProtectedTermRedefinition)
 }
 
 #[test]
@@ -2188,11 +2974,43 @@ fn expand_so09() {
 }
 
 #[test]
+fn expand_so10() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so10-in.jsonld");
+	println!("Protect terms in sourced context");
+	println!("The containing context is merged into the source context.");
+	negative_test(None, input_url, "tests/expand/so10-in.jsonld", ErrorCode::ProtectedTermRedefinition)
+}
+
+#[test]
 fn expand_so11() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so11-in.jsonld");
 	println!("Override protected terms in sourced context");
 	println!("The containing context is merged into the source context.");
 	positive_test(None, input_url, "tests/expand/so11-in.jsonld", "tests/expand/so11-out.jsonld")
+}
+
+#[test]
+fn expand_so12() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so12-in.jsonld");
+	println!("@import may not be used in an imported context.");
+	println!("@import only valid within a term definition.");
+	negative_test(None, input_url, "tests/expand/so12-in.jsonld", ErrorCode::InvalidContextEntry)
+}
+
+#[test]
+fn expand_so13() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/so13-in.jsonld");
+	println!("@import can only reference a single context");
+	println!("@import can only reference a single context.");
+	negative_test(None, input_url, "tests/expand/so13-in.jsonld", ErrorCode::InvalidRemoteContext)
+}
+
+#[test]
+fn expand_tn01() {
+	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/expand/tn01-in.jsonld");
+	println!("@type: @none is illegal in 1.0.");
+	println!("@type: @none is illegal in json-ld-1.0.");
+	negative_test(None, input_url, "tests/expand/tn01-in.jsonld", ErrorCode::InvalidTypeMapping)
 }
 
 #[test]

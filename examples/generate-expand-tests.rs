@@ -12,9 +12,11 @@ extern crate json_ld;
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::Write;
+use std::convert::TryInto;
 use tokio::runtime::Runtime;
 use iref::Iri;
 use json_ld::{
+	ErrorCode,
 	context::{
 		ActiveContext,
 		JsonLdContextLoader,
@@ -216,18 +218,17 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 		}
 	}
 
+	let mut comments = String::new();
+	for comment in entry.get(COMMENT) {
+		comments += format!("\n\tprintln!(\"{}\");", comment.as_str().unwrap()).as_str()
+	}
+
 	if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::PositiveEvalTest)))) {
 		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
-
 		let output_filename = load_file(target, runtime, output_url);
 
-		let mut comments = String::new();
-		for comment in entry.get(COMMENT) {
-			comments += format!("\n\tprintln!(\"{}\");", comment.as_str().unwrap()).as_str()
-		}
-
 		println!(
-			include_str!("template/positive.rs"),
+			include_str!("template/test-positive.rs"),
 			func_name,
 			url,
 			name,
@@ -237,9 +238,18 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			output_filename.to_str().unwrap()
 		);
 	} else if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::NegativeEvalTest)))) {
-		let error_code = entry.get(RESULT).next().unwrap().as_str().unwrap();
+		let error_code: ErrorCode = entry.get(RESULT).next().unwrap().as_str().unwrap().try_into().unwrap();
 
-		// ...
+		println!(
+			include_str!("template/test-negative.rs"),
+			func_name,
+			url,
+			name,
+			comments,
+			context_filename,
+			input_filename.to_str().unwrap(),
+			error_code
+		);
 	} else {
 		panic!("cannot decide how to evaluate test result")
 	}

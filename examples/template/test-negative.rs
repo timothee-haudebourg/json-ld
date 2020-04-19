@@ -2,5 +2,5 @@
 fn {}() {{
 	let input_url = iri!("{}");
 	println!("{}");{}
-	positive_test({}, input_url, "{}", "{}")
+	negative_test({}, input_url, "{}", ErrorCode::{:?})
 }}

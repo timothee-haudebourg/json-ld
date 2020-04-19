@@ -17,6 +17,10 @@ impl Error {
 			source: Some(Box::new(source))
 		}
 	}
+
+	pub fn code(&self) -> ErrorCode {
+		self.code
+	}
 }
 
 impl std::error::Error for Error {
@@ -43,7 +47,7 @@ impl From<ErrorCode> for Error {
 	}
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum ErrorCode {
 	/// Two properties which expand to the same keyword have been detected.
 	/// This might occur if a keyword and an alias thereof are used at the same time.
@@ -321,5 +325,11 @@ impl<'a> TryFrom<&'a str> for ErrorCode {
 			"protected term redefinition" => Ok(ProtectedTermRedefinition),
 			_ => Err(())
 		}
+	}
+}
+
+impl fmt::Display for ErrorCode {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.as_str())
 	}
 }
