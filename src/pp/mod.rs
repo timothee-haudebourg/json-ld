@@ -1,6 +1,6 @@
 use std::fmt;
 use std::collections::HashSet;
-use crate::{Direction, Id, Key, Property, Keyword, Object, Value, Literal};
+use crate::{Direction, Id, Key, NodeType, ValueType, Property, Keyword, Object, Value, Literal};
 
 pub struct PrettyPrinter<'a, 'b: 'a> {
 	fmt: &'a mut fmt::Formatter<'b>,
@@ -96,6 +96,18 @@ impl<'a, T: PrettyPrintable + ?Sized> fmt::Display for PrettyPrint<'a, T> {
 }
 
 impl<T: Id> PrettyPrintable for Key<T> {
+	fn pretty_print(&self, pp: &mut PrettyPrinter) -> fmt::Result {
+		write!(pp.fmt, "\"{}\"", self)
+	}
+}
+
+impl<T: Id> PrettyPrintable for NodeType<T> {
+	fn pretty_print(&self, pp: &mut PrettyPrinter) -> fmt::Result {
+		write!(pp.fmt, "\"{}\"", self)
+	}
+}
+
+impl<T: Id> PrettyPrintable for ValueType<T> {
 	fn pretty_print(&self, pp: &mut PrettyPrinter) -> fmt::Result {
 		write!(pp.fmt, "\"{}\"", self)
 	}

@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use iref::Iri;
-use crate::{util, Id, Key, Literal, Object};
+use crate::{util, Id, ValueType, Literal, Object};
 
 #[derive(PartialEq, Eq)]
 pub enum Value<T: Id> {
-	Literal(Literal<T>, HashSet<Key<T>>),
+	Literal(Literal<T>, HashSet<ValueType<T>>),
 	List(Vec<Object<T>>),
 }
 

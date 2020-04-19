@@ -1,6 +1,7 @@
 use std::collections::HashSet;
+use std::convert::TryInto;
 use json::JsonValue;
-use crate::{Error, Keyword, Direction, Id, Key, Object, Node, Value, Literal, ActiveContext};
+use crate::{Error, ErrorCode, Keyword, Direction, Id, Key, Object, Node, Value, Literal, ActiveContext};
 use super::expand_iri;
 
 fn clone_default_language<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<String> {
@@ -107,7 +108,11 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 				},
 
 				Some(typ) => {
-					types.insert(typ);
+					if let Ok(typ) = typ.try_into() {
+						types.insert(typ);
+					} else {
+						return Err(ErrorCode::InvalidTypeValue.into())
+					}
 				}
 			}
 

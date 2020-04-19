@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use iref::Iri;
-use crate::{util, Id, Key, Property, Object};
+use crate::{util, Id, Key, NodeType, Property, Object};
 
 #[derive(PartialEq, Eq)]
 pub struct Node<T: Id> {
 	pub(crate) id: Option<Key<T>>,
-	pub(crate) types: Vec<Key<T>>,
+	pub(crate) types: Vec<NodeType<T>>,
 	pub(crate) graph: Option<HashSet<Object<T>>>,
 	pub(crate) included: Option<HashSet<Object<T>>>,
 	// pub(crate) language: Option<String>,
@@ -44,7 +44,7 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn types(&self) -> &[Key<T>] {
+	pub fn types(&self) -> &[NodeType<T>] {
 		self.types.as_ref()
 	}
 

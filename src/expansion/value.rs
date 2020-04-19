@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use json::JsonValue;
 use crate::{
 	Error,
@@ -120,7 +120,11 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 							result = Literal::Json(value_entry.clone())
 						}
 
-						types.insert(expanded_ty);
+						if let Ok(typ) = expanded_ty.try_into() {
+							types.insert(typ);
+						} else {
+							return Err(ErrorCode::InvalidTypedValue.into())
+						}
 					} else {
 						return Err(ErrorCode::InvalidTypeValue.into())
 					}

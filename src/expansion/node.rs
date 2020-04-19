@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::convert::TryInto;
 use futures::future::{LocalBoxFuture, FutureExt};
 use mown::Mown;
 use iref::Iri;
@@ -14,6 +15,7 @@ use crate::{
 	Key,
 	Node,
 	Value,
+	ValueType,
 	Literal,
 	Object,
 	ObjectData,
@@ -123,7 +125,11 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// context, and true for document relative.
 							for ty in value {
 								if let Some(ty) = ty.as_str() {
-									result.types.push(expand_iri(type_scoped_context, ty, true, true))
+									if let Ok(ty) = expand_iri(type_scoped_context, ty, true, true).try_into() {
+										result.types.push(ty)
+									} else {
+										return Err(ErrorCode::InvalidTypeValue.into())
+									}
 								} else {
 									return Err(ErrorCode::InvalidTypeValue.into())
 								}
@@ -276,7 +282,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 
 					let mut expanded_value = if is_json {
 						let mut types = HashSet::new();
-						types.insert(Key::Keyword(Keyword::JSON));
+						types.insert(ValueType::JSON);
 
 						Expanded::Object(Object::Value(Value::Literal(Literal::Json(value.clone()), types), ObjectData::new()))
 					} else if value.is_object() && container_mapping.contains(ContainerType::Language) {
@@ -519,8 +525,12 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// of expanded index followed by any existing
 										// values of @type in item. Add the key-value
 										// pair (@type-types) to item.
-										if let Object::Node(ref mut node, _) = item {
-											node.types.insert(0, expanded_index.clone().unwrap());
+										if let Ok(typ) = expanded_index.clone().unwrap().try_into() {
+											if let Object::Node(ref mut node, _) = item {
+												node.types.insert(0, typ);
+											}
+										} else {
+											return Err(ErrorCode::InvalidTypeValue.into())
 										}
 									}
 								}

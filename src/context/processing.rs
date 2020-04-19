@@ -2,7 +2,7 @@ use std::ops::Deref;
 use std::pin::Pin;
 use std::future::Future;
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
@@ -380,115 +380,6 @@ impl<'a> Deref for JsonObjectRef<'a> {
 	}
 }
 
-// // A partial term definition.
-// pub struct PartialTermDefinition<T: Id, C: ActiveContext<T>> {
-// 	// IRI mapping, maybe undefined.
-// 	pub value: Option<Key<T>>,
-//
-// 	// Prefix flag.
-// 	pub prefix: bool,
-//
-// 	// Protected flag.
-// 	pub protected: bool,
-//
-// 	// Reverse property flag.
-// 	pub reverse_property: bool,
-//
-// 	// Optional base URL.
-// 	pub base_url: Option<IriBuf>,
-//
-// 	// Optional context.
-// 	pub context: Option<C::LocalContext>,
-//
-// 	// Container mapping.
-// 	pub container: Container,
-//
-// 	// Optional direction mapping.
-// 	pub direction: Option<Option<Direction>>,
-//
-// 	// Optional index mapping.
-// 	pub index: Option<String>,
-//
-// 	// Optional language mapping.
-// 	pub language: Option<Option<String>>,
-//
-// 	// Optional nest value.
-// 	pub nest: Option<String>,
-//
-// 	// Optional type mapping.
-// 	pub typ: Option<Key<T>>
-// }
-//
-// impl<T: Id, C: ActiveContext<T>> PartialEq<TermDefinition<T, C>> for PartialTermDefinition<T, C> {
-// 	fn eq(&self, other: &TermDefinition<T, C>) -> bool {
-// 		// NOTE we ignore the `protected` flag.
-//
-// 		self.prefix == other.prefix &&
-// 		self.reverse_property == other.reverse_property &&
-// 		self.language == other.language &&
-// 		self.direction == other.direction &&
-// 		self.nest == other.nest &&
-// 		self.index == other.index &&
-// 		self.container == other.container &&
-// 		self.base_url == other.base_url &&
-// 		*self.value.as_ref().unwrap() == other.value &&
-// 		self.typ == other.typ &&
-// 		self.context == other.context
-// 	}
-// }
-//
-// impl<T: Id, C: ActiveContext<T>> Default for PartialTermDefinition<T, C> {
-// 	fn default() -> PartialTermDefinition<T, C> {
-// 		PartialTermDefinition {
-// 			value: None,
-// 			prefix: false,
-// 			protected: false,
-// 			reverse_property: false,
-// 			base_url: None,
-// 			typ: None,
-// 			language: None,
-// 			direction: None,
-// 			context: None,
-// 			nest: None,
-// 			index: None,
-// 			container: Container::new()
-// 		}
-// 	}
-// }
-//
-// impl<T: Id, C: ActiveContext<T>> From<PartialTermDefinition<T, C>> for TermDefinition<T, C> {
-// 	fn from(d: PartialTermDefinition<T, C>) -> TermDefinition<T, C> {
-// 		TermDefinition {
-// 			value: d.value.unwrap(),
-// 			prefix: d.prefix,
-// 			protected: d.protected,
-// 			reverse_property: d.reverse_property,
-// 			base_url: d.base_url,
-// 			typ: d.typ,
-// 			language: d.language,
-// 			direction: d.direction,
-// 			context: d.context,
-// 			nest: d.nest,
-// 			index: d.index,
-// 			container: d.container
-// 		}
-// 	}
-// }
-
-fn is_valid_type<T: Id>(t: &Key<T>) -> bool {
-	match t {
-		Key::Keyword(kw) => {
-			match kw {
-				Keyword::Id | Keyword::JSON | Keyword::None | Keyword::Vocab => true,
-				_ => false
-			}
-		},
-		Key::Prop(_) => true,
-		Key::Unknown(_) => false,
-		Key::Null => false
-	}
-}
-
 fn is_gen_delim(c: char) -> bool {
 	match c {
 		':' | '/' | '?' | '#' | '[' | ']' | '@' => true,
@@ -661,15 +552,15 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 									return Err(ErrorCode::InvalidTypeMapping.into())
 								}
 
-								// Otherwise, if the expanded type is neither @id, nor @json, nor
-								// @none, nor @vocab, nor an IRI, an invalid type mapping error has
-								// been detected and processing is aborted.
-								if !is_valid_type(&typ) {
+								if let Ok(typ) = typ.try_into() {
+									// Set the type mapping for definition to type.
+									definition.typ = Some(typ);
+								} else {
+									// Otherwise, if the expanded type is neither @id, nor @json, nor
+									// @none, nor @vocab, nor an IRI, an invalid type mapping error has
+									// been detected and processing is aborted.
 									return Err(ErrorCode::InvalidTypeMapping.into())
 								}
-
-								// Set the type mapping for definition to type.
-								definition.typ = Some(typ);
 							} else {
 								return Err(ErrorCode::InvalidTypeMapping.into())
 							}
