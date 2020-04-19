@@ -6,7 +6,8 @@ use std::convert::TryFrom;
 use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
-use crate::{Error, ErrorCode, Keyword, BlankId, Id, Key, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion, as_array};
+use crate::util::as_array;
+use crate::{Error, ErrorCode, Keyword, BlankId, Id, Key, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion};
 use super::{LocalContext, ActiveContext, MutableActiveContext, ContextLoader, TermDefinition};
 
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {

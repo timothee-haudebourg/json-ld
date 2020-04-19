@@ -1,7 +1,8 @@
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use json::JsonValue;
-use crate::{Error, ErrorCode, Keyword, Direction, as_array, Id, Key, Value, Literal, Object, ObjectData};
+use crate::{Error, ErrorCode, Keyword, Direction, Id, Key, Value, Literal, Object, ObjectData};
+use crate::util::as_array;
 use crate::context::MutableActiveContext;
 use super::{Entry, expand_iri};
 

@@ -5,6 +5,13 @@ use ::json::{JsonValue, number::Number};
 mod json;
 pub use self::json::*;
 
+pub fn as_array(json: &JsonValue) -> &[JsonValue] {
+	match json {
+		JsonValue::Array(ary) => ary,
+		_ => unsafe { std::mem::transmute::<&JsonValue, &[JsonValue; 1]>(json) as &[JsonValue] }
+	}
+}
+
 pub fn hash_json_number<H: Hasher>(number: &Number, hasher: &mut H) {
 	let (positive, mantissa, exponent) = number.as_parts();
 	positive.hash(hasher);

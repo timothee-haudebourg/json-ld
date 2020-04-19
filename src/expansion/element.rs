@@ -2,7 +2,8 @@ use mown::Mown;
 use futures::future::{LocalBoxFuture, FutureExt};
 use iref::Iri;
 use json::JsonValue;
-use crate::{Error, ErrorCode, Keyword, as_array, Id, Key, Value, Object};
+use crate::{Error, ErrorCode, Keyword, Id, Key, Value, Object};
+use crate::util::as_array;
 use crate::context::{MutableActiveContext, LocalContext, ContextLoader};
 
 use super::{Expanded, Entry, expand_literal, expand_array, expand_value, expand_node, expand_iri};

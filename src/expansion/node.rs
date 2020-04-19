@@ -3,7 +3,8 @@ use futures::future::{LocalBoxFuture, FutureExt};
 use mown::Mown;
 use iref::Iri;
 use json::JsonValue;
-use crate::{Error, ErrorCode, Keyword, Container, ContainerType, as_array, Id, Key, Node, Value, Literal, Object, ObjectData};
+use crate::{Error, ErrorCode, Keyword, Container, ContainerType, Id, Key, Node, Value, Literal, Object, ObjectData};
+use crate::util::as_array;
 use crate::context::{MutableActiveContext, LocalContext, ContextLoader};
 use super::{Expanded, Entry, expand_element, expand_literal, expand_iri, filter_top_level_item};
 
