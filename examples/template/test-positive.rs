@@ -5,8 +5,7 @@ fn {}() {{
 	positive_test(
 		Options {{
 			processing_mode: ProcessingMode::{:?},
-			expand_context: {},
-			ordered: {:?}
+			expand_context: {}
 		}},
 		input_url,
 		"{}",

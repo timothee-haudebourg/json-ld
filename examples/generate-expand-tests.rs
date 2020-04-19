@@ -46,7 +46,9 @@ const VOCAB_NEGATIVE_EVAL_TEST: Iri<'static> = iri!("https://w3c.github.io/json-
 
 const VOCAB_OPTION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#option");
 const VOCAB_SPEC_VERSION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#specVersion");
+const VOCAB_PROCESSING_MODE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#processingMode");
 const VOCAB_EXPAND_CONTEXT: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#expandContext");
+const VOCAB_BASE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#base");
 const VOCAB_BASE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#base");
 
 /// Vocabulary of the test manifest
@@ -61,6 +63,7 @@ pub enum Vocab {
 	Comment,
 	Option,
 	SpecVersion,
+	ProcessingMode,
 	ExpandContext,
 	Base
 }
@@ -78,6 +81,7 @@ impl json_ld::Vocab for Vocab {
 			_ if iri == VOCAB_NEGATIVE_EVAL_TEST => Some(NegativeEvalTest),
 			_ if iri == VOCAB_OPTION => Some(Option),
 			_ if iri == VOCAB_SPEC_VERSION => Some(SpecVersion),
+			_ if iri == VOCAB_PROCESSING_MODE => Some(ProcessingMode),
 			_ if iri == VOCAB_EXPAND_CONTEXT => Some(ExpandContext),
 			_ if iri == VOCAB_BASE => Some(Base),
 			_ => None
@@ -96,6 +100,7 @@ impl json_ld::Vocab for Vocab {
 			NegativeEvalTest => VOCAB_NEGATIVE_EVAL_TEST,
 			Option => VOCAB_OPTION,
 			SpecVersion => VOCAB_SPEC_VERSION,
+			ProcessingMode => VOCAB_PROCESSING_MODE,
 			ExpandContext => VOCAB_EXPAND_CONTEXT,
 			Base => VOCAB_BASE
 		}
@@ -113,6 +118,7 @@ const RESULT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Result));
 // const NEGATIVE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::NegativeEvalTest));
 const OPTION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Option));
 const SPEC_VERSION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::SpecVersion));
+const PROCESSING_MODE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::ProcessingMode));
 const EXPAND_CONTEXT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::ExpandContext));
 const BASE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Base));
 
@@ -193,7 +199,6 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 
 	let mut processing_mode = ProcessingMode::JsonLd1_1;
 	let mut context_filename = "None".to_string();
-	let mut ordered = false;
 
 	for option in entry.get(OPTION) {
 		if let Object::Node(option, _) = option {
@@ -204,6 +209,10 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 						return
 					}
 				}
+			}
+
+			for mode in option.get(PROCESSING_MODE) {
+				processing_mode = mode.as_str().unwrap().into();
 			}
 
 			for expand_context in option.get(EXPAND_CONTEXT) {
@@ -237,7 +246,6 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			comments,
 			processing_mode,
 			context_filename,
-			ordered,
 			input_filename.to_str().unwrap(),
 			output_filename.to_str().unwrap()
 		);
@@ -252,7 +260,6 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			comments,
 			processing_mode,
 			context_filename,
-			ordered,
 			input_filename.to_str().unwrap(),
 			error_code
 		);

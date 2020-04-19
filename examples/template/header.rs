@@ -24,8 +24,7 @@ use json_ld::{{
 
 struct Options<'a> {{
 	processing_mode: ProcessingMode,
-	expand_context: Option<&'a str>,
-	ordered: bool
+	expand_context: Option<&'a str>
 }}
 
 impl<'a> From<Options<'a>> for ExpansionOptions {{
