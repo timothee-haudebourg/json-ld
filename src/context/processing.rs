@@ -7,7 +7,7 @@ use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
 use crate::util::as_array;
-use crate::{Error, ErrorCode, Keyword, BlankId, Id, Key, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion};
+use crate::{ProcessingMode, Error, ErrorCode, Keyword, BlankId, Id, Key, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion};
 use super::{ContextProcessingOptions, LocalContext, ActiveContext, MutableActiveContext, ContextLoader, TermDefinition};
 
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
@@ -167,17 +167,21 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 						if version_value.as_str() != Some("1.1") && version_value.as_f32() != Some(1.1) {
 							return Err(ErrorCode::InvalidVersionValue.into())
 						}
-					}
 
-					// 5.5.2) If processing mode is set to json-ld-1.0, a processing mode conflict
-					// error has been detected.
-					// TODO
+						// 5.5.2) If processing mode is set to json-ld-1.0, a processing mode conflict
+						// error has been detected.
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							return Err(ErrorCode::ProcessingModeConflict.into())
+						}
+					}
 
 					// 5.6) If context has an @import entry:
 					let context = if let Some(import_value) = context.get(Keyword::Import.into()) {
 						// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected.
-						// TODO
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							return Err(ErrorCode::InvalidContextEntry.into())
+						}
 
 						if let Some(import_value) = import_value.as_str() {
 							// 5.6.3) Initialize import to the result of resolving the value of
@@ -305,7 +309,9 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					if let Some(value) = context.get(Keyword::Direction.into()) {
 						// 5.10.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected and processing is aborted.
-						// TODO
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							return Err(ErrorCode::InvalidContextEntry.into())
+						}
 
 						if value.is_null() {
 							// 5.10.3) If value is null, remove any base direction from result.
@@ -554,7 +560,9 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 					if term.as_str() == "@type" {
 						// ... and processing mode is json-ld-1.0, a keyword
 						// redefinition error has been detected and processing is aborted.
-						// TODO
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							return Err(ErrorCode::KeywordRedefinition.into())
+						}
 
 						// At this point, `value` MUST be a map with only either or both of the
 						// following entries:
@@ -620,12 +628,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 					definition.protected = protected;
 
 					// If the @protected entry in value is true set the protected flag in
-					// definition to true. If the value of @protected is not a boolean, an invalid
-					// @protected value error has been detected and processing is aborted.
-					// If processing mode is json-ld-1.0, an invalid term definition has been
-					// detected and processing is aborted.
-
-					// If the @protected entry in value is true set the protected flag in
 					// definition to true.
 					if let Some(protected_value) = value.get("@protected") {
 						if let JsonValue::Boolean(b) = protected_value {
@@ -634,10 +636,12 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							// If the value of @protected is not a boolean, an invalid @protected
 							// value error has been detected.
 							return Err(ErrorCode::InvalidProtectedValue.into())
+						}
 
-							// If processing mode is json-ld-1.0, an invalid term definition has
-							// been detected and processing is aborted.
-							// TODO
+						// If processing mode is json-ld-1.0, an invalid term definition has
+						// been detected and processing is aborted.
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 					}
 
@@ -653,7 +657,9 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// If the expanded type is @json or @none, and processing mode is
 								// json-ld-1.0, an invalid type mapping error has been detected and
 								// processing is aborted.
-								// TODO
+								if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Key::Keyword(Keyword::JSON) || typ == Key::Keyword(Keyword::None)) {
+									return Err(ErrorCode::InvalidTypeMapping.into())
+								}
 
 								// Otherwise, if the expanded type is neither @id, nor @json, nor
 								// @none, nor @vocab, nor an IRI, an invalid type mapping error has
@@ -899,6 +905,18 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 
 					// If value contains the entry @container:
 					if let Some(container_value) = value.get("@container") {
+						// If the container value is @graph, @id, or @type, or is otherwise not a
+						// string, generate an invalid container mapping error and abort processing
+						// if processing mode is json-ld-1.0.
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							match container_value.as_str() {
+								Some("@graph") | Some("@id") | Some("@type") | None => {
+									return Err(ErrorCode::InvalidContainerMapping.into())
+								},
+								_ => ()
+							}
+						}
+
 						// Initialize `container` to the value associated with the `@container`
 						// entry, which MUST be either `@graph`, `@id`, `@index`, `@language`,
 						// `@list`, `@set`, `@type`, or an array containing exactly any one of
@@ -922,11 +940,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								return Err(ErrorCode::InvalidContainerMapping.into())
 							}
 						}
-
-						// If the container value is @graph, @id, or @type, or is otherwise not a
-						// string, generate an invalid container mapping error and abort processing
-						// if processing mode is json-ld-1.0.
-						// TODO
 
 						// Set the container mapping of definition to container coercing to an
 						// array, if necessary.
@@ -954,8 +967,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// If processing mode is json-ld-1.0 or container mapping does not include
 						// `@index`, an invalid term definition has been detected and processing
 						// is aborted.
-						// TODO json-ld-1.0
-						if !definition.container.contains(ContainerType::Index) {
+						if !definition.container.contains(ContainerType::Index) || options.processing_mode == ProcessingMode::JsonLd1_0 {
 							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 
@@ -981,7 +993,9 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 					if let Some(context) = value.get("@context") {
 						// If processing mode is json-ld-1.0, an invalid term definition has been
 						// detected and processing is aborted.
-						// TODO
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							return Err(ErrorCode::InvalidTermDefinition.into())
+						}
 
 						// Initialize `context` to the value associated with the @context entry,
 						// which is treated as a local context.
@@ -1050,7 +1064,9 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 					if let Some(nest_value) = value.get("@nest") {
 						// If processing mode is json-ld-1.0, an invalid term definition has been
 						// detected and processing is aborted.
-						// TODO json-ld-1.0
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							return Err(ErrorCode::InvalidTermDefinition.into())
+						}
 
 						// Initialize `nest` value in `definition` to the value associated with the
 						// `@nest` entry, which MUST be a string and MUST NOT be a keyword other
@@ -1073,8 +1089,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// If processing mode is json-ld-1.0, or if `term` contains a colon (:) or
 						// slash (/), an invalid term definition has been detected and processing
 						// is aborted.
-						if term.contains(':') || term.contains('/') {
-							// TODO json-ld-1.0
+						if term.contains(':') || term.contains('/') || options.processing_mode == ProcessingMode::JsonLd1_0 {
 							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 

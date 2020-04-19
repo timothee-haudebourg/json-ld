@@ -6,6 +6,7 @@ use json::JsonValue;
 use crate::{
 	Error,
 	ErrorCode,
+	ProcessingMode,
 	Keyword,
 	Container,
 	ContainerType,
@@ -92,8 +93,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					// colliding keywords error has been detected and processing is
 					// aborted.
 					if let Some(expanded_property) = result.expanded_property.as_ref() {
-						if *expanded_property != Key::Keyword(Keyword::Included) && *expanded_property != Key::Keyword(Keyword::Type) {
-							// TODO json-ld-1.0
+						if options.processing_mode != ProcessingMode::JsonLd1_0 && *expanded_property != Key::Keyword(Keyword::Included) && *expanded_property != Key::Keyword(Keyword::Type) {
 							return Err(ErrorCode::CollidingKeywords.into())
 						}
 					}
@@ -143,7 +143,9 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 						Keyword::Included => {
 							// If processing mode is json-ld-1.0, continue with the next
 							// key from element.
-							// TODO processing mode
+							if options.processing_mode == ProcessingMode::JsonLd1_0 {
+								continue
+							}
 
 							// Set `expanded_value` to the result of using this algorithm
 							// recursively passing `active_context`, `active_property`,
