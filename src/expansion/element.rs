@@ -7,7 +7,7 @@ use crate::{
 	ErrorCode,
 	Keyword,
 	Id,
-	Key,
+	Term,
 	Value,
 	Object,
 	MutableActiveContext,
@@ -69,10 +69,10 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 
 				for Entry(key, value) in entries.iter() {
 					match expand_iri(active_context, key, false, true) {
-						Key::Keyword(Keyword::Value) => {
+						Term::Keyword(Keyword::Value) => {
 							value_entry = Some(value)
 						},
-						Key::Keyword(Keyword::Id) => {
+						Term::Keyword(Keyword::Id) => {
 							id_entry = Some(value)
 						},
 						_ => ()
@@ -115,7 +115,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				for Entry(key, value) in entries.iter() {
 					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
 					match &expanded_key {
-						Key::Keyword(Keyword::Type) => {
+						Term::Keyword(Keyword::Type) => {
 							type_entries.push(Entry(key, value));
 						},
 						_ => ()
@@ -187,16 +187,16 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				for Entry(key, value) in entries.iter() {
 					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
 					match &expanded_key {
-						Key::Unknown(_) => {
+						Term::Unknown(_) => {
 							warn!("failed to expand key `{}`", key)
 						},
-						Key::Keyword(Keyword::Value) => {
+						Term::Keyword(Keyword::Value) => {
 							value_entry = Some(value)
 						},
-						Key::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
+						Term::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
 							list_entry = Some(value)
 						},
-						Key::Keyword(Keyword::Set) => {
+						Term::Keyword(Keyword::Set) => {
 							set_entry = Some(value)
 						},
 						_ => ()
@@ -208,10 +208,10 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				if let Some(list_entry) = list_entry {
 					for Entry((_, expanded_key), _) in expanded_entries {
 						match expanded_key {
-							Key::Keyword(Keyword::Index) => {
+							Term::Keyword(Keyword::Index) => {
 								panic!("TODO list index")
 							},
-							Key::Keyword(Keyword::List) => (),
+							Term::Keyword(Keyword::List) => (),
 							_ => {
 								return Err(ErrorCode::InvalidSetOrListObject.into())
 							}
@@ -231,10 +231,10 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				} else if let Some(set_entry) = set_entry {
 					for Entry((_, expanded_key), _) in expanded_entries {
 						match expanded_key {
-							Key::Keyword(Keyword::Index) => {
+							Term::Keyword(Keyword::Index) => {
 								panic!("TODO set index")
 							},
-							Key::Keyword(Keyword::Set) => (),
+							Term::Keyword(Keyword::Set) => (),
 							_ => {
 								return Err(ErrorCode::InvalidSetOrListObject.into())
 							}

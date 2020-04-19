@@ -7,7 +7,7 @@ use crate::{
 	Keyword,
 	Direction,
 	Id,
-	Key,
+	Term,
 	Value,
 	Literal,
 	Object,
@@ -17,14 +17,14 @@ use crate::{
 use crate::util::as_array;
 use super::{Entry, expand_iri};
 
-pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Key<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Key<T>)>>, value_entry: &JsonValue) -> Result<Option<Object<T>>, Error> {
+pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Term<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Object<T>>, Error> {
 	// If input type is @json, set expanded value to value.
 	// If processing mode is json-ld-1.0, an invalid value object value error has
 	// been detected and processing is aborted.
 
 	// Otherwise, if value is not a scalar or null, an invalid value object value
 	// error has been detected and processing is aborted.
-	let mut result = if input_type == Some(Key::Keyword(Keyword::JSON)) {
+	let mut result = if input_type == Some(Term::Keyword(Keyword::JSON)) {
 		Literal::Json(value_entry.clone())
 	} else {
 		match value_entry {
@@ -59,7 +59,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 	for Entry((_, expanded_key), value) in expanded_entries {
 		match expanded_key {
 			// If expanded property is @language:
-			Key::Keyword(Keyword::Language) => {
+			Term::Keyword(Keyword::Language) => {
 				// If value is not a string, an invalid language-tagged string
 				// error has been detected and processing is aborted.
 				if let Some(value) = value.as_str() {
@@ -76,7 +76,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 				}
 			},
 			// If expanded property is @direction:
-			Key::Keyword(Keyword::Direction) => {
+			Term::Keyword(Keyword::Direction) => {
 				// If processing mode is json-ld-1.0, continue with the next key
 				// from element.
 				// TODO processing mode.
@@ -94,7 +94,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 				}
 			},
 			// If expanded property is @index:
-			Key::Keyword(Keyword::Index) => {
+			Term::Keyword(Keyword::Index) => {
 				// If value is not a string, an invalid @index value error has
 				// been detected and processing is aborted.
 				if let Some(value) = value.as_str() {
@@ -104,7 +104,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 				}
 			},
 			// If expanded ...
-			Key::Keyword(Keyword::Type) => {
+			Term::Keyword(Keyword::Type) => {
 				// If value is neither a string nor an array of strings, an
 				// invalid type value error has been detected and processing
 				// is aborted.
@@ -116,7 +116,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 					if let Some(ty) = ty.as_str() {
 						let expanded_ty = expand_iri(type_scoped_context, ty, true, true);
 
-						if expanded_ty == Key::Keyword(Keyword::JSON) {
+						if expanded_ty == Term::Keyword(Keyword::JSON) {
 							result = Literal::Json(value_entry.clone())
 						}
 
@@ -130,7 +130,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Ke
 					}
 				}
 			},
-			Key::Keyword(Keyword::Value) => (),
+			Term::Keyword(Keyword::Value) => (),
 			_ => {
 				return Err(ErrorCode::InvalidValueObject.into());
 			}

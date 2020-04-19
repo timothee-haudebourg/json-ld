@@ -7,7 +7,7 @@ use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
 use crate::util::as_array;
-use crate::{ProcessingMode, Error, ErrorCode, Keyword, BlankId, Id, Key, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion};
+use crate::{ProcessingMode, Error, ErrorCode, Keyword, BlankId, Id, Term, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion};
 use super::{ContextProcessingOptions, LocalContext, ActiveContext, MutableActiveContext, ContextLoader, TermDefinition};
 
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
@@ -281,7 +281,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
 								match expansion::expand_iri(&result, value, true, true) {
-									Key::Prop(vocab) => result.set_vocabulary(Some(Key::Prop(vocab))),
+									Term::Prop(vocab) => result.set_vocabulary(Some(Term::Prop(vocab))),
 									_ => return Err(ErrorCode::InvalidVocabMapping.into())
 								}
 							},
@@ -387,19 +387,19 @@ fn is_gen_delim(c: char) -> bool {
 	}
 }
 
-fn is_gen_delim_or_blank<T: Id>(t: &Key<T>) -> bool {
+fn is_gen_delim_or_blank<T: Id>(t: &Term<T>) -> bool {
 	match t {
-		Key::Keyword(_) => false,
-		Key::Prop(Property::Blank(_)) => true,
-		Key::Prop(Property::Id(id)) => {
+		Term::Keyword(_) => false,
+		Term::Prop(Property::Blank(_)) => true,
+		Term::Prop(Property::Id(id)) => {
 			if let Some(c) = id.iri().as_str().chars().last() {
 				is_gen_delim(c)
 			} else {
 				false
 			}
 		},
-		Key::Unknown(_) => false,
-		Key::Null => false
+		Term::Unknown(_) => false,
+		Term::Null => false
 	}
 }
 
@@ -411,7 +411,7 @@ fn contains_nz(id: &str, c: char) -> bool {
 	}
 }
 
-fn iri_eq_opt<T: Id>(a: &Option<Key<T>>, b: &Option<Key<T>>) -> bool {
+fn iri_eq_opt<T: Id>(a: &Option<Term<T>>, b: &Option<Term<T>>) -> bool {
 	match (a, b) {
 		(Some(a), Some(b)) => a.iri_eq(b),
 		(None, None) => true,
@@ -548,7 +548,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// If the expanded type is @json or @none, and processing mode is
 								// json-ld-1.0, an invalid type mapping error has been detected and
 								// processing is aborted.
-								if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Key::Keyword(Keyword::JSON) || typ == Key::Keyword(Keyword::None)) {
+								if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Term::Keyword(Keyword::JSON) || typ == Term::Keyword(Keyword::None)) {
 									return Err(ErrorCode::InvalidTypeMapping.into())
 								}
 
@@ -592,8 +592,8 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							// identifier, an invalid IRI mapping error has been detected and
 							// processing is aborted.
 							match expand_iri(active_context, reverse_value, false, true, local_context, defined, options).await? {
-								Ok(Key::Prop(mapping)) => {
-									definition.value = Some(Key::Prop(mapping))
+								Ok(Term::Prop(mapping)) => {
+									definition.value = Some(Term::Prop(mapping))
 								},
 								_ => {
 									return Err(ErrorCode::InvalidIriMapping.into())
@@ -665,7 +665,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								definition.value = if let Ok(value) = expand_iri(active_context, id_value, false, true, local_context, defined, options).await? {
 									// if it equals `@context`, an invalid keyword alias error has
 									// been detected and processing is aborted.
-									if value == Key::Keyword(Keyword::Context) {
+									if value == Term::Keyword(Keyword::Context) {
 										return Err(ErrorCode::InvalidKeywordAlias.into())
 									}
 
@@ -742,7 +742,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							result.push_str(suffix);
 
 							if let Ok(iri) = Iri::new(result.as_str()) {
-								definition.value = Some(Key::<T>::from(T::from_iri(iri)))
+								definition.value = Some(Term::<T>::from(T::from_iri(iri)))
 							} else {
 								return Err(ErrorCode::InvalidIriMapping.into())
 							}
@@ -753,7 +753,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								definition.value = Some(BlankId::new(suffix).into())
 							} else {
 								if let Ok(iri) = Iri::new(term.as_str()) {
-									definition.value = Some(Key::<T>::from(T::from_iri(iri)))
+									definition.value = Some(Term::<T>::from(T::from_iri(iri)))
 								} else {
 									return Err(ErrorCode::InvalidIriMapping.into())
 								}
@@ -764,7 +764,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// Set the IRI mapping of definition to the result of IRI expanding
 						// term.
 						match expansion::expand_iri(active_context, term.as_str(), false, true) {
-							Key::Prop(Property::Id(id)) => {
+							Term::Prop(Property::Id(id)) => {
 								definition.value = Some(id.into())
 							},
 							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
@@ -774,7 +774,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 					} else if term == "@type" {
 						// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
 						// `@type`.
-						definition.value = Some(Key::Keyword(Keyword::Type))
+						definition.value = Some(Term::Keyword(Keyword::Type))
 					} else if let Some(vocabulary) = active_context.vocabulary() {
 						// Otherwise, if `active_context` has a vocabulary mapping, the IRI mapping
 						// of `definition` is set to the result of concatenating the value
@@ -785,7 +785,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							let mut result = vocabulary_iri.as_str().to_string();
 							result.push_str(term.as_str());
 							if let Ok(iri) = Iri::new(result.as_str()) {
-								definition.value = Some(Key::<T>::from(T::from_iri(iri)))
+								definition.value = Some(Term::<T>::from(T::from_iri(iri)))
 							} else {
 								return Err(ErrorCode::InvalidIriMapping.into())
 							}
@@ -843,12 +843,12 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// an invalid type mapping error has been detected and processing
 								// is aborted.
 								match typ {
-									Key::Keyword(Keyword::Id) | Key::Keyword(Keyword::Vocab) => (),
+									Term::Keyword(Keyword::Id) | Term::Keyword(Keyword::Vocab) => (),
 									_ => return Err(ErrorCode::InvalidTypeMapping.into())
 								}
 							} else {
 								// If type mapping in definition is undefined, set it to @id.
-								definition.typ = Some(Key::Keyword(Keyword::Id))
+								definition.typ = Some(Term::Keyword(Keyword::Id))
 							}
 						}
 					}
@@ -868,7 +868,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
 							match expansion::expand_iri(active_context, index, false, true) {
-								Key::Prop(Property::Id(_)) => (),
+								Term::Prop(Property::Id(_)) => (),
 								_ => {
 									return Err(ErrorCode::InvalidTermDefinition.into())
 								}
@@ -1046,11 +1046,11 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, options: ContextProcessingOptions) -> impl 'a + Future<Output = Result<Result<Key<T>, Option<String>>, Error>> where C::LocalContext: From<JsonValue> {
+pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, options: ContextProcessingOptions) -> impl 'a + Future<Output = Result<Result<Term<T>, Option<String>>, Error>> where C::LocalContext: From<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {
-			Ok(Ok(Key::Keyword(keyword)))
+			Ok(Ok(Term::Keyword(keyword)))
 		} else {
 			// If value has the form of a keyword, a processor SHOULD generate a warning and return
 			// null.
@@ -1145,7 +1145,7 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 			// concatenating the vocabulary mapping with value.
 			if vocab {
 				if let Some(vocabulary) = active_context.vocabulary() {
-					if let Key::Prop(mapping) = vocabulary {
+					if let Term::Prop(mapping) = vocabulary {
 						let mut result = mapping.as_str().to_string();
 						result.push_str(value.as_ref());
 

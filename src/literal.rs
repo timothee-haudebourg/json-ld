@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
 use json::JsonValue;
-use crate::{util, Id, Key,  Direction};
+use crate::{util, Id, Term,  Direction};
 
 #[derive(PartialEq)]
 pub enum Literal<T: Id> {
@@ -12,7 +12,7 @@ pub enum Literal<T: Id> {
 		language: Option<String>,
 		direction: Option<Direction>
 	},
-	Ref(Key<T>),
+	Ref(Term<T>),
 	Json(JsonValue),
 }
 

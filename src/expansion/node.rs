@@ -12,7 +12,7 @@ use crate::{
 	Container,
 	ContainerType,
 	Id,
-	Key,
+	Term,
 	Node,
 	Value,
 	ValueType,
@@ -26,7 +26,7 @@ use crate::{
 use crate::util::as_array;
 use super::{Expanded, Entry, ExpansionOptions, expand_element, expand_literal, expand_iri, filter_top_level_item};
 
-pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Key<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, options: ExpansionOptions) -> Result<Option<(Node<T>, ObjectData)>, Error> where C::LocalContext: From<JsonValue> {
+pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Term<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, options: ExpansionOptions) -> Result<Option<(Node<T>, ObjectData)>, Error> where C::LocalContext: From<JsonValue> {
 	// Initialize two empty maps, `result` and `nests`.
 	let mut result: Node<T> = Node::new();
 	let mut result_data = ObjectData::new();
@@ -66,16 +66,16 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 	Ok(Some((result, result_data)))
 }
 
-fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(result: &'a mut Node<T>, result_data: &'a mut ObjectData, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Key<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, options: ExpansionOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
+fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(result: &'a mut Node<T>, result_data: &'a mut ObjectData, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Term<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, options: ExpansionOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
 	async move {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:
 		for Entry((key, expanded_key), value) in expanded_entries {
 			match expanded_key {
-				Key::Null | Key::Unknown(_) => (),
+				Term::Null | Term::Unknown(_) => (),
 
 				// If key is @context, continue to the next key.
-				Key::Keyword(Keyword::Context) => (),
+				Term::Keyword(Keyword::Context) => (),
 				// Initialize `expanded_property` to the result of IRI expanding `key`.
 
 				// If `expanded_property` is `null` or it neither contains a colon (:)
@@ -83,7 +83,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 				// (already done)
 
 				// If `expanded_property` is a keyword:
-				Key::Keyword(expanded_property) => {
+				Term::Keyword(expanded_property) => {
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
 					if active_property == Some("@reverse") {
@@ -95,7 +95,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					// colliding keywords error has been detected and processing is
 					// aborted.
 					if let Some(expanded_property) = result.expanded_property.as_ref() {
-						if options.processing_mode != ProcessingMode::JsonLd1_0 && *expanded_property != Key::Keyword(Keyword::Included) && *expanded_property != Key::Keyword(Keyword::Type) {
+						if options.processing_mode != ProcessingMode::JsonLd1_0 && *expanded_property != Term::Keyword(Keyword::Included) && *expanded_property != Term::Keyword(Keyword::Type) {
 							return Err(ErrorCode::CollidingKeywords.into())
 						}
 					}
@@ -198,10 +198,10 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 
 								for Entry(reverse_key, reverse_value) in reverse_entries {
 									match expand_iri(active_context, reverse_key, false, true) {
-										Key::Keyword(_) => {
+										Term::Keyword(_) => {
 											return Err(ErrorCode::InvalidReverseProperty.into())
 										},
-										Key::Prop(reverse_prop) => {
+										Term::Prop(reverse_prop) => {
 											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, options).await?;
 
 											let is_double_reversed = if let Some(reverse_key_definition) = active_context.get(reverse_key) {
@@ -259,7 +259,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					}
 				},
 
-				Key::Prop(prop) => {
+				Term::Prop(prop) => {
 					let mut container_mapping = Mown::Owned(Container::new());
 
 					let key_definition = active_context.get(key);
@@ -275,7 +275,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 						// If key's term definition in `active_context` has a type mapping of `@json`,
 						// set expanded value to a new map,
 						// set the entry `@value` to `value`, and set the entry `@type` to `@json`.
-						if key_definition.typ == Some(Key::Keyword(Keyword::JSON)) {
+						if key_definition.typ == Some(Term::Keyword(Keyword::JSON)) {
 							is_json = true;
 						}
 					}
@@ -329,7 +329,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 
 										// If language is @none, or expands to
 										// @none, remove @language from v.
-										let language = if expand_iri(active_context, language, false, true) == Key::Keyword(Keyword::None) {
+										let language = if expand_iri(active_context, language, false, true) == Term::Keyword(Keyword::None) {
 											None
 										} else {
 											Some(language.to_string())
@@ -428,7 +428,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// Initialize `expanded_index` to the result of IRI
 							// expanding index.
 							let expanded_index = match expand_iri(active_context, index, false, true) {
-								Key::Null | Key::Keyword(Keyword::None) => None,
+								Term::Null | Term::Keyword(Keyword::None) => None,
 								key => Some(key)
 							};
 
@@ -480,7 +480,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// Initialize expanded index key to the result
 										// of IRI expanding index key.
 										let expanded_index_key = match expand_iri(active_context, index_key, false, true) {
-											Key::Prop(prop) => prop,
+											Term::Prop(prop) => prop,
 											_ => continue
 										};
 

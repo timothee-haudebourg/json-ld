@@ -1,12 +1,12 @@
 use iref::IriBuf;
-use crate::{Id, Key, Direction, Container};
+use crate::{Id, Term, Direction, Container};
 use super::ActiveContext;
 
 // A term definition.
 #[derive(Clone)]
 pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	// IRI mapping.
-	pub value: Option<Key<T>>,
+	pub value: Option<Term<T>>,
 
 	// Prefix flag.
 	pub prefix: bool,
@@ -39,7 +39,7 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	pub nest: Option<String>,
 
 	// Optional type mapping.
-	pub typ: Option<Key<T>>
+	pub typ: Option<Term<T>>
 }
 
 impl<T: Id, C: ActiveContext<T>> Default for TermDefinition<T, C> {

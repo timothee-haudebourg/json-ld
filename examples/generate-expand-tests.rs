@@ -26,7 +26,7 @@ use json_ld::{
 	Value,
 	Property,
 	VocabId,
-	Key,
+	Term,
 	ExpansionOptions,
 	ProcessingMode
 };
@@ -233,7 +233,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 		comments += format!("\n\tprintln!(\"{}\");", comment.as_str().unwrap()).as_str()
 	}
 
-	if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::PositiveEvalTest)))) {
+	if entry.types().contains(&Term::Prop(Property::Id(VocabId::Id(Vocab::PositiveEvalTest)))) {
 		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
 		let output_filename = load_file(target, runtime, output_url);
 
@@ -248,7 +248,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			input_filename.to_str().unwrap(),
 			output_filename.to_str().unwrap()
 		);
-	} else if entry.types().contains(&Key::Prop(Property::Id(VocabId::Id(Vocab::NegativeEvalTest)))) {
+	} else if entry.types().contains(&Term::Prop(Property::Id(VocabId::Id(Vocab::NegativeEvalTest)))) {
 		let error_code: ErrorCode = entry.get(RESULT).next().unwrap().as_str().unwrap().try_into().unwrap();
 
 		println!(

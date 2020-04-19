@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 use json::JsonValue;
-use crate::{Id, Keyword, Key, Property, AsJson};
+use crate::{Id, Keyword, Term, Property, AsJson};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum NodeType<T: Id> {
@@ -26,17 +26,17 @@ impl<T: Id> NodeType<T> {
 	}
 }
 
-impl<T: Id> TryFrom<Key<T>> for NodeType<T> {
-	type Error = Key<T>;
+impl<T: Id> TryFrom<Term<T>> for NodeType<T> {
+	type Error = Term<T>;
 
-	fn try_from(term: Key<T>) -> Result<NodeType<T>, Key<T>> {
+	fn try_from(term: Term<T>) -> Result<NodeType<T>, Term<T>> {
 		match term {
-			Key::Keyword(Keyword::Id) => Ok(NodeType::Id),
-			Key::Keyword(Keyword::JSON) => Ok(NodeType::JSON),
-			Key::Keyword(Keyword::None) => Ok(NodeType::None),
-			Key::Keyword(Keyword::Vocab) => Ok(NodeType::Vocab),
-			Key::Prop(prop) => Ok(NodeType::Prop(prop)),
-			Key::Unknown(name) => {
+			Term::Keyword(Keyword::Id) => Ok(NodeType::Id),
+			Term::Keyword(Keyword::JSON) => Ok(NodeType::JSON),
+			Term::Keyword(Keyword::None) => Ok(NodeType::None),
+			Term::Keyword(Keyword::Vocab) => Ok(NodeType::Vocab),
+			Term::Prop(prop) => Ok(NodeType::Prop(prop)),
+			Term::Unknown(name) => {
 				Ok(NodeType::Unknown(name))
 			},
 			term => Err(term)
@@ -77,16 +77,16 @@ impl<T: Id> ValueType<T> {
 	}
 }
 
-impl<T: Id> TryFrom<Key<T>> for ValueType<T> {
-	type Error = Key<T>;
+impl<T: Id> TryFrom<Term<T>> for ValueType<T> {
+	type Error = Term<T>;
 
-	fn try_from(term: Key<T>) -> Result<ValueType<T>, Key<T>> {
+	fn try_from(term: Term<T>) -> Result<ValueType<T>, Term<T>> {
 		match term {
-			Key::Keyword(Keyword::Id) => Ok(ValueType::Id),
-			Key::Keyword(Keyword::JSON) => Ok(ValueType::JSON),
-			Key::Keyword(Keyword::None) => Ok(ValueType::None),
-			Key::Keyword(Keyword::Vocab) => Ok(ValueType::Vocab),
-			Key::Prop(prop) => Ok(ValueType::Prop(prop)),
+			Term::Keyword(Keyword::Id) => Ok(ValueType::Id),
+			Term::Keyword(Keyword::JSON) => Ok(ValueType::JSON),
+			Term::Keyword(Keyword::None) => Ok(ValueType::None),
+			Term::Keyword(Keyword::Vocab) => Ok(ValueType::Vocab),
+			Term::Prop(prop) => Ok(ValueType::Prop(prop)),
 			term => Err(term)
 		}
 	}

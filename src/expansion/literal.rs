@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::convert::TryInto;
 use json::JsonValue;
-use crate::{Error, ErrorCode, Keyword, Direction, Id, Key, Object, Node, Value, Literal, ActiveContext};
+use crate::{Error, ErrorCode, Keyword, Direction, Id, Term, Object, Node, Value, Literal, ActiveContext};
 use super::expand_iri;
 
 fn clone_default_language<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<String> {
@@ -33,7 +33,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		// `value` is a string, return a new map containing a single entry where the key is `@id` and
 		// the value is the result IRI expanding `value` using `true` for `document_relative` and
 		// `false` for vocab.
-		Some(Key::Keyword(Keyword::Id)) if value.is_string() => {
+		Some(Term::Keyword(Keyword::Id)) if value.is_string() => {
 			let mut node = Node::new();
 			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, false));
 			Ok(node.into())
@@ -43,7 +43,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		// value is a string, return a new map containing a single entry where the key is
 		// `@id` and the value is the result of IRI expanding `value` using `true` for
 		// document relative.
-		Some(Key::Keyword(Keyword::Vocab)) if value.is_string() => {
+		Some(Term::Keyword(Keyword::Vocab)) if value.is_string() => {
 			let mut node = Node::new();
 			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, true));
 			Ok(node.into())
@@ -70,7 +70,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 			// `@vocab`, or `@none`, add `@type` to `result` and set its value to the value
 			// associated with the type mapping.
 			match active_property_type {
-				None | Some(Key::Keyword(Keyword::Id)) | Some(Key::Keyword(Keyword::Vocab)) | Some(Key::Keyword(Keyword::None)) => {
+				None | Some(Term::Keyword(Keyword::Id)) | Some(Term::Keyword(Keyword::Vocab)) | Some(Term::Keyword(Keyword::None)) => {
 					// Otherwise, if value is a string:
 					if let Literal::String { ref mut language, ref mut direction, .. } = &mut result {
 						// Initialize `language` to the language mapping for

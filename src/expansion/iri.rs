@@ -1,16 +1,16 @@
 use std::convert::TryFrom;
 use iref::{Iri, IriRef};
-use crate::{Keyword, BlankId, Id, Key, ActiveContext, is_keyword_like};
+use crate::{Keyword, BlankId, Id, Term, ActiveContext, is_keyword_like};
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
-pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Key<T> {
+pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Term<T> {
 	if let Ok(keyword) = Keyword::try_from(value) {
-		Key::Keyword(keyword)
+		Term::Keyword(keyword)
 	} else {
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
 		if is_keyword_like(value) {
-			return Key::Null
+			return Term::Null
 		}
 
 		if let Some(term_definition) = active_context.get(value) {
@@ -28,7 +28,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 				if let Some(mapped_value) = &term_definition.value {
 					return mapped_value.clone()
 				} else {
-					return Key::Unknown(value.to_string())
+					return Term::Unknown(value.to_string())
 				}
 			}
 		}
@@ -51,7 +51,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 					if let Ok(iri) = Iri::new(value) {
 						return T::from_iri(iri).into()
 					} else {
-						return Key::Unknown(value.to_string())
+						return Term::Unknown(value.to_string())
 					}
 				}
 
@@ -70,7 +70,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 								if let Ok(blank) = BlankId::try_from(result.as_ref()) {
 									return blank.into()
 								} else {
-									return Key::Unknown(result)
+									return Term::Unknown(result)
 								}
 							}
 						}
@@ -88,7 +88,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 		// concatenating the vocabulary mapping with value.
 		if vocab {
 			if let Some(vocabulary) = active_context.vocabulary() {
-				if let Key::Prop(mapping) = vocabulary {
+				if let Term::Prop(mapping) = vocabulary {
 					let mut result = mapping.as_str().to_string();
 					result.push_str(value);
 
@@ -98,11 +98,11 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 						if let Ok(blank) = BlankId::try_from(result.as_ref()) {
 							return blank.into()
 						} else {
-							return Key::Unknown(result)
+							return Term::Unknown(result)
 						}
 					}
 				} else {
-					return Key::Unknown(value.to_string())
+					return Term::Unknown(value.to_string())
 				}
 			}
 		}
@@ -119,14 +119,14 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 					let value = iri_ref.resolved(base_iri);
 					return T::from_iri(value.as_iri()).into()
 				} else {
-					return Key::Unknown(value.to_string())
+					return Term::Unknown(value.to_string())
 				}
 			} else {
-				return Key::Unknown(value.to_string())
+				return Term::Unknown(value.to_string())
 			}
 		}
 
 		// Return value as is.
-		Key::Unknown(value.to_string())
+		Term::Unknown(value.to_string())
 	}
 }

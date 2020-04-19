@@ -3,7 +3,7 @@ use std::hash::Hash;
 use std::fmt;
 use iref::Iri;
 use json::JsonValue;
-use crate::{Id, Key, Keyword, Value, Node, Literal, pp::PrettyPrint, AsJson};
+use crate::{Id, Term, Keyword, Value, Node, Literal, pp::PrettyPrint, AsJson};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ObjectData {
@@ -35,7 +35,7 @@ pub enum Object<T: Id> {
 }
 
 impl<T: Id> Object<T> {
-	pub fn id(&self) -> Option<&Key<T>> {
+	pub fn id(&self) -> Option<&Term<T>> {
 		match self {
 			Object::Node(n, _) => n.id.as_ref(),
 			_ => None

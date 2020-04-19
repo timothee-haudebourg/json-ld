@@ -7,7 +7,7 @@ use std::future::Future;
 use std::collections::HashMap;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{ProcessingMode, Error, Direction, Id, Key};
+use crate::{ProcessingMode, Error, Direction, Id, Term};
 
 pub use definition::*;
 pub use loader::*;
@@ -93,7 +93,7 @@ pub trait ActiveContext<T: Id> : Clone {
 	fn base_iri(&self) -> Option<Iri>;
 
 	/// Optional vocabulary mapping.
-	fn vocabulary(&self) -> Option<&Key<T>>;
+	fn vocabulary(&self) -> Option<&Term<T>>;
 
 	/// Optional default language.
 	fn default_language(&self) -> Option<&str>;
@@ -112,7 +112,7 @@ pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
 
 	fn set_base_iri(&mut self, iri: Option<Iri>);
 
-	fn set_vocabulary(&mut self, vocab: Option<Key<T>>);
+	fn set_vocabulary(&mut self, vocab: Option<Term<T>>);
 
 	fn set_default_language(&mut self, lang: Option<String>);
 
@@ -143,7 +143,7 @@ pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
 pub struct Context<T: Id> {
 	original_base_url: IriBuf,
 	base_iri: Option<IriBuf>,
-	vocabulary: Option<Key<T>>,
+	vocabulary: Option<Term<T>>,
 	default_language: Option<String>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
@@ -180,7 +180,7 @@ impl<T: Id> ActiveContext<T> for Context<T> {
 		}
 	}
 
-	fn vocabulary(&self) -> Option<&Key<T>> {
+	fn vocabulary(&self) -> Option<&Term<T>> {
 		match &self.vocabulary {
 			Some(v) => Some(v),
 			None => None
@@ -233,7 +233,7 @@ impl<T: Id> MutableActiveContext<T> for Context<T> {
 		}
 	}
 
-	fn set_vocabulary(&mut self, vocab: Option<Key<T>>) {
+	fn set_vocabulary(&mut self, vocab: Option<Term<T>>) {
 		self.vocabulary = vocab;
 	}
 

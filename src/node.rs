@@ -1,17 +1,17 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use iref::Iri;
-use crate::{util, Id, Key, NodeType, Property, Object};
+use crate::{util, Id, Term, NodeType, Property, Object};
 
 #[derive(PartialEq, Eq)]
 pub struct Node<T: Id> {
-	pub(crate) id: Option<Key<T>>,
+	pub(crate) id: Option<Term<T>>,
 	pub(crate) types: Vec<NodeType<T>>,
 	pub(crate) graph: Option<HashSet<Object<T>>>,
 	pub(crate) included: Option<HashSet<Object<T>>>,
 	// pub(crate) language: Option<String>,
 	// pub(crate) direction: Option<Direction>,
-	pub(crate) expanded_property: Option<Key<T>>,
+	pub(crate) expanded_property: Option<Term<T>>,
 	pub(crate) properties: HashMap<Property<T>, Vec<Object<T>>>,
 	pub(crate) reverse_properties: HashMap<Property<T>, Vec<Object<T>>>
 }
