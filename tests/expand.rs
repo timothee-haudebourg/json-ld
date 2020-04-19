@@ -44,7 +44,7 @@ fn positive_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 		let mut context_text = String::new();
 		context_buffer.read_to_string(&mut context_text).unwrap();
 		let mut doc = json::parse(context_text.as_str()).unwrap();
-		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url), false, false, true)).unwrap();
+		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url))).unwrap();
 	}
 
 	let result = runtime.block_on(json_ld::expand(&input_context, None, &input, Some(input_url), &mut loader)).unwrap();
@@ -78,7 +78,7 @@ fn negative_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 		let mut context_text = String::new();
 		context_buffer.read_to_string(&mut context_text).unwrap();
 		let mut doc = json::parse(context_text.as_str()).unwrap();
-		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url), false, false, true)).unwrap();
+		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url))).unwrap();
 	}
 
 	match runtime.block_on(json_ld::expand(&input_context, None, &input, Some(input_url), &mut loader)) {

@@ -100,14 +100,14 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				// definition for `active_property`, in `active_context` and `true` for
 				// `override_protected`.
 				if let Some(property_scoped_context) = property_scoped_context {
-					active_context = Mown::Owned(property_scoped_context.process(active_context.as_ref(), loader, property_scoped_base_url, false, true, true).await?);
+					active_context = Mown::Owned(property_scoped_context.process_with(active_context.as_ref(), loader, property_scoped_base_url, false, true, true).await?);
 				}
 
 				// If `element` contains the entry `@context`, set `active_context` to the result
 				// of the Context Processing algorithm, passing `active_context`, the value of the
 				// `@context` entry as `local_context` and `base_url`.
 				if let Some(local_context) = element.get("@context") {
-					active_context = Mown::Owned(local_context.process(active_context.as_ref(), loader, base_url, false, false, true).await?);
+					active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), loader, base_url, false, false, true).await?);
 				}
 
 				let mut type_entries = Vec::new();
@@ -154,7 +154,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 								// `term`'s local context as `local_context`, `base_url` from the term
 								// definition for value in `active_context`, and `false` for `propagate`.
 								let base_url = term_definition.base_url.as_ref().map(|url| url.as_iri());
-								active_context = Mown::Owned(local_context.process(active_context.as_ref(), loader, base_url, false, false, false).await?);
+								active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), loader, base_url, false, false, false).await?);
 							}
 						}
 					}
@@ -282,7 +282,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 						None
 					};
 
-					let result = property_scoped_context.process(active_context, loader, base_url, false, false, true).await?;
+					let result = property_scoped_context.process_with(active_context, loader, base_url, false, false, true).await?;
 					Mown::Owned(result)
 				} else {
 					Mown::Borrowed(active_context)

@@ -12,7 +12,7 @@ use super::{LocalContext, ActiveContext, MutableActiveContext, ContextLoader, Te
 
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
 	/// Load a local context.
-	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
+	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
 		process_context(active_context, self, loader, base_url, is_remote, override_protected, propagate)
 	}
 
@@ -149,7 +149,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// Set result to the result of recursively calling this algorithm, passing result
 					// for active context, loaded context for local context, the documentUrl of context
 					// document for base URL, and a copy of remote contexts.
-					result = loaded_context.process(&result, remote_contexts, Some(context_document.url()), true, false, true).await?;
+					result = loaded_context.process_with(&result, remote_contexts, Some(context_document.url()), true, false, true).await?;
 				},
 
 				// 5.4) Context definition.

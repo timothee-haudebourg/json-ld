@@ -77,8 +77,16 @@ pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
 pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
-	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>>;
+	/// Process the local context with specific options.
+	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>>;
 
+	/// Process the local context with the given active context with the default options:
+	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
+	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
+		self.process_with(active_context, loader, base_url, false, false, true)
+	}
+
+	/// Convert the local context into a JSON-LD document.
 	fn as_json_ld(&self) -> &json::JsonValue;
 }
 

@@ -409,7 +409,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 								if let Some(index_definition) = map_context.get(index) {
 									if let Some(local_context) = &index_definition.context {
 										let base_url = index_definition.base_url.as_ref().map(|url| url.as_iri());
-										map_context = Mown::Owned(local_context.process(map_context.as_ref(), loader, base_url, false, false, true).await?)
+										map_context = Mown::Owned(local_context.process_with(map_context.as_ref(), loader, base_url, false, false, true).await?)
 									}
 								}
 							}
