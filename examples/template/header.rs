@@ -31,7 +31,7 @@ impl<'a> From<Options<'a>> for ExpansionOptions {{
 	fn from(options: Options<'a>) -> ExpansionOptions {{
 		ExpansionOptions {{
 			processing_mode: options.processing_mode,
-			ordered: options.ordered
+			ordered: false
 		}}
 	}}
 }}

@@ -49,7 +49,6 @@ const VOCAB_SPEC_VERSION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api
 const VOCAB_PROCESSING_MODE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#processingMode");
 const VOCAB_EXPAND_CONTEXT: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#expandContext");
 const VOCAB_BASE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#base");
-const VOCAB_BASE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#base");
 
 /// Vocabulary of the test manifest
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -212,7 +211,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			}
 
 			for mode in option.get(PROCESSING_MODE) {
-				processing_mode = mode.as_str().unwrap().into();
+				processing_mode = mode.as_str().unwrap().try_into().unwrap();
 			}
 
 			for expand_context in option.get(EXPAND_CONTEXT) {

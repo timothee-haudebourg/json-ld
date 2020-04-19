@@ -24,15 +24,14 @@ use json_ld::{
 
 struct Options<'a> {
 	processing_mode: ProcessingMode,
-	expand_context: Option<&'a str>,
-	ordered: bool
+	expand_context: Option<&'a str>
 }
 
 impl<'a> From<Options<'a>> for ExpansionOptions {
 	fn from(options: Options<'a>) -> ExpansionOptions {
 		ExpansionOptions {
 			processing_mode: options.processing_mode,
-			ordered: options.ordered
+			ordered: false
 		}
 	}
 }
@@ -117,8 +116,7 @@ fn expand_0001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0001-in.jsonld",
@@ -134,8 +132,7 @@ fn expand_0002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0002-in.jsonld",
@@ -151,8 +148,7 @@ fn expand_0003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0003-in.jsonld",
@@ -168,8 +164,7 @@ fn expand_0004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0004-in.jsonld",
@@ -185,8 +180,7 @@ fn expand_0005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0005-in.jsonld",
@@ -202,8 +196,7 @@ fn expand_0006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0006-in.jsonld",
@@ -219,8 +212,7 @@ fn expand_0007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0007-in.jsonld",
@@ -236,8 +228,7 @@ fn expand_0008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0008-in.jsonld",
@@ -253,8 +244,7 @@ fn expand_0009() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0009-in.jsonld",
@@ -270,8 +260,7 @@ fn expand_0010() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0010-in.jsonld",
@@ -287,8 +276,7 @@ fn expand_0011() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0011-in.jsonld",
@@ -304,8 +292,7 @@ fn expand_0012() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0012-in.jsonld",
@@ -321,8 +308,7 @@ fn expand_0013() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0013-in.jsonld",
@@ -338,8 +324,7 @@ fn expand_0014() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0014-in.jsonld",
@@ -355,8 +340,7 @@ fn expand_0015() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0015-in.jsonld",
@@ -372,8 +356,7 @@ fn expand_0016() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0016-in.jsonld",
@@ -389,8 +372,7 @@ fn expand_0017() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0017-in.jsonld",
@@ -406,8 +388,7 @@ fn expand_0018() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0018-in.jsonld",
@@ -423,8 +404,7 @@ fn expand_0019() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0019-in.jsonld",
@@ -440,8 +420,7 @@ fn expand_0020() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0020-in.jsonld",
@@ -457,8 +436,7 @@ fn expand_0021() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0021-in.jsonld",
@@ -474,8 +452,7 @@ fn expand_0022() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0022-in.jsonld",
@@ -491,8 +468,7 @@ fn expand_0023() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0023-in.jsonld",
@@ -508,8 +484,7 @@ fn expand_0024() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0024-in.jsonld",
@@ -525,8 +500,7 @@ fn expand_0025() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0025-in.jsonld",
@@ -542,8 +516,7 @@ fn expand_0027() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0027-in.jsonld",
@@ -559,8 +532,7 @@ fn expand_0028() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0028-in.jsonld",
@@ -576,8 +548,7 @@ fn expand_0029() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0029-in.jsonld",
@@ -593,8 +564,7 @@ fn expand_0030() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0030-in.jsonld",
@@ -610,8 +580,7 @@ fn expand_0031() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0031-in.jsonld",
@@ -627,8 +596,7 @@ fn expand_0032() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0032-in.jsonld",
@@ -644,8 +612,7 @@ fn expand_0033() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0033-in.jsonld",
@@ -661,8 +628,7 @@ fn expand_0034() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0034-in.jsonld",
@@ -678,8 +644,7 @@ fn expand_0035() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0035-in.jsonld",
@@ -695,8 +660,7 @@ fn expand_0036() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0036-in.jsonld",
@@ -712,8 +676,7 @@ fn expand_0037() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0037-in.jsonld",
@@ -729,8 +692,7 @@ fn expand_0039() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0039-in.jsonld",
@@ -746,8 +708,7 @@ fn expand_0040() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0040-in.jsonld",
@@ -762,8 +723,7 @@ fn expand_0041() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0041-in.jsonld",
@@ -779,8 +739,7 @@ fn expand_0042() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0042-in.jsonld",
@@ -796,8 +755,7 @@ fn expand_0043() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0043-in.jsonld",
@@ -813,8 +771,7 @@ fn expand_0044() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0044-in.jsonld",
@@ -830,8 +787,7 @@ fn expand_0045() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0045-in.jsonld",
@@ -847,8 +803,7 @@ fn expand_0046() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0046-in.jsonld",
@@ -864,8 +819,7 @@ fn expand_0047() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0047-in.jsonld",
@@ -881,8 +835,7 @@ fn expand_0048() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0048-in.jsonld",
@@ -898,8 +851,7 @@ fn expand_0049() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0049-in.jsonld",
@@ -915,8 +867,7 @@ fn expand_0050() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0050-in.jsonld",
@@ -932,8 +883,7 @@ fn expand_0051() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0051-in.jsonld",
@@ -949,8 +899,7 @@ fn expand_0052() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0052-in.jsonld",
@@ -966,8 +915,7 @@ fn expand_0053() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0053-in.jsonld",
@@ -983,8 +931,7 @@ fn expand_0054() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0054-in.jsonld",
@@ -1000,8 +947,7 @@ fn expand_0055() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0055-in.jsonld",
@@ -1017,8 +963,7 @@ fn expand_0056() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0056-in.jsonld",
@@ -1034,8 +979,7 @@ fn expand_0057() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0057-in.jsonld",
@@ -1051,8 +995,7 @@ fn expand_0058() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0058-in.jsonld",
@@ -1068,8 +1011,7 @@ fn expand_0059() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0059-in.jsonld",
@@ -1085,8 +1027,7 @@ fn expand_0060() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0060-in.jsonld",
@@ -1102,8 +1043,7 @@ fn expand_0061() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0061-in.jsonld",
@@ -1119,8 +1059,7 @@ fn expand_0062() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0062-in.jsonld",
@@ -1136,8 +1075,7 @@ fn expand_0063() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0063-in.jsonld",
@@ -1153,8 +1091,7 @@ fn expand_0064() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0064-in.jsonld",
@@ -1170,8 +1107,7 @@ fn expand_0065() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0065-in.jsonld",
@@ -1187,8 +1123,7 @@ fn expand_0066() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0066-in.jsonld",
@@ -1204,8 +1139,7 @@ fn expand_0067() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0067-in.jsonld",
@@ -1221,8 +1155,7 @@ fn expand_0068() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0068-in.jsonld",
@@ -1238,8 +1171,7 @@ fn expand_0069() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0069-in.jsonld",
@@ -1255,8 +1187,7 @@ fn expand_0070() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0070-in.jsonld",
@@ -1272,8 +1203,7 @@ fn expand_0072() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0072-in.jsonld",
@@ -1289,8 +1219,7 @@ fn expand_0073() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0073-in.jsonld",
@@ -1306,8 +1235,7 @@ fn expand_0074() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0074-in.jsonld",
@@ -1322,9 +1250,8 @@ fn expand_0075() {
 	println!("Use @vocab to map all properties to blank node identifiers");
 	positive_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0075-in.jsonld",
@@ -1340,8 +1267,7 @@ fn expand_0076() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0076-in.jsonld",
@@ -1357,8 +1283,7 @@ fn expand_0077() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: Some("tests/expand/0077-context.jsonld"),
-			ordered: false
+			expand_context: Some("tests/expand/0077-context.jsonld")
 		},
 		input_url,
 		"tests/expand/0077-in.jsonld",
@@ -1374,8 +1299,7 @@ fn expand_0078() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0078-in.jsonld",
@@ -1391,8 +1315,7 @@ fn expand_0079() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0079-in.jsonld",
@@ -1408,8 +1331,7 @@ fn expand_0080() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0080-in.jsonld",
@@ -1425,8 +1347,7 @@ fn expand_0081() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0081-in.jsonld",
@@ -1442,8 +1363,7 @@ fn expand_0082() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0082-in.jsonld",
@@ -1459,8 +1379,7 @@ fn expand_0083() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0083-in.jsonld",
@@ -1476,8 +1395,7 @@ fn expand_0084() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0084-in.jsonld",
@@ -1493,8 +1411,7 @@ fn expand_0085() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0085-in.jsonld",
@@ -1510,8 +1427,7 @@ fn expand_0086() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0086-in.jsonld",
@@ -1527,8 +1443,7 @@ fn expand_0087() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0087-in.jsonld",
@@ -1544,8 +1459,7 @@ fn expand_0088() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0088-in.jsonld",
@@ -1561,8 +1475,7 @@ fn expand_0089() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0089-in.jsonld",
@@ -1578,8 +1491,7 @@ fn expand_0090() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0090-in.jsonld",
@@ -1595,8 +1507,7 @@ fn expand_0091() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0091-in.jsonld",
@@ -1612,8 +1523,7 @@ fn expand_0092() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0092-in.jsonld",
@@ -1629,8 +1539,7 @@ fn expand_0093() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0093-in.jsonld",
@@ -1646,8 +1555,7 @@ fn expand_0094() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0094-in.jsonld",
@@ -1663,8 +1571,7 @@ fn expand_0095() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0095-in.jsonld",
@@ -1680,8 +1587,7 @@ fn expand_0096() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0096-in.jsonld",
@@ -1697,8 +1603,7 @@ fn expand_0097() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0097-in.jsonld",
@@ -1714,8 +1619,7 @@ fn expand_0098() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0098-in.jsonld",
@@ -1731,8 +1635,7 @@ fn expand_0099() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0099-in.jsonld",
@@ -1748,8 +1651,7 @@ fn expand_0100() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0100-in.jsonld",
@@ -1765,8 +1667,7 @@ fn expand_0101() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0101-in.jsonld",
@@ -1782,8 +1683,7 @@ fn expand_0102() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0102-in.jsonld",
@@ -1799,8 +1699,7 @@ fn expand_0103() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0103-in.jsonld",
@@ -1816,8 +1715,7 @@ fn expand_0104() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0104-in.jsonld",
@@ -1833,8 +1731,7 @@ fn expand_0105() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0105-in.jsonld",
@@ -1850,8 +1747,7 @@ fn expand_0106() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0106-in.jsonld",
@@ -1867,8 +1763,7 @@ fn expand_0107() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0107-in.jsonld",
@@ -1884,8 +1779,7 @@ fn expand_0108() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0108-in.jsonld",
@@ -1901,8 +1795,7 @@ fn expand_0109() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0109-in.jsonld",
@@ -1918,8 +1811,7 @@ fn expand_0110() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0110-in.jsonld",
@@ -1935,8 +1827,7 @@ fn expand_0111() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0111-in.jsonld",
@@ -1952,8 +1843,7 @@ fn expand_0112() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0112-in.jsonld",
@@ -1969,8 +1859,7 @@ fn expand_0113() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0113-in.jsonld",
@@ -1986,8 +1875,7 @@ fn expand_0114() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0114-in.jsonld",
@@ -2003,8 +1891,7 @@ fn expand_0117() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0117-in.jsonld",
@@ -2020,8 +1907,7 @@ fn expand_0118() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0118-in.jsonld",
@@ -2037,8 +1923,7 @@ fn expand_0119() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0119-in.jsonld",
@@ -2054,8 +1939,7 @@ fn expand_0120() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0120-in.jsonld",
@@ -2071,8 +1955,7 @@ fn expand_0121() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0121-in.jsonld",
@@ -2088,8 +1971,7 @@ fn expand_0122() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0122-in.jsonld",
@@ -2105,8 +1987,7 @@ fn expand_0123() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0123-in.jsonld",
@@ -2122,8 +2003,7 @@ fn expand_0124() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0124-in.jsonld",
@@ -2139,8 +2019,7 @@ fn expand_0125() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0125-in.jsonld",
@@ -2156,8 +2035,7 @@ fn expand_0126() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0126-in.jsonld",
@@ -2173,8 +2051,7 @@ fn expand_0127() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0127-in.jsonld",
@@ -2190,8 +2067,7 @@ fn expand_0128() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0128-in.jsonld",
@@ -2207,8 +2083,7 @@ fn expand_0129() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0129-in.jsonld",
@@ -2224,8 +2099,7 @@ fn expand_0130() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/0130-in.jsonld",
@@ -2241,8 +2115,7 @@ fn expand_c001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c001-in.jsonld",
@@ -2258,8 +2131,7 @@ fn expand_c002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c002-in.jsonld",
@@ -2275,8 +2147,7 @@ fn expand_c003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c003-in.jsonld",
@@ -2292,8 +2163,7 @@ fn expand_c004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c004-in.jsonld",
@@ -2309,8 +2179,7 @@ fn expand_c005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c005-in.jsonld",
@@ -2326,8 +2195,7 @@ fn expand_c006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c006-in.jsonld",
@@ -2343,8 +2211,7 @@ fn expand_c007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c007-in.jsonld",
@@ -2360,8 +2227,7 @@ fn expand_c008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c008-in.jsonld",
@@ -2377,8 +2243,7 @@ fn expand_c009() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c009-in.jsonld",
@@ -2394,8 +2259,7 @@ fn expand_c010() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c010-in.jsonld",
@@ -2411,8 +2275,7 @@ fn expand_c011() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c011-in.jsonld",
@@ -2428,8 +2291,7 @@ fn expand_c012() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c012-in.jsonld",
@@ -2445,8 +2307,7 @@ fn expand_c013() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c013-in.jsonld",
@@ -2462,8 +2323,7 @@ fn expand_c014() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c014-in.jsonld",
@@ -2479,8 +2339,7 @@ fn expand_c015() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c015-in.jsonld",
@@ -2496,8 +2355,7 @@ fn expand_c016() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c016-in.jsonld",
@@ -2513,8 +2371,7 @@ fn expand_c017() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c017-in.jsonld",
@@ -2530,8 +2387,7 @@ fn expand_c018() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c018-in.jsonld",
@@ -2547,8 +2403,7 @@ fn expand_c019() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c019-in.jsonld",
@@ -2564,8 +2419,7 @@ fn expand_c020() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c020-in.jsonld",
@@ -2581,8 +2435,7 @@ fn expand_c021() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c021-in.jsonld",
@@ -2598,8 +2451,7 @@ fn expand_c022() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c022-in.jsonld",
@@ -2615,8 +2467,7 @@ fn expand_c023() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c023-in.jsonld",
@@ -2632,8 +2483,7 @@ fn expand_c024() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c024-in.jsonld",
@@ -2649,8 +2499,7 @@ fn expand_c025() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c025-in.jsonld",
@@ -2666,8 +2515,7 @@ fn expand_c026() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c026-in.jsonld",
@@ -2683,8 +2531,7 @@ fn expand_c027() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c027-in.jsonld",
@@ -2700,8 +2547,7 @@ fn expand_c028() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c028-in.jsonld",
@@ -2716,9 +2562,8 @@ fn expand_c029() {
 	println!("@propagate is invalid in 1.0");
 	negative_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c029-in.jsonld",
@@ -2734,8 +2579,7 @@ fn expand_c030() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c030-in.jsonld",
@@ -2751,8 +2595,7 @@ fn expand_c031() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c031-in.jsonld",
@@ -2768,8 +2611,7 @@ fn expand_c032() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c032-in.jsonld",
@@ -2785,8 +2627,7 @@ fn expand_c033() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c033-in.jsonld",
@@ -2802,8 +2643,7 @@ fn expand_c034() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c034-in.jsonld",
@@ -2819,8 +2659,7 @@ fn expand_c035() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/c035-in.jsonld",
@@ -2836,8 +2675,7 @@ fn expand_di01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di01-in.jsonld",
@@ -2853,8 +2691,7 @@ fn expand_di02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di02-in.jsonld",
@@ -2870,8 +2707,7 @@ fn expand_di03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di03-in.jsonld",
@@ -2887,8 +2723,7 @@ fn expand_di04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di04-in.jsonld",
@@ -2904,8 +2739,7 @@ fn expand_di05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di05-in.jsonld",
@@ -2921,8 +2755,7 @@ fn expand_di06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di06-in.jsonld",
@@ -2938,8 +2771,7 @@ fn expand_di07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di07-in.jsonld",
@@ -2955,8 +2787,7 @@ fn expand_di08() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di08-in.jsonld",
@@ -2972,8 +2803,7 @@ fn expand_di09() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/di09-in.jsonld",
@@ -2989,8 +2819,7 @@ fn expand_ec01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/ec01-in.jsonld",
@@ -3006,8 +2835,7 @@ fn expand_ec02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/ec02-in.jsonld",
@@ -3023,8 +2851,7 @@ fn expand_em01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/em01-in.jsonld",
@@ -3040,8 +2867,7 @@ fn expand_en01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/en01-in.jsonld",
@@ -3057,8 +2883,7 @@ fn expand_en02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/en02-in.jsonld",
@@ -3074,8 +2899,7 @@ fn expand_en03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/en03-in.jsonld",
@@ -3091,8 +2915,7 @@ fn expand_en04() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/en04-in.jsonld",
@@ -3108,8 +2931,7 @@ fn expand_en05() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/en05-in.jsonld",
@@ -3125,8 +2947,7 @@ fn expand_en06() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/en06-in.jsonld",
@@ -3141,9 +2962,8 @@ fn expand_ep02() {
 	println!("If processingMode is explicitly json-ld-1.0, it will conflict with 1.1 features.");
 	negative_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/ep02-in.jsonld",
@@ -3159,8 +2979,7 @@ fn expand_ep03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/ep03-in.jsonld",
@@ -3176,8 +2995,7 @@ fn expand_er01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er01-in.jsonld",
@@ -3193,8 +3011,7 @@ fn expand_er04() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er04-in.jsonld",
@@ -3210,8 +3027,7 @@ fn expand_er05() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er05-in.jsonld",
@@ -3227,8 +3043,7 @@ fn expand_er06() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er06-in.jsonld",
@@ -3244,8 +3059,7 @@ fn expand_er07() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er07-in.jsonld",
@@ -3261,8 +3075,7 @@ fn expand_er08() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er08-in.jsonld",
@@ -3278,8 +3091,7 @@ fn expand_er09() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er09-in.jsonld",
@@ -3295,8 +3107,7 @@ fn expand_er10() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er10-in.jsonld",
@@ -3312,8 +3123,7 @@ fn expand_er11() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er11-in.jsonld",
@@ -3329,8 +3139,7 @@ fn expand_er12() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er12-in.jsonld",
@@ -3346,8 +3155,7 @@ fn expand_er13() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er13-in.jsonld",
@@ -3363,8 +3171,7 @@ fn expand_er14() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er14-in.jsonld",
@@ -3380,8 +3187,7 @@ fn expand_er15() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er15-in.jsonld",
@@ -3397,8 +3203,7 @@ fn expand_er17() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er17-in.jsonld",
@@ -3414,8 +3219,7 @@ fn expand_er18() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er18-in.jsonld",
@@ -3431,8 +3235,7 @@ fn expand_er19() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er19-in.jsonld",
@@ -3448,8 +3251,7 @@ fn expand_er20() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er20-in.jsonld",
@@ -3464,9 +3266,8 @@ fn expand_er21() {
 	println!("Verifies that an exception is raised on expansion when a invalid container mapping is found");
 	negative_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er21-in.jsonld",
@@ -3482,8 +3283,7 @@ fn expand_er22() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er22-in.jsonld",
@@ -3499,8 +3299,7 @@ fn expand_er23() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er23-in.jsonld",
@@ -3516,8 +3315,7 @@ fn expand_er25() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er25-in.jsonld",
@@ -3533,8 +3331,7 @@ fn expand_er26() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er26-in.jsonld",
@@ -3550,8 +3347,7 @@ fn expand_er27() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er27-in.jsonld",
@@ -3567,8 +3363,7 @@ fn expand_er28() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er28-in.jsonld",
@@ -3584,8 +3379,7 @@ fn expand_er29() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er29-in.jsonld",
@@ -3601,8 +3395,7 @@ fn expand_er30() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er30-in.jsonld",
@@ -3618,8 +3411,7 @@ fn expand_er31() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er31-in.jsonld",
@@ -3635,8 +3427,7 @@ fn expand_er33() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er33-in.jsonld",
@@ -3652,8 +3443,7 @@ fn expand_er34() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er34-in.jsonld",
@@ -3669,8 +3459,7 @@ fn expand_er35() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er35-in.jsonld",
@@ -3686,8 +3475,7 @@ fn expand_er36() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er36-in.jsonld",
@@ -3703,8 +3491,7 @@ fn expand_er37() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er37-in.jsonld",
@@ -3720,8 +3507,7 @@ fn expand_er38() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er38-in.jsonld",
@@ -3737,8 +3523,7 @@ fn expand_er39() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er39-in.jsonld",
@@ -3754,8 +3539,7 @@ fn expand_er40() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er40-in.jsonld",
@@ -3771,8 +3555,7 @@ fn expand_er41() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er41-in.jsonld",
@@ -3787,9 +3570,8 @@ fn expand_er42() {
 	println!("Verifies that an exception is raised on expansion when processing an invalid context attempting to define @container on a keyword");
 	negative_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er42-in.jsonld",
@@ -3805,8 +3587,7 @@ fn expand_er43() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er43-in.jsonld",
@@ -3822,8 +3603,7 @@ fn expand_er44() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er44-in.jsonld",
@@ -3839,8 +3619,7 @@ fn expand_er48() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er48-in.jsonld",
@@ -3856,8 +3635,7 @@ fn expand_er49() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er49-in.jsonld",
@@ -3873,8 +3651,7 @@ fn expand_er50() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er50-in.jsonld",
@@ -3890,8 +3667,7 @@ fn expand_er51() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er51-in.jsonld",
@@ -3907,8 +3683,7 @@ fn expand_er52() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er52-in.jsonld",
@@ -3924,8 +3699,7 @@ fn expand_er53() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/er53-in.jsonld",
@@ -3940,9 +3714,8 @@ fn expand_es01() {
 	println!("Verifies that an exception is raised on expansion when a invalid container mapping is found");
 	negative_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/es01-in.jsonld",
@@ -3958,8 +3731,7 @@ fn expand_es02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/es02-in.jsonld",
@@ -3975,8 +3747,7 @@ fn expand_in01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in01-in.jsonld",
@@ -3992,8 +3763,7 @@ fn expand_in02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in02-in.jsonld",
@@ -4009,8 +3779,7 @@ fn expand_in03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in03-in.jsonld",
@@ -4026,8 +3795,7 @@ fn expand_in04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in04-in.jsonld",
@@ -4043,8 +3811,7 @@ fn expand_in05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in05-in.jsonld",
@@ -4060,8 +3827,7 @@ fn expand_in06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in06-in.jsonld",
@@ -4077,8 +3843,7 @@ fn expand_in07() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in07-in.jsonld",
@@ -4094,8 +3859,7 @@ fn expand_in08() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in08-in.jsonld",
@@ -4111,8 +3875,7 @@ fn expand_in09() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/in09-in.jsonld",
@@ -4128,8 +3891,7 @@ fn expand_js01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js01-in.jsonld",
@@ -4145,8 +3907,7 @@ fn expand_js02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js02-in.jsonld",
@@ -4162,8 +3923,7 @@ fn expand_js03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js03-in.jsonld",
@@ -4179,8 +3939,7 @@ fn expand_js04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js04-in.jsonld",
@@ -4196,8 +3955,7 @@ fn expand_js05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js05-in.jsonld",
@@ -4213,8 +3971,7 @@ fn expand_js06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js06-in.jsonld",
@@ -4230,8 +3987,7 @@ fn expand_js07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js07-in.jsonld",
@@ -4247,8 +4003,7 @@ fn expand_js08() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js08-in.jsonld",
@@ -4264,8 +4019,7 @@ fn expand_js09() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js09-in.jsonld",
@@ -4281,8 +4035,7 @@ fn expand_js10() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js10-in.jsonld",
@@ -4298,8 +4051,7 @@ fn expand_js11() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js11-in.jsonld",
@@ -4315,8 +4067,7 @@ fn expand_js12() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js12-in.jsonld",
@@ -4332,8 +4083,7 @@ fn expand_js13() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js13-in.jsonld",
@@ -4349,8 +4099,7 @@ fn expand_js14() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js14-in.jsonld",
@@ -4366,8 +4115,7 @@ fn expand_js15() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js15-in.jsonld",
@@ -4383,8 +4131,7 @@ fn expand_js16() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js16-in.jsonld",
@@ -4400,8 +4147,7 @@ fn expand_js17() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js17-in.jsonld",
@@ -4417,8 +4163,7 @@ fn expand_js18() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js18-in.jsonld",
@@ -4434,8 +4179,7 @@ fn expand_js19() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js19-in.jsonld",
@@ -4451,8 +4195,7 @@ fn expand_js20() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js20-in.jsonld",
@@ -4468,8 +4211,7 @@ fn expand_js21() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js21-in.jsonld",
@@ -4485,8 +4227,7 @@ fn expand_js22() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js22-in.jsonld",
@@ -4502,8 +4243,7 @@ fn expand_js23() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/js23-in.jsonld",
@@ -4519,8 +4259,7 @@ fn expand_l001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/l001-in.jsonld",
@@ -4536,8 +4275,7 @@ fn expand_li01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li01-in.jsonld",
@@ -4553,8 +4291,7 @@ fn expand_li02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li02-in.jsonld",
@@ -4570,8 +4307,7 @@ fn expand_li03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li03-in.jsonld",
@@ -4587,8 +4323,7 @@ fn expand_li04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li04-in.jsonld",
@@ -4604,8 +4339,7 @@ fn expand_li05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li05-in.jsonld",
@@ -4621,8 +4355,7 @@ fn expand_li06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li06-in.jsonld",
@@ -4638,8 +4371,7 @@ fn expand_li07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li07-in.jsonld",
@@ -4655,8 +4387,7 @@ fn expand_li08() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li08-in.jsonld",
@@ -4672,8 +4403,7 @@ fn expand_li09() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li09-in.jsonld",
@@ -4689,8 +4419,7 @@ fn expand_li10() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/li10-in.jsonld",
@@ -4706,8 +4435,7 @@ fn expand_m001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m001-in.jsonld",
@@ -4723,8 +4451,7 @@ fn expand_m002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m002-in.jsonld",
@@ -4740,8 +4467,7 @@ fn expand_m003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m003-in.jsonld",
@@ -4757,8 +4483,7 @@ fn expand_m004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m004-in.jsonld",
@@ -4774,8 +4499,7 @@ fn expand_m005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m005-in.jsonld",
@@ -4791,8 +4515,7 @@ fn expand_m006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m006-in.jsonld",
@@ -4808,8 +4531,7 @@ fn expand_m007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m007-in.jsonld",
@@ -4825,8 +4547,7 @@ fn expand_m008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m008-in.jsonld",
@@ -4842,8 +4563,7 @@ fn expand_m009() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m009-in.jsonld",
@@ -4859,8 +4579,7 @@ fn expand_m010() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m010-in.jsonld",
@@ -4876,8 +4595,7 @@ fn expand_m011() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m011-in.jsonld",
@@ -4893,8 +4611,7 @@ fn expand_m012() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m012-in.jsonld",
@@ -4910,8 +4627,7 @@ fn expand_m013() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m013-in.jsonld",
@@ -4927,8 +4643,7 @@ fn expand_m014() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m014-in.jsonld",
@@ -4944,8 +4659,7 @@ fn expand_m015() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m015-in.jsonld",
@@ -4961,8 +4675,7 @@ fn expand_m016() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m016-in.jsonld",
@@ -4978,8 +4691,7 @@ fn expand_m017() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m017-in.jsonld",
@@ -4995,8 +4707,7 @@ fn expand_m018() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m018-in.jsonld",
@@ -5012,8 +4723,7 @@ fn expand_m019() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m019-in.jsonld",
@@ -5029,8 +4739,7 @@ fn expand_m020() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/m020-in.jsonld",
@@ -5046,8 +4755,7 @@ fn expand_n001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/n001-in.jsonld",
@@ -5063,8 +4771,7 @@ fn expand_n002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/n002-in.jsonld",
@@ -5080,8 +4787,7 @@ fn expand_n003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/n003-in.jsonld",
@@ -5097,8 +4803,7 @@ fn expand_n004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/n004-in.jsonld",
@@ -5114,8 +4819,7 @@ fn expand_n005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/n005-in.jsonld",
@@ -5131,8 +4835,7 @@ fn expand_n006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/n006-in.jsonld",
@@ -5148,8 +4851,7 @@ fn expand_n007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/n007-in.jsonld",
@@ -5165,8 +4867,7 @@ fn expand_n008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/n008-in.jsonld",
@@ -5182,8 +4883,7 @@ fn expand_p001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/p001-in.jsonld",
@@ -5199,8 +4899,7 @@ fn expand_p002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/p002-in.jsonld",
@@ -5216,8 +4915,7 @@ fn expand_p003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/p003-in.jsonld",
@@ -5233,8 +4931,7 @@ fn expand_p004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/p004-in.jsonld",
@@ -5249,9 +4946,8 @@ fn expand_pi01() {
 	println!("Expanding index maps where index is a property.");
 	negative_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi01-in.jsonld",
@@ -5267,8 +4963,7 @@ fn expand_pi02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi02-in.jsonld",
@@ -5284,8 +4979,7 @@ fn expand_pi03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi03-in.jsonld",
@@ -5301,8 +4995,7 @@ fn expand_pi04() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi04-in.jsonld",
@@ -5318,8 +5011,7 @@ fn expand_pi05() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi05-in.jsonld",
@@ -5335,8 +5027,7 @@ fn expand_pi06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi06-in.jsonld",
@@ -5352,8 +5043,7 @@ fn expand_pi07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi07-in.jsonld",
@@ -5369,8 +5059,7 @@ fn expand_pi08() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi08-in.jsonld",
@@ -5386,8 +5075,7 @@ fn expand_pi09() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi09-in.jsonld",
@@ -5403,8 +5091,7 @@ fn expand_pi10() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi10-in.jsonld",
@@ -5420,8 +5107,7 @@ fn expand_pi11() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pi11-in.jsonld",
@@ -5437,8 +5123,7 @@ fn expand_pr01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr01-in.jsonld",
@@ -5454,8 +5139,7 @@ fn expand_pr02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr02-in.jsonld",
@@ -5471,8 +5155,7 @@ fn expand_pr03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr03-in.jsonld",
@@ -5488,8 +5171,7 @@ fn expand_pr04() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr04-in.jsonld",
@@ -5505,8 +5187,7 @@ fn expand_pr05() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr05-in.jsonld",
@@ -5522,8 +5203,7 @@ fn expand_pr06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr06-in.jsonld",
@@ -5539,8 +5219,7 @@ fn expand_pr08() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr08-in.jsonld",
@@ -5556,8 +5235,7 @@ fn expand_pr09() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr09-in.jsonld",
@@ -5573,8 +5251,7 @@ fn expand_pr10() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr10-in.jsonld",
@@ -5590,8 +5267,7 @@ fn expand_pr11() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr11-in.jsonld",
@@ -5607,8 +5283,7 @@ fn expand_pr12() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr12-in.jsonld",
@@ -5624,8 +5299,7 @@ fn expand_pr13() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr13-in.jsonld",
@@ -5641,8 +5315,7 @@ fn expand_pr14() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr14-in.jsonld",
@@ -5658,8 +5331,7 @@ fn expand_pr15() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr15-in.jsonld",
@@ -5675,8 +5347,7 @@ fn expand_pr16() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr16-in.jsonld",
@@ -5692,8 +5363,7 @@ fn expand_pr17() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr17-in.jsonld",
@@ -5709,8 +5379,7 @@ fn expand_pr18() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr18-in.jsonld",
@@ -5726,8 +5395,7 @@ fn expand_pr19() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr19-in.jsonld",
@@ -5743,8 +5411,7 @@ fn expand_pr20() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr20-in.jsonld",
@@ -5760,8 +5427,7 @@ fn expand_pr21() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr21-in.jsonld",
@@ -5777,8 +5443,7 @@ fn expand_pr22() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr22-in.jsonld",
@@ -5794,8 +5459,7 @@ fn expand_pr23() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr23-in.jsonld",
@@ -5811,8 +5475,7 @@ fn expand_pr24() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr24-in.jsonld",
@@ -5828,8 +5491,7 @@ fn expand_pr25() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr25-in.jsonld",
@@ -5845,8 +5507,7 @@ fn expand_pr26() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr26-in.jsonld",
@@ -5862,8 +5523,7 @@ fn expand_pr27() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr27-in.jsonld",
@@ -5879,8 +5539,7 @@ fn expand_pr28() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr28-in.jsonld",
@@ -5896,8 +5555,7 @@ fn expand_pr29() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr29-in.jsonld",
@@ -5913,8 +5571,7 @@ fn expand_pr30() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr30-in.jsonld",
@@ -5930,8 +5587,7 @@ fn expand_pr31() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr31-in.jsonld",
@@ -5947,8 +5603,7 @@ fn expand_pr32() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr32-in.jsonld",
@@ -5964,8 +5619,7 @@ fn expand_pr33() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr33-in.jsonld",
@@ -5981,8 +5635,7 @@ fn expand_pr34() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr34-in.jsonld",
@@ -5998,8 +5651,7 @@ fn expand_pr35() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr35-in.jsonld",
@@ -6015,8 +5667,7 @@ fn expand_pr36() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr36-in.jsonld",
@@ -6032,8 +5683,7 @@ fn expand_pr37() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr37-in.jsonld",
@@ -6049,8 +5699,7 @@ fn expand_pr38() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr38-in.jsonld",
@@ -6066,8 +5715,7 @@ fn expand_pr39() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr39-in.jsonld",
@@ -6083,8 +5731,7 @@ fn expand_pr40() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/pr40-in.jsonld",
@@ -6099,9 +5746,8 @@ fn expand_so01() {
 	println!("@import is invalid in 1.0.");
 	negative_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so01-in.jsonld",
@@ -6117,8 +5763,7 @@ fn expand_so02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so02-in.jsonld",
@@ -6134,8 +5779,7 @@ fn expand_so03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so03-in.jsonld",
@@ -6151,8 +5795,7 @@ fn expand_so05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so05-in.jsonld",
@@ -6168,8 +5811,7 @@ fn expand_so06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so06-in.jsonld",
@@ -6185,8 +5827,7 @@ fn expand_so07() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so07-in.jsonld",
@@ -6202,8 +5843,7 @@ fn expand_so08() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so08-in.jsonld",
@@ -6219,8 +5859,7 @@ fn expand_so09() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so09-in.jsonld",
@@ -6236,8 +5875,7 @@ fn expand_so10() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so10-in.jsonld",
@@ -6253,8 +5891,7 @@ fn expand_so11() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so11-in.jsonld",
@@ -6270,8 +5907,7 @@ fn expand_so12() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so12-in.jsonld",
@@ -6287,8 +5923,7 @@ fn expand_so13() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/so13-in.jsonld",
@@ -6303,9 +5938,8 @@ fn expand_tn01() {
 	println!("@type: @none is illegal in json-ld-1.0.");
 	negative_test(
 		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			processing_mode: ProcessingMode::JsonLd1_0,
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/tn01-in.jsonld",
@@ -6321,8 +5955,7 @@ fn expand_tn02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			expand_context: None,
-			ordered: false
+			expand_context: None
 		},
 		input_url,
 		"tests/expand/tn02-in.jsonld",
