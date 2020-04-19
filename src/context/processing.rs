@@ -113,8 +113,6 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 
 				// 5.2) If context is a string,
 				JsonValue::String(_) | JsonValue::Short(_) => {
-					println!("processing string context {}", context.as_str().unwrap());
-
 					// Initialize `context` to the result of resolving context against base URL.
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
