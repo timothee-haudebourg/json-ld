@@ -12,12 +12,10 @@ use tokio::runtime::Runtime;
 use iref::{Iri, IriBuf};
 use json_ld::{
 	ErrorCode,
-	context::{
-		ActiveContext,
-		JsonLdContextLoader,
-		Context,
-		LocalContext
-	},
+	ActiveContext,
+	JsonLdContextLoader,
+	Context,
+	LocalContext,
 	AsJson,
 	json_ld_eq
 };

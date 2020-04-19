@@ -3,9 +3,24 @@ use futures::future::{LocalBoxFuture, FutureExt};
 use mown::Mown;
 use iref::Iri;
 use json::JsonValue;
-use crate::{Error, ErrorCode, Keyword, Container, ContainerType, Id, Key, Node, Value, Literal, Object, ObjectData};
+use crate::{
+	Error,
+	ErrorCode,
+	Keyword,
+	Container,
+	ContainerType,
+	Id,
+	Key,
+	Node,
+	Value,
+	Literal,
+	Object,
+	ObjectData,
+	MutableActiveContext,
+	LocalContext,
+	ContextLoader
+};
 use crate::util::as_array;
-use crate::context::{MutableActiveContext, LocalContext, ContextLoader};
 use super::{Expanded, Entry, expand_element, expand_literal, expand_iri, filter_top_level_item};
 
 pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Key<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, ordered: bool) -> Result<Option<(Node<T>, ObjectData)>, Error> where C::LocalContext: From<JsonValue> {

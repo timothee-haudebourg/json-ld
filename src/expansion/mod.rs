@@ -11,8 +11,7 @@ use std::collections::HashSet;
 use futures::Future;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{Error, Id, Object};
-use crate::context::{MutableActiveContext, ContextLoader};
+use crate::{Error, Id, Object, MutableActiveContext, ContextLoader};
 
 pub use expanded::*;
 pub use iri::*;

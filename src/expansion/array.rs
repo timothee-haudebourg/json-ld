@@ -1,8 +1,14 @@
 use iref::Iri;
 use json::JsonValue;
-use crate::{Error, ContainerType, Id, Value};
-use crate::context::{MutableActiveContext, ContextLoader, TermDefinition};
-
+use crate::{
+	Error,
+	ContainerType,
+	Id,
+	Value,
+	MutableActiveContext,
+	ContextLoader,
+	TermDefinition
+};
 use super::{Expanded, expand_element};
 
 pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, active_property: Option<&str>, active_property_definition: Option<&TermDefinition<T, C>>, element: &[JsonValue], base_url: Option<Iri<'_>>, loader: &mut L, ordered: bool, from_map: bool) -> Result<Expanded<T>, Error> where C::LocalContext: From<JsonValue> {

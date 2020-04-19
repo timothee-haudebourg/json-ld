@@ -8,6 +8,7 @@ extern crate iref;
 #[macro_use]
 extern crate static_iref;
 
+mod mode;
 mod util;
 mod error;
 mod keyword;
@@ -22,10 +23,11 @@ mod value;
 mod node;
 mod object;
 mod vocab;
-pub mod context;
+mod context;
 pub mod expansion;
 mod pp;
 
+pub use mode::*;
 pub use error::*;
 pub use keyword::*;
 pub use direction::*;
@@ -39,6 +41,7 @@ pub use value::*;
 pub use node::*;
 pub use object::*;
 pub use vocab::*;
+pub use context::*;
 pub use expansion::expand;
 pub use pp::*;
 pub use util::{AsJson, json_ld_eq};

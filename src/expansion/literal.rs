@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use json::JsonValue;
-use crate::{Error, Keyword, Direction, Id, Key, Object, Node, Value, Literal};
-use crate::context::{ActiveContext};
+use crate::{Error, Keyword, Direction, Id, Key, Object, Node, Value, Literal, ActiveContext};
 use super::expand_iri;
 
 fn clone_default_language<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<String> {

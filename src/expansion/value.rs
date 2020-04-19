@@ -1,9 +1,20 @@
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use json::JsonValue;
-use crate::{Error, ErrorCode, Keyword, Direction, Id, Key, Value, Literal, Object, ObjectData};
+use crate::{
+	Error,
+	ErrorCode,
+	Keyword,
+	Direction,
+	Id,
+	Key,
+	Value,
+	Literal,
+	Object,
+	ObjectData,
+	MutableActiveContext
+};
 use crate::util::as_array;
-use crate::context::MutableActiveContext;
 use super::{Entry, expand_iri};
 
 pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Key<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Key<T>)>>, value_entry: &JsonValue) -> Result<Option<Object<T>>, Error> {

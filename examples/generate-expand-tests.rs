@@ -17,12 +17,10 @@ use tokio::runtime::Runtime;
 use iref::Iri;
 use json_ld::{
 	ErrorCode,
-	context::{
-		ActiveContext,
-		JsonLdContextLoader,
-		Context,
-		load_remote_json_ld_document
-	},
+	ActiveContext,
+	JsonLdContextLoader,
+	Context,
+	load_remote_json_ld_document,
 	Object,
 	Node,
 	Value,
