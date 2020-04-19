@@ -89,9 +89,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				// definition for `active_property`, in `active_context` and `true` for
 				// `override_protected`.
 				if let Some(property_scoped_context) = property_scoped_context {
-					println!("BEGIN");
 					active_context = Mown::Owned(property_scoped_context.process(active_context.as_ref(), loader, property_scoped_base_url, false, true, true).await?);
-					println!("END");
 				}
 
 				// If `element` contains the entry `@context`, set `active_context` to the result
