@@ -26,7 +26,9 @@ use json_ld::{
 	Value,
 	Property,
 	VocabId,
-	Key
+	Key,
+	ExpansionOptions,
+	ProcessingMode
 };
 
 const URL: &str = "https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld";
@@ -129,7 +131,7 @@ fn main() {
 		.expect("unable to load the test suite");
 
 	let active_context: Context<Id> = Context::new(url, url);
-	let expanded_doc = runtime.block_on(json_ld::expand(&active_context, None, &doc, Some(url), &mut loader))
+	let expanded_doc = runtime.block_on(json_ld::expand(&active_context, &doc, Some(url), &mut loader, ExpansionOptions::default()))
 		.expect("expansion failed");
 
 	println!(include_str!("template/header.rs"));
@@ -189,7 +191,9 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 	let input_filename = load_file(target, runtime, url);
 	let func_name = func_name(url.path().file_name().unwrap());
 
+	let mut processing_mode = ProcessingMode::JsonLd1_1;
 	let mut context_filename = "None".to_string();
+	let mut ordered = false;
 
 	for option in entry.get(OPTION) {
 		if let Object::Node(option, _) = option {
@@ -231,7 +235,9 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			url,
 			name,
 			comments,
+			processing_mode,
 			context_filename,
+			ordered,
 			input_filename.to_str().unwrap(),
 			output_filename.to_str().unwrap()
 		);
@@ -244,7 +250,9 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			url,
 			name,
 			comments,
+			processing_mode,
 			context_filename,
+			ordered,
 			input_filename.to_str().unwrap(),
 			error_code
 		);

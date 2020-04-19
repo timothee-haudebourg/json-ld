@@ -16,11 +16,28 @@ use json_ld::{{
 	JsonLdContextLoader,
 	Context,
 	LocalContext,
+	ProcessingMode,
+	ExpansionOptions,
 	AsJson,
 	json_ld_eq
 }};
 
-fn positive_test(expand_context: Option<&str>, input_url: Iri, input_filename: &str, output_filename: &str) {{
+struct Options<'a> {{
+	processing_mode: ProcessingMode,
+	expand_context: Option<&'a str>,
+	ordered: bool
+}}
+
+impl<'a> From<Options<'a>> for ExpansionOptions {{
+	fn from(options: Options<'a>) -> ExpansionOptions {{
+		ExpansionOptions {{
+			processing_mode: options.processing_mode,
+			ordered: options.ordered
+		}}
+	}}
+}}
+
+fn positive_test(options: Options, input_url: Iri, input_filename: &str, output_filename: &str) {{
 	let mut runtime = Runtime::new().unwrap();
 	let mut loader = JsonLdContextLoader::new();
 
@@ -38,7 +55,7 @@ fn positive_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 
 	let mut input_context: Context<IriBuf> = Context::new(input_url, input_url);
 
-	if let Some(context_filename) = expand_context {{
+	if let Some(context_filename) = options.expand_context {{
 		let context_file = File::open(context_filename).unwrap();
 		let mut context_buffer = BufReader::new(context_file);
 		let mut context_text = String::new();
@@ -47,7 +64,7 @@ fn positive_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url))).unwrap();
 	}}
 
-	let result = runtime.block_on(json_ld::expand(&input_context, None, &input, Some(input_url), &mut loader)).unwrap();
+	let result = runtime.block_on(json_ld::expand(&input_context, &input, Some(input_url), &mut loader, options.into())).unwrap();
 
 	let result_json = result.as_json();
 	let success = json_ld_eq(&result_json, &output);
@@ -60,7 +77,7 @@ fn positive_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 	assert!(success)
 }}
 
-fn negative_test(expand_context: Option<&str>, input_url: Iri, input_filename: &str, error_code: ErrorCode) {{
+fn negative_test(options: Options, input_url: Iri, input_filename: &str, error_code: ErrorCode) {{
 	let mut runtime = Runtime::new().unwrap();
 	let mut loader = JsonLdContextLoader::new();
 
@@ -72,7 +89,7 @@ fn negative_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 
 	let mut input_context: Context<IriBuf> = Context::new(input_url, input_url);
 
-	if let Some(context_filename) = expand_context {{
+	if let Some(context_filename) = options.expand_context {{
 		let context_file = File::open(context_filename).unwrap();
 		let mut context_buffer = BufReader::new(context_file);
 		let mut context_text = String::new();
@@ -81,7 +98,7 @@ fn negative_test(expand_context: Option<&str>, input_url: Iri, input_filename: &
 		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url))).unwrap();
 	}}
 
-	match runtime.block_on(json_ld::expand(&input_context, None, &input, Some(input_url), &mut loader)) {{
+	match runtime.block_on(json_ld::expand(&input_context, &input, Some(input_url), &mut loader, options.into())) {{
 		Ok(result) => {{
 			println!("output=\n{{}}", result.as_json().pretty(2));
 			panic!("expansion succeeded where it should have failed with code: {{}}", error_code)

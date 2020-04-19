@@ -9,9 +9,9 @@ use crate::{
 	ContextLoader,
 	TermDefinition
 };
-use super::{Expanded, expand_element};
+use super::{ExpansionOptions, Expanded, expand_element};
 
-pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, active_property: Option<&str>, active_property_definition: Option<&TermDefinition<T, C>>, element: &[JsonValue], base_url: Option<Iri<'_>>, loader: &mut L, ordered: bool, from_map: bool) -> Result<Expanded<T>, Error> where C::LocalContext: From<JsonValue> {
+pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, active_property: Option<&str>, active_property_definition: Option<&TermDefinition<T, C>>, element: &[JsonValue], base_url: Option<Iri<'_>>, loader: &mut L, options: ExpansionOptions) -> Result<Expanded<T>, Error> where C::LocalContext: From<JsonValue> {
 	// Initialize an empty array, result.
 	let mut is_list = false;
 	let mut result = Vec::new();
@@ -28,7 +28,7 @@ pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 		// Initialize `expanded_item` to the result of using this algorithm
 		// recursively, passing `active_context`, `active_property`, `item` as element,
 		// `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
-		result.extend(expand_element(active_context, active_property, item, base_url, loader, ordered, from_map).await?);
+		result.extend(expand_element(active_context, active_property, item, base_url, loader, options).await?);
 	}
 
 	if is_list {

@@ -21,15 +21,15 @@ use crate::{
 	ContextLoader
 };
 use crate::util::as_array;
-use super::{Expanded, Entry, expand_element, expand_literal, expand_iri, filter_top_level_item};
+use super::{Expanded, Entry, ExpansionOptions, expand_element, expand_literal, expand_iri, filter_top_level_item};
 
-pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Key<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, ordered: bool) -> Result<Option<(Node<T>, ObjectData)>, Error> where C::LocalContext: From<JsonValue> {
+pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Key<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, options: ExpansionOptions) -> Result<Option<(Node<T>, ObjectData)>, Error> where C::LocalContext: From<JsonValue> {
 	// Initialize two empty maps, `result` and `nests`.
 	let mut result: Node<T> = Node::new();
 	let mut result_data = ObjectData::new();
 	let mut has_value_object_entries = false;
 
-	expand_node_entries(&mut result, &mut result_data, &mut has_value_object_entries, active_context, type_scoped_context, active_property, expanded_entries, base_url, loader, ordered).await?;
+	expand_node_entries(&mut result, &mut result_data, &mut has_value_object_entries, active_context, type_scoped_context, active_property, expanded_entries, base_url, loader, options).await?;
 
 	// If result contains the entry @value:
 	// The result must not contain any entries other than @direction, @index,
@@ -63,7 +63,7 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 	Ok(Some((result, result_data)))
 }
 
-fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(result: &'a mut Node<T>, result_data: &'a mut ObjectData, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Key<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, ordered: bool) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
+fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(result: &'a mut Node<T>, result_data: &'a mut ObjectData, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Key<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, options: ExpansionOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
 	async move {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:
@@ -136,7 +136,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// property, `value` for element, `base_url`, and the
 							// `frame_expansion` and `ordered` flags, ensuring that
 							// `expanded_value` is an array of one or more maps.
-							let expanded_value = expand_element(active_context, Some("@graph"), value, base_url, loader, ordered, false).await?;
+							let expanded_value = expand_element(active_context, Some("@graph"), value, base_url, loader, options).await?;
 							result.graph = Some(expanded_value.into_iter().filter(filter_top_level_item).collect());
 						},
 						// If expanded property is @included:
@@ -149,7 +149,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// recursively passing `active_context`, `active_property`,
 							// `value` for element, `base_url`, and the `frame_expansion`
 							// and `ordered` flags, ensuring that the result is an array.
-							let expanded_value = expand_element(active_context, active_property, value, base_url, loader, ordered, false).await?;
+							let expanded_value = expand_element(active_context, active_property, value, base_url, loader, options).await?;
 							if let Some(included) = &mut result.included {
 								included.extend(expanded_value.into_iter());
 							} else {
@@ -184,7 +184,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 									reverse_entries.push(Entry(reverse_key, reverse_value));
 								}
 
-								if ordered {
+								if options.ordered {
 									reverse_entries.sort();
 								}
 
@@ -194,7 +194,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 											return Err(ErrorCode::InvalidReverseProperty.into())
 										},
 										Key::Prop(reverse_prop) => {
-											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, ordered, false).await?;
+											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, options).await?;
 
 											let is_double_reversed = if let Some(reverse_key_definition) = active_context.get(reverse_key) {
 												reverse_key_definition.reverse_property
@@ -225,7 +225,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										nested_entries.push(Entry(nested_key, nested_value))
 									}
 
-									if ordered {
+									if options.ordered {
 										nested_entries.sort();
 									}
 
@@ -234,7 +234,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										Entry((key, expanded_key), value)
 									});
 
-									expand_node_entries(result, result_data, has_value_object_entries, active_context, type_scoped_context, active_property, nested_expanded_entries.collect(), base_url, loader, ordered).await?
+									expand_node_entries(result, result_data, has_value_object_entries, active_context, type_scoped_context, active_property, nested_expanded_entries.collect(), base_url, loader, options).await?
 								} else {
 									return Err(ErrorCode::InvalidNestValue.into())
 								}
@@ -301,7 +301,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							language_entries.push(Entry(language, language_value));
 						}
 
-						if ordered {
+						if options.ordered {
 							language_entries.sort();
 						}
 
@@ -382,7 +382,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							entries.push(Entry(key, value))
 						}
 
-						if ordered {
+						if options.ordered {
 							entries.sort();
 						}
 
@@ -409,7 +409,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 								if let Some(index_definition) = map_context.get(index) {
 									if let Some(local_context) = &index_definition.context {
 										let base_url = index_definition.base_url.as_ref().map(|url| url.as_iri());
-										map_context = Mown::Owned(local_context.process_with(map_context.as_ref(), loader, base_url, false, false, true).await?)
+										map_context = Mown::Owned(local_context.process_with(map_context.as_ref(), loader, base_url, options.into()).await?)
 									}
 								}
 							}
@@ -433,7 +433,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// active context, key as active property,
 							// index value as element, base URL, and the
 							// frameExpansion and ordered flags.
-							let index_value = expand_element(map_context.as_ref(), Some(key), index_value, base_url, loader, ordered, false).await?;
+							let index_value = expand_element(map_context.as_ref(), Some(key), index_value, base_url, loader, options).await?;
 							// For each item in index value:
 							for mut item in index_value {
 								// If container mapping includes @graph,
@@ -533,7 +533,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 						// Otherwise, initialize expanded value to the result of using this
 						// algorithm recursively, passing active context, key for active property,
 						// value for element, base URL, and the frameExpansion and ordered flags.
-						expand_element(active_context, Some(key), value, base_url, loader, ordered, false).await?
+						expand_element(active_context, Some(key), value, base_url, loader, options).await?
 					};
 
 					// If container mapping includes @list and expanded value is

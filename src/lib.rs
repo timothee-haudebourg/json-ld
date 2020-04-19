@@ -42,6 +42,6 @@ pub use node::*;
 pub use object::*;
 pub use vocab::*;
 pub use context::*;
-pub use expansion::expand;
+pub use expansion::{expand, ExpansionOptions};
 pub use pp::*;
 pub use util::{AsJson, json_ld_eq};

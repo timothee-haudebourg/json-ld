@@ -7,11 +7,60 @@ use std::future::Future;
 use std::collections::HashMap;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{Error, Direction, Id, Key};
+use crate::{ProcessingMode, Error, Direction, Id, Key};
 
 pub use definition::*;
 pub use loader::*;
 pub use processing::*;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct ContextProcessingOptions {
+	/// The processing mode
+	pub processing_mode: ProcessingMode,
+
+	/// Specify if the processed context is from a remote document.
+	pub is_remote: bool,
+
+	/// Override protected definitions.
+	pub override_protected: bool,
+
+	/// Propagate the processed context.
+	pub propagate: bool
+}
+
+impl ContextProcessingOptions {
+	/// Return the same set of options, but with `override_protected` set to `true`.
+	pub fn with_override(&self) -> ContextProcessingOptions {
+		let mut opt = *self;
+		opt.override_protected = true;
+		opt
+	}
+
+	/// Return the same set of options, but with `override_protected` set to `false`.
+	pub fn with_no_override(&self) -> ContextProcessingOptions {
+		let mut opt = *self;
+		opt.override_protected = false;
+		opt
+	}
+
+	/// Return the same set of options, but with `propagate` set to `false`.
+	pub fn without_propagation(&self) -> ContextProcessingOptions {
+		let mut opt = *self;
+		opt.propagate = false;
+		opt
+	}
+}
+
+impl Default for ContextProcessingOptions {
+	fn default() -> ContextProcessingOptions {
+		ContextProcessingOptions {
+			processing_mode: ProcessingMode::default(),
+			is_remote: false,
+			override_protected: false,
+			propagate: true
+		}
+	}
+}
 
 /// JSON-LD active context.
 ///
@@ -78,12 +127,12 @@ pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
 /// existing active context.
 pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
 	/// Process the local context with specific options.
-	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>>;
+	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, options: ContextProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>>;
 
 	/// Process the local context with the given active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
 	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
-		self.process_with(active_context, loader, base_url, false, false, true)
+		self.process_with(active_context, loader, base_url, ContextProcessingOptions::default())
 	}
 
 	/// Convert the local context into a JSON-LD document.

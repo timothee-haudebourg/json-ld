@@ -12,15 +12,15 @@ use crate::{
 	Object,
 	MutableActiveContext,
 	LocalContext,
-	ContextLoader
+	ContextLoader,
+	ContextProcessingOptions
 };
 use crate::util::as_array;
-
-use super::{Expanded, Entry, expand_literal, expand_array, expand_value, expand_node, expand_iri};
+use super::{Expanded, Entry, ExpansionOptions, expand_literal, expand_array, expand_value, expand_node, expand_iri};
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, ordered: bool, from_map: bool) -> LocalBoxFuture<'a, Result<Expanded<T>, Error>> where C::LocalContext: From<JsonValue> {
+pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, options: ExpansionOptions) -> LocalBoxFuture<'a, Result<Expanded<T>, Error>> where C::LocalContext: From<JsonValue> {
 	async move {
 		// If `element` is null, return null.
 		if element.is_null() {
@@ -50,7 +50,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 		match element {
 			JsonValue::Null => unreachable!(),
 			JsonValue::Array(element) => {
-				expand_array(active_context, active_property, active_property_definition, element, base_url, loader, ordered, from_map).await
+				expand_array(active_context, active_property, active_property_definition, element, base_url, loader, options).await
 			},
 
 			JsonValue::Object(element) => {
@@ -60,7 +60,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					entries.push(Entry(key, value));
 				}
 
-				if ordered {
+				if options.ordered {
 					entries.sort()
 				}
 
@@ -89,7 +89,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// expanding to `@id` (where entries are IRI expanded), set active context to
 					// previous context from active context, as the scope of a term-scoped context
 					// does not apply when processing new Object objects.
-					if !from_map && value_entry.is_none() && !(element.len() == 1 && id_entry.is_some()) {
+					if value_entry.is_none() && !(element.len() == 1 && id_entry.is_some()) {
 						active_context = Mown::Owned(previous_context.clone())
 					}
 				}
@@ -100,14 +100,15 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				// definition for `active_property`, in `active_context` and `true` for
 				// `override_protected`.
 				if let Some(property_scoped_context) = property_scoped_context {
-					active_context = Mown::Owned(property_scoped_context.process_with(active_context.as_ref(), loader, property_scoped_base_url, false, true, true).await?);
+					let options: ContextProcessingOptions = options.into();
+					active_context = Mown::Owned(property_scoped_context.process_with(active_context.as_ref(), loader, property_scoped_base_url, options.with_override()).await?);
 				}
 
 				// If `element` contains the entry `@context`, set `active_context` to the result
 				// of the Context Processing algorithm, passing `active_context`, the value of the
 				// `@context` entry as `local_context` and `base_url`.
 				if let Some(local_context) = element.get("@context") {
-					active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), loader, base_url, false, false, true).await?);
+					active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), loader, base_url, options.into()).await?);
 				}
 
 				let mut type_entries = Vec::new();
@@ -154,7 +155,8 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 								// `term`'s local context as `local_context`, `base_url` from the term
 								// definition for value in `active_context`, and `false` for `propagate`.
 								let base_url = term_definition.base_url.as_ref().map(|url| url.as_iri());
-								active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), loader, base_url, false, false, false).await?);
+								let options: ContextProcessingOptions = options.into();
+								active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), loader, base_url, options.without_propagation()).await?);
 							}
 						}
 					}
@@ -222,7 +224,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// result is an array..
 					let mut result = Vec::new();
 					for item in as_array(list_entry) {
-						result.extend(expand_element(active_context.as_ref(), active_property, item, base_url, loader, ordered, false).await?)
+						result.extend(expand_element(active_context.as_ref(), active_property, item, base_url, loader, options).await?)
 					}
 
 					Ok(Expanded::Object(Value::List(result).into()))
@@ -242,7 +244,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// set expanded value to the result of using this algorithm recursively,
 					// passing active context, active property, value for element, base URL, and
 					// the frameExpansion and ordered flags.
-					expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, ordered, false).await
+					expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, options).await
 				} else if let Some(value_entry) = value_entry {
 					if let Some(value) = expand_value(input_type, type_scoped_context, expanded_entries, value_entry)? {
 						Ok(Expanded::Object(value.into()))
@@ -250,7 +252,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 						Ok(Expanded::Null)
 					}
 				} else {
-					if let Some((result, result_data)) = expand_node(active_context.as_ref(), type_scoped_context, active_property, expanded_entries, base_url, loader, ordered).await? {
+					if let Some((result, result_data)) = expand_node(active_context.as_ref(), type_scoped_context, active_property, expanded_entries, base_url, loader, options).await? {
 						Ok(Expanded::Object(Object::Node(result, result_data)))
 					} else {
 						Ok(Expanded::Null)
@@ -282,7 +284,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 						None
 					};
 
-					let result = property_scoped_context.process_with(active_context, loader, base_url, false, false, true).await?;
+					let result = property_scoped_context.process_with(active_context, loader, base_url, options.into()).await?;
 					Mown::Owned(result)
 				} else {
 					Mown::Borrowed(active_context)
