@@ -12,7 +12,6 @@ use super::{LocalContext, ActiveContext, MutableActiveContext, ContextLoader, Te
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
 	/// Load a local context.
 	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, is_remote: bool, override_protected: bool, propagate: bool) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
-		// println!("processing context ({}): {}", base_url.unwrap(), self.pretty(2));
 		process_context(active_context, self, loader, base_url, is_remote, override_protected, propagate)
 	}
 
@@ -142,7 +141,6 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// If the document has no top-level map with an @context entry, an invalid remote
 					// context has been detected and processing is aborted.
 					// Set loaded context to the value of that entry.
-					println!("loading {}", context.as_iri());
 					let context_document = remote_contexts.load(context.as_iri()).await?;
 					let loaded_context = context_document.context();
 
@@ -286,7 +284,6 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					if let Some(value) = context.get(Keyword::Language.into()) {
 						if value.is_null() {
 							// 5.9.2) If value is null, remove any default language from result.
-							println!("remove language mapping");
 							result.set_default_language(None);
 						} else if let Some(str) = value.as_str() {
 							// 5.9.3) Otherwise, if value is string, the default language of result is
@@ -606,7 +603,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							JsonObjectRef::Borrowed(value)
 						},
 						_ => {
-							println!("invalid term definition (line {})", line!());
 							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 					};
@@ -953,7 +949,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// is aborted.
 						// TODO json-ld-1.0
 						if !definition.container.contains(ContainerType::Index) {
-							println!("invalid term definition (line {})", line!());
 							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 
@@ -965,14 +960,12 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							match expansion::expand_iri(active_context, index, false, true) {
 								Key::Prop(Property::Id(_)) => (),
 								_ => {
-									println!("invalid term definition (line {})", line!());
 									return Err(ErrorCode::InvalidTermDefinition.into())
 								}
 							}
 
 							definition.index = Some(index.to_string())
 						} else {
-							println!("invalid term definition (line {})", line!());
 							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 					}
@@ -1075,7 +1068,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// is aborted.
 						if term.contains(':') || term.contains('/') {
 							// TODO json-ld-1.0
-							println!("invalid term definition (line {})", line!());
 							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 
@@ -1086,7 +1078,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						if let Some(prefix) = prefix_value.as_bool() {
 							definition.prefix = prefix
 						} else {
-							println!("invalid term definition (line {})", line!());
 							return Err(ErrorCode::InvalidPrefixValue.into())
 						}
 
@@ -1094,7 +1085,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// mapping is a keyword, an invalid term definition has been detected and
 						// processing is aborted.
 						if definition.prefix && definition.value.as_ref().unwrap().is_keyword() {
-							println!("invalid term definition (line {})", line!());
 							return Err(ErrorCode::InvalidTermDefinition.into())
 						}
 					}
@@ -1106,7 +1096,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						match key {
 							"@id" | "@reverse" | "@container" | "@context" | "@direction" | "@index" | "@language" | "@nest" | "@prefix" | "@protected" | "@type" => (),
 							_ => {
-								println!("invalid term definition (line {})", line!());
 								return Err(ErrorCode::InvalidTermDefinition.into())
 							}
 						}
@@ -1120,7 +1109,6 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// (other than the value of protected), a protected term
 								// redefinition error has been detected, and processing is aborted.
 								if definition != previous_definition {
-									println!("defining {} = {}", term, value.pretty(2));
 									return Err(ErrorCode::ProtectedTermRedefinition.into())
 								}
 
