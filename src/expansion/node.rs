@@ -527,7 +527,6 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					// setting it to a map containing the key-value pair
 					// @list-expanded value.
 					if container_mapping.contains(ContainerType::List) && !expanded_value.is_list() {
-						println!("list property");
 						expanded_value = Expanded::Object(Value::List(expanded_value.into_iter().collect()).into());
 					}
 

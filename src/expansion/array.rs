@@ -26,7 +26,6 @@ pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 	}
 
 	if is_list {
-		println!("list container");
 		return Ok(Expanded::Object(Value::List(result).into()))
 	}
 
