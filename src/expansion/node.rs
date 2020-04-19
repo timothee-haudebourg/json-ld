@@ -448,32 +448,37 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// passing the active context, index key as
 										// active property, and index as value.
 										let re_expanded_index = expand_literal(active_context, Some(index_key), &JsonValue::String(index.to_string()))?;
-										let _re_expanded_index = if let Object::Value(Value::Literal(Literal::String { data, .. }, _), _) = re_expanded_index {
-											data
-										} else {
-											panic!("invalid index value");
-											return Err(ExpansionError::InvalidIndexValue)
-										};
+										// let re_expanded_index = if let Object::Value(Value::Literal(Literal::String { data, .. }, _), _) = re_expanded_index {
+										// 	data
+										// } else {
+										// 	panic!("invalid index value");
+										// 	return Err(ExpansionError::InvalidIndexValue)
+										// };
 
 										// Initialize expanded index key to the result
 										// of IRI expanding index key.
-										let _expanded_index_key = expand_iri(active_context, index_key, false, true);
+										let expanded_index_key = match expand_iri(active_context, index_key, false, true) {
+											Key::Prop(prop) => prop,
+											_ => continue
+										};
 
 										// Initialize index property values to the
 										// concatenation of re-expanded index with any
-										// existing values of expanded index key in
+										// existing values of `expanded_index_key` in
 										// item.
-										// let index_property_values = re_expanded_index expanded_index
-										panic!("I don't know what to do here...")
+										let index_property_values = vec![re_expanded_index]; // FIXME TODO what to do with `expanded_index_key`?
 
 										// Add the key-value pair (expanded index
 										// key-index property values) to item.
-										//
-
-										// If item is a value object, it MUST NOT
-										// contain any extra properties; an invalid
-										// value object error has been detected and
-										// processing is aborted.
+										if let Object::Node(ref mut node, _) = item {
+											node.insert_all(expanded_index_key, index_property_values.into_iter());
+										} else {
+											// If item is a value object, it MUST NOT
+											// contain any extra properties; an invalid
+											// value object error has been detected and
+											// processing is aborted.
+											return Err(ExpansionError::InvalidValueObject)
+										}
 									} else if container_mapping.contains(ContainerType::Index) && item.data().index.is_none() {
 										// Otherwise, if container mapping includes
 										// @index, item does not have an entry @index,
