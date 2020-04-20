@@ -1,5 +1,6 @@
 use std::pin::Pin;
 use std::future::Future;
+use std::collections::HashMap;
 use futures::future::FutureExt;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
@@ -28,7 +29,7 @@ impl<C> RemoteContext<C> {
 }
 
 pub trait ContextLoader<C> {
-	fn load<'a>(&'a self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<C>, Error>>>>;
+	fn load<'a>(&'a mut self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<C>, Error>>>>;
 }
 
 impl From<reqwest::Error> for Error {
@@ -81,22 +82,32 @@ pub async fn load_remote_json_ld_context(url: Iri<'_>) -> Result<JsonValue, Erro
 }
 
 pub struct JsonLdContextLoader {
-	// ...
+	cache: HashMap<IriBuf, JsonValue>
 }
 
 impl JsonLdContextLoader {
 	pub fn new() -> JsonLdContextLoader {
 		JsonLdContextLoader {
-			// ...
+			cache: HashMap::new()
 		}
 	}
 }
 
 impl ContextLoader<JsonValue> for JsonLdContextLoader {
-	fn load<'a>(&'a self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<JsonValue>, Error>>>> {
+	fn load<'a>(&'a mut self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<JsonValue>, Error>>>> {
 		let url = IriBuf::from(url);
 		async move {
-			let doc = load_remote_json_ld_context(url.as_iri()).await?;
+			let doc = match self.cache.get(&url) {
+				Some(doc) => {
+					doc.clone()
+				},
+				None => {
+					let doc = load_remote_json_ld_context(url.as_iri()).await?;
+					self.cache.insert(url.clone(), doc.clone());
+					doc
+				}
+			};
+
 			Ok(RemoteContext::new(url.as_iri(), doc))
 		}.boxed()
 	}

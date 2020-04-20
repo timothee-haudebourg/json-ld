@@ -3,6 +3,7 @@ use std::pin::Pin;
 use std::future::Future;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::rc::Rc;
 use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
@@ -12,8 +13,8 @@ use super::{ContextProcessingOptions, LocalContext, ActiveContext, MutableActive
 
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
 	/// Load a local context.
-	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>, options: ContextProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
-		process_context(active_context, self, loader, base_url, options)
+	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ContextProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
+		process_context(active_context, self, stack, loader, base_url, options)
 	}
 
 	fn as_json_ld(&self) -> &JsonValue {
@@ -41,12 +42,72 @@ fn resolve_iri(iri_ref: IriRef, base_iri: Option<Iri>) -> Option<IriBuf> {
 	}
 }
 
+struct StackNode {
+	previous: Option<Rc<StackNode>>,
+	url: IriBuf
+}
+
+impl StackNode {
+	fn new(previous: Option<Rc<StackNode>>, url: IriBuf) -> StackNode {
+		StackNode {
+			previous,
+			url
+		}
+	}
+
+	fn contains(&self, url: Iri) -> bool {
+		if self.url == url {
+			true
+		} else {
+			match &self.previous {
+				Some(prev) => prev.contains(url),
+				None => false
+			}
+		}
+	}
+}
+
+#[derive(Clone)]
+pub struct ProcessingStack {
+	head: Option<Rc<StackNode>>
+}
+
+impl ProcessingStack {
+	pub fn new() -> ProcessingStack {
+		ProcessingStack {
+			head: None
+		}
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.head.is_none()
+	}
+
+	pub fn cycle(&self, url: Iri) -> bool {
+		match &self.head {
+			Some(head) => head.contains(url),
+			None => false
+		}
+	}
+
+	pub fn push(&mut self, url: Iri) -> bool {
+		if self.cycle(url) {
+			false
+		} else {
+			let mut head = None;
+			std::mem::swap(&mut head, &mut self.head);
+			self.head = Some(Rc::new(StackNode::new(head, url.into())));
+			true
+		}
+	}
+}
+
 // This function tries to follow the recommended context proessing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, local_context: &'a JsonValue, remote_contexts: &'a mut L, base_url: Option<Iri>, mut options: ContextProcessingOptions) -> LocalBoxFuture<'a, Result<C, Error>> where C::LocalContext: From<JsonValue> {
+fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, local_context: &'a JsonValue, mut remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, mut options: ContextProcessingOptions) -> LocalBoxFuture<'a, Result<C, Error>> where C::LocalContext: From<JsonValue> {
 	let base_url = match base_url {
 		Some(base_url) => Some(IriBuf::from(base_url)),
 		None => None
@@ -65,6 +126,10 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 		// its value MUST be boolean true or false, set `propagate` to that value.
 		if let JsonValue::Object(obj) = local_context {
 			if let Some(propagate_value) = obj.get(Keyword::Propagate.into()) {
+				if options.processing_mode == ProcessingMode::JsonLd1_0 {
+					return Err(ErrorCode::InvalidContextEntry.into())
+				}
+
 				if let JsonValue::Boolean(b) = propagate_value {
 					options.propagate = *b;
 				} else {
@@ -142,20 +207,23 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// If the document has no top-level map with an @context entry, an invalid remote
 					// context has been detected and processing is aborted.
 					// Set loaded context to the value of that entry.
-					let context_document = remote_contexts.load(context.as_iri()).await?;
-					let loaded_context = context_document.context();
+					if remote_contexts.push(context.as_iri()) {
+						let context_document = loader.load(context.as_iri()).await?;
+						let loaded_context = context_document.context();
 
 
-					// Set result to the result of recursively calling this algorithm, passing result
-					// for active context, loaded context for local context, the documentUrl of context
-					// document for base URL, and a copy of remote contexts.
-					let new_options = ContextProcessingOptions {
-						processing_mode: options.processing_mode,
-						is_remote: true,
-						override_protected: false,
-						propagate: true
-					};
-					result = loaded_context.process_with(&result, remote_contexts, Some(context_document.url()), new_options).await?;
+						// Set result to the result of recursively calling this algorithm, passing result
+						// for active context, loaded context for local context, the documentUrl of context
+						// document for base URL, and a copy of remote contexts.
+						let new_options = ContextProcessingOptions {
+							processing_mode: options.processing_mode,
+							override_protected: false,
+							propagate: true
+						};
+
+						result = loaded_context.process_with(&result, remote_contexts.clone(), loader, Some(context_document.url()), new_options).await?;
+						// result = process_context(&result, loaded_context, remote_contexts, loader, Some(context_document.url()), new_options).await?
+					}
 				},
 
 				// 5.4) Context definition.
@@ -193,7 +261,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 							};
 
 							// 5.6.4) Dereference import.
-							let context_document = remote_contexts.load(import.as_iri()).await?;
+							let context_document = loader.load(import.as_iri()).await?;
 							let import_context = context_document.context();
 
 							// If the dereferenced document has no top-level map with an @context
@@ -233,7 +301,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 
 					// 5.7) If context has a @base entry and remote contexts is empty, i.e.,
 					// the currently being processed context is not a remote context:
-					if !options.is_remote {
+					if remote_contexts.is_empty() {
 						// Initialize value to the value associated with the @base entry.
 						if let Some(value) = context.get(Keyword::Base.into()) {
 							match value {
@@ -345,7 +413,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// (and the value of override protected)
 					for (key, _) in context.iter() {
 						if !is_keyword(key) {
-							define(&mut result, context.as_ref(), key, &mut defined, base_url, protected, options).await?;
+							define(&mut result, context.as_ref(), key, &mut defined, remote_contexts.clone(), loader, base_url, protected, options).await?;
 						}
 					}
 				},
@@ -423,16 +491,16 @@ fn iri_eq_opt<T: Id>(a: &Option<Term<T>>, b: &Option<Term<T>>) -> bool {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &str, defined: &'a mut HashMap<String, bool>, base_url: Option<Iri>, protected: bool, options: ContextProcessingOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
-	let term = term.to_string();
-	let base_url = if let Some(base_url) = base_url {
-		Some(IriBuf::from(base_url))
-	} else {
-		None
-	};
+pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &'a str, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, protected: bool, options: ContextProcessingOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
+	// let term = term.to_string();
+	// let base_url = if let Some(base_url) = base_url {
+	// 	Some(IriBuf::from(base_url))
+	// } else {
+	// 	None
+	// };
 
 	async move {
-		match defined.get(term.as_str()) {
+		match defined.get(term) {
 			// If defined contains the entry term and the associated value is true (indicating
 			// that the term definition has already been created), return.
 			Some(true) => Ok(()),
@@ -441,14 +509,14 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 			None => {
 				// Initialize `value` to a copy of the value associated with the entry `term` in
 				// `local_context`.
-				if let Some(value) = local_context.get(term.as_str()) {
+				if let Some(value) = local_context.get(term) {
 					// Set the value associated with defined's term entry to false.
 					// This indicates that the term definition is now being created but is not yet
 					// complete.
 					defined.insert(term.to_string(), false);
 
 					// If term is @type, ...
-					if term.as_str() == "@type" {
+					if term == "@type" {
 						// ... and processing mode is json-ld-1.0, a keyword
 						// redefinition error has been detected and processing is aborted.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
@@ -478,14 +546,14 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 					// a keyword redefinition error has been detected and processing is aborted.
 					// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
 					// from [RFC5234]), return; processors SHOULD generate a warning.
-					if is_keyword_like(term.as_str()) {
+					if is_keyword_like(term) {
 						// TODO warning
 						return Ok(())
 					}
 
 					// Initialize `previous_definition` to any existing term definition for `term` in
 					// `active_context`, removing that term definition from active context.
-					let previous_definition = active_context.set(term.as_str(), None);
+					let previous_definition = active_context.set(term, None);
 
 					let mut simple_term = true;
 					let value = match value {
@@ -544,7 +612,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						if let Some(typ) = type_value.as_str() {
 							// Set `typ` to the result of IRI expanding type, using local context,
 							// and defined.
-							if let Ok(typ) = expand_iri(active_context, typ, false, true, local_context, defined, options).await? {
+							if let Ok(typ) = expand_iri(active_context, typ, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
 								// If the expanded type is @json or @none, and processing mode is
 								// json-ld-1.0, an invalid type mapping error has been detected and
 								// processing is aborted.
@@ -591,7 +659,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							// If the result does not have the form of an IRI or a blank node
 							// identifier, an invalid IRI mapping error has been detected and
 							// processing is aborted.
-							match expand_iri(active_context, reverse_value, false, true, local_context, defined, options).await? {
+							match expand_iri(active_context, reverse_value, false, true, local_context, defined, remote_contexts, loader, options).await? {
 								Ok(Term::Prop(mapping)) => {
 									definition.value = Some(Term::Prop(mapping))
 								},
@@ -630,8 +698,8 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							// Set the term definition of `term` in `active_context` to
 							// `definition` and the value associated with `defined`'s entry `term`
 							// to `true` and return.
-							active_context.set(term.as_str(), Some(definition.into()));
-							defined.insert(term, true);
+							active_context.set(term, Some(definition.into()));
+							defined.insert(term.to_string(), true);
 							return Ok(())
 						} else {
 							// If the value associated with the `@reverse` entry is not a string,
@@ -643,7 +711,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 
 					// If `value` contains the entry `@id` and its value does not equal `term`:
 					let id_value = value.get("@id");
-					if id_value.is_some() && id_value.unwrap().as_str() != Some(term.as_str()) {
+					if id_value.is_some() && id_value.unwrap().as_str() != Some(term) {
 						let id_value = id_value.unwrap();
 						// If the `@id` entry of value is `null`, the term is not used for IRI
 						// expansion, but is retained to be able to detect future redefinitions
@@ -662,7 +730,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// Otherwise, set the IRI mapping of `definition` to the result
 								// of IRI expanding the value associated with the `@id` entry,
 								// using `local_context`, and `defined`.
-								definition.value = if let Ok(value) = expand_iri(active_context, id_value, false, true, local_context, defined, options).await? {
+								definition.value = if let Ok(value) = expand_iri(active_context, id_value, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
 									// if it equals `@context`, an invalid keyword alias error has
 									// been detected and processing is aborted.
 									if value == Term::Keyword(Keyword::Context) {
@@ -681,16 +749,16 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								// If `term` contains a colon (:) anywhere but as the first or
 								// last character of `term`, or if it contains a slash (/)
 								// anywhere:
-								if contains_nz(term.as_str(), ':') || term.contains('/') {
+								if contains_nz(term, ':') || term.contains('/') {
 									// Set the value associated with `defined`'s `term` entry
 									// to `true`.
-									defined.insert(term.clone(), true);
+									defined.insert(term.to_string(), true);
 
 									// If the result of IRI expanding `term` using
 									// `local_context`, and `defined`, is not the same as the
 									// IRI mapping of definition, an invalid IRI mapping error
 									// has been detected and processing is aborted.
-									if let Ok(expanded_term) = expand_iri(active_context, term.as_str(), false, true, local_context, defined, options).await? {
+									if let Ok(expanded_term) = expand_iri(active_context, term, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
 										if !iri_eq_opt(&Some(expanded_term), &definition.value) {
 											return Err(ErrorCode::InvalidIriMapping.into())
 										}
@@ -714,7 +782,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 								return Err(ErrorCode::InvalidIriMapping.into())
 							}
 						}
-					} else if contains_nz(term.as_str(), ':') {
+					} else if contains_nz(term, ':') {
 						// Otherwise if the `term` contains a colon (:) anywhere after the first
 						// character:
 						let i = term.find(':').unwrap();
@@ -725,7 +793,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// context a dependency has been found.
 						// Use this algorithm recursively passing `active_context`,
 						// `local_context`, the prefix as term, and `defined`.
-						define(active_context, local_context, prefix, defined, None, false, options.with_no_override()).await?;
+						define(active_context, local_context, prefix, defined, remote_contexts.clone(), loader, None, false, options.with_no_override()).await?;
 
 						// If `term`'s prefix has a term definition in `active_context`, set the
 						// IRI mapping of `definition` to the result of concatenating the value
@@ -752,7 +820,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 							if prefix == "_" { // blank node
 								definition.value = Some(BlankId::new(suffix).into())
 							} else {
-								if let Ok(iri) = Iri::new(term.as_str()) {
+								if let Ok(iri) = Iri::new(term) {
 									definition.value = Some(Term::<T>::from(T::from_iri(iri)))
 								} else {
 									return Err(ErrorCode::InvalidIriMapping.into())
@@ -763,7 +831,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// Term is a relative IRI reference.
 						// Set the IRI mapping of definition to the result of IRI expanding
 						// term.
-						match expansion::expand_iri(active_context, term.as_str(), false, true) {
+						match expansion::expand_iri(active_context, term, false, true) {
 							Term::Prop(Property::Id(id)) => {
 								definition.value = Some(id.into())
 							},
@@ -783,7 +851,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// been detected and processing is aborted.
 						if let Some(vocabulary_iri) = vocabulary.iri() {
 							let mut result = vocabulary_iri.as_str().to_string();
-							result.push_str(term.as_str());
+							result.push_str(term);
 							if let Ok(iri) = Iri::new(result.as_str()) {
 								definition.value = Some(Term::<T>::from(T::from_iri(iri)))
 							} else {
@@ -792,6 +860,10 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						} else {
 							return Err(ErrorCode::InvalidIriMapping.into())
 						}
+					} else {
+						// If it does not have a vocabulary mapping, an invalid IRI mapping error
+						// been detected and processing is aborted.
+						return Err(ErrorCode::InvalidIriMapping.into())
 					}
 
 					// If value contains the entry @container:
@@ -895,16 +967,15 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 						// Invoke the Context Processing algorithm using the `active_context`,
 						// `context` as local context, `base_url`, and `true` for override
 						// protected.
-						// if let Err(_) = process_context(active_context, context, base_url, false, Arc::new(RemoteContexts::new()), true, true).await {
-						// 	// If any error is detected, an invalid scoped context error has been
-						// 	// detected and processing is aborted.
-						// 	return Err(ErrorCode::InvalidScopedContext.into())
-						// }
-						// TODO
+						if let Err(_) = process_context(active_context, context, remote_contexts.clone(), loader, base_url, options.with_override()).await {
+							// If any error is detected, an invalid scoped context error has been
+							// detected and processing is aborted.
+							return Err(ErrorCode::InvalidScopedContext.into())
+						}
 
 						// Set the local context of definition to context, and base URL to base URL.
 						definition.context = Some(context.clone().into());
-						definition.base_url = base_url;
+						definition.base_url = base_url.as_ref().map(|url| url.into());
 					}
 
 					// If `value` contains the entry `@language` and does not contain the entry
@@ -1034,8 +1105,8 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 
 					// Set the term definition of `term` in `active_context` to `definition` and
 					// set the value associated with `defined`'s entry term to true.
-					active_context.set(term.as_str(), Some(definition.into()));
-					defined.insert(term.clone(), true);
+					active_context.set(term, Some(definition.into()));
+					defined.insert(term.to_string(), true);
 				}
 
 				// if the term is not in `local_context`.
@@ -1046,7 +1117,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, 
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, options: ContextProcessingOptions) -> impl 'a + Future<Output = Result<Result<Term<T>, Option<String>>, Error>> where C::LocalContext: From<JsonValue> {
+pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ContextProcessingOptions) -> impl 'a + Future<Output = Result<Result<Term<T>, Option<String>>, Error>> where C::LocalContext: From<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {
@@ -1061,7 +1132,7 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 			// algorithm, passing active context, local context, value as term, and defined. This will
 			// ensure that a term definition is created for value in active context during Context
 			// Processing.
-			define(active_context, local_context, value.as_ref(), defined, None, false, options.with_no_override()).await?;
+			define(active_context, local_context, value.as_ref(), defined, remote_contexts.clone(), loader, None, false, options.with_no_override()).await?;
 
 			if let Some(term_definition) = active_context.get(value.as_ref()) {
 				// If active context has a term definition for value, and the associated IRI mapping
@@ -1110,7 +1181,7 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>>(active_context: &'a mut
 					// algorithm, passing active context, local context, prefix as term, and defined.
 					// This will ensure that a term definition is created for prefix in active context
 					// during Context Processing.
-					define(active_context, local_context, prefix, defined, None, false, options.with_no_override()).await?;
+					define(active_context, local_context, prefix, defined, remote_contexts, loader, None, false, options.with_no_override()).await?;
 
 					// If active context contains a term definition for prefix having a non-null IRI
 					// mapping and the prefix flag of the term definition is true, return the result
