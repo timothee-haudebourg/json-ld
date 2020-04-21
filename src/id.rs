@@ -1,11 +1,13 @@
 use std::hash::Hash;
 use std::fmt;
 use iref::{Iri, IriBuf};
+use json::JsonValue;
+use crate::util;
 
 pub trait Id: Clone + PartialEq + Eq + Hash + fmt::Display {
 	fn from_iri(iri: Iri) -> Self;
 
-	fn iri(&self) -> Iri;
+	fn as_iri(&self) -> Iri;
 }
 
 impl Id for IriBuf {
@@ -13,7 +15,13 @@ impl Id for IriBuf {
 		iri.into()
 	}
 
-	fn iri(&self) -> Iri {
+	fn as_iri(&self) -> Iri {
 		self.as_iri()
+	}
+}
+
+impl<T: Id> util::AsJson for T {
+	fn as_json(&self) -> JsonValue {
+		self.as_iri().as_str().into()
 	}
 }

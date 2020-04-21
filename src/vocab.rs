@@ -6,7 +6,7 @@ use crate::Id;
 pub trait Vocab: Clone + PartialEq + Eq + Hash {
 	fn from_iri(iri: Iri) -> Option<Self>;
 
-	fn iri(&self) -> Iri;
+	fn as_iri(&self) -> Iri;
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -18,7 +18,7 @@ pub enum VocabId<V: Vocab> {
 impl<V: Vocab> fmt::Display for VocabId<V> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			VocabId::Id(id) => id.iri().fmt(f),
+			VocabId::Id(id) => id.as_iri().fmt(f),
 			VocabId::Iri(iri) => iri.fmt(f)
 		}
 	}
@@ -33,9 +33,9 @@ impl<V: Vocab> Id for VocabId<V> {
 		}
 	}
 
-	fn iri(&self) -> Iri {
+	fn as_iri(&self) -> Iri {
 		match self {
-			VocabId::Id(id) => id.iri(),
+			VocabId::Id(id) => id.as_iri(),
 			VocabId::Iri(iri) => iri.as_iri(),
 		}
 	}

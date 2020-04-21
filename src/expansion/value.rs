@@ -6,25 +6,24 @@ use crate::{
 	ErrorCode,
 	Keyword,
 	Direction,
+	LangString,
 	Id,
 	Term,
-	Value,
-	Literal,
-	Object,
-	ObjectData,
+	Indexed,
+	object::*,
 	MutableActiveContext
 };
 use crate::util::as_array;
 use super::{Entry, expand_iri};
 
-pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Term<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Object<T>>, Error> {
+pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Term<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
 	// If input type is @json, set expanded value to value.
 	// If processing mode is json-ld-1.0, an invalid value object value error has
 	// been detected and processing is aborted.
 
 	// Otherwise, if value is not a scalar or null, an invalid value object value
 	// error has been detected and processing is aborted.
-	let mut result = if input_type == Some(Term::Keyword(Keyword::JSON)) {
+	let result = if input_type == Some(Term::Keyword(Keyword::Json)) {
 		Literal::Json(value_entry.clone())
 	} else {
 		match value_entry {
@@ -32,11 +31,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 				Literal::Null
 			},
 			JsonValue::Short(_) | JsonValue::String(_) => {
-				Literal::String {
-					data: value_entry.as_str().unwrap().to_string(),
-					language: None,
-					direction: None
-				}
+				Literal::String(value_entry.as_str().unwrap().to_string())
 			},
 			JsonValue::Number(n) => {
 				Literal::Number(*n)
@@ -50,8 +45,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 		}
 	};
 
-	let mut result_data = ObjectData::new();
-
+	let mut index = None;
 	let mut types = HashSet::new();
 	let mut language = None;
 	let mut direction = None;
@@ -69,7 +63,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 					// TODO warning.
 
 					if value != "@none" {
-						language = Some(value);
+						language = Some(value.to_string());
 					}
 				} else {
 					return Err(ErrorCode::InvalidLanguageTaggedString.into())
@@ -98,7 +92,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 				// If value is not a string, an invalid @index value error has
 				// been detected and processing is aborted.
 				if let Some(value) = value.as_str() {
-					result_data.index = Some(value.to_string())
+					index = Some(value.to_string())
 				} else {
 					return Err(ErrorCode::InvalidIndexValue.into())
 				}
@@ -116,11 +110,11 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 					if let Some(ty) = ty.as_str() {
 						let expanded_ty = expand_iri(type_scoped_context, ty, true, true);
 
-						if expanded_ty == Term::Keyword(Keyword::JSON) {
+						if expanded_ty == Term::Keyword(Keyword::Json) {
 							result = Literal::Json(value_entry.clone())
 						}
 
-						if let Ok(typ) = expanded_ty.try_into() {
+						if let Ok(typ) = expanded_ty.into_id() {
 							types.insert(typ);
 						} else {
 							return Err(ErrorCode::InvalidTypedValue.into())
@@ -157,17 +151,11 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 	// contains the entry @language, an invalid language-tagged value error has
 	// been detected (only strings can be language-tagged) and processing is
 	// aborted.
-	if let Some(lang) = language {
-		if let Literal::String { ref mut language, .. } = &mut result {
-			*language = Some(lang.to_string())
-		} else {
-			return Err(ErrorCode::InvalidLanguageTaggedValue.into())
-		}
-	}
+	if language.is_some() || direction.is_some() {
+		if let Literal::String(str) = result {
+			let result = LangString::new(str, language, direction);
 
-	if let Some(dir) = direction {
-		if let Literal::String { ref mut direction, .. } = &mut result {
-			*direction = Some(dir)
+			return Ok(Some(Indexed::new(Object::Value(Value::LangString(result)), index)))
 		} else {
 			return Err(ErrorCode::InvalidLanguageTaggedValue.into())
 		}
@@ -178,5 +166,5 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 	// @list, set result to null.
 	// TODO
 
-	return Ok(Some(Object::Value(Value::Literal(result, types), result_data)));
+	return Ok(Some(Indexed::new(Object::Value(Value::Literal(result, types)), index)));
 }

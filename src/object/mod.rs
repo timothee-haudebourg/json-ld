@@ -15,7 +15,10 @@ use crate::{
 	util::AsJson
 };
 
-pub use value::Value;
+pub use value::{
+	Literal,
+	Value
+};
 pub use node::Node;
 pub use graph::Graph;
 
@@ -82,7 +85,6 @@ impl<T: Id> Object<T> {
 
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
-			Object::Value(value) => value.as_iri(),
 			Object::Node(node) => node.as_iri(),
 			Object::Graph(graph) => graph.as_iri(),
 			_ => None
@@ -90,10 +92,11 @@ impl<T: Id> Object<T> {
 	}
 
 	/// Try to convert this object into an unnamed graph.
-	pub fn into_unnamed_graph(self) -> Result<Graph<T>, Self> {
-		match self {
-			Object::Graph(g) if !g.is_named() => Ok(g),
-			object => Err(object)
+	pub fn into_unnamed_graph(self: Indexed<Self>) -> Result<Indexed<Graph<T>>, Indexed<Self>> {
+		let (obj, index) = self.into_parts();
+		match obj {
+			Object::Graph(g) if !g.is_named() => Ok(Indexed::new(g, index)),
+			obj => Err(Indexed::new(obj, index))
 		}
 	}
 }

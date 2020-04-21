@@ -4,12 +4,16 @@ use crate::{
 	Error,
 	ContainerType,
 	Id,
-	Value,
+	object::*,
 	MutableActiveContext,
 	ContextLoader,
 	TermDefinition
 };
-use super::{ExpansionOptions, Expanded, expand_element};
+use super::{
+	ExpansionOptions,
+	Expanded,
+	expand_element
+};
 
 pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, active_property: Option<&str>, active_property_definition: Option<&TermDefinition<T, C>>, element: &[JsonValue], base_url: Option<Iri<'_>>, loader: &mut L, options: ExpansionOptions) -> Result<Expanded<T>, Error> where C::LocalContext: From<JsonValue> {
 	// Initialize an empty array, result.
@@ -32,7 +36,7 @@ pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 	}
 
 	if is_list {
-		return Ok(Expanded::Object(Value::List(result).into()))
+		return Ok(Expanded::Object(Object::List(result).into()))
 	}
 
 	// Return result.

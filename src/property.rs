@@ -11,14 +11,14 @@ pub enum Property<T: Id> {
 impl<T: Id> Property<T> {
 	pub fn as_str(&self) -> &str {
 		match self {
-			Property::Id(id) => id.iri().into_str(),
+			Property::Id(id) => id.as_iri().into_str(),
 			Property::Blank(id) => id.as_str()
 		}
 	}
 
-	pub fn iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
-			Property::Id(k) => Some(k.iri()),
+			Property::Id(k) => Some(k.as_iri()),
 			Property::Blank(_) => None
 		}
 	}
@@ -27,8 +27,8 @@ impl<T: Id> Property<T> {
 		if self == other {
 			true
 		} else {
-			if let Some(self_iri) = self.iri() {
-				if let Some(other_iri) = other.iri() {
+			if let Some(self_iri) = self.as_iri() {
+				if let Some(other_iri) = other.as_iri() {
 					return self_iri == other_iri
 				}
 			}

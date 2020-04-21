@@ -12,6 +12,13 @@ pub enum Term<T: Id> {
 }
 
 impl<T: Id> Term<T> {
+	pub fn into_id(self) -> Result<T, Self> {
+		match self {
+			Term::Prop(Property::Id(id)) => Ok(id),
+			term => Err(term)
+		}
+	}
+	
 	pub fn as_str(&self) -> &str {
 		match self {
 			Term::Prop(p) => p.as_str(),
@@ -28,10 +35,10 @@ impl<T: Id> Term<T> {
 		}
 	}
 
-	pub fn iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
-			Term::Prop(p) => p.iri(),
-			Term::Keyword(k) => k.iri(),
+			Term::Prop(p) => p.as_iri(),
+			Term::Keyword(k) => k.as_iri(),
 			_ => None
 		}
 	}
@@ -40,8 +47,8 @@ impl<T: Id> Term<T> {
 		if self == other {
 			true
 		} else {
-			if let Some(self_iri) = self.iri() {
-				if let Some(other_iri) = other.iri() {
+			if let Some(self_iri) = self.as_iri() {
+				if let Some(other_iri) = other.as_iri() {
 					return self_iri == other_iri
 				}
 			}

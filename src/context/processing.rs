@@ -460,7 +460,7 @@ fn is_gen_delim_or_blank<T: Id>(t: &Term<T>) -> bool {
 		Term::Keyword(_) => false,
 		Term::Prop(Property::Blank(_)) => true,
 		Term::Prop(Property::Id(id)) => {
-			if let Some(c) = id.iri().as_str().chars().last() {
+			if let Some(c) = id.as_iri().as_str().chars().last() {
 				is_gen_delim(c)
 			} else {
 				false
@@ -616,7 +616,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 								// If the expanded type is @json or @none, and processing mode is
 								// json-ld-1.0, an invalid type mapping error has been detected and
 								// processing is aborted.
-								if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Term::Keyword(Keyword::JSON) || typ == Term::Keyword(Keyword::None)) {
+								if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Term::Keyword(Keyword::Json) || typ == Term::Keyword(Keyword::None)) {
 									return Err(ErrorCode::InvalidTypeMapping.into())
 								}
 
@@ -802,7 +802,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 							let mut result = String::new();
 
 							if let Some(prefix_key) = &prefix_definition.value {
-								if let Some(prefix_iri) = prefix_key.iri() {
+								if let Some(prefix_iri) = prefix_key.as_iri() {
 									result = prefix_iri.as_str().to_string()
 								}
 							}
@@ -849,7 +849,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 						// associated with the vocabulary mapping and `term`.
 						// If it does not have a vocabulary mapping, an invalid IRI mapping error
 						// been detected and processing is aborted.
-						if let Some(vocabulary_iri) = vocabulary.iri() {
+						if let Some(vocabulary_iri) = vocabulary.as_iri() {
 							let mut result = vocabulary_iri.as_str().to_string();
 							result.push_str(term);
 							if let Ok(iri) = Iri::new(result.as_str()) {

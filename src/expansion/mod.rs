@@ -3,6 +3,7 @@ mod iri;
 mod literal;
 mod value;
 mod node;
+mod graph;
 mod array;
 mod element;
 
@@ -11,13 +12,23 @@ use std::collections::HashSet;
 use futures::Future;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{ProcessingMode, Error, Id, Object, MutableActiveContext, ContextLoader, ContextProcessingOptions};
+use crate::{
+	ProcessingMode,
+	Error,
+	Id,
+	Indexed,
+	Object,
+	MutableActiveContext,
+	ContextLoader,
+	ContextProcessingOptions
+};
 
 pub use expanded::*;
 pub use iri::*;
 pub use literal::*;
 pub use value::*;
 pub use node::*;
+pub use graph::*;
 pub use array::*;
 pub use element::*;
 
@@ -54,15 +65,15 @@ impl<'a, T: Ord> Ord for Entry<'a, T> {
 	}
 }
 
-fn filter_top_level_item<T: Id>(item: &Object<T>) -> bool {
+fn filter_top_level_item<T: Id>(item: &Indexed<Object<T>>) -> bool {
 	// Remove dangling values.
-	match item {
-		Object::Value(_, _) => false,
+	match item.inner() {
+		Object::Value(_) => false,
 		_ => true
 	}
 }
 
-pub fn expand<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, element: &'a JsonValue, base_url: Option<Iri>, loader: &'a mut L, options: ExpansionOptions) -> impl 'a + Future<Output=Result<HashSet<Object<T>>, Error>> where C::LocalContext: From<JsonValue> {
+pub fn expand<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, element: &'a JsonValue, base_url: Option<Iri>, loader: &'a mut L, options: ExpansionOptions) -> impl 'a + Future<Output=Result<HashSet<Indexed<Object<T>>>, Error>> where C::LocalContext: From<JsonValue> {
 	let base_url = base_url.map(|url| IriBuf::from(url));
 
 	async move {
@@ -70,7 +81,7 @@ pub fn expand<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 		let expanded = expand_element(active_context, None, element, base_url, loader, options).await?;
 		if expanded.len() == 1 {
 			match expanded.into_iter().next().unwrap().into_unnamed_graph() {
-				Ok(graph) => Ok(graph),
+				Ok(graph) => Ok(graph.into_inner().into_nodes()),
 				Err(obj) => {
 					let mut set = HashSet::new();
 					if filter_top_level_item(&obj) {

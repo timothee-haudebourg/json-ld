@@ -1,6 +1,8 @@
 use std::convert::TryFrom;
 use std::fmt;
 use iref::Iri;
+use json::JsonValue;
+use crate::util;
 
 /// JSON-LD keywords.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -49,7 +51,7 @@ pub enum Keyword {
 
 	/// `@json`.
 	/// Used as the @type value of a JSON literal.
-	JSON,
+	Json,
 
 	/// `@language`.
 	/// Used to specify the language for a particular string value or the default language of a
@@ -116,7 +118,7 @@ pub enum Keyword {
 }
 
 impl Keyword {
-	pub fn iri(&self) -> Option<Iri<'static>> {
+	pub fn as_iri(&self) -> Option<Iri<'static>> {
 		match self {
 			Keyword::Type => Some(iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")),
 			_ => None
@@ -135,7 +137,7 @@ impl Keyword {
 			Import => "@import",
 			Included => "@included",
 			Index => "@index",
-			JSON => "@json",
+			Json => "@json",
 			Language => "@language",
 			List => "@list",
 			Nest => "@nest",
@@ -168,7 +170,7 @@ impl<'a> TryFrom<&'a str> for Keyword {
 			"@import" => Ok(Import),
 			"@included" => Ok(Included),
 			"@index" => Ok(Index),
-			"@json" => Ok(JSON),
+			"@json" => Ok(Json),
 			"@language" => Ok(Language),
 			"@list" => Ok(List),
 			"@nest" => Ok(Nest),
@@ -196,6 +198,12 @@ impl From<Keyword> for &'static str {
 impl fmt::Display for Keyword {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.into_str().fmt(f)
+	}
+}
+
+impl util::AsJson for Keyword {
+	fn as_json(&self) -> JsonValue {
+		self.into_str().into()
 	}
 }
 

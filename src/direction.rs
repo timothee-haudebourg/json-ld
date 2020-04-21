@@ -3,7 +3,7 @@ use std::fmt;
 use json::JsonValue;
 use crate::AsJson;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Direction {
 	Ltr,
 	Rtl

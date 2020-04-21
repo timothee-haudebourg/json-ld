@@ -1,5 +1,6 @@
 #![feature(proc_macro_hygiene)]
 #![feature(str_strip)]
+#![feature(arbitrary_self_types)]
 
 #[macro_use]
 extern crate log;
@@ -19,6 +20,7 @@ mod blank;
 mod term;
 mod property;
 mod container;
+mod indexed;
 pub mod object;
 mod vocab;
 mod context;
@@ -34,6 +36,7 @@ pub use id::*;
 pub use blank::*;
 pub use term::*;
 pub use property::*;
+pub use indexed::*;
 pub use object::Object;
 pub use vocab::*;
 pub use context::*;

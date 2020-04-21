@@ -1,7 +1,18 @@
 use std::collections::HashSet;
 use std::convert::TryInto;
 use json::JsonValue;
-use crate::{Error, ErrorCode, Keyword, Direction, Id, Term, Object, Node, Value, Literal, ActiveContext};
+use crate::{
+	Error,
+	ErrorCode,
+	Keyword,
+	Direction,
+	LangString,
+	Id,
+	Term,
+	Indexed,
+	object::*,
+	ActiveContext
+};
 use super::expand_iri;
 
 fn clone_default_language<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<String> {
@@ -19,7 +30,7 @@ fn clone_default_base_direction<T: Id, C: ActiveContext<T>>(active_context: &C) 
 }
 
 /// https://www.w3.org/TR/json-ld11-api/#value-expansion
-pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_property: Option<&str>, value: &JsonValue) -> Result<Object<T>, Error> {
+pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_property: Option<&str>, value: &JsonValue) -> Result<Indexed<Object<T>>, Error> {
 	let active_property_definition = active_context.get_opt(active_property);
 
 	let active_property_type = if let Some(active_property_definition) = active_property_definition {
@@ -36,7 +47,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		Some(Term::Keyword(Keyword::Id)) if value.is_string() => {
 			let mut node = Node::new();
 			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, false));
-			Ok(node.into())
+			Ok(Object::Node(node).into())
 		},
 
 		// If `active_property` has a type mapping in active context that is `@vocab`, and the
@@ -46,37 +57,32 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		Some(Term::Keyword(Keyword::Vocab)) if value.is_string() => {
 			let mut node = Node::new();
 			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, true));
-			Ok(node.into())
+			Ok(Object::Node(node).into())
 		},
 
 		_ => {
 			// Otherwise, initialize `result` to a map with an `@value` entry whose value is set to
 			// `value`.
-			let mut result = match value {
+			let result = match value {
 				JsonValue::Null => Literal::Null,
 				JsonValue::Boolean(b) => Literal::Boolean(*b),
 				JsonValue::Number(n) => Literal::Number(*n),
-				JsonValue::Short(_) | JsonValue::String(_) => Literal::String {
-					data: value.as_str().unwrap().to_string(),
-					language: None,
-					direction: None
-				},
-				_ => panic!("expand_value must be called with a literal JSON value")
+				JsonValue::Short(_) | JsonValue::String(_) => Literal::String(value.as_str().unwrap().to_string()),
+				_ => panic!("expand_literal must be called with a literal JSON value")
 			};
-
-			let mut types = HashSet::new();
 
 			// If `active_property` has a type mapping in active context, other than `@id`,
 			// `@vocab`, or `@none`, add `@type` to `result` and set its value to the value
 			// associated with the type mapping.
+			let mut tys = HashSet::new();
 			match active_property_type {
 				None | Some(Term::Keyword(Keyword::Id)) | Some(Term::Keyword(Keyword::Vocab)) | Some(Term::Keyword(Keyword::None)) => {
 					// Otherwise, if value is a string:
-					if let Literal::String { ref mut language, ref mut direction, .. } = &mut result {
+					if let Literal::String(str) = result {
 						// Initialize `language` to the language mapping for
 						// `active_property` in `active_context`, if any, otherwise to the
 						// default language of `active_context`.
-						*language = if let Some(active_property_definition) = active_property_definition {
+						let language = if let Some(active_property_definition) = active_property_definition {
 							if let Some(language) = &active_property_definition.language {
 								language.clone()
 							} else {
@@ -89,7 +95,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 						// Initialize `direction` to the direction mapping for
 						// `active_property` in `active_context`, if any, otherwise to the
 						// default base direction of `active_context`.
-						*direction = if let Some(active_property_definition) = active_property_definition {
+						let direction = if let Some(active_property_definition) = active_property_definition {
 							if let Some(direction) = &active_property_definition.direction {
 								direction.clone()
 							} else {
@@ -104,19 +110,20 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 						// If `direction` is not null, add `@direction` to result with the
 						// value `direction`.
 						// Done.
+						return Ok(Object::Value(Value::LangString(LangString::new(str, language, direction))).into())
 					}
 				},
 
 				Some(typ) => {
-					if let Ok(typ) = typ.try_into() {
-						types.insert(typ);
+					if let Ok(typ) = typ.into_id() {
+						tys.insert(typ);
 					} else {
 						return Err(ErrorCode::InvalidTypeValue.into())
 					}
 				}
 			}
 
-			Ok(Value::Literal(result, types).into())
+			Ok(Object::Value(Value::Literal(result, tys)).into())
 		}
 	}
 }

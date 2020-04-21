@@ -8,7 +8,6 @@ use crate::{
 	Id,
 	Keyword,
 	Term,
-	Type,
 	Property,
 	Object,
 	Indexed,
@@ -68,7 +67,7 @@ impl<T: Id> Node<T> {
 
 	pub fn as_iri(&self) -> Option<Iri> {
 		if let Some(id) = &self.id {
-			id.iri()
+			id.as_iri()
 		} else {
 			None
 		}
@@ -88,7 +87,7 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn insert(&mut self, prop: Property<T>, value: Object<T>) {
+	pub fn insert(&mut self, prop: Property<T>, value: Indexed<Object<T>>) {
 		if let Some(node_values) = self.properties.get_mut(&prop) {
 			node_values.push(value);
 		} else {
@@ -98,7 +97,7 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn insert_all<Objects: Iterator<Item=Object<T>>>(&mut self, prop: Property<T>, values: Objects) {
+	pub fn insert_all<Objects: Iterator<Item=Indexed<Object<T>>>>(&mut self, prop: Property<T>, values: Objects) {
 		if let Some(node_values) = self.properties.get_mut(&prop) {
 			node_values.extend(values);
 		} else {
@@ -106,7 +105,7 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn insert_reverse(&mut self, reverse_prop: Property<T>, reverse_value: Object<T>) {
+	pub fn insert_reverse(&mut self, reverse_prop: Property<T>, reverse_value: Indexed<Object<T>>) {
 		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
 			node_values.push(reverse_value);
 		} else {
@@ -116,7 +115,7 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn insert_all_reverse<Objects: Iterator<Item=Object<T>>>(&mut self, reverse_prop: Property<T>, reverse_values: Objects) {
+	pub fn insert_all_reverse<Objects: Iterator<Item=Indexed<Object<T>>>>(&mut self, reverse_prop: Property<T>, reverse_values: Objects) {
 		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
 			node_values.extend(reverse_values);
 		} else {
@@ -198,7 +197,7 @@ impl<T: Id> TryFrom<Term<T>> for Type<T> {
 	fn try_from(term: Term<T>) -> Result<Type<T>, Term<T>> {
 		match term {
 			Term::Keyword(Keyword::Id) => Ok(Type::Id),
-			Term::Keyword(Keyword::JSON) => Ok(Type::JSON),
+			Term::Keyword(Keyword::Json) => Ok(Type::JSON),
 			Term::Keyword(Keyword::None) => Ok(Type::None),
 			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
 			Term::Prop(prop) => Ok(Type::Prop(prop)),

@@ -2,10 +2,7 @@ use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use std::convert::TryFrom;
 use std::fmt;
-use iref::{
-	Iri,
-	IriBuf
-};
+use iref::Iri;
 use json::JsonValue;
 use crate::{
 	Id,
@@ -13,11 +10,14 @@ use crate::{
 	Term,
 	Property,
 	LangString,
-	util
+	util::{
+		self,
+		AsJson
+	}
 };
 
-#[derive(PartialEq, Eq)]
-pub enum Value<T: Id> {
+#[derive(Clone)]
+pub enum Literal {
 	/// The `null` value.
 	Null,
 
@@ -27,32 +27,68 @@ pub enum Value<T: Id> {
 	/// Number.
 	Number(json::number::Number),
 
-	/// Reference.
-	Ref(IriBuf),
-
-	/// A typed value.
-	Typed(String, Type<T>),
-
-	/// A language tagged string.
-	LangString(LangString),
+	/// String.
+	String(String),
 
 	/// A JSON literal value.
-	Json(JsonValue),
+	Json(JsonValue)
+}
+
+impl PartialEq for Literal {
+	fn eq(&self, other: &Literal) -> bool {
+		use Literal::*;
+		match (self, other) {
+			(Null, Null) => true,
+			(Boolean(a), Boolean(b)) => a == b,
+			(Number(a), Number(b)) => {
+				a.as_parts() == b.as_parts()
+			},
+			(String(a), String(b)) => a == b,
+			_ => false
+		}
+	}
+}
+
+impl Eq for Literal {}
+
+impl Hash for Literal {
+	fn hash<H: Hasher>(&self, h: &mut H) {
+		match self {
+			Literal::Null => (),
+			Literal::Boolean(b) => b.hash(h),
+			Literal::Number(n) => util::hash_json_number(n, h),
+			Literal::String(s) => s.hash(h),
+			Literal::Json(value) => util::hash_json(value, h)
+		}
+	}
+}
+
+impl Literal {
+	pub fn as_str(&self) -> Option<&str> {
+		match self {
+			Literal::String(s) => Some(s.as_str()),
+			_ => None
+		}
+	}
+}
+
+#[derive(PartialEq, Eq, Clone)]
+pub enum Value<T: Id> {
+	/// A typed value.
+	Literal(Literal, HashSet<T>),
+
+	/// A language tagged string.
+	LangString(LangString)
 }
 
 impl<T: Id> Hash for Value<T> {
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
-			Value::Null => (),
-			Value::Boolean(b) => b.hash(h),
-			Value::Number(n) => util::hash_json_number(n, h),
-			Value::Ref(r) => r.hash(h),
-			Value::Typed(lit, ty) => {
+			Value::Literal(lit, tys) => {
 				lit.hash(h);
-				ty.hash(h)
+				util::hash_set(tys, h)
 			},
-			Value::LangString(str) => str.hash(h),
-			Value::Json(value) => util::hash_json(value, h)
+			Value::LangString(str) => str.hash(h)
 		}
 	}
 }
@@ -60,17 +96,8 @@ impl<T: Id> Hash for Value<T> {
 impl<T: Id> Value<T> {
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
-			Value::Ref(r) => Some(r.as_str()),
-			Value::Typed(lit, _) => Some(lit.as_str()),
-			Value::LangString(str) => Some(str.as_str()),
-			_ => None
-		}
-	}
-
-	pub fn as_iri(&self) -> Option<Iri> {
-		match self {
-			Value::Ref(r) => Some(r.as_iri()),
-			_ => None
+			Value::Literal(lit, _) => lit.as_str(),
+			Value::LangString(str) => Some(str.as_str())
 		}
 	}
 }
@@ -80,21 +107,44 @@ impl<T: Id> util::AsJson for Value<T> {
 		let mut obj = json::object::Object::new();
 
 		match self {
-			Value::Null => {
-				obj.insert(Keyword::Value.into(), JsonValue::Null)
-			},
-			Value::Boolean(b) => {
-				obj.insert(Keyword::Value.into(), b.as_json())
-			},
-			Value::Number(n) => {
-				obj.insert(Keyword::Value.into(), JsonValue::Number(n.clone()))
-			},
-			Value::Ref(id) => {
-				obj.insert(Keyword::Value.into(), id.as_json())
-			},
-			Value::Typed(lit, ty) => {
-				obj.insert(Keyword::Value.into(), lit.as_json());
-				obj.insert(Keyword::Type.into(), ty.as_json())
+			Value::Literal(lit, tys) => {
+				let mut tys = if tys.is_empty() {
+					None
+				} else {
+					Some(tys.as_json())
+				};
+
+				match lit {
+					Literal::Null => {
+						obj.insert(Keyword::Value.into(), JsonValue::Null)
+					},
+					Literal::Boolean(b) => {
+						obj.insert(Keyword::Value.into(), b.as_json())
+					},
+					Literal::Number(n) => {
+						obj.insert(Keyword::Value.into(), JsonValue::Number(n.clone()))
+					},
+					Literal::Json(json) => {
+						obj.insert(Keyword::Value.into(), json.clone());
+
+						tys = if let Some(tys) = tys {
+							let mut ary = match tys {
+								JsonValue::Array(ary) => ary,
+								json => vec![json]
+							};
+
+							ary.push(Keyword::Json.as_json());
+
+							Some(JsonValue::Array(ary))
+						} else {
+							Some(Keyword::Json.as_json())
+						}
+					}
+				}
+
+				if let Some(tys) = tys {
+					obj.insert(Keyword::Type.into(), tys)
+				}
 			},
 			Value::LangString(str) => {
 				obj.insert(Keyword::Value.into(), str.as_str().into());
@@ -106,9 +156,6 @@ impl<T: Id> util::AsJson for Value<T> {
 				if let Some(direction) = str.direction() {
 					obj.insert(Keyword::Direction.into(), direction.as_json());
 				}
-			},
-			Value::Json(json) => {
-				obj.insert(Keyword::Value.into(), json.clone())
 			}
 		}
 
@@ -143,7 +190,7 @@ impl<T: Id> TryFrom<Term<T>> for Type<T> {
 	fn try_from(term: Term<T>) -> Result<Type<T>, Term<T>> {
 		match term {
 			Term::Keyword(Keyword::Id) => Ok(Type::Id),
-			Term::Keyword(Keyword::JSON) => Ok(Type::JSON),
+			Term::Keyword(Keyword::Json) => Ok(Type::JSON),
 			Term::Keyword(Keyword::None) => Ok(Type::None),
 			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
 			Term::Prop(prop) => Ok(Type::Prop(prop)),

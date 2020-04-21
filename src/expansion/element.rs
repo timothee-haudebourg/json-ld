@@ -8,8 +8,8 @@ use crate::{
 	Keyword,
 	Id,
 	Term,
-	Value,
-	Object,
+	Indexed,
+	object::*,
 	MutableActiveContext,
 	LocalContext,
 	ContextLoader,
@@ -184,6 +184,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				let mut expanded_entries = Vec::with_capacity(element.len());
 				let mut list_entry = None;
 				let mut set_entry = None;
+				let mut graph_entry = None;
 				value_entry = None;
 				for Entry(key, value) in entries.iter() {
 					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
@@ -200,6 +201,9 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 						Term::Keyword(Keyword::Set) => {
 							set_entry = Some(value)
 						},
+						Term::Graph(Keyword::Graph) => {
+							graph_entry = Some(graph)
+						},
 						_ => ()
 					}
 
@@ -207,6 +211,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				}
 
 				if let Some(list_entry) = list_entry {
+					// List objects.
 					for Entry((_, expanded_key), _) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
@@ -228,8 +233,9 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 						result.extend(expand_element(active_context.as_ref(), active_property, item, base_url, loader, options).await?)
 					}
 
-					Ok(Expanded::Object(Value::List(result).into()))
+					Ok(Expanded::Object(Object::List(result).into()))
 				} else if let Some(set_entry) = set_entry {
+					// Set objects.
 					for Entry((_, expanded_key), _) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
@@ -247,14 +253,23 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// the frameExpansion and ordered flags.
 					expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, options).await
 				} else if let Some(value_entry) = value_entry {
+					// Value objects.
 					if let Some(value) = expand_value(input_type, type_scoped_context, expanded_entries, value_entry)? {
 						Ok(Expanded::Object(value.into()))
 					} else {
 						Ok(Expanded::Null)
 					}
+				} else if let Some(graph_entry) = graph_entry {
+					// Graph objects.
+					if let Some(value) = expand_graph(active_context.as_ref(), type_scoped_context, active_property, expanded_entries, base_url, loader, options).await? {
+						Ok(result.cast::<Object<T>>().into())
+					} else {
+						Ok(Expanded::Null)
+					}
 				} else {
-					if let Some((result, result_data)) = expand_node(active_context.as_ref(), type_scoped_context, active_property, expanded_entries, base_url, loader, options).await? {
-						Ok(Expanded::Object(Object::Node(result, result_data)))
+					// Node objects.
+					if let Some(result) = expand_node(active_context.as_ref(), type_scoped_context, active_property, expanded_entries, base_url, loader, options).await? {
+						Ok(result.cast::<Object<T>>().into())
 					} else {
 						Ok(Expanded::Null)
 					}
@@ -262,6 +277,8 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 			},
 
 			_ => {
+				// Literals.
+
 				// If element is a scalar (bool, int, string, null),
 				// If `active_property` is `null` or `@graph`, drop the free-floating scalar by
 				// returning null.

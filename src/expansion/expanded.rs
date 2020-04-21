@@ -1,9 +1,13 @@
-use crate::{Id, Object};
+use crate::{
+	Id,
+	Indexed,
+	Object
+};
 
 pub enum Expanded<T: Id> {
 	Null,
-	Object(Object<T>),
-	Array(Vec<Object<T>>)
+	Object(Indexed<Object<T>>),
+	Array(Vec<Indexed<Object<T>>>)
 }
 
 impl<T: Id> Expanded<T> {
@@ -39,7 +43,7 @@ impl<T: Id> Expanded<T> {
 }
 
 impl<T: Id> IntoIterator for Expanded<T> {
-	type Item = Object<T>;
+	type Item = Indexed<Object<T>>;
 	type IntoIter = IntoIter<T>;
 
 	fn into_iter(self) -> IntoIter<T> {
@@ -52,7 +56,7 @@ impl<T: Id> IntoIterator for Expanded<T> {
 }
 
 impl<'a, T: Id> IntoIterator for &'a Expanded<T> {
-	type Item = &'a Object<T>;
+	type Item = &'a Indexed<Object<T>>;
 	type IntoIter = Iter<'a, T>;
 
 	fn into_iter(self) -> Iter<'a, T> {
@@ -62,14 +66,14 @@ impl<'a, T: Id> IntoIterator for &'a Expanded<T> {
 
 pub enum Iter<'a, T: Id> {
 	Null,
-	Object(Option<&'a Object<T>>),
-	Array(std::slice::Iter<'a, Object<T>>)
+	Object(Option<&'a Indexed<Object<T>>>),
+	Array(std::slice::Iter<'a, Indexed<Object<T>>>)
 }
 
 impl<'a, T: Id> Iterator for Iter<'a, T> {
-	type Item = &'a Object<T>;
+	type Item = &'a Indexed<Object<T>>;
 
-	fn next(&mut self) -> Option<&'a Object<T>> {
+	fn next(&mut self) -> Option<&'a Indexed<Object<T>>> {
 		match self {
 			Iter::Null => None,
 			Iter::Object(ref mut o) => {
@@ -86,14 +90,14 @@ impl<'a, T: Id> Iterator for Iter<'a, T> {
 
 pub enum IntoIter<T: Id> {
 	Null,
-	Object(Option<Object<T>>),
-	Array(std::vec::IntoIter<Object<T>>)
+	Object(Option<Indexed<Object<T>>>),
+	Array(std::vec::IntoIter<Indexed<Object<T>>>)
 }
 
 impl<T: Id> Iterator for IntoIter<T> {
-	type Item = Object<T>;
+	type Item = Indexed<Object<T>>;
 
-	fn next(&mut self) -> Option<Object<T>> {
+	fn next(&mut self) -> Option<Indexed<Object<T>>> {
 		match self {
 			IntoIter::Null => None,
 			IntoIter::Object(ref mut o) => {
@@ -103,7 +107,19 @@ impl<T: Id> Iterator for IntoIter<T> {
 			},
 			IntoIter::Array(ref mut it) => {
 				it.next()
-			},
+			}
 		}
+	}
+}
+
+impl<T: Id> From<Indexed<Object<T>>> for Expanded<T> {
+	fn from(obj: Indexed<Object<T>>) -> Expanded<T> {
+		Expanded::Object(obj)
+	}
+}
+
+impl<T: Id> From<Vec<Indexed<Object<T>>>> for Expanded<T> {
+	fn from(list: Vec<Indexed<Object<T>>>) -> Expanded<T> {
+		Expanded::Array(list)
 	}
 }

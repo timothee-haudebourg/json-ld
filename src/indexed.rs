@@ -1,4 +1,6 @@
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
+use std::ops::{Deref, DerefMut};
+use json::JsonValue;
 use crate::{
 	Keyword,
 	util::AsJson
@@ -24,7 +26,7 @@ impl<T> Indexed<T> {
 		self.value
 	}
 
-	pub fn index(&self) -> Option<&'str> {
+	pub fn index(&self) -> Option<&str> {
 		match &self.index {
 			Some(index) => Some(index.as_str()),
 			None => None
@@ -33,6 +35,14 @@ impl<T> Indexed<T> {
 
 	pub fn set_index(&mut self, index: Option<String>) {
 		self.index = index
+	}
+
+	pub fn into_parts(self) -> (T, Option<String>) {
+		(self.value, self.index)
+	}
+
+	pub fn cast<U: From<T>>(self) -> Indexed<U> {
+		Indexed::new(self.value.into(), self.index)
 	}
 }
 
@@ -60,6 +70,20 @@ impl<T: Clone> Clone for Indexed<T> {
 impl<T> From<T> for Indexed<T> {
 	fn from(value: T) -> Indexed<T> {
 		Indexed::new(value, None)
+	}
+}
+
+impl<T> Deref for Indexed<T> {
+	type Target = T;
+
+	fn deref(&self) -> &T {
+		&self.value
+	}
+}
+
+impl<T> DerefMut for Indexed<T> {
+	fn deref_mut(&mut self) -> &mut T {
+		&mut self.value
 	}
 }
 

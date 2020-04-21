@@ -87,7 +87,7 @@ impl json_ld::Vocab for Vocab {
 		}
 	}
 
-	fn iri(&self) -> Iri {
+	fn as_iri(&self) -> Iri {
 		use Vocab::*;
 		match self {
 			Comment => RDFS_COMMENT,

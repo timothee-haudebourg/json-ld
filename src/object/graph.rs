@@ -26,6 +26,14 @@ pub struct Graph<T: Id> {
 type Nodes<'a, T> = std::collections::hash_set::Iter<'a, Indexed<Object<T>>>;
 
 impl<T: Id> Graph<T> {
+	/// Create a new empty graph with the given id.
+	pub fn new(id: Option<Term<T>>) -> Graph<T> {
+		Graph {
+			id: None,
+			nodes: HashSet::new()
+		}
+	}
+
 	/// Return the name of the graph, if any.
 	pub fn id(&self) -> Option<&Term<T>> {
 		self.id.as_ref()
@@ -68,10 +76,14 @@ impl<T: Id> Graph<T> {
 		self.nodes.iter()
 	}
 
+	pub fn into_nodes(&self) -> HashSet<Indexed<Object<T>>> {
+		self.nodes
+	}
+
 	/// Add a node to the graph.
 	/// Return `true` if the node was not already in the graph,
 	/// and `false` otherwise.
-	pub fn insert(&mut self, node: Object<T>) -> bool {
+	pub fn insert(&mut self, node: Indexed<Object<T>>) -> bool {
 		self.nodes.insert(node)
 	}
 }
@@ -79,7 +91,7 @@ impl<T: Id> Graph<T> {
 impl<T: Id> Hash for Graph<T> {
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		self.id.hash(h);
-		util::hash_set(&self.set, h)
+		util::hash_set(&self.nodes, h)
 	}
 }
 
