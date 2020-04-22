@@ -1,16 +1,24 @@
 use std::convert::TryFrom;
 use iref::{Iri, IriRef};
-use crate::{Keyword, BlankId, Id, Term, ActiveContext, is_keyword_like};
+use crate::{
+	Keyword,
+	BlankId,
+	Id,
+	Term,
+	Lenient,
+	ActiveContext,
+	is_keyword_like
+};
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
-pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Term<T> {
+pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Lenient<Term<T>> {
 	if let Ok(keyword) = Keyword::try_from(value) {
-		Term::Keyword(keyword)
+		Term::Keyword(keyword).into()
 	} else {
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
 		if is_keyword_like(value) {
-			return Term::Null
+			return Term::Null.into()
 		}
 
 		if let Some(term_definition) = active_context.get(value) {
@@ -18,7 +26,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 			// is a keyword, return that keyword.
 			if let Some(value) = &term_definition.value {
 				if value.is_keyword() {
-					return value.clone()
+					return Term::from(value.clone()).into()
 				}
 			}
 
@@ -26,9 +34,9 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 			// associated IRI mapping.
 			if vocab {
 				if let Some(mapped_value) = &term_definition.value {
-					return mapped_value.clone()
+					return mapped_value.clone().into()
 				} else {
-					return Term::Unknown(value.to_string())
+					return Lenient::Unknown(value.to_string()).into()
 				}
 			}
 		}
@@ -44,14 +52,14 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 				// If prefix is underscore (_) or suffix begins with double-forward-slash (//),
 				// return value as it is already an IRI or a blank node identifier.
 				if prefix == "_" {
-					return BlankId::new(suffix).into()
+					return Term::from(BlankId::new(suffix)).into()
 				}
 
 				if suffix.starts_with("//") {
 					if let Ok(iri) = Iri::new(value) {
-						return T::from_iri(iri).into()
+						return Term::from(T::from_iri(iri)).into()
 					} else {
-						return Term::Unknown(value.to_string())
+						return Lenient::Unknown(value.to_string())
 					}
 				}
 
@@ -65,12 +73,12 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 							result.push_str(suffix);
 
 							if let Ok(result) = Iri::new(&result) {
-								return T::from_iri(result).into()
+								return Term::from(T::from_iri(result)).into()
 							} else {
 								if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-									return blank.into()
+									return Term::from(blank).into()
 								} else {
-									return Term::Unknown(result)
+									return Lenient::Unknown(result)
 								}
 							}
 						}
@@ -79,7 +87,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 
 				// If value has the form of an IRI, return value.
 				if let Ok(result) = Iri::new(value) {
-					return T::from_iri(result).into()
+					return Term::from(T::from_iri(result)).into()
 				}
 			}
 		}
@@ -93,16 +101,16 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 					result.push_str(value);
 
 					if let Ok(result) = Iri::new(&result) {
-						return T::from_iri(result).into()
+						return Term::from(T::from_iri(result)).into()
 					} else {
 						if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-							return blank.into()
+							return Term::from(blank).into()
 						} else {
-							return Term::Unknown(result)
+							return Lenient::Unknown(result)
 						}
 					}
 				} else {
-					return Term::Unknown(value.to_string())
+					return Lenient::Unknown(value.to_string())
 				}
 			}
 		}
@@ -117,16 +125,16 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 			if let Ok(iri_ref) = IriRef::new(value) {
 				if let Some(base_iri) = active_context.base_iri() {
 					let value = iri_ref.resolved(base_iri);
-					return T::from_iri(value.as_iri()).into()
+					return Term::from(T::from_iri(value.as_iri())).into()
 				} else {
-					return Term::Unknown(value.to_string())
+					return Lenient::Unknown(value.to_string())
 				}
 			} else {
-				return Term::Unknown(value.to_string())
+				return Lenient::Unknown(value.to_string())
 			}
 		}
 
 		// Return value as is.
-		Term::Unknown(value.to_string())
+		Lenient::Unknown(value.to_string())
 	}
 }

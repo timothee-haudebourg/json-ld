@@ -8,8 +8,31 @@ use futures::future::{LocalBoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
 use crate::util::as_array;
-use crate::{ProcessingMode, Error, ErrorCode, Keyword, BlankId, Id, Term, Property, is_keyword, is_keyword_like, Direction, ContainerType, expansion};
-use super::{ContextProcessingOptions, LocalContext, ActiveContext, MutableActiveContext, ContextLoader, TermDefinition};
+use crate::{
+	ProcessingMode,
+	Error,
+	ErrorCode,
+	Keyword,
+	BlankId,
+	Id,
+	Term,
+	Property,
+	Lenient,
+	Type,
+	is_keyword,
+	is_keyword_like,
+	Direction,
+	ContainerType,
+	expansion
+};
+use super::{
+	ContextProcessingOptions,
+	LocalContext,
+	ActiveContext,
+	MutableActiveContext,
+	ContextLoader,
+	TermDefinition
+};
 
 impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
 	/// Load a local context.
@@ -349,7 +372,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
 								match expansion::expand_iri(&result, value, true, true) {
-									Term::Prop(vocab) => result.set_vocabulary(Some(Term::Prop(vocab))),
+									Lenient::Ok(Term::Prop(vocab)) => result.set_vocabulary(Some(Term::Prop(vocab))),
 									_ => return Err(ErrorCode::InvalidVocabMapping.into())
 								}
 							},
@@ -406,14 +429,19 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 						false
 					};
 
-					// 5.13) For each key-value pair in context where key is not a keyword,
+					// 5.13) For each key-value pair in context where key is not
+					// @base, @direction, @import, @language, @propagate, @protected, @version,
+					// or @vocab,
 					// invoke the Create Term Definition algorithm passing result for
 					// active context, context for local context, key, defined, base URL,
 					// and the value of the @protected entry from context, if any, for protected.
 					// (and the value of override protected)
 					for (key, _) in context.iter() {
-						if !is_keyword(key) {
-							define(&mut result, context.as_ref(), key, &mut defined, remote_contexts.clone(), loader, base_url, protected, options).await?;
+						match key {
+							"@base" | "@direction" | "@import" | "@language" | "@propagate" | "@protected" | "@version" | "@vocab" => (),
+							_ => {
+								define(&mut result, context.as_ref(), key, &mut defined, remote_contexts.clone(), loader, base_url, protected, options).await?
+							}
 						}
 					}
 				},
@@ -466,7 +494,6 @@ fn is_gen_delim_or_blank<T: Id>(t: &Term<T>) -> bool {
 				false
 			}
 		},
-		Term::Unknown(_) => false,
 		Term::Null => false
 	}
 }
@@ -530,6 +557,10 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 						// Any other value means that a keyword redefinition error has been detected
 						// and processing is aborted.
 						if let JsonValue::Object(value) = value {
+							if value.is_empty() {
+								return Err(ErrorCode::KeywordRedefinition.into())
+							}
+
 							for (key, value) in value.iter() {
 								match key {
 									"@container" if value == "@set" => (),
@@ -612,25 +643,25 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 						if let Some(typ) = type_value.as_str() {
 							// Set `typ` to the result of IRI expanding type, using local context,
 							// and defined.
-							if let Ok(typ) = expand_iri(active_context, typ, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
-								// If the expanded type is @json or @none, and processing mode is
-								// json-ld-1.0, an invalid type mapping error has been detected and
-								// processing is aborted.
-								if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Term::Keyword(Keyword::Json) || typ == Term::Keyword(Keyword::None)) {
-									return Err(ErrorCode::InvalidTypeMapping.into())
-								}
+							match expand_iri(active_context, typ, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
+								Lenient::Ok(typ) => {
+									// If the expanded type is @json or @none, and processing mode is
+									// json-ld-1.0, an invalid type mapping error has been detected and
+									// processing is aborted.
+									if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Term::Keyword(Keyword::Json) || typ == Term::Keyword(Keyword::None)) {
+										return Err(ErrorCode::InvalidTypeMapping.into())
+									}
 
-								if let Ok(typ) = typ.try_into() {
-									// Set the type mapping for definition to type.
-									definition.typ = Some(typ);
-								} else {
-									// Otherwise, if the expanded type is neither @id, nor @json, nor
-									// @none, nor @vocab, nor an IRI, an invalid type mapping error has
-									// been detected and processing is aborted.
+									if let Ok(typ) = typ.try_into() {
+										// Set the type mapping for definition to type.
+										definition.typ = Some(typ);
+									} else {
+										return Err(ErrorCode::InvalidTypeMapping.into())
+									}
+								},
+								Lenient::Unknown(_) => {
 									return Err(ErrorCode::InvalidTypeMapping.into())
 								}
-							} else {
-								return Err(ErrorCode::InvalidTypeMapping.into())
 							}
 						} else {
 							return Err(ErrorCode::InvalidTypeMapping.into())
@@ -660,7 +691,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 							// identifier, an invalid IRI mapping error has been detected and
 							// processing is aborted.
 							match expand_iri(active_context, reverse_value, false, true, local_context, defined, remote_contexts, loader, options).await? {
-								Ok(Term::Prop(mapping)) => {
+								Lenient::Ok(Term::Prop(mapping)) => {
 									definition.value = Some(Term::Prop(mapping))
 								},
 								_ => {
@@ -730,7 +761,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 								// Otherwise, set the IRI mapping of `definition` to the result
 								// of IRI expanding the value associated with the `@id` entry,
 								// using `local_context`, and `defined`.
-								definition.value = if let Ok(value) = expand_iri(active_context, id_value, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
+								definition.value = if let Lenient::Ok(value) = expand_iri(active_context, id_value, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
 									// if it equals `@context`, an invalid keyword alias error has
 									// been detected and processing is aborted.
 									if value == Term::Keyword(Keyword::Context) {
@@ -758,7 +789,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 									// `local_context`, and `defined`, is not the same as the
 									// IRI mapping of definition, an invalid IRI mapping error
 									// has been detected and processing is aborted.
-									if let Ok(expanded_term) = expand_iri(active_context, term, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
+									if let Lenient::Ok(expanded_term) = expand_iri(active_context, term, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
 										if !iri_eq_opt(&Some(expanded_term), &definition.value) {
 											return Err(ErrorCode::InvalidIriMapping.into())
 										}
@@ -832,7 +863,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 						// Set the IRI mapping of definition to the result of IRI expanding
 						// term.
 						match expansion::expand_iri(active_context, term, false, true) {
-							Term::Prop(Property::Id(id)) => {
+							Lenient::Ok(Term::Prop(Property::Id(id))) => {
 								definition.value = Some(id.into())
 							},
 							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
@@ -915,12 +946,12 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 								// an invalid type mapping error has been detected and processing
 								// is aborted.
 								match typ {
-									Term::Keyword(Keyword::Id) | Term::Keyword(Keyword::Vocab) => (),
+									Type::Id | Type::Vocab => (),
 									_ => return Err(ErrorCode::InvalidTypeMapping.into())
 								}
 							} else {
 								// If type mapping in definition is undefined, set it to @id.
-								definition.typ = Some(Term::Keyword(Keyword::Id))
+								definition.typ = Some(Type::Id)
 							}
 						}
 					}
@@ -940,7 +971,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
 							match expansion::expand_iri(active_context, index, false, true) {
-								Term::Prop(Property::Id(_)) => (),
+								Lenient::Ok(Term::Prop(Property::Id(_))) => (),
 								_ => {
 									return Err(ErrorCode::InvalidTermDefinition.into())
 								}
@@ -1117,11 +1148,11 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ContextProcessingOptions) -> impl 'a + Future<Output = Result<Result<Term<T>, Option<String>>, Error>> where C::LocalContext: From<JsonValue> {
+pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ContextProcessingOptions) -> impl 'a + Future<Output = Result<Lenient<Term<T>>, Error>> where C::LocalContext: From<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {
-			Ok(Ok(Term::Keyword(keyword)))
+			Ok(Term::Keyword(keyword).into())
 		} else {
 			// If value has the form of a keyword, a processor SHOULD generate a warning and return
 			// null.
@@ -1139,7 +1170,7 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Loc
 				// is a keyword, return that keyword.
 				if let Some(value) = &term_definition.value {
 					if value.is_keyword() {
-						return Ok(Ok(value.clone()))
+						return Ok(Term::from(value.clone()).into())
 					}
 				}
 
@@ -1147,9 +1178,9 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Loc
 				// associated IRI mapping.
 				if vocab {
 					if let Some(value) = &term_definition.value {
-						return Ok(Ok(value.clone()))
+						return Ok(Term::from(value.clone()).into())
 					} else {
-						return Ok(Err(Some(value.to_string())))
+						return Ok(Lenient::Unknown(value.to_string()))
 					}
 				}
 			}
@@ -1165,14 +1196,14 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Loc
 					// If prefix is underscore (_) or suffix begins with double-forward-slash (//),
 					// return value as it is already an IRI or a blank node identifier.
 					if prefix == "_" {
-						return Ok(Ok(BlankId::new(suffix).into()))
+						return Ok(Term::from(BlankId::new(suffix)).into())
 					}
 
 					if suffix.starts_with("//") {
 						if let Ok(iri) = Iri::new(value.as_ref() as &str) {
-							return Ok(Ok(T::from_iri(iri).into()))
+							return Ok(Term::from(T::from_iri(iri)).into())
 						} else {
-							return Ok(Err(Some(value.to_string())))
+							return Ok(Lenient::Unknown(value.to_string()))
 						}
 					}
 
@@ -1193,12 +1224,12 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Loc
 								result.push_str(suffix);
 
 								if let Ok(result) = Iri::new(&result) {
-									return Ok(Ok(T::from_iri(result).into()))
+									return Ok(Term::from(T::from_iri(result)).into())
 								} else {
 									if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-										return Ok(Ok(blank.into()))
+										return Ok(Term::from(blank).into())
 									} else {
-										return Ok(Err(Some(result)))
+										return Ok(Lenient::Unknown(result))
 									}
 								}
 							}
@@ -1207,7 +1238,7 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Loc
 
 					// If value has the form of an IRI, return value.
 					if let Ok(result) = Iri::new(value.as_ref() as &str) {
-						return Ok(Ok(T::from_iri(result).into()))
+						return Ok(Term::from(T::from_iri(result)).into())
 					}
 				}
 			}
@@ -1221,16 +1252,16 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Loc
 						result.push_str(value.as_ref());
 
 						if let Ok(result) = Iri::new(&result) {
-							return Ok(Ok(T::from_iri(result).into()))
+							return Ok(Term::from(T::from_iri(result)).into())
 						} else {
 							if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-								return Ok(Ok(blank.into()))
+								return Ok(Term::from(blank).into())
 							} else {
-								return Ok(Err(Some(result)))
+								return Ok(Lenient::Unknown(result))
 							}
 						}
 					} else {
-						return Ok(Err(Some(value.to_string())))
+						return Ok(Lenient::Unknown(value.to_string()))
 					}
 				}
 			}
@@ -1244,17 +1275,17 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Loc
 			if document_relative {
 				if let Ok(iri_ref) = IriRef::new(value.as_ref() as &str) {
 					if let Some(value) = resolve_iri(iri_ref, active_context.base_iri()) {
-						return Ok(Ok(T::from_iri(value.as_iri()).into()))
+						return Ok(Term::from(T::from_iri(value.as_iri())).into())
 					} else {
-						return Ok(Err(Some(value.to_string())))
+						return Ok(Lenient::Unknown(value.to_string()))
 					}
 				} else {
-					return Ok(Err(Some(value.to_string())))
+					return Ok(Lenient::Unknown(value.to_string()))
 				}
 			}
 
 			// Return value as is.
-			Ok(Err(Some(value.to_string())))
+			Ok(Lenient::Unknown(value.to_string()))
 		}
 	}
 }

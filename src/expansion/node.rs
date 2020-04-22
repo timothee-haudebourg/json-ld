@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::convert::TryInto;
 use futures::future::{LocalBoxFuture, FutureExt};
 use mown::Mown;
 use iref::Iri;
@@ -14,6 +13,8 @@ use crate::{
 	LangString,
 	Id,
 	Term,
+	Type,
+	Lenient,
 	Indexed,
 	object::*,
 	MutableActiveContext,
@@ -69,7 +70,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 		// if `ordered` is `true`:
 		for Entry((key, expanded_key), value) in expanded_entries {
 			match expanded_key {
-				Term::Null | Term::Unknown(_) => (),
+				Term::Null => (),
 
 				// If key is @context, continue to the next key.
 				Term::Keyword(Keyword::Context) => (),
@@ -122,7 +123,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// context, and true for document relative.
 							for ty in value {
 								if let Some(ty) = ty.as_str() {
-									if let Ok(ty) = expand_iri(type_scoped_context, ty, true, true).try_into() {
+									if let Ok(ty) = expand_iri(type_scoped_context, ty, true, true).try_cast() {
 										result.types.push(ty)
 									} else {
 										return Err(ErrorCode::InvalidTypeValue.into())
@@ -195,10 +196,10 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 
 								for Entry(reverse_key, reverse_value) in reverse_entries {
 									match expand_iri(active_context, reverse_key, false, true) {
-										Term::Keyword(_) => {
+										Lenient::Ok(Term::Keyword(_)) => {
 											return Err(ErrorCode::InvalidReverseProperty.into())
 										},
-										Term::Prop(reverse_prop) => {
+										Lenient::Ok(Term::Prop(reverse_prop)) => {
 											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, options).await?;
 
 											let is_double_reversed = if let Some(reverse_key_definition) = active_context.get(reverse_key) {
@@ -234,9 +235,11 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										nested_entries.sort();
 									}
 
-									let nested_expanded_entries = nested_entries.into_iter().map(|Entry(key, value)| {
-										let expanded_key = expand_iri(active_context, key, false, true);
-										Entry((key, expanded_key), value)
+									let nested_expanded_entries = nested_entries.into_iter().filter_map(|Entry(key, value)| {
+										match expand_iri(active_context, key, false, true) {
+											Lenient::Ok(expanded_key) => Some(Entry((key, expanded_key), value)),
+											_ => None
+										}
 									});
 
 									expand_node_entries(result, has_value_object_entries, active_context, type_scoped_context, active_property, nested_expanded_entries.collect(), base_url, loader, options).await?
@@ -272,7 +275,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 						// If key's term definition in `active_context` has a type mapping of `@json`,
 						// set expanded value to a new map,
 						// set the entry `@value` to `value`, and set the entry `@type` to `@json`.
-						if key_definition.typ == Some(Term::Keyword(Keyword::Json)) {
+						if key_definition.typ == Some(Type::Json) {
 							is_json = true;
 						}
 					}
@@ -417,7 +420,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// Initialize `expanded_index` to the result of IRI
 							// expanding index.
 							let expanded_index = match expand_iri(active_context, index, false, true) {
-								Term::Null | Term::Keyword(Keyword::None) => None,
+								Lenient::Ok(Term::Null) | Lenient::Ok(Term::Keyword(Keyword::None)) => None,
 								key => Some(key)
 							};
 
@@ -439,9 +442,11 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 								// @graph-item, ensuring that the value is
 								// represented using an array.
 								if container_mapping.contains(ContainerType::Graph) && !item.is_graph() {
-									let mut graph = Graph::new(None);
+									let mut node = Node::new();
+									let mut graph = HashSet::new();
 									graph.insert(item);
-									item = Object::Graph(graph).into();
+									node.graph = Some(graph);
+									item = Object::Node(node).into();
 								}
 
 								if expanded_index.is_some() {
@@ -465,7 +470,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// Initialize expanded index key to the result
 										// of IRI expanding index key.
 										let expanded_index_key = match expand_iri(active_context, index_key, false, true) {
-											Term::Prop(prop) => prop,
+											Lenient::Ok(Term::Prop(prop)) => prop,
 											_ => continue
 										};
 
@@ -510,7 +515,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// of expanded index followed by any existing
 										// values of @type in item. Add the key-value
 										// pair (@type-types) to item.
-										if let Ok(typ) = expanded_index.clone().unwrap().try_into() {
+										if let Ok(typ) = expanded_index.clone().unwrap().try_cast() {
 											if let Object::Node(ref mut node) = *item {
 												node.types.insert(0, typ);
 											}
@@ -549,9 +554,11 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					// into a graph object:
 					if container_mapping.contains(ContainerType::Graph) && !container_mapping.contains(ContainerType::Id) && !container_mapping.contains(ContainerType::Index) {
 						expanded_value = Expanded::Array(expanded_value.into_iter().map(|ev| {
-							let mut graph = Graph::new(None);
+							let mut node = Node::new();
+							let mut graph = HashSet::new();
 							graph.insert(ev);
-							Object::Graph(graph).into()
+							node.graph = Some(graph);
+							Object::Node(node).into()
 						}).collect());
 					}
 
@@ -561,7 +568,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 						if is_reverse_property {
 							// We must filter out anything that is not an object.
 							for value in &expanded_value {
-								match value {
+								match value.inner() {
 									Object::Value(_) => return Err(ErrorCode::InvalidReversePropertyValue.into()),
 									_ => ()
 								}

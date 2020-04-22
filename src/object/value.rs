@@ -1,19 +1,11 @@
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-use std::convert::TryFrom;
-use std::fmt;
-use iref::Iri;
 use json::JsonValue;
 use crate::{
 	Id,
 	Keyword,
-	Term,
-	Property,
 	LangString,
-	util::{
-		self,
-		AsJson
-	}
+	util
 };
 
 #[derive(Clone)]
@@ -111,7 +103,11 @@ impl<T: Id> util::AsJson for Value<T> {
 				let mut tys = if tys.is_empty() {
 					None
 				} else {
-					Some(tys.as_json())
+					Some(if tys.len() == 1 {
+						tys.iter().next().unwrap().as_json()
+					} else {
+						tys.as_json()
+					})
 				};
 
 				match lit {
@@ -123,6 +119,9 @@ impl<T: Id> util::AsJson for Value<T> {
 					},
 					Literal::Number(n) => {
 						obj.insert(Keyword::Value.into(), JsonValue::Number(n.clone()))
+					},
+					Literal::String(s) => {
+						obj.insert(Keyword::Value.into(), s.as_json())
 					},
 					Literal::Json(json) => {
 						obj.insert(Keyword::Value.into(), json.clone());
@@ -161,52 +160,5 @@ impl<T: Id> util::AsJson for Value<T> {
 
 		JsonValue::Object(obj)
 	}
-}
 
-#[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Type<T: Id> {
-	Id,
-	JSON,
-	None,
-	Vocab,
-	Prop(Property<T>)
-}
-
-impl<T: Id> Type<T> {
-	pub fn as_str(&self) -> &str {
-		match self {
-			Type::Id => "@id",
-			Type::JSON => "@json",
-			Type::None => "@none",
-			Type::Vocab => "@vocab",
-			Type::Prop(p) => p.as_str()
-		}
-	}
-}
-
-impl<T: Id> TryFrom<Term<T>> for Type<T> {
-	type Error = Term<T>;
-
-	fn try_from(term: Term<T>) -> Result<Type<T>, Term<T>> {
-		match term {
-			Term::Keyword(Keyword::Id) => Ok(Type::Id),
-			Term::Keyword(Keyword::Json) => Ok(Type::JSON),
-			Term::Keyword(Keyword::None) => Ok(Type::None),
-			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			Term::Prop(prop) => Ok(Type::Prop(prop)),
-			term => Err(term)
-		}
-	}
-}
-
-impl<T: Id> util::AsJson for Type<T> {
-	fn as_json(&self) -> JsonValue {
-		self.as_str().into()
-	}
-}
-
-impl<T: Id> fmt::Display for Type<T> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self.as_str())
-	}
 }

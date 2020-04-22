@@ -1,5 +1,11 @@
 use iref::IriBuf;
-use crate::{Id, Term, Direction, Container};
+use crate::{
+	Id,
+	Term,
+	Type,
+	Direction,
+	Container
+};
 use super::ActiveContext;
 
 // A term definition.
@@ -39,7 +45,7 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	pub nest: Option<String>,
 
 	// Optional type mapping.
-	pub typ: Option<Term<T>>
+	pub typ: Option<Type<T>>
 }
 
 impl<T: Id, C: ActiveContext<T>> Default for TermDefinition<T, C> {

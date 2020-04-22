@@ -1,6 +1,14 @@
 use std::fmt;
+use std::convert::TryFrom;
 use iref::Iri;
-use crate::{Id, BlankId};
+use json::JsonValue;
+use crate::{
+	Id,
+	BlankId,
+	Term,
+	TermLike,
+	util
+};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Property<T: Id> {
@@ -38,15 +46,45 @@ impl<T: Id> Property<T> {
 	}
 }
 
+impl<T: Id> TermLike for Property<T> {
+	fn as_iri(&self) -> Option<Iri> {
+		self.as_iri()
+	}
+
+	fn as_str(&self) -> &str {
+		self.as_str()
+	}
+}
+
 impl<T: Id> From<T> for Property<T> {
 	fn from(id: T) -> Property<T> {
 		Property::Id(id)
 	}
 }
 
+impl<T: Id> TryFrom<Term<T>> for Property<T> {
+	type Error = Term<T>;
+
+	fn try_from(term: Term<T>) -> Result<Property<T>, Term<T>> {
+		match term {
+			Term::Prop(prop) => Ok(prop),
+			term => Err(term)
+		}
+	}
+}
+
 impl<T: Id> From<BlankId> for Property<T> {
 	fn from(blank: BlankId) -> Property<T> {
 		Property::Blank(blank)
+	}
+}
+
+impl<T: Id> util::AsJson for Property<T> {
+	fn as_json(&self) -> JsonValue {
+		match self {
+			Property::Id(id) => id.as_json(),
+			Property::Blank(b) => b.as_json()
+		}
 	}
 }
 

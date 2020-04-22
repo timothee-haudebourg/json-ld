@@ -92,7 +92,9 @@ impl<T: AsJson> AsJson for Indexed<T> {
 		let mut json = self.value.as_json();
 
 		if let JsonValue::Object(ref mut obj) = &mut json {
-			obj.insert(Keyword::Index.into(), self.index.into())
+			if let Some(index) = &self.index {
+				obj.insert(Keyword::Index.into(), index.as_json())
+			}
 		}
 
 		json

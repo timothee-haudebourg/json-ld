@@ -1,5 +1,7 @@
 use std::fmt;
 use std::convert::TryFrom;
+use json::JsonValue;
+use crate::util;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct BlankId(String);
@@ -27,6 +29,12 @@ impl<'a> TryFrom<&'a str> for BlankId {
 		} else {
 			Err(())
 		}
+	}
+}
+
+impl util::AsJson for BlankId {
+	fn as_json(&self) -> JsonValue {
+		self.0.as_json()
 	}
 }
 

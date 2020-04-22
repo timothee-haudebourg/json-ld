@@ -1,6 +1,5 @@
 pub mod value;
 pub mod node;
-pub mod graph;
 
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -10,6 +9,7 @@ use json::JsonValue;
 use crate::{
 	Id,
 	Term,
+	Lenient,
 	Keyword,
 	Indexed,
 	util::AsJson
@@ -20,7 +20,6 @@ pub use value::{
 	Value
 };
 pub use node::Node;
-pub use graph::Graph;
 
 /// Object descriptor.
 #[derive(PartialEq, Eq, Hash)]
@@ -33,13 +32,10 @@ pub enum Object<T: Id> {
 
 	/// List object.
 	List(Vec<Indexed<Object<T>>>),
-
-	/// Graph object.
-	Graph(Graph<T>)
 }
 
 impl<T: Id> Object<T> {
-	pub fn id(&self) -> Option<&Term<T>> {
+	pub fn id(&self) -> Option<&Lenient<Term<T>>> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
 			_ => None
@@ -60,16 +56,16 @@ impl<T: Id> Object<T> {
 		}
 	}
 
-	pub fn is_list(&self) -> bool {
+	pub fn is_graph(&self) -> bool {
 		match self {
-			Object::List(_) => true,
+			Object::Node(n) => n.is_graph(),
 			_ => false
 		}
 	}
 
-	pub fn is_graph(&self) -> bool {
+	pub fn is_list(&self) -> bool {
 		match self {
-			Object::Graph(_) => true,
+			Object::List(_) => true,
 			_ => false
 		}
 	}
@@ -78,7 +74,6 @@ impl<T: Id> Object<T> {
 		match self {
 			Object::Value(value) => value.as_str(),
 			Object::Node(node) => node.as_str(),
-			Object::Graph(graph) => graph.as_str(),
 			_ => None
 		}
 	}
@@ -86,16 +81,20 @@ impl<T: Id> Object<T> {
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
 			Object::Node(node) => node.as_iri(),
-			Object::Graph(graph) => graph.as_iri(),
 			_ => None
 		}
 	}
 
 	/// Try to convert this object into an unnamed graph.
-	pub fn into_unnamed_graph(self: Indexed<Self>) -> Result<Indexed<Graph<T>>, Indexed<Self>> {
+	pub fn into_unnamed_graph(self: Indexed<Self>) -> Result<HashSet<Indexed<Object<T>>>, Indexed<Self>> {
 		let (obj, index) = self.into_parts();
 		match obj {
-			Object::Graph(g) if !g.is_named() => Ok(Indexed::new(g, index)),
+			Object::Node(n) => {
+				match n.into_unnamed_graph() {
+					Ok(g) => Ok(g),
+					Err(n) => Err(Indexed::new(Object::Node(n), index))
+				}
+			},
 			obj => Err(Indexed::new(obj, index))
 		}
 	}
@@ -128,8 +127,7 @@ impl<T: Id> AsJson for Object<T> {
 				let mut obj = json::object::Object::new();
 				obj.insert(Keyword::List.into(), items.as_json());
 				JsonValue::Object(obj)
-			},
-			Object::Graph(g) => g.as_json()
+			}
 		}
 	}
 }

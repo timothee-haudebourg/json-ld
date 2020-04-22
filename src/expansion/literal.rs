@@ -1,14 +1,12 @@
 use std::collections::HashSet;
-use std::convert::TryInto;
 use json::JsonValue;
 use crate::{
 	Error,
 	ErrorCode,
-	Keyword,
 	Direction,
 	LangString,
 	Id,
-	Term,
+	Type,
 	Indexed,
 	object::*,
 	ActiveContext
@@ -44,7 +42,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		// `value` is a string, return a new map containing a single entry where the key is `@id` and
 		// the value is the result IRI expanding `value` using `true` for `document_relative` and
 		// `false` for vocab.
-		Some(Term::Keyword(Keyword::Id)) if value.is_string() => {
+		Some(Type::Id) if value.is_string() => {
 			let mut node = Node::new();
 			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, false));
 			Ok(Object::Node(node).into())
@@ -54,7 +52,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		// value is a string, return a new map containing a single entry where the key is
 		// `@id` and the value is the result of IRI expanding `value` using `true` for
 		// document relative.
-		Some(Term::Keyword(Keyword::Vocab)) if value.is_string() => {
+		Some(Type::Vocab) if value.is_string() => {
 			let mut node = Node::new();
 			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, true));
 			Ok(Object::Node(node).into())
@@ -76,7 +74,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 			// associated with the type mapping.
 			let mut tys = HashSet::new();
 			match active_property_type {
-				None | Some(Term::Keyword(Keyword::Id)) | Some(Term::Keyword(Keyword::Vocab)) | Some(Term::Keyword(Keyword::None)) => {
+				None | Some(Type::Id) | Some(Type::Vocab) | Some(Type::None) => {
 					// Otherwise, if value is a string:
 					if let Literal::String(str) = result {
 						// Initialize `language` to the language mapping for
@@ -115,7 +113,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 				},
 
 				Some(typ) => {
-					if let Ok(typ) = typ.into_id() {
+					if let Ok(typ) = typ.into_ref() {
 						tys.insert(typ);
 					} else {
 						return Err(ErrorCode::InvalidTypeValue.into())

@@ -69,15 +69,21 @@ pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<JsonValue, Err
 }
 
 pub async fn load_remote_json_ld_context(url: Iri<'_>) -> Result<JsonValue, Error> {
-	let doc = load_remote_json_ld_document(url).await?;
-	if let JsonValue::Object(obj) = doc {
-		if let Some(context) = obj.get("@context") {
-			Ok(context.clone())
-		} else {
+	match load_remote_json_ld_document(url).await {
+		Ok(doc) => {
+			if let JsonValue::Object(obj) = doc {
+				if let Some(context) = obj.get("@context") {
+					Ok(context.clone())
+				} else {
+					Err(ErrorCode::InvalidRemoteContext.into())
+				}
+			} else {
+				Err(ErrorCode::InvalidRemoteContext.into())
+			}
+		},
+		Err(_) => {
 			Err(ErrorCode::LoadingRemoteContextFailed.into())
 		}
-	} else {
-		Err(ErrorCode::LoadingRemoteContextFailed.into())
 	}
 }
 

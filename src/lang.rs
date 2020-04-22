@@ -21,7 +21,7 @@ impl LangString {
 	}
 
 	pub fn language(&self) -> Option<&str> {
-		match self.language {
+		match &self.language {
 			Some(lang) => Some(lang.as_str()),
 			None => None
 		}

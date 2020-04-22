@@ -3,7 +3,6 @@ mod iri;
 mod literal;
 mod value;
 mod node;
-mod graph;
 mod array;
 mod element;
 
@@ -28,7 +27,6 @@ pub use iri::*;
 pub use literal::*;
 pub use value::*;
 pub use node::*;
-pub use graph::*;
 pub use array::*;
 pub use element::*;
 
@@ -81,7 +79,7 @@ pub fn expand<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 		let expanded = expand_element(active_context, None, element, base_url, loader, options).await?;
 		if expanded.len() == 1 {
 			match expanded.into_iter().next().unwrap().into_unnamed_graph() {
-				Ok(graph) => Ok(graph.into_inner().into_nodes()),
+				Ok(graph) => Ok(graph),
 				Err(obj) => {
 					let mut set = HashSet::new();
 					if filter_top_level_item(&obj) {

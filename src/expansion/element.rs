@@ -8,7 +8,7 @@ use crate::{
 	Keyword,
 	Id,
 	Term,
-	Indexed,
+	Lenient,
 	object::*,
 	MutableActiveContext,
 	LocalContext,
@@ -17,7 +17,16 @@ use crate::{
 	ProcessingStack
 };
 use crate::util::as_array;
-use super::{Expanded, Entry, ExpansionOptions, expand_literal, expand_array, expand_value, expand_node, expand_iri};
+use super::{
+	Expanded,
+	Entry,
+	ExpansionOptions,
+	expand_literal,
+	expand_array,
+	expand_value,
+	expand_node,
+	expand_iri
+};
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
@@ -70,10 +79,10 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 
 				for Entry(key, value) in entries.iter() {
 					match expand_iri(active_context, key, false, true) {
-						Term::Keyword(Keyword::Value) => {
+						Lenient::Ok(Term::Keyword(Keyword::Value)) => {
 							value_entry = Some(value)
 						},
-						Term::Keyword(Keyword::Id) => {
+						Lenient::Ok(Term::Keyword(Keyword::Id)) => {
 							id_entry = Some(value)
 						},
 						_ => ()
@@ -116,7 +125,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				for Entry(key, value) in entries.iter() {
 					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
 					match &expanded_key {
-						Term::Keyword(Keyword::Type) => {
+						Lenient::Ok(Term::Keyword(Keyword::Type)) => {
 							type_entries.push(Entry(key, value));
 						},
 						_ => ()
@@ -184,30 +193,29 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				let mut expanded_entries = Vec::with_capacity(element.len());
 				let mut list_entry = None;
 				let mut set_entry = None;
-				let mut graph_entry = None;
 				value_entry = None;
 				for Entry(key, value) in entries.iter() {
-					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
-					match &expanded_key {
-						Term::Unknown(_) => {
-							warn!("failed to expand key `{}`", key)
-						},
-						Term::Keyword(Keyword::Value) => {
-							value_entry = Some(value)
-						},
-						Term::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
-							list_entry = Some(value)
-						},
-						Term::Keyword(Keyword::Set) => {
-							set_entry = Some(value)
-						},
-						Term::Graph(Keyword::Graph) => {
-							graph_entry = Some(graph)
-						},
-						_ => ()
-					}
+					match expand_iri(active_context.as_ref(), key, false, true) {
+						Lenient::Ok(expanded_key) => {
+							match &expanded_key {
+								Term::Keyword(Keyword::Value) => {
+									value_entry = Some(value)
+								},
+								Term::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
+									list_entry = Some(value)
+								},
+								Term::Keyword(Keyword::Set) => {
+									set_entry = Some(value)
+								},
+								_ => ()
+							}
 
-					expanded_entries.push(Entry((*key, expanded_key), value))
+							expanded_entries.push(Entry((*key, expanded_key), value))
+						},
+						Lenient::Unknown(_) => {
+							warn!("failed to expand key `{}`", key)
+						}
+					}
 				}
 
 				if let Some(list_entry) = list_entry {
@@ -256,13 +264,6 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 					// Value objects.
 					if let Some(value) = expand_value(input_type, type_scoped_context, expanded_entries, value_entry)? {
 						Ok(Expanded::Object(value.into()))
-					} else {
-						Ok(Expanded::Null)
-					}
-				} else if let Some(graph_entry) = graph_entry {
-					// Graph objects.
-					if let Some(value) = expand_graph(active_context.as_ref(), type_scoped_context, active_property, expanded_entries, base_url, loader, options).await? {
-						Ok(result.cast::<Object<T>>().into())
 					} else {
 						Ok(Expanded::Null)
 					}

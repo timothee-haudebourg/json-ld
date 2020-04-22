@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use json::JsonValue;
 use crate::{
 	Error,
@@ -9,6 +9,8 @@ use crate::{
 	LangString,
 	Id,
 	Term,
+	Property,
+	Lenient,
 	Indexed,
 	object::*,
 	MutableActiveContext
@@ -16,14 +18,14 @@ use crate::{
 use crate::util::as_array;
 use super::{Entry, expand_iri};
 
-pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Term<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
+pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Lenient<Term<T>>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
 	// If input type is @json, set expanded value to value.
 	// If processing mode is json-ld-1.0, an invalid value object value error has
 	// been detected and processing is aborted.
 
 	// Otherwise, if value is not a scalar or null, an invalid value object value
 	// error has been detected and processing is aborted.
-	let result = if input_type == Some(Term::Keyword(Keyword::Json)) {
+	let mut result = if input_type == Some(Lenient::Ok(Term::Keyword(Keyword::Json))) {
 		Literal::Json(value_entry.clone())
 	} else {
 		match value_entry {
@@ -110,14 +112,16 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 					if let Some(ty) = ty.as_str() {
 						let expanded_ty = expand_iri(type_scoped_context, ty, true, true);
 
-						if expanded_ty == Term::Keyword(Keyword::Json) {
-							result = Literal::Json(value_entry.clone())
-						}
-
-						if let Ok(typ) = expanded_ty.into_id() {
-							types.insert(typ);
-						} else {
-							return Err(ErrorCode::InvalidTypedValue.into())
+						match expanded_ty {
+							Lenient::Ok(Term::Keyword(Keyword::Json)) => {
+								result = Literal::Json(value_entry.clone())
+							},
+							Lenient::Ok(Term::Prop(Property::Id(ty))) => {
+								types.insert(ty);
+							},
+							_ => {
+								return Err(ErrorCode::InvalidTypedValue.into())
+							}
 						}
 					} else {
 						return Err(ErrorCode::InvalidTypeValue.into())
@@ -152,6 +156,10 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Te
 	// been detected (only strings can be language-tagged) and processing is
 	// aborted.
 	if language.is_some() || direction.is_some() {
+		if !types.is_empty() {
+			return Err(ErrorCode::InvalidValueObject.into())
+		}
+
 		if let Literal::String(str) = result {
 			let result = LangString::new(str, language, direction);
 

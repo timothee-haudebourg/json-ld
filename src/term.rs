@@ -3,12 +3,17 @@ use iref::Iri;
 use json::JsonValue;
 use crate::{Id, Keyword, Property, BlankId, AsJson};
 
+pub trait TermLike {
+	fn as_iri(&self) -> Option<Iri>;
+
+	fn as_str(&self) -> &str;
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Term<T: Id> {
 	Null,
 	Prop(Property<T>),
-	Keyword(Keyword),
-	Unknown(String)
+	Keyword(Keyword)
 }
 
 impl<T: Id> Term<T> {
@@ -18,12 +23,11 @@ impl<T: Id> Term<T> {
 			term => Err(term)
 		}
 	}
-	
+
 	pub fn as_str(&self) -> &str {
 		match self {
 			Term::Prop(p) => p.as_str(),
 			Term::Keyword(k) => k.into_str(),
-			Term::Unknown(u) => u.as_str(),
 			Term::Null => ""
 		}
 	}
@@ -58,6 +62,16 @@ impl<T: Id> Term<T> {
 	}
 }
 
+impl<T: Id> TermLike for Term<T> {
+	fn as_iri(&self) -> Option<Iri> {
+		self.as_iri()
+	}
+
+	fn as_str(&self) -> &str {
+		self.as_str()
+	}
+}
+
 impl<T: Id> From<T> for Term<T> {
 	fn from(id: T) -> Term<T> {
 		Term::Prop(Property::Id(id))
@@ -81,7 +95,6 @@ impl<T: Id> fmt::Display for Term<T> {
 		match self {
 			Term::Prop(p) => p.fmt(f),
 			Term::Keyword(kw) => kw.into_str().fmt(f),
-			Term::Unknown(u) => u.fmt(f),
 			Term::Null => write!(f, "null")
 		}
 	}
@@ -92,7 +105,6 @@ impl<T: Id> AsJson for Term<T> {
 		match self {
 			Term::Prop(p) => p.as_str().into(),
 			Term::Keyword(kw) => kw.into_str().into(),
-			Term::Unknown(u) => u.as_str().into(),
 			Term::Null => JsonValue::Null
 		}
 	}
