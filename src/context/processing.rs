@@ -506,14 +506,6 @@ fn contains_nz(id: &str, c: char) -> bool {
 	}
 }
 
-fn iri_eq_opt<T: Id>(a: &Option<Term<T>>, b: &Option<Term<T>>) -> bool {
-	match (a, b) {
-		(Some(a), Some(b)) => a.iri_eq(b),
-		(None, None) => true,
-		_ => false
-	}
-}
-
 // fn define<'a>(&mut self, env: &mut DefinitionEnvironment<'a>, term: &str, value: &JsonValue) -> Result<(), Self::Error> {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
@@ -534,6 +526,10 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 			// Otherwise, if the value is false, a cyclic IRI mapping error has been detected and processing is aborted.
 			Some(false) => Err(ErrorCode::CyclicIriMapping.into()),
 			None => {
+				if term.is_empty() {
+					return Err(ErrorCode::InvalidTermDefinition.into())
+				}
+
 				// Initialize `value` to a copy of the value associated with the entry `term` in
 				// `local_context`.
 				if let Some(value) = local_context.get(term) {
@@ -571,15 +567,20 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 						} else {
 							return Err(ErrorCode::KeywordRedefinition.into())
 						}
-					}
+					} else {
+						// Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and
+						// a keyword redefinition error has been detected and processing is aborted.
+						if is_keyword(term) {
+							return Err(ErrorCode::KeywordRedefinition.into())
+						} else {
+							// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
+							// from [RFC5234]), return; processors SHOULD generate a warning.
+							if is_keyword_like(term) {
 
-					// Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and
-					// a keyword redefinition error has been detected and processing is aborted.
-					// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
-					// from [RFC5234]), return; processors SHOULD generate a warning.
-					if is_keyword_like(term) {
-						// TODO warning
-						return Ok(())
+								// TODO warning
+								return Ok(())
+							}
+						}
 					}
 
 					// Initialize `previous_definition` to any existing term definition for `term` in
@@ -790,7 +791,11 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 									// IRI mapping of definition, an invalid IRI mapping error
 									// has been detected and processing is aborted.
 									if let Lenient::Ok(expanded_term) = expand_iri(active_context, term, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
-										if !iri_eq_opt(&Some(expanded_term), &definition.value) {
+										// if !iri_eq_opt(&Some(expanded_term), &definition.value) {
+										// 	return Err(ErrorCode::InvalidIriMapping.into())
+										// }
+
+										if definition.value != Some(expanded_term) {
 											return Err(ErrorCode::InvalidIriMapping.into())
 										}
 									} else {

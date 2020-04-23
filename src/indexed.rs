@@ -1,5 +1,6 @@
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use std::convert::{TryFrom, TryInto};
 use json::JsonValue;
 use crate::{
 	Keyword,
@@ -43,6 +44,13 @@ impl<T> Indexed<T> {
 
 	pub fn cast<U: From<T>>(self) -> Indexed<U> {
 		Indexed::new(self.value.into(), self.index)
+	}
+
+	pub fn try_cast<U: TryFrom<T>>(self) -> Result<Indexed<U>, Indexed<U::Error>> {
+		match self.value.try_into() {
+			Ok(value) => Ok(Indexed::new(value, self.index)),
+			Err(e) => Err(Indexed::new(e, self.index))
+		}
 	}
 }
 

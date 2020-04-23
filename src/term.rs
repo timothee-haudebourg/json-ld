@@ -46,20 +46,6 @@ impl<T: Id> Term<T> {
 			_ => None
 		}
 	}
-
-	pub fn iri_eq(&self, other: &Term<T>) -> bool {
-		if self == other {
-			true
-		} else {
-			if let Some(self_iri) = self.as_iri() {
-				if let Some(other_iri) = other.as_iri() {
-					return self_iri == other_iri
-				}
-			}
-
-			false
-		}
-	}
 }
 
 impl<T: Id> TermLike for Term<T> {

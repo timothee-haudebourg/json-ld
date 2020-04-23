@@ -42,7 +42,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Le
 				Literal::Boolean(*b)
 			},
 			_ => {
-				return Err(ErrorCode::InvalidValueObject.into());
+				return Err(ErrorCode::InvalidValueObjectValue.into());
 			}
 		}
 	};

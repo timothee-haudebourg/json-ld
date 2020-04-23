@@ -85,17 +85,15 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
 					if active_property == Some("@reverse") {
-						return Err(ErrorCode::InvalidReverseProperty.into())
+						return Err(ErrorCode::InvalidReversePropertyMap.into())
 					}
 
 					// If `result` already has an `expanded_property` entry, other than
 					// `@included` or `@type` (unless processing mode is json-ld-1.0), a
 					// colliding keywords error has been detected and processing is
 					// aborted.
-					if let Some(expanded_property) = result.expanded_property.as_ref() {
-						if options.processing_mode != ProcessingMode::JsonLd1_0 && *expanded_property != Term::Keyword(Keyword::Included) && *expanded_property != Term::Keyword(Keyword::Type) {
-							return Err(ErrorCode::CollidingKeywords.into())
-						}
+					if (options.processing_mode == ProcessingMode::JsonLd1_0 || (expanded_property != Keyword::Included && expanded_property != Keyword::Type)) && result.has_key(&Term::Keyword(expanded_property)) {
+						return Err(ErrorCode::CollidingKeywords.into())
 					}
 
 					match expanded_property {
@@ -155,11 +153,21 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 							// recursively passing `active_context`, `active_property`,
 							// `value` for element, `base_url`, and the `frame_expansion`
 							// and `ordered` flags, ensuring that the result is an array.
-							let expanded_value = expand_element(active_context, active_property, value, base_url, loader, options).await?;
+							let expanded_value = expand_element(active_context, Some("@included"), value, base_url, loader, options).await?;
+							let mut expanded_nodes = Vec::new();
+							for obj in expanded_value.into_iter() {
+								match obj.try_cast::<Node<T>>() {
+									Ok(node) => expanded_nodes.push(node),
+									Err(_) => {
+										return Err(ErrorCode::InvalidIncludedValue.into())
+									}
+								}
+							}
+
 							if let Some(included) = &mut result.included {
-								included.extend(expanded_value.into_iter());
+								included.extend(expanded_nodes.into_iter());
 							} else {
-								result.included = Some(expanded_value.into_iter().collect());
+								result.included = Some(expanded_nodes.into_iter().collect());
 							}
 						},
 						// If expanded property is @language:
@@ -197,7 +205,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 								for Entry(reverse_key, reverse_value) in reverse_entries {
 									match expand_iri(active_context, reverse_key, false, true) {
 										Lenient::Ok(Term::Keyword(_)) => {
-											return Err(ErrorCode::InvalidReverseProperty.into())
+											return Err(ErrorCode::InvalidReversePropertyMap.into())
 										},
 										Lenient::Ok(Term::Prop(reverse_prop)) => {
 											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, options).await?;
@@ -211,7 +219,17 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 											if is_double_reversed {
 												result.insert_all(reverse_prop, reverse_expanded_value.into_iter())
 											} else {
-												result.insert_all_reverse(reverse_prop, reverse_expanded_value.into_iter())
+												let mut reverse_expanded_nodes = Vec::new();
+												for object in reverse_expanded_value {
+													match object.try_cast::<Node<T>>() {
+														Ok(node) => reverse_expanded_nodes.push(node),
+														Err(_) => {
+															return Err(ErrorCode::InvalidReversePropertyValue.into())
+														}
+													}
+												}
+
+												result.insert_all_reverse(reverse_prop, reverse_expanded_nodes.into_iter())
 											}
 										},
 										_ => ()
@@ -567,14 +585,17 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 						// is a reverse property:
 						if is_reverse_property {
 							// We must filter out anything that is not an object.
-							for value in &expanded_value {
-								match value.inner() {
-									Object::Value(_) => return Err(ErrorCode::InvalidReversePropertyValue.into()),
-									_ => ()
+							let mut reverse_expanded_nodes = Vec::new();
+							for object in expanded_value {
+								match object.try_cast::<Node<T>>() {
+									Ok(node) => reverse_expanded_nodes.push(node),
+									Err(_) => {
+										return Err(ErrorCode::InvalidReversePropertyValue.into())
+									}
 								}
 							}
 
-							result.insert_all_reverse(prop, expanded_value.into_iter());
+							result.insert_all_reverse(prop, reverse_expanded_nodes.into_iter());
 						} else {
 							// Otherwise, key is not a reverse property use add value
 							// to add expanded value to the expanded property entry in
