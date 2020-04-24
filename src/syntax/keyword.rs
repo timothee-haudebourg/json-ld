@@ -1,6 +1,5 @@
 use std::convert::TryFrom;
 use std::fmt;
-use iref::Iri;
 use json::JsonValue;
 use crate::util;
 
@@ -118,13 +117,6 @@ pub enum Keyword {
 }
 
 impl Keyword {
-	pub fn as_iri(&self) -> Option<Iri<'static>> {
-		match self {
-			Keyword::Type => Some(iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#type")),
-			_ => None
-		}
-	}
-
 	pub fn into_str(self) -> &'static str {
 		use Keyword::*;
 		match self {

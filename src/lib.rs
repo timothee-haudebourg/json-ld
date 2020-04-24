@@ -1,4 +1,3 @@
-#![feature(proc_macro_hygiene)]
 #![feature(str_strip)]
 #![feature(arbitrary_self_types)]
 
@@ -6,8 +5,6 @@
 extern crate log;
 extern crate json;
 extern crate iref;
-#[macro_use]
-extern crate static_iref;
 
 mod syntax;
 mod mode;

@@ -48,7 +48,6 @@ impl<T: Id> Term<T> {
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
 			Term::Ref(p) => p.as_iri(),
-			Term::Keyword(k) => k.as_iri(),
 			_ => None
 		}
 	}
