@@ -95,6 +95,18 @@ impl<T> DerefMut for Indexed<T> {
 	}
 }
 
+impl<T> AsRef<T> for Indexed<T> {
+	fn as_ref(&self) -> &T {
+		&self.value
+	}
+}
+
+impl<T> AsMut<T> for Indexed<T> {
+	fn as_mut(&mut self) -> &mut T {
+		&mut self.value
+	}
+}
+
 impl<T: AsJson> AsJson for Indexed<T> {
 	fn as_json(&self) -> JsonValue {
 		let mut json = self.value.as_json();

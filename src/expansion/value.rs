@@ -9,7 +9,7 @@ use crate::{
 	LangString,
 	Id,
 	Term,
-	Property,
+	Reference,
 	Lenient,
 	Indexed,
 	object::*,
@@ -116,7 +116,7 @@ pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Le
 							Lenient::Ok(Term::Keyword(Keyword::Json)) => {
 								result = Literal::Json(value_entry.clone())
 							},
-							Lenient::Ok(Term::Prop(Property::Id(ty))) => {
+							Lenient::Ok(Term::Ref(Reference::Id(ty))) => {
 								types.insert(ty);
 							},
 							_ => {

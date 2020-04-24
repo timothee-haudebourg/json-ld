@@ -21,11 +21,8 @@ use json_ld::{
 	JsonLdContextLoader,
 	Context,
 	load_remote_json_ld_document,
-	Object,
-	Node,
-	NodeType,
-	Value,
-	Property,
+	object::*,
+	Reference,
 	VocabId,
 	ExpansionOptions,
 	ProcessingMode
@@ -108,18 +105,18 @@ impl json_ld::Vocab for Vocab {
 
 pub type Id = VocabId<Vocab>;
 
-const COMMENT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Comment));
-const NAME: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Name));
-const ENTRIES: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Entries));
-const ACTION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Action));
-const RESULT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Result));
-// const POSITIVE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::PositiveEvalTest));
-// const NEGATIVE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::NegativeEvalTest));
-const OPTION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Option));
-const SPEC_VERSION: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::SpecVersion));
-const PROCESSING_MODE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::ProcessingMode));
-const EXPAND_CONTEXT: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::ExpandContext));
-const BASE: &'static Property<Id> = &Property::Id(VocabId::Id(Vocab::Base));
+const COMMENT: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Comment));
+const NAME: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Name));
+const ENTRIES: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Entries));
+const ACTION: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Action));
+const RESULT: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Result));
+const POSITIVE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::PositiveEvalTest));
+const NEGATIVE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::NegativeEvalTest));
+const OPTION: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Option));
+const SPEC_VERSION: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::SpecVersion));
+const PROCESSING_MODE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::ProcessingMode));
+const EXPAND_CONTEXT: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::ExpandContext));
+const BASE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Base));
 
 fn main() {
 	let destination = std::env::args().nth(1).expect("no destination given");
@@ -143,11 +140,11 @@ fn main() {
 
 	for item in &expanded_doc {
 		// println!("{}", PrettyPrint::new(item));
-		if let Object::Node(item, _) = item {
+		if let Object::Node(item) = item.as_ref() {
 			for entries in item.get(ENTRIES) {
-				if let Object::Value(Value::List(entries), _) = entries {
+				if let Object::List(entries) = entries.as_ref() {
 					for entry in entries {
-						if let Object::Node(entry, _) = entry {
+						if let Object::Node(entry) = entry.as_ref() {
 							generate_test(&target, &mut runtime, entry);
 						}
 					}
@@ -200,7 +197,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 	let mut context_filename = "None".to_string();
 
 	for option in entry.get(OPTION) {
-		if let Object::Node(option, _) = option {
+		if let Object::Node(option) = option.as_ref() {
 			for spec_version in option.get(SPEC_VERSION) {
 				if let Some(spec_version) = spec_version.as_str() {
 					if spec_version != "json-ld-1.1" {
@@ -233,7 +230,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 		comments += format!("\n\tprintln!(\"{}\");", comment.as_str().unwrap()).as_str()
 	}
 
-	if entry.types().contains(&NodeType::Prop(Property::Id(VocabId::Id(Vocab::PositiveEvalTest)))) {
+	if entry.has_type(POSITIVE) {
 		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
 		let output_filename = load_file(target, runtime, output_url);
 
@@ -248,7 +245,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 			input_filename.to_str().unwrap(),
 			output_filename.to_str().unwrap()
 		);
-	} else if entry.types().contains(&NodeType::Prop(Property::Id(VocabId::Id(Vocab::NegativeEvalTest)))) {
+	} else if entry.has_type(NEGATIVE) {
 		let error_code: ErrorCode = entry.get(RESULT).next().unwrap().as_str().unwrap().try_into().unwrap();
 
 		println!(

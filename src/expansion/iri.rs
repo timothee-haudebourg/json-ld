@@ -4,9 +4,9 @@ use crate::{
 	Keyword,
 	BlankId,
 	Id,
-	Term,
 	Lenient,
 	ActiveContext,
+	context::Term,
 	is_keyword_like
 };
 
@@ -96,7 +96,7 @@ pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, d
 		// concatenating the vocabulary mapping with value.
 		if vocab {
 			if let Some(vocabulary) = active_context.vocabulary() {
-				if let Term::Prop(mapping) = vocabulary {
+				if let Term::Ref(mapping) = vocabulary {
 					let mut result = mapping.as_str().to_string();
 					result.push_str(value);
 

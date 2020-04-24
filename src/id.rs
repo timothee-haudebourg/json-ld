@@ -3,7 +3,7 @@ use std::fmt;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
 use crate::{
-	TermLike,
+	context::TermLike,
 	util
 };
 

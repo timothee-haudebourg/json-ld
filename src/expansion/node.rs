@@ -13,7 +13,7 @@ use crate::{
 	LangString,
 	Id,
 	Term,
-	Property,
+	Reference,
 	Type,
 	Lenient,
 	Indexed,
@@ -28,10 +28,10 @@ use super::{Expanded, Entry, ExpansionOptions, expand_element, expand_literal, e
 
 /// Convert a lenient term to a node id, if possible.
 /// Return `None` if the term is `null`.
-pub fn node_id_of_term<T: Id>(term: Lenient<Term<T>>) -> Option<Lenient<Property<T>>> {
+pub fn node_id_of_term<T: Id>(term: Lenient<Term<T>>) -> Option<Lenient<Reference<T>>> {
 	match term {
 		Lenient::Ok(Term::Null) => None,
-		Lenient::Ok(Term::Prop(prop)) => Some(Lenient::Ok(prop)),
+		Lenient::Ok(Term::Ref(prop)) => Some(Lenient::Ok(prop)),
 		Lenient::Ok(Term::Keyword(kw)) => Some(Lenient::Unknown(kw.into_str().to_string())),
 		Lenient::Unknown(u) => Some(Lenient::Unknown(u))
 	}
@@ -219,7 +219,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										Lenient::Ok(Term::Keyword(_)) => {
 											return Err(ErrorCode::InvalidReversePropertyMap.into())
 										},
-										Lenient::Ok(Term::Prop(reverse_prop)) => {
+										Lenient::Ok(Term::Ref(reverse_prop)) => {
 											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, options).await?;
 
 											let is_double_reversed = if let Some(reverse_key_definition) = active_context.get(reverse_key) {
@@ -289,7 +289,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 					}
 				},
 
-				Term::Prop(prop) => {
+				Term::Ref(prop) => {
 					let mut container_mapping = Mown::Owned(Container::new());
 
 					let key_definition = active_context.get(key);
@@ -500,7 +500,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// Initialize expanded index key to the result
 										// of IRI expanding index key.
 										let expanded_index_key = match expand_iri(active_context, index_key, false, true) {
-											Lenient::Ok(Term::Prop(prop)) => prop,
+											Lenient::Ok(Term::Ref(prop)) => prop,
 											_ => continue
 										};
 

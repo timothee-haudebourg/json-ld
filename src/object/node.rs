@@ -6,41 +6,23 @@ use json::JsonValue;
 use crate::{
 	Id,
 	Keyword,
-	Term,
-	Type,
-	Property,
+	context::Term,
+	Reference,
 	Lenient,
 	Object,
 	Indexed,
 	util
 };
 
-pub type NodeType<T> = Type<Property<T>>;
-
-impl<T: Id> TryFrom<Term<T>> for NodeType<T> {
-	type Error = Term<T>;
-
-	fn try_from(term: Term<T>) -> Result<NodeType<T>, Term<T>> {
-		match term {
-			Term::Keyword(Keyword::Id) => Ok(Type::Id),
-			Term::Keyword(Keyword::Json) => Ok(Type::Json),
-			Term::Keyword(Keyword::None) => Ok(Type::None),
-			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			Term::Prop(prop) => Ok(Type::Ref(prop)),
-			term => Err(term)
-		}
-	}
-}
-
 /// A node object.
 #[derive(PartialEq, Eq)]
 pub struct Node<T: Id> {
-	pub(crate) id: Option<Lenient<Property<T>>>,
-	pub(crate) types: Vec<Lenient<NodeType<T>>>,
+	pub(crate) id: Option<Lenient<Reference<T>>>,
+	pub(crate) types: Vec<Lenient<Reference<T>>>,
 	pub(crate) graph: Option<HashSet<Indexed<Object<T>>>>,
 	pub(crate) included: Option<HashSet<Indexed<Node<T>>>>,
-	pub(crate) properties: HashMap<Property<T>, Vec<Indexed<Object<T>>>>,
-	pub(crate) reverse_properties: HashMap<Property<T>, Vec<Indexed<Node<T>>>>
+	pub(crate) properties: HashMap<Reference<T>, Vec<Indexed<Object<T>>>>,
+	pub(crate) reverse_properties: HashMap<Reference<T>, Vec<Indexed<Node<T>>>>
 }
 
 pub struct Objects<'a, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<T>>>>);
@@ -75,13 +57,23 @@ impl<T: Id> Node<T> {
 			Term::Keyword(Keyword::Graph) => self.graph.is_some(),
 			Term::Keyword(Keyword::Included) => self.included.is_some(),
 			Term::Keyword(Keyword::Reverse) => !self.reverse_properties.is_empty(),
-			Term::Prop(prop) => self.properties.get(prop).is_some(),
+			Term::Ref(prop) => self.properties.get(prop).is_some(),
 			_ => false
 		}
 	}
 
-	pub fn types(&self) -> &[Lenient<NodeType<T>>] {
+	pub fn types(&self) -> &[Lenient<Reference<T>>] {
 		self.types.as_ref()
+	}
+
+	pub fn has_type<U>(&self, ty: &U) -> bool where Lenient<Reference<T>>: PartialEq<U> {
+		for self_ty in &self.types {
+			if self_ty == ty {
+				return true
+			}
+		}
+
+		false
 	}
 
 	/// Test if the node is empty.
@@ -114,14 +106,14 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn get(&self, prop: &Property<T>) -> Objects<T> {
+	pub fn get(&self, prop: &Reference<T>) -> Objects<T> {
 		match self.properties.get(prop) {
 			Some(values) => Objects(Some(values.iter())),
 			None => Objects(None)
 		}
 	}
 
-	pub fn insert(&mut self, prop: Property<T>, value: Indexed<Object<T>>) {
+	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Object<T>>) {
 		if let Some(node_values) = self.properties.get_mut(&prop) {
 			node_values.push(value);
 		} else {
@@ -131,7 +123,7 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn insert_all<Objects: Iterator<Item=Indexed<Object<T>>>>(&mut self, prop: Property<T>, values: Objects) {
+	pub fn insert_all<Objects: Iterator<Item=Indexed<Object<T>>>>(&mut self, prop: Reference<T>, values: Objects) {
 		if let Some(node_values) = self.properties.get_mut(&prop) {
 			node_values.extend(values);
 		} else {
@@ -139,7 +131,7 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn insert_reverse(&mut self, reverse_prop: Property<T>, reverse_value: Indexed<Node<T>>) {
+	pub fn insert_reverse(&mut self, reverse_prop: Reference<T>, reverse_value: Indexed<Node<T>>) {
 		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
 			node_values.push(reverse_value);
 		} else {
@@ -149,7 +141,7 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn insert_all_reverse<Nodes: Iterator<Item=Indexed<Node<T>>>>(&mut self, reverse_prop: Property<T>, reverse_values: Nodes) {
+	pub fn insert_all_reverse<Nodes: Iterator<Item=Indexed<Node<T>>>>(&mut self, reverse_prop: Reference<T>, reverse_values: Nodes) {
 		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
 			node_values.extend(reverse_values);
 		} else {

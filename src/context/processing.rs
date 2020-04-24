@@ -15,10 +15,8 @@ use crate::{
 	Keyword,
 	BlankId,
 	Id,
-	Term,
-	Property,
+	Reference,
 	Lenient,
-	Type,
 	is_keyword,
 	is_keyword_like,
 	Direction,
@@ -26,6 +24,8 @@ use crate::{
 	expansion
 };
 use super::{
+	Term,
+	Type,
 	ContextProcessingOptions,
 	LocalContext,
 	ActiveContext,
@@ -372,7 +372,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
 								match expansion::expand_iri(&result, value, true, true) {
-									Lenient::Ok(Term::Prop(vocab)) => result.set_vocabulary(Some(Term::Prop(vocab))),
+									Lenient::Ok(Term::Ref(vocab)) => result.set_vocabulary(Some(Term::Ref(vocab))),
 									_ => return Err(ErrorCode::InvalidVocabMapping.into())
 								}
 							},
@@ -486,8 +486,8 @@ fn is_gen_delim(c: char) -> bool {
 fn is_gen_delim_or_blank<T: Id>(t: &Term<T>) -> bool {
 	match t {
 		Term::Keyword(_) => false,
-		Term::Prop(Property::Blank(_)) => true,
-		Term::Prop(Property::Id(id)) => {
+		Term::Ref(Reference::Blank(_)) => true,
+		Term::Ref(Reference::Id(id)) => {
 			if let Some(c) = id.as_iri().as_str().chars().last() {
 				is_gen_delim(c)
 			} else {
@@ -692,8 +692,8 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 							// identifier, an invalid IRI mapping error has been detected and
 							// processing is aborted.
 							match expand_iri(active_context, reverse_value, false, true, local_context, defined, remote_contexts, loader, options).await? {
-								Lenient::Ok(Term::Prop(mapping)) => {
-									definition.value = Some(Term::Prop(mapping))
+								Lenient::Ok(Term::Ref(mapping)) => {
+									definition.value = Some(Term::Ref(mapping))
 								},
 								_ => {
 									return Err(ErrorCode::InvalidIriMapping.into())
@@ -868,7 +868,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 						// Set the IRI mapping of definition to the result of IRI expanding
 						// term.
 						match expansion::expand_iri(active_context, term, false, true) {
-							Lenient::Ok(Term::Prop(Property::Id(id))) => {
+							Lenient::Ok(Term::Ref(Reference::Id(id))) => {
 								definition.value = Some(id.into())
 							},
 							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
@@ -976,7 +976,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
 							match expansion::expand_iri(active_context, index, false, true) {
-								Lenient::Ok(Term::Prop(Property::Id(_))) => (),
+								Lenient::Ok(Term::Ref(Reference::Id(_))) => (),
 								_ => {
 									return Err(ErrorCode::InvalidTermDefinition.into())
 								}
@@ -1252,7 +1252,7 @@ pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Loc
 			// concatenating the vocabulary mapping with value.
 			if vocab {
 				if let Some(vocabulary) = active_context.vocabulary() {
-					if let Term::Prop(mapping) = vocabulary {
+					if let Term::Ref(mapping) = vocabulary {
 						let mut result = mapping.as_str().to_string();
 						result.push_str(value.as_ref());
 

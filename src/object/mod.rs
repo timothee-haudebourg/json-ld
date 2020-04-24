@@ -9,7 +9,7 @@ use json::JsonValue;
 use crate::{
 	Id,
 	Lenient,
-	Property,
+	Reference,
 	Keyword,
 	Indexed,
 	util::AsJson
@@ -35,7 +35,7 @@ pub enum Object<T: Id> {
 }
 
 impl<T: Id> Object<T> {
-	pub fn id(&self) -> Option<&Lenient<Property<T>>> {
+	pub fn id(&self) -> Option<&Lenient<Reference<T>>> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
 			_ => None

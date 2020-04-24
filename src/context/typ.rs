@@ -5,10 +5,12 @@ use json::JsonValue;
 use crate::{
 	Keyword,
 	Id,
-	Term,
-	TermLike,
-	Property,
+	Reference,
 	util
+};
+use super::{
+	Term,
+	TermLike
 };
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -67,7 +69,7 @@ impl<T: Id> TryFrom<Term<T>> for Type<T> {
 			Term::Keyword(Keyword::Json) => Ok(Type::Json),
 			Term::Keyword(Keyword::None) => Ok(Type::None),
 			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			Term::Prop(Property::Id(id)) => Ok(Type::Ref(id)),
+			Term::Ref(Reference::Id(id)) => Ok(Type::Ref(id)),
 			term => Err(term)
 		}
 	}
@@ -93,6 +95,23 @@ impl<T: fmt::Display> fmt::Display for Type<T> {
 			Type::None => write!(f, "@none"),
 			Type::Vocab => write!(f, "@vocab"),
 			Type::Ref(id) => id.fmt(f)
+		}
+	}
+}
+
+pub type NodeType<T> = Type<Reference<T>>;
+
+impl<T: Id> TryFrom<Term<T>> for NodeType<T> {
+	type Error = Term<T>;
+
+	fn try_from(term: Term<T>) -> Result<NodeType<T>, Term<T>> {
+		match term {
+			Term::Keyword(Keyword::Id) => Ok(Type::Id),
+			Term::Keyword(Keyword::Json) => Ok(Type::Json),
+			Term::Keyword(Keyword::None) => Ok(Type::None),
+			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
+			Term::Ref(prop) => Ok(Type::Ref(prop)),
+			term => Err(term)
 		}
 	}
 }
