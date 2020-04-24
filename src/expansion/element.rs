@@ -5,16 +5,18 @@ use json::JsonValue;
 use crate::{
 	Error,
 	ErrorCode,
-	Keyword,
 	Id,
-	Term,
 	Lenient,
 	object::*,
 	MutableActiveContext,
 	LocalContext,
 	ContextLoader,
 	ContextProcessingOptions,
-	ProcessingStack
+	ProcessingStack,
+	syntax::{
+		Keyword,
+		Term
+	}
 };
 use crate::util::as_array;
 use super::{

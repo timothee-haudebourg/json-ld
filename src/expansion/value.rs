@@ -4,16 +4,18 @@ use json::JsonValue;
 use crate::{
 	Error,
 	ErrorCode,
-	Keyword,
 	Direction,
 	LangString,
 	Id,
-	Term,
 	Reference,
 	Lenient,
 	Indexed,
 	object::*,
-	MutableActiveContext
+	MutableActiveContext,
+	syntax::{
+		Keyword,
+		Term
+	}
 };
 use crate::util::as_array;
 use super::{Entry, expand_iri};

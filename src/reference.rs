@@ -6,7 +6,7 @@ use crate::{
 	Id,
 	BlankId,
 	Lenient,
-	context::{
+	syntax::{
 		Term,
 		TermLike,
 	},

@@ -3,12 +3,12 @@ use std::convert::TryFrom;
 use iref::Iri;
 use json::JsonValue;
 use crate::{
-	Keyword,
 	Id,
 	Reference,
 	util
 };
 use super::{
+	Keyword,
 	Term,
 	TermLike
 };

@@ -1,13 +1,15 @@
 use std::convert::TryFrom;
 use iref::{Iri, IriRef};
 use crate::{
-	Keyword,
 	BlankId,
 	Id,
 	Lenient,
 	ActiveContext,
-	context::Term,
-	is_keyword_like
+	syntax::{
+		Keyword,
+		is_keyword_like,
+		Term
+	}
 };
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.

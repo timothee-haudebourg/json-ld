@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 use json::JsonValue;
-use crate::AsJson;
+use crate::util::AsJson;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Direction {

@@ -18,8 +18,10 @@ use json_ld::{{
 	LocalContext,
 	ProcessingMode,
 	ExpansionOptions,
-	AsJson,
-	json_ld_eq
+	util::{{
+		AsJson,
+		json_ld_eq
+	}}
 }};
 
 struct Options<'a> {{

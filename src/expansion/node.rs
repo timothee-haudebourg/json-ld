@@ -7,21 +7,23 @@ use crate::{
 	Error,
 	ErrorCode,
 	ProcessingMode,
-	Keyword,
-	Container,
-	ContainerType,
 	LangString,
 	Id,
-	Term,
 	Reference,
-	Type,
 	Lenient,
 	Indexed,
 	object::*,
 	MutableActiveContext,
 	LocalContext,
 	ContextLoader,
-	ProcessingStack
+	ProcessingStack,
+	syntax::{
+		Keyword,
+		Term,
+		Type,
+		Container,
+		ContainerType
+	}
 };
 use crate::util::as_array;
 use super::{Expanded, Entry, ExpansionOptions, expand_element, expand_literal, expand_iri, filter_top_level_item};

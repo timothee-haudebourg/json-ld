@@ -3,11 +3,11 @@ use iref::Iri;
 use json::JsonValue;
 use crate::{
 	Id,
-	Keyword,
 	Reference,
 	BlankId,
-	AsJson
+	util::AsJson
 };
+use super::Keyword;
 
 pub trait TermLike {
 	fn as_iri(&self) -> Option<Iri>;

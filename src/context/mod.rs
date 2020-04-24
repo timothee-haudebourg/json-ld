@@ -1,5 +1,3 @@
-mod term;
-mod typ;
 mod definition;
 mod loader;
 mod processing;
@@ -9,10 +7,14 @@ use std::future::Future;
 use std::collections::HashMap;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::{ProcessingMode, Error, Direction, Id};
+use crate::{
+	ProcessingMode,
+	Error,
+	Direction,
+	Id,
+	syntax::Term
+};
 
-pub use term::*;
-pub use typ::*;
 pub use definition::*;
 pub use loader::*;
 pub use processing::*;

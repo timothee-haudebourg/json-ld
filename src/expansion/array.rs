@@ -2,12 +2,12 @@ use iref::Iri;
 use json::JsonValue;
 use crate::{
 	Error,
-	ContainerType,
 	Id,
 	object::*,
 	MutableActiveContext,
 	ContextLoader,
-	TermDefinition
+	TermDefinition,
+	syntax::ContainerType
 };
 use super::{
 	ExpansionOptions,

@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 use std::convert::{TryFrom, TryInto};
 use json::JsonValue;
 use crate::{
-	Keyword,
+	syntax::Keyword,
 	util::AsJson
 };
 

@@ -3,8 +3,8 @@ use std::hash::{Hash, Hasher};
 use json::JsonValue;
 use crate::{
 	Id,
-	Keyword,
 	LangString,
+	syntax::Keyword,
 	util
 };
 

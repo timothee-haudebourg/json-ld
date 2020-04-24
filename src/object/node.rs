@@ -5,12 +5,14 @@ use iref::Iri;
 use json::JsonValue;
 use crate::{
 	Id,
-	Keyword,
-	context::Term,
 	Reference,
 	Lenient,
 	Object,
 	Indexed,
+	syntax::{
+		Keyword,
+		Term,
+	},
 	util
 };
 

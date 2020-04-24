@@ -10,8 +10,8 @@ use crate::{
 	Id,
 	Lenient,
 	Reference,
-	Keyword,
 	Indexed,
+	syntax::Keyword,
 	util::AsJson
 };
 

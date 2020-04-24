@@ -2,13 +2,13 @@ use iref::IriBuf;
 use crate::{
 	Id,
 	Direction,
-	Container
+	syntax::{
+		Term,
+		Type,
+		Container
+	}
 };
-use super::{
-	Term,
-	Type,
-	ActiveContext
-};
+use super::ActiveContext;
 
 // A term definition.
 #[derive(Clone)]

@@ -6,10 +6,10 @@ use crate::{
 	Direction,
 	LangString,
 	Id,
-	Type,
 	Indexed,
 	object::*,
-	ActiveContext
+	ActiveContext,
+	syntax::Type
 };
 use super::{
 	expand_iri,

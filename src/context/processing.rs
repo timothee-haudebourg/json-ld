@@ -12,20 +12,22 @@ use crate::{
 	ProcessingMode,
 	Error,
 	ErrorCode,
-	Keyword,
 	BlankId,
 	Id,
 	Reference,
 	Lenient,
-	is_keyword,
-	is_keyword_like,
 	Direction,
-	ContainerType,
-	expansion
+	expansion,
+	syntax::{
+		Term,
+		Type,
+		Keyword,
+		is_keyword,
+		is_keyword_like,
+		ContainerType
+	}
 };
 use super::{
-	Term,
-	Type,
 	ContextProcessingOptions,
 	LocalContext,
 	ActiveContext,
