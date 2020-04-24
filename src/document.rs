@@ -69,6 +69,7 @@ impl<T: Id> Document<T> for JsonValue {
 /// Remote JSON-LD document.
 ///
 /// Represent a document located at a given base URL.
+#[derive(Clone)]
 pub struct RemoteDocument<D = JsonValue> {
 	base_url: IriBuf,
 	doc: D,

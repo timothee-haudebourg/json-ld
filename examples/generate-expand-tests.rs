@@ -24,10 +24,7 @@ use json_ld::{
 	Document,
 	Context,
 	context::JsonContext,
-	reqwest::{
-		ReqwestLoader,
-		load_remote_json_ld_document
-	}
+	reqwest::Loader
 };
 
 const URL: &str = "https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld";
@@ -129,8 +126,8 @@ fn main() {
 
 	let url = Iri::new(URL).unwrap();
 
-	let mut loader = ReqwestLoader::new();
-	let doc = runtime.block_on(load_remote_json_ld_document(url))
+	let mut loader = Loader::new();
+	let doc = runtime.block_on(loader.load(url))
 		.expect("unable to load the test suite");
 
 	let context: JsonContext<Id> = JsonContext::new(url, url);
@@ -146,7 +143,7 @@ fn main() {
 				if let Object::List(entries) = entries.as_ref() {
 					for entry in entries {
 						if let Object::Node(entry) = entry.as_ref() {
-							generate_test(&target, &mut runtime, entry);
+							generate_test(&target, &mut runtime, &mut loader, entry);
 						}
 					}
 				}
@@ -171,12 +168,12 @@ fn func_name(id: &str) -> String {
 }
 
 /// Download a JSON-LD document and return its local filename.
-fn load_file(target: &Path, runtime: &mut Runtime, url: Iri) -> PathBuf {
+fn load_file(target: &Path, runtime: &mut Runtime, loader: &mut Loader, url: Iri) -> PathBuf {
 	let mut filename: PathBuf = target.into();
 	filename.push(url.path().file_name().unwrap());
 
 	if !filename.exists() {
-		let doc = runtime.block_on(load_remote_json_ld_document(url))
+		let doc = runtime.block_on(loader.load(url))
 			.expect("unable to load context document");
 
 		info!("writing to {}", filename.to_str().unwrap());
@@ -187,11 +184,11 @@ fn load_file(target: &Path, runtime: &mut Runtime, url: Iri) -> PathBuf {
 	filename
 }
 
-fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
+fn generate_test(target: &Path, runtime: &mut Runtime, loader: &mut Loader, entry: &Node<Id>) {
 	let name = entry.get(NAME).next().unwrap().as_str().unwrap();
 	let mut url = entry.get(ACTION).next().unwrap().as_iri().unwrap();
 
-	let input_filename = load_file(target, runtime, url);
+	let input_filename = load_file(target, runtime, loader, url);
 	let func_name = func_name(url.path().file_name().unwrap());
 
 	let mut processing_mode = ProcessingMode::JsonLd1_1;
@@ -214,7 +211,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 
 			for expand_context in option.get(EXPAND_CONTEXT) {
 				if let Some(context_url) = expand_context.as_iri() {
-					context_filename = format!("Some(\"{}\")", load_file(target, runtime, context_url).to_str().unwrap())
+					context_filename = format!("Some(\"{}\")", load_file(target, runtime, loader, context_url).to_str().unwrap())
 				}
 			}
 
@@ -233,7 +230,7 @@ fn generate_test(target: &Path, runtime: &mut Runtime, entry: &Node<Id>) {
 
 	if entry.has_type(POSITIVE) {
 		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
-		let output_filename = load_file(target, runtime, output_url);
+		let output_filename = load_file(target, runtime, loader, output_url);
 
 		println!(
 			include_str!("template/test-positive.rs"),

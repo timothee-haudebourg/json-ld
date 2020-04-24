@@ -17,14 +17,14 @@ use json_ld::{{
 	Document,
 	context::{{
 		JsonContext,
-		JsonLdLoader,
 		Local
 	}},
 	expansion,
 	util::{{
 		AsJson,
 		json_ld_eq
-	}}
+	}},
+	reqwest::Loader
 }};
 
 struct Options<'a> {{
@@ -32,9 +32,9 @@ struct Options<'a> {{
 	expand_context: Option<&'a str>
 }}
 
-impl<'a> From<Options<'a>> for Options {{
-	fn from(options: Options<'a>) -> Options {{
-		Options {{
+impl<'a> From<Options<'a>> for expansion::Options {{
+	fn from(options: Options<'a>) -> expansion::Options {{
+		expansion::Options {{
 			processing_mode: options.processing_mode,
 			ordered: false
 		}}
@@ -43,7 +43,7 @@ impl<'a> From<Options<'a>> for Options {{
 
 fn positive_test(options: Options, input_url: Iri, input_filename: &str, output_filename: &str) {{
 	let mut runtime = Runtime::new().unwrap();
-	let mut loader = JsonLdLoader::new();
+	let mut loader = Loader::new();
 
 	let input_file = File::open(input_filename).unwrap();
 	let mut input_buffer = BufReader::new(input_file);
@@ -83,7 +83,7 @@ fn positive_test(options: Options, input_url: Iri, input_filename: &str, output_
 
 fn negative_test(options: Options, input_url: Iri, input_filename: &str, error_code: ErrorCode) {{
 	let mut runtime = Runtime::new().unwrap();
-	let mut loader = JsonLdLoader::new();
+	let mut loader = Loader::new();
 
 	let input_file = File::open(input_filename).unwrap();
 	let mut input_buffer = BufReader::new(input_file);
