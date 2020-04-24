@@ -20,10 +20,14 @@ mod reference;
 mod lenient;
 mod indexed;
 mod vocab;
+mod document;
 pub mod object;
 pub mod context;
 pub mod expansion;
 pub mod util;
+
+#[cfg(feature="reqwest-loader")]
+pub mod reqwest;
 
 pub use mode::*;
 pub use error::*;
@@ -35,7 +39,11 @@ pub use reference::*;
 pub use lenient::*;
 pub use indexed::*;
 pub use vocab::*;
+pub use document::*;
 
 pub use object::Object;
-pub use context::*;
-pub use expansion::{expand, ExpansionOptions};
+pub use context::{
+	Context,
+	ContextMut,
+	JsonContext
+};

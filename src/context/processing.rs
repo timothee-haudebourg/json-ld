@@ -25,26 +25,25 @@ use crate::{
 		is_keyword,
 		is_keyword_like,
 		ContainerType
-	},
-	util::AsJson
+	}
 };
 use super::{
-	ContextProcessingOptions,
-	LocalContext,
-	ActiveContext,
-	MutableActiveContext,
-	ContextLoader,
+	ProcessingOptions,
+	Local,
+	Context,
+	ContextMut,
+	Loader,
 	TermDefinition
 };
 
-impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C::LocalContext: From<JsonValue> {
+impl<T: Id> Local<T> for JsonValue {
 	/// Load a local context.
-	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ContextProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
+	fn process_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> where C::LocalContext: From<L::Output> + From<Self>, L::Output: Into<Self> {
 		process_context(active_context, self, stack, loader, base_url, options)
 	}
 }
 
-pub fn has_protected_items<T: Id, C: ActiveContext<T>>(active_context: &C) -> bool {
+pub fn has_protected_items<T: Id, C: Context<T>>(active_context: &C) -> bool {
 	for (_, definition) in active_context.definitions() {
 		if definition.protected {
 			return true
@@ -129,7 +128,7 @@ impl ProcessingStack {
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, local_context: &'a JsonValue, mut remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, mut options: ContextProcessingOptions) -> LocalBoxFuture<'a, Result<C, Error>> where C::LocalContext: From<JsonValue> {
+fn process_context<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C, local_context: &'a JsonValue, mut remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, mut options: ProcessingOptions) -> LocalBoxFuture<'a, Result<C, Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	let base_url = match base_url {
 		Some(base_url) => Some(IriBuf::from(base_url)),
 		None => None
@@ -230,14 +229,14 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 					// context has been detected and processing is aborted.
 					// Set loaded context to the value of that entry.
 					if remote_contexts.push(context.as_iri()) {
-						let context_document = loader.load(context.as_iri()).await?;
+						let context_document = loader.load(context.as_iri()).await?.cast::<JsonValue>();
 						let loaded_context = context_document.context();
 
 
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
 						// document for base URL, and a copy of remote contexts.
-						let new_options = ContextProcessingOptions {
+						let new_options = ProcessingOptions {
 							processing_mode: options.processing_mode,
 							override_protected: false,
 							propagate: true
@@ -283,15 +282,15 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 							};
 
 							// 5.6.4) Dereference import.
-							let context_document = loader.load(import.as_iri()).await?;
-							let import_context = context_document.context();
+							let context_document = loader.load(import.as_iri()).await?.cast::<JsonValue>();
+							let import_context = context_document.into_context();
 
 							// If the dereferenced document has no top-level map with an @context
 							// entry, or if the value of @context is not a context definition
 							// (i.e., it is not an map), an invalid remote context has been
 							// detected and processing is aborted; otherwise, set import context
 							// to the value of that entry.
-							if let JsonValue::Object(import_context) = import_context.as_json() {
+							if let JsonValue::Object(import_context) = import_context {
 								// If `import_context` has a @import entry, an invalid context entry
 								// error has been detected and processing is aborted.
 								if let Some(_) = import_context.get(Keyword::Import.into()) {
@@ -509,7 +508,7 @@ fn contains_nz(id: &str, c: char) -> bool {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a mut C, local_context: &'a JsonObject, term: &'a str, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, protected: bool, options: ContextProcessingOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
+pub fn define<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a mut C, local_context: &'a JsonObject, term: &'a str, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, protected: bool, options: ProcessingOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	// let term = term.to_string();
 	// let base_url = if let Some(base_url) = base_url {
 	// 	Some(IriBuf::from(base_url))
@@ -1152,7 +1151,7 @@ pub fn define<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalCo
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ContextProcessingOptions) -> impl 'a + Future<Output = Result<Lenient<Term<T>>, Error>> where C::LocalContext: From<JsonValue> {
+pub fn expand_iri<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ProcessingOptions) -> impl 'a + Future<Output = Result<Lenient<Term<T>>, Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {

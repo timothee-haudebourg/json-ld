@@ -8,11 +8,11 @@ use crate::{
 		Container
 	}
 };
-use super::ActiveContext;
+use super::Context;
 
 // A term definition.
 #[derive(Clone)]
-pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
+pub struct TermDefinition<T: Id, C: Context<T>> {
 	// IRI mapping.
 	pub value: Option<Term<T>>,
 
@@ -50,7 +50,7 @@ pub struct TermDefinition<T: Id, C: ActiveContext<T>> {
 	pub typ: Option<Type<T>>
 }
 
-impl<T: Id, C: ActiveContext<T>> Default for TermDefinition<T, C> {
+impl<T: Id, C: Context<T>> Default for TermDefinition<T, C> {
 	fn default() -> TermDefinition<T, C> {
 		TermDefinition {
 			value: None,
@@ -69,7 +69,7 @@ impl<T: Id, C: ActiveContext<T>> Default for TermDefinition<T, C> {
 	}
 }
 
-impl<T: Id, C: ActiveContext<T>> PartialEq for TermDefinition<T, C> {
+impl<T: Id, C: Context<T>> PartialEq for TermDefinition<T, C> {
 	fn eq(&self, other: &TermDefinition<T, C>) -> bool {
 		// NOTE we ignore the `protected` flag.
 		self.prefix == other.prefix &&
@@ -86,4 +86,4 @@ impl<T: Id, C: ActiveContext<T>> PartialEq for TermDefinition<T, C> {
 	}
 }
 
-impl<T: Id, C: ActiveContext<T>> Eq for TermDefinition<T, C> {}
+impl<T: Id, C: Context<T>> Eq for TermDefinition<T, C> {}

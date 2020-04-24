@@ -8,7 +8,7 @@ use crate::{
 	Id,
 	Indexed,
 	object::*,
-	ActiveContext,
+	Context,
 	syntax::Type
 };
 use super::{
@@ -16,14 +16,14 @@ use super::{
 	node_id_of_term
 };
 
-fn clone_default_language<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<String> {
+fn clone_default_language<T: Id, C: Context<T>>(active_context: &C) -> Option<String> {
 	match active_context.default_language() {
 		Some(lang) => Some(lang.to_string()),
 		None => None
 	}
 }
 
-fn clone_default_base_direction<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<Direction> {
+fn clone_default_base_direction<T: Id, C: Context<T>>(active_context: &C) -> Option<Direction> {
 	match active_context.default_base_direction() {
 		Some(dir) => Some(dir),
 		None => None
@@ -31,7 +31,7 @@ fn clone_default_base_direction<T: Id, C: ActiveContext<T>>(active_context: &C) 
 }
 
 /// https://www.w3.org/TR/json-ld11-api/#value-expansion
-pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_property: Option<&str>, value: &JsonValue) -> Result<Indexed<Object<T>>, Error> {
+pub fn expand_literal<T: Id, C: Context<T>>(active_context: &C, active_property: Option<&str>, value: &JsonValue) -> Result<Indexed<Object<T>>, Error> {
 	let active_property_definition = active_context.get_opt(active_property);
 
 	let active_property_type = if let Some(active_property_definition) = active_property_definition {

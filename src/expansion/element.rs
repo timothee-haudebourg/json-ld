@@ -8,11 +8,13 @@ use crate::{
 	Id,
 	Lenient,
 	object::*,
-	MutableActiveContext,
-	LocalContext,
-	ContextLoader,
-	ContextProcessingOptions,
-	ProcessingStack,
+	context::{
+		ContextMut,
+		ProcessingOptions,
+		ProcessingStack,
+		Local,
+		Loader
+	},
 	syntax::{
 		Keyword,
 		Term
@@ -22,7 +24,7 @@ use crate::util::as_array;
 use super::{
 	Expanded,
 	Entry,
-	ExpansionOptions,
+	Options,
 	expand_literal,
 	expand_array,
 	expand_value,
@@ -32,7 +34,7 @@ use super::{
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, options: ExpansionOptions) -> LocalBoxFuture<'a, Result<Expanded<T>, Error>> where C::LocalContext: From<JsonValue> {
+pub fn expand_element<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, options: Options) -> LocalBoxFuture<'a, Result<Expanded<T>, Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	async move {
 		// If `element` is null, return null.
 		if element.is_null() {
@@ -112,7 +114,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 				// definition for `active_property`, in `active_context` and `true` for
 				// `override_protected`.
 				if let Some(property_scoped_context) = property_scoped_context {
-					let options: ContextProcessingOptions = options.into();
+					let options: ProcessingOptions = options.into();
 					active_context = Mown::Owned(property_scoped_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, property_scoped_base_url, options.with_override()).await?);
 				}
 
@@ -167,7 +169,7 @@ pub fn expand_element<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C:
 								// `term`'s local context as `local_context`, `base_url` from the term
 								// definition for value in `active_context`, and `false` for `propagate`.
 								let base_url = term_definition.base_url.as_ref().map(|url| url.as_iri());
-								let options: ContextProcessingOptions = options.into();
+								let options: ProcessingOptions = options.into();
 								active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, base_url, options.without_propagation()).await?);
 							}
 						}

@@ -13,10 +13,12 @@ use crate::{
 	Lenient,
 	Indexed,
 	object::*,
-	MutableActiveContext,
-	LocalContext,
-	ContextLoader,
-	ProcessingStack,
+	context::{
+		ContextMut,
+		Local,
+		ProcessingStack,
+		Loader
+	},
 	syntax::{
 		Keyword,
 		Term,
@@ -26,7 +28,7 @@ use crate::{
 	}
 };
 use crate::util::as_array;
-use super::{Expanded, Entry, ExpansionOptions, expand_element, expand_literal, expand_iri, filter_top_level_item};
+use super::{Expanded, Entry, Options, expand_element, expand_literal, expand_iri, filter_top_level_item};
 
 /// Convert a lenient term to a node id, if possible.
 /// Return `None` if the term is `null`.
@@ -39,7 +41,7 @@ pub fn node_id_of_term<T: Id>(term: Lenient<Term<T>>) -> Option<Lenient<Referenc
 	}
 }
 
-pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Term<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, options: ExpansionOptions) -> Result<Option<Indexed<Node<T>>>, Error> where C::LocalContext: From<JsonValue> {
+pub async fn expand_node<T: Id, C: ContextMut<T>, L: Loader>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Term<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, options: Options) -> Result<Option<Indexed<Node<T>>>, Error> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	// Initialize two empty maps, `result` and `nests`.
 	let mut result = Indexed::new(Node::new(), None);
 	let mut has_value_object_entries = false;
@@ -78,7 +80,7 @@ pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::
 	Ok(Some(result))
 }
 
-fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(result: &'a mut Indexed<Node<T>>, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Term<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, options: ExpansionOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<JsonValue> {
+fn expand_node_entries<'a, T: Id, C: ContextMut<T>, L: Loader>(result: &'a mut Indexed<Node<T>>, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Term<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, options: Options) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	async move {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:

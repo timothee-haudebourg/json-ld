@@ -17,9 +17,11 @@ use crate::{
 	Id,
 	Indexed,
 	Object,
-	MutableActiveContext,
-	ContextLoader,
-	ContextProcessingOptions
+	ContextMut,
+	context::{
+		ProcessingOptions,
+		Loader
+	}
 };
 
 pub use expanded::*;
@@ -31,7 +33,7 @@ pub use array::*;
 pub use element::*;
 
 #[derive(Clone, Copy, Default)]
-pub struct ExpansionOptions {
+pub struct Options {
 	/// Sets the processing mode.
 	pub processing_mode: ProcessingMode,
 
@@ -40,9 +42,9 @@ pub struct ExpansionOptions {
 	pub ordered: bool
 }
 
-impl From<ExpansionOptions> for ContextProcessingOptions {
-	fn from(options: ExpansionOptions) -> ContextProcessingOptions {
-		let mut copt = ContextProcessingOptions::default();
+impl From<Options> for ProcessingOptions {
+	fn from(options: Options) -> ProcessingOptions {
+		let mut copt = ProcessingOptions::default();
 		copt.processing_mode = options.processing_mode;
 		copt
 	}
@@ -71,7 +73,7 @@ fn filter_top_level_item<T: Id>(item: &Indexed<Object<T>>) -> bool {
 	}
 }
 
-pub fn expand<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &'a C, element: &'a JsonValue, base_url: Option<Iri>, loader: &'a mut L, options: ExpansionOptions) -> impl 'a + Future<Output=Result<HashSet<Indexed<Object<T>>>, Error>> where C::LocalContext: From<JsonValue> {
+pub fn expand<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C, element: &'a JsonValue, base_url: Option<Iri>, loader: &'a mut L, options: Options) -> impl 'a + Future<Output=Result<HashSet<Indexed<Object<T>>>, Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	let base_url = base_url.map(|url| IriBuf::from(url));
 
 	async move {

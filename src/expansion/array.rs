@@ -4,18 +4,20 @@ use crate::{
 	Error,
 	Id,
 	object::*,
-	MutableActiveContext,
-	ContextLoader,
-	TermDefinition,
+	ContextMut,
+	context::{
+		Loader,
+		TermDefinition
+	},
 	syntax::ContainerType
 };
 use super::{
-	ExpansionOptions,
+	Options,
 	Expanded,
 	expand_element
 };
 
-pub async fn expand_array<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, active_property: Option<&str>, active_property_definition: Option<&TermDefinition<T, C>>, element: &[JsonValue], base_url: Option<Iri<'_>>, loader: &mut L, options: ExpansionOptions) -> Result<Expanded<T>, Error> where C::LocalContext: From<JsonValue> {
+pub async fn expand_array<T: Id, C: ContextMut<T>, L: Loader>(active_context: &C, active_property: Option<&str>, active_property_definition: Option<&TermDefinition<T, C>>, element: &[JsonValue], base_url: Option<Iri<'_>>, loader: &mut L, options: Options) -> Result<Expanded<T>, Error> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	// Initialize an empty array, result.
 	let mut is_list = false;
 	let mut result = Vec::new();

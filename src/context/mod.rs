@@ -21,7 +21,7 @@ pub use loader::*;
 pub use processing::*;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct ContextProcessingOptions {
+pub struct ProcessingOptions {
 	/// The processing mode
 	pub processing_mode: ProcessingMode,
 
@@ -32,32 +32,32 @@ pub struct ContextProcessingOptions {
 	pub propagate: bool
 }
 
-impl ContextProcessingOptions {
+impl ProcessingOptions {
 	/// Return the same set of options, but with `override_protected` set to `true`.
-	pub fn with_override(&self) -> ContextProcessingOptions {
+	pub fn with_override(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.override_protected = true;
 		opt
 	}
 
 	/// Return the same set of options, but with `override_protected` set to `false`.
-	pub fn with_no_override(&self) -> ContextProcessingOptions {
+	pub fn with_no_override(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.override_protected = false;
 		opt
 	}
 
 	/// Return the same set of options, but with `propagate` set to `false`.
-	pub fn without_propagation(&self) -> ContextProcessingOptions {
+	pub fn without_propagation(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.propagate = false;
 		opt
 	}
 }
 
-impl Default for ContextProcessingOptions {
-	fn default() -> ContextProcessingOptions {
-		ContextProcessingOptions {
+impl Default for ProcessingOptions {
+	fn default() -> ProcessingOptions {
+		ProcessingOptions {
 			processing_mode: ProcessingMode::default(),
 			override_protected: false,
 			propagate: true
@@ -68,12 +68,12 @@ impl Default for ContextProcessingOptions {
 /// JSON-LD active context.
 ///
 /// An active context holds all the term definitions used to expand a JSON-LD value.
-pub trait ActiveContext<T: Id> : Clone {
+pub trait Context<T: Id> : Clone {
 	// Later
 	// type Definitions<'a>: Iterator<Item = (&'a str, TermDefinition<T, Self>)>;
 
 	/// The type of local contexts associated to this type of contexts.
-	type LocalContext: LocalContext<T, Self>;
+	type LocalContext: Local<T>;
 
 	/// Create a newly-initialized active context with the given *base IRI*.
 	fn new(original_base_url: Iri, base_iri: Iri) -> Self;
@@ -110,7 +110,7 @@ pub trait ActiveContext<T: Id> : Clone {
 	fn definitions<'a>(&'a self) -> Box<dyn 'a + Iterator<Item = (&'a String, &'a TermDefinition<T, Self>)>>;
 }
 
-pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
+pub trait ContextMut<T: Id>: Context<T> {
 	fn set(&mut self, term: &str, definition: Option<TermDefinition<T, Self>>) -> Option<TermDefinition<T, Self>>;
 
 	fn set_base_iri(&mut self, iri: Option<Iri>);
@@ -128,19 +128,19 @@ pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
-pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq + util::AsJson {
+pub trait Local<T: Id>: Sized + PartialEq + util::AsJson {
 	/// Process the local context with specific options.
-	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ContextProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>>;
+	fn process_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> where C::LocalContext: From<L::Output> + From<Self>, L::Output: Into<Self>;
 
 	/// Process the local context with the given active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
-		self.process_with(active_context, ProcessingStack::new(), loader, base_url, ContextProcessingOptions::default())
+	fn process<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> where C::LocalContext: From<L::Output> + From<Self>, L::Output: Into<Self> {
+		self.process_with(active_context, ProcessingStack::new(), loader, base_url, ProcessingOptions::default())
 	}
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct Context<T: Id> {
+pub struct JsonContext<T: Id> {
 	original_base_url: IriBuf,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term<T>>,
@@ -150,11 +150,11 @@ pub struct Context<T: Id> {
 	definitions: HashMap<String, TermDefinition<T, Self>>
 }
 
-impl<T: Id> ActiveContext<T> for Context<T> {
+impl<T: Id> Context<T> for JsonContext<T> {
 	type LocalContext = JsonValue;
 
-	fn new(original_base_url: Iri, base_iri: Iri) -> Context<T> {
-		Context {
+	fn new(original_base_url: Iri, base_iri: Iri) -> JsonContext<T> {
+		JsonContext {
 			original_base_url: original_base_url.into(),
 			base_iri: Some(base_iri.into()),
 			vocabulary: None,
@@ -210,7 +210,7 @@ impl<T: Id> ActiveContext<T> for Context<T> {
 	}
 }
 
-impl<T: Id> MutableActiveContext<T> for Context<T> {
+impl<T: Id> ContextMut<T> for JsonContext<T> {
 	fn set(&mut self, term: &str, definition: Option<TermDefinition<T, Self>>) -> Option<TermDefinition<T, Self>> {
 		match definition {
 			Some(def) => {

@@ -4,7 +4,7 @@ use crate::{
 	BlankId,
 	Id,
 	Lenient,
-	ActiveContext,
+	Context,
 	syntax::{
 		Keyword,
 		is_keyword_like,
@@ -13,7 +13,7 @@ use crate::{
 };
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
-pub fn expand_iri<T: Id, C: ActiveContext<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Lenient<Term<T>> {
+pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Lenient<Term<T>> {
 	if let Ok(keyword) = Keyword::try_from(value) {
 		Term::Keyword(keyword).into()
 	} else {

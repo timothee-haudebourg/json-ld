@@ -11,7 +11,7 @@ use crate::{
 	Lenient,
 	Indexed,
 	object::*,
-	MutableActiveContext,
+	ContextMut,
 	syntax::{
 		Keyword,
 		Term
@@ -20,7 +20,7 @@ use crate::{
 use crate::util::as_array;
 use super::{Entry, expand_iri};
 
-pub fn expand_value<'a, T: Id, C: MutableActiveContext<T>>(input_type: Option<Lenient<Term<T>>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
+pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term<T>>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
 	// If input type is @json, set expanded value to value.
 	// If processing mode is json-ld-1.0, an invalid value object value error has
 	// been detected and processing is aborted.

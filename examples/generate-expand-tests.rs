@@ -17,15 +17,17 @@ use tokio::runtime::Runtime;
 use iref::Iri;
 use json_ld::{
 	ErrorCode,
-	ActiveContext,
-	JsonLdContextLoader,
-	Context,
-	load_remote_json_ld_document,
 	object::*,
 	Reference,
 	VocabId,
-	ExpansionOptions,
-	ProcessingMode
+	ProcessingMode,
+	Context,
+	context::JsonContext,
+	expansion,
+	reqwest::{
+		ReqwestLoader,
+		load_remote_json_ld_document
+	}
 };
 
 const URL: &str = "https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld";
@@ -127,13 +129,13 @@ fn main() {
 
 	let url = Iri::new(URL).unwrap();
 
-	let mut loader = JsonLdContextLoader::new();
+	let mut loader = ReqwestLoader::new();
 
 	let doc = runtime.block_on(load_remote_json_ld_document(url))
 		.expect("unable to load the test suite");
 
-	let active_context: Context<Id> = Context::new(url, url);
-	let expanded_doc = runtime.block_on(json_ld::expand(&active_context, &doc, Some(url), &mut loader, ExpansionOptions::default()))
+	let active_context: JsonContext<Id> = JsonContext::new(url, url);
+	let expanded_doc = runtime.block_on(expansion::expand(&active_context, &doc, Some(url), &mut loader, expansion::Options::default()))
 		.expect("expansion failed");
 
 	println!(include_str!("template/header.rs"));
