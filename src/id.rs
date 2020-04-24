@@ -2,7 +2,10 @@ use std::hash::Hash;
 use std::fmt;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
-use crate::util;
+use crate::{
+	TermLike,
+	util
+};
 
 pub trait Id: Clone + PartialEq + Eq + Hash + fmt::Display {
 	fn from_iri(iri: Iri) -> Self;
@@ -17,6 +20,16 @@ impl Id for IriBuf {
 
 	fn as_iri(&self) -> Iri {
 		self.as_iri()
+	}
+}
+
+impl<T: Id> TermLike for T {
+	fn as_str(&self) -> &str {
+		self.as_iri().into_str()
+	}
+
+	fn as_iri(&self) -> Option<Iri> {
+		Some(self.as_iri())
 	}
 }
 

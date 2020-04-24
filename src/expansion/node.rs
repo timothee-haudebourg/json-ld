@@ -13,6 +13,7 @@ use crate::{
 	LangString,
 	Id,
 	Term,
+	Property,
 	Type,
 	Lenient,
 	Indexed,
@@ -24,6 +25,17 @@ use crate::{
 };
 use crate::util::as_array;
 use super::{Expanded, Entry, ExpansionOptions, expand_element, expand_literal, expand_iri, filter_top_level_item};
+
+/// Convert a lenient term to a node id, if possible.
+/// Return `None` if the term is `null`.
+pub fn node_id_of_term<T: Id>(term: Lenient<Term<T>>) -> Option<Lenient<Property<T>>> {
+	match term {
+		Lenient::Ok(Term::Null) => None,
+		Lenient::Ok(Term::Prop(prop)) => Some(Lenient::Ok(prop)),
+		Lenient::Ok(Term::Keyword(kw)) => Some(Lenient::Unknown(kw.into_str().to_string())),
+		Lenient::Unknown(u) => Some(Lenient::Unknown(u))
+	}
+}
 
 pub async fn expand_node<T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::LocalContext>>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Term<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, options: ExpansionOptions) -> Result<Option<Indexed<Node<T>>>, Error> where C::LocalContext: From<JsonValue> {
 	// Initialize two empty maps, `result` and `nests`.
@@ -105,7 +117,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 								// Otherwise, set `expanded_value` to the result of IRI
 								// expanding value using true for document relative and
 								// false for vocab.
-								result.id = Some(expand_iri(active_context, value, true, false))
+								result.id = node_id_of_term(expand_iri(active_context, value, true, false))
 							} else {
 								return Err(ErrorCode::InvalidIdValue.into())
 							}
@@ -524,7 +536,7 @@ fn expand_node_entries<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C
 										// result of IRI expanding index using true for
 										// document relative and false for vocab.
 										if let Object::Node(ref mut node) = *item {
-											node.id = Some(expand_iri(active_context, index, true, false));
+											node.id = node_id_of_term(expand_iri(active_context, index, true, false));
 										}
 									} else if container_mapping.contains(ContainerType::Type) {
 										// Otherwise, if container mapping includes

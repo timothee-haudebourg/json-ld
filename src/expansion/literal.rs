@@ -11,7 +11,10 @@ use crate::{
 	object::*,
 	ActiveContext
 };
-use super::expand_iri;
+use super::{
+	expand_iri,
+	node_id_of_term
+};
 
 fn clone_default_language<T: Id, C: ActiveContext<T>>(active_context: &C) -> Option<String> {
 	match active_context.default_language() {
@@ -40,11 +43,11 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 	match active_property_type {
 		// If the `active_property` has a type mapping in `active_context` that is `@id`, and the
 		// `value` is a string, return a new map containing a single entry where the key is `@id` and
-		// the value is the result IRI expanding `value` using `true` for `document_relative` and
+		// the value is the result of IRI expanding `value` using `true` for `document_relative` and
 		// `false` for vocab.
 		Some(Type::Id) if value.is_string() => {
 			let mut node = Node::new();
-			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, false));
+			node.id = node_id_of_term(expand_iri(active_context, value.as_str().unwrap(), true, false));
 			Ok(Object::Node(node).into())
 		},
 
@@ -54,7 +57,7 @@ pub fn expand_literal<T: Id, C: ActiveContext<T>>(active_context: &C, active_pro
 		// document relative.
 		Some(Type::Vocab) if value.is_string() => {
 			let mut node = Node::new();
-			node.id = Some(expand_iri(active_context, value.as_str().unwrap(), true, true));
+			node.id = node_id_of_term(expand_iri(active_context, value.as_str().unwrap(), true, true));
 			Ok(Object::Node(node).into())
 		},
 

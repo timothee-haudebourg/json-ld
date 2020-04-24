@@ -35,7 +35,7 @@ impl<T: Id> TryFrom<Term<T>> for NodeType<T> {
 /// A node object.
 #[derive(PartialEq, Eq)]
 pub struct Node<T: Id> {
-	pub(crate) id: Option<Lenient<Term<T>>>,
+	pub(crate) id: Option<Lenient<Property<T>>>,
 	pub(crate) types: Vec<Lenient<NodeType<T>>>,
 	pub(crate) graph: Option<HashSet<Indexed<Object<T>>>>,
 	pub(crate) included: Option<HashSet<Indexed<Node<T>>>>,

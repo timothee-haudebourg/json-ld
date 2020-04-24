@@ -8,8 +8,8 @@ use iref::Iri;
 use json::JsonValue;
 use crate::{
 	Id,
-	Term,
 	Lenient,
+	Property,
 	Keyword,
 	Indexed,
 	util::AsJson
@@ -35,7 +35,7 @@ pub enum Object<T: Id> {
 }
 
 impl<T: Id> Object<T> {
-	pub fn id(&self) -> Option<&Lenient<Term<T>>> {
+	pub fn id(&self) -> Option<&Lenient<Property<T>>> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
 			_ => None
