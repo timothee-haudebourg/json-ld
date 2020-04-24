@@ -130,7 +130,6 @@ fn main() {
 	let url = Iri::new(URL).unwrap();
 
 	let mut loader = ReqwestLoader::new();
-
 	let doc = runtime.block_on(load_remote_json_ld_document(url))
 		.expect("unable to load the test suite");
 

@@ -9,9 +9,9 @@ use crate::{
 	ErrorCode,
 	RemoteDocument,
 	context::{
-		RemoteContext,
-		Loader
-	},
+		self,
+		RemoteContext
+	}
 };
 
 pub fn is_json_media_type(ty: &str) -> bool {
@@ -76,10 +76,10 @@ impl ReqwestLoader {
 	}
 }
 
-impl Loader for ReqwestLoader {
+impl context::Loader for ReqwestLoader {
 	type Output = JsonValue;
 
-	fn load<'a>(&'a mut self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<JsonValue>, Error>>>> {
+	fn load_context<'a>(&'a mut self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<JsonValue>, Error>>>> {
 		let url = IriBuf::from(url);
 		async move {
 			let doc = match self.cache.get(&url) {

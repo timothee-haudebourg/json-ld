@@ -46,5 +46,5 @@ impl<C> RemoteContext<C> {
 pub trait Loader {
 	type Output;
 
-	fn load<'a>(&'a mut self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<Self::Output>, Error>>>>;
+	fn load_context<'a>(&'a mut self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<Self::Output>, Error>>>>;
 }

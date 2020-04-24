@@ -229,7 +229,7 @@ fn process_context<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C
 					// context has been detected and processing is aborted.
 					// Set loaded context to the value of that entry.
 					if remote_contexts.push(context.as_iri()) {
-						let context_document = loader.load(context.as_iri()).await?.cast::<JsonValue>();
+						let context_document = loader.load_context(context.as_iri()).await?.cast::<JsonValue>();
 						let loaded_context = context_document.context();
 
 
@@ -282,7 +282,7 @@ fn process_context<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C
 							};
 
 							// 5.6.4) Dereference import.
-							let context_document = loader.load(import.as_iri()).await?.cast::<JsonValue>();
+							let context_document = loader.load_context(import.as_iri()).await?.cast::<JsonValue>();
 							let import_context = context_document.into_context();
 
 							// If the dereferenced document has no top-level map with an @context
