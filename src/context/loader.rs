@@ -16,6 +16,13 @@ impl<C> RemoteContext<C> {
 		}
 	}
 
+	pub fn from_parts(url: IriBuf, context: C) -> RemoteContext<C> {
+		RemoteContext {
+			url: url,
+			context: context
+		}
+	}
+
 	pub fn context(&self) -> &C {
 		&self.context
 	}

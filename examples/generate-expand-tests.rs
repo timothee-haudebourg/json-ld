@@ -21,9 +21,9 @@ use json_ld::{
 	Reference,
 	VocabId,
 	ProcessingMode,
+	Document,
 	Context,
 	context::JsonContext,
-	expansion,
 	reqwest::{
 		ReqwestLoader,
 		load_remote_json_ld_document
@@ -134,8 +134,8 @@ fn main() {
 	let doc = runtime.block_on(load_remote_json_ld_document(url))
 		.expect("unable to load the test suite");
 
-	let active_context: JsonContext<Id> = JsonContext::new(url, url);
-	let expanded_doc = runtime.block_on(expansion::expand(&active_context, &doc, Some(url), &mut loader, expansion::Options::default()))
+	let context: JsonContext<Id> = JsonContext::new(url, url);
+	let expanded_doc = runtime.block_on(doc.expand(&context, &mut loader))
 		.expect("expansion failed");
 
 	println!(include_str!("template/header.rs"));

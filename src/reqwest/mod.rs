@@ -7,17 +7,18 @@ use json::JsonValue;
 use crate::{
 	Error,
 	ErrorCode,
+	RemoteDocument,
 	context::{
 		RemoteContext,
 		Loader
-	}
+	},
 };
 
 pub fn is_json_media_type(ty: &str) -> bool {
 	ty == "application/json" || ty == "application/ld+json"
 }
 
-pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<JsonValue, Error> {
+pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<RemoteDocument, Error> {
 	info!("loading remote document `{}'", url);
 	use reqwest::header::*;
 
@@ -35,7 +36,7 @@ pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<JsonValue, Err
 		let body = response.text().await?;
 
 		match json::parse(body.as_str()) {
-			Ok(doc) => Ok(doc),
+			Ok(doc) => Ok(RemoteDocument::new(doc, url.into())),
 			Err(e) => panic!("invalid json: {:?}: {}", e, body.as_str())
 		}
 	} else {
@@ -43,12 +44,13 @@ pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<JsonValue, Err
 	}
 }
 
-pub async fn load_remote_json_ld_context(url: Iri<'_>) -> Result<JsonValue, Error> {
+pub async fn load_remote_json_ld_context(url: Iri<'_>) -> Result<RemoteContext<JsonValue>, Error> {
 	match load_remote_json_ld_document(url).await {
-		Ok(doc) => {
+		Ok(remote_doc) => {
+			let (doc, url) = remote_doc.into_parts();
 			if let JsonValue::Object(obj) = doc {
 				if let Some(context) = obj.get("@context") {
-					Ok(context.clone())
+					Ok(RemoteContext::from_parts(url, context.clone()))
 				} else {
 					Err(ErrorCode::InvalidRemoteContext.into())
 				}
@@ -85,7 +87,7 @@ impl Loader for ReqwestLoader {
 					doc.clone()
 				},
 				None => {
-					let doc = load_remote_json_ld_context(url.as_iri()).await?;
+					let doc = load_remote_json_ld_context(url.as_iri()).await?.into_context();
 					self.cache.insert(url.clone(), doc.clone());
 					doc
 				}

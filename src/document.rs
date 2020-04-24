@@ -1,4 +1,8 @@
 use std::collections::HashSet;
+use std::ops::{
+	Deref,
+	DerefMut
+};
 use futures::future::{LocalBoxFuture, FutureExt};
 use iref::{
 	Iri,
@@ -77,6 +81,14 @@ impl<D> RemoteDocument<D> {
 			doc: doc
 		}
 	}
+
+	pub fn into_document(self) -> D {
+		self.doc
+	}
+
+	pub fn into_parts(self) -> (D, IriBuf) {
+		(self.doc, self.base_url)
+	}
 }
 
 impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
@@ -92,5 +104,19 @@ impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 		T: 'a
 	{
 		self.doc.expand_with(base_url, context, loader, options)
+	}
+}
+
+impl<D> Deref for RemoteDocument<D> {
+	type Target = D;
+
+	fn deref(&self) -> &D {
+		&self.doc
+	}
+}
+
+impl<D> DerefMut for RemoteDocument<D> {
+	fn deref_mut(&mut self) -> &mut D {
+		&mut self.doc
 	}
 }
