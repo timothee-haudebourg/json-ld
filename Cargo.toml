@@ -19,7 +19,3 @@ reqwest = { version = "0.10", optional = true }
 static-iref = "*"
 stderrlog = "*"
 tokio = "*"
-
-[[example]]
-name = "generate-expand-tests"
-required-features = ["reqwest-loader"]

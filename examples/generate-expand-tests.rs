@@ -9,9 +9,6 @@ extern crate iref;
 extern crate static_iref;
 extern crate json_ld;
 
-use std::path::{Path, PathBuf};
-use std::fs::File;
-use std::io::Write;
 use std::convert::TryInto;
 use tokio::runtime::Runtime;
 use iref::Iri;
@@ -24,7 +21,8 @@ use json_ld::{
 	Document,
 	Context,
 	context::JsonContext,
-	reqwest::Loader
+	Loader,
+	FsLoader
 };
 
 const URL: &str = "https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld";
@@ -118,15 +116,14 @@ const EXPAND_CONTEXT: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab:
 const BASE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Base));
 
 fn main() {
-	let destination = std::env::args().nth(1).expect("no destination given");
-	let target = Path::new(destination.as_str());
 	stderrlog::new().verbosity(VERBOSITY).init().unwrap();
 
 	let mut runtime = Runtime::new().unwrap();
-
 	let url = Iri::new(URL).unwrap();
 
-	let mut loader = Loader::new();
+	let mut loader = FsLoader::new();
+	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
+
 	let doc = runtime.block_on(loader.load(url))
 		.expect("unable to load the test suite");
 
@@ -143,7 +140,7 @@ fn main() {
 				if let Object::List(entries) = entries.as_ref() {
 					for entry in entries {
 						if let Object::Node(entry) = entry.as_ref() {
-							generate_test(&target, &mut runtime, &mut loader, entry);
+							generate_test(entry);
 						}
 					}
 				}
@@ -167,32 +164,14 @@ fn func_name(id: &str) -> String {
 	name
 }
 
-/// Download a JSON-LD document and return its local filename.
-fn load_file(target: &Path, runtime: &mut Runtime, loader: &mut Loader, url: Iri) -> PathBuf {
-	let mut filename: PathBuf = target.into();
-	filename.push(url.path().file_name().unwrap());
-
-	if !filename.exists() {
-		let doc = runtime.block_on(loader.load(url))
-			.expect("unable to load context document");
-
-		info!("writing to {}", filename.to_str().unwrap());
-		let mut file = File::create(&filename).unwrap();
-		file.write_all(doc.pretty(2).as_bytes()).unwrap();
-	}
-
-	filename
-}
-
-fn generate_test(target: &Path, runtime: &mut Runtime, loader: &mut Loader, entry: &Node<Id>) {
+fn generate_test(entry: &Node<Id>) {
 	let name = entry.get(NAME).next().unwrap().as_str().unwrap();
-	let mut url = entry.get(ACTION).next().unwrap().as_iri().unwrap();
-
-	let input_filename = load_file(target, runtime, loader, url);
+	let url = entry.get(ACTION).next().unwrap().as_iri().unwrap();
+	let mut base_url = url;
 	let func_name = func_name(url.path().file_name().unwrap());
 
 	let mut processing_mode = ProcessingMode::JsonLd1_1;
-	let mut context_filename = "None".to_string();
+	let mut context_url = "None".to_string();
 
 	for option in entry.get(OPTION) {
 		if let Object::Node(option) = option.as_ref() {
@@ -210,14 +189,14 @@ fn generate_test(target: &Path, runtime: &mut Runtime, loader: &mut Loader, entr
 			}
 
 			for expand_context in option.get(EXPAND_CONTEXT) {
-				if let Some(context_url) = expand_context.as_iri() {
-					context_filename = format!("Some(\"{}\")", load_file(target, runtime, loader, context_url).to_str().unwrap())
+				if let Some(url) = expand_context.as_iri() {
+					context_url = format!("Some(iri!(\"{}\"))", url)
 				}
 			}
 
 			for base in option.get(BASE) {
-				if let Some(base_url) = base.as_iri() {
-					url = base_url
+				if let Some(url) = base.as_iri() {
+					base_url = url
 				}
 			}
 		}
@@ -230,18 +209,17 @@ fn generate_test(target: &Path, runtime: &mut Runtime, loader: &mut Loader, entr
 
 	if entry.has_type(POSITIVE) {
 		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
-		let output_filename = load_file(target, runtime, loader, output_url);
 
 		println!(
 			include_str!("template/test-positive.rs"),
 			func_name,
 			url,
+			base_url,
+			output_url,
 			name,
 			comments,
 			processing_mode,
-			context_filename,
-			input_filename.to_str().unwrap(),
-			output_filename.to_str().unwrap()
+			context_url
 		);
 	} else if entry.has_type(NEGATIVE) {
 		let error_code: ErrorCode = entry.get(RESULT).next().unwrap().as_str().unwrap().try_into().unwrap();
@@ -250,11 +228,11 @@ fn generate_test(target: &Path, runtime: &mut Runtime, loader: &mut Loader, entr
 			include_str!("template/test-negative.rs"),
 			func_name,
 			url,
+			base_url,
 			name,
 			comments,
 			processing_mode,
-			context_filename,
-			input_filename.to_str().unwrap(),
+			context_url,
 			error_code
 		);
 	} else {

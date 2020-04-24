@@ -65,8 +65,8 @@ impl FsLoader {
 		}
 	}
 
-	pub fn mount(&mut self, path: &Path, url: Iri) {
-		self.mount_points.insert(path.into(), url.into());
+	pub fn mount<P: AsRef<Path>>(&mut self, url: Iri, path: P) {
+		self.mount_points.insert(path.as_ref().into(), url.into());
 	}
 }
 
@@ -110,6 +110,7 @@ impl Loader for FsLoader {
 						}
 					}
 
+					println!("not found: {}", url);
 					Err(ErrorCode::LoadingDocumentFailed.into())
 				}
 			}

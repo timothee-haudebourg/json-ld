@@ -6,8 +6,6 @@ extern crate iref;
 extern crate static_iref;
 extern crate json_ld;
 
-use std::fs::File;
-use std::io::{{Read, BufReader}};
 use tokio::runtime::Runtime;
 use iref::{{Iri, IriBuf}};
 use json_ld::{{
@@ -17,19 +15,21 @@ use json_ld::{{
 	Document,
 	context::{{
 		JsonContext,
-		Local
+		Local,
+		Loader as ContextLoader
 	}},
 	expansion,
 	util::{{
 		AsJson,
 		json_ld_eq
 	}},
-	reqwest::Loader
+	Loader,
+	FsLoader
 }};
 
 struct Options<'a> {{
 	processing_mode: ProcessingMode,
-	expand_context: Option<&'a str>
+	expand_context: Option<Iri<'a>>
 }}
 
 impl<'a> From<Options<'a>> for expansion::Options {{
@@ -41,34 +41,21 @@ impl<'a> From<Options<'a>> for expansion::Options {{
 	}}
 }}
 
-fn positive_test(options: Options, input_url: Iri, input_filename: &str, output_filename: &str) {{
+fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {{
 	let mut runtime = Runtime::new().unwrap();
-	let mut loader = Loader::new();
+	let mut loader = FsLoader::new();
+	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let input_file = File::open(input_filename).unwrap();
-	let mut input_buffer = BufReader::new(input_file);
-	let mut input_text = String::new();
-	input_buffer.read_to_string(&mut input_text).unwrap();
-	let input = json::parse(input_text.as_str()).unwrap();
+	let input = runtime.block_on(loader.load(input_url)).unwrap();
+	let output = runtime.block_on(loader.load(output_url)).unwrap();
+	let mut input_context: JsonContext<IriBuf> = JsonContext::new(base_url, base_url);
 
-	let output_file = File::open(output_filename).unwrap();
-	let mut output_buffer = BufReader::new(output_file);
-	let mut output_text = String::new();
-	output_buffer.read_to_string(&mut output_text).unwrap();
-	let output = json::parse(output_text.as_str()).unwrap();
-
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(input_url, input_url);
-
-	if let Some(context_filename) = options.expand_context {{
-		let context_file = File::open(context_filename).unwrap();
-		let mut context_buffer = BufReader::new(context_file);
-		let mut context_text = String::new();
-		context_buffer.read_to_string(&mut context_text).unwrap();
-		let mut doc = json::parse(context_text.as_str()).unwrap();
-		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url))).unwrap();
+	if let Some(context_url) = options.expand_context {{
+		let local_context = runtime.block_on(loader.load_context(context_url)).unwrap().into_context();
+		input_context = runtime.block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap();
 	}}
 
-	let result = runtime.block_on(input.expand_with(Some(input_url), &input_context, &mut loader, options.into())).unwrap();
+	let result = runtime.block_on(input.expand_with(Some(base_url), &input_context, &mut loader, options.into())).unwrap();
 
 	let result_json = result.as_json();
 	let success = json_ld_eq(&result_json, &output);
@@ -81,28 +68,20 @@ fn positive_test(options: Options, input_url: Iri, input_filename: &str, output_
 	assert!(success)
 }}
 
-fn negative_test(options: Options, input_url: Iri, input_filename: &str, error_code: ErrorCode) {{
+fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {{
 	let mut runtime = Runtime::new().unwrap();
-	let mut loader = Loader::new();
+	let mut loader = FsLoader::new();
+	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let input_file = File::open(input_filename).unwrap();
-	let mut input_buffer = BufReader::new(input_file);
-	let mut input_text = String::new();
-	input_buffer.read_to_string(&mut input_text).unwrap();
-	let input = json::parse(input_text.as_str()).unwrap();
+	let input = runtime.block_on(loader.load(input_url)).unwrap();
+	let mut input_context: JsonContext<IriBuf> = JsonContext::new(base_url, base_url);
 
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(input_url, input_url);
-
-	if let Some(context_filename) = options.expand_context {{
-		let context_file = File::open(context_filename).unwrap();
-		let mut context_buffer = BufReader::new(context_file);
-		let mut context_text = String::new();
-		context_buffer.read_to_string(&mut context_text).unwrap();
-		let mut doc = json::parse(context_text.as_str()).unwrap();
-		input_context = runtime.block_on(doc.remove("@context").process(&input_context, &mut loader, Some(input_url))).unwrap();
+	if let Some(context_url) = options.expand_context {{
+		let local_context = runtime.block_on(loader.load_context(context_url)).unwrap().into_context();
+		input_context = runtime.block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap();
 	}}
 
-	match runtime.block_on(input.expand_with(Some(input_url), &input_context, &mut loader, options.into())) {{
+	match runtime.block_on(input.expand_with(Some(base_url), &input_context, &mut loader, options.into())) {{
 		Ok(result) => {{
 			println!("output=\n{{}}", result.as_json().pretty(2));
 			panic!("expansion succeeded where it should have failed with code: {{}}", error_code)
