@@ -12,7 +12,8 @@ use crate::{
 	Error,
 	Direction,
 	Id,
-	syntax::Term
+	syntax::Term,
+	util
 };
 
 pub use definition::*;
@@ -127,7 +128,7 @@ pub trait MutableActiveContext<T: Id>: ActiveContext<T> {
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
-pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
+pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq + util::AsJson {
 	/// Process the local context with specific options.
 	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ContextProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>>;
 
@@ -136,9 +137,6 @@ pub trait LocalContext<T: Id, C: ActiveContext<T>>: PartialEq {
 	fn process<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
 		self.process_with(active_context, ProcessingStack::new(), loader, base_url, ContextProcessingOptions::default())
 	}
-
-	/// Convert the local context into a JSON-LD document.
-	fn as_json_ld(&self) -> &json::JsonValue;
 }
 
 #[derive(Clone, PartialEq, Eq)]

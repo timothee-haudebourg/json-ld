@@ -5,6 +5,12 @@ pub trait AsJson {
 	fn as_json(&self) -> JsonValue;
 }
 
+impl AsJson for JsonValue {
+	fn as_json(&self) -> JsonValue {
+		self.clone()
+	}
+}
+
 impl AsJson for bool {
 	fn as_json(&self) -> JsonValue {
 		JsonValue::Boolean(*self)

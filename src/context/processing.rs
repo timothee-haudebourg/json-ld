@@ -25,7 +25,8 @@ use crate::{
 		is_keyword,
 		is_keyword_like,
 		ContainerType
-	}
+	},
+	util::AsJson
 };
 use super::{
 	ContextProcessingOptions,
@@ -40,10 +41,6 @@ impl<T: Id, C: MutableActiveContext<T>> LocalContext<T, C> for JsonValue where C
 	/// Load a local context.
 	fn process_with<'a, L: ContextLoader<C::LocalContext>>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ContextProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> {
 		process_context(active_context, self, stack, loader, base_url, options)
-	}
-
-	fn as_json_ld(&self) -> &JsonValue {
-		self
 	}
 }
 
@@ -294,7 +291,7 @@ fn process_context<'a, T: Id, C: MutableActiveContext<T>, L: ContextLoader<C::Lo
 							// (i.e., it is not an map), an invalid remote context has been
 							// detected and processing is aborted; otherwise, set import context
 							// to the value of that entry.
-							if let JsonValue::Object(import_context) = import_context.as_json_ld() {
+							if let JsonValue::Object(import_context) = import_context.as_json() {
 								// If `import_context` has a @import entry, an invalid context entry
 								// error has been detected and processing is aborted.
 								if let Some(_) = import_context.get(Keyword::Import.into()) {
