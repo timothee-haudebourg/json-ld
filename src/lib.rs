@@ -18,6 +18,7 @@ mod lenient;
 mod indexed;
 mod vocab;
 mod document;
+mod loader;
 pub mod object;
 pub mod context;
 pub mod expansion;
@@ -37,6 +38,7 @@ pub use lenient::*;
 pub use indexed::*;
 pub use vocab::*;
 pub use document::*;
+pub use loader::*;
 
 pub use object::Object;
 pub use context::{

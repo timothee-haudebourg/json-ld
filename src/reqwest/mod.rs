@@ -1,7 +1,5 @@
-use std::pin::Pin;
-use std::future::Future;
 use std::collections::HashMap;
-use futures::future::FutureExt;
+use futures::future::{FutureExt, LocalBoxFuture};
 use iref::{Iri, IriBuf};
 use json::JsonValue;
 use crate::{
@@ -73,7 +71,7 @@ impl Loader {
 impl context::Loader for Loader {
 	type Output = JsonValue;
 
-	fn load_context<'a>(&'a mut self, url: Iri) -> Pin<Box<dyn 'a + Future<Output = Result<RemoteContext<JsonValue>, Error>>>> {
+	fn load_context<'a>(&'a mut self, url: Iri) -> LocalBoxFuture<'a, Result<RemoteContext<JsonValue>, Error>> {
 		let url = IriBuf::from(url);
 		async move {
 			match self.load(url.as_iri()).await {
@@ -93,7 +91,7 @@ impl context::Loader for Loader {
 					Err(ErrorCode::LoadingRemoteContextFailed.into())
 				}
 			}
-		}.boxed()
+		}.boxed_local()
 	}
 }
 
