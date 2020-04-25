@@ -48,6 +48,24 @@ impl<L: Loader<Document = JsonValue>> context::Loader for L {
 	}
 }
 
+/// Dummy loader.
+///
+/// A dummy loader that does not load anything.
+/// Can be useful when you know that you will never need to load remote ressources.
+///
+/// Raises an `LoadingDocumentFailed` at every attempt to load a ressource.
+pub struct NoLoader;
+
+impl Loader for NoLoader {
+	type Document = JsonValue;
+
+	fn load<'a>(&'a mut self, _url: Iri<'_>) -> LocalBoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>> {
+		async move {
+			Err(ErrorCode::LoadingDocumentFailed.into())
+		}.boxed_local()
+	}
+}
+
 /// File-system loader.
 ///
 /// This is a special JSON-LD document loader that can load document from the file system by
@@ -110,7 +128,6 @@ impl Loader for FsLoader {
 						}
 					}
 
-					println!("not found: {}", url);
 					Err(ErrorCode::LoadingDocumentFailed.into())
 				}
 			}

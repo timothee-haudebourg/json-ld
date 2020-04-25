@@ -1,9 +1,14 @@
 use std::convert::TryFrom;
 use std::fmt;
 
+/// JSON-LD error.
+///
+/// This is the type of all the errors that may occur during a JSON-LD document processing.
+/// Each error is described by an error code.
+/// See [`ErrorCode`] for more informations about all the different possible errors.
 #[derive(Debug)]
 pub struct Error {
-	/// Error kind.
+	/// Error code.
 	code: ErrorCode,
 
 	/// The lower-level source of this error, if any.
@@ -11,6 +16,7 @@ pub struct Error {
 }
 
 impl Error {
+	/// Create a new error with a given error source.
 	pub fn new<S: std::error::Error + 'static>(code: ErrorCode, source: S) -> Error {
 		Error {
 			code,
@@ -18,6 +24,7 @@ impl Error {
 		}
 	}
 
+	/// Get the error code associated to the error.
 	pub fn code(&self) -> ErrorCode {
 		self.code
 	}
@@ -47,6 +54,7 @@ impl From<ErrorCode> for Error {
 	}
 }
 
+/// JSON-LD error code.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum ErrorCode {
 	/// Two properties which expand to the same keyword have been detected.
@@ -56,50 +64,50 @@ pub enum ErrorCode {
 	/// Multiple conflicting indexes have been found for the same node.
 	ConflictingIndexes,
 
-	/// maximum number of @context URLs exceeded.
+	/// maximum number of `@context` URLs exceeded.
 	ContextOverflow,
 
 	/// A cycle in IRI mappings has been detected.
 	CyclicIriMapping,
 
-	/// An @id entry was encountered whose value was not a string.
+	/// An `@id` entry was encountered whose value was not a string.
 	InvalidIdValue,
 
-	/// An invalid value for @import has been found.
+	/// An invalid value for `@import` has been found.
 	InvalidImportValue,
 
 	/// An included block contains an invalid value.
 	InvalidIncludedValue,
 
-	/// An @index entry was encountered whose value was not a string.
+	/// An `@index` entry was encountered whose value was not a string.
 	InvalidIndexValue,
 
-	/// An invalid value for @nest has been found.
+	/// An invalid value for `@nest` has been found.
 	InvalidNestValue,
 
-	/// An invalid value for @prefix has been found.
+	/// An invalid value for `@prefix` has been found.
 	InvalidPrefixValue,
 
-	/// An invalid value for @propagate has been found.
+	/// An invalid value for `@propagate` has been found.
 	InvalidPropagateValue,
 
-	/// An invalid value for @protected has been found.
+	/// An invalid value for `@protected` has been found.
 	InvalidProtectedValue,
 
-	/// An invalid value for an @reverse entry has been detected, i.e., the value was not a map.
+	/// An invalid value for an `@reverse` entry has been detected, i.e., the value was not a map.
 	InvalidReverseValue,
 
-	/// The @version entry was used in a context with an out of range value.
+	/// The `@version` entry was used in a context with an out of range value.
 	InvalidVersionValue,
 
-	/// The value of @direction is not "ltr", "rtl", or null and thus invalid.
+	/// The value of `@direction` is not "ltr", "rtl", or null and thus invalid.
 	InvalidBaseDirection,
 
 	/// An invalid base IRI has been detected, i.e., it is neither an IRI nor null.
 	InvalidBaseIri,
 
-	/// An @container entry was encountered whose value was not one of the following strings:
-	/// @list, @set, or @index.
+	/// An `@container` entry was encountered whose value was not one of the following strings:
+	/// `@list`, `@set`, or `@index`.
 	InvalidContainerMapping,
 
 	/// An entry in a context is invalid due to processing mode incompatibility.
@@ -124,7 +132,7 @@ pub enum ErrorCode {
 	/// strings.
 	InvalidLanguageMapValue,
 
-	/// An @language entry in a term definition was encountered whose value was neither a string
+	/// An `@language` entry in a term definition was encountered whose value was neither a string
 	/// nor null and thus invalid.
 	InvalidLanguageMapping,
 
@@ -143,7 +151,7 @@ pub enum ErrorCode {
 	/// An invalid reverse property definition has been detected.
 	InvalidReverseProperty,
 
-	/// An invalid reverse property map has been detected. No keywords apart from @context are
+	/// An invalid reverse property map has been detected. No keywords apart from `@context` are
 	/// allowed in reverse property maps.
 	InvalidReversePropertyMap,
 
@@ -164,11 +172,11 @@ pub enum ErrorCode {
 	/// An invalid term definition has been detected.
 	InvalidTermDefinition,
 
-	/// An @type entry in a term definition was encountered whose value could not be expanded to an
+	/// An `@type` entry in a term definition was encountered whose value could not be expanded to an
 	/// IRI.
 	InvalidTypeMapping,
 
-	/// An invalid value for an @type entry has been detected, i.e., the value was neither a string
+	/// An invalid value for an `@type` entry has been detected, i.e., the value was neither a string
 	/// nor an array of strings.
 	InvalidTypeValue,
 
@@ -178,7 +186,7 @@ pub enum ErrorCode {
 	/// A value object with disallowed entries has been detected.
 	InvalidValueObject,
 
-	/// An invalid value for the @value entry of a value object has been detected, i.e., it is
+	/// An invalid value for the `@value` entry of a value object has been detected, i.e., it is
 	/// neither a scalar nor null.
 	InvalidValueObjectValue,
 
@@ -198,7 +206,7 @@ pub enum ErrorCode {
 	/// There was a problem encountered loading a remote context.
 	LoadingRemoteContextFailed,
 
-	/// Multiple HTTP Link Headers [RFC8288] using the http://www.w3.org/ns/json-ld#context link
+	/// Multiple HTTP Link Headers [RFC8288](https://tools.ietf.org/html/rfc8288) using the http://www.w3.org/ns/json-ld#context link
 	/// relation have been detected.
 	MultipleContextLinkHeaders,
 
@@ -211,6 +219,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
+	/// Get the error message corresponding to the error code.
 	pub fn as_str(&self) -> &str {
 		use ErrorCode::*;
 

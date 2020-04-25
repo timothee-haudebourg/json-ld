@@ -22,25 +22,70 @@ use crate::{
 	expansion
 };
 
+/// Result of the document expansion algorithm.
+///
+/// It is just an alias for a set of (indexed) objects.
 pub type ExpandedDocument<T> = HashSet<Indexed<Object<T>>>;
 
 /// JSON-LD document.
 ///
 /// This trait represent a JSON-LD document that can be expanded into an [`ExpandedDocument`].
+/// It is notabily implemented for the [`JsonValue`] type.
 pub trait Document<T: Id> {
+	/// The type of local contexts that may appear in the document.
+	///
+	/// This will most likely be [`JsonValue`].
 	type LocalContext: context::Local<T>;
 
-	/// Document location, is any.
+	/// Document location, if any.
 	fn base_url(&self) -> Option<Iri>;
 
-	/// Expand the document with a custom `base_url`, a custom `loaded` and user defined
+	/// Expand the document with a custom base URL, initial context, document loader and
 	/// expansion options.
+	///
+	/// If you do not wish to set the base URL and expansion options yourself, the
+	/// [`expand`](`Document::expand`) method is more appropriate.
+	///
+	/// This is an asynchronous method since expanding the context may require loading remote
+	/// ressources. It returns a boxed [`Future`](`std::future::Future`) to the result.
 	fn expand_with<'a, C: ContextMut<T>, L: Loader>(&'a self, base_url: Option<Iri>, context: &'a C, loader: &'a mut L, options: expansion::Options) -> LocalBoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
 		C::LocalContext: From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
 		T: 'a;
 
-	/// Expand the document with the default loader, and options.
+	/// Expand the document.
+	///
+	/// Uses the given initial context and the given document loader.
+	/// The default implementation is equivalent to [`expand_with`](`Document::expand_with`), but
+	/// uses the document [`base_url`](`Document::base_url`), with the default
+	/// options.
+	///
+	/// This is an asynchronous method since expanding the context may require loading remote
+	/// ressources. It returns a boxed [`Future`](`std::future::Future`) to the result.
+	///
+	/// # Example
+	/// ```
+	/// use std_async::task;
+	/// use json_ld::{Document, JsonContext, NoLoader};
+	///
+	/// // Prepare the initial context.
+	/// let context = JsonContext::new();
+	///
+	/// let doc = json::parse("{
+	/// 	\"@context\": {
+	/// 		\"name\": \"http://xmlns.com/foaf/0.1/name\",
+	/// 		\"knows\": \"http://xmlns.com/foaf/0.1/knows\"
+	/// 	},
+	/// 	\"@id\": \"http://me.markus-lanthaler.com/\",
+	/// 	\"name\": \"Markus Lanthaler\",
+	/// 	\"knows\": [
+	/// 		{
+	/// 			\"name\": \"Dave Longley\"
+	/// 		}
+	/// 	]
+	/// }")?;
+	/// let expanded_doc = task::block_on(doc.expand(&context, &mut NoLoader))?;
+	/// ```
 	fn expand<'a, C: ContextMut<T>, L: Loader>(&'a self, context: &'a C, loader: &'a mut L) -> LocalBoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
 		C::LocalContext: From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
@@ -50,9 +95,13 @@ pub trait Document<T: Id> {
 	}
 }
 
+/// Default JSON document implementation.
 impl<T: Id> Document<T> for JsonValue {
 	type LocalContext = JsonValue;
 
+	/// Returns `None`.
+	///
+	/// Use [`RemoteDocument`] to attach a base URL to a `JsonValue` document.
 	fn base_url(&self) -> Option<Iri> {
 		None
 	}
@@ -69,13 +118,37 @@ impl<T: Id> Document<T> for JsonValue {
 /// Remote JSON-LD document.
 ///
 /// Represent a document located at a given base URL.
+/// This is the result of loading a document with [`Loader::load`](`crate::Loader::load`).
+/// It is a simple wrapper that [`Deref`] to the underlying document while remembering its
+/// base URL.
+///
+/// # Example
+/// ```
+/// #[macro_use]
+/// extern crate static_iref;
+///
+/// use std_async::task;
+/// use json_ld::FsLoader;
+///
+/// # Prepare the loader.
+/// let mut loader = FsLoader::new();
+/// loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
+///
+/// # Load the remote document.
+/// let url = iri!("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld");
+/// let doc: RemoteDocument<JsonValue> = task::block_on(loader.load(url)).unwrap();
+/// ```
 #[derive(Clone)]
 pub struct RemoteDocument<D = JsonValue> {
+	/// The base URL of the document.
 	base_url: IriBuf,
+
+	/// The document contents.
 	doc: D,
 }
 
 impl<D> RemoteDocument<D> {
+	/// Create a new remote document from the document contents and base URL.
 	pub fn new(doc: D, base_url: Iri) -> RemoteDocument<D> {
 		RemoteDocument {
 			base_url: base_url.into(),
@@ -83,15 +156,18 @@ impl<D> RemoteDocument<D> {
 		}
 	}
 
+	/// Consume the remote document and return the inner document.
 	pub fn into_document(self) -> D {
 		self.doc
 	}
 
+	/// Consume the remote document and return the inner document along with its base URL.
 	pub fn into_parts(self) -> (D, IriBuf) {
 		(self.doc, self.base_url)
 	}
 }
 
+/// A Remote document is a document.
 impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 	type LocalContext = D::LocalContext;
 
