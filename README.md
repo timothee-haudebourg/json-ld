@@ -4,6 +4,10 @@ This crate is a Rust implementation of the
 [JSON-LD](https://www.w3.org/TR/json-ld/)
 data interchange format.
 
+NOTE: This crate is in early development.
+All the features are not yet implemented (only the expansion algorithm is).
+The API is not yet stabilized and may change rapidly.
+
 [Linked Data (LD)](https://www.w3.org/standards/semanticweb/data)
 is a [World Wide Web Consortium (W3C)](https://www.w3.org/)
 initiative built upon standard Web technologies to create an
