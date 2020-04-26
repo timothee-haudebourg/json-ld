@@ -11,7 +11,6 @@ use iref::{{Iri, IriBuf}};
 use json_ld::{{
 	ErrorCode,
 	ProcessingMode,
-	Context,
 	Document,
 	context::{{
 		JsonContext,
