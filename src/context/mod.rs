@@ -76,7 +76,7 @@ pub trait Context<T: Id> : Clone {
 	type LocalContext: Local<T>;
 
 	/// Create a newly-initialized active context with the given *base IRI*.
-	fn new(original_base_url: Iri, base_iri: Iri) -> Self;
+	fn new(base_iri: Option<Iri>) -> Self;
 
 	/// Get the definition of a term.
 	fn get(&self, term: &str) -> Option<&TermDefinition<T, Self>>;
@@ -90,7 +90,7 @@ pub trait Context<T: Id> : Clone {
 	}
 
 	/// Original base URL of the context.
-	fn original_base_url(&self) -> Iri;
+	fn original_base_url(&self) -> Option<Iri>;
 
 	/// Current *base IRI* of the context.
 	fn base_iri(&self) -> Option<Iri>;
@@ -141,7 +141,7 @@ pub trait Local<T: Id>: Sized + PartialEq + util::AsJson {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct JsonContext<T: Id> {
-	original_base_url: IriBuf,
+	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term<T>>,
 	default_language: Option<String>,
@@ -153,10 +153,10 @@ pub struct JsonContext<T: Id> {
 impl<T: Id> Context<T> for JsonContext<T> {
 	type LocalContext = JsonValue;
 
-	fn new(original_base_url: Iri, base_iri: Iri) -> JsonContext<T> {
+	fn new(base_iri: Option<Iri>) -> JsonContext<T> {
 		JsonContext {
-			original_base_url: original_base_url.into(),
-			base_iri: Some(base_iri.into()),
+			original_base_url: base_iri.map(|iri| iri.into()),
+			base_iri: base_iri.map(|iri| iri.into()),
 			vocabulary: None,
 			default_language: None,
 			default_base_direction: None,
@@ -169,8 +169,11 @@ impl<T: Id> Context<T> for JsonContext<T> {
 		self.definitions.get(term)
 	}
 
-	fn original_base_url(&self) -> Iri {
-		self.original_base_url.as_iri()
+	fn original_base_url(&self) -> Option<Iri> {
+		match &self.original_base_url {
+			Some(iri) => Some(iri.as_iri()),
+			None => None
+		}
 	}
 
 	fn base_iri(&self) -> Option<Iri> {

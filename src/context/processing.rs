@@ -187,7 +187,7 @@ fn process_context<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C
 						// Initialize `result` as a newly-initialized active context, setting both
 						// `base_iri` and `original_base_url` to the value of `original_base_url` in
 						// active context, ...
-						result = C::new(active_context.original_base_url(), active_context.original_base_url());
+						result = C::new(active_context.original_base_url());
 
 						// ... and, if `propagate` is `false`, `previous_context` in `result` to the
 						// previous value of `result`.

@@ -48,7 +48,7 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 
 	let input = runtime.block_on(loader.load(input_url)).unwrap();
 	let output = runtime.block_on(loader.load(output_url)).unwrap();
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(base_url, base_url);
+	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
 
 	if let Some(context_url) = options.expand_context {{
 		let local_context = runtime.block_on(loader.load_context(context_url)).unwrap().into_context();
@@ -74,7 +74,7 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = runtime.block_on(loader.load(input_url)).unwrap();
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(base_url, base_url);
+	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
 
 	if let Some(context_url) = options.expand_context {{
 		let local_context = runtime.block_on(loader.load_context(context_url)).unwrap().into_context();

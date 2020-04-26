@@ -26,7 +26,7 @@ use json_ld::{
 	FsLoader
 };
 
-const URL: &str = "https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld";
+const URL: Iri = iri!("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld");
 const VERBOSITY: usize = 2;
 
 /// Vocabulary of the test manifest
@@ -57,15 +57,13 @@ fn main() {
 	stderrlog::new().verbosity(VERBOSITY).init().unwrap();
 
 	let mut runtime = Runtime::new().unwrap();
-	let url = Iri::new(URL).unwrap();
-
 	let mut loader = FsLoader::new();
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let doc = runtime.block_on(loader.load(url))
+	let doc = runtime.block_on(loader.load(URL))
 		.expect("unable to load the test suite");
 
-	let context: JsonContext<Id> = JsonContext::new(url, url);
+	let context: JsonContext<Id> = JsonContext::new(Some(URL));
 	let expanded_doc = runtime.block_on(doc.expand(&context, &mut loader))
 		.expect("expansion failed");
 
