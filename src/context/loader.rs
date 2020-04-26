@@ -1,4 +1,4 @@
-use futures::future::LocalBoxFuture;
+use futures::future::BoxFuture;
 use iref::{Iri, IriBuf};
 use crate::Error;
 
@@ -45,5 +45,5 @@ impl<C> RemoteContext<C> {
 pub trait Loader {
 	type Output;
 
-	fn load_context<'a>(&'a mut self, url: Iri) -> LocalBoxFuture<'a, Result<RemoteContext<Self::Output>, Error>>;
+	fn load_context<'a>(&'a mut self, url: Iri) -> BoxFuture<'a, Result<RemoteContext<Self::Output>, Error>>;
 }

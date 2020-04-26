@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use futures::future::{LocalBoxFuture, FutureExt};
+use futures::future::{BoxFuture, FutureExt};
 use mown::Mown;
 use iref::Iri;
 use json::JsonValue;
@@ -41,7 +41,7 @@ pub fn node_id_of_term<T: Id>(term: Lenient<Term<T>>) -> Option<Lenient<Referenc
 	}
 }
 
-pub async fn expand_node<T: Id, C: ContextMut<T>, L: Loader>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Term<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, options: Options) -> Result<Option<Indexed<Node<T>>>, Error> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+pub async fn expand_node<T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &C, type_scoped_context: &C, active_property: Option<&str>, expanded_entries: Vec<Entry<'_, (&str, Term<T>)>>, base_url: Option<Iri<'_>>, loader: &mut L, options: Options) -> Result<Option<Indexed<Node<T>>>, Error> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	// Initialize two empty maps, `result` and `nests`.
 	let mut result = Indexed::new(Node::new(), None);
 	let mut has_value_object_entries = false;
@@ -80,7 +80,7 @@ pub async fn expand_node<T: Id, C: ContextMut<T>, L: Loader>(active_context: &C,
 	Ok(Some(result))
 }
 
-fn expand_node_entries<'a, T: Id, C: ContextMut<T>, L: Loader>(result: &'a mut Indexed<Node<T>>, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Term<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, options: Options) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(result: &'a mut Indexed<Node<T>>, has_value_object_entries: &'a mut bool, active_context: &'a C, type_scoped_context: &'a C, active_property: Option<&'a str>, expanded_entries: Vec<Entry<'a, (&'a str, Term<T>)>>, base_url: Option<Iri<'a>>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<(), Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	async move {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:
@@ -624,5 +624,5 @@ fn expand_node_entries<'a, T: Id, C: ContextMut<T>, L: Loader>(result: &'a mut I
 		};
 
 		Ok(())
-	}.boxed_local()
+	}.boxed()
 }

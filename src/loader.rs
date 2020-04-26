@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io::{Read, BufReader};
-use futures::future::{FutureExt, LocalBoxFuture};
+use futures::future::{FutureExt, BoxFuture};
 use iref::{Iri, IriBuf};
 use json::JsonValue;
 use crate::{
@@ -18,13 +18,13 @@ use crate::{
 pub trait Loader {
 	type Document;
 
-	fn load<'a>(&'a mut self, url: Iri<'_>) -> LocalBoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>>;
+	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>>;
 }
 
-impl<L: Loader<Document = JsonValue>> context::Loader for L {
+impl<L: Send + Sync + Loader<Document = JsonValue>> context::Loader for L {
 	type Output = JsonValue;
 
-	fn load_context<'a>(&'a mut self, url: Iri) -> LocalBoxFuture<'a, Result<RemoteContext<JsonValue>, Error>> {
+	fn load_context<'a>(&'a mut self, url: Iri) -> BoxFuture<'a, Result<RemoteContext<JsonValue>, Error>> {
 		let url = IriBuf::from(url);
 		async move {
 			match self.load(url.as_iri()).await {
@@ -44,7 +44,7 @@ impl<L: Loader<Document = JsonValue>> context::Loader for L {
 					Err(ErrorCode::LoadingRemoteContextFailed.into())
 				}
 			}
-		}.boxed_local()
+		}.boxed()
 	}
 }
 
@@ -59,10 +59,10 @@ pub struct NoLoader;
 impl Loader for NoLoader {
 	type Document = JsonValue;
 
-	fn load<'a>(&'a mut self, _url: Iri<'_>) -> LocalBoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>> {
+	fn load<'a>(&'a mut self, _url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>> {
 		async move {
 			Err(ErrorCode::LoadingDocumentFailed.into())
-		}.boxed_local()
+		}.boxed()
 	}
 }
 
@@ -91,7 +91,7 @@ impl FsLoader {
 impl Loader for FsLoader {
 	type Document = JsonValue;
 
-	fn load<'a>(&'a mut self, url: Iri<'_>) -> LocalBoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>> {
+	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>> {
 		let url: IriBuf = url.into();
 		async move {
 			match self.cache.get(&url) {
@@ -131,6 +131,6 @@ impl Loader for FsLoader {
 					Err(ErrorCode::LoadingDocumentFailed.into())
 				}
 			}
-		}.boxed_local()
+		}.boxed()
 	}
 }

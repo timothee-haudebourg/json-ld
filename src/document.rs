@@ -3,7 +3,7 @@ use std::ops::{
 	Deref,
 	DerefMut
 };
-use futures::future::{LocalBoxFuture, FutureExt};
+use futures::future::{BoxFuture, FutureExt};
 use iref::{
 	Iri,
 	IriBuf
@@ -48,10 +48,10 @@ pub trait Document<T: Id> {
 	///
 	/// This is an asynchronous method since expanding the context may require loading remote
 	/// ressources. It returns a boxed [`Future`](`std::future::Future`) to the result.
-	fn expand_with<'a, C: ContextMut<T>, L: Loader>(&'a self, base_url: Option<Iri>, context: &'a C, loader: &'a mut L, options: expansion::Options) -> LocalBoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
-		C::LocalContext: From<L::Output> + From<Self::LocalContext>,
+	fn expand_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri>, context: &'a C, loader: &'a mut L, options: expansion::Options) -> BoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
+		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
-		T: 'a;
+		T: 'a + Send + Sync;
 
 	/// Expand the document.
 	///
@@ -86,10 +86,10 @@ pub trait Document<T: Id> {
 	/// }")?;
 	/// let expanded_doc = task::block_on(doc.expand(&context, &mut NoLoader))?;
 	/// ```
-	fn expand<'a, C: ContextMut<T>, L: Loader>(&'a self, context: &'a C, loader: &'a mut L) -> LocalBoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
-		C::LocalContext: From<L::Output> + From<Self::LocalContext>,
+	fn expand<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, context: &'a C, loader: &'a mut L) -> BoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
+		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
-		T: 'a
+		T: 'a + Send + Sync
 	{
 		self.expand_with(self.base_url(), context, loader, expansion::Options::default())
 	}
@@ -106,12 +106,12 @@ impl<T: Id> Document<T> for JsonValue {
 		None
 	}
 
-	fn expand_with<'a, C: ContextMut<T>, L: Loader>(&'a self, base_url: Option<Iri>, context: &'a C, loader: &'a mut L, options: expansion::Options) -> LocalBoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
-		C::LocalContext: From<L::Output> + From<JsonValue>,
+	fn expand_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri>, context: &'a C, loader: &'a mut L, options: expansion::Options) -> BoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
+		C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>,
 		L::Output: Into<JsonValue>,
-		T: 'a
+		T: 'a + Send + Sync
 	{
-		expansion::expand(context, self, base_url, loader, options).boxed_local()
+		expansion::expand(context, self, base_url, loader, options).boxed()
 	}
 }
 
@@ -175,10 +175,10 @@ impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 		Some(self.base_url.as_iri())
 	}
 
-	fn expand_with<'a, C: ContextMut<T>, L: Loader>(&'a self, base_url: Option<Iri>, context: &'a C, loader: &'a mut L, options: expansion::Options) -> LocalBoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
-		C::LocalContext: From<L::Output> + From<Self::LocalContext>,
+	fn expand_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri>, context: &'a C, loader: &'a mut L, options: expansion::Options) -> BoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
+		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
-		T: 'a
+		T: 'a + Send + Sync
 	{
 		self.doc.expand_with(base_url, context, loader, options)
 	}

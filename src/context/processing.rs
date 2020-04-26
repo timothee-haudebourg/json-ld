@@ -1,10 +1,9 @@
 use std::ops::Deref;
-use std::pin::Pin;
 use std::future::Future;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use std::rc::Rc;
-use futures::future::{LocalBoxFuture, FutureExt};
+use std::sync::Arc;
+use futures::future::{BoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
 use iref::{Iri, IriBuf, IriRef};
 use crate::util::as_array;
@@ -38,7 +37,7 @@ use super::{
 
 impl<T: Id> Local<T> for JsonValue {
 	/// Load a local context.
-	fn process_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> where C::LocalContext: From<L::Output> + From<Self>, L::Output: Into<Self> {
+	fn process_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> BoxFuture<'a, Result<C, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
 		process_context(active_context, self, stack, loader, base_url, options)
 	}
 }
@@ -64,12 +63,12 @@ fn resolve_iri(iri_ref: IriRef, base_iri: Option<Iri>) -> Option<IriBuf> {
 }
 
 struct StackNode {
-	previous: Option<Rc<StackNode>>,
+	previous: Option<Arc<StackNode>>,
 	url: IriBuf
 }
 
 impl StackNode {
-	fn new(previous: Option<Rc<StackNode>>, url: IriBuf) -> StackNode {
+	fn new(previous: Option<Arc<StackNode>>, url: IriBuf) -> StackNode {
 		StackNode {
 			previous,
 			url
@@ -90,7 +89,7 @@ impl StackNode {
 
 #[derive(Clone)]
 pub struct ProcessingStack {
-	head: Option<Rc<StackNode>>
+	head: Option<Arc<StackNode>>
 }
 
 impl ProcessingStack {
@@ -117,7 +116,7 @@ impl ProcessingStack {
 		} else {
 			let mut head = None;
 			std::mem::swap(&mut head, &mut self.head);
-			self.head = Some(Rc::new(StackNode::new(head, url.into())));
+			self.head = Some(Arc::new(StackNode::new(head, url.into())));
 			true
 		}
 	}
@@ -128,7 +127,7 @@ impl ProcessingStack {
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C, local_context: &'a JsonValue, mut remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, mut options: ProcessingOptions) -> LocalBoxFuture<'a, Result<C, Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+fn process_context<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a C, local_context: &'a JsonValue, mut remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, mut options: ProcessingOptions) -> BoxFuture<'a, Result<C, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	let base_url = match base_url {
 		Some(base_url) => Some(IriBuf::from(base_url)),
 		None => None
@@ -449,7 +448,7 @@ fn process_context<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C
 		}
 
 		Ok(result)
-	}.boxed_local()
+	}.boxed()
 }
 
 enum JsonObjectRef<'a> {
@@ -508,7 +507,7 @@ fn contains_nz(id: &str, c: char) -> bool {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a mut C, local_context: &'a JsonObject, term: &'a str, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, protected: bool, options: ProcessingOptions) -> LocalBoxFuture<'a, Result<(), Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a mut C, local_context: &'a JsonObject, term: &'a str, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, protected: bool, options: ProcessingOptions) -> BoxFuture<'a, Result<(), Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	// let term = term.to_string();
 	// let base_url = if let Some(base_url) = base_url {
 	// 	Some(IriBuf::from(base_url))
@@ -1147,11 +1146,11 @@ pub fn define<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a mut C,
 				Ok(())
 			}
 		}
-	}.boxed_local()
+	}.boxed()
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ProcessingOptions) -> impl 'a + Future<Output = Result<Lenient<Term<T>>, Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ProcessingOptions) -> impl 'a + Future<Output = Result<Lenient<Term<T>>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {

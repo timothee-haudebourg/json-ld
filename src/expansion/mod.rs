@@ -75,7 +75,7 @@ fn filter_top_level_item<T: Id>(item: &Indexed<Object<T>>) -> bool {
 	}
 }
 
-pub fn expand<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C, element: &'a JsonValue, base_url: Option<Iri>, loader: &'a mut L, options: Options) -> impl 'a + Future<Output=Result<HashSet<Indexed<Object<T>>>, Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+pub fn expand<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a C, element: &'a JsonValue, base_url: Option<Iri>, loader: &'a mut L, options: Options) -> impl 'a + Send + Future<Output=Result<HashSet<Indexed<Object<T>>>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	let base_url = base_url.map(|url| IriBuf::from(url));
 
 	async move {

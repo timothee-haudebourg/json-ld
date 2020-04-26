@@ -4,9 +4,8 @@ mod definition;
 mod loader;
 mod processing;
 
-use std::pin::Pin;
-use std::future::Future;
 use std::collections::HashMap;
+use futures::future::BoxFuture;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
 use crate::{
@@ -132,11 +131,11 @@ pub trait ContextMut<T: Id = IriBuf>: Context<T> {
 /// existing active context.
 pub trait Local<T: Id = IriBuf>: Sized + PartialEq + util::AsJson {
 	/// Process the local context with specific options.
-	fn process_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> where C::LocalContext: From<L::Output> + From<Self>, L::Output: Into<Self>;
+	fn process_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> BoxFuture<'a, Result<C, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync;
 
 	/// Process the local context with the given active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> where C::LocalContext: From<L::Output> + From<Self>, L::Output: Into<Self> {
+	fn process<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>) -> BoxFuture<'a, Result<C, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
 		self.process_with(active_context, ProcessingStack::new(), loader, base_url, ProcessingOptions::default())
 	}
 }

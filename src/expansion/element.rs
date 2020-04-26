@@ -1,5 +1,5 @@
 use mown::Mown;
-use futures::future::{LocalBoxFuture, FutureExt};
+use futures::future::{BoxFuture, FutureExt};
 use iref::Iri;
 use json::JsonValue;
 use crate::{
@@ -34,7 +34,7 @@ use super::{
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, options: Options) -> LocalBoxFuture<'a, Result<Expanded<T>, Error>> where C::LocalContext: From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<Expanded<T>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	async move {
 		// If `element` is null, return null.
 		if element.is_null() {
@@ -318,5 +318,5 @@ pub fn expand_element<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'
 				return Ok(Expanded::Object(expand_literal(active_context.as_ref(), active_property, element)?))
 			}
 		}
-	}.boxed_local()
+	}.boxed()
 }
