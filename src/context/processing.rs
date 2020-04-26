@@ -1223,7 +1223,7 @@ pub fn expand_iri<'a, T: Id, C: ContextMut<T>, L: Loader>(active_context: &'a mu
 					if let Some(term_definition) = active_context.get(prefix) {
 						if term_definition.prefix {
 							if let Some(mapping) = &term_definition.value {
-								let mut result = mapping.to_string();
+								let mut result = mapping.as_str().to_string();
 								result.push_str(suffix);
 
 								if let Ok(result) = Iri::new(&result) {

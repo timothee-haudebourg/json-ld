@@ -76,11 +76,11 @@ pub trait Document<T: Id> {
 	/// 		\"name\": \"http://xmlns.com/foaf/0.1/name\",
 	/// 		\"knows\": \"http://xmlns.com/foaf/0.1/knows\"
 	/// 	},
-	/// 	\"@id\": \"http://me.markus-lanthaler.com/\",
-	/// 	\"name\": \"Markus Lanthaler\",
+	/// 	\"@id\": \"http://timothee.haudebourg.net/\",
+	/// 	\"name\": \"Timothée Haudebourg\",
 	/// 	\"knows\": [
 	/// 		{
-	/// 			\"name\": \"Dave Longley\"
+	/// 			\"name\": \"Amélie Barbe\"
 	/// 		}
 	/// 	]
 	/// }")?;

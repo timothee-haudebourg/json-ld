@@ -7,6 +7,8 @@ extern crate tokio;
 extern crate iref;
 #[macro_use]
 extern crate static_iref;
+#[macro_use]
+extern crate iref_enum;
 extern crate json_ld;
 
 use std::convert::TryInto;
@@ -15,8 +17,7 @@ use iref::Iri;
 use json_ld::{
 	ErrorCode,
 	object::*,
-	Reference,
-	VocabId,
+	Lexicon,
 	ProcessingMode,
 	Document,
 	Context,
@@ -28,92 +29,29 @@ use json_ld::{
 const URL: &str = "https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld";
 const VERBOSITY: usize = 2;
 
-const MF_NAME: Iri<'static> = iri!("http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#name");
-const MF_ENTRIES: Iri<'static> = iri!("http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#entries");
-const MF_ACTION: Iri<'static> = iri!("http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#action");
-const MF_RESULT: Iri<'static> = iri!("http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#result");
-
-const RDFS_COMMENT: Iri<'static> = iri!("http://www.w3.org/2000/01/rdf-schema#comment");
-
-const VOCAB_POSITIVE_EVAL_TEST: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#PositiveEvaluationTest");
-const VOCAB_NEGATIVE_EVAL_TEST: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#NegativeEvaluationTest");
-
-const VOCAB_OPTION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#option");
-const VOCAB_SPEC_VERSION: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#specVersion");
-const VOCAB_PROCESSING_MODE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#processingMode");
-const VOCAB_EXPAND_CONTEXT: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#expandContext");
-const VOCAB_BASE: Iri<'static> = iri!("https://w3c.github.io/json-ld-api/tests/vocab#base");
-
 /// Vocabulary of the test manifest
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+#[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
+#[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
+#[iri_prefix("vocab" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
 pub enum Vocab {
-	Name,
-	Entries,
-	Action,
-	Result,
-	PositiveEvalTest,
-	NegativeEvalTest,
-	Comment,
-	Option,
-	SpecVersion,
-	ProcessingMode,
-	ExpandContext,
-	Base
+	#[iri("rdfs:comment")] Comment,
+
+	#[iri("manifest:name")] Name,
+	#[iri("manifest:entries")] Entries,
+	#[iri("manifest:action")] Action,
+	#[iri("manifest:result")] Result,
+
+	#[iri("vocab:PositiveEvaluationTest")] PositiveEvalTest,
+	#[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
+	#[iri("vocab:option")] Option,
+	#[iri("vocab:specVersion")] SpecVersion,
+	#[iri("vocab:processingMode")] ProcessingMode,
+	#[iri("vocab:expandContext")] ExpandContext,
+	#[iri("vocab:base")] Base
 }
 
-impl json_ld::Vocab for Vocab {
-	fn from_iri(iri: Iri) -> Option<Vocab> {
-		use Vocab::*;
-		match iri {
-			_ if iri == RDFS_COMMENT => Some(Comment),
-			_ if iri == MF_NAME => Some(Name),
-			_ if iri == MF_ENTRIES => Some(Entries),
-			_ if iri == MF_ACTION => Some(Action),
-			_ if iri == MF_RESULT => Some(Result),
-			_ if iri == VOCAB_POSITIVE_EVAL_TEST => Some(PositiveEvalTest),
-			_ if iri == VOCAB_NEGATIVE_EVAL_TEST => Some(NegativeEvalTest),
-			_ if iri == VOCAB_OPTION => Some(Option),
-			_ if iri == VOCAB_SPEC_VERSION => Some(SpecVersion),
-			_ if iri == VOCAB_PROCESSING_MODE => Some(ProcessingMode),
-			_ if iri == VOCAB_EXPAND_CONTEXT => Some(ExpandContext),
-			_ if iri == VOCAB_BASE => Some(Base),
-			_ => None
-		}
-	}
-
-	fn as_iri(&self) -> Iri {
-		use Vocab::*;
-		match self {
-			Comment => RDFS_COMMENT,
-			Name => MF_NAME,
-			Entries => MF_ENTRIES,
-			Action => MF_ACTION,
-			Result => MF_RESULT,
-			PositiveEvalTest => VOCAB_POSITIVE_EVAL_TEST,
-			NegativeEvalTest => VOCAB_NEGATIVE_EVAL_TEST,
-			Option => VOCAB_OPTION,
-			SpecVersion => VOCAB_SPEC_VERSION,
-			ProcessingMode => VOCAB_PROCESSING_MODE,
-			ExpandContext => VOCAB_EXPAND_CONTEXT,
-			Base => VOCAB_BASE
-		}
-	}
-}
-
-pub type Id = VocabId<Vocab>;
-
-const COMMENT: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Comment));
-const NAME: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Name));
-const ENTRIES: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Entries));
-const ACTION: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Action));
-const RESULT: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Result));
-const POSITIVE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::PositiveEvalTest));
-const NEGATIVE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::NegativeEvalTest));
-const OPTION: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Option));
-const SPEC_VERSION: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::SpecVersion));
-const PROCESSING_MODE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::ProcessingMode));
-const EXPAND_CONTEXT: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::ExpandContext));
-const BASE: &'static Reference<Id> = &Reference::Id(VocabId::Id(Vocab::Base));
+pub type Id = Lexicon<Vocab>;
 
 fn main() {
 	stderrlog::new().verbosity(VERBOSITY).init().unwrap();
@@ -136,7 +74,7 @@ fn main() {
 	for item in &expanded_doc {
 		// println!("{}", PrettyPrint::new(item));
 		if let Object::Node(item) = item.as_ref() {
-			for entries in item.get(ENTRIES) {
+			for entries in item.get(Vocab::Entries) {
 				if let Object::List(entries) = entries.as_ref() {
 					for entry in entries {
 						if let Object::Node(entry) = entry.as_ref() {
@@ -165,17 +103,17 @@ fn func_name(id: &str) -> String {
 }
 
 fn generate_test(entry: &Node<Id>) {
-	let name = entry.get(NAME).next().unwrap().as_str().unwrap();
-	let url = entry.get(ACTION).next().unwrap().as_iri().unwrap();
+	let name = entry.get(Vocab::Name).next().unwrap().as_str().unwrap();
+	let url = entry.get(Vocab::Action).next().unwrap().as_iri().unwrap();
 	let mut base_url = url;
 	let func_name = func_name(url.path().file_name().unwrap());
 
 	let mut processing_mode = ProcessingMode::JsonLd1_1;
 	let mut context_url = "None".to_string();
 
-	for option in entry.get(OPTION) {
+	for option in entry.get(Vocab::Option) {
 		if let Object::Node(option) = option.as_ref() {
-			for spec_version in option.get(SPEC_VERSION) {
+			for spec_version in option.get(Vocab::SpecVersion) {
 				if let Some(spec_version) = spec_version.as_str() {
 					if spec_version != "json-ld-1.1" {
 						info!("skipping {} test {}", spec_version, url);
@@ -184,17 +122,17 @@ fn generate_test(entry: &Node<Id>) {
 				}
 			}
 
-			for mode in option.get(PROCESSING_MODE) {
+			for mode in option.get(Vocab::ProcessingMode) {
 				processing_mode = mode.as_str().unwrap().try_into().unwrap();
 			}
 
-			for expand_context in option.get(EXPAND_CONTEXT) {
+			for expand_context in option.get(Vocab::ExpandContext) {
 				if let Some(url) = expand_context.as_iri() {
 					context_url = format!("Some(iri!(\"{}\"))", url)
 				}
 			}
 
-			for base in option.get(BASE) {
+			for base in option.get(Vocab::Base) {
 				if let Some(url) = base.as_iri() {
 					base_url = url
 				}
@@ -203,12 +141,12 @@ fn generate_test(entry: &Node<Id>) {
 	}
 
 	let mut comments = String::new();
-	for comment in entry.get(COMMENT) {
+	for comment in entry.get(Vocab::Comment) {
 		comments += format!("\n\tprintln!(\"{}\");", comment.as_str().unwrap()).as_str()
 	}
 
-	if entry.has_type(POSITIVE) {
-		let output_url = entry.get(RESULT).next().unwrap().as_iri().unwrap();
+	if entry.has_type(&Vocab::PositiveEvalTest) {
+		let output_url = entry.get(Vocab::Result).next().unwrap().as_iri().unwrap();
 
 		println!(
 			include_str!("template/test-positive.rs"),
@@ -221,8 +159,8 @@ fn generate_test(entry: &Node<Id>) {
 			processing_mode,
 			context_url
 		);
-	} else if entry.has_type(NEGATIVE) {
-		let error_code: ErrorCode = entry.get(RESULT).next().unwrap().as_str().unwrap().try_into().unwrap();
+	} else if entry.has_type(&Vocab::NegativeEvalTest) {
+		let error_code: ErrorCode = entry.get(Vocab::Result).next().unwrap().as_str().unwrap().try_into().unwrap();
 
 		println!(
 			include_str!("template/test-negative.rs"),

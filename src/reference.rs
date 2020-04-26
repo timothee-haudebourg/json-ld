@@ -1,5 +1,6 @@
 use std::fmt;
 use std::convert::TryFrom;
+use std::borrow::Borrow;
 use iref::Iri;
 use json::JsonValue;
 use crate::{
@@ -95,11 +96,26 @@ impl<T: Id> util::AsJson for Reference<T> {
 	}
 }
 
-impl<T: Id> fmt::Display for Reference<T> {
+impl<T: Id + fmt::Display> fmt::Display for Reference<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Reference::Id(id) => id.fmt(f),
 			Reference::Blank(b) => b.fmt(f)
 		}
+	}
+}
+
+/// Types that can be converted into a borrowed node reference.
+pub trait ToReference<T: Id> {
+	type Reference: Borrow<Reference<T>>;
+
+	fn to_ref(&self) -> Self::Reference;
+}
+
+impl<'a, T: Id> ToReference<T> for &'a Reference<T> {
+	type Reference = &'a Reference<T>;
+
+	fn to_ref(&self) -> Self::Reference {
+		self
 	}
 }

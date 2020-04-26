@@ -1,11 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::convert::TryFrom;
+use std::borrow::Borrow;
 use iref::Iri;
 use json::JsonValue;
 use crate::{
 	Id,
 	Reference,
+	ToReference,
 	Lenient,
 	Object,
 	Indexed,
@@ -108,8 +110,8 @@ impl<T: Id> Node<T> {
 		}
 	}
 
-	pub fn get(&self, prop: &Reference<T>) -> Objects<T> {
-		match self.properties.get(prop) {
+	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Objects<T> where T: 'a {
+		match self.properties.get(prop.to_ref().borrow()) {
 			Some(values) => Objects(Some(values.iter())),
 			None => Objects(None)
 		}

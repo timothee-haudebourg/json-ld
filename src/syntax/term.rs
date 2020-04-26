@@ -81,7 +81,7 @@ impl<T: Id> From<Reference<T>> for Term<T> {
 	}
 }
 
-impl<T: Id> fmt::Display for Term<T> {
+impl<T: Id + fmt::Display> fmt::Display for Term<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Term::Ref(p) => p.fmt(f),
