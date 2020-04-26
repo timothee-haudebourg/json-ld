@@ -2,7 +2,6 @@ extern crate async_std;
 extern crate iref;
 extern crate json_ld;
 
-use async_std::task;
 use iref::IriBuf;
 use json_ld::{
 	JsonContext,
@@ -12,7 +11,8 @@ use json_ld::{
 	Reference
 };
 
-fn main() {
+#[async_std::main]
+async fn main() {
 	// Create the initial context.
 	let context: JsonContext = JsonContext::new(None);
 
@@ -28,7 +28,7 @@ fn main() {
 	"#).unwrap();
 
 	// Expansion.
-	let expanded_doc = task::block_on(doc.expand(&context, &mut NoLoader)).unwrap();
+	let expanded_doc = doc.expand(&context, &mut NoLoader).await.unwrap();
 
 	// Reference to the `name` property.
 	let name_property = Reference::Id(IriBuf::new("http://xmlns.com/foaf/0.1/name").unwrap());

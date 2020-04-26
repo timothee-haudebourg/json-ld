@@ -16,7 +16,7 @@ futures = "0.3"
 reqwest = { version = "0.10", optional = true }
 
 [dev-dependencies]
-async-std = "*"
+async-std = { version = "*", features = ["attributes"] }
 static-iref = "*"
 iref-enum = "*"
 stderrlog = "*"

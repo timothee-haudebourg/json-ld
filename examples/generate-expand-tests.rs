@@ -3,7 +3,6 @@
 #[macro_use]
 extern crate log;
 extern crate stderrlog;
-extern crate tokio;
 extern crate iref;
 #[macro_use]
 extern crate static_iref;
@@ -12,7 +11,6 @@ extern crate iref_enum;
 extern crate json_ld;
 
 use std::convert::TryInto;
-use tokio::runtime::Runtime;
 use iref::Iri;
 use json_ld::{
 	ErrorCode,
@@ -52,19 +50,17 @@ pub enum Vocab {
 
 pub type Id = Lexicon<Vocab>;
 
-fn main() {
+#[async_std::main]
+async fn main() {
 	stderrlog::new().verbosity(VERBOSITY).init().unwrap();
 
-	let mut runtime = Runtime::new().unwrap();
 	let mut loader = FsLoader::new();
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let doc = runtime.block_on(loader.load(URL))
-		.expect("unable to load the test suite");
+	let doc = loader.load(URL).await.expect("unable to load the test suite");
 
 	let context: JsonContext<Id> = JsonContext::new(Some(URL));
-	let expanded_doc = runtime.block_on(doc.expand(&context, &mut loader))
-		.expect("expansion failed");
+	let expanded_doc = doc.expand(&context, &mut loader).await.expect("expansion failed");
 
 	println!(include_str!("../tests/templates/header.rs"));
 
