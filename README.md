@@ -13,7 +13,7 @@ a widely used, simple, unstructured data serialization format to describe
 data objects in a human readable way.
 JSON-LD brings these two technologies together, adding semantics to JSON
 to create a lightweight data serialization format that can organize data and
-help Web application to inter-operate at a large scale.
+help Web applications to inter-operate at a large scale.
 
 This crate aims to provide a set of types to build and process expanded
 JSON-LD documents.
