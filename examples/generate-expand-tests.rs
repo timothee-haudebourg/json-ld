@@ -70,7 +70,6 @@ fn main() {
 	println!(include_str!("template/header.rs"));
 
 	for item in &expanded_doc {
-		// println!("{}", PrettyPrint::new(item));
 		if let Object::Node(item) = item.as_ref() {
 			for entries in item.get(Vocab::Entries) {
 				if let Object::List(entries) = entries.as_ref() {
