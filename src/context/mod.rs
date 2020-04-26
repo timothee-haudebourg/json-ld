@@ -1,3 +1,5 @@
+//! Context processing algorithm and types.
+
 mod definition;
 mod loader;
 mod processing;
@@ -68,7 +70,7 @@ impl Default for ProcessingOptions {
 /// JSON-LD active context.
 ///
 /// An active context holds all the term definitions used to expand a JSON-LD value.
-pub trait Context<T: Id> : Clone {
+pub trait Context<T: Id = IriBuf> : Clone {
 	// Later
 	// type Definitions<'a>: Iterator<Item = (&'a str, TermDefinition<T, Self>)>;
 
@@ -110,7 +112,7 @@ pub trait Context<T: Id> : Clone {
 	fn definitions<'a>(&'a self) -> Box<dyn 'a + Iterator<Item = (&'a String, &'a TermDefinition<T, Self>)>>;
 }
 
-pub trait ContextMut<T: Id>: Context<T> {
+pub trait ContextMut<T: Id = IriBuf>: Context<T> {
 	fn set(&mut self, term: &str, definition: Option<TermDefinition<T, Self>>) -> Option<TermDefinition<T, Self>>;
 
 	fn set_base_iri(&mut self, iri: Option<Iri>);
@@ -128,7 +130,7 @@ pub trait ContextMut<T: Id>: Context<T> {
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
-pub trait Local<T: Id>: Sized + PartialEq + util::AsJson {
+pub trait Local<T: Id = IriBuf>: Sized + PartialEq + util::AsJson {
 	/// Process the local context with specific options.
 	fn process_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> Pin<Box<dyn 'a + Future<Output = Result<C, Error>>>> where C::LocalContext: From<L::Output> + From<Self>, L::Output: Into<Self>;
 
@@ -140,7 +142,7 @@ pub trait Local<T: Id>: Sized + PartialEq + util::AsJson {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct JsonContext<T: Id> {
+pub struct JsonContext<T: Id = IriBuf> {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term<T>>,
@@ -150,10 +152,8 @@ pub struct JsonContext<T: Id> {
 	definitions: HashMap<String, TermDefinition<T, Self>>
 }
 
-impl<T: Id> Context<T> for JsonContext<T> {
-	type LocalContext = JsonValue;
-
-	fn new(base_iri: Option<Iri>) -> JsonContext<T> {
+impl<T: Id> JsonContext<T> {
+	pub fn new(base_iri: Option<Iri>) -> JsonContext<T> {
 		JsonContext {
 			original_base_url: base_iri.map(|iri| iri.into()),
 			base_iri: base_iri.map(|iri| iri.into()),
@@ -163,6 +163,14 @@ impl<T: Id> Context<T> for JsonContext<T> {
 			previous_context: None,
 			definitions: HashMap::new()
 		}
+	}
+}
+
+impl<T: Id> Context<T> for JsonContext<T> {
+	type LocalContext = JsonValue;
+
+	fn new(base_iri: Option<Iri>) -> JsonContext<T> {
+		Self::new(base_iri)
 	}
 
 	fn get(&self, term: &str) -> Option<&TermDefinition<T, Self>> {

@@ -1,3 +1,5 @@
+//! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
+
 use std::collections::HashMap;
 use futures::future::{FutureExt, LocalBoxFuture};
 use iref::{Iri, IriBuf};

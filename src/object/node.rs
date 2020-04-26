@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::convert::TryFrom;
 use std::borrow::Borrow;
-use iref::Iri;
+use iref::{Iri, IriBuf};
 use json::JsonValue;
 use crate::{
 	Id,
@@ -20,7 +20,7 @@ use crate::{
 
 /// A node object.
 #[derive(PartialEq, Eq)]
-pub struct Node<T: Id> {
+pub struct Node<T: Id = IriBuf> {
 	pub(crate) id: Option<Lenient<Reference<T>>>,
 	pub(crate) types: Vec<Lenient<Reference<T>>>,
 	pub(crate) graph: Option<HashSet<Indexed<Object<T>>>>,
@@ -52,6 +52,10 @@ impl<T: Id> Node<T> {
 			properties: HashMap::new(),
 			reverse_properties: HashMap::new()
 		}
+	}
+
+	pub fn id(&self) -> Option<&Lenient<Reference<T>>> {
+		self.id.as_ref()
 	}
 
 	pub fn has_key(&self, key: &Term<T>) -> bool {

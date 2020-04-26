@@ -1,3 +1,5 @@
+//! Syntax elements.
+
 mod keyword;
 mod container;
 mod term;

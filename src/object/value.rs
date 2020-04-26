@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
+use iref::IriBuf;
 use json::JsonValue;
 use crate::{
 	Id,
@@ -65,7 +66,7 @@ impl Literal {
 }
 
 #[derive(PartialEq, Eq, Clone)]
-pub enum Value<T: Id> {
+pub enum Value<T: Id = IriBuf> {
 	/// A typed value.
 	Literal(Literal, HashSet<T>),
 

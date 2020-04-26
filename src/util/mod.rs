@@ -1,3 +1,5 @@
+//! Utility functions.
+
 use std::hash::{Hash, Hasher};
 use std::collections::{HashSet, HashMap, hash_map::DefaultHasher};
 use ::json::{JsonValue, number::Number};

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::convert::TryFrom;
 use std::borrow::Borrow;
-use iref::Iri;
+use iref::{Iri, IriBuf};
 use json::JsonValue;
 use crate::{
 	Id,
@@ -14,13 +14,23 @@ use crate::{
 	util
 };
 
+/// Node reference.
+///
+/// Used to reference a node across a document or to a remote document.
+/// It can be an identifier (IRI) or a blank node identifier for local blank nodes.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum Reference<T: Id> {
+pub enum Reference<T: Id = IriBuf> {
+	/// Node identifier, essentially an IRI.
 	Id(T),
+
+	/// Blank node identifier.
 	Blank(BlankId)
 }
 
 impl<T: Id> Reference<T> {
+	/// Get a string representation of the reference.
+	///
+	/// This will either return a string slice of an IRI, or a blank node identifier.
 	pub fn as_str(&self) -> &str {
 		match self {
 			Reference::Id(id) => id.as_iri().into_str(),
@@ -28,6 +38,9 @@ impl<T: Id> Reference<T> {
 		}
 	}
 
+	/// If the renference is a node identifier, returns the node IRI.
+	///
+	/// Returns `None` if it is a blank node reference.
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
 			Reference::Id(k) => Some(k.as_iri()),
@@ -96,19 +109,37 @@ impl<T: Id> util::AsJson for Reference<T> {
 	}
 }
 
-impl<T: Id + fmt::Display> fmt::Display for Reference<T> {
+impl<T: Id> fmt::Display for Reference<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Reference::Id(id) => id.fmt(f),
+			Reference::Id(id) => id.as_str().fmt(f),
 			Reference::Blank(b) => b.fmt(f)
 		}
 	}
 }
 
 /// Types that can be converted into a borrowed node reference.
+///
+/// This is a convenient trait is used to simplify the use of references.
+/// For instance consider the [`Node::get`](crate::Node::get) method, used to get the objects associated to the
+/// given reference property for a given node.
+/// It essentially have the following signature:
+/// ```
+/// fn get(&self, id: &Reference<T>) -> Objects;
+/// ```
+/// However building a `Refrence` by hand can be tedious, especilly while using [`Lexicon`](crate::Lexicon) and
+/// [`Vocab`](crate::Vocab). It can be as verbose as `node.get(&Reference::Id(Lexicon::Id(MyVocab::Term)))`.
+/// Thanks to `ToReference` which is implemented by `Lexicon<V>` for any type `V` implementing `Vocab`,
+/// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct) where
+/// the signature of `get` becomes:
+/// ```
+/// fn get<R: ToReference<T>>(&self, id: R) -> Objects;
+/// ```
 pub trait ToReference<T: Id> {
+	/// The target type of the convertion, which can be borrowed as a `Reference<T>`.
 	type Reference: Borrow<Reference<T>>;
 
+	/// Convert the value into a reference.
 	fn to_ref(&self) -> Self::Reference;
 }
 

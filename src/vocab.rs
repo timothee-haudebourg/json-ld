@@ -69,9 +69,62 @@ impl<V: Vocab> PartialEq<V> for Lexicon<V> {
 	}
 }
 
+/// Lexicon identifier.
+///
+/// A Lexicon is a special identifier type ([`Id`]) built from a [`Vocab`] (vocabulary) type.
+/// While [`Vocab`] represents only a subset of all the possible IRIs, this type can also hold
+/// any IRI outside of the predefined vocabulary.
+/// It is a simple way to get an identifier type from a vocabulary.
+///
+/// # Example
+/// The following example builds a lexicon from a statically known vocabulary, defined as an
+/// `enum` type. It uses the [`iref-enum`](https://crates.io/crates/iref-enum)
+/// crate to automatically derive the convertion of the
+/// `Vocab` type from/into IRIs.
+/// ```
+/// #[macro_use]
+/// extern crate iref_enum;
+/// extern crate json_ld;
+///
+/// use json_ld::Lexicon;
+///
+/// /// Vocabulary used in the implementation.
+/// #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+/// #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
+/// #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
+/// #[iri_prefix("vocab" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
+/// pub enum Vocab {
+/// 	#[iri("rdfs:comment")] Comment,
+///
+/// 	#[iri("manifest:name")] Name,
+/// 	#[iri("manifest:entries")] Entries,
+/// 	#[iri("manifest:action")] Action,
+/// 	#[iri("manifest:result")] Result,
+///
+/// 	#[iri("vocab:PositiveEvaluationTest")] PositiveEvalTest,
+/// 	#[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
+/// 	#[iri("vocab:option")] Option,
+/// 	#[iri("vocab:specVersion")] SpecVersion,
+/// 	#[iri("vocab:processingMode")] ProcessingMode,
+/// 	#[iri("vocab:expandContext")] ExpandContext,
+/// 	#[iri("vocab:base")] Base
+/// }
+///
+/// /// A fully functional identifier type.
+/// pub type Id = Lexicon<Vocab>;
+///
+/// fn handle_node(node: &json_ld::Node<Id>) {
+///   for name in node.get(Vocab::Name) { // <- note that we can directly use `Vocab` here.
+///   	println!("node name: {}", name.as_str().unwrap());
+///   }
+/// }
+/// ```
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Lexicon<V: Vocab> {
+	/// Identifier from the known vocabulary.
 	Id(V),
+
+	/// Any other IRI outside of the vocabulary.
 	Iri(IriBuf)
 }
 

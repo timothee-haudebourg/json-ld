@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-/// JSON-LD error.
+/// Error type.
 ///
 /// This is the type of all the errors that may occur during a JSON-LD document processing.
 /// Each error is described by an error code.
@@ -54,7 +54,7 @@ impl From<ErrorCode> for Error {
 	}
 }
 
-/// JSON-LD error code.
+/// Error code.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum ErrorCode {
 	/// Two properties which expand to the same keyword have been detected.

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::convert::TryFrom;
 
-/// ProcessingMode
+/// Processing modes
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ProcessingMode {
 	/// JSON-LD 1.0.

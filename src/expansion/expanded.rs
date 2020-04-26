@@ -1,10 +1,11 @@
+use iref::IriBuf;
 use crate::{
 	Id,
 	Indexed,
 	Object
 };
 
-pub enum Expanded<T: Id> {
+pub enum Expanded<T: Id = IriBuf> {
 	Null,
 	Object(Indexed<Object<T>>),
 	Array(Vec<Indexed<Object<T>>>)

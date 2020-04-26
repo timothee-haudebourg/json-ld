@@ -67,7 +67,7 @@ fn main() {
 	let expanded_doc = runtime.block_on(doc.expand(&context, &mut loader))
 		.expect("expansion failed");
 
-	println!(include_str!("template/header.rs"));
+	println!(include_str!("../tests/templates/header.rs"));
 
 	for item in &expanded_doc {
 		if let Object::Node(item) = item.as_ref() {
@@ -146,7 +146,7 @@ fn generate_test(entry: &Node<Id>) {
 		let output_url = entry.get(Vocab::Result).next().unwrap().as_iri().unwrap();
 
 		println!(
-			include_str!("template/test-positive.rs"),
+			include_str!("../tests/templates/test-positive.rs"),
 			func_name,
 			url,
 			base_url,
@@ -160,7 +160,7 @@ fn generate_test(entry: &Node<Id>) {
 		let error_code: ErrorCode = entry.get(Vocab::Result).next().unwrap().as_str().unwrap().try_into().unwrap();
 
 		println!(
-			include_str!("template/test-negative.rs"),
+			include_str!("../tests/templates/test-negative.rs"),
 			func_name,
 			url,
 			base_url,

@@ -1,10 +1,12 @@
+//! Nodes, lists and values.
+
 pub mod value;
 pub mod node;
 
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::fmt;
-use iref::Iri;
+use iref::{Iri, IriBuf};
 use json::JsonValue;
 use crate::{
 	Id,
@@ -23,7 +25,7 @@ pub use node::Node;
 
 /// Object descriptor.
 #[derive(PartialEq, Eq, Hash)]
-pub enum Object<T: Id> {
+pub enum Object<T: Id = IriBuf> {
 	/// Value object.
 	Value(Value<T>),
 

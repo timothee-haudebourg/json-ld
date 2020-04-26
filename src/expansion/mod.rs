@@ -1,3 +1,5 @@
+//! Expansion algorithm and types.
+
 mod expanded;
 mod iri;
 mod literal;

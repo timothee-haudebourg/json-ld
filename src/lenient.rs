@@ -1,4 +1,5 @@
 use std::convert::{TryFrom, TryInto};
+use std::fmt;
 use json::JsonValue;
 use iref::Iri;
 use crate::{
@@ -6,7 +7,7 @@ use crate::{
 	util
 };
 
-/// A wrapper for string data that may be malformed.
+/// Wrapper for string data that may be malformed.
 ///
 /// This is usually used with `Term`, or `Type` to allow for terms/types that are not IRIs or
 /// blanck nodes, etc. but must be kept in the data structure.
@@ -60,6 +61,15 @@ impl<T: TermLike> Lenient<T> {
 impl<T> From<T> for Lenient<T> {
 	fn from(t: T) -> Lenient<T> {
 		Lenient::Ok(t)
+	}
+}
+
+impl<T: fmt::Display> fmt::Display for Lenient<T> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Lenient::Ok(t) => t.fmt(f),
+			Lenient::Unknown(u) => u.fmt(f)
+		}
 	}
 }
 

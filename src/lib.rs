@@ -6,7 +6,6 @@ extern crate log;
 extern crate json;
 extern crate iref;
 
-mod syntax;
 mod mode;
 mod error;
 mod direction;
@@ -19,6 +18,7 @@ mod indexed;
 mod vocab;
 mod document;
 mod loader;
+pub mod syntax;
 pub mod object;
 pub mod context;
 pub mod expansion;
@@ -40,7 +40,7 @@ pub use vocab::*;
 pub use document::*;
 pub use loader::*;
 
-pub use object::Object;
+pub use object::{Object, Node, Value};
 pub use context::{
 	Context,
 	ContextMut,
