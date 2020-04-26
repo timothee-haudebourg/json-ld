@@ -20,7 +20,6 @@ use json_ld::{
 	Lexicon,
 	ProcessingMode,
 	Document,
-	Context,
 	context::JsonContext,
 	Loader,
 	FsLoader
