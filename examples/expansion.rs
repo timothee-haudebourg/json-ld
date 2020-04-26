@@ -1,3 +1,5 @@
+//! This simple example shows how to expand a document using the `Document::expand` method.
+
 extern crate async_std;
 extern crate iref;
 extern crate json_ld;
