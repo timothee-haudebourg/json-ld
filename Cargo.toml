@@ -1,23 +1,34 @@
 [package]
 name = "json-ld"
-version = "0.0.0"
+version = "0.1.0-alpha"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2018"
+categories = ["web-programming", "database", "data-structures"]
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+description = "A JSON-LD implementation"
+repository = "https://github.com/timothee-haudebourg/json-ld"
+documentation = "https://docs.rs/json-ld"
+license = "MIT/Apache-2.0"
+readme = "README.md"
 
 [features]
 reqwest-loader = ["reqwest"]
 
 [dependencies]
-log = "*"
-mown = "= 0.2.0"
-json = "*"
-iref = "1.1.5"
+log = "0.4"
+mown = "0.2"
+json = "0.12"
+iref = "1.1"
 futures = "0.3"
 reqwest = { version = "0.10", optional = true }
 
 [dev-dependencies]
-async-std = { version = "*", features = ["attributes"] }
-static-iref = "*"
-iref-enum = "*"
-stderrlog = "*"
-tokio = "*"
+async-std = { version = "1.5", features = ["attributes"] }
+static-iref = "1.0"
+iref-enum = "1.0"
+stderrlog = "0.4"
+tokio = { version = "0.2", features = ["macros"] }
+
+[[example]]
+name = "reqwest-loader"
+required-features = ["reqwest-loader"]
