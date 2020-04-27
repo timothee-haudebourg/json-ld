@@ -1,5 +1,11 @@
 # A JSON-LD implementation for Rust
 
+<table><tr>
+	<td><a href="https://docs.rs/json-ld">Documentation</a></td>
+	<td><a href="https://crates.io/crates/json-ld">Crate informations</a></td>
+	<td><a href="https://github.com/timothee-haudebourg/json-ld">Repository</a></td>
+</tr></table>
+
 This crate is a Rust implementation of the
 [JSON-LD](https://www.w3.org/TR/json-ld/)
 data interchange format.
