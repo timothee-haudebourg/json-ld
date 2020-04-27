@@ -1,7 +1,7 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
 
 use std::collections::HashMap;
-use futures::future::{FutureExt, LocalBoxFuture};
+use futures::future::{FutureExt, BoxFuture};
 use iref::{Iri, IriBuf};
 use json::JsonValue;
 use crate::{
@@ -73,7 +73,7 @@ impl Loader {
 impl context::Loader for Loader {
 	type Output = JsonValue;
 
-	fn load_context<'a>(&'a mut self, url: Iri) -> LocalBoxFuture<'a, Result<RemoteContext<JsonValue>, Error>> {
+	fn load_context<'a>(&'a mut self, url: Iri) -> BoxFuture<'a, Result<RemoteContext<JsonValue>, Error>> {
 		let url = IriBuf::from(url);
 		async move {
 			match self.load(url.as_iri()).await {
@@ -93,7 +93,7 @@ impl context::Loader for Loader {
 					Err(ErrorCode::LoadingRemoteContextFailed.into())
 				}
 			}
-		}.boxed_local()
+		}.boxed()
 	}
 }
 
