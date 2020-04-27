@@ -9,6 +9,7 @@ use crate::{
 	util
 };
 
+/// Literal value.
 #[derive(Clone)]
 pub enum Literal {
 	/// The `null` value.
@@ -65,6 +66,9 @@ impl Literal {
 	}
 }
 
+/// Value object.
+///
+/// Either a typed literal value, or an internationalized language string.
 #[derive(PartialEq, Eq, Clone)]
 pub enum Value<T: Id = IriBuf> {
 	/// A typed value.

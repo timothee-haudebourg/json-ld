@@ -23,7 +23,10 @@ pub use value::{
 };
 pub use node::Node;
 
-/// Object descriptor.
+/// Object.
+///
+/// JSON-LD connects together multiple kinds of data objects.
+/// Objects may be nodes, values or lists of objects.
 #[derive(PartialEq, Eq, Hash)]
 pub enum Object<T: Id = IriBuf> {
 	/// Value object.
@@ -37,6 +40,7 @@ pub enum Object<T: Id = IriBuf> {
 }
 
 impl<T: Id> Object<T> {
+	/// Identifier of the object, if it is a node object.
 	pub fn id(&self) -> Option<&Lenient<Reference<T>>> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
@@ -44,6 +48,18 @@ impl<T: Id> Object<T> {
 		}
 	}
 
+	/// Identifier of the object as an IRI.
+	///
+	/// If the object is a node identified by an IRI, returns this IRI.
+	/// Returns `None` otherwise.
+	pub fn as_iri(&self) -> Option<Iri> {
+		match self {
+			Object::Node(node) => node.as_iri(),
+			_ => None
+		}
+	}
+
+	/// Tests if the object is a value.
 	pub fn is_value(&self) -> bool {
 		match self {
 			Object::Value(_) => true,
@@ -51,6 +67,7 @@ impl<T: Id> Object<T> {
 		}
 	}
 
+	/// Tests if the object is a node.
 	pub fn is_node(&self) -> bool {
 		match self {
 			Object::Node(_) => true,
@@ -58,6 +75,7 @@ impl<T: Id> Object<T> {
 		}
 	}
 
+	/// Tests if the object is a graph object (a node with a `@graph` field).
 	pub fn is_graph(&self) -> bool {
 		match self {
 			Object::Node(n) => n.is_graph(),
@@ -65,6 +83,7 @@ impl<T: Id> Object<T> {
 		}
 	}
 
+	/// Tests if the object is a list.
 	pub fn is_list(&self) -> bool {
 		match self {
 			Object::List(_) => true,
@@ -72,17 +91,15 @@ impl<T: Id> Object<T> {
 		}
 	}
 
+	/// Get the object as a string.
+	///
+	/// If the object is a value that is a string, returns this string.
+	/// If the object is a node that is identified, returns the identifier as a string.
+	/// Returns `None` otherwise.
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
 			Object::Value(value) => value.as_str(),
 			Object::Node(node) => node.as_str(),
-			_ => None
-		}
-	}
-
-	pub fn as_iri(&self) -> Option<Iri> {
-		match self {
-			Object::Node(node) => node.as_iri(),
 			_ => None
 		}
 	}
