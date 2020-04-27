@@ -21,7 +21,7 @@ use crate::{
 /// A node object.
 ///
 /// A node is defined by its identifier (`@id` field), types, properties and reverse properties.
-/// In addition, a node may represent a graph (`@graph field`) and includes objects
+/// In addition, a node may represent a graph (`@graph field`) and includes nodes
 /// (`@included` field).
 #[derive(PartialEq, Eq)]
 pub struct Node<T: Id = IriBuf> {
@@ -40,7 +40,7 @@ pub struct Node<T: Id = IriBuf> {
 	/// This is the `@graph` field.
 	pub(crate) graph: Option<HashSet<Indexed<Object<T>>>>,
 
-	/// Included objects.
+	/// Included nodes.
 	///
 	/// This is the `@included` field.
 	pub(crate) included: Option<HashSet<Indexed<Node<T>>>>,
@@ -168,36 +168,36 @@ impl<T: Id> Node<T> {
 	}
 
 	/// If the node is a graph object, get the graph.
-	pub fn graph(&self) -> Option<&HashSet<Indexed<Object>>> {
+	pub fn graph(&self) -> Option<&HashSet<Indexed<Object<T>>>> {
 		self.graph.as_ref()
 	}
 
 	/// If the node is a graph object, get the mutable graph.
-	pub fn graph_mut(&mut self) -> Option<&mut HashSet<Indexed<Object>>> {
+	pub fn graph_mut(&mut self) -> Option<&mut HashSet<Indexed<Object<T>>>> {
 		self.graph.as_mut()
 	}
 
 	/// Set the graph.
-	pub fn set_graph(&mut self, graph: Option<HashSet<Indexed<Object>>>) {
+	pub fn set_graph(&mut self, graph: Option<HashSet<Indexed<Object<T>>>>) {
 		self.graph = graph
 	}
 
-	/// Get the set of objects included by this node.
+	/// Get the set of nodes included by this node.
 	///
 	/// This correspond to the `@included` field in the JSON representation.
-	pub fn included(&self) -> Option<&HashSet<Indexed<Object>>> {
+	pub fn included(&self) -> Option<&HashSet<Indexed<Node<T>>>> {
 		self.included.as_ref()
 	}
 
-	/// Get the mutable set of objects included by this node.
+	/// Get the mutable set of nodes included by this node.
 	///
 	/// This correspond to the `@included` field in the JSON representation.
-	pub fn included_mut(&mut self) -> Option<&mut HashSet<Indexed<Object>>> {
+	pub fn included_mut(&mut self) -> Option<&mut HashSet<Indexed<Node<T>>>> {
 		self.included.as_mut()
 	}
 
-	/// Set the set of objects included by the node.
-	pub fn set_included(&mut self, included: Option<HashSet<Indexed<Object>>>) {
+	/// Set the set of nodes included by the node.
+	pub fn set_included(&mut self, included: Option<HashSet<Indexed<Node<T>>>>) {
 		self.included = included
 	}
 
