@@ -88,7 +88,7 @@ This crate provides multiple loader implementations:
     document expansion will not require external resources.
   - `FsLoader` to load remote resources from the file system through a
     mount point system.
-  - `ReqwestLoader` provided by the `reqwest-loader` feature that uses the
+  - `reqwest::Loader` provided by the `reqwest-loader` feature that uses the
     [`reqwest`](https://crates.io/crates/reqwest) crate to load remote documents.
 	Note that `reqwest` requires the
 	[`tokio`](https://crates.io/crates/tokio) runtime to work.
@@ -128,7 +128,7 @@ pub enum MyVocab {
 pub type Id = Lexicon<MyVocab>;
 
 fn handle_node(node: &json_ld::Node<Id>) {
-  for name in node.get(MyVocab::Name) { // <- NOTE: we can directly use `Vocab` here.
+  for name in node.get(MyVocab::Name) { // <- NOTE: we can directly use `MyVocab` here.
   	println!("node name: {}", name.as_str().unwrap());
   }
 }
