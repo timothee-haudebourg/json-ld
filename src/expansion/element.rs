@@ -34,7 +34,7 @@ use super::{
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<Expanded<T>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a C, active_property: Option<&'a str>, element: &'a JsonValue, base_url: Option<Iri<'a>>, loader: &'a mut L, options: Options, from_map: bool) -> BoxFuture<'a, Result<Expanded<T>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	async move {
 		// If `element` is null, return null.
 		if element.is_null() {
@@ -64,7 +64,7 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 		match element {
 			JsonValue::Null => unreachable!(),
 			JsonValue::Array(element) => {
-				expand_array(active_context, active_property, active_property_definition, element, base_url, loader, options).await
+				expand_array(active_context, active_property, active_property_definition, element, base_url, loader, options, from_map).await
 			},
 
 			JsonValue::Object(element) => {
@@ -103,7 +103,7 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 					// expanding to `@id` (where entries are IRI expanded), set active context to
 					// previous context from active context, as the scope of a term-scoped context
 					// does not apply when processing new Object objects.
-					if value_entry.is_none() && !(element.len() == 1 && id_entry.is_some()) {
+					if !from_map && value_entry.is_none() && !(element.len() == 1 && id_entry.is_some()) {
 						active_context = Mown::Owned(previous_context.clone())
 					}
 				}
@@ -242,7 +242,7 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 					// result is an array..
 					let mut result = Vec::new();
 					for item in as_array(list_entry) {
-						result.extend(expand_element(active_context.as_ref(), active_property, item, base_url, loader, options).await?)
+						result.extend(expand_element(active_context.as_ref(), active_property, item, base_url, loader, options, false).await?)
 					}
 
 					Ok(Expanded::Object(Object::List(result).into()))
@@ -263,7 +263,7 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 					// set expanded value to the result of using this algorithm recursively,
 					// passing active context, active property, value for element, base URL, and
 					// the frameExpansion and ordered flags.
-					expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, options).await
+					expand_element(active_context.as_ref(), active_property, set_entry, base_url, loader, options, false).await
 				} else if let Some(value_entry) = value_entry {
 					// Value objects.
 					if let Some(value) = expand_value(input_type, type_scoped_context, expanded_entries, value_entry)? {

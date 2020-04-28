@@ -154,7 +154,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 							// property, `value` for element, `base_url`, and the
 							// `frame_expansion` and `ordered` flags, ensuring that
 							// `expanded_value` is an array of one or more maps.
-							let expanded_value = expand_element(active_context, Some("@graph"), value, base_url, loader, options).await?;
+							let expanded_value = expand_element(active_context, Some("@graph"), value, base_url, loader, options, false).await?;
 							result.graph = Some(expanded_value.into_iter().filter(filter_top_level_item).collect());
 						},
 						// If expanded property is @included:
@@ -169,7 +169,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 							// recursively passing `active_context`, `active_property`,
 							// `value` for element, `base_url`, and the `frame_expansion`
 							// and `ordered` flags, ensuring that the result is an array.
-							let expanded_value = expand_element(active_context, Some("@included"), value, base_url, loader, options).await?;
+							let expanded_value = expand_element(active_context, Some("@included"), value, base_url, loader, options, false).await?;
 							let mut expanded_nodes = Vec::new();
 							for obj in expanded_value.into_iter() {
 								match obj.try_cast::<Node<T>>() {
@@ -224,7 +224,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 											return Err(ErrorCode::InvalidReversePropertyMap.into())
 										},
 										Lenient::Ok(Term::Ref(reverse_prop)) => {
-											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, options).await?;
+											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, options, false).await?;
 
 											let is_double_reversed = if let Some(reverse_key_definition) = active_context.get(reverse_key) {
 												reverse_key_definition.reverse_property
@@ -392,7 +392,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 						Expanded::Array(expanded_value)
 					} else if value.is_object() && container_mapping.contains(ContainerType::Index) || container_mapping.contains(ContainerType::Type) || container_mapping.contains(ContainerType::Id) {
 						// Otherwise, if container mapping includes @index, @type, or @id and value
-						// is a map then value is expanded from an map as follows:
+						// is a map then value is expanded from a map as follows:
 
 						// Initialize expanded value to an empty array.
 						let mut expanded_value: Vec<Indexed<Object<T>>> = Vec::new();
@@ -467,7 +467,8 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 							// active context, key as active property,
 							// index value as element, base URL, and the
 							// frameExpansion and ordered flags.
-							let index_value = expand_element(map_context.as_ref(), Some(key), index_value, base_url, loader, options).await?;
+							// And `true` for `from_map`.
+							let index_value = expand_element(map_context.as_ref(), Some(key), index_value, base_url, loader, options, true).await?;
 							// For each item in index value:
 							for mut item in index_value {
 								// If container mapping includes @graph,
@@ -508,16 +509,10 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 											_ => continue
 										};
 
-										// Initialize index property values to the
-										// concatenation of re-expanded index with any
-										// existing values of `expanded_index_key` in
-										// item.
-										let index_property_values = vec![re_expanded_index]; // FIXME TODO what to do with `expanded_index_key`?
-
 										// Add the key-value pair (expanded index
 										// key-index property values) to item.
 										if let Object::Node(ref mut node) = *item {
-											node.insert_all(expanded_index_key, index_property_values.into_iter());
+											node.insert(expanded_index_key, re_expanded_index);
 										} else {
 											// If item is a value object, it MUST NOT
 											// contain any extra properties; an invalid
@@ -569,7 +564,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 						// Otherwise, initialize expanded value to the result of using this
 						// algorithm recursively, passing active context, key for active property,
 						// value for element, base URL, and the frameExpansion and ordered flags.
-						expand_element(active_context, Some(key), value, base_url, loader, options).await?
+						expand_element(active_context, Some(key), value, base_url, loader, options, false).await?
 					};
 
 					// If container mapping includes @list and expanded value is

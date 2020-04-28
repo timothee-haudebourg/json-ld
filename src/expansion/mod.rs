@@ -80,7 +80,7 @@ pub fn expand<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 
 	async move {
 		let base_url = base_url.as_ref().map(|url| url.as_iri());
-		let expanded = expand_element(active_context, None, element, base_url, loader, options).await?;
+		let expanded = expand_element(active_context, None, element, base_url, loader, options, false).await?;
 		if expanded.len() == 1 {
 			match expanded.into_iter().next().unwrap().into_unnamed_graph() {
 				Ok(graph) => Ok(graph),
