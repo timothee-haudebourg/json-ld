@@ -1,4 +1,4 @@
-use iref::IriBuf;
+use iref::{Iri, IriBuf};
 use crate::{
 	Id,
 	Direction,
@@ -48,6 +48,12 @@ pub struct TermDefinition<T: Id, C: Context<T>> {
 
 	// Optional type mapping.
 	pub typ: Option<Type<T>>
+}
+
+impl<T: Id, C: Context<T>> TermDefinition<T, C> {
+	pub fn base_url(&self) -> Option<Iri> {
+		self.base_url.as_ref().map(|iri| iri.as_iri())
+	}
 }
 
 impl<T: Id, C: Context<T>> Default for TermDefinition<T, C> {

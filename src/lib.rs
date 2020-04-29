@@ -22,6 +22,7 @@ pub mod syntax;
 pub mod object;
 pub mod context;
 pub mod expansion;
+pub mod compaction;
 pub mod util;
 
 #[cfg(feature="reqwest-loader")]
