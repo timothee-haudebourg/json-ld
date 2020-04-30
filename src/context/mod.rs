@@ -102,7 +102,7 @@ pub trait Context<T: Id = IriBuf> : Clone {
 	fn vocabulary(&self) -> Option<&Term<T>>;
 
 	/// Optional default language.
-	fn default_language(&self) -> Option<&str>;
+	fn default_language(&self) -> Option<&String>;
 
 	/// Optional default base direction.
 	fn default_base_direction(&self) -> Option<Direction>;
@@ -203,11 +203,8 @@ impl<T: Id> Context<T> for JsonContext<T> {
 		}
 	}
 
-	fn default_language(&self) -> Option<&str> {
-		match &self.default_language {
-			Some(l) => Some(l.as_str()),
-			None => None
-		}
+	fn default_language(&self) -> Option<&String> {
+		self.default_language.as_ref()
 	}
 
 	fn default_base_direction(&self) -> Option<Direction> {
