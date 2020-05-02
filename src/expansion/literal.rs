@@ -75,7 +75,7 @@ pub fn expand_literal<T: Id, C: Context<T>>(active_context: &C, active_property:
 			// If `active_property` has a type mapping in active context, other than `@id`,
 			// `@vocab`, or `@none`, add `@type` to `result` and set its value to the value
 			// associated with the type mapping.
-			let mut tys = HashSet::new();
+			let mut ty = None;
 			match active_property_type {
 				None | Some(Type::Id) | Some(Type::Vocab) | Some(Type::None) => {
 					// Otherwise, if value is a string:
@@ -115,16 +115,16 @@ pub fn expand_literal<T: Id, C: Context<T>>(active_context: &C, active_property:
 					}
 				},
 
-				Some(typ) => {
-					if let Ok(typ) = typ.into_ref() {
-						tys.insert(typ);
+				Some(t) => {
+					if let Ok(t) = t.into_ref() {
+						ty = Some(t)
 					} else {
 						return Err(ErrorCode::InvalidTypeValue.into())
 					}
 				}
 			}
 
-			Ok(Object::Value(Value::Literal(result, tys)).into())
+			Ok(Object::Value(Value::Literal(result, ty)).into())
 		}
 	}
 }

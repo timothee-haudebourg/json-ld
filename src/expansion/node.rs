@@ -315,7 +315,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 					}
 
 					let mut expanded_value = if is_json {
-						Expanded::Object(Object::Value(Value::Literal(Literal::Json(value.clone()), HashSet::new())).into())
+						Expanded::Object(Object::Value(Value::Json(value.clone())).into())
 					} else if value.is_object() && container_mapping.contains(ContainerType::Language) {
 						// Otherwise, if container mapping includes @language and value is a map then
 						// value is expanded from a language map as follows:

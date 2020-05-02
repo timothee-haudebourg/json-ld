@@ -21,36 +21,9 @@ use crate::util::as_array;
 use super::{Entry, expand_iri};
 
 pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term<T>>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
-	// If input type is @json, set expanded value to value.
-	// If processing mode is json-ld-1.0, an invalid value object value error has
-	// been detected and processing is aborted.
-
-	// Otherwise, if value is not a scalar or null, an invalid value object value
-	// error has been detected and processing is aborted.
-	let mut result = if input_type == Some(Lenient::Ok(Term::Keyword(Keyword::Json))) {
-		Literal::Json(value_entry.clone())
-	} else {
-		match value_entry {
-			JsonValue::Null => {
-				Literal::Null
-			},
-			JsonValue::Short(_) | JsonValue::String(_) => {
-				Literal::String(value_entry.as_str().unwrap().to_string())
-			},
-			JsonValue::Number(n) => {
-				Literal::Number(*n)
-			},
-			JsonValue::Boolean(b) => {
-				Literal::Boolean(*b)
-			},
-			_ => {
-				return Err(ErrorCode::InvalidValueObjectValue.into());
-			}
-		}
-	};
-
+	let mut is_json = input_type == Some(Lenient::Ok(Term::Keyword(Keyword::Json)));
+	let mut ty = None;
 	let mut index = None;
-	let mut types = HashSet::new();
 	let mut language = None;
 	let mut direction = None;
 
@@ -103,31 +76,23 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 			},
 			// If expanded ...
 			Term::Keyword(Keyword::Type) => {
-				// If value is neither a string nor an array of strings, an
-				// invalid type value error has been detected and processing
-				// is aborted.
-				let value = as_array(value);
-				// Set `expanded_value` to the result of IRI expanding each
-				// of its values using `type_scoped_context` for active
-				// context, and true for document relative.
-				for ty in value {
-					if let Some(ty) = ty.as_str() {
-						let expanded_ty = expand_iri(type_scoped_context, ty, true, true);
+				if let Some(ty_value) = value.as_str() {
+					let expanded_ty = expand_iri(type_scoped_context, ty_value, true, true);
 
-						match expanded_ty {
-							Lenient::Ok(Term::Keyword(Keyword::Json)) => {
-								result = Literal::Json(value_entry.clone())
-							},
-							Lenient::Ok(Term::Ref(Reference::Id(ty))) => {
-								types.insert(ty);
-							},
-							_ => {
-								return Err(ErrorCode::InvalidTypedValue.into())
-							}
+					match expanded_ty {
+						Lenient::Ok(Term::Keyword(Keyword::Json)) => {
+							is_json = true;
+						},
+						Lenient::Ok(Term::Ref(Reference::Id(expanded_ty))) => {
+							is_json = false;
+							ty = Some(expanded_ty)
+						},
+						_ => {
+							return Err(ErrorCode::InvalidTypedValue.into())
 						}
-					} else {
-						return Err(ErrorCode::InvalidTypeValue.into())
 					}
+				} else {
+					return Err(ErrorCode::InvalidTypeValue.into())
 				}
 			},
 			Term::Keyword(Keyword::Value) => (),
@@ -136,6 +101,37 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 			}
 		}
 	}
+
+
+	// If input type is @json, set expanded value to value.
+	// If processing mode is json-ld-1.0, an invalid value object value error has
+	// been detected and processing is aborted.
+	if is_json {
+		if language.is_some() || direction.is_some() {
+			return Err(ErrorCode::InvalidValueObject.into());
+		}
+		return Ok(Some(Indexed::new(Object::Value(Value::Json(value_entry.clone())), index)))
+	}
+
+	// Otherwise, if value is not a scalar or null, an invalid value object value
+	// error has been detected and processing is aborted.
+	let mut result = match value_entry {
+		JsonValue::Null => {
+			Literal::Null
+		},
+		JsonValue::Short(_) | JsonValue::String(_) => {
+			Literal::String(value_entry.as_str().unwrap().to_string())
+		},
+		JsonValue::Number(n) => {
+			Literal::Number(*n)
+		},
+		JsonValue::Boolean(b) => {
+			Literal::Boolean(*b)
+		},
+		_ => {
+			return Err(ErrorCode::InvalidValueObjectValue.into());
+		}
+	};
 
 	// If the result's @type entry is @json, then the @value entry may contain any
 	// value, and is treated as a JSON literal.
@@ -158,7 +154,7 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 	// been detected (only strings can be language-tagged) and processing is
 	// aborted.
 	if language.is_some() || direction.is_some() {
-		if !types.is_empty() {
+		if ty.is_some() {
 			return Err(ErrorCode::InvalidValueObject.into())
 		}
 
@@ -176,5 +172,5 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 	// @list, set result to null.
 	// TODO
 
-	return Ok(Some(Indexed::new(Object::Value(Value::Literal(result, types)), index)));
+	return Ok(Some(Indexed::new(Object::Value(Value::Literal(result, ty)), index)));
 }
