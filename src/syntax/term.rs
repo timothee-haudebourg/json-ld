@@ -23,6 +23,13 @@ pub enum Term<T: Id> {
 }
 
 impl<T: Id> Term<T> {
+	pub fn is_null(&self) -> bool {
+		match self {
+			Term::Null => true,
+			_ => false
+		}
+	}
+
 	pub fn into_id(self) -> Result<T, Self> {
 		match self {
 			Term::Ref(Reference::Id(id)) => Ok(id),

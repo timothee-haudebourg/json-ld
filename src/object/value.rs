@@ -5,7 +5,11 @@ use json::JsonValue;
 use crate::{
 	Id,
 	LangString,
-	syntax::Keyword,
+	Direction,
+	syntax::{
+		Keyword,
+		Type
+	},
 	util
 };
 
@@ -83,6 +87,37 @@ impl<T: Id> Value<T> {
 			Value::Literal(lit, _) => lit.as_str(),
 			Value::LangString(str) => Some(str.as_str()),
 			Value::Json(_) => None
+		}
+	}
+
+	/// Return the type of the value if any.
+	///
+	/// This will return `Some(Type::Json)` for JSON literal values.
+	pub fn typ(&self) -> Option<Type<&T>> {
+		match self {
+			Value::Literal(_, Some(ty)) => Some(Type::Ref(ty)),
+			Value::Json(_) => Some(Type::Json),
+			_ => None
+		}
+	}
+
+	/// If the value is a language tagged string, return its associated language if any.
+	///
+	/// Returns `None` if the value is not a language tagged string.
+	pub fn language(&self) -> Option<&String> {
+		match self {
+			Value::LangString(str) => str.language(),
+			_ => None
+		}
+	}
+
+	/// If the value is a language tagged string, return its associated direction if any.
+	///
+	/// Returns `None` if the value is not a language tagged string.
+	pub fn direction(&self) -> Option<Direction> {
+		match self {
+			Value::LangString(str) => str.direction(),
+			_ => None
 		}
 	}
 }

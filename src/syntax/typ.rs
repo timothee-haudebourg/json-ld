@@ -29,6 +29,16 @@ impl<T> Type<T> {
 			typ => Err(typ)
 		}
 	}
+
+	pub fn map<U, F: FnOnce(&T) -> U>(&self, f: F) -> Type<U> {
+		match self {
+			Type::Id => Type::Id,
+			Type::Json => Type::Json,
+			Type::None => Type::None,
+			Type::Vocab => Type::Vocab,
+			Type::Ref(t) => Type::Ref(f(t))
+		}
+	}
 }
 
 impl<T: TermLike> Type<T> {

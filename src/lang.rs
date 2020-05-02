@@ -20,11 +20,8 @@ impl LangString {
 		self.data.as_str()
 	}
 
-	pub fn language(&self) -> Option<&str> {
-		match &self.language {
-			Some(lang) => Some(lang.as_str()),
-			None => None
-		}
+	pub fn language(&self) -> Option<&String> {
+		self.language.as_ref()
 	}
 
 	pub fn set_language(&mut self, language: Option<String>) {

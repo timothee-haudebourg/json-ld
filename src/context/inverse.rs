@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::{
 	Id,
 	Direction,
@@ -14,11 +14,11 @@ use super::{
 };
 
 #[derive(Clone)]
-pub enum TypeSelection<'a, T: Id> {
+pub enum TypeSelection<T: Id> {
 	Reverse,
 	Any,
 	None,
-	Type(&'a Type<T>)
+	Type(Type<T>)
 }
 
 struct InverseType<T: Id> {
@@ -34,7 +34,9 @@ impl<T: Id> InverseType<T> {
 			TypeSelection::Reverse => self.reverse.as_ref(),
 			TypeSelection::Any => self.any.as_ref(),
 			TypeSelection::None => self.none.as_ref(),
-			TypeSelection::Type(t) => self.map.get(t)
+			TypeSelection::Type(ty) => {
+				self.map.get(&ty)
+			}
 		}.map(|v| v.as_str())
 	}
 
@@ -135,7 +137,7 @@ impl<T: Id> InverseContainer<T> {
 	}
 }
 
-struct InverseDefinition<T: Id> {
+pub struct InverseDefinition<T: Id> {
 	map: HashMap<Container, InverseContainer<T>>
 }
 
@@ -167,7 +169,7 @@ pub struct InverseContext<T: Id> {
 }
 
 pub enum Selection<'a, T: Id> {
-	Type(&'a [TypeSelection<'a, T>]),
+	Type(&'a [TypeSelection<T>]),
 	Language(&'a [LanguageSelection<'a>])
 }
 
@@ -186,7 +188,7 @@ impl<T: Id> InverseContext<T> {
 		self.map.insert(term, value);
 	}
 
-	fn get(&self, term: &Term<T>) -> Option<&InverseDefinition<T>> {
+	pub fn get(&self, term: &Term<T>) -> Option<&InverseDefinition<T>> {
 		self.map.get(term)
 	}
 
@@ -201,7 +203,7 @@ impl<T: Id> InverseContext<T> {
 		self.map.get_mut(term).unwrap()
 	}
 
-	fn select(&self, var: &Term<T>, containers: &[Container], selection: Selection<T>) -> Option<&str> {
+	pub fn select(&self, var: &Term<T>, containers: &[Container], selection: Selection<T>) -> Option<&str> {
 		if let Some(container_map) = self.map.get(var) {
 			for container in containers {
 				if let Some(type_lang_map) = container_map.get(container) {
