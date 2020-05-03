@@ -13,18 +13,16 @@ use super::{
 	Context
 };
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum TypeSelection<T: Id> {
 	Reverse,
 	Any,
-	None,
 	Type(Type<T>)
 }
 
 struct InverseType<T: Id> {
 	reverse: Option<String>,
 	any: Option<String>,
-	none: Option<String>,
 	map: HashMap<Type<T>, String>
 }
 
@@ -33,7 +31,6 @@ impl<T: Id> InverseType<T> {
 		match selection {
 			TypeSelection::Reverse => self.reverse.as_ref(),
 			TypeSelection::Any => self.any.as_ref(),
-			TypeSelection::None => self.none.as_ref(),
 			TypeSelection::Type(ty) => {
 				self.map.get(&ty)
 			}
@@ -47,9 +44,7 @@ impl<T: Id> InverseType<T> {
 	}
 
 	fn set_none(&mut self, term: &str) {
-		if self.none.is_none() {
-			self.none = Some(term.to_string())
-		}
+		self.set(&Type::None, term)
 	}
 
 	fn set(&mut self, ty: &Type<T>, term: &str) {
@@ -63,23 +58,20 @@ type LangDir = (Option<String>, Option<Direction>);
 
 struct InverseLang {
 	any: Option<String>,
-	none: Option<String>,
 	map: HashMap<LangDir, String>
 }
 
-#[derive(Clone, Copy)]
-pub enum LanguageSelection<'a> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum LangSelection<'a> {
 	Any,
-	None,
-	Language(Option<&'a String>, Option<Direction>)
+	Lang(Option<&'a String>, Option<Direction>)
 }
 
 impl InverseLang {
-	fn select(&self, selection: LanguageSelection) -> Option<&str> {
+	fn select(&self, selection: LangSelection) -> Option<&str> {
 		match selection {
-			LanguageSelection::Any => self.any.as_ref(),
-			LanguageSelection::None => self.none.as_ref(),
-			LanguageSelection::Language(lang, dir) => {
+			LangSelection::Any => self.any.as_ref(),
+			LangSelection::Lang(lang, dir) => {
 				let lang_dir = (lang.map(|l| l.clone()), dir);
 				self.map.get(&lang_dir)
 			}
@@ -93,9 +85,7 @@ impl InverseLang {
 	}
 
 	fn set_none(&mut self, term: &str) {
-		if self.none.is_none() {
-			self.none = Some(term.to_string())
-		}
+		self.set(None, None, term)
 	}
 
 	fn set(&mut self, lang: Option<&String>, dir: Option<&Direction>, term: &str) {
@@ -121,13 +111,11 @@ impl<T: Id> InverseContainer<T> {
 		InverseContainer {
 			language: InverseLang {
 				any: None,
-				none: None,
 				map: HashMap::new()
 			},
 			typ: InverseType {
 				reverse: None,
 				any: None,
-				none: None,
 				map: HashMap::new()
 			},
 			any: Any {
@@ -169,8 +157,9 @@ pub struct InverseContext<T: Id> {
 }
 
 pub enum Selection<'a, T: Id> {
-	Type(&'a [TypeSelection<T>]),
-	Language(&'a [LanguageSelection<'a>])
+	Any,
+	Type(Vec<TypeSelection<T>>),
+	Lang(Vec<LangSelection<'a>>)
 }
 
 impl<T: Id> InverseContext<T> {
@@ -203,11 +192,14 @@ impl<T: Id> InverseContext<T> {
 		self.map.get_mut(term).unwrap()
 	}
 
-	pub fn select(&self, var: &Term<T>, containers: &[Container], selection: Selection<T>) -> Option<&str> {
+	pub fn select(&self, var: &Term<T>, containers: &[Container], selection: &Selection<T>) -> Option<&str> {
 		if let Some(container_map) = self.map.get(var) {
 			for container in containers {
 				if let Some(type_lang_map) = container_map.get(container) {
 					match selection {
+						Selection::Any => {
+							return Some(type_lang_map.any.none.as_str())
+						},
 						Selection::Type(preferred_values) => {
 							for item in preferred_values {
 								if let Some(term) = type_lang_map.typ.select(item.clone()) {
@@ -215,7 +207,7 @@ impl<T: Id> InverseContext<T> {
 								}
 							}
 						},
-						Selection::Language(preferred_values) => {
+						Selection::Lang(preferred_values) => {
 							for item in preferred_values {
 								if let Some(term) = type_lang_map.language.select(*item) {
 									return Some(term)

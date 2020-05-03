@@ -83,6 +83,24 @@ impl<T: Id> From<T> for Reference<T> {
 	}
 }
 
+impl<T: Id> PartialEq<Term<T>> for Reference<T> {
+	fn eq(&self, term: &Term<T>) -> bool {
+		match term {
+			Term::Ref(prop) => self == prop,
+			_ => false
+		}
+	}
+}
+
+impl<T: Id> PartialEq<Reference<T>> for Term<T> {
+	fn eq(&self, r: &Reference<T>) -> bool {
+		match self {
+			Term::Ref(prop) => prop == r,
+			_ => false
+		}
+	}
+}
+
 impl<T: Id> TryFrom<Term<T>> for Reference<T> {
 	type Error = Term<T>;
 

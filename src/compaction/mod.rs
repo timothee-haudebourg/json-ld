@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use futures::future::{BoxFuture, FutureExt};
 use mown::Mown;
 use json::JsonValue;
@@ -13,6 +14,7 @@ use crate::{
 	Reference,
 	Lenient,
 	Error,
+	ProcessingMode,
 	context::{
 		self,
 		Loader,
@@ -21,7 +23,8 @@ use crate::{
 		InverseContext,
 		inverse::{
 			TypeSelection,
-			LanguageSelection
+			LangSelection,
+			Selection
 		}
 	},
 	syntax::{
@@ -36,20 +39,24 @@ use crate::{
 
 #[derive(Clone, Copy)]
 pub struct Options {
+	processing_mode: ProcessingMode,
 	compact_to_relative: bool,
 	compact_arrays: bool,
 	ordered: bool
 }
 
 impl From<Options> for context::ProcessingOptions {
-	fn from(_options: Options) -> context::ProcessingOptions {
-		context::ProcessingOptions::default()
+	fn from(options: Options) -> context::ProcessingOptions {
+		let mut opt = context::ProcessingOptions::default();
+		opt.processing_mode = options.processing_mode;
+		opt
 	}
 }
 
 impl Default for Options {
 	fn default() -> Options {
 		Options {
+			processing_mode: ProcessingMode::default(),
 			compact_to_relative: false,
 			compact_arrays: false,
 			ordered: false
@@ -61,9 +68,14 @@ pub trait Compact<T: Id> {
 	fn compact_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, type_scoped_context: &'a C, inverse_context: &'a InverseContext<T>, active_property: Option<&'a Term<T>>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<JsonValue, Error>> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send;
 }
 
-fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &InverseContext<T>, var: &Term<T>, value: Option<&Indexed<Object<T>>>, vocab: bool, reverse: bool) -> JsonValue {
+enum TypeLangValue<'a, T: Id> {
+	Type(TypeSelection<T>),
+	Lang(LangSelection<'a>)
+}
+
+fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &InverseContext<T>, var: &Term<T>, value: Option<&Indexed<Object<T>>>, vocab: bool, reverse: bool, options: Options) -> Result<JsonValue, Error> {
 	if var.is_null() {
-		return JsonValue::Null
+		return Ok(JsonValue::Null)
 	}
 
 	if vocab {
@@ -74,9 +86,10 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 			// This array will be used to keep track of an ordered list of preferred container
 			// mapping for a term, based on what is compatible with value.
 			let mut containers = Vec::new();
-			let mut type_selection: Vec<TypeSelection<T>> = Vec::new();
-			let mut lang_selection: Vec<LanguageSelection> = Vec::new();
-			let mut select_by_type = false;
+			let mut type_lang_value = None;
+			// let mut type_selection: Vec<TypeSelection<T>> = Vec::new();
+			// let mut lang_selection: Vec<LangSelection> = Vec::new();
+			// let mut select_by_type = false;
 
 			if let Some(value) = value {
 				if value.index().is_some() && !value.is_graph() {
@@ -86,8 +99,7 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 			}
 
 			if reverse {
-				select_by_type = true;
-				type_selection.push(TypeSelection::Reverse);
+				type_lang_value = Some(TypeLangValue::Type(TypeSelection::Reverse));
 				containers.push(Container::Set);
 			} else {
 				let mut has_index = false;
@@ -164,12 +176,11 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 								let common_type = common_type.unwrap();
 
 								if let Some(common_type) = common_type {
-									select_by_type = true;
-									type_selection.push(TypeSelection::Type(common_type))
+									type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
 								} else if let Some(common_lang_dir) = common_lang_dir {
-									lang_selection.push(LanguageSelection::Language(common_lang_dir.0, common_lang_dir.1))
+									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir.0, common_lang_dir.1)))
 								} else {
-									lang_selection.push(LanguageSelection::None)
+									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(None, None)))
 								}
 							}
 						},
@@ -213,35 +224,32 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 							containers.push(Container::Index);
 							containers.push(Container::IndexSet);
 
-							select_by_type = true;
-							type_selection.push(TypeSelection::Type(Type::Id))
+							type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
 						},
 						Object::Value(v) => {
 							// If value is a value object:
 							if (v.direction().is_some() || v.language().is_some()) && value.index().is_none() {
-								lang_selection.push(LanguageSelection::Language(v.language(), v.direction()));
+								type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(v.language(), v.direction())));
 								containers.push(Container::Language);
-								containers.push(Container::LanguageSet);
+								containers.push(Container::LanguageSet)
 							} else if let Some(ty) = v.typ() {
-								select_by_type = true;
-								type_selection.push(TypeSelection::Type(ty.map(|ty| (*ty).clone())))
+								type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.map(|ty| (*ty).clone()))))
 							} else {
-								is_simple_value = v.direction().is_none() && v.language().is_none() && value.index().is_none();
+								is_simple_value = v.direction().is_none() && v.language().is_none() && value.index().is_none()
 							}
 
-							containers.push(Container::Set);
+							containers.push(Container::Set)
 						},
 						Object::Node(node) => {
 							// Otherwise, set type/language to @type and set type/language value
 							// to @id, and append @id, @id@set, @type, and @set@type, to containers.
-							select_by_type = true;
-							type_selection.push(TypeSelection::Type(Type::Id));
+							type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
 							containers.push(Container::Id);
 							containers.push(Container::IdSet);
 							containers.push(Container::Type);
 							containers.push(Container::SetType);
 
-							containers.push(Container::Set);
+							containers.push(Container::Set)
 						}
 					}
 				}
@@ -264,13 +272,132 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 				// 	type_selection.push(TypeSelection::Null)
 				// }
 				// if lang_selection.is_empty() {
-				// 	lang_selection.push(LanguageSelection::Null)
+				// 	lang_selection.push(LangSelection::Null)
 				// }
+				// TODO what?
+
+				let mut is_empty_list = false;
+				if let Some(value) = value {
+					if let Object::List(list) = value.inner() {
+						if list.is_empty() {
+							is_empty_list = true;
+						}
+					}
+				}
+
+				// If type/language value is @reverse, append @reverse to preferred values.
+				let selection = if is_empty_list {
+					Selection::Any
+				} else {
+					match type_lang_value {
+						Some(TypeLangValue::Type(mut type_value)) => {
+							let mut selection: Vec<TypeSelection<T>> = Vec::new();
+
+							if type_value == TypeSelection::Reverse {
+								selection.push(TypeSelection::Reverse);
+							}
+
+							let mut has_id_type = false;
+							if let Some(value) = value {
+								if let Some(id) = value.id() {
+									if type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse {
+										has_id_type = true;
+										let mut vocab = false;
+										if let Lenient::Ok(id) = id {
+											let term_id = Term::Ref(id.clone());
+											let compacted_iri = compact_iri(active_context, inverse_context, &term_id, None, false, false, options)?;
+											if let Some(def) = active_context.get(compacted_iri.as_str().unwrap()) {
+												if let Some(iri_mapping) = &def.value {
+													vocab = iri_mapping == id;
+												}
+											}
+										}
+
+										if vocab {
+											selection.push(TypeSelection::Type(Type::Vocab));
+											selection.push(TypeSelection::Type(Type::Id));
+											selection.push(TypeSelection::Type(Type::None));
+										} else {
+											selection.push(TypeSelection::Type(Type::Id));
+											selection.push(TypeSelection::Type(Type::Vocab));
+											selection.push(TypeSelection::Type(Type::None));
+										}
+									}
+								}
+							}
+
+							if !has_id_type {
+								selection.push(type_value);
+								selection.push(TypeSelection::Type(Type::None));
+							}
+
+							selection.push(TypeSelection::Any);
+
+							Selection::Type(selection)
+						},
+						Some(TypeLangValue::Lang(lang_value)) => {
+							let mut selection = Vec::new();
+
+							selection.push(lang_value);
+							selection.push(LangSelection::Lang(None, None));
+
+							selection.push(LangSelection::Any);
+
+							if let LangSelection::Lang(Some(_), Some(dir)) = lang_value {
+								selection.push(LangSelection::Lang(None, Some(dir)));
+							}
+
+							Selection::Lang(selection)
+						},
+						None => {
+							let mut selection = Vec::new();
+							selection.push(LangSelection::Lang(None, None));
+							selection.push(LangSelection::Any);
+							Selection::Lang(selection)
+						}
+					}
+				};
+
+				if let Some(term) = inverse_context.select(var, &containers, &selection) {
+					return Ok(term.into())
+				}
 			}
+		}
+
+		// At this point, there is no simple term that var can be compacted to.
+		// If vocab is true and active context has a vocabulary mapping:
+		if let Some(vocab_mapping) = active_context.vocabulary() {
+			// If var begins with the vocabulary mapping's value but is longer, then initialize
+			// suffix to the substring of var that does not match. If suffix does not have a term
+			// definition in active context, then return suffix.
+			// TODO
 		}
 	}
 
-	JsonValue::Null
+	// The var could not be compacted using the active context's vocabulary mapping.
+	// Try to create a compact IRI, starting by initializing compact IRI to null.
+	// This variable will be used to store the created compact IRI, if any.
+	// TODO
+
+	// For each term definition definition in active context:
+	// TODO
+
+	// If compact IRI is not null, return compact IRI.
+	// TODO
+
+	// To ensure that the IRI var is not confused with a compact IRI,
+	// if the IRI scheme of var matches any term in active context with prefix flag set to true,
+	// and var has no IRI authority (preceded by double-forward-slash (//),
+	// an IRI confused with prefix error has been detected, and processing is aborted.
+	// TODO
+
+	// If vocab is false,
+	// transform var to a relative IRI reference using the base IRI from active context,
+	// if it exists.
+	// TODO
+
+	// Finally, return var as is.
+	Ok(var.as_str().into())
 }
 
 impl<T: Sync + Send + Id> Compact<T> for Reference<T> {
