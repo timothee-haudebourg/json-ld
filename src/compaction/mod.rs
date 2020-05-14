@@ -370,20 +370,59 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 			// If var begins with the vocabulary mapping's value but is longer, then initialize
 			// suffix to the substring of var that does not match. If suffix does not have a term
 			// definition in active context, then return suffix.
-			// TODO
+			if let Some(suffix) = var.as_str().strip_prefix(vocab_mapping.as_str()) {
+				if !suffix.is_empty() {
+					if active_context.get(suffix).is_none() {
+						return Ok(suffix.into())
+					}
+				}
+			}
 		}
 	}
 
 	// The var could not be compacted using the active context's vocabulary mapping.
 	// Try to create a compact IRI, starting by initializing compact IRI to null.
 	// This variable will be used to store the created compact IRI, if any.
-	// TODO
+	let mut compact_iri = String::new();
 
 	// For each term definition definition in active context:
-	// TODO
+	for (key, definition) in active_context.definitions() {
+		// If the IRI mapping of definition is null, its IRI mapping equals var,
+		// its IRI mapping is not a substring at the beginning of var,
+		// or definition does not have a true prefix flag,
+		// definition's key cannot be used as a prefix.
+		// Continue with the next definition.
+		match definition.value.as_ref() {
+			Some(iri_mapping) if definition.prefix => {
+				if let Some(suffix) = var.as_str().strip_prefix(iri_mapping.as_str()) {
+					if !suffix.is_empty() {
+						// Initialize candidate by concatenating definition key,
+						// a colon (:),
+						// and the substring of var that follows after the value of the definition's IRI mapping.
+						let candidate = key.clone() + ":" + suffix;
+
+						// If either compact IRI is null,
+						// candidate is shorter or the same length but lexicographically less than
+						// compact IRI and candidate does not have a term definition in active
+						// context, or if that term definition has an IRI mapping that equals var
+						// and value is null, set compact IRI to candidate.
+						let candidate_def = active_context.get(&candidate);
+						if compact_iri.is_empty()
+						|| (candidate.len() <= compact_iri.len() && candidate < compact_iri && candidate_def.is_none())
+						|| (candidate_def.is_some() && candidate_def.map_or(None, |def| def.value.as_ref()).map_or(false, |v| v == var) && value.is_none()) {
+							compact_iri = candidate
+						}
+					}
+				}
+			},
+			_ => ()
+		}
+	}
 
 	// If compact IRI is not null, return compact IRI.
-	// TODO
+	if !compact_iri.is_empty() {
+		return Ok(compact_iri.into())
+	}
 
 	// To ensure that the IRI var is not confused with a compact IRI,
 	// if the IRI scheme of var matches any term in active context with prefix flag set to true,
@@ -394,7 +433,9 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 	// If vocab is false,
 	// transform var to a relative IRI reference using the base IRI from active context,
 	// if it exists.
-	// TODO
+	if !vocab {
+		panic!("what?")
+	}
 
 	// Finally, return var as is.
 	Ok(var.as_str().into())
