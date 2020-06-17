@@ -73,293 +73,296 @@ enum TypeLangValue<'a, T: Id> {
 	Lang(LangSelection<'a>)
 }
 
-fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &InverseContext<T>, var: &Term<T>, value: Option<&Indexed<Object<T>>>, vocab: bool, reverse: bool, options: Options) -> Result<JsonValue, Error> {
-	if var.is_null() {
+// default value for `value` is `None` and `false` for `vocab` and `reverse`.
+fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &InverseContext<T>, var: Lenient<Term<T>>, value: Option<&Indexed<Object<T>>>, vocab: bool, reverse: bool, options: Options) -> Result<JsonValue, Error> {
+	if var == Lenient::Ok(Term::Null) {
 		return Ok(JsonValue::Null)
 	}
 
 	if vocab {
-		if let Some(entry) = inverse_context.get(var) {
-			// let default_lang_dir = (active_context.default_language(), active_context.default_base_direction());
+		if let Lenient::Ok(var) = &var {
+			if let Some(entry) = inverse_context.get(var) {
+				// let default_lang_dir = (active_context.default_language(), active_context.default_base_direction());
 
-			// Initialize containers to an empty array.
-			// This array will be used to keep track of an ordered list of preferred container
-			// mapping for a term, based on what is compatible with value.
-			let mut containers = Vec::new();
-			let mut type_lang_value = None;
-			// let mut type_selection: Vec<TypeSelection<T>> = Vec::new();
-			// let mut lang_selection: Vec<LangSelection> = Vec::new();
-			// let mut select_by_type = false;
-
-			if let Some(value) = value {
-				if value.index().is_some() && !value.is_graph() {
-					containers.push(Container::Type);
-					containers.push(Container::IndexSet);
-				}
-			}
-
-			if reverse {
-				type_lang_value = Some(TypeLangValue::Type(TypeSelection::Reverse));
-				containers.push(Container::Set);
-			} else {
-				let mut has_index = false;
-				let mut is_simple_value = false; // value object with no type, no index, no language and no direction.
+				// Initialize containers to an empty array.
+				// This array will be used to keep track of an ordered list of preferred container
+				// mapping for a term, based on what is compatible with value.
+				let mut containers = Vec::new();
+				let mut type_lang_value = None;
+				// let mut type_selection: Vec<TypeSelection<T>> = Vec::new();
+				// let mut lang_selection: Vec<LangSelection> = Vec::new();
+				// let mut select_by_type = false;
 
 				if let Some(value) = value {
-					has_index = value.index().is_some();
+					if value.index().is_some() && !value.is_graph() {
+						containers.push(Container::Type);
+						containers.push(Container::IndexSet);
+					}
+				}
 
-					match value.inner() {
-						Object::List(list) => {
-							if value.index().is_none() {
-								containers.push(Container::List);
-							}
+				if reverse {
+					type_lang_value = Some(TypeLangValue::Type(TypeSelection::Reverse));
+					containers.push(Container::Set);
+				} else {
+					let mut has_index = false;
+					let mut is_simple_value = false; // value object with no type, no index, no language and no direction.
 
-							let mut common_type = None;
-							let mut common_lang_dir = None;
+					if let Some(value) = value {
+						has_index = value.index().is_some();
 
-							if list.is_empty() {
-								common_lang_dir = Some(Some((active_context.default_language(), active_context.default_base_direction())))
-							} else {
-								for item in list {
-									let mut item_type = None;
-									let mut item_lang_dir = None;
-									let mut is_value = false;
+						match value.inner() {
+							Object::List(list) => {
+								if value.index().is_none() {
+									containers.push(Container::List);
+								}
 
-									match item.inner() {
-										Object::Value(value) => {
-											is_value = true;
-											match value {
-												Value::LangString(lang_str) => {
-													item_lang_dir = Some((lang_str.language(), lang_str.direction()))
-												},
-												Value::Literal(_, Some(ty)) => {
-													item_type = Some(Type::Ref(ty.clone()))
-												},
-												Value::Literal(_, None) => {
-													item_type = None
-												},
-												Value::Json(_) => {
-													item_type = Some(Type::Json)
+								let mut common_type = None;
+								let mut common_lang_dir = None;
+
+								if list.is_empty() {
+									common_lang_dir = Some(Some((active_context.default_language(), active_context.default_base_direction())))
+								} else {
+									for item in list {
+										let mut item_type = None;
+										let mut item_lang_dir = None;
+										let mut is_value = false;
+
+										match item.inner() {
+											Object::Value(value) => {
+												is_value = true;
+												match value {
+													Value::LangString(lang_str) => {
+														item_lang_dir = Some((lang_str.language(), lang_str.direction()))
+													},
+													Value::Literal(_, Some(ty)) => {
+														item_type = Some(Type::Ref(ty.clone()))
+													},
+													Value::Literal(_, None) => {
+														item_type = None
+													},
+													Value::Json(_) => {
+														item_type = Some(Type::Json)
+													}
 												}
+											},
+											_ => {
+												item_type = Some(Type::Id)
 											}
-										},
-										_ => {
-											item_type = Some(Type::Id)
+										}
+
+										if common_lang_dir.is_none() {
+											common_lang_dir = Some(item_lang_dir)
+										} else if is_value && *common_lang_dir.as_ref().unwrap() != item_lang_dir {
+											common_lang_dir = Some(None)
+										}
+
+										if common_type.is_none() {
+											common_type = Some(item_type)
+										} else if *common_type.as_ref().unwrap() != item_type {
+											common_type = Some(None)
+										}
+
+										if common_lang_dir == Some(None) && common_type == Some(None) {
+											break
 										}
 									}
 
 									if common_lang_dir.is_none() {
-										common_lang_dir = Some(item_lang_dir)
-									} else if is_value && *common_lang_dir.as_ref().unwrap() != item_lang_dir {
 										common_lang_dir = Some(None)
 									}
+									let common_lang_dir = common_lang_dir.unwrap();
 
 									if common_type.is_none() {
-										common_type = Some(item_type)
-									} else if *common_type.as_ref().unwrap() != item_type {
 										common_type = Some(None)
 									}
+									let common_type = common_type.unwrap();
 
-									if common_lang_dir == Some(None) && common_type == Some(None) {
-										break
+									if let Some(common_type) = common_type {
+										type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
+									} else if let Some(common_lang_dir) = common_lang_dir {
+										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir.0, common_lang_dir.1)))
+									} else {
+										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(None, None)))
 									}
 								}
-
-								if common_lang_dir.is_none() {
-									common_lang_dir = Some(None)
+							},
+							Object::Node(node) if node.is_graph() => {
+								// Otherwise, if value is a graph object, prefer a mapping most
+								// appropriate for the particular value.
+								if value.index().is_some() {
+									// If value contains an @index entry, append the values
+									// @graph@index and @graph@index@set to containers.
+									containers.push(Container::GraphIndex);
+									containers.push(Container::GraphIndexSet);
 								}
-								let common_lang_dir = common_lang_dir.unwrap();
 
-								if common_type.is_none() {
-									common_type = Some(None)
+								if node.id().is_some() {
+									// If value contains an @id entry, append the values @graph@id and
+									// @graph@id@set to containers.
+									containers.push(Container::GraphId);
+									containers.push(Container::GraphIdSet);
 								}
-								let common_type = common_type.unwrap();
 
-								if let Some(common_type) = common_type {
-									type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
-								} else if let Some(common_lang_dir) = common_lang_dir {
-									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir.0, common_lang_dir.1)))
+								// Append the values @graph, @graph@set, and @set to containers.
+								containers.push(Container::Graph);
+								containers.push(Container::GraphSet);
+								containers.push(Container::Set);
+
+								if value.index().is_none() {
+									// If value does not contain an @index entry, append the values
+									// @graph@index and @graph@index@set to containers.
+									containers.push(Container::GraphIndex);
+									containers.push(Container::GraphIndexSet);
+								}
+
+								if node.id().is_none() {
+									// If the value does not contain an @id entry, append the values
+									// @graph@id and @graph@id@set to containers.
+									containers.push(Container::GraphId);
+									containers.push(Container::GraphIdSet);
+								}
+
+								// Append the values @index and @index@set to containers.
+								containers.push(Container::Index);
+								containers.push(Container::IndexSet);
+
+								type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
+							},
+							Object::Value(v) => {
+								// If value is a value object:
+								if (v.direction().is_some() || v.language().is_some()) && value.index().is_none() {
+									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(v.language(), v.direction())));
+									containers.push(Container::Language);
+									containers.push(Container::LanguageSet)
+								} else if let Some(ty) = v.typ() {
+									type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.map(|ty| (*ty).clone()))))
 								} else {
-									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(None, None)))
+									is_simple_value = v.direction().is_none() && v.language().is_none() && value.index().is_none()
 								}
+
+								containers.push(Container::Set)
+							},
+							Object::Node(node) => {
+								// Otherwise, set type/language to @type and set type/language value
+								// to @id, and append @id, @id@set, @type, and @set@type, to containers.
+								type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
+								containers.push(Container::Id);
+								containers.push(Container::IdSet);
+								containers.push(Container::Type);
+								containers.push(Container::SetType);
+
+								containers.push(Container::Set)
 							}
-						},
-						Object::Node(node) if node.is_graph() => {
-							// Otherwise, if value is a graph object, prefer a mapping most
-							// appropriate for the particular value.
-							if value.index().is_some() {
-								// If value contains an @index entry, append the values
-								// @graph@index and @graph@index@set to containers.
-								containers.push(Container::GraphIndex);
-								containers.push(Container::GraphIndexSet);
-							}
-
-							if node.id().is_some() {
-								// If value contains an @id entry, append the values @graph@id and
-								// @graph@id@set to containers.
-								containers.push(Container::GraphId);
-								containers.push(Container::GraphIdSet);
-							}
-
-							// Append the values @graph, @graph@set, and @set to containers.
-							containers.push(Container::Graph);
-							containers.push(Container::GraphSet);
-							containers.push(Container::Set);
-
-							if value.index().is_none() {
-								// If value does not contain an @index entry, append the values
-								// @graph@index and @graph@index@set to containers.
-								containers.push(Container::GraphIndex);
-								containers.push(Container::GraphIndexSet);
-							}
-
-							if node.id().is_none() {
-								// If the value does not contain an @id entry, append the values
-								// @graph@id and @graph@id@set to containers.
-								containers.push(Container::GraphId);
-								containers.push(Container::GraphIdSet);
-							}
-
-							// Append the values @index and @index@set to containers.
-							containers.push(Container::Index);
-							containers.push(Container::IndexSet);
-
-							type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
-						},
-						Object::Value(v) => {
-							// If value is a value object:
-							if (v.direction().is_some() || v.language().is_some()) && value.index().is_none() {
-								type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(v.language(), v.direction())));
-								containers.push(Container::Language);
-								containers.push(Container::LanguageSet)
-							} else if let Some(ty) = v.typ() {
-								type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.map(|ty| (*ty).clone()))))
-							} else {
-								is_simple_value = v.direction().is_none() && v.language().is_none() && value.index().is_none()
-							}
-
-							containers.push(Container::Set)
-						},
-						Object::Node(node) => {
-							// Otherwise, set type/language to @type and set type/language value
-							// to @id, and append @id, @id@set, @type, and @set@type, to containers.
-							type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
-							containers.push(Container::Id);
-							containers.push(Container::IdSet);
-							containers.push(Container::Type);
-							containers.push(Container::SetType);
-
-							containers.push(Container::Set)
 						}
 					}
-				}
 
-				containers.push(Container::None);
+					containers.push(Container::None);
 
-				if options.processing_mode != ProcessingMode::JsonLd1_0 && !has_index {
-					containers.push(Container::Index);
-					containers.push(Container::IndexSet)
-				}
+					if options.processing_mode != ProcessingMode::JsonLd1_0 && !has_index {
+						containers.push(Container::Index);
+						containers.push(Container::IndexSet)
+					}
 
-				if options.processing_mode != ProcessingMode::JsonLd1_0 && is_simple_value {
-					containers.push(Container::Language);
-					containers.push(Container::LanguageSet)
-				}
+					if options.processing_mode != ProcessingMode::JsonLd1_0 && is_simple_value {
+						containers.push(Container::Language);
+						containers.push(Container::LanguageSet)
+					}
 
-				// If type/language value is null, set type/language value to @null. This is the
-				// key under which null values are stored in the inverse context entry.
-				// if type_selection.is_empty() {
-				// 	type_selection.push(TypeSelection::Null)
-				// }
-				// if lang_selection.is_empty() {
-				// 	lang_selection.push(LangSelection::Null)
-				// }
-				// TODO what?
+					// If type/language value is null, set type/language value to @null. This is the
+					// key under which null values are stored in the inverse context entry.
+					// if type_selection.is_empty() {
+					// 	type_selection.push(TypeSelection::Null)
+					// }
+					// if lang_selection.is_empty() {
+					// 	lang_selection.push(LangSelection::Null)
+					// }
+					// TODO what?
 
-				let mut is_empty_list = false;
-				if let Some(value) = value {
-					if let Object::List(list) = value.inner() {
-						if list.is_empty() {
-							is_empty_list = true;
+					let mut is_empty_list = false;
+					if let Some(value) = value {
+						if let Object::List(list) = value.inner() {
+							if list.is_empty() {
+								is_empty_list = true;
+							}
 						}
 					}
-				}
 
-				// If type/language value is @reverse, append @reverse to preferred values.
-				let selection = if is_empty_list {
-					Selection::Any
-				} else {
-					match type_lang_value {
-						Some(TypeLangValue::Type(mut type_value)) => {
-							let mut selection: Vec<TypeSelection<T>> = Vec::new();
+					// If type/language value is @reverse, append @reverse to preferred values.
+					let selection = if is_empty_list {
+						Selection::Any
+					} else {
+						match type_lang_value {
+							Some(TypeLangValue::Type(mut type_value)) => {
+								let mut selection: Vec<TypeSelection<T>> = Vec::new();
 
-							if type_value == TypeSelection::Reverse {
-								selection.push(TypeSelection::Reverse);
-							}
+								if type_value == TypeSelection::Reverse {
+									selection.push(TypeSelection::Reverse);
+								}
 
-							let mut has_id_type = false;
-							if let Some(value) = value {
-								if let Some(id) = value.id() {
-									if type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse {
-										has_id_type = true;
-										let mut vocab = false;
-										if let Lenient::Ok(id) = id {
-											let term_id = Term::Ref(id.clone());
-											let compacted_iri = compact_iri(active_context, inverse_context, &term_id, None, false, false, options)?;
-											if let Some(def) = active_context.get(compacted_iri.as_str().unwrap()) {
-												if let Some(iri_mapping) = &def.value {
-													vocab = iri_mapping == id;
+								let mut has_id_type = false;
+								if let Some(value) = value {
+									if let Some(id) = value.id() {
+										if type_value == TypeSelection::Type(Type::Id) || type_value == TypeSelection::Reverse {
+											has_id_type = true;
+											let mut vocab = false;
+											if let Lenient::Ok(id) = id {
+												let term_id = Lenient::Ok(Term::Ref(id.clone()));
+												let compacted_iri = compact_iri(active_context, inverse_context, term_id, None, false, false, options)?;
+												if let Some(def) = active_context.get(compacted_iri.as_str().unwrap()) {
+													if let Some(iri_mapping) = &def.value {
+														vocab = iri_mapping == id;
+													}
 												}
 											}
-										}
 
-										if vocab {
-											selection.push(TypeSelection::Type(Type::Vocab));
-											selection.push(TypeSelection::Type(Type::Id));
-											selection.push(TypeSelection::Type(Type::None));
-										} else {
-											selection.push(TypeSelection::Type(Type::Id));
-											selection.push(TypeSelection::Type(Type::Vocab));
-											selection.push(TypeSelection::Type(Type::None));
+											if vocab {
+												selection.push(TypeSelection::Type(Type::Vocab));
+												selection.push(TypeSelection::Type(Type::Id));
+												selection.push(TypeSelection::Type(Type::None));
+											} else {
+												selection.push(TypeSelection::Type(Type::Id));
+												selection.push(TypeSelection::Type(Type::Vocab));
+												selection.push(TypeSelection::Type(Type::None));
+											}
 										}
 									}
 								}
+
+								if !has_id_type {
+									selection.push(type_value);
+									selection.push(TypeSelection::Type(Type::None));
+								}
+
+								selection.push(TypeSelection::Any);
+
+								Selection::Type(selection)
+							},
+							Some(TypeLangValue::Lang(lang_value)) => {
+								let mut selection = Vec::new();
+
+								selection.push(lang_value);
+								selection.push(LangSelection::Lang(None, None));
+
+								selection.push(LangSelection::Any);
+
+								if let LangSelection::Lang(Some(_), Some(dir)) = lang_value {
+									selection.push(LangSelection::Lang(None, Some(dir)));
+								}
+
+								Selection::Lang(selection)
+							},
+							None => {
+								let mut selection = Vec::new();
+								selection.push(LangSelection::Lang(None, None));
+								selection.push(LangSelection::Any);
+								Selection::Lang(selection)
 							}
-
-							if !has_id_type {
-								selection.push(type_value);
-								selection.push(TypeSelection::Type(Type::None));
-							}
-
-							selection.push(TypeSelection::Any);
-
-							Selection::Type(selection)
-						},
-						Some(TypeLangValue::Lang(lang_value)) => {
-							let mut selection = Vec::new();
-
-							selection.push(lang_value);
-							selection.push(LangSelection::Lang(None, None));
-
-							selection.push(LangSelection::Any);
-
-							if let LangSelection::Lang(Some(_), Some(dir)) = lang_value {
-								selection.push(LangSelection::Lang(None, Some(dir)));
-							}
-
-							Selection::Lang(selection)
-						},
-						None => {
-							let mut selection = Vec::new();
-							selection.push(LangSelection::Lang(None, None));
-							selection.push(LangSelection::Any);
-							Selection::Lang(selection)
 						}
-					}
-				};
+					};
 
-				if let Some(term) = inverse_context.select(var, &containers, &selection) {
-					return Ok(term.into())
+					if let Some(term) = inverse_context.select(var, &containers, &selection) {
+						return Ok(term.into())
+					}
 				}
 			}
 		}
@@ -409,7 +412,7 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 						let candidate_def = active_context.get(&candidate);
 						if compact_iri.is_empty()
 						|| (candidate.len() <= compact_iri.len() && candidate < compact_iri && candidate_def.is_none())
-						|| (candidate_def.is_some() && candidate_def.map_or(None, |def| def.value.as_ref()).map_or(false, |v| v == var) && value.is_none()) {
+						|| (candidate_def.is_some() && candidate_def.map_or(None, |def| def.value.as_ref()).map_or(false, |v| v.as_str() == var.as_str()) && value.is_none()) {
 							compact_iri = candidate
 						}
 					}
@@ -587,11 +590,39 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 
 			// If expanded property is @id:
 			if let Some(id) = &self.id {
-				// TODO
+				// If expanded value is a string, then initialize compacted value by IRI
+				// compacting expanded value with vocab set to false.
+				let compacted_value = compact_iri(active_context.as_ref(), inverse_context.as_ref(), id.clone().map(|r| Term::Ref(r.clone())), None, false, false, options)?;
+
+				// Initialize alias by IRI compacting expanded property.
+				let alias = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Lenient::Ok(Term::Keyword(Keyword::Id)), None, false, false, options)?;
+
+				// Add an entry alias to result whose value is set to compacted value and continue
+				// to the next expanded property.
+				if let Some(key) = alias.as_str() {
+					result.insert(key, compacted_value);
+				}
 			}
 
 			// If expanded property is @type:
 			if !self.types.is_empty() {
+				// If expanded value is a string,
+				// then initialize compacted value by IRI compacting expanded value using
+				// type-scoped context for active context.
+				// TODO
+
+				// Otherwise, expanded value must be a @type array:
+				// TODO
+
+				// Initialize alias by IRI compacting expanded property.
+				// TODO
+
+				// Initialize as array to true if processing mode is json-ld-1.1 and the
+				// container mapping for alias in the active context includes @set,
+				// otherwise to the negation of compactArrays.
+				// TODO
+
+				// Use add value to add compacted value to the alias entry in result using as array.
 				// TODO
 			}
 
