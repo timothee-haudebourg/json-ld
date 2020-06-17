@@ -1,4 +1,3 @@
-#![feature(str_strip)]
 #![feature(arbitrary_self_types)]
 
 #[macro_use]
