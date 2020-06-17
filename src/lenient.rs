@@ -18,6 +18,13 @@ pub enum Lenient<T> {
 }
 
 impl<T> Lenient<T> {
+	pub fn map<U, F: FnOnce(T) -> U>(self, f: F) -> Lenient<U> {
+		match self {
+			Lenient::Ok(t) => Lenient::Ok(f(t)),
+			Lenient::Unknown(t) => Lenient::Unknown(t)
+		}
+	}
+
 	pub fn cast<U>(self) -> Lenient<U> where U: From<T> {
 		match self {
 			Lenient::Ok(t) => Lenient::Ok(t.into()),
