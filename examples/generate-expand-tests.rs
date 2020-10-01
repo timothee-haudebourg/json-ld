@@ -111,7 +111,7 @@ fn generate_test(entry: &Node<Id>) {
 			for spec_version in option.get(Vocab::SpecVersion) {
 				if let Some(spec_version) = spec_version.as_str() {
 					if spec_version != "json-ld-1.1" {
-						info!("skipping {} test {}", spec_version, url);
+						info!("skipping {} test {} (unsupported json-ld version 1.1)", spec_version, url);
 						return
 					}
 				}
