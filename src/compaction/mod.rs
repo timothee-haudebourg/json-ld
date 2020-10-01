@@ -39,10 +39,10 @@ use crate::{
 
 #[derive(Clone, Copy)]
 pub struct Options {
-	processing_mode: ProcessingMode,
-	compact_to_relative: bool,
-	compact_arrays: bool,
-	ordered: bool
+	pub processing_mode: ProcessingMode,
+	pub compact_to_relative: bool,
+	pub compact_arrays: bool,
+	pub ordered: bool
 }
 
 impl From<Options> for context::ProcessingOptions {
@@ -50,6 +50,16 @@ impl From<Options> for context::ProcessingOptions {
 		let mut opt = context::ProcessingOptions::default();
 		opt.processing_mode = options.processing_mode;
 		opt
+	}
+}
+
+impl From<crate::expansion::Options> for Options {
+	fn from(options: crate::expansion::Options) -> Options {
+		Options {
+			processing_mode: options.processing_mode,
+			ordered: options.ordered,
+			..Options::default()
+		}
 	}
 }
 

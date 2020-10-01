@@ -19,7 +19,8 @@ use crate::{
 		self,
 		Loader
 	},
-	expansion
+	expansion,
+	compaction
 };
 
 /// Result of the document expansion algorithm.
@@ -92,6 +93,29 @@ pub trait Document<T: Id> {
 		T: 'a + Send + Sync
 	{
 		self.expand_with(self.base_url(), context, loader, expansion::Options::default())
+	}
+
+	fn compact_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri<'a>>, context: &'a C, loader: &'a mut L, options: compaction::Options) -> BoxFuture<'a, Result<JsonValue, Error>> where
+		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
+		L::Output: Into<Self::LocalContext>,
+		T: 'a + Send + Sync,
+		Self: Sync
+	{
+		use compaction::Compact;
+		async move {
+			let result = self.expand_with(base_url, context, loader, options.into()).await?;
+			let inverse_context = context::InverseContext::new();
+			result.compact_with(context, context, &inverse_context, None, loader, options.into()).await
+		}.boxed()
+	}
+
+	fn compact<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, context: &'a C, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where
+		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
+		L::Output: Into<Self::LocalContext>,
+		T: 'a + Send + Sync,
+		Self: Sync
+	{
+		self.compact_with(self.base_url(), context, loader, compaction::Options::default())
 	}
 }
 

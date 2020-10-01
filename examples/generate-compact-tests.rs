@@ -1,4 +1,4 @@
-//! This bit of code is used to generate the expansion tests for the crate. It it also a good
+//! This bit of code is used to generate the compaction tests for the crate. It it also a good
 //! example of what the crate is capable of.
 
 #![feature(proc_macro_hygiene)]
@@ -85,7 +85,7 @@ async fn main() {
 }
 
 fn func_name(id: &str) -> String {
-	let mut name = "expand_".to_string();
+	let mut name = "compact_".to_string();
 
 	for c in id.chars() {
 		match c {

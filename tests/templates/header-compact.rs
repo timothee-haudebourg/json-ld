@@ -17,7 +17,7 @@ use json_ld::{{
 		Local,
 		Loader as ContextLoader
 	}},
-	expansion,
+	compaction,
 	util::{{
 		AsJson,
 		json_ld_eq
@@ -31,11 +31,12 @@ struct Options<'a> {{
 	context: Option<Iri<'a>>
 }}
 
-impl<'a> From<Options<'a>> for expansion::Options {{
-	fn from(options: Options<'a>) -> expansion::Options {{
-		expansion::Options {{
+impl<'a> From<Options<'a>> for compaction::Options {{
+	fn from(options: Options<'a>) -> compaction::Options {{
+		compaction::Options {{
 			processing_mode: options.processing_mode,
-			ordered: false
+			ordered: false,
+			..compaction::Options::default()
 		}}
 	}}
 }}
@@ -53,7 +54,15 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 		input_context = task::block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap();
 	}}
 
-	panic!("TODO positive compact test")
+	let result = task::block_on(input.compact_with(Some(base_url), &input_context, &mut loader, options.into())).unwrap();
+	let success = json_ld_eq(&result, &output);
+
+	if !success {{
+		println!("output=\n{{}}", result.pretty(2));
+		println!("\nexpected=\n{{}}", output.pretty(2));
+	}}
+
+	assert!(success)
 }}
 
 fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {{
@@ -68,5 +77,13 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 		input_context = task::block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap();
 	}}
 
-	panic!("TODO negative compact test")
+	match task::block_on(input.compact_with(Some(base_url), &input_context, &mut loader, options.into())) {{
+		Ok(result) => {{
+			println!("output=\n{{}}", result.as_json().pretty(2));
+			panic!("compaction succeeded where it should have failed with code: {{}}", error_code)
+		}},
+		Err(e) => {{
+			assert_eq!(e.code(), error_code)
+		}}
+	}}
 }}

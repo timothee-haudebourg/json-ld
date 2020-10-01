@@ -23,8 +23,6 @@ async fn main() {
 	"#).unwrap();
 
 	// Expansion.
-	let expanded_doc = doc.expand(&context, &mut NoLoader).await.unwrap();
-
-	let compact_doc = expanded_doc.compact(&context, &mut NoLoader).await.unwrap();
+	let compact_doc = doc.compact(&context, &mut NoLoader).await.unwrap();
 	println!("{}", compact_doc);
 }

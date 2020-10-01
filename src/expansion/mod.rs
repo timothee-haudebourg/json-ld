@@ -52,6 +52,15 @@ impl From<Options> for ProcessingOptions {
 	}
 }
 
+impl From<crate::compaction::Options> for Options {
+	fn from(options: crate::compaction::Options) -> Options {
+		Options {
+			processing_mode: options.processing_mode,
+			ordered: options.ordered
+		}
+	}
+}
+
 #[derive(PartialEq, Eq)]
 pub struct Entry<'a, T>(T, &'a JsonValue);
 
