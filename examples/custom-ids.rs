@@ -45,8 +45,8 @@ impl<'a> TryFrom<Iri<'a>> for Foaf {
 	}
 }
 
-impl<'a> From<&'a Foaf> for Iri<'a> {
-	fn from(term: &'a Foaf) -> Iri<'a> {
+impl<'a> From<&'a Foaf> for Iri<'static> {
+	fn from(term: &'a Foaf) -> Iri<'static> {
 		match term {
 			Foaf::Name => iri!("http://xmlns.com/foaf/0.1/name"),
 			Foaf::Mbox => iri!("http://xmlns.com/foaf/0.1/mbox")
