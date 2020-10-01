@@ -444,7 +444,9 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 	// transform var to a relative IRI reference using the base IRI from active context,
 	// if it exists.
 	if !vocab {
-		panic!("what?")
+		if let Some(base_iri) = active_context.base_iri() {
+			panic!("TODO into relative iri")
+		}
 	}
 
 	// Finally, return var as is.

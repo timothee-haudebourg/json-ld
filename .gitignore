@@ -1,5 +1,5 @@
 target
 **/*.rs.bk
 Cargo.lock
-tests/expand
 tests/expand.rs
+tests/compact.rs

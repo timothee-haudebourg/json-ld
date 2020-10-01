@@ -26,7 +26,7 @@ use json_ld::{
 	FsLoader
 };
 
-const URL: Iri = iri!("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld");
+const URL: Iri = iri!("https://w3c.github.io/json-ld-api/tests/compact-manifest.jsonld");
 const VERBOSITY: usize = 2;
 
 /// Vocabulary of the test manifest
@@ -47,7 +47,7 @@ pub enum Vocab {
 	#[iri("vocab:option")] Option,
 	#[iri("vocab:specVersion")] SpecVersion,
 	#[iri("vocab:processingMode")] ProcessingMode,
-	#[iri("vocab:expandContext")] ExpandContext,
+	#[iri("vocab:context")] Context,
 	#[iri("vocab:base")] Base
 }
 
@@ -65,7 +65,7 @@ async fn main() {
 	let context: JsonContext<Id> = JsonContext::new(Some(URL));
 	let expanded_doc = doc.expand(&context, &mut loader).await.expect("expansion failed");
 
-	println!(include_str!("../tests/templates/header-expand.rs"));
+	println!(include_str!("../tests/templates/header-compact.rs"));
 
 	for item in &expanded_doc {
 		if let Object::Node(item) = item.as_ref() {
@@ -106,6 +106,12 @@ fn generate_test(entry: &Node<Id>) {
 	let mut processing_mode = ProcessingMode::JsonLd1_1;
 	let mut context_url = "None".to_string();
 
+	for context in entry.get(Vocab::Context) {
+		if let Some(url) = context.as_iri() {
+			context_url = format!("Some(iri!(\"{}\"))", url)
+		}
+	}
+
 	for option in entry.get(Vocab::Option) {
 		if let Object::Node(option) = option.as_ref() {
 			for spec_version in option.get(Vocab::SpecVersion) {
@@ -119,12 +125,6 @@ fn generate_test(entry: &Node<Id>) {
 
 			for mode in option.get(Vocab::ProcessingMode) {
 				processing_mode = mode.as_str().unwrap().try_into().unwrap();
-			}
-
-			for expand_context in option.get(Vocab::ExpandContext) {
-				if let Some(url) = expand_context.as_iri() {
-					context_url = format!("Some(iri!(\"{}\"))", url)
-				}
 			}
 
 			for base in option.get(Vocab::Base) {

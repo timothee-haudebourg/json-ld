@@ -6,7 +6,7 @@ fn {}() {{
 	negative_test(
 		Options {{
 			processing_mode: ProcessingMode::{:?},
-			expand_context: {}
+			context: {}
 		}},
 		input_url,
 		base_url,
