@@ -66,6 +66,13 @@ impl Default for Options {
 
 pub trait Compact<T: Id> {
 	fn compact_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, type_scoped_context: &'a C, inverse_context: &'a InverseContext<T>, active_property: Option<&'a Term<T>>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<JsonValue, Error>> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send;
+
+	fn compact<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where Self: Sync, T: 'a + Sync + Send, C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
+		async move {
+			let inverse_context = InverseContext::new();
+			self.compact_with(active_context, active_context, &inverse_context, None, loader, Options::default()).await
+		}.boxed()
+	}
 }
 
 enum TypeLangValue<'a, T: Id> {

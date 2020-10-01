@@ -39,6 +39,7 @@ pub use indexed::*;
 pub use vocab::*;
 pub use document::*;
 pub use loader::*;
+pub use compaction::Compact;
 
 pub use object::{Object, Node, Value};
 pub use context::{
