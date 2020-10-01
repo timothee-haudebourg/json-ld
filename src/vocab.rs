@@ -12,10 +12,10 @@ use crate::{
 pub trait Vocab: Clone + PartialEq + Eq + Hash {
 	fn from_iri(iri: Iri) -> Option<Self>;
 
-	fn as_iri(&self) -> Iri;
+	fn as_iri(&self) -> Iri<'static>;
 }
 
-impl<T: Clone + PartialEq + Eq + Hash> Vocab for T where for<'a> T: TryFrom<Iri<'a>>, for<'a> &'a T: Into<Iri<'a>> {
+impl<T: Clone + PartialEq + Eq + Hash> Vocab for T where for<'a> T: TryFrom<Iri<'a>>, for<'a> &'a T: Into<Iri<'static>> {
 	fn from_iri(iri: Iri) -> Option<Self> {
 		match T::try_from(iri) {
 			Ok(t) => Some(t),
@@ -23,7 +23,7 @@ impl<T: Clone + PartialEq + Eq + Hash> Vocab for T where for<'a> T: TryFrom<Iri<
 		}
 	}
 
-	fn as_iri(&self) -> Iri {
+	fn as_iri(&self) -> Iri<'static> {
 		self.into()
 	}
 }
