@@ -455,7 +455,9 @@ fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &Inver
 	// if it exists.
 	if !vocab {
 		if let Some(base_iri) = active_context.base_iri() {
-			panic!("TODO into relative iri")
+			if let Some(iri) = var.as_iri() {
+				return Ok(iri.relative_to(base_iri).as_str().into())
+			}
 		}
 	}
 
@@ -699,7 +701,11 @@ impl<T: Sync + Send + Id> Compact<T> for HashSet<Indexed<Object<T>>> {
 				}
 			}
 
-			if result.is_empty() || result.len() > 1
+			if result.is_empty() {
+				return Ok(JsonValue::Object(json::object::Object::new()))
+			}
+
+			if result.len() > 1
 			|| !options.compact_arrays
 			|| active_property == Some(&Term::Keyword(Keyword::Graph)) || active_property == Some(&Term::Keyword(Keyword::Set))
 			|| list_or_set {
