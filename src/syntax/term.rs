@@ -3,6 +3,7 @@ use iref::Iri;
 use json::JsonValue;
 use crate::{
 	Id,
+	Lenient,
 	Reference,
 	BlankId,
 	util::AsJson
@@ -85,6 +86,12 @@ impl<T: Id> From<BlankId> for Term<T> {
 impl<T: Id> From<Reference<T>> for Term<T> {
 	fn from(prop: Reference<T>) -> Term<T> {
 		Term::Ref(prop)
+	}
+}
+
+impl<T: Id> From<Reference<T>> for Lenient<Term<T>> {
+	fn from(prop: Reference<T>) -> Lenient<Term<T>> {
+		Lenient::Ok(Term::Ref(prop))
 	}
 }
 
