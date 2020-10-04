@@ -83,6 +83,18 @@ impl<T: Id> Node<T> {
 		}
 	}
 
+	/// Create a new empty node with the given id.
+	pub fn with_id(id: Lenient<Reference<T>>) -> Node<T> {
+		Node {
+			id: Some(id),
+			types: Vec::new(),
+			graph: None,
+			included: None,
+			properties: HashMap::new(),
+			reverse_properties: HashMap::new()
+		}
+	}
+
 	/// Checks if the node object has the given term as key.
 	///
 	/// # Example
@@ -165,6 +177,11 @@ impl<T: Id> Node<T> {
 	/// Tests if the node is a graph object (has a `@graph` field).
 	pub fn is_graph(&self) -> bool {
 		self.graph.is_some()
+	}
+
+	/// Tests if the node is a simple graph object (a graph object without `@id` field)
+	pub fn is_simple_graph(&self) -> bool {
+		self.id.is_none() && self.is_graph()
 	}
 
 	/// If the node is a graph object, get the graph.

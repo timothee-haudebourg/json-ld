@@ -443,7 +443,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 								if let Some(index_definition) = map_context.get(index) {
 									if let Some(local_context) = &index_definition.context {
 										let base_url = index_definition.base_url.as_ref().map(|url| url.as_iri());
-										map_context = Mown::Owned(local_context.process_with(map_context.as_ref(), ProcessingStack::new(), loader, base_url, options.into()).await?)
+										map_context = Mown::Owned(local_context.process_with(map_context.as_ref(), ProcessingStack::new(), loader, base_url, options.into()).await?.into_inner())
 									}
 								}
 							}

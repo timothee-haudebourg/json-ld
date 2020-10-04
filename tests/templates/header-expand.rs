@@ -50,7 +50,7 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 
 	if let Some(context_url) = options.context {{
 		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
-		input_context = task::block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap();
+		input_context = task::block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap().into_inner();
 	}}
 
 	let result = task::block_on(input.expand_with(Some(base_url), &input_context, &mut loader, options.into())).unwrap();
@@ -75,7 +75,7 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 
 	if let Some(context_url) = options.context {{
 		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
-		input_context = task::block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap();
+		input_context = task::block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap().into_inner();
 	}}
 
 	match task::block_on(input.expand_with(Some(base_url), &input_context, &mut loader, options.into())) {{

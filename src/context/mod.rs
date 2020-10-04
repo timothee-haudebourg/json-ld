@@ -5,7 +5,10 @@ mod loader;
 mod processing;
 pub mod inverse;
 
-use std::collections::HashMap;
+use std::{
+	collections::HashMap,
+	marker::PhantomData
+};
 use futures::future::BoxFuture;
 use iref::{Iri, IriBuf};
 use json::JsonValue;
@@ -135,14 +138,68 @@ pub trait ContextMut<T: Id = IriBuf>: Context<T> {
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
-pub trait Local<T: Id = IriBuf>: Sized + PartialEq + util::AsJson {
+pub trait Local<T: Id = IriBuf>: Sized + PartialEq {
 	/// Process the local context with specific options.
-	fn process_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> BoxFuture<'a, Result<C, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync;
+	fn process_with<'a, 's: 'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'s self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, options: ProcessingOptions) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync;
 
 	/// Process the local context with the given active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri>) -> BoxFuture<'a, Result<C, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
+	fn process<'a, 's: 'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'s self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri<'a>>) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
 		self.process_with(active_context, ProcessingStack::new(), loader, base_url, ProcessingOptions::default())
+	}
+}
+
+#[derive(Clone)]
+pub struct Processed<L, C> {
+	local: L,
+	processed: C
+}
+
+impl<L, C> Processed<L, C> {
+	pub fn new(local: L, processed: C) -> Processed<L, C> {
+		Processed {
+			local,
+			processed
+		}
+	}
+
+	pub fn into_inner(self) -> C {
+		self.processed
+	}
+}
+
+impl<'a, L: Clone, C> Processed<&'a L, C> {
+	pub fn owned(self) -> Processed<L, C> {
+		Processed {
+			local: L::clone(self.local),
+			processed: self.processed
+		}
+	}
+}
+
+impl<L: util::AsJson, C> util::AsJson for Processed<L, C> {
+	fn as_json(&self) -> JsonValue {
+		self.local.as_json()
+	}
+}
+
+impl<'a, C> util::AsJson for Processed<&'a JsonValue, C> {
+	fn as_json(&self) -> JsonValue {
+		self.local.clone()
+	}
+}
+
+impl<L, C> std::ops::Deref for Processed<L, C> {
+	type Target = C;
+
+	fn deref(&self) -> &C {
+		&self.processed
+	}
+}
+
+impl<L, C> std::convert::AsRef<C> for Processed<L, C> {
+	fn as_ref(&self) -> &C {
+		&self.processed
 	}
 }
 

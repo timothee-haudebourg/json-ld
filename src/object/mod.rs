@@ -117,6 +117,15 @@ impl<T: Id> Object<T> {
 			obj => Err(Indexed::new(obj, index))
 		}
 	}
+
+	/// If the objat is a language-tagged value,
+	/// Return its associated language.
+	pub fn language(&self) -> Option<&String> {
+		match self {
+			Object::Value(value) => value.language(),
+			_ => None
+		}
+	}
 }
 
 impl<T: Id> fmt::Debug for Object<T> {

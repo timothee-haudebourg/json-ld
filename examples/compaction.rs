@@ -8,21 +8,22 @@ use json_ld::{
 
 #[async_std::main]
 async fn main() {
-	// Create the initial context.
-	let context: JsonContext = JsonContext::new(None);
-
-	// The JSON-LD document to expand.
-	let doc = json::parse(r#"
-		{
-			"@context": {
-				"name": "http://xmlns.com/foaf/0.1/name"
-			},
-			"@id": "https://www.rust-lang.org",
-			"name": "Rust Programming Language"
-		}
-	"#).unwrap();
-
-	// Expansion.
-	let compact_doc = doc.compact(&context, &mut NoLoader).await.unwrap();
-	println!("{}", compact_doc);
+	// // Create the initial context.
+	// let context: JsonContext = JsonContext::new(None);
+	//
+	// // The JSON-LD document to expand.
+	// let doc = json::parse(r#"
+	// 	{
+	// 		"@context": {
+	// 			"name": "http://xmlns.com/foaf/0.1/name"
+	// 		},
+	// 		"@id": "https://www.rust-lang.org",
+	// 		"name": "Rust Programming Language"
+	// 	}
+	// "#).unwrap();
+	//
+	// // Expansion.
+	// let compact_doc = doc.compact(&context, &mut NoLoader).await.unwrap();
+	// println!("{}", compact_doc);
+	panic!("TODO")
 }

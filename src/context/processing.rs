@@ -24,21 +24,25 @@ use crate::{
 		is_keyword,
 		is_keyword_like,
 		ContainerType
-	}
+	},
+	util::AsJson
 };
 use super::{
 	ProcessingOptions,
 	Local,
 	Context,
 	ContextMut,
+	Processed,
 	Loader,
 	TermDefinition
 };
 
 impl<T: Id> Local<T> for JsonValue {
 	/// Load a local context.
-	fn process_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri>, options: ProcessingOptions) -> BoxFuture<'a, Result<C, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
-		process_context(active_context, self, stack, loader, base_url, options)
+	fn process_with<'a, 's: 'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'s self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, options: ProcessingOptions) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
+		async move {
+			Ok(Processed::new(self, process_context(active_context, self, stack, loader, base_url, options).await?))
+		}.boxed()
 	}
 }
 
@@ -241,7 +245,7 @@ fn process_context<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: S
 							propagate: true
 						};
 
-						result = loaded_context.process_with(&result, remote_contexts.clone(), loader, Some(context_document.url()), new_options).await?;
+						result = loaded_context.process_with(&result, remote_contexts.clone(), loader, Some(context_document.url()), new_options).await?.into_inner();
 						// result = process_context(&result, loaded_context, remote_contexts, loader, Some(context_document.url()), new_options).await?
 					}
 				},

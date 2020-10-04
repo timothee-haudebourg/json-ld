@@ -95,7 +95,7 @@ pub trait Document<T: Id> {
 		self.expand_with(self.base_url(), context, loader, expansion::Options::default())
 	}
 
-	fn compact_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri<'a>>, context: &'a C, loader: &'a mut L, options: compaction::Options) -> BoxFuture<'a, Result<JsonValue, Error>> where
+	fn compact_with<'a, C: Send + Sync + ContextMut<T>, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri<'a>>, context: &'a R, loader: &'a mut L, options: compaction::Options) -> BoxFuture<'a, Result<JsonValue, Error>> where
 		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
 		T: 'a + Send + Sync,
@@ -103,16 +103,45 @@ pub trait Document<T: Id> {
 	{
 		use compaction::Compact;
 		async move {
-			let result = self.expand_with(base_url, context, loader, options.into()).await?;
+			let json_context = context.as_json();
+			let context = context.deref();
+			let expanded = self.expand_with(base_url, context, loader, options.into()).await?;
 			let inverse_context = context::InverseContext::new();
-			result.compact_with(context, context, &inverse_context, None, loader, options.into()).await
+			let compacted = expanded.compact_with(context, context, &inverse_context, None, loader, options.into()).await?;
+
+			let mut map = match compacted {
+				JsonValue::Array(items) => {
+					let mut map = json::object::Object::new();
+					if !items.is_empty() {
+						use crate::{
+							Lenient,
+							syntax::{
+								Term,
+								Keyword
+							}
+						};
+						let key = crate::compaction::compact_iri(context, &inverse_context, &Lenient::Ok(Term::Keyword(Keyword::Graph)), None, false, false, options.into())?;
+						map.insert(key.as_str().unwrap(), JsonValue::Array(items));
+					}
+
+					map
+				},
+				JsonValue::Object(map) => map,
+				_ => panic!("invalid compact document")
+			};
+
+			if !map.is_empty() && !json_context.is_null() {
+				map.insert("@context", json_context)
+			}
+
+			Ok(JsonValue::Object(map))
 		}.boxed()
 	}
 
-	fn compact<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, context: &'a C, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where
+	fn compact<'a, C: Send + Sync + ContextMut<T>, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, context: &'a R, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where
 		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
-		T: 'a + Send + Sync,
+		T: 'a + Id + Send + Sync,
 		Self: Sync
 	{
 		self.compact_with(self.base_url(), context, loader, compaction::Options::default())

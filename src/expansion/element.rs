@@ -115,14 +115,14 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 				// `override_protected`.
 				if let Some(property_scoped_context) = property_scoped_context {
 					let options: ProcessingOptions = options.into();
-					active_context = Mown::Owned(property_scoped_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, property_scoped_base_url, options.with_override()).await?);
+					active_context = Mown::Owned(property_scoped_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, property_scoped_base_url, options.with_override()).await?.into_inner());
 				}
 
 				// If `element` contains the entry `@context`, set `active_context` to the result
 				// of the Context Processing algorithm, passing `active_context`, the value of the
 				// `@context` entry as `local_context` and `base_url`.
 				if let Some(local_context) = element.get("@context") {
-					active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, base_url, options.into()).await?);
+					active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, base_url, options.into()).await?.into_inner());
 				}
 
 				let mut type_entries = Vec::new();
@@ -170,7 +170,7 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 								// definition for value in `active_context`, and `false` for `propagate`.
 								let base_url = term_definition.base_url.as_ref().map(|url| url.as_iri());
 								let options: ProcessingOptions = options.into();
-								active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, base_url, options.without_propagation()).await?);
+								active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, base_url, options.without_propagation()).await?.into_inner());
 							}
 						}
 					}
@@ -307,7 +307,7 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 						None
 					};
 
-					let result = property_scoped_context.process_with(active_context, ProcessingStack::new(), loader, base_url, options.into()).await?;
+					let result = property_scoped_context.process_with(active_context, ProcessingStack::new(), loader, base_url, options.into()).await?.into_inner();
 					Mown::Owned(result)
 				} else {
 					Mown::Borrowed(active_context)

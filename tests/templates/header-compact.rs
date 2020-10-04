@@ -14,6 +14,7 @@ use json_ld::{{
 	Document,
 	context::{{
 		JsonContext,
+		Processed,
 		Local,
 		Loader as ContextLoader
 	}},
@@ -47,11 +48,14 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
 	let output = task::block_on(loader.load(output_url)).unwrap();
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
+	let base_json_context = json::object! {{
+		"@base": json::JsonValue::from(base_url.as_str())
+	}};
+	let mut input_context: Processed<json::JsonValue, JsonContext<IriBuf>> = Processed::new(base_json_context, JsonContext::new(Some(base_url)));
 
 	if let Some(context_url) = options.context {{
 		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
-		input_context = task::block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap();
+		input_context = task::block_on(local_context.process(input_context.as_ref(), &mut loader, Some(base_url))).unwrap().owned();
 	}}
 
 	let result = task::block_on(input.compact_with(Some(base_url), &input_context, &mut loader, options.into())).unwrap();
@@ -70,11 +74,14 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
+	let base_json_context = json::object! {{
+		"@base": json::JsonValue::from(base_url.as_str())
+	}};
+	let mut input_context: Processed<json::JsonValue, JsonContext<IriBuf>> = Processed::new(base_json_context, JsonContext::new(Some(base_url)));
 
 	if let Some(context_url) = options.context {{
 		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
-		input_context = task::block_on(local_context.process(&input_context, &mut loader, Some(base_url))).unwrap();
+		input_context = task::block_on(local_context.process(input_context.as_ref(), &mut loader, Some(base_url))).unwrap().owned();
 	}}
 
 	match task::block_on(input.compact_with(Some(base_url), &input_context, &mut loader, options.into())) {{

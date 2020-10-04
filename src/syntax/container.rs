@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use super::Keyword;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum ContainerType {
@@ -25,6 +26,39 @@ impl<'a> TryFrom<&'a str> for ContainerType {
 			"@set" => Ok(Set),
 			"@type" => Ok(Type),
 			_ => Err(str)
+		}
+	}
+}
+
+impl TryFrom<Keyword> for ContainerType {
+	type Error = Keyword;
+
+	fn try_from(k: Keyword) -> Result<ContainerType, Keyword> {
+		use ContainerType::*;
+		match k {
+			Keyword::Graph => Ok(Graph),
+			Keyword::Id => Ok(Id),
+			Keyword::Index => Ok(Index),
+			Keyword::Language => Ok(Language),
+			Keyword::List => Ok(List),
+			Keyword::Set => Ok(Set),
+			Keyword::Type => Ok(Type),
+			k => Err(k)
+		}
+	}
+}
+
+impl From<ContainerType> for Keyword {
+	fn from(c: ContainerType) -> Keyword {
+		use ContainerType::*;
+		match c {
+			Graph => Keyword::Graph,
+			Id => Keyword::Id,
+			Index => Keyword::Index,
+			Language => Keyword::Language,
+			List => Keyword::List,
+			Set => Keyword::Set,
+			Type => Keyword::Type
 		}
 	}
 }
