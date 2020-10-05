@@ -41,6 +41,18 @@ impl<T> Type<T> {
 	}
 }
 
+impl<'a, T: Clone> Type<&'a T> {
+	pub fn owned(self) -> Type<T> {
+		match self {
+			Type::Id => Type::Id,
+			Type::Json => Type::Json,
+			Type::None => Type::None,
+			Type::Vocab => Type::Vocab,
+			Type::Ref(t) => Type::Ref(t.clone())
+		}
+	}
+}
+
 impl<T: TermLike> Type<T> {
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
@@ -67,6 +79,30 @@ impl<T: TermLike> TermLike for Type<T> {
 
 	fn as_str(&self) -> &str {
 		self.as_str()
+	}
+}
+
+impl<'a, T> From<&'a Type<T>> for Type<&'a T> {
+	fn from(t: &'a Type<T>) -> Type<&'a T> {
+		match t {
+			Type::Id => Type::Id,
+			Type::Json => Type::Json,
+			Type::None => Type::None,
+			Type::Vocab => Type::Vocab,
+			Type::Ref(id) => Type::Ref(id)
+		}
+	}
+}
+
+impl<T: Id> From<Type<T>> for Term<T> {
+	fn from(t: Type<T>) -> Term<T> {
+		match t {
+			Type::Id => Term::Keyword(Keyword::Id),
+			Type::Json => Term::Keyword(Keyword::Json),
+			Type::None => Term::Keyword(Keyword::None),
+			Type::Vocab => Term::Keyword(Keyword::Vocab),
+			Type::Ref(id) => Term::Ref(Reference::Id(id))
+		}
 	}
 }
 

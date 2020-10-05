@@ -106,8 +106,16 @@ pub trait Document<T: Id> {
 			let json_context = context.as_json();
 			let context = context.deref();
 			let expanded = self.expand_with(base_url, context, loader, options.into()).await?;
+
+			use crate::util::AsJson;
+			println!("expanded: {}", expanded.as_json().pretty(2));
+
 			let inverse_context = context::InverseContext::new();
-			let compacted = expanded.compact_with(context, context, &inverse_context, None, loader, options.into()).await?;
+			let compacted = if expanded.len() == 1 {
+				expanded.into_iter().next().unwrap().compact_with(context, context, &inverse_context, None, loader, options.into()).await?
+			} else {
+				expanded.compact_with(context, context, &inverse_context, None, loader, options.into()).await?
+			};
 
 			let mut map = match compacted {
 				JsonValue::Array(items) => {

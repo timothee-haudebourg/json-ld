@@ -550,8 +550,144 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 				}
 			}
 
-			// TODO
-			Ok(self.as_json())
+			// If element has an @value or @id entry and the result of using the Value Compaction algorithm,
+			// passing active context, active property, and element as value is a scalar,
+			// or the term definition for active property has a type mapping of @json,
+			// return that result.
+
+			// Here starts the Value Compaction Algorithm.
+
+			// Initialize result to a copy of value.
+			// NOTE done later.
+			let mut result: json::object::Object;
+
+			// If the active context has a null inverse context,
+			// set inverse context in active context to the result of calling the
+			// Inverse Context Creation algorithm using active context.
+			// NOTE never null here (FIXME is that true?)
+
+			// Initialize inverse context to the value of inverse context in active context.
+			// DONE
+
+			let active_property_definition = match active_property {
+				Some(active_property) => active_context.get(active_property),
+				None => None
+			};
+
+			// Initialize language to the language mapping for active property in active context,
+			// if any, otherwise to the default language of active context.
+			let language = match active_property_definition {
+				Some(def) => match def.language.as_ref() {
+					Some(lang) => lang.as_ref(),
+					None => active_context.default_language()
+				},
+				None => active_context.default_language()
+			};
+
+			// Initialize direction to the direction mapping for active property in active context,
+			// if any, otherwise to the default base direction of active context.
+			let direction = match active_property_definition {
+				Some(def) => match def.direction {
+					Some(dir) => dir,
+					None => active_context.default_base_direction()
+				},
+				None => active_context.default_base_direction()
+			};
+
+			// If value has an @id entry and has no other entries other than @index:
+			// NOTE not possible here
+
+			// Otherwise, if value has an @type entry whose value matches the type mapping of
+			// active property, set result to the value associated with the @value entry of value.
+			let type_mapping: Option<Type<&T>> = match active_property_definition {
+				Some(def) => def.typ.as_ref().map(|t| t.into()),
+				None => None
+			};
+
+			let container_mapping = match active_property_definition {
+				Some(def) => def.container,
+				None => Container::None
+			};
+
+			let remove_index = (index.is_some() && container_mapping.contains(ContainerType::Index)) || index.is_none();
+
+			let mut result = json::object::Object::new();
+
+			match self {
+				Value::Literal(lit, ty) => {
+					use crate::object::value::Literal;
+					if ty.as_ref().map(|t| Type::Ref(t)) == type_mapping && remove_index {
+						match lit {
+							Literal::Null => return Ok(JsonValue::Null),
+							Literal::Boolean(b) => return Ok(b.as_json()),
+							Literal::Number(n) => return Ok(JsonValue::Number(n.clone())),
+							Literal::String(s) => return Ok(s.as_json())
+						}
+					} else {
+						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Value)), None, false, false, options)?;
+						match lit {
+							Literal::Null => {
+								result.insert(compact_key.as_str().unwrap(), JsonValue::Null)
+							},
+							Literal::Boolean(b) => {
+								result.insert(compact_key.as_str().unwrap(), b.as_json())
+							},
+							Literal::Number(n) => {
+								result.insert(compact_key.as_str().unwrap(), JsonValue::Number(n.clone()))
+							},
+							Literal::String(s) => {
+								result.insert(compact_key.as_str().unwrap(), s.as_json())
+							}
+						}
+
+						if let Some(ty) = ty {
+							let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Type)), None, false, false, options)?;
+							let lenient_ty: Lenient<Term<T>> = Lenient::Ok(Term::Ref(Reference::Id(ty.clone())));
+							let compact_ty = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &lenient_ty, None, true, false, options)?;
+							result.insert(compact_key.as_str().unwrap(), compact_ty)
+						}
+					}
+				},
+				Value::LangString(ls) => {
+					if remove_index
+					&& (ls.language().is_none() || ls.language() == language) // || (ls.language().is_none() && language.is_none()))
+					&& (ls.direction().is_none() || ls.direction() == direction) { // || (ls.direction().is_none() && direction.is_none())) {
+						return Ok(ls.as_str().as_json())
+					} else {
+						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Value)), None, false, false, options)?;
+						result.insert(compact_key.as_str().unwrap(), ls.as_str().into());
+
+						if let Some(language) = ls.language() {
+							let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Language)), None, false, false, options)?;
+							result.insert(compact_key.as_str().unwrap(), language.as_json());
+						}
+
+						if let Some(direction) = ls.direction() {
+							let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Direction)), None, false, false, options)?;
+							result.insert(compact_key.as_str().unwrap(), direction.as_json());
+						}
+					}
+				},
+				Value::Json(value) => {
+					if type_mapping == Some(Type::Json) && remove_index {
+						return Ok(value.clone())
+					} else {
+						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Value)), None, false, false, options)?;
+						result.insert(compact_key.as_str().unwrap(), value.clone());
+
+						let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Type)), None, false, false, options)?;
+						let compact_ty = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Json)), None, false, false, options)?;
+						result.insert(compact_key.as_str().unwrap(), compact_ty);
+					}
+				}
+			}
+
+			if let Some(index) = index {
+				let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Index)), None, false, false, options)?;
+				result.insert(compact_key.as_str().unwrap(), index.as_json())
+			}
+
+			Ok(JsonValue::Object(result))
 		}.boxed()
 	}
 }
@@ -674,6 +810,7 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 
 			for (expanded_property, expanded_value) in expanded_entries {
 				let lenient_expanded_property: Lenient<Term<T>> = expanded_property.clone().into();
+				println!("expanded property: {}", lenient_expanded_property.as_str());
 
 				// If expanded value is an empty array:
 				if expanded_value.is_empty() {
@@ -729,7 +866,7 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 				for expanded_item in expanded_value {
 					// Initialize `item_active_property` by IRI compacting `expanded_property`
 					// using `expanded_item` for value and `inside_reverse` for `reverse`.
-					let item_active_property = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &lenient_expanded_property, Some(expanded_item), false, inside_reverse, options)?;
+					let item_active_property = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &lenient_expanded_property, Some(expanded_item), true, inside_reverse, options)?;
 
 					// If the term definition for `item_active_property` in the active context
 					// has a nest value entry (nest term)
@@ -1184,7 +1321,9 @@ fn compact_collection_with<'a, T: Sync + Send + Id, O: 'a + Send + Iterator<Item
 		for item in items {
 			match item.compact_with(active_context, type_scoped_context, inverse_context, active_property, loader, options).await? {
 				JsonValue::Null => (),
-				compacted_item => result.push(compacted_item)
+				compacted_item => {
+					result.push(compacted_item)
+				}
 			}
 		}
 
