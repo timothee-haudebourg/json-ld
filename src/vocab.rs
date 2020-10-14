@@ -1,7 +1,7 @@
 use std::fmt;
 use std::hash::Hash;
 use std::convert::TryFrom;
-use iref::{Iri, IriBuf};
+use iref::{Iri, IriBuf, AsIri};
 use crate::{
 	Id,
 	Reference,
@@ -9,22 +9,16 @@ use crate::{
 	Lenient
 };
 
-pub trait Vocab: Clone + PartialEq + Eq + Hash {
+pub trait Vocab: AsIri + Clone + PartialEq + Eq + Hash {
 	fn from_iri(iri: Iri) -> Option<Self>;
-
-	fn as_iri(&self) -> Iri<'static>;
 }
 
-impl<T: Clone + PartialEq + Eq + Hash> Vocab for T where for<'a> T: TryFrom<Iri<'a>>, for<'a> &'a T: Into<Iri<'static>> {
+impl<T: AsIri + Clone + PartialEq + Eq + Hash> Vocab for T where for<'a> T: TryFrom<Iri<'a>> {
 	fn from_iri(iri: Iri) -> Option<Self> {
 		match T::try_from(iri) {
 			Ok(t) => Some(t),
 			Err(_) => None
 		}
-	}
-
-	fn as_iri(&self) -> Iri<'static> {
-		self.into()
 	}
 }
 
@@ -137,19 +131,21 @@ impl<V: Vocab> fmt::Display for Lexicon<V> {
 	}
 }
 
+impl<V: Vocab> AsIri for Lexicon<V> {
+	fn as_iri(&self) -> Iri {
+		match self {
+			Lexicon::Id(id) => id.as_iri(),
+			Lexicon::Iri(iri) => iri.as_iri(),
+		}
+	}
+}
+
 impl<V: Vocab> Id for Lexicon<V> {
 	fn from_iri(iri: Iri) -> Lexicon<V> {
 		if let Some(v) = V::from_iri(iri) {
 			Lexicon::Id(v)
 		} else {
 			Lexicon::Iri(iri.into())
-		}
-	}
-
-	fn as_iri(&self) -> Iri {
-		match self {
-			Lexicon::Id(id) => id.as_iri(),
-			Lexicon::Iri(iri) => iri.as_iri(),
 		}
 	}
 }

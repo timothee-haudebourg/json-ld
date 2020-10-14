@@ -85,7 +85,7 @@ pub fn expand_literal<T: Id, C: Context<T>>(active_context: &C, active_property:
 						// default language of `active_context`.
 						let language = if let Some(active_property_definition) = active_property_definition {
 							if let Some(language) = &active_property_definition.language {
-								language.clone()
+								language.clone().option()
 							} else {
 								clone_default_language(active_context)
 							}
@@ -98,7 +98,7 @@ pub fn expand_literal<T: Id, C: Context<T>>(active_context: &C, active_property:
 						// default base direction of `active_context`.
 						let direction = if let Some(active_property_definition) = active_property_definition {
 							if let Some(direction) = &active_property_definition.direction {
-								direction.clone()
+								direction.clone().option()
 							} else {
 								clone_default_base_direction(active_context)
 							}
@@ -110,7 +110,6 @@ pub fn expand_literal<T: Id, C: Context<T>>(active_context: &C, active_property:
 						// `language`.
 						// If `direction` is not null, add `@direction` to result with the
 						// value `direction`.
-						// Done.
 						return Ok(Object::Value(Value::LangString(LangString::new(str, language, direction))).into())
 					}
 				},

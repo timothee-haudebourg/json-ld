@@ -1,7 +1,7 @@
 use std::fmt;
 use std::convert::TryFrom;
 use std::borrow::Borrow;
-use iref::{Iri, IriBuf};
+use iref::{Iri, IriBuf, AsIri};
 use json::JsonValue;
 use crate::{
 	Id,
@@ -19,7 +19,7 @@ use crate::{
 /// Used to reference a node across a document or to a remote document.
 /// It can be an identifier (IRI) or a blank node identifier for local blank nodes.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum Reference<T: Id = IriBuf> {
+pub enum Reference<T: AsIri = IriBuf> {
 	/// Node identifier, essentially an IRI.
 	Id(T),
 
@@ -27,7 +27,7 @@ pub enum Reference<T: Id = IriBuf> {
 	Blank(BlankId)
 }
 
-impl<T: Id> Reference<T> {
+impl<T: AsIri> Reference<T> {
 	/// Get a string representation of the reference.
 	///
 	/// This will either return a string slice of an IRI, or a blank node identifier.
@@ -49,7 +49,7 @@ impl<T: Id> Reference<T> {
 	}
 }
 
-impl<T: Id> TermLike for Reference<T> {
+impl<T: AsIri> TermLike for Reference<T> {
 	fn as_iri(&self) -> Option<Iri> {
 		self.as_iri()
 	}
@@ -59,7 +59,7 @@ impl<T: Id> TermLike for Reference<T> {
 	}
 }
 
-impl<T: Id + PartialEq> PartialEq<T> for Reference<T> {
+impl<T: AsIri + PartialEq> PartialEq<T> for Reference<T> {
 	fn eq(&self, other: &T) -> bool {
 		match self {
 			Reference::Id(id) => id == other,
@@ -68,7 +68,7 @@ impl<T: Id + PartialEq> PartialEq<T> for Reference<T> {
 	}
 }
 
-impl<T: Id + PartialEq> PartialEq<T> for Lenient<Reference<T>> {
+impl<T: AsIri + PartialEq> PartialEq<T> for Lenient<Reference<T>> {
 	fn eq(&self, other: &T) -> bool {
 		match self {
 			Lenient::Ok(Reference::Id(id)) => id == other,
@@ -77,13 +77,31 @@ impl<T: Id + PartialEq> PartialEq<T> for Lenient<Reference<T>> {
 	}
 }
 
-impl<T: Id> From<T> for Reference<T> {
+impl<'a, T: AsIri> From<&'a Reference<T>> for Reference<&'a T> {
+	fn from(r: &'a Reference<T>) -> Reference<&'a T> {
+		match r {
+			Reference::Id(id) => Reference::Id(id),
+			Reference::Blank(id) => Reference::Blank(id.clone())
+		}
+	}
+}
+
+impl<'a, T: AsIri> From<&'a Lenient<Reference<T>>> for Lenient<Reference<&'a T>> {
+	fn from(r: &'a Lenient<Reference<T>>) -> Lenient<Reference<&'a T>> {
+		match r {
+			Lenient::Ok(r) => Lenient::Ok(r.into()),
+			Lenient::Unknown(u) => Lenient::Unknown(u.clone())
+		}
+	}
+}
+
+impl<T: AsIri> From<T> for Reference<T> {
 	fn from(id: T) -> Reference<T> {
 		Reference::Id(id)
 	}
 }
 
-impl<T: Id> PartialEq<Term<T>> for Reference<T> {
+impl<T: AsIri + PartialEq> PartialEq<Term<T>> for Reference<T> {
 	fn eq(&self, term: &Term<T>) -> bool {
 		match term {
 			Term::Ref(prop) => self == prop,
@@ -92,7 +110,7 @@ impl<T: Id> PartialEq<Term<T>> for Reference<T> {
 	}
 }
 
-impl<T: Id> PartialEq<Reference<T>> for Term<T> {
+impl<T: AsIri + PartialEq> PartialEq<Reference<T>> for Term<T> {
 	fn eq(&self, r: &Reference<T>) -> bool {
 		match self {
 			Term::Ref(prop) => prop == r,
@@ -101,7 +119,7 @@ impl<T: Id> PartialEq<Reference<T>> for Term<T> {
 	}
 }
 
-impl<T: Id> TryFrom<Term<T>> for Reference<T> {
+impl<T: AsIri> TryFrom<Term<T>> for Reference<T> {
 	type Error = Term<T>;
 
 	fn try_from(term: Term<T>) -> Result<Reference<T>, Term<T>> {
@@ -112,13 +130,13 @@ impl<T: Id> TryFrom<Term<T>> for Reference<T> {
 	}
 }
 
-impl<T: Id> From<BlankId> for Reference<T> {
+impl<T: AsIri> From<BlankId> for Reference<T> {
 	fn from(blank: BlankId) -> Reference<T> {
 		Reference::Blank(blank)
 	}
 }
 
-impl<T: Id> util::AsJson for Reference<T> {
+impl<T: AsIri + util::AsJson> util::AsJson for Reference<T> {
 	fn as_json(&self) -> JsonValue {
 		match self {
 			Reference::Id(id) => id.as_json(),
@@ -127,10 +145,10 @@ impl<T: Id> util::AsJson for Reference<T> {
 	}
 }
 
-impl<T: Id> fmt::Display for Reference<T> {
+impl<T: AsIri> fmt::Display for Reference<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Reference::Id(id) => id.as_str().fmt(f),
+			Reference::Id(id) => id.as_iri().fmt(f),
 			Reference::Blank(b) => b.fmt(f)
 		}
 	}

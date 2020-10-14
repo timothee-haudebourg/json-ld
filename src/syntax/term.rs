@@ -1,5 +1,8 @@
 use std::fmt;
-use iref::Iri;
+use iref::{
+	Iri,
+	AsIri
+};
 use json::JsonValue;
 use crate::{
 	Id,
@@ -17,13 +20,13 @@ pub trait TermLike {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum Term<T: Id> {
+pub enum Term<T: AsIri> {
 	Null,
 	Ref(Reference<T>),
 	Keyword(Keyword)
 }
 
-impl<T: Id> Term<T> {
+impl<T: AsIri> Term<T> {
 	pub fn is_null(&self) -> bool {
 		match self {
 			Term::Null => true,
@@ -61,7 +64,7 @@ impl<T: Id> Term<T> {
 	}
 }
 
-impl<T: Id> TermLike for Term<T> {
+impl<T: AsIri> TermLike for Term<T> {
 	fn as_iri(&self) -> Option<Iri> {
 		self.as_iri()
 	}
@@ -71,31 +74,65 @@ impl<T: Id> TermLike for Term<T> {
 	}
 }
 
-impl<T: Id> From<T> for Term<T> {
+impl<'a, T: AsIri> From<&'a Term<T>> for Term<&'a T> {
+	fn from(t: &'a Term<T>) -> Term<&'a T> {
+		match t {
+			Term::Null => Term::Null,
+			Term::Ref(r) => Term::Ref(r.into()),
+			Term::Keyword(k) => Term::Keyword(*k)
+		}
+	}
+}
+
+impl<'a, T: Id> From<&'a Lenient<Term<T>>> for Lenient<Term<&'a T>> {
+	fn from(t: &'a Lenient<Term<T>>) -> Lenient<Term<&'a T>> {
+		match t {
+			Lenient::Ok(t) => Lenient::Ok(t.into()),
+			Lenient::Unknown(u) => Lenient::Unknown(u.clone())
+		}
+	}
+}
+
+impl<T: AsIri> From<T> for Term<T> {
 	fn from(id: T) -> Term<T> {
 		Term::Ref(Reference::Id(id))
 	}
 }
 
-impl<T: Id> From<BlankId> for Term<T> {
+impl<T: AsIri> From<BlankId> for Term<T> {
 	fn from(blank: BlankId) -> Term<T> {
 		Term::Ref(Reference::Blank(blank))
 	}
 }
 
-impl<T: Id> From<Reference<T>> for Term<T> {
+impl<T: AsIri> From<Reference<T>> for Term<T> {
 	fn from(prop: Reference<T>) -> Term<T> {
 		Term::Ref(prop)
 	}
 }
 
-impl<T: Id> From<Reference<T>> for Lenient<Term<T>> {
+impl<T: AsIri> From<Reference<T>> for Lenient<Term<T>> {
 	fn from(prop: Reference<T>) -> Lenient<Term<T>> {
 		Lenient::Ok(Term::Ref(prop))
 	}
 }
 
-impl<T: Id + fmt::Display> fmt::Display for Term<T> {
+impl<'a, T: AsIri> From<&'a Reference<T>> for Lenient<Term<&'a T>> {
+	fn from(r: &'a Reference<T>) -> Lenient<Term<&'a T>> {
+		Lenient::Ok(Term::Ref(r.into()))
+	}
+}
+
+impl<'a, T: AsIri> From<&'a Lenient<Reference<T>>> for Lenient<Term<&'a T>> {
+	fn from(r: &'a Lenient<Reference<T>>) -> Lenient<Term<&'a T>> {
+		match r {
+			Lenient::Ok(r) => Lenient::Ok(Term::Ref(r.into())),
+			Lenient::Unknown(u) => Lenient::Unknown(u.clone())
+		}
+	}
+}
+
+impl<T: AsIri + fmt::Display> fmt::Display for Term<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Term::Ref(p) => p.fmt(f),
@@ -105,7 +142,7 @@ impl<T: Id + fmt::Display> fmt::Display for Term<T> {
 	}
 }
 
-impl<T: Id> AsJson for Term<T> {
+impl<T: AsIri> AsJson for Term<T> {
 	fn as_json(&self) -> JsonValue {
 		match self {
 			Term::Ref(p) => p.as_str().into(),

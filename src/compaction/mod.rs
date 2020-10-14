@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 use std::convert::TryFrom;
+use std::borrow::Borrow;
 use futures::future::{BoxFuture, FutureExt};
 use mown::Mown;
 use json::JsonValue;
@@ -13,6 +14,7 @@ use crate::{
 	Node,
 	Reference,
 	Lenient,
+	Nullable,
 	Error,
 	ErrorCode,
 	ProcessingMode,
@@ -68,8 +70,8 @@ impl Default for Options {
 	fn default() -> Options {
 		Options {
 			processing_mode: ProcessingMode::default(),
-			compact_to_relative: false,
-			compact_arrays: false,
+			compact_to_relative: true,
+			compact_arrays: true,
 			ordered: false
 		}
 	}
@@ -80,7 +82,7 @@ pub trait Compact<T: Id> {
 
 	fn compact<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where Self: Sync, T: 'a + Sync + Send, C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
 		async move {
-			let inverse_context = InverseContext::new();
+			let inverse_context = active_context.invert();
 			self.compact_with(active_context, active_context, &inverse_context, None, loader, Options::default()).await
 		}.boxed()
 	}
@@ -91,8 +93,65 @@ enum TypeLangValue<'a, T: Id> {
 	Lang(LangSelection<'a>)
 }
 
+pub trait ToLenientTerm<T: Id> {
+	type Target: Borrow<Lenient<Term<T>>>;
+
+	fn to_lenient_term(&self) -> Self::Target;
+}
+
+impl<'a, T: Id> ToLenientTerm<T> for &'a Lenient<Term<T>> {
+	type Target = &'a Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> &'a Lenient<Term<T>> {
+		self
+	}
+}
+
+impl<'a, T: Id> ToLenientTerm<T> for &'a T {
+	type Target = Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> Lenient<Term<T>> {
+		Lenient::Ok(Term::Ref(Reference::Id((*self).clone())))
+	}
+}
+
+impl<T: Id> ToLenientTerm<T> for Keyword {
+	type Target = Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> Lenient<Term<T>> {
+		Lenient::Ok(Term::Keyword(*self))
+	}
+}
+
+impl<'a, T: Id> ToLenientTerm<T> for &'a Reference<T> {
+	type Target = Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> Lenient<Term<T>> {
+		Lenient::Ok(Term::Ref((*self).clone()))
+	}
+}
+
+impl<'a, T: Id> ToLenientTerm<T> for &'a Lenient<Reference<T>> {
+	type Target = Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> Lenient<Term<T>> {
+		match self {
+			Lenient::Ok(r) => Lenient::Ok(Term::Ref((*r).clone())),
+			Lenient::Unknown(u) => Lenient::Unknown(u.clone())
+		}
+	}
+}
+
 // default value for `value` is `None` and `false` for `vocab` and `reverse`.
-pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_context: &InverseContext<T>, var: &Lenient<Term<T>>, value: Option<&Indexed<Object<T>>>, vocab: bool, reverse: bool, options: Options) -> Result<JsonValue, Error> {
+pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(active_context: &C, inverse_context: &InverseContext<T>, var: V, value: Option<&Indexed<Object<T>>>, vocab: bool, reverse: bool, options: Options) -> Result<JsonValue, Error> {
+	let var = var.to_lenient_term();
+	let var = var.borrow();
+
 	if var == &Lenient::Ok(Term::Null) {
 		return Ok(JsonValue::Null)
 	}
@@ -127,6 +186,7 @@ pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_cont
 
 					if let Some(value) = value {
 						has_index = value.index().is_some();
+						println!("value: {}", value.as_json().pretty(2));
 
 						match value.inner() {
 							Object::List(list) => {
@@ -198,7 +258,9 @@ pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_cont
 									if let Some(common_type) = common_type {
 										type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
 									} else if let Some(common_lang_dir) = common_lang_dir {
-										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir.0, common_lang_dir.1)))
+										let language = common_lang_dir.0.map(|l| Nullable::Some(l));
+										let direction = common_lang_dir.1.map(|d| Nullable::Some(d));
+										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(language, direction)))
 									} else {
 										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(None, None)))
 									}
@@ -249,7 +311,9 @@ pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_cont
 							Object::Value(v) => {
 								// If value is a value object:
 								if (v.direction().is_some() || v.language().is_some()) && value.index().is_none() {
-									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(v.language(), v.direction())));
+									let language = v.language().map(|l| Nullable::Some(l));
+									let direction = v.direction().map(|d| Nullable::Some(d));
+									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(language, direction)));
 									containers.push(Container::Language);
 									containers.push(Container::LanguageSet)
 								} else if let Some(ty) = v.typ() {
@@ -286,16 +350,6 @@ pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_cont
 						containers.push(Container::LanguageSet)
 					}
 
-					// If type/language value is null, set type/language value to @null. This is the
-					// key under which null values are stored in the inverse context entry.
-					// if type_selection.is_empty() {
-					// 	type_selection.push(TypeSelection::Null)
-					// }
-					// if lang_selection.is_empty() {
-					// 	lang_selection.push(LangSelection::Null)
-					// }
-					// TODO what?
-
 					let mut is_empty_list = false;
 					if let Some(value) = value {
 						if let Object::List(list) = value.inner() {
@@ -324,8 +378,7 @@ pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_cont
 											has_id_type = true;
 											let mut vocab = false;
 											if let Lenient::Ok(id) = id {
-												let term_id = Lenient::Ok(Term::Ref(id.clone()));
-												let compacted_iri = compact_iri(active_context, inverse_context, &term_id, None, false, false, options)?;
+												let compacted_iri = compact_iri(active_context, inverse_context, id, None, true, false, options)?;
 												if let Some(def) = active_context.get(compacted_iri.as_str().unwrap()) {
 													if let Some(iri_mapping) = &def.value {
 														vocab = iri_mapping == id;
@@ -371,6 +424,8 @@ pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_cont
 							},
 							None => {
 								let mut selection = Vec::new();
+								selection.push(LangSelection::Lang(Some(Nullable::Null), None));
+								selection.push(LangSelection::Lang(None, Some(Nullable::Null)));
 								selection.push(LangSelection::Lang(None, None));
 								selection.push(LangSelection::Any);
 								Selection::Lang(selection)
@@ -378,6 +433,7 @@ pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_cont
 						}
 					};
 
+					println!("SELECT {} (containers {:?}, selection {:?})", var.as_str(), containers, selection);
 					if let Some(term) = inverse_context.select(var, &containers, &selection) {
 						return Ok(term.into())
 					}
@@ -428,9 +484,8 @@ pub(crate) fn compact_iri<T: Id, C: Context<T>>(active_context: &C, inverse_cont
 						// context, or if that term definition has an IRI mapping that equals var
 						// and value is null, set compact IRI to candidate.
 						let candidate_def = active_context.get(&candidate);
-						if compact_iri.is_empty()
-						|| (candidate.len() <= compact_iri.len() && candidate < compact_iri && candidate_def.is_none())
-						|| (candidate_def.is_some() && candidate_def.map_or(None, |def| def.value.as_ref()).map_or(false, |v| v.as_str() == var.as_str()) && value.is_none()) {
+						if (compact_iri.is_empty() || (candidate.len() <= compact_iri.len() && candidate < compact_iri)) &&
+						   (candidate_def.is_none() || (candidate_def.is_some() && candidate_def.map_or(None, |def| def.value.as_ref()).map_or(false, |v| v.as_str() == var.as_str()) && value.is_none())) {
 							compact_iri = candidate
 						}
 					}
@@ -578,20 +633,20 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 			// if any, otherwise to the default language of active context.
 			let language = match active_property_definition {
 				Some(def) => match def.language.as_ref() {
-					Some(lang) => lang.as_ref(),
-					None => active_context.default_language()
+					Some(lang) => Some(lang.as_ref()),
+					None => active_context.default_language().map(|l| Nullable::Some(l))
 				},
-				None => active_context.default_language()
+				None => active_context.default_language().map(|l| Nullable::Some(l))
 			};
 
 			// Initialize direction to the direction mapping for active property in active context,
 			// if any, otherwise to the default base direction of active context.
 			let direction = match active_property_definition {
 				Some(def) => match def.direction {
-					Some(dir) => dir,
-					None => active_context.default_base_direction()
+					Some(dir) => Some(dir),
+					None => active_context.default_base_direction().map(|d| Nullable::Some(d))
 				},
-				None => active_context.default_base_direction()
+				None => active_context.default_base_direction().map(|d| Nullable::Some(d))
 			};
 
 			// If value has an @id entry and has no other entries other than @index:
@@ -624,7 +679,7 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 							Literal::String(s) => return Ok(s.as_json())
 						}
 					} else {
-						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Value)), None, false, false, options)?;
+						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Value, None, true, false, options)?;
 						match lit {
 							Literal::Null => {
 								result.insert(compact_key.as_str().unwrap(), JsonValue::Null)
@@ -641,29 +696,31 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 						}
 
 						if let Some(ty) = ty {
-							let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Type)), None, false, false, options)?;
-							let lenient_ty: Lenient<Term<T>> = Lenient::Ok(Term::Ref(Reference::Id(ty.clone())));
-							let compact_ty = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &lenient_ty, None, true, false, options)?;
+							let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Type, None, true, false, options)?;
+							let compact_ty = compact_iri(active_context.as_ref(), inverse_context.as_ref(), ty, None, true, false, options)?;
 							result.insert(compact_key.as_str().unwrap(), compact_ty)
 						}
 					}
 				},
 				Value::LangString(ls) => {
+					let ls_language = ls.language().map(|l| Nullable::Some(l));
+					let ls_direction = ls.direction().map(|d| Nullable::Some(d));
+
 					if remove_index
-					&& (ls.language().is_none() || ls.language() == language) // || (ls.language().is_none() && language.is_none()))
-					&& (ls.direction().is_none() || ls.direction() == direction) { // || (ls.direction().is_none() && direction.is_none())) {
+					&& (ls_language.is_none() || language == ls_language) // || (ls.language().is_none() && language.is_none()))
+					&& (ls_direction.is_none() || direction == ls_direction) { // || (ls.direction().is_none() && direction.is_none())) {
 						return Ok(ls.as_str().as_json())
 					} else {
-						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Value)), None, false, false, options)?;
+						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Value, None, true, false, options)?;
 						result.insert(compact_key.as_str().unwrap(), ls.as_str().into());
 
 						if let Some(language) = ls.language() {
-							let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Language)), None, false, false, options)?;
+							let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Language, None, true, false, options)?;
 							result.insert(compact_key.as_str().unwrap(), language.as_json());
 						}
 
 						if let Some(direction) = ls.direction() {
-							let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Direction)), None, false, false, options)?;
+							let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Direction, None, true, false, options)?;
 							result.insert(compact_key.as_str().unwrap(), direction.as_json());
 						}
 					}
@@ -672,18 +729,18 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 					if type_mapping == Some(Type::Json) && remove_index {
 						return Ok(value.clone())
 					} else {
-						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Value)), None, false, false, options)?;
+						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Value, None, true, false, options)?;
 						result.insert(compact_key.as_str().unwrap(), value.clone());
 
-						let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Type)), None, false, false, options)?;
-						let compact_ty = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Json)), None, false, false, options)?;
+						let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Type, None, true, false, options)?;
+						let compact_ty = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Json, None, true, false, options)?;
 						result.insert(compact_key.as_str().unwrap(), compact_ty);
 					}
 				}
 			}
 
 			if let Some(index) = index {
-				let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Index)), None, false, false, options)?;
+				let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Index, None, true, false, options)?;
 				result.insert(compact_key.as_str().unwrap(), index.as_json())
 			}
 
@@ -748,12 +805,46 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 
 			// If expanded property is @id:
 			if let Some(id) = &self.id {
+				if self.is_empty() {
+					// This captures step 7:
+					// If element has an @value or @id entry and the result of using the
+					// Value Compaction algorithm, passing active context, active property,
+					// and element as value is a scalar, or the term definition for active property
+					// has a type mapping of @json, return that result.
+					//
+					// in the Value Compaction Algorithm, step 7:
+					// If value has an @id entry and has no other entries other than @index:
+					//
+					// If the type mapping of active property is set to @id,
+					// set result to the result of IRI compacting the value associated with the
+					// @id entry using false for vocab.
+					let type_mapping = match active_property {
+						Some(prop) => match active_context.get(prop) {
+							Some(def) => def.typ.as_ref(),
+							None => None
+						},
+						None => None
+					};
+
+					if type_mapping == Some(&Type::Id) {
+						let compacted_value = compact_iri(active_context.as_ref(), inverse_context.as_ref(), id, None, false, false, options)?;
+						return Ok(compacted_value)
+					}
+
+					// Otherwise, if the type mapping of active property is set to @vocab,
+					// set result to the result of IRI compacting the value associated with the @id entry.
+					if type_mapping == Some(&Type::Vocab) {
+						let compacted_value = compact_iri(active_context.as_ref(), inverse_context.as_ref(), id, None, true, false, options)?;
+						return Ok(compacted_value)
+					}
+				}
+
 				// If expanded value is a string, then initialize compacted value by IRI
 				// compacting expanded value with vocab set to false.
-				let compacted_value = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &id.clone().map(|r| Term::Ref(r.clone())), None, false, false, options)?;
+				let compacted_value = compact_iri(active_context.as_ref(), inverse_context.as_ref(), id, None, true, false, options)?;
 
 				// Initialize alias by IRI compacting expanded property.
-				let alias = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Id)), None, false, false, options)?;
+				let alias = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Id, None, true, false, options)?;
 
 				// Add an entry alias to result whose value is set to compacted value and continue
 				// to the next expanded property.
@@ -767,21 +858,39 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 				// If expanded value is a string,
 				// then initialize compacted value by IRI compacting expanded value using
 				// type-scoped context for active context.
-				// TODO
+				let compacted_value = if self.types.len() == 1 {
+					compact_iri(type_scoped_context, inverse_context.as_ref(), &self.types[0], None, true, false, options)?
+				} else {
+					// Otherwise, expanded value must be a @type array:
+					// Initialize compacted value to an empty array.
+					let mut compacted_value = Vec::with_capacity(self.types.len());
 
-				// Otherwise, expanded value must be a @type array:
-				// TODO
+					// For each item expanded type in expanded value:
+					for ty in &self.types {
+						// Set term by IRI compacting expanded type using type-scoped context for active context.
+						let compacted_ty = compact_iri(type_scoped_context, inverse_context.as_ref(), ty, None, true, false, options)?;
+
+						// Append term, to compacted value.
+						compacted_value.push(compacted_ty)
+					}
+
+					JsonValue::Array(compacted_value)
+				};
 
 				// Initialize alias by IRI compacting expanded property.
-				// TODO
+				let alias = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Type, None, true, false, options)?;
 
 				// Initialize as array to true if processing mode is json-ld-1.1 and the
 				// container mapping for alias in the active context includes @set,
 				// otherwise to the negation of compactArrays.
-				// TODO
+				let container_mapping = match active_context.get(alias.as_str().unwrap()) {
+					Some(def) => def.container,
+					None => Container::None
+				};
+				let as_array = (options.processing_mode == ProcessingMode::JsonLd1_1 && container_mapping.contains(ContainerType::Set)) || !options.compact_arrays;
 
 				// Use add value to add compacted value to the alias entry in result using as array.
-				// TODO
+				add_value(&mut result, alias.as_str().unwrap(), compacted_value, as_array)
 			}
 
 			// If expanded property is @reverse:
@@ -808,465 +917,494 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 				}
 			}
 
+			// // If expanded property is @graph:
+			// if !self.graph.is_empty() {
+			// 	// TODO
+			// }
+
+			if let Some(graph) = &self.graph {
+				result = compact_property(result, Term::Keyword(Keyword::Graph), graph, index, active_context.as_ref(), inverse_context.as_ref(), loader, inside_reverse, options).await?
+			}
+
 			for (expanded_property, expanded_value) in expanded_entries {
-				let lenient_expanded_property: Lenient<Term<T>> = expanded_property.clone().into();
-				println!("expanded property: {}", lenient_expanded_property.as_str());
-
-				// If expanded value is an empty array:
-				if expanded_value.is_empty() {
-					// Initialize `item_active_property` by IRI compacting
-					// `expanded_property` using `expanded_value` for `value` and
-					// `inside_reverse` for `reverse`.
-					let item_active_property = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &lenient_expanded_property, None, false, inside_reverse, options)?;
-
-					// If the term definition for `item_active_property` in the active context
-					// has a nest value entry (nest term):
-					if let Some(item_active_property) = item_active_property.as_str() {
-						let mut nest_result = match active_context.get(item_active_property) {
-							Some(term_definition) => match &term_definition.nest {
-								Some(nest_term) => {
-									// If nest term is not @nest,
-									// or a term in the active context that expands to @nest,
-									// an invalid @nest value error has been detected,
-									// and processing is aborted.
-									if nest_term != "@nest" {
-										match active_context.get(nest_term.as_ref()) {
-											Some(term_def) if term_def.value == Some(Term::Keyword(Keyword::Nest)) => (),
-											_ => return Err(ErrorCode::InvalidNestValue.into())
-										}
-									}
-
-									// If result does not have a nest_term entry,
-									// initialize it to an empty map.
-									if result.get(nest_term).is_none() {
-										result.insert(nest_term, JsonValue::new_object())
-									}
-
-									// Initialize `nest_result` to the value of `nest_term` in result.
-									match result.get_mut(nest_term) {
-										Some(JsonValue::Object(map)) => map,
-										_ => unreachable!()
-									}
-								},
-								None => {
-									// Otherwise, initialize `nest_result` to result.
-									&mut result
-								}
-							},
-							None => &mut result
-						};
-
-						// Use `add_value` to add an empty array to the `item_active_property` entry in
-						// `nest_result` using true for `as_array`.
-						add_value(nest_result, item_active_property, JsonValue::Array(Vec::new()), true)
-					}
-				}
-
-				// For each item `expanded_item` in `expanded value`
-				for expanded_item in expanded_value {
-					// Initialize `item_active_property` by IRI compacting `expanded_property`
-					// using `expanded_item` for value and `inside_reverse` for `reverse`.
-					let item_active_property = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &lenient_expanded_property, Some(expanded_item), true, inside_reverse, options)?;
-
-					// If the term definition for `item_active_property` in the active context
-					// has a nest value entry (nest term)
-					if let Some(item_active_property) = item_active_property.as_str() {
-						let (nest_result, container) = match active_context.get(item_active_property) {
-							Some(term_definition) => {
-								let nest_result = match &term_definition.nest {
-									Some(nest_term) => {
-										// If nest term is not @nest,
-										// or a term in the active context that expands to @nest,
-										// an invalid @nest value error has been detected,
-										// and processing is aborted.
-										if nest_term != "@nest" {
-											match active_context.get(nest_term.as_ref()) {
-												Some(term_def) if term_def.value == Some(Term::Keyword(Keyword::Nest)) => (),
-												_ => return Err(ErrorCode::InvalidNestValue.into())
-											}
-										}
-
-										// If result does not have a nest_term entry,
-										// initialize it to an empty map.
-										if result.get(nest_term).is_none() {
-											result.insert(nest_term, JsonValue::new_object())
-										}
-
-										// Initialize `nest_result` to the value of `nest_term` in result.
-										match result.get_mut(nest_term) {
-											Some(JsonValue::Object(map)) => map,
-											_ => unreachable!()
-										}
-									},
-									None => {
-										// Otherwise, initialize `nest_result` to result.
-										&mut result
-									}
-								};
-
-								(nest_result, term_definition.container)
-							},
-							None => {
-								(&mut result, Container::None)
-							}
-						};
-
-						// Initialize container to container mapping for item active property
-						// in active context, or to a new empty array,
-						// if there is no such container mapping.
-						// DONE.
-
-						// Initialize `as_array` to true if `container` includes @set,
-						// or if `item_active_property` is @graph or @list,
-						// otherwise the negation of `options.compact_arrays`.
-						let as_array = if container.contains(ContainerType::Set) || item_active_property == "@graph" || item_active_property == "@list" {
-							true
-						} else {
-							!options.compact_arrays
-						};
-
-						// Initialize `compacted_item` to the result of using this algorithm
-						// recursively, passing `active_context`, `item_active_property` for
-						// `active_property`, `expanded_item` for `element`, along with the
-						// `compact_arrays` and `ordered_flags`.
-						// If `expanded_item` is a list object or a graph object,
-						// use the value of the @list or @graph entries, respectively,
-						// for `element` instead of `expanded_item`.
-						let compacted_item = match expanded_item.as_ref() {
-							Object::List(list) => {
-								// If expanded item is a list object:
-								let mut compacted_item = compact_collection_with(list.iter(), active_context.as_ref(), active_context.as_ref(), &InverseContext::new(), Some(item_active_property), loader, options).await?;
-
-								// If compacted item is not an array,
-								// then set `compacted_item` to an array containing only `compacted_item`.
-								if !compacted_item.is_array() {
-									compacted_item = JsonValue::Array(vec![compacted_item])
-								}
-
-								// If container does not include @list:
-								if !container.contains(ContainerType::List) {
-									// Convert `compacted_item` to a list object by setting it to
-									// a map containing an entry where the key is the result of
-									// IRI compacting @list and the value is the original
-									// compacted item.
-									let key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::List)), None, false, false, options)?;
-									let mut list_object = json::object::Object::new();
-									list_object.insert(key.as_str().unwrap(), compacted_item);
-									compacted_item = JsonValue::Object(list_object)
-								}
-
-								// If `expanded_item` contains the entry @index-value,
-								// then add an entry to compacted item where the key is
-								// the result of IRI compacting @index and value is value.
-								if let Some(index) = expanded_item.index() {
-									let key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Index)), None, false, false, options)?;
-									match compacted_item {
-										JsonValue::Object(ref mut obj) => obj.insert(key.as_str().unwrap(), index.into()),
-										_ => unreachable!()
-									}
-								}
-
-								// Use add value to add `compacted_item` to
-								// the `item_active_property` entry in `nest_result` using `as_array`.
-								add_value(nest_result, item_active_property, compacted_item, as_array)
-							},
-							Object::Node(node) if node.is_graph() => {
-								// If expanded item is a graph object
-								let mut compacted_item = node.graph.as_ref().unwrap().compact_with(active_context.as_ref(), active_context.as_ref(), &InverseContext::new(), Some(item_active_property), loader, options).await?;
-
-								// If `container` includes @graph and @id:
-								if container.contains(ContainerType::Graph) && container.contains(ContainerType::Id) {
-									// Initialize `map_object` to the value of `item_active_property`
-									// in `nest_result`, initializing it to a new empty map,
-									// if necessary.
-									if !nest_result.get(item_active_property).is_some() {
-										nest_result.insert(item_active_property, JsonValue::new_object())
-									}
-
-									let map_object = match nest_result.get_mut(item_active_property) {
-										Some(JsonValue::Object(map)) => map,
-										_ => unreachable!()
-									};
-
-									// Initialize `map_key` by IRI compacting the value of @id in
-									// `expanded_item` or @none if no such value exists
-									// with `vocab` set to false if there is an @id entry in
-									// `expanded_item`.
-									let (id_value, vocab): (Lenient<Term<T>>, bool) = match expanded_item.id() {
-										Some(term) => (term.clone().cast(), false),
-										None => (Lenient::Ok(Term::Keyword(Keyword::None)), true)
-									};
-
-									let map_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &id_value, None, vocab, false, options)?;
-
-									// Use `add_value` to add `compacted_item` to
-									// the `map_key` entry in `map_object` using `as_array`.
-									add_value(map_object, map_key.as_str().unwrap(), compacted_item, as_array)
-								} else if container.contains(ContainerType::Graph) && container.contains(ContainerType::Index) {
-									// Initialize `map_object` to the value of `item_active_property`
-									// in `nest_result`, initializing it to a new empty map,
-									// if necessary.
-									if !nest_result.get(item_active_property).is_some() {
-										nest_result.insert(item_active_property, JsonValue::new_object())
-									}
-
-									let map_object = match nest_result.get_mut(item_active_property) {
-										Some(JsonValue::Object(map)) => map,
-										_ => unreachable!()
-									};
-
-									// Initialize `map_key` the value of @index in `expanded_item`
-									// or @none, if no such value exists.
-									let map_key = match index {
-										Some(index) => index,
-										None => "@none"
-									};
-
-									// Use `add_value` to add `compacted_item` to
-									// the `map_key` entry in `map_object` using `as_array`.
-									add_value(map_object, map_key, compacted_item, as_array)
-								} else if container.contains(ContainerType::Graph) && node.is_simple_graph() {
-									// Otherwise, if `container` includes @graph and
-									// `expanded_item` is a simple graph object
-									// the value cannot be represented as a map object.
-
-									// If `compacted_item` is an array with more than one value,
-									// it cannot be directly represented,
-									// as multiple objects would be interpreted as different named graphs.
-									// Set `compacted_item` to a new map,
-									// containing the key from IRI compacting @included and
-									// the original `compacted_item` as the value.
-									compacted_item = match compacted_item {
-										JsonValue::Array(items) if items.len() > 1 => {
-											let key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Included)), None, false, false, options)?;
-											let mut map = json::object::Object::new();
-											map.insert(key.as_str().unwrap(), JsonValue::Array(items));
-											JsonValue::Object(map)
-										},
-										item => item
-									};
-
-									// Use `add_value` to add `compacted_item` to the
-									// `item_active_property` entry in `nest_result` using `as_array`.
-									add_value(nest_result, item_active_property, compacted_item, as_array)
-								} else {
-									// Otherwise, `container` does not include @graph or
-									// otherwise does not match one of the previous cases.
-
-									// Set `compacted_item` to a new map containing the key from
-									// IRI compacting @graph using the original `compacted_item` as a value.
-									let key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Graph)), None, false, false, options)?;
-									let mut map = json::object::Object::new();
-									map.insert(key.as_str().unwrap(), compacted_item);
-
-									// If `expanded_item` contains an @id entry,
-									// add an entry in `compacted_item` using the key from
-									// IRI compacting @id using the value of
-									// IRI compacting the value of @id in `expanded_item` using
-									// false for vocab.
-									if let Some(id) = expanded_item.id() {
-										let id: Lenient<Term<T>> = id.clone().cast();
-										let key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Id)), None, false, false, options)?;
-										let value = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &id, None, false, false, options)?;
-										map.insert(key.as_str().unwrap(), value);
-									}
-
-									// If `expanded_item` contains an @index entry,
-									// add an entry in `compacted_item` using the key from
-									// IRI compacting @index and the value of @index in `expanded_item`.
-									if let Some(index) = expanded_item.index() {
-										let key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::Index)), None, false, false, options)?;
-										map.insert(key.as_str().unwrap(), index.into());
-									}
-
-									// Use `add_value` to add `compacted_item` to the
-									// `item_active_property` entry in `nest_result` using `as_array`.
-									let compacted_item = JsonValue::Object(map);
-									add_value(nest_result, item_active_property, compacted_item, as_array)
-								}
-							},
-							_ => {
-								let mut compacted_item = expanded_item.compact_with(active_context.as_ref(), active_context.as_ref(), &InverseContext::new(), Some(item_active_property), loader, options).await?;
-
-								// if container includes @language, @index, @id,
-								// or @type and container does not include @graph:
-								if !container.contains(ContainerType::Graph) && (container.contains(ContainerType::Language) || container.contains(ContainerType::Index) || container.contains(ContainerType::Id) || container.contains(ContainerType::Type)) {
-									// Initialize `map_object` to the value of
-									// `item_active_property` in `nest_result`,
-									// initializing it to a new empty map, if necessary.
-									if !nest_result.get(item_active_property).is_some() {
-										nest_result.insert(item_active_property, JsonValue::new_object())
-									}
-
-									let map_object = match nest_result.get_mut(item_active_property) {
-										Some(JsonValue::Object(map)) => map,
-										_ => unreachable!()
-									};
-
-									// Initialize container key by IRI compacting either
-									// @language, @index, @id, or @type based on the contents of container.
-									let container_type = if container.contains(ContainerType::Language) {
-										ContainerType::Language
-									} else if container.contains(ContainerType::Index) {
-										ContainerType::Index
-									} else if container.contains(ContainerType::Id) {
-										ContainerType::Id
-									} else {
-										ContainerType::Type
-									};
-
-									let mut container_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(container_type.into())), None, false, false, options)?;
-
-									// Initialize `index_key` to the value of index mapping in
-									// the term definition associated with `item_active_property`
-									// in active context, or @index, if no such value exists.
-									let index_key = match active_context.get(item_active_property) {
-										Some(def) if def.index.is_some() => def.index.as_ref().unwrap(),
-										_ => "@index"
-									};
-
-									// If `container` includes @language and `expanded_item`
-									// contains a @value entry, then set `compacted_item` to
-									// the value associated with its @value entry.
-									// Set `map_key` to the value of @language in `expanded_item`,
-									// if any.
-									let map_key = if container_type == ContainerType::Language && expanded_item.is_value() {
-										if let Object::Value(value) = expanded_item.inner() {
-											compacted_item = value_value(value)
-										}
-
-										match expanded_item.language() {
-											Some(lang) => Some(lang.clone()),
-											None => None
-										}
-									} else if container_type == ContainerType::Index {
-										if index_key == "@index" {
-											// Otherwise, if `container` includes @index and
-											// `index_key` is @index, set `map_key` to the value of
-											// @index in `expanded_item`, if any.
-											match expanded_item.index() {
-												Some(index) => Some(index.to_string()),
-												None => None
-											}
-										} else {
-											// Otherwise, if `container` includes @index and
-											// `index_key` is not @index:
-
-											// Reinitialize `container_key` by
-											// IRI compacting `index_key`.
-											let lenient_index : Lenient<Term<T>> = Lenient::Unknown(index_key.to_string());
-											container_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &lenient_index, None, false, false, options)?;
-
-											// Set `map_key` to the first value of
-											// `container_key` in `compacted_item`, if any.
-											let map_key = match &compacted_item {
-												JsonValue::Object(map) => match map.get(container_key.as_str().unwrap()) {
-													Some(value) => match value.as_str() {
-														Some(str) => Some(str.to_string()),
-														None => None
-													},
-													None => None
-												},
-												_ => None
-											};
-
-											// If there are remaining values in `compacted_item`
-											// for container key, use `add_value` to add
-											// those remaining values to the `container_key`
-											// in `compacted_item`.
-											// Otherwise, remove that entry from compacted item.
-											// TODO 12.8.9.6.3
-
-											map_key
-										}
-									} else if container_type == ContainerType::Id {
-										// Otherwise, if `container` includes @id,
-										// set `map_key` to the value of `container_key` in
-										// `compacted_item` and remove `container_key` from
-										// `compacted_item`.
-										match &mut compacted_item {
-											JsonValue::Object(map) => match map.remove(container_key.as_str().unwrap()) {
-												Some(JsonValue::String(str)) => Some(str.to_string()),
-												Some(JsonValue::Short(str)) => Some(str.to_string()),
-												_ => None
-											},
-											_ => None
-										}
-									} else {
-										// Otherwise, if container includes @type:
-
-										// Set `map_key` to the first value of `container_key` in
-										// `compacted_item`, if any.
-										let map_key = match &compacted_item {
-											JsonValue::Object(map) => match map.get(container_key.as_str().unwrap()) {
-												Some(value) => match value.as_str() {
-													Some(str) => Some(str.to_string()),
-													None => None
-												},
-												None => None
-											},
-											_ => None
-										};
-
-										// If there are remaining values in `compacted_item` for
-										// `container_key`, use `add_value` to add those
-										// remaining values to the `container_key` in
-										// `compacted_item`.
-										// Otherwise, remove that entry from compacted item.
-										// TODO 12.8.9.8.2
-
-										// If `compacted_item` contains a single entry with a key
-										// expanding to @id, set `compacted_item` to the result of
-										// using this algorithm recursively,
-										// passing `active_context`, `item_active_property` for
-										// `active_property`, and a map composed of the single
-										// entry for @id from `expanded_item` for `element`.
-										if let JsonValue::Object(map) = &compacted_item {
-											if map.len() == 1 {
-												if let Some(id) = map.get("@id") {
-													if let Some(id) = id.as_str() {
-														let id_ref = match iref::Iri::new(id) {
-															Ok(iri) => Lenient::Ok(Reference::Id(T::from_iri(iri))),
-															Err(_) => Lenient::Unknown(id.to_string())
-														};
-
-														let obj = Object::Node(Node::with_id(id_ref));
-														compacted_item = obj.compact_indexed_with(None, active_context.as_ref(), active_context.as_ref(), &InverseContext::new(), Some(item_active_property), loader, options).await?
-													}
-												}
-											}
-										}
-
-										None
-									};
-
-									// If `map_key` is null, set it to the result of
-									// IRI compacting @none.
-									let map_key = match map_key {
-										Some(key) => key,
-										None => {
-											let key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), &Lenient::Ok(Term::Keyword(Keyword::None)), None, false, false, options)?;
-											key.as_str().unwrap().to_string()
-										}
-									};
-
-									// Use `add_value` to add `compacted_item` to
-									// the `map_key` entry in `map_object` using `as_array`.
-									add_value(map_object, &map_key, compacted_item, as_array)
-								} else {
-									// Otherwise, use `add_value` to add `compacted_item` to the
-									// `item_active_property` entry in `nest_result` using `as_array`.
-									add_value(nest_result, item_active_property, compacted_item, as_array)
-								}
-							}
-						};
-					}
-				}
+				result = compact_property(result, expanded_property.clone().into(), expanded_value, index, active_context.as_ref(), inverse_context.as_ref(), loader, inside_reverse, options).await?
 			}
 
 			Ok(JsonValue::Object(result))
 		}.boxed()
 	}
+}
+
+async fn compact_property<'a, T: 'a + Sync + Send + Id, C: ContextMut<T>, L: Loader, O: IntoIterator<Item=&'a Indexed<Object<T>>>>(mut result: json::object::Object, expanded_property: Term<T>, expanded_value: O, index: Option<&str>, active_context: &C, inverse_context: &InverseContext<T>, loader: &mut L, inside_reverse: bool, options: Options) -> Result<json::object::Object, Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
+	println!("expanded property {}", expanded_property.as_str());
+	let lenient_expanded_property: Lenient<Term<T>> = expanded_property.into();
+	let mut is_empty = true;
+
+	// For each item `expanded_item` in `expanded value`
+	for expanded_item in expanded_value {
+		is_empty = false;
+		// Initialize `item_active_property` by IRI compacting `expanded_property`
+		// using `expanded_item` for value and `inside_reverse` for `reverse`.
+		let item_active_property = compact_iri(active_context, inverse_context, &lenient_expanded_property, Some(expanded_item), true, inside_reverse, options)?;
+		println!("compact property {}", item_active_property.as_str().unwrap());
+
+		// If the term definition for `item_active_property` in the active context
+		// has a nest value entry (nest term)
+		if let Some(item_active_property) = item_active_property.as_str() {
+			let (nest_result, container) = match active_context.get(item_active_property) {
+				Some(term_definition) => {
+					let nest_result = match &term_definition.nest {
+						Some(nest_term) => {
+							// If nest term is not @nest,
+							// or a term in the active context that expands to @nest,
+							// an invalid @nest value error has been detected,
+							// and processing is aborted.
+							if nest_term != "@nest" {
+								match active_context.get(nest_term.as_ref()) {
+									Some(term_def) if term_def.value == Some(Term::Keyword(Keyword::Nest)) => (),
+									_ => return Err(ErrorCode::InvalidNestValue.into())
+								}
+							}
+
+							// If result does not have a nest_term entry,
+							// initialize it to an empty map.
+							if result.get(nest_term).is_none() {
+								result.insert(nest_term, JsonValue::new_object())
+							}
+
+							// Initialize `nest_result` to the value of `nest_term` in result.
+							match result.get_mut(nest_term) {
+								Some(JsonValue::Object(map)) => map,
+								_ => unreachable!()
+							}
+						},
+						None => {
+							// Otherwise, initialize `nest_result` to result.
+							&mut result
+						}
+					};
+
+					(nest_result, term_definition.container)
+				},
+				None => {
+					(&mut result, Container::None)
+				}
+			};
+
+			// Initialize container to container mapping for item active property
+			// in active context, or to a new empty array,
+			// if there is no such container mapping.
+			// DONE.
+
+			// Initialize `as_array` to true if `container` includes @set,
+			// or if `item_active_property` is @graph or @list,
+			// otherwise the negation of `options.compact_arrays`.
+			let as_array = if container.contains(ContainerType::Set) || item_active_property == "@graph" || item_active_property == "@list" {
+				true
+			} else {
+				!options.compact_arrays
+			};
+
+			// Initialize `compacted_item` to the result of using this algorithm
+			// recursively, passing `active_context`, `item_active_property` for
+			// `active_property`, `expanded_item` for `element`, along with the
+			// `compact_arrays` and `ordered_flags`.
+			// If `expanded_item` is a list object or a graph object,
+			// use the value of the @list or @graph entries, respectively,
+			// for `element` instead of `expanded_item`.
+			let compacted_item = match expanded_item.as_ref() {
+				Object::List(list) => {
+					// If expanded item is a list object:
+					let mut compacted_item = compact_collection_with(list.iter(), active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
+
+					// If compacted item is not an array,
+					// then set `compacted_item` to an array containing only `compacted_item`.
+					if !compacted_item.is_array() {
+						compacted_item = JsonValue::Array(vec![compacted_item])
+					}
+
+					// If container does not include @list:
+					if !container.contains(ContainerType::List) {
+						// Convert `compacted_item` to a list object by setting it to
+						// a map containing an entry where the key is the result of
+						// IRI compacting @list and the value is the original
+						// compacted item.
+						let key = compact_iri(active_context, inverse_context, Keyword::List, None, true, false, options)?;
+						let mut list_object = json::object::Object::new();
+						list_object.insert(key.as_str().unwrap(), compacted_item);
+						compacted_item = JsonValue::Object(list_object);
+
+						// If `expanded_item` contains the entry @index-value,
+						// then add an entry to compacted item where the key is
+						// the result of IRI compacting @index and value is value.
+						if let Some(index) = expanded_item.index() {
+							let key = compact_iri(active_context, inverse_context, Keyword::Index, None, true, false, options)?;
+							match compacted_item {
+								JsonValue::Object(ref mut obj) => obj.insert(key.as_str().unwrap(), index.into()),
+								_ => unreachable!()
+							}
+						}
+
+						// Use add value to add `compacted_item` to
+						// the `item_active_property` entry in `nest_result` using `as_array`.
+						add_value(nest_result, item_active_property, compacted_item, as_array)
+					} else {
+						// Otherwise, set the value of the item active property entry in nest result to compacted item.
+						nest_result.insert(item_active_property, compacted_item)
+					}
+				},
+				Object::Node(node) if node.is_graph() => {
+					// If expanded item is a graph object
+					//
+					// If `container` includes @graph and @id:
+					if container.contains(ContainerType::Graph) && container.contains(ContainerType::Id) {
+						let mut compacted_item = node.graph.as_ref().unwrap().compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
+
+						// Initialize `map_object` to the value of `item_active_property`
+						// in `nest_result`, initializing it to a new empty map,
+						// if necessary.
+						if !nest_result.get(item_active_property).is_some() {
+							nest_result.insert(item_active_property, JsonValue::new_object())
+						}
+
+						let map_object = match nest_result.get_mut(item_active_property) {
+							Some(JsonValue::Object(map)) => map,
+							_ => unreachable!()
+						};
+
+						// Initialize `map_key` by IRI compacting the value of @id in
+						// `expanded_item` or @none if no such value exists
+						// with `vocab` set to false if there is an @id entry in
+						// `expanded_item`.
+						let (id_value, vocab): (Lenient<Term<T>>, bool) = match expanded_item.id() {
+							Some(term) => (term.clone().cast(), false),
+							None => (Lenient::Ok(Term::Keyword(Keyword::None)), true)
+						};
+
+						let map_key = compact_iri(active_context, inverse_context, &id_value, None, vocab, false, options)?;
+
+						// Use `add_value` to add `compacted_item` to
+						// the `map_key` entry in `map_object` using `as_array`.
+						add_value(map_object, map_key.as_str().unwrap(), compacted_item, as_array)
+					} else if container.contains(ContainerType::Graph) && container.contains(ContainerType::Index) {
+						let mut compacted_item = node.graph.as_ref().unwrap().compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
+
+						// Initialize `map_object` to the value of `item_active_property`
+						// in `nest_result`, initializing it to a new empty map,
+						// if necessary.
+						if !nest_result.get(item_active_property).is_some() {
+							nest_result.insert(item_active_property, JsonValue::new_object())
+						}
+
+						let map_object = match nest_result.get_mut(item_active_property) {
+							Some(JsonValue::Object(map)) => map,
+							_ => unreachable!()
+						};
+
+						// Initialize `map_key` the value of @index in `expanded_item`
+						// or @none, if no such value exists.
+						let map_key = match index {
+							Some(index) => index,
+							None => "@none"
+						};
+
+						// Use `add_value` to add `compacted_item` to
+						// the `map_key` entry in `map_object` using `as_array`.
+						add_value(map_object, map_key, compacted_item, as_array)
+					} else if container.contains(ContainerType::Graph) && node.is_simple_graph() {
+						let mut compacted_item = node.graph.as_ref().unwrap().compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
+
+						// Otherwise, if `container` includes @graph and
+						// `expanded_item` is a simple graph object
+						// the value cannot be represented as a map object.
+
+						// If `compacted_item` is an array with more than one value,
+						// it cannot be directly represented,
+						// as multiple objects would be interpreted as different named graphs.
+						// Set `compacted_item` to a new map,
+						// containing the key from IRI compacting @included and
+						// the original `compacted_item` as the value.
+						compacted_item = match compacted_item {
+							JsonValue::Array(items) if items.len() > 1 => {
+								let key = compact_iri(active_context, inverse_context, Keyword::Included, None, true, false, options)?;
+								let mut map = json::object::Object::new();
+								map.insert(key.as_str().unwrap(), JsonValue::Array(items));
+								JsonValue::Object(map)
+							},
+							item => item
+						};
+
+						// Use `add_value` to add `compacted_item` to the
+						// `item_active_property` entry in `nest_result` using `as_array`.
+						add_value(nest_result, item_active_property, compacted_item, as_array)
+					} else {
+						let compacted_item = node.compact_indexed_with(expanded_item.index(), active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
+
+						// // Otherwise, `container` does not include @graph or
+						// // otherwise does not match one of the previous cases.
+						//
+						// // Set `compacted_item` to a new map containing the key from
+						// // IRI compacting @graph using the original `compacted_item` as a value.
+						// let key = compact_iri(active_context, inverse_context, Keyword::Graph, None, true, false, options)?;
+						// let mut map = json::object::Object::new();
+						// map.insert(key.as_str().unwrap(), compacted_item);
+						//
+						// // If `expanded_item` contains an @id entry,
+						// // add an entry in `compacted_item` using the key from
+						// // IRI compacting @id using the value of
+						// // IRI compacting the value of @id in `expanded_item` using
+						// // false for vocab.
+						// if let Some(id) = expanded_item.id() {
+						// 	let key = compact_iri(active_context, inverse_context, Keyword::Id, None, false, false, options)?;
+						// 	let value = compact_iri(active_context, inverse_context, id, None, false, false, options)?;
+						// 	map.insert(key.as_str().unwrap(), value);
+						// }
+						//
+						// // If `expanded_item` contains an @index entry,
+						// // add an entry in `compacted_item` using the key from
+						// // IRI compacting @index and the value of @index in `expanded_item`.
+						// if let Some(index) = expanded_item.index() {
+						// 	let key = compact_iri(active_context, inverse_context, Keyword::Index, None, true, false, options)?;
+						// 	map.insert(key.as_str().unwrap(), index.into());
+						// }
+						//
+						// // Use `add_value` to add `compacted_item` to the
+						// // `item_active_property` entry in `nest_result` using `as_array`.
+						// let compacted_item = JsonValue::Object(map);
+						// add_value(nest_result, item_active_property, compacted_item, as_array)
+						add_value(nest_result, item_active_property, compacted_item, as_array)
+					}
+				},
+				_ => {
+					let mut compacted_item = expanded_item.compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
+
+					// if container includes @language, @index, @id,
+					// or @type and container does not include @graph:
+					if !container.contains(ContainerType::Graph) && (container.contains(ContainerType::Language) || container.contains(ContainerType::Index) || container.contains(ContainerType::Id) || container.contains(ContainerType::Type)) {
+						// Initialize `map_object` to the value of
+						// `item_active_property` in `nest_result`,
+						// initializing it to a new empty map, if necessary.
+						if !nest_result.get(item_active_property).is_some() {
+							nest_result.insert(item_active_property, JsonValue::new_object())
+						}
+
+						let map_object = match nest_result.get_mut(item_active_property) {
+							Some(JsonValue::Object(map)) => map,
+							_ => unreachable!()
+						};
+
+						// Initialize container key by IRI compacting either
+						// @language, @index, @id, or @type based on the contents of container.
+						let container_type = if container.contains(ContainerType::Language) {
+							ContainerType::Language
+						} else if container.contains(ContainerType::Index) {
+							ContainerType::Index
+						} else if container.contains(ContainerType::Id) {
+							ContainerType::Id
+						} else {
+							ContainerType::Type
+						};
+
+						let mut container_key = compact_iri(active_context, inverse_context, &Lenient::Ok(Term::Keyword(container_type.into())), None, true, false, options)?;
+
+						// Initialize `index_key` to the value of index mapping in
+						// the term definition associated with `item_active_property`
+						// in active context, or @index, if no such value exists.
+						let index_key = match active_context.get(item_active_property) {
+							Some(def) if def.index.is_some() => def.index.as_ref().unwrap(),
+							_ => "@index"
+						};
+
+						// If `container` includes @language and `expanded_item`
+						// contains a @value entry, then set `compacted_item` to
+						// the value associated with its @value entry.
+						// Set `map_key` to the value of @language in `expanded_item`,
+						// if any.
+						let map_key = if container_type == ContainerType::Language && expanded_item.is_value() {
+							if let Object::Value(value) = expanded_item.inner() {
+								compacted_item = value_value(value)
+							}
+
+							match expanded_item.language() {
+								Some(lang) => Some(lang.clone()),
+								None => None
+							}
+						} else if container_type == ContainerType::Index {
+							if index_key == "@index" {
+								// Otherwise, if `container` includes @index and
+								// `index_key` is @index, set `map_key` to the value of
+								// @index in `expanded_item`, if any.
+								match expanded_item.index() {
+									Some(index) => Some(index.to_string()),
+									None => None
+								}
+							} else {
+								// Otherwise, if `container` includes @index and
+								// `index_key` is not @index:
+
+								// Reinitialize `container_key` by
+								// IRI compacting `index_key`.
+								let lenient_index : Lenient<Term<T>> = Lenient::Unknown(index_key.to_string());
+								container_key = compact_iri(active_context, inverse_context, &lenient_index, None, true, false, options)?;
+
+								// Set `map_key` to the first value of
+								// `container_key` in `compacted_item`, if any.
+								let map_key = match &compacted_item {
+									JsonValue::Object(map) => match map.get(container_key.as_str().unwrap()) {
+										Some(value) => match value.as_str() {
+											Some(str) => Some(str.to_string()),
+											None => None
+										},
+										None => None
+									},
+									_ => None
+								};
+
+								// If there are remaining values in `compacted_item`
+								// for container key, use `add_value` to add
+								// those remaining values to the `container_key`
+								// in `compacted_item`.
+								// Otherwise, remove that entry from compacted item.
+								// TODO 12.8.9.6.3
+
+								map_key
+							}
+						} else if container_type == ContainerType::Id {
+							// Otherwise, if `container` includes @id,
+							// set `map_key` to the value of `container_key` in
+							// `compacted_item` and remove `container_key` from
+							// `compacted_item`.
+							match &mut compacted_item {
+								JsonValue::Object(map) => match map.remove(container_key.as_str().unwrap()) {
+									Some(JsonValue::String(str)) => Some(str.to_string()),
+									Some(JsonValue::Short(str)) => Some(str.to_string()),
+									_ => None
+								},
+								_ => None
+							}
+						} else {
+							// Otherwise, if container includes @type:
+
+							// Set `map_key` to the first value of `container_key` in
+							// `compacted_item`, if any.
+							let map_key = match &compacted_item {
+								JsonValue::Object(map) => match map.get(container_key.as_str().unwrap()) {
+									Some(value) => match value.as_str() {
+										Some(str) => Some(str.to_string()),
+										None => None
+									},
+									None => None
+								},
+								_ => None
+							};
+
+							// If there are remaining values in `compacted_item` for
+							// `container_key`, use `add_value` to add those
+							// remaining values to the `container_key` in
+							// `compacted_item`.
+							// Otherwise, remove that entry from compacted item.
+							// TODO 12.8.9.8.2
+
+							// If `compacted_item` contains a single entry with a key
+							// expanding to @id, set `compacted_item` to the result of
+							// using this algorithm recursively,
+							// passing `active_context`, `item_active_property` for
+							// `active_property`, and a map composed of the single
+							// entry for @id from `expanded_item` for `element`.
+							if let JsonValue::Object(map) = &compacted_item {
+								if map.len() == 1 {
+									if let Some(id) = map.get("@id") {
+										if let Some(id) = id.as_str() {
+											let id_ref = match iref::Iri::new(id) {
+												Ok(iri) => Lenient::Ok(Reference::Id(T::from_iri(iri))),
+												Err(_) => Lenient::Unknown(id.to_string())
+											};
+
+											let obj = Object::Node(Node::with_id(id_ref));
+											compacted_item = obj.compact_indexed_with(None, active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?
+										}
+									}
+								}
+							}
+
+							None
+						};
+
+						// If `map_key` is null, set it to the result of
+						// IRI compacting @none.
+						let map_key = match map_key {
+							Some(key) => key,
+							None => {
+								let key = compact_iri(active_context, inverse_context, Keyword::None, None, true, false, options)?;
+								key.as_str().unwrap().to_string()
+							}
+						};
+
+						// Use `add_value` to add `compacted_item` to
+						// the `map_key` entry in `map_object` using `as_array`.
+						add_value(map_object, &map_key, compacted_item, as_array)
+					} else {
+						// Otherwise, use `add_value` to add `compacted_item` to the
+						// `item_active_property` entry in `nest_result` using `as_array`.
+						add_value(nest_result, item_active_property, compacted_item, as_array)
+					}
+				}
+			};
+		}
+	}
+
+	// If expanded value is an empty array:
+	if is_empty {
+		// Initialize `item_active_property` by IRI compacting
+		// `expanded_property` using `expanded_value` for `value` and
+		// `inside_reverse` for `reverse`.
+		let item_active_property = compact_iri(active_context, inverse_context, &lenient_expanded_property, Some(&Indexed::new(Object::Node(Node::new()), None)), true, inside_reverse, options)?;
+		println!("compact property {}", item_active_property.as_str().unwrap());
+
+		// If the term definition for `item_active_property` in the active context
+		// has a nest value entry (nest term):
+		if let Some(item_active_property) = item_active_property.as_str() {
+			let mut nest_result = match active_context.get(item_active_property) {
+				Some(term_definition) => match &term_definition.nest {
+					Some(nest_term) => {
+						// If nest term is not @nest,
+						// or a term in the active context that expands to @nest,
+						// an invalid @nest value error has been detected,
+						// and processing is aborted.
+						if nest_term != "@nest" {
+							match active_context.get(nest_term.as_ref()) {
+								Some(term_def) if term_def.value == Some(Term::Keyword(Keyword::Nest)) => (),
+								_ => return Err(ErrorCode::InvalidNestValue.into())
+							}
+						}
+
+						// If result does not have a nest_term entry,
+						// initialize it to an empty map.
+						if result.get(nest_term).is_none() {
+							result.insert(nest_term, JsonValue::new_object())
+						}
+
+						// Initialize `nest_result` to the value of `nest_term` in result.
+						match result.get_mut(nest_term) {
+							Some(JsonValue::Object(map)) => map,
+							_ => unreachable!()
+						}
+					},
+					None => {
+						// Otherwise, initialize `nest_result` to result.
+						&mut result
+					}
+				},
+				None => &mut result
+			};
+
+			// Use `add_value` to add an empty array to the `item_active_property` entry in
+			// `nest_result` using true for `as_array`.
+			add_value(nest_result, item_active_property, JsonValue::Array(Vec::new()), true)
+		}
+	}
+
+	Ok(result)
 }
 
 /// Get the `@value` field of a value object.
@@ -1334,7 +1472,8 @@ fn compact_collection_with<'a, T: Sync + Send + Id, O: 'a + Send + Iterator<Item
 			}
 		}
 
-		if result.len() > 1
+		if result.is_empty()
+		|| result.len() > 1
 		|| !options.compact_arrays
 		|| active_property == Some("@graph") || active_property == Some("@set")
 		|| list_or_set {

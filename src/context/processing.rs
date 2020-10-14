@@ -15,6 +15,7 @@ use crate::{
 	Id,
 	Reference,
 	Lenient,
+	Nullable,
 	Direction,
 	expansion,
 	syntax::{
@@ -1027,10 +1028,10 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 							// processing is aborted.
 							// Set the `language` mapping of definition to `language`.
 							definition.language = Some(match language_value {
-								JsonValue::Null => None,
+								JsonValue::Null => Nullable::Null,
 								JsonValue::String(_) | JsonValue::Short(_) => {
 									// TODO lang tags
-									Some(language_value.as_str().unwrap().to_string())
+									Nullable::Some(language_value.as_str().unwrap().to_string())
 								},
 								_ => {
 									return Err(ErrorCode::InvalidLanguageMapping.into())
@@ -1044,11 +1045,11 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 							// Initialize `direction` to the value associated with the `@direction`
 							// entry, which MUST be either null, "ltr", or "rtl".
 							definition.direction = Some(match direction_value.as_str() {
-								Some("ltr") => Some(Direction::Ltr),
-								Some("rtl") => Some(Direction::Rtl),
+								Some("ltr") => Nullable::Some(Direction::Ltr),
+								Some("rtl") => Nullable::Some(Direction::Rtl),
 								_ => {
 									if direction_value.is_null() {
-										None
+										Nullable::Null
 									} else {
 										// Otherwise, an invalid base direction error has been
 										// detected and processing is aborted.

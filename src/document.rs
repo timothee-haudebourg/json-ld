@@ -110,7 +110,7 @@ pub trait Document<T: Id> {
 			use crate::util::AsJson;
 			println!("expanded: {}", expanded.as_json().pretty(2));
 
-			let inverse_context = context::InverseContext::new();
+			let inverse_context = context.invert();
 			let compacted = if expanded.len() == 1 {
 				expanded.into_iter().next().unwrap().compact_with(context, context, &inverse_context, None, loader, options.into()).await?
 			} else {
@@ -128,7 +128,7 @@ pub trait Document<T: Id> {
 								Keyword
 							}
 						};
-						let key = crate::compaction::compact_iri(context, &inverse_context, &Lenient::Ok(Term::Keyword(Keyword::Graph)), None, false, false, options.into())?;
+						let key = crate::compaction::compact_iri(context, &inverse_context, &Lenient::Ok(Term::Keyword(Keyword::Graph)), None, true, false, options.into())?;
 						map.insert(key.as_str().unwrap(), JsonValue::Array(items));
 					}
 

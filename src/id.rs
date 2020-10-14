@@ -1,5 +1,5 @@
 use std::hash::Hash;
-use iref::{Iri, IriBuf};
+use iref::{Iri, IriBuf, AsIri};
 use json::JsonValue;
 use crate::{
 	syntax::TermLike,
@@ -61,21 +61,14 @@ use crate::{
 ///   }
 /// }
 /// ```
-pub trait Id: Clone + PartialEq + Eq + Hash {
+pub trait Id: AsIri + Clone + PartialEq + Eq + Hash {
 	/// Create an identifier from its IRI.
 	fn from_iri(iri: Iri) -> Self;
-
-	/// Get the identifier's IRI.
-	fn as_iri(&self) -> Iri;
 }
 
 impl Id for IriBuf {
 	fn from_iri(iri: Iri) -> IriBuf {
 		iri.into()
-	}
-
-	fn as_iri(&self) -> Iri {
-		self.as_iri()
 	}
 }
 

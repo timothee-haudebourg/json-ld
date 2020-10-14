@@ -329,7 +329,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 						// direction mapping, update direction with that value.
 						if let Some(key_definition) = key_definition {
 							if let Some(key_direction) = key_definition.direction {
-								direction = key_direction
+								direction = key_direction.option()
 							}
 						}
 

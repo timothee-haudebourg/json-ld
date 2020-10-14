@@ -1,7 +1,11 @@
-use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::{
+	cmp::Ordering,
+	collections::{HashMap, HashSet},
+	fmt
+};
 use crate::{
 	Id,
+	Nullable,
 	Direction,
 	syntax::{
 		Term,
@@ -18,6 +22,16 @@ pub enum TypeSelection<T: Id> {
 	Reverse,
 	Any,
 	Type(Type<T>)
+}
+
+impl<T: Id> fmt::Debug for TypeSelection<T> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			TypeSelection::Reverse => write!(f, "Reverse"),
+			TypeSelection::Any => write!(f, "Any"),
+			TypeSelection::Type(ty) => write!(f, "Type({})", ty.as_str())
+		}
+	}
 }
 
 struct InverseType<T: Id> {
@@ -54,17 +68,17 @@ impl<T: Id> InverseType<T> {
 	}
 }
 
-type LangDir = (Option<String>, Option<Direction>);
+type LangDir = (Option<Nullable<String>>, Option<Nullable<Direction>>);
 
 struct InverseLang {
 	any: Option<String>,
 	map: HashMap<LangDir, String>
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LangSelection<'a> {
 	Any,
-	Lang(Option<&'a String>, Option<Direction>)
+	Lang(Option<Nullable<&'a String>>, Option<Nullable<Direction>>)
 }
 
 impl InverseLang {
@@ -72,7 +86,7 @@ impl InverseLang {
 		match selection {
 			LangSelection::Any => self.any.as_ref(),
 			LangSelection::Lang(lang, dir) => {
-				let lang_dir = (lang.map(|l| l.clone()), dir);
+				let lang_dir = (lang.map(|l| l.cloned()), dir);
 				self.map.get(&lang_dir)
 			}
 		}.map(|v| v.as_str())
@@ -88,8 +102,8 @@ impl InverseLang {
 		self.set(None, None, term)
 	}
 
-	fn set(&mut self, lang: Option<&String>, dir: Option<&Direction>, term: &str) {
-		let lang_dir = (lang.map(|l| l.clone()), dir.map(|d| d.clone()));
+	fn set(&mut self, lang: Option<Nullable<&String>>, dir: Option<Nullable<&Direction>>, term: &str) {
+		let lang_dir = (lang.map(|l| l.cloned()), dir.map(|d| d.cloned()));
 		if !self.map.contains_key(&lang_dir) {
 			self.map.insert(lang_dir, term.to_string());
 		}
@@ -162,6 +176,16 @@ pub enum Selection<'a, T: Id> {
 	Lang(Vec<LangSelection<'a>>)
 }
 
+impl<'a, T: Id> fmt::Debug for Selection<'a, T> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Selection::Any => write!(f, "Any"),
+			Selection::Type(s) => write!(f, "Type({:?})", s),
+			Selection::Lang(s) => write!(f, "Lang({:?})", s),
+		}
+	}
+}
+
 impl<T: Id> InverseContext<T> {
 	pub fn new() -> InverseContext<T> {
 		InverseContext {
@@ -174,6 +198,7 @@ impl<T: Id> InverseContext<T> {
 	}
 
 	fn insert(&mut self, term: Term<T>, value: InverseDefinition<T>) {
+		println!("INSERT {}", term.as_str());
 		self.map.insert(term, value);
 	}
 
@@ -187,7 +212,7 @@ impl<T: Id> InverseContext<T> {
 
 	fn reference_mut<F: FnOnce() -> InverseDefinition<T>>(&mut self, term: &Term<T>, insert: F) -> &mut InverseDefinition<T> {
 		if !self.contains(term) {
-			self.map.insert(term.clone(), insert());
+			self.insert(term.clone(), insert());
 		}
 		self.map.get_mut(term).unwrap()
 	}
@@ -238,7 +263,9 @@ impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 			}
 		});
 
+		println!("INVERT");
 		for (term, term_definition) in definitions {
+			println!("DEF {}", term.as_str());
 			if let Some(var) = term_definition.value.as_ref() {
 				let container = &term_definition.container;
 				let container_map = result.reference_mut(var, || InverseDefinition::new());
@@ -268,20 +295,20 @@ impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 								(Some(language), Some(direction)) => {
 									// Otherwise, if term definition has both a language mapping
 									// and a direction mapping:
-									lang_map.set(language.as_ref(), direction.as_ref(), term)
+									lang_map.set(Some(language.as_ref()), Some(direction.as_ref()), term)
 								},
 								(Some(language), None) => {
 									// Otherwise, if term definition has a language mapping (might
 									// be null):
-									lang_map.set(language.as_ref(), None, term)
+									lang_map.set(Some(language.as_ref()), None, term)
 								},
 								(None, Some(direction)) => {
 									// Otherwise, if term definition has a direction mapping (might
 									// be null):
-									lang_map.set(None, direction.as_ref(), term)
+									lang_map.set(None, Some(direction.as_ref()), term)
 								},
 								(None, None) => {
-									lang_map.set(context.default_language(), context.default_base_direction().as_ref(), term);
+									lang_map.set(context.default_language().map(|l| Nullable::Some(l)), context.default_base_direction().as_ref().map(|d| Nullable::Some(d)), term);
 									lang_map.set_none(term);
 									type_map.set_none(term);
 								}

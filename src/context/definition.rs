@@ -1,5 +1,6 @@
 use iref::{Iri, IriBuf};
 use crate::{
+	Nullable,
 	Id,
 	Direction,
 	syntax::{
@@ -35,13 +36,13 @@ pub struct TermDefinition<T: Id, C: Context<T>> {
 	pub container: Container,
 
 	// Optional direction mapping.
-	pub direction: Option<Option<Direction>>,
+	pub direction: Option<Nullable<Direction>>,
 
 	// Optional index mapping.
 	pub index: Option<String>,
 
 	// Optional language mapping.
-	pub language: Option<Option<String>>,
+	pub language: Option<Nullable<String>>,
 
 	// Optional nest value.
 	pub nest: Option<String>,
