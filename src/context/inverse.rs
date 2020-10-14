@@ -68,7 +68,7 @@ impl<T: Id> InverseType<T> {
 	}
 }
 
-type LangDir = (Option<Nullable<String>>, Option<Nullable<Direction>>);
+type LangDir = Nullable<(Option<String>, Option<Direction>)>;
 
 struct InverseLang {
 	any: Option<String>,
@@ -78,15 +78,15 @@ struct InverseLang {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LangSelection<'a> {
 	Any,
-	Lang(Option<Nullable<&'a String>>, Option<Nullable<Direction>>)
+	Lang(Nullable<(Option<&'a String>, Option<Direction>)>)
 }
 
 impl InverseLang {
 	fn select(&self, selection: LangSelection) -> Option<&str> {
 		match selection {
 			LangSelection::Any => self.any.as_ref(),
-			LangSelection::Lang(lang, dir) => {
-				let lang_dir = (lang.map(|l| l.cloned()), dir);
+			LangSelection::Lang(lang_dir) => {
+				let lang_dir = lang_dir.map(|(l, d)| (l.cloned(), d));
 				self.map.get(&lang_dir)
 			}
 		}.map(|v| v.as_str())
@@ -99,11 +99,11 @@ impl InverseLang {
 	}
 
 	fn set_none(&mut self, term: &str) {
-		self.set(None, None, term)
+		self.set(Nullable::Some((None, None)), term)
 	}
 
-	fn set(&mut self, lang: Option<Nullable<&String>>, dir: Option<Nullable<&Direction>>, term: &str) {
-		let lang_dir = (lang.map(|l| l.cloned()), dir.map(|d| d.cloned()));
+	fn set(&mut self, lang_dir: Nullable<(Option<&String>, Option<Direction>)>, term: &str) {
+		let lang_dir = lang_dir.map(|(l, d)| (l.cloned(), d));
 		if !self.map.contains_key(&lang_dir) {
 			self.map.insert(lang_dir, term.to_string());
 		}
@@ -164,6 +164,34 @@ impl<T: Id> InverseDefinition<T> {
 		}
 		self.map.get_mut(container).unwrap()
 	}
+
+	pub fn select(&self, containers: &[Container], selection: &Selection<T>) -> Option<&str> {
+		for container in containers {
+			if let Some(type_lang_map) = self.get(container) {
+				match selection {
+					Selection::Any => {
+						return Some(type_lang_map.any.none.as_str())
+					},
+					Selection::Type(preferred_values) => {
+						for item in preferred_values {
+							if let Some(term) = type_lang_map.typ.select(item.clone()) {
+								return Some(term)
+							}
+						}
+					},
+					Selection::Lang(preferred_values) => {
+						for item in preferred_values {
+							if let Some(term) = type_lang_map.language.select(*item) {
+								return Some(term)
+							}
+						}
+					}
+				}
+			}
+		}
+
+		None
+	}
 }
 
 pub struct InverseContext<T: Id> {
@@ -218,33 +246,10 @@ impl<T: Id> InverseContext<T> {
 	}
 
 	pub fn select(&self, var: &Term<T>, containers: &[Container], selection: &Selection<T>) -> Option<&str> {
-		if let Some(container_map) = self.map.get(var) {
-			for container in containers {
-				if let Some(type_lang_map) = container_map.get(container) {
-					match selection {
-						Selection::Any => {
-							return Some(type_lang_map.any.none.as_str())
-						},
-						Selection::Type(preferred_values) => {
-							for item in preferred_values {
-								if let Some(term) = type_lang_map.typ.select(item.clone()) {
-									return Some(term)
-								}
-							}
-						},
-						Selection::Lang(preferred_values) => {
-							for item in preferred_values {
-								if let Some(term) = type_lang_map.language.select(*item) {
-									return Some(term)
-								}
-							}
-						}
-					}
-				}
-			}
+		match self.get(var) {
+			Some(container_map) => container_map.select(containers, selection),
+			None => None
 		}
-
-		None
 	}
 }
 
@@ -295,20 +300,47 @@ impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 								(Some(language), Some(direction)) => {
 									// Otherwise, if term definition has both a language mapping
 									// and a direction mapping:
-									lang_map.set(Some(language.as_ref()), Some(direction.as_ref()), term)
+									match (language, direction) {
+										(Nullable::Some(language), Nullable::Some(direction)) => {
+											lang_map.set(Nullable::Some((Some(language), Some(*direction))), term)
+										},
+										(Nullable::Some(language), Nullable::Null) => {
+											lang_map.set(Nullable::Some((Some(language), None)), term)
+										},
+										(Nullable::Null, Nullable::Some(direction)) => {
+											lang_map.set(Nullable::Some((None, Some(*direction))), term)
+										},
+										(Nullable::Null, Nullable::Null) => {
+											lang_map.set(Nullable::Null, term)
+										}
+									}
 								},
 								(Some(language), None) => {
 									// Otherwise, if term definition has a language mapping (might
 									// be null):
-									lang_map.set(Some(language.as_ref()), None, term)
+									match language {
+										Nullable::Some(language) => {
+											lang_map.set(Nullable::Some((Some(language), None)), term)
+										},
+										Nullable::Null => {
+											lang_map.set(Nullable::Null, term)
+										}
+									}
 								},
 								(None, Some(direction)) => {
 									// Otherwise, if term definition has a direction mapping (might
 									// be null):
-									lang_map.set(None, Some(direction.as_ref()), term)
+									match direction {
+										Nullable::Some(direction) => {
+											lang_map.set(Nullable::Some((None, Some(*direction))), term)
+										},
+										Nullable::Null => {
+											lang_map.set(Nullable::Null, term)
+										}
+									}
 								},
 								(None, None) => {
-									lang_map.set(context.default_language().map(|l| Nullable::Some(l)), context.default_base_direction().as_ref().map(|d| Nullable::Some(d)), term);
+									lang_map.set(Nullable::Some((context.default_language(), context.default_base_direction())), term);
 									lang_map.set_none(term);
 									type_map.set_none(term);
 								}

@@ -159,7 +159,7 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 		}
 
 		if let Literal::String(str) = result {
-			let result = LangString::new(str, language, direction);
+			let result = LangString::new(str, language, direction).unwrap();
 
 			return Ok(Some(Indexed::new(Object::Value(Value::LangString(result)), index)))
 		} else {

@@ -156,9 +156,13 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 		return Ok(JsonValue::Null)
 	}
 
+	// println!("compact {}", var.as_str());
 	if vocab {
+		// println!("vocab");
 		if let Lenient::Ok(var) = var {
+			// println!("ok");
 			if let Some(entry) = inverse_context.get(var) {
+				// println!("found reverse entry");
 				// let default_lang_dir = (active_context.default_language(), active_context.default_base_direction());
 
 				// Initialize containers to an empty array.
@@ -172,7 +176,7 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 
 				if let Some(value) = value {
 					if value.index().is_some() && !value.is_graph() {
-						containers.push(Container::Type);
+						containers.push(Container::Index);
 						containers.push(Container::IndexSet);
 					}
 				}
@@ -186,7 +190,6 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 
 					if let Some(value) = value {
 						has_index = value.index().is_some();
-						println!("value: {}", value.as_json().pretty(2));
 
 						match value.inner() {
 							Object::List(list) => {
@@ -198,7 +201,7 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 								let mut common_lang_dir = None;
 
 								if list.is_empty() {
-									common_lang_dir = Some(Some((active_context.default_language(), active_context.default_base_direction())))
+									common_lang_dir = Some(Nullable::Some((active_context.default_language(), active_context.default_base_direction())))
 								} else {
 									for item in list {
 										let mut item_type = None;
@@ -210,13 +213,13 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 												is_value = true;
 												match value {
 													Value::LangString(lang_str) => {
-														item_lang_dir = Some((lang_str.language(), lang_str.direction()))
+														item_lang_dir = Some(Nullable::Some((lang_str.language(), lang_str.direction())))
 													},
 													Value::Literal(_, Some(ty)) => {
 														item_type = Some(Type::Ref(ty.clone()))
 													},
 													Value::Literal(_, None) => {
-														item_type = None
+														item_lang_dir = Some(Nullable::Null)
 													},
 													Value::Json(_) => {
 														item_type = Some(Type::Json)
@@ -229,9 +232,9 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 										}
 
 										if common_lang_dir.is_none() {
-											common_lang_dir = Some(item_lang_dir)
-										} else if is_value && *common_lang_dir.as_ref().unwrap() != item_lang_dir {
-											common_lang_dir = Some(None)
+											common_lang_dir = item_lang_dir
+										} else if is_value && common_lang_dir != item_lang_dir {
+											common_lang_dir = Some(Nullable::Some((None, None)))
 										}
 
 										if common_type.is_none() {
@@ -240,13 +243,13 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 											common_type = Some(None)
 										}
 
-										if common_lang_dir == Some(None) && common_type == Some(None) {
+										if common_lang_dir == Some(Nullable::Some((None, None))) && common_type == Some(None) {
 											break
 										}
 									}
 
 									if common_lang_dir.is_none() {
-										common_lang_dir = Some(None)
+										common_lang_dir = Some(Nullable::Some((None, None)))
 									}
 									let common_lang_dir = common_lang_dir.unwrap();
 
@@ -257,12 +260,8 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 
 									if let Some(common_type) = common_type {
 										type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
-									} else if let Some(common_lang_dir) = common_lang_dir {
-										let language = common_lang_dir.0.map(|l| Nullable::Some(l));
-										let direction = common_lang_dir.1.map(|d| Nullable::Some(d));
-										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(language, direction)))
 									} else {
-										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(None, None)))
+										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
 									}
 								}
 							},
@@ -311,9 +310,7 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 							Object::Value(v) => {
 								// If value is a value object:
 								if (v.direction().is_some() || v.language().is_some()) && value.index().is_none() {
-									let language = v.language().map(|l| Nullable::Some(l));
-									let direction = v.direction().map(|d| Nullable::Some(d));
-									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(language, direction)));
+									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(Nullable::Some((v.language(), v.direction())))));
 									containers.push(Container::Language);
 									containers.push(Container::LanguageSet)
 								} else if let Some(ty) = v.typ() {
@@ -412,31 +409,33 @@ pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(ac
 								let mut selection = Vec::new();
 
 								selection.push(lang_value);
-								selection.push(LangSelection::Lang(None, None));
+								selection.push(LangSelection::Lang(Nullable::Some((None, None))));
 
 								selection.push(LangSelection::Any);
 
-								if let LangSelection::Lang(Some(_), Some(dir)) = lang_value {
-									selection.push(LangSelection::Lang(None, Some(dir)));
+								if let LangSelection::Lang(Nullable::Some((Some(_), Some(dir)))) = lang_value {
+									selection.push(LangSelection::Lang(Nullable::Some((None, Some(dir)))));
 								}
 
 								Selection::Lang(selection)
 							},
 							None => {
 								let mut selection = Vec::new();
-								selection.push(LangSelection::Lang(Some(Nullable::Null), None));
-								selection.push(LangSelection::Lang(None, Some(Nullable::Null)));
-								selection.push(LangSelection::Lang(None, None));
+								selection.push(LangSelection::Lang(Nullable::Null));
+								selection.push(LangSelection::Lang(Nullable::Some((None, None))));
 								selection.push(LangSelection::Any);
 								Selection::Lang(selection)
 							}
 						}
 					};
 
-					println!("SELECT {} (containers {:?}, selection {:?})", var.as_str(), containers, selection);
-					if let Some(term) = inverse_context.select(var, &containers, &selection) {
+					// println!("select '{}' {:?} with prefered values {:?}", var.as_str(), containers, selection);
+					if let Some(term) = entry.select(&containers, &selection) {
+						// println!("selected {}", term);
 						return Ok(term.into())
 					}
+
+					// println!("no selection.");
 				}
 			}
 		}
@@ -633,20 +632,20 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 			// if any, otherwise to the default language of active context.
 			let language = match active_property_definition {
 				Some(def) => match def.language.as_ref() {
-					Some(lang) => Some(lang.as_ref()),
-					None => active_context.default_language().map(|l| Nullable::Some(l))
+					Some(lang) => lang.as_ref().option(),
+					None => active_context.default_language()
 				},
-				None => active_context.default_language().map(|l| Nullable::Some(l))
+				None => active_context.default_language()
 			};
 
 			// Initialize direction to the direction mapping for active property in active context,
 			// if any, otherwise to the default base direction of active context.
 			let direction = match active_property_definition {
 				Some(def) => match def.direction {
-					Some(dir) => Some(dir),
-					None => active_context.default_base_direction().map(|d| Nullable::Some(d))
+					Some(dir) => dir.option(),
+					None => active_context.default_base_direction()
 				},
-				None => active_context.default_base_direction().map(|d| Nullable::Some(d))
+				None => active_context.default_base_direction()
 			};
 
 			// If value has an @id entry and has no other entries other than @index:
@@ -676,10 +675,17 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 							Literal::Null => return Ok(JsonValue::Null),
 							Literal::Boolean(b) => return Ok(b.as_json()),
 							Literal::Number(n) => return Ok(JsonValue::Number(n.clone())),
-							Literal::String(s) => return Ok(s.as_json())
+							Literal::String(s) => {
+								if ty.is_some() || (language.is_none() && direction.is_none()) {
+									return Ok(s.as_json())
+								} else {
+									let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Value, None, true, false, options)?;
+									result.insert(compact_key.as_str().unwrap(), s.as_json())
+								}
+							}
 						}
 					} else {
-						let compact_key  = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Value, None, true, false, options)?;
+						let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Value, None, true, false, options)?;
 						match lit {
 							Literal::Null => {
 								result.insert(compact_key.as_str().unwrap(), JsonValue::Null)
@@ -703,8 +709,8 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 					}
 				},
 				Value::LangString(ls) => {
-					let ls_language = ls.language().map(|l| Nullable::Some(l));
-					let ls_direction = ls.direction().map(|d| Nullable::Some(d));
+					let ls_language = ls.language();//.map(|l| Nullable::Some(l));
+					let ls_direction = ls.direction();//.map(|d| Nullable::Some(d));
 
 					if remove_index
 					&& (ls_language.is_none() || language == ls_language) // || (ls.language().is_none() && language.is_none()))
@@ -739,9 +745,11 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Value<T> {
 				}
 			}
 
-			if let Some(index) = index {
-				let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Index, None, true, false, options)?;
-				result.insert(compact_key.as_str().unwrap(), index.as_json())
+			if !remove_index {
+				if let Some(index) = index {
+					let compact_key = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Index, None, true, false, options)?;
+					result.insert(compact_key.as_str().unwrap(), index.as_json())
+				}
 			}
 
 			Ok(JsonValue::Object(result))
@@ -841,7 +849,7 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 
 				// If expanded value is a string, then initialize compacted value by IRI
 				// compacting expanded value with vocab set to false.
-				let compacted_value = compact_iri(active_context.as_ref(), inverse_context.as_ref(), id, None, true, false, options)?;
+				let compacted_value = compact_iri(active_context.as_ref(), inverse_context.as_ref(), id, None, false, false, options)?;
 
 				// Initialize alias by IRI compacting expanded property.
 				let alias = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Id, None, true, false, options)?;
@@ -895,7 +903,7 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 
 			// If expanded property is @reverse:
 			if !self.reverse_properties.is_empty() {
-				// TODO
+				panic!("TODO @reverse")
 			}
 
 			// If expanded property is @index and active property has a container mapping in
@@ -913,14 +921,13 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 				}
 
 				if !index_container {
-					panic!("TODO")
+					// Initialize alias by IRI compacting expanded property.
+					let alias = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Index, None, true, false, options)?;
+
+					// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
+					result.insert(alias.as_str().unwrap(), index.as_json());
 				}
 			}
-
-			// // If expanded property is @graph:
-			// if !self.graph.is_empty() {
-			// 	// TODO
-			// }
 
 			if let Some(graph) = &self.graph {
 				result = compact_property(result, Term::Keyword(Keyword::Graph), graph, index, active_context.as_ref(), inverse_context.as_ref(), loader, inside_reverse, options).await?
@@ -936,7 +943,6 @@ impl<T: Sync + Send + Id> CompactIndexed<T> for Node<T> {
 }
 
 async fn compact_property<'a, T: 'a + Sync + Send + Id, C: ContextMut<T>, L: Loader, O: IntoIterator<Item=&'a Indexed<Object<T>>>>(mut result: json::object::Object, expanded_property: Term<T>, expanded_value: O, index: Option<&str>, active_context: &C, inverse_context: &InverseContext<T>, loader: &mut L, inside_reverse: bool, options: Options) -> Result<json::object::Object, Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
-	println!("expanded property {}", expanded_property.as_str());
 	let lenient_expanded_property: Lenient<Term<T>> = expanded_property.into();
 	let mut is_empty = true;
 
@@ -946,7 +952,6 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, C: ContextMut<T>, L: Loa
 		// Initialize `item_active_property` by IRI compacting `expanded_property`
 		// using `expanded_item` for value and `inside_reverse` for `reverse`.
 		let item_active_property = compact_iri(active_context, inverse_context, &lenient_expanded_property, Some(expanded_item), true, inside_reverse, options)?;
-		println!("compact property {}", item_active_property.as_str().unwrap());
 
 		// If the term definition for `item_active_property` in the active context
 		// has a nest value entry (nest term)
@@ -1359,7 +1364,6 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, C: ContextMut<T>, L: Loa
 		// `expanded_property` using `expanded_value` for `value` and
 		// `inside_reverse` for `reverse`.
 		let item_active_property = compact_iri(active_context, inverse_context, &lenient_expanded_property, Some(&Indexed::new(Object::Node(Node::new()), None)), true, inside_reverse, options)?;
-		println!("compact property {}", item_active_property.as_str().unwrap());
 
 		// If the term definition for `item_active_property` in the active context
 		// has a nest value entry (nest term):

@@ -228,6 +228,20 @@ impl<T: Id> JsonContext<T> {
 	}
 }
 
+impl<T: Id> Default for JsonContext<T> {
+	fn default() -> JsonContext<T> {
+		JsonContext {
+			original_base_url: None,
+			base_iri: None,
+			vocabulary: None,
+			default_language: None,
+			default_base_direction: None,
+			previous_context: None,
+			definitions: HashMap::new()
+		}
+	}
+}
+
 impl<T: Id> Context<T> for JsonContext<T> {
 	type LocalContext = JsonValue;
 

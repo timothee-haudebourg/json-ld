@@ -95,7 +95,7 @@ pub trait Document<T: Id> {
 		self.expand_with(self.base_url(), context, loader, expansion::Options::default())
 	}
 
-	fn compact_with<'a, C: Send + Sync + ContextMut<T>, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri<'a>>, context: &'a R, loader: &'a mut L, options: compaction::Options) -> BoxFuture<'a, Result<JsonValue, Error>> where
+	fn compact_with<'a, C: Send + Sync + ContextMut<T> + Default, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri<'a>>, context: &'a R, loader: &'a mut L, options: compaction::Options) -> BoxFuture<'a, Result<JsonValue, Error>> where
 		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
 		T: 'a + Send + Sync,
@@ -105,7 +105,7 @@ pub trait Document<T: Id> {
 		async move {
 			let json_context = context.as_json();
 			let context = context.deref();
-			let expanded = self.expand_with(base_url, context, loader, options.into()).await?;
+			let expanded = self.expand_with(base_url, &C::default(), loader, options.into()).await?;
 
 			use crate::util::AsJson;
 			println!("expanded: {}", expanded.as_json().pretty(2));
@@ -146,7 +146,7 @@ pub trait Document<T: Id> {
 		}.boxed()
 	}
 
-	fn compact<'a, C: Send + Sync + ContextMut<T>, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, context: &'a R, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where
+	fn compact<'a, C: Send + Sync + ContextMut<T> + Default, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, context: &'a R, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where
 		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
 		T: 'a + Id + Send + Sync,

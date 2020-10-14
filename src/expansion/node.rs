@@ -369,15 +369,17 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 										// initialize a new map v consisting of two
 										// key-value pairs: (@value-item) and
 										// (@language-language).
-										let v = LangString::new(item.to_string(), language, direction);
+										if let Ok(v) = LangString::new(item.to_string(), language, direction) {
+											// If item is neither @none nor well-formed
+											// according to section 2.2.9 of [BCP47],
+											// processors SHOULD issue a warning.
+											// TODO warning
 
-										// If item is neither @none nor well-formed
-										// according to section 2.2.9 of [BCP47],
-										// processors SHOULD issue a warning.
-										// TODO warning
-
-										// Append v to expanded value.
-										expanded_value.push(Object::Value(Value::LangString(v)).into())
+											// Append v to expanded value.
+											expanded_value.push(Object::Value(Value::LangString(v)).into())
+										} else {
+											expanded_value.push(Object::Value(Value::Literal(Literal::String(item.to_string()), None)).into())
+										}
 									},
 									_ => {
 										// item must be a string, otherwise an

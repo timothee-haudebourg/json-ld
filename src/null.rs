@@ -47,6 +47,14 @@ impl<T> Nullable<T> {
 			Nullable::Some(t) => Some(t)
 		}
 	}
+
+	#[inline]
+	pub fn map<F, U>(self, f: F) -> Nullable<U> where F: FnOnce(T) -> U {
+		match self {
+			Nullable::Null => Nullable::Null,
+			Nullable::Some(t) => Nullable::Some(f(t))
+		}
+	}
 }
 
 impl<'a, T: Clone> Nullable<&'a T> {
