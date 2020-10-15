@@ -87,12 +87,16 @@ pub trait Document<T: Id> {
 	/// }")?;
 	/// let expanded_doc = task::block_on(doc.expand(&context, &mut NoLoader))?;
 	/// ```
-	fn expand<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, context: &'a C, loader: &'a mut L) -> BoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
+	fn expand<'a, C: 'a + Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, loader: &'a mut L) -> BoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
 		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
-		T: 'a + Send + Sync
+		T: 'a + Send + Sync,
+		Self: Sync
 	{
-		self.expand_with(self.base_url(), context, loader, expansion::Options::default())
+		async move {
+			let context = C::new(self.base_url());
+			self.expand_with(self.base_url(), &context, loader, expansion::Options::default()).await
+		}.boxed()
 	}
 
 	fn compact_with<'a, C: Send + Sync + ContextMut<T> + Default, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri<'a>>, context: &'a R, loader: &'a mut L, options: compaction::Options) -> BoxFuture<'a, Result<JsonValue, Error>> where
@@ -105,13 +109,13 @@ pub trait Document<T: Id> {
 		async move {
 			let json_context = context.as_json();
 			let context = context.deref();
-			let expanded = self.expand_with(base_url, &C::default(), loader, options.into()).await?;
+			let expanded = self.expand_with(base_url, &C::new(base_url), loader, options.into()).await?;
 
 			use crate::util::AsJson;
 			println!("expanded: {}", expanded.as_json().pretty(2));
 
 			let inverse_context = context.invert();
-			let compacted = if expanded.len() == 1 {
+			let compacted = if expanded.len() == 1 && options.compact_arrays {
 				expanded.into_iter().next().unwrap().compact_with(context, context, &inverse_context, None, loader, options.into()).await?
 			} else {
 				expanded.compact_with(context, context, &inverse_context, None, loader, options.into()).await?
@@ -128,7 +132,7 @@ pub trait Document<T: Id> {
 								Keyword
 							}
 						};
-						let key = crate::compaction::compact_iri(context, &inverse_context, &Lenient::Ok(Term::Keyword(Keyword::Graph)), None, true, false, options.into())?;
+						let key = crate::compaction::compact_iri(context, &inverse_context, &Lenient::Ok(Term::Keyword(Keyword::Graph)), true, false, options.into())?;
 						map.insert(key.as_str().unwrap(), JsonValue::Array(items));
 					}
 
@@ -138,7 +142,7 @@ pub trait Document<T: Id> {
 				_ => panic!("invalid compact document")
 			};
 
-			if !map.is_empty() && !json_context.is_null() {
+			if !map.is_empty() && !json_context.is_null() && !json_context.is_empty() {
 				map.insert("@context", json_context)
 			}
 

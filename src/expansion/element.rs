@@ -6,6 +6,7 @@ use crate::{
 	Error,
 	ErrorCode,
 	Id,
+	Indexed,
 	Lenient,
 	object::*,
 	context::{
@@ -224,10 +225,14 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 
 				if let Some(list_entry) = list_entry {
 					// List objects.
-					for Entry((_, expanded_key), _) in expanded_entries {
+					let mut index = None;
+					for Entry((_, expanded_key), value) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
-								panic!("TODO list index")
+								match value.as_str() {
+									Some(value) => index = Some(value.to_string()),
+									None => return Err(ErrorCode::InvalidIndexValue.into())
+								}
 							},
 							Term::Keyword(Keyword::List) => (),
 							_ => {
@@ -245,13 +250,20 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 						result.extend(expand_element(active_context.as_ref(), active_property, item, base_url, loader, options, false).await?)
 					}
 
-					Ok(Expanded::Object(Object::List(result).into()))
+					Ok(Expanded::Object(Indexed::new(Object::List(result), index)))
 				} else if let Some(set_entry) = set_entry {
 					// Set objects.
-					for Entry((_, expanded_key), _) in expanded_entries {
+					let mut index = None;
+					for Entry((_, expanded_key), value) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
-								panic!("TODO set index")
+								match value.as_str() {
+									Some(value) => {
+										panic!("expand set @index");
+										index = Some(value.to_string())
+									},
+									None => return Err(ErrorCode::InvalidIndexValue.into())
+								}
 							},
 							Term::Keyword(Keyword::Set) => (),
 							_ => {

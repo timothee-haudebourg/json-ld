@@ -4,6 +4,7 @@ use iref::IriBuf;
 use json::JsonValue;
 use crate::{
 	Id,
+	object,
 	LangString,
 	Direction,
 	syntax::{
@@ -119,6 +120,12 @@ impl<T: Id> Value<T> {
 			Value::LangString(str) => str.direction(),
 			_ => None
 		}
+	}
+}
+
+impl<T: Id> object::Any<T> for Value<T> {
+	fn as_ref(&self) -> object::Ref<T> {
+		object::Ref::Value(self)
 	}
 }
 

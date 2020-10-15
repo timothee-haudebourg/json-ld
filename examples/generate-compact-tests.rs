@@ -44,11 +44,14 @@ pub enum Vocab {
 
 	#[iri("vocab:PositiveEvaluationTest")] PositiveEvalTest,
 	#[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
-	#[iri("vocab:option")] Option,
-	#[iri("vocab:specVersion")] SpecVersion,
-	#[iri("vocab:processingMode")] ProcessingMode,
+
 	#[iri("vocab:context")] Context,
-	#[iri("vocab:base")] Base
+	#[iri("vocab:option")] Option,
+
+	#[iri("vocab:base")] Base,
+	#[iri("vocab:compactArrays")] CompactArrays,
+	#[iri("vocab:processingMode")] ProcessingMode,
+	#[iri("vocab:specVersion")] SpecVersion
 }
 
 pub type Id = Lexicon<Vocab>;
@@ -62,10 +65,9 @@ async fn main() {
 
 	let doc = loader.load(URL).await.expect("unable to load the test suite");
 
-	let context: JsonContext<Id> = JsonContext::new(Some(URL));
-	let expanded_doc = doc.expand(&context, &mut loader).await.expect("expansion failed");
+	let expanded_doc = doc.expand::<JsonContext<Id>, _>(&mut loader).await.expect("expansion failed");
 
-	println!(include_str!("../tests/templates/header-compact.rs"));
+	println!(include_str!("../tests/templates/compact-header.rs"));
 
 	for item in &expanded_doc {
 		if let Object::Node(item) = item.as_ref() {
@@ -104,6 +106,7 @@ fn generate_test(entry: &Node<Id>) {
 	let func_name = func_name(url.path().file_name().unwrap());
 
 	let mut processing_mode = ProcessingMode::JsonLd1_1;
+	let mut compact_arrays = true;
 	let mut context_url = "None".to_string();
 
 	for context in entry.get(Vocab::Context) {
@@ -127,6 +130,10 @@ fn generate_test(entry: &Node<Id>) {
 				processing_mode = mode.as_str().unwrap().try_into().unwrap();
 			}
 
+			for b in option.get(Vocab::CompactArrays) {
+				compact_arrays = b.as_str() == Some("true")
+			}
+
 			for base in option.get(Vocab::Base) {
 				if let Some(url) = base.as_iri() {
 					base_url = url
@@ -144,7 +151,7 @@ fn generate_test(entry: &Node<Id>) {
 		let output_url = entry.get(Vocab::Result).next().unwrap().as_iri().unwrap();
 
 		println!(
-			include_str!("../tests/templates/test-positive.rs"),
+			include_str!("../tests/templates/compact-test-positive.rs"),
 			func_name,
 			url,
 			base_url,
@@ -152,19 +159,21 @@ fn generate_test(entry: &Node<Id>) {
 			name,
 			comments,
 			processing_mode,
+			compact_arrays,
 			context_url
 		);
 	} else if entry.has_type(&Vocab::NegativeEvalTest) {
 		let error_code: ErrorCode = entry.get(Vocab::Result).next().unwrap().as_str().unwrap().try_into().unwrap();
 
 		println!(
-			include_str!("../tests/templates/test-negative.rs"),
+			include_str!("../tests/templates/compact-test-negative.rs"),
 			func_name,
 			url,
 			base_url,
 			name,
 			comments,
 			processing_mode,
+			compact_arrays,
 			context_url,
 			error_code
 		);

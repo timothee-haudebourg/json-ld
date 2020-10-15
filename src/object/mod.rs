@@ -23,6 +23,69 @@ pub use value::{
 };
 pub use node::Node;
 
+pub trait Any<T: Id>: AsJson {
+	fn as_ref(&self) -> Ref<T>;
+
+	#[inline]
+	fn id(&self) -> Option<&Lenient<Reference<T>>> {
+		match self.as_ref() {
+			Ref::Node(n) => n.id.as_ref(),
+			_ => None
+		}
+	}
+
+	#[inline]
+	fn language<'a>(&'a self) -> Option<&'a String> where T: 'a {
+		match self.as_ref() {
+			Ref::Value(value) => value.language(),
+			_ => None
+		}
+	}
+
+	#[inline]
+	fn is_value(&self) -> bool {
+		match self.as_ref() {
+			Ref::Value(_) => true,
+			_ => false
+		}
+	}
+
+	#[inline]
+	fn is_node(&self) -> bool {
+		match self.as_ref() {
+			Ref::Node(_) => true,
+			_ => false
+		}
+	}
+
+	#[inline]
+	fn is_graph(&self) -> bool {
+		match self.as_ref() {
+			Ref::Node(n) => n.is_graph(),
+			_ => false
+		}
+	}
+
+	#[inline]
+	fn is_list(&self) -> bool {
+		match self.as_ref() {
+			Ref::List(_) => true,
+			_ => false
+		}
+	}
+}
+
+pub enum Ref<'a, T: Id> {
+	/// Value object.
+	Value(&'a Value<T>),
+
+	/// Node object.
+	Node(&'a Node<T>),
+
+	/// List object.
+	List(&'a [Indexed<Object<T>>])
+}
+
 /// Object.
 ///
 /// JSON-LD connects together multiple kinds of data objects.
@@ -124,6 +187,16 @@ impl<T: Id> Object<T> {
 		match self {
 			Object::Value(value) => value.language(),
 			_ => None
+		}
+	}
+}
+
+impl<T: Id> Any<T> for Object<T> {
+	fn as_ref(&self) -> Ref<T> {
+		match self {
+			Object::Value(value) => Ref::Value(value),
+			Object::Node(node) => Ref::Node(node),
+			Object::List(list) => Ref::List(list.as_ref())
 		}
 	}
 }

@@ -29,6 +29,7 @@ use json_ld::{{
 
 struct Options<'a> {{
 	processing_mode: ProcessingMode,
+	compact_arrays: bool,
 	context: Option<Iri<'a>>
 }}
 
@@ -36,6 +37,7 @@ impl<'a> From<Options<'a>> for compaction::Options {{
 	fn from(options: Options<'a>) -> compaction::Options {{
 		compaction::Options {{
 			processing_mode: options.processing_mode,
+			compact_arrays: options.compact_arrays,
 			ordered: false,
 			..compaction::Options::default()
 		}}

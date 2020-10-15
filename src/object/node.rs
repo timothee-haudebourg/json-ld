@@ -9,6 +9,7 @@ use crate::{
 	Reference,
 	ToReference,
 	Lenient,
+	object,
 	Object,
 	Indexed,
 	syntax::{
@@ -298,6 +299,12 @@ impl<T: Id> Node<T> {
 		} else {
 			Err(self)
 		}
+	}
+}
+
+impl<T: Id> object::Any<T> for Node<T> {
+	fn as_ref(&self) -> object::Ref<T> {
+		object::Ref::Node(self)
 	}
 }
 
