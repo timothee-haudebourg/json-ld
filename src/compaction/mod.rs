@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use std::borrow::Borrow;
 use futures::future::{BoxFuture, FutureExt};
 use mown::Mown;
-use mapped_mut::MappedMut;
+// use mapped_mut::MappedMut;
 use json::JsonValue;
 use crate::{
 	Id,
@@ -1156,7 +1156,7 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 	Ok(())
 }
 
-fn select_nest_result<'a, T: Id, C: ContextMut<T>>(result: &'a mut json::object::Object, active_context: &C, item_active_property: &str, compact_arrays: bool) -> Result<(MappedMut<'a, json::object::Object, json::object::Object>, Container, bool), Error> {
+fn select_nest_result<'a, T: Id, C: ContextMut<T>>(result: &'a mut json::object::Object, active_context: &C, item_active_property: &str, compact_arrays: bool) -> Result<(&'a mut json::object::Object, Container, bool), Error> {
 	let (nest_result, container) = match active_context.get(item_active_property) {
 		Some(term_definition) => {
 			let nest_result = match &term_definition.nest {
@@ -1179,23 +1179,21 @@ fn select_nest_result<'a, T: Id, C: ContextMut<T>>(result: &'a mut json::object:
 					}
 
 					// Initialize `nest_result` to the value of `nest_term` in result.
-					MappedMut::new(result, |result| {
-						match result.get_mut(nest_term) {
-							Some(JsonValue::Object(map)) => map,
-							_ => unreachable!()
-						}
-					})
+					match result.get_mut(nest_term) {
+						Some(JsonValue::Object(map)) => map,
+						_ => unreachable!()
+					}
 				},
 				None => {
 					// Otherwise, initialize `nest_result` to result.
-					result.into()
+					result
 				}
 			};
 
 			(nest_result, term_definition.container)
 		},
 		None => {
-			(result.into(), Container::None)
+			(result, Container::None)
 		}
 	};
 
@@ -1231,7 +1229,7 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 		// If the term definition for `item_active_property` in the active context
 		// has a nest value entry (nest term)
 		if let Some(item_active_property) = item_active_property.as_str() {
-			let (mut nest_result, container, as_array) = select_nest_result(result, active_context, item_active_property, options.compact_arrays)?;
+			let (nest_result, container, as_array) = select_nest_result(result, active_context, item_active_property, options.compact_arrays)?;
 
 			// Initialize `compacted_item` to the result of using this algorithm
 			// recursively, passing `active_context`, `item_active_property` for
@@ -1242,10 +1240,10 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 			// for `element` instead of `expanded_item`.
 			match expanded_item.inner().as_ref() {
 				object::Ref::List(list) => {
-					compact_property_list(list, expanded_item.index(), &mut nest_result, container, as_array, item_active_property, active_context, inverse_context, loader, options).await?
+					compact_property_list(list, expanded_item.index(), nest_result, container, as_array, item_active_property, active_context, inverse_context, loader, options).await?
 				},
 				object::Ref::Node(node) if node.is_graph() => {
-					compact_property_graph(node, expanded_item.index(), &mut nest_result, container, as_array, item_active_property, active_context, inverse_context, loader, options).await?
+					compact_property_graph(node, expanded_item.index(), nest_result, container, as_array, item_active_property, active_context, inverse_context, loader, options).await?
 				},
 				_ => {
 					let mut compacted_item = expanded_item.compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
@@ -1411,12 +1409,10 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 					} else {
 						// Otherwise, use `add_value` to add `compacted_item` to the
 						// `item_active_property` entry in `nest_result` using `as_array`.
-						add_value(&mut nest_result, item_active_property, compacted_item, as_array)
+						add_value(nest_result, item_active_property, compacted_item, as_array)
 					}
 				}
 			};
-
-			result = MappedMut::unmap(nest_result);
 		}
 	}
 
@@ -1430,11 +1426,11 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 		// If the term definition for `item_active_property` in the active context
 		// has a nest value entry (nest term):
 		if let Some(item_active_property) = item_active_property.as_str() {
-			let (mut nest_result, _, _) = select_nest_result(result, active_context, item_active_property, options.compact_arrays)?;
+			let (nest_result, _, _) = select_nest_result(result, active_context, item_active_property, options.compact_arrays)?;
 
 			// Use `add_value` to add an empty array to the `item_active_property` entry in
 			// `nest_result` using true for `as_array`.
-			add_value(&mut nest_result, item_active_property, JsonValue::Array(Vec::new()), true)
+			add_value(nest_result, item_active_property, JsonValue::Array(Vec::new()), true)
 		}
 	}
 

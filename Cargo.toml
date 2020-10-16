@@ -18,11 +18,10 @@ reqwest-loader = ["reqwest"]
 log = "^0.4"
 mown = "^0.2"
 # json = "^0.12"
-json = { path = "/home/projects/documents/json-rust" }
+json = { git = "https://github.com/timothee-haudebourg/json-rust", branch = "fix#190" }
 iref = "^1.4.2"
 futures = "^0.3"
 reqwest = { version = "^0.10", optional = true }
-mapped-mut = { path = "../../data-structures/mapped-mut" }
 
 [dev-dependencies]
 async-std = { version = "^1.5", features = ["attributes"] }
