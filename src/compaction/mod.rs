@@ -166,7 +166,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T
 		return Ok(JsonValue::Null)
 	}
 
-	// println!("compact {}", var.as_str());
+	println!("compact {}", var.as_str());
 	if vocab {
 		// println!("vocab");
 		if let Lenient::Ok(var) = var {
@@ -198,150 +198,152 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T
 					type_lang_value = Some(TypeLangValue::Type(TypeSelection::Reverse));
 					containers.push(Container::Set);
 				} else {
-					if let Some(value) = value {
-						has_index = value.index().is_some();
+					let mut has_index = false;
+					let value_ref = value.map(|v| {
+						has_index = v.index().is_some();
+						v.inner().as_ref()
+					});
 
-						match value.inner().as_ref() {
-							object::Ref::List(list) => {
-								if value.index().is_none() {
-									containers.push(Container::List);
-								}
+					match value_ref {
+						Some(object::Ref::List(list)) => {
+							if !has_index {
+								containers.push(Container::List);
+							}
 
-								let mut common_type = None;
-								let mut common_lang_dir = None;
+							let mut common_type = None;
+							let mut common_lang_dir = None;
 
-								if list.is_empty() {
-									common_lang_dir = Some(Nullable::Some((active_context.default_language(), active_context.default_base_direction())))
-								} else {
-									for item in list {
-										let mut item_type = None;
-										let mut item_lang_dir = None;
-										let mut is_value = false;
+							if list.is_empty() {
+								common_lang_dir = Some(Nullable::Some((active_context.default_language(), active_context.default_base_direction())))
+							} else {
+								for item in list {
+									let mut item_type = None;
+									let mut item_lang_dir = None;
+									let mut is_value = false;
 
-										match item.inner() {
-											Object::Value(value) => {
-												is_value = true;
-												match value {
-													Value::LangString(lang_str) => {
-														item_lang_dir = Some(Nullable::Some((lang_str.language(), lang_str.direction())))
-													},
-													Value::Literal(_, Some(ty)) => {
-														item_type = Some(Type::Ref(ty.clone()))
-													},
-													Value::Literal(_, None) => {
-														item_lang_dir = Some(Nullable::Null)
-													},
-													Value::Json(_) => {
-														item_type = Some(Type::Json)
-													}
+									match item.inner() {
+										Object::Value(value) => {
+											is_value = true;
+											match value {
+												Value::LangString(lang_str) => {
+													item_lang_dir = Some(Nullable::Some((lang_str.language(), lang_str.direction())))
+												},
+												Value::Literal(_, Some(ty)) => {
+													item_type = Some(Type::Ref(ty.clone()))
+												},
+												Value::Literal(_, None) => {
+													item_lang_dir = Some(Nullable::Null)
+												},
+												Value::Json(_) => {
+													item_type = Some(Type::Json)
 												}
-											},
-											_ => {
-												item_type = Some(Type::Id)
 											}
-										}
-
-										if common_lang_dir.is_none() {
-											common_lang_dir = item_lang_dir
-										} else if is_value && common_lang_dir != item_lang_dir {
-											common_lang_dir = Some(Nullable::Some((None, None)))
-										}
-
-										if common_type.is_none() {
-											common_type = Some(item_type)
-										} else if *common_type.as_ref().unwrap() != item_type {
-											common_type = Some(None)
-										}
-
-										if common_lang_dir == Some(Nullable::Some((None, None))) && common_type == Some(None) {
-											break
+										},
+										_ => {
+											item_type = Some(Type::Id)
 										}
 									}
 
 									if common_lang_dir.is_none() {
+										common_lang_dir = item_lang_dir
+									} else if is_value && common_lang_dir != item_lang_dir {
 										common_lang_dir = Some(Nullable::Some((None, None)))
 									}
-									let common_lang_dir = common_lang_dir.unwrap();
 
 									if common_type.is_none() {
+										common_type = Some(item_type)
+									} else if *common_type.as_ref().unwrap() != item_type {
 										common_type = Some(None)
 									}
-									let common_type = common_type.unwrap();
 
-									if let Some(common_type) = common_type {
-										type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
-									} else {
-										type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
+									if common_lang_dir == Some(Nullable::Some((None, None))) && common_type == Some(None) {
+										break
 									}
 								}
-							},
-							object::Ref::Node(node) if node.is_graph() => {
-								// Otherwise, if value is a graph object, prefer a mapping most
-								// appropriate for the particular value.
-								if value.index().is_some() {
-									// If value contains an @index entry, append the values
-									// @graph@index and @graph@index@set to containers.
-									containers.push(Container::GraphIndex);
-									containers.push(Container::GraphIndexSet);
+
+								if common_lang_dir.is_none() {
+									common_lang_dir = Some(Nullable::Some((None, None)))
 								}
+								let common_lang_dir = common_lang_dir.unwrap();
 
-								if node.id().is_some() {
-									// If value contains an @id entry, append the values @graph@id and
-									// @graph@id@set to containers.
-									containers.push(Container::GraphId);
-									containers.push(Container::GraphIdSet);
+								if common_type.is_none() {
+									common_type = Some(None)
 								}
+								let common_type = common_type.unwrap();
 
-								// Append the values @graph, @graph@set, and @set to containers.
-								containers.push(Container::Graph);
-								containers.push(Container::GraphSet);
-								containers.push(Container::Set);
-
-								if value.index().is_none() {
-									// If value does not contain an @index entry, append the values
-									// @graph@index and @graph@index@set to containers.
-									containers.push(Container::GraphIndex);
-									containers.push(Container::GraphIndexSet);
-								}
-
-								if node.id().is_none() {
-									// If the value does not contain an @id entry, append the values
-									// @graph@id and @graph@id@set to containers.
-									containers.push(Container::GraphId);
-									containers.push(Container::GraphIdSet);
-								}
-
-								// Append the values @index and @index@set to containers.
-								containers.push(Container::Index);
-								containers.push(Container::IndexSet);
-
-								type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
-							},
-							object::Ref::Value(v) => {
-								// If value is a value object:
-								if (v.direction().is_some() || v.language().is_some()) && value.index().is_none() {
-									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(Nullable::Some((v.language(), v.direction())))));
-									containers.push(Container::Language);
-									containers.push(Container::LanguageSet)
-								} else if let Some(ty) = v.typ() {
-									type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.map(|ty| (*ty).clone()))))
+								if let Some(common_type) = common_type {
+									type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
 								} else {
-									is_simple_value = v.direction().is_none() && v.language().is_none() && value.index().is_none()
+									type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
 								}
-
-								containers.push(Container::Set)
-							},
-							object::Ref::Node(node) => {
-								// Otherwise, set type/language to @type and set type/language value
-								// to @id, and append @id, @id@set, @type, and @set@type, to containers.
-								type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
-								containers.push(Container::Id);
-								containers.push(Container::IdSet);
-								containers.push(Container::Type);
-								containers.push(Container::SetType);
-
-								containers.push(Container::Set)
 							}
+						},
+						Some(object::Ref::Node(node)) if node.is_graph() => {
+							// Otherwise, if value is a graph object, prefer a mapping most
+							// appropriate for the particular value.
+							if has_index {
+								// If value contains an @index entry, append the values
+								// @graph@index and @graph@index@set to containers.
+								containers.push(Container::GraphIndex);
+								containers.push(Container::GraphIndexSet);
+							}
+
+							if node.id().is_some() {
+								// If value contains an @id entry, append the values @graph@id and
+								// @graph@id@set to containers.
+								containers.push(Container::GraphId);
+								containers.push(Container::GraphIdSet);
+							}
+
+							// Append the values @graph, @graph@set, and @set to containers.
+							containers.push(Container::Graph);
+							containers.push(Container::GraphSet);
+							containers.push(Container::Set);
+
+							if !has_index {
+								// If value does not contain an @index entry, append the values
+								// @graph@index and @graph@index@set to containers.
+								containers.push(Container::GraphIndex);
+								containers.push(Container::GraphIndexSet);
+							}
+
+							if node.id().is_none() {
+								// If the value does not contain an @id entry, append the values
+								// @graph@id and @graph@id@set to containers.
+								containers.push(Container::GraphId);
+								containers.push(Container::GraphIdSet);
+							}
+
+							// Append the values @index and @index@set to containers.
+							containers.push(Container::Index);
+							containers.push(Container::IndexSet);
+
+							type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
+						},
+						Some(object::Ref::Value(v)) => {
+							// If value is a value object:
+							if (v.direction().is_some() || v.language().is_some()) && !has_index {
+								type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(Nullable::Some((v.language(), v.direction())))));
+								containers.push(Container::Language);
+								containers.push(Container::LanguageSet)
+							} else if let Some(ty) = v.typ() {
+								type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(ty.map(|ty| (*ty).clone()))))
+							} else {
+								is_simple_value = v.direction().is_none() && v.language().is_none() && !has_index
+							}
+
+							containers.push(Container::Set)
+						},
+						_ => {
+							// Otherwise, set type/language to @type and set type/language value
+							// to @id, and append @id, @id@set, @type, and @set@type, to containers.
+							type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
+							containers.push(Container::Id);
+							containers.push(Container::IdSet);
+							containers.push(Container::Type);
+							containers.push(Container::SetType);
+
+							containers.push(Container::Set)
 						}
 					}
 				}

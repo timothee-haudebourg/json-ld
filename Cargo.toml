@@ -19,7 +19,7 @@ log = "^0.4"
 mown = "^0.2"
 # json = "^0.12"
 json = { git = "https://github.com/timothee-haudebourg/json-rust", branch = "fix#190" }
-iref = "^1.4.2"
+iref = "^1.4.3"
 futures = "^0.3"
 reqwest = { version = "^0.10", optional = true }
 
