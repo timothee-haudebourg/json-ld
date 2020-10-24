@@ -868,45 +868,7 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 		}
 	}
 
-	// If expanded property is @type:
-	if !node.types.is_empty() {
-		// If expanded value is a string,
-		// then initialize compacted value by IRI compacting expanded value using
-		// type-scoped context for active context.
-		let compacted_value = if node.types.len() == 1 {
-			compact_iri(type_scoped_context, inverse_context.as_ref(), &node.types[0], true, false, options)?
-		} else {
-			// Otherwise, expanded value must be a @type array:
-			// Initialize compacted value to an empty array.
-			let mut compacted_value = Vec::with_capacity(node.types.len());
-
-			// For each item expanded type in expanded value:
-			for ty in &node.types {
-				// Set term by IRI compacting expanded type using type-scoped context for active context.
-				let compacted_ty = compact_iri(type_scoped_context, inverse_context.as_ref(), ty, true, false, options)?;
-
-				// Append term, to compacted value.
-				compacted_value.push(compacted_ty)
-			}
-
-			JsonValue::Array(compacted_value)
-		};
-
-		// Initialize alias by IRI compacting expanded property.
-		let alias = compact_iri(active_context.as_ref(), inverse_context.as_ref(), Keyword::Type, true, false, options)?;
-
-		// Initialize as array to true if processing mode is json-ld-1.1 and the
-		// container mapping for alias in the active context includes @set,
-		// otherwise to the negation of compactArrays.
-		let container_mapping = match active_context.get(alias.as_str().unwrap()) {
-			Some(def) => def.container,
-			None => Container::None
-		};
-		let as_array = (options.processing_mode == ProcessingMode::JsonLd1_1 && container_mapping.contains(ContainerType::Set)) || !options.compact_arrays;
-
-		// Use add value to add compacted value to the alias entry in result using as array.
-		add_value(&mut result, alias.as_str().unwrap(), compacted_value, as_array)
-	}
+	compact_types(&mut result, &node.types, active_context.as_ref(), type_scoped_context, inverse_context.as_ref(), options)?;
 
 	// If expanded property is @reverse:
 	if !node.reverse_properties.is_empty() {
@@ -923,7 +885,7 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 
 		let mut reverse_result = json::object::Object::new();
 		for (expanded_property, expanded_value) in &node.reverse_properties {
-			compact_property(&mut reverse_result, expanded_property.clone().into(), expanded_value, index, active_context.as_ref(), inverse_context.as_ref(), loader, true, options).await?;
+			compact_property(&mut reverse_result, expanded_property.clone().into(), expanded_value, index, active_context.as_ref(), type_scoped_context, inverse_context.as_ref(), loader, true, options).await?;
 		}
 
 		// For each property and value in compacted value:
@@ -980,14 +942,58 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 	}
 
 	if let Some(graph) = &node.graph {
-		compact_property(&mut result, Term::Keyword(Keyword::Graph), graph, index, active_context.as_ref(), inverse_context.as_ref(), loader, false, options).await?
+		compact_property(&mut result, Term::Keyword(Keyword::Graph), graph, index, active_context.as_ref(), type_scoped_context, inverse_context.as_ref(), loader, false, options).await?
 	}
 
 	for (expanded_property, expanded_value) in expanded_entries {
-		compact_property(&mut result, expanded_property.clone().into(), expanded_value, index, active_context.as_ref(), inverse_context.as_ref(), loader, false, options).await?
+		compact_property(&mut result, expanded_property.clone().into(), expanded_value, index, active_context.as_ref(), type_scoped_context, inverse_context.as_ref(), loader, false, options).await?
 	}
 
 	Ok(JsonValue::Object(result))
+}
+
+fn compact_types<T: Sync + Send + Id, C: ContextMut<T>>(result: &mut json::object::Object, types: &[Lenient<Reference<T>>], active_context: &C, type_scoped_context: &C, inverse_context: &InverseContext<T>, options: Options) -> Result<(), Error> {
+	// If expanded property is @type:
+	if !types.is_empty() {
+		// If expanded value is a string,
+		// then initialize compacted value by IRI compacting expanded value using
+		// type-scoped context for active context.
+		let compacted_value = if types.len() == 1 {
+			compact_iri(type_scoped_context, inverse_context, &types[0], true, false, options)?
+		} else {
+			// Otherwise, expanded value must be a @type array:
+			// Initialize compacted value to an empty array.
+			let mut compacted_value = Vec::with_capacity(types.len());
+
+			// For each item expanded type in expanded value:
+			for ty in types {
+				// Set term by IRI compacting expanded type using type-scoped context for active context.
+				let compacted_ty = compact_iri(type_scoped_context, inverse_context, ty, true, false, options)?;
+
+				// Append term, to compacted value.
+				compacted_value.push(compacted_ty)
+			}
+
+			JsonValue::Array(compacted_value)
+		};
+
+		// Initialize alias by IRI compacting expanded property.
+		let alias = compact_iri(active_context, inverse_context, Keyword::Type, true, false, options)?;
+
+		// Initialize as array to true if processing mode is json-ld-1.1 and the
+		// container mapping for alias in the active context includes @set,
+		// otherwise to the negation of compactArrays.
+		let container_mapping = match active_context.get(alias.as_str().unwrap()) {
+			Some(def) => def.container,
+			None => Container::None
+		};
+		let as_array = (options.processing_mode == ProcessingMode::JsonLd1_1 && container_mapping.contains(ContainerType::Set)) || !options.compact_arrays;
+
+		// Use add value to add compacted value to the alias entry in result using as array.
+		add_value(result, alias.as_str().unwrap(), compacted_value, as_array)
+	}
+
+	Ok(())
 }
 
 async fn compact_property_list<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(list: &[Indexed<Object<T>>], expanded_index: Option<&str>, nest_result: &mut json::object::Object, container: Container, as_array: bool, item_active_property: &str, active_context: &C, inverse_context: &InverseContext<T>, loader: &mut L, options: Options) -> Result<(), Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
@@ -1033,13 +1039,12 @@ async fn compact_property_list<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>
 	Ok(())
 }
 
-async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(node: &Node<T>, expanded_index: Option<&str>, nest_result: &mut json::object::Object, container: Container, as_array: bool, item_active_property: &str, active_context: &C, inverse_context: &InverseContext<T>, loader: &mut L, options: Options) -> Result<(), Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
+async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(node: &Node<T>, expanded_index: Option<&str>, nest_result: &mut json::object::Object, container: Container, as_array: bool, item_active_property: &str, active_context: &C, type_scoped_context: &C, inverse_context: &InverseContext<T>, loader: &mut L, options: Options) -> Result<(), Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
 	// If expanded item is a graph object
-	//
+	let mut compacted_item = node.graph.as_ref().unwrap().compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
+
 	// If `container` includes @graph and @id:
 	if container.contains(ContainerType::Graph) && container.contains(ContainerType::Id) {
-		let mut compacted_item = node.graph.as_ref().unwrap().compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
-
 		// Initialize `map_object` to the value of `item_active_property`
 		// in `nest_result`, initializing it to a new empty map,
 		// if necessary.
@@ -1066,9 +1071,7 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 		// Use `add_value` to add `compacted_item` to
 		// the `map_key` entry in `map_object` using `as_array`.
 		add_value(map_object, map_key.as_str().unwrap(), compacted_item, as_array)
-	} else if container.contains(ContainerType::Graph) && container.contains(ContainerType::Index) {
-		let mut compacted_item = node.graph.as_ref().unwrap().compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
-
+	} else if container.contains(ContainerType::Graph) && container.contains(ContainerType::Index) && node.is_simple_graph() {
 		// Initialize `map_object` to the value of `item_active_property`
 		// in `nest_result`, initializing it to a new empty map,
 		// if necessary.
@@ -1092,8 +1095,6 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 		// the `map_key` entry in `map_object` using `as_array`.
 		add_value(map_object, map_key, compacted_item, as_array)
 	} else if container.contains(ContainerType::Graph) && node.is_simple_graph() {
-		let mut compacted_item = node.graph.as_ref().unwrap().compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
-
 		// Otherwise, if `container` includes @graph and
 		// `expanded_item` is a simple graph object
 		// the value cannot be represented as a map object.
@@ -1118,40 +1119,37 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 		// `item_active_property` entry in `nest_result` using `as_array`.
 		add_value(nest_result, item_active_property, compacted_item, as_array)
 	} else {
-		let compacted_item = node.compact_indexed_with(expanded_index, active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;
+		// Otherwise, `container` does not include @graph or
+		// otherwise does not match one of the previous cases.
 
-		// // Otherwise, `container` does not include @graph or
-		// // otherwise does not match one of the previous cases.
-		//
-		// // Set `compacted_item` to a new map containing the key from
-		// // IRI compacting @graph using the original `compacted_item` as a value.
-		// let key = compact_iri(active_context, inverse_context, Keyword::Graph, None, true, false, options)?;
-		// let mut map = json::object::Object::new();
-		// map.insert(key.as_str().unwrap(), compacted_item);
-		//
-		// // If `expanded_item` contains an @id entry,
-		// // add an entry in `compacted_item` using the key from
-		// // IRI compacting @id using the value of
-		// // IRI compacting the value of @id in `expanded_item` using
-		// // false for vocab.
-		// if let Some(id) = expanded_item.id() {
-		// 	let key = compact_iri(active_context, inverse_context, Keyword::Id, None, false, false, options)?;
-		// 	let value = compact_iri(active_context, inverse_context, id, None, false, false, options)?;
-		// 	map.insert(key.as_str().unwrap(), value);
-		// }
-		//
-		// // If `expanded_item` contains an @index entry,
-		// // add an entry in `compacted_item` using the key from
-		// // IRI compacting @index and the value of @index in `expanded_item`.
-		// if let Some(index) = expanded_item.index() {
-		// 	let key = compact_iri(active_context, inverse_context, Keyword::Index, None, true, false, options)?;
-		// 	map.insert(key.as_str().unwrap(), index.into());
-		// }
-		//
-		// // Use `add_value` to add `compacted_item` to the
-		// // `item_active_property` entry in `nest_result` using `as_array`.
-		// let compacted_item = JsonValue::Object(map);
-		// add_value(nest_result, item_active_property, compacted_item, as_array)
+		// Set `compacted_item` to a new map containing the key from
+		// IRI compacting @graph using the original `compacted_item` as a value.
+		let key = compact_iri(active_context, inverse_context, Keyword::Graph, true, false, options)?;
+		let mut map = json::object::Object::new();
+		map.insert(key.as_str().unwrap(), compacted_item);
+
+		// If `expanded_item` contains an @id entry,
+		// add an entry in `compacted_item` using the key from
+		// IRI compacting @id using the value of
+		// IRI compacting the value of @id in `expanded_item` using
+		// false for vocab.
+		if let Some(id) = node.id() {
+			let key = compact_iri(active_context, inverse_context, Keyword::Id, false, false, options)?;
+			let value = compact_iri(active_context, inverse_context, id, false, false, options)?;
+			map.insert(key.as_str().unwrap(), value);
+		}
+
+		// If `expanded_item` contains an @index entry,
+		// add an entry in `compacted_item` using the key from
+		// IRI compacting @index and the value of @index in `expanded_item`.
+		if let Some(index) = expanded_index {
+			let key = compact_iri(active_context, inverse_context, Keyword::Index, true, false, options)?;
+			map.insert(key.as_str().unwrap(), index.into());
+		}
+
+		// Use `add_value` to add `compacted_item` to the
+		// `item_active_property` entry in `nest_result` using `as_array`.
+		let compacted_item = JsonValue::Object(map);
 		add_value(nest_result, item_active_property, compacted_item, as_array)
 	}
 
@@ -1216,7 +1214,7 @@ fn select_nest_result<'a, T: Id, C: ContextMut<T>>(result: &'a mut json::object:
 	Ok((nest_result, container, as_array))
 }
 
-async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> + Sync + Send, O: IntoIterator<Item=&'a Indexed<N>>, C: ContextMut<T>, L: Loader>(mut result: &mut json::object::Object, expanded_property: Term<T>, expanded_value: O, index: Option<&str>, active_context: &C, inverse_context: &InverseContext<T>, loader: &mut L, inside_reverse: bool, options: Options)
+async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> + Sync + Send, O: IntoIterator<Item=&'a Indexed<N>>, C: ContextMut<T>, L: Loader>(mut result: &mut json::object::Object, expanded_property: Term<T>, expanded_value: O, index: Option<&str>, active_context: &C, type_scoped_context: &C, inverse_context: &InverseContext<T>, loader: &mut L, inside_reverse: bool, options: Options)
 -> Result<(), Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
 	let lenient_expanded_property: Lenient<Term<T>> = expanded_property.into();
 	let mut is_empty = true;
@@ -1245,7 +1243,7 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 					compact_property_list(list, expanded_item.index(), nest_result, container, as_array, item_active_property, active_context, inverse_context, loader, options).await?
 				},
 				object::Ref::Node(node) if node.is_graph() => {
-					compact_property_graph(node, expanded_item.index(), nest_result, container, as_array, item_active_property, active_context, inverse_context, loader, options).await?
+					compact_property_graph(node, expanded_item.index(), nest_result, container, as_array, item_active_property, active_context, type_scoped_context, inverse_context, loader, options).await?
 				},
 				_ => {
 					let mut compacted_item = expanded_item.compact_with(active_context, active_context, &inverse_context, Some(item_active_property), loader, options).await?;

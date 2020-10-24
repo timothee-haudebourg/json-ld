@@ -175,9 +175,15 @@ impl<T: Id> Node<T> {
 		&& self.reverse_properties.is_empty()
 	}
 
-	/// Tests if the node is a graph object (has a `@graph` field).
+	/// Tests if the node is a graph object (has a `@graph` field, and optionally an `@id` field).
+	/// Note that node objects may have a @graph entry,
+	/// but are not considered graph objects if they include any other entries other than `@id`.
 	pub fn is_graph(&self) -> bool {
 		self.graph.is_some()
+		&& self.types.is_empty()
+		&& self.included.is_none()
+		&& self.properties.is_empty()
+		&& self.reverse_properties.is_empty()
 	}
 
 	/// Tests if the node is a simple graph object (a graph object without `@id` field)
