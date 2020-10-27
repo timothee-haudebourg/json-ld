@@ -166,7 +166,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T
 		return Ok(JsonValue::Null)
 	}
 
-	println!("compact {}", var.as_str());
+	println!("compact iri {}", var.as_str());
 	if vocab {
 		// println!("vocab");
 		if let Lenient::Ok(var) = var {
@@ -533,31 +533,16 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T
 	Ok(var.as_str().into())
 }
 
-impl<T: Sync + Send + Id> Compact<T> for Reference<T> {
-	fn compact_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, type_scoped_context: &'a C, inverse_context: &'a InverseContext<T>, active_property: Option<&'a str>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<JsonValue, Error>> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
-		async move {
-			match self {
-				Reference::Id(id) => {
-					Ok(id.as_iri().as_str().into())
-				},
-				Reference::Blank(id) => {
-					Ok(id.as_str().into())
-				}
-			}
-		}.boxed()
-	}
-}
-
-impl<T: Sync + Send + Id, V: Sync + Send + Compact<T>> Compact<T> for Lenient<V> {
-	fn compact_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, type_scoped_context: &'a C, inverse_context: &'a InverseContext<T>, active_property: Option<&'a str>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<JsonValue, Error>> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
-		async move {
-			match self {
-				Lenient::Ok(value) => value.compact_with(active_context, type_scoped_context, inverse_context, active_property, loader, options).await,
-				Lenient::Unknown(u) => Ok(u.as_str().into())
-			}
-		}.boxed()
-	}
-}
+// impl<T: Sync + Send + Id, V: Sync + Send + Compact<T>> Compact<T> for Lenient<V> {
+// 	fn compact_with<'a, C: ContextMut<T>, L: Loader>(&'a self, active_context: &'a C, type_scoped_context: &'a C, inverse_context: &'a InverseContext<T>, active_property: Option<&'a str>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<JsonValue, Error>> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
+// 		async move {
+// 			match self {
+// 				Lenient::Ok(value) => value.compact_with(active_context, type_scoped_context, inverse_context, active_property, loader, options).await,
+// 				Lenient::Unknown(u) => Ok(u.as_str().into())
+// 			}
+// 		}.boxed()
+// 	}
+// }
 
 pub trait CompactIndexed<T: Id> {
 	fn compact_indexed_with<'a, C: ContextMut<T>, L: Loader>(&'a self, index: Option<&'a str>, active_context: &'a C, type_scoped_context: &'a C, inverse_context: &'a InverseContext<T>, active_property: Option<&'a str>, loader: &'a mut L, options: Options) -> BoxFuture<'a, Result<JsonValue, Error>> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send;
@@ -576,17 +561,19 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 				compact_indexed_value_with(value, index, active_context, type_scoped_context, inverse_context, active_property, loader, options).await
 			}.boxed(),
 			object::Ref::Node(node) => async move {
-				let mut active_context = active_context;
-				if let Some(previous_context) = active_context.previous_context() {
-					active_context = previous_context;
-				}
-
 				compact_indexed_node_with(node, index, active_context, type_scoped_context, inverse_context, active_property, loader, options).await
 			}.boxed(),
 			object::Ref::List(list) => async move {
+				let mut active_context = active_context;
+				let mut inverse_context = Mown::Borrowed(inverse_context);
+				if let Some(previous_context) = active_context.previous_context() {
+					active_context = previous_context;
+					inverse_context = Mown::Owned(active_context.invert())
+				}
+
 				// If the term definition for active property in active context has a local context:
 				let mut active_context = Mown::Borrowed(active_context);
-				let mut inverse_context = Mown::Borrowed(inverse_context);
+				// let mut inverse_context = Mown::Borrowed(inverse_context);
 				if let Some(active_property) = active_property {
 					if let Some(active_property_definition) = active_context.get(active_property) {
 						if let Some(local_context) = &active_property_definition.context {
@@ -596,6 +583,7 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 					}
 				}
 
+				panic!("WHAT??");
 				Ok(self.as_json())
 			}.boxed()
 		}
@@ -766,17 +754,35 @@ async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L: Lo
 	Ok(JsonValue::Object(result))
 }
 
-async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(node: &Node<T>, index: Option<&str>, active_context: &C, type_scoped_context: &C, inverse_context: &InverseContext<T>, active_property: Option<&str>, loader: &mut L, options: Options) -> Result<JsonValue, Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
+async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(node: &Node<T>, index: Option<&str>, mut active_context: &C, type_scoped_context: &C, inverse_context: &InverseContext<T>, active_property: Option<&str>, loader: &mut L, options: Options) -> Result<JsonValue, Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
+	// If active context has a previous context, the active context is not propagated.
+	// If element does not contain an @value entry, and element does not consist of
+	// a single @id entry, set active context to previous context from active context,
+	// as the scope of a term-scoped context does not apply when processing new node objects.
+	let mut active_context_changed = false;
+	let mut inverse_context = Mown::Borrowed(inverse_context);
+	if !(node.is_empty() && node.id().is_some()) { // does not consist of a single @id entry
+		if let Some(previous_context) = active_context.previous_context() {
+			active_context = previous_context;
+			active_context_changed = true;
+		}
+	}
+
 	// If the term definition for active property in active context has a local context:
 	let mut active_context = Mown::Borrowed(active_context);
-	let mut inverse_context = Mown::Borrowed(inverse_context);
 	if let Some(active_property) = active_property {
+		println!("looking for term definition for {}", active_property);
 		if let Some(active_property_definition) = active_context.get(active_property) {
+			println!("found!");
 			if let Some(local_context) = &active_property_definition.context {
 				active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner());
-				inverse_context = Mown::Owned(active_context.invert());
+				active_context_changed = true;
 			}
 		}
+	}
+
+	if active_context_changed {
+		inverse_context = Mown::Owned(active_context.invert())
 	}
 
 	let inside_reverse = active_property == Some("@reverse");
@@ -789,19 +795,20 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 		// lexicographically:
 		let mut compacted_types = Vec::new();
 		for ty in node.types() {
-			compacted_types.push(ty.compact_with(active_context.as_ref(), type_scoped_context, inverse_context.as_ref(), active_property, loader, options).await?)
+			let compacted_ty = compact_iri(type_scoped_context, inverse_context.as_ref(), ty, true, false, options)?;
+			compacted_types.push(compacted_ty)
 		}
 
-		if options.ordered {
-			compacted_types.sort_by(|a, b| {
-				a.as_str().unwrap().cmp(b.as_str().unwrap())
-			});
-		}
+		compacted_types.sort_by(|a, b| {
+			a.as_str().unwrap().cmp(b.as_str().unwrap())
+		});
 
 		for term in &compacted_types {
 			if let Some(term_definition) = type_scoped_context.get(term.as_str().unwrap()) {
 				if let Some(local_context) = &term_definition.context {
-					active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, term_definition.base_url(), options.into()).await?.into_inner());
+					println!("CHANGE ACTIVE CONTEXT FOR {}", term);
+					let processing_options = context::ProcessingOptions::from(options).without_propagation();
+					active_context = Mown::Owned(local_context.process_with(active_context.as_ref(), ProcessingStack::new(), loader, term_definition.base_url(), processing_options).await?.into_inner());
 				}
 			}
 		}
@@ -1216,6 +1223,7 @@ fn select_nest_result<'a, T: Id, C: ContextMut<T>>(result: &'a mut json::object:
 
 async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> + Sync + Send, O: IntoIterator<Item=&'a Indexed<N>>, C: ContextMut<T>, L: Loader>(mut result: &mut json::object::Object, expanded_property: Term<T>, expanded_value: O, index: Option<&str>, active_context: &C, type_scoped_context: &C, inverse_context: &InverseContext<T>, loader: &mut L, inside_reverse: bool, options: Options)
 -> Result<(), Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
+	println!("compact prop {}", expanded_property.as_str());
 	let lenient_expanded_property: Lenient<Term<T>> = expanded_property.into();
 	let mut is_empty = true;
 

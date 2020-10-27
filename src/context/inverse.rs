@@ -226,7 +226,6 @@ impl<T: Id> InverseContext<T> {
 	}
 
 	fn insert(&mut self, term: Term<T>, value: InverseDefinition<T>) {
-		println!("INSERT {}", term.as_str());
 		self.map.insert(term, value);
 	}
 
@@ -268,9 +267,7 @@ impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 			}
 		});
 
-		println!("INVERT");
 		for (term, term_definition) in definitions {
-			println!("DEF {}", term.as_str());
 			if let Some(var) = term_definition.value.as_ref() {
 				let container = &term_definition.container;
 				let container_map = result.reference_mut(var, || InverseDefinition::new());

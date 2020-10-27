@@ -166,7 +166,7 @@ impl<T: Id> Node<T> {
 
 	/// Tests if the node is empty.
 	///
-	/// It is empty is every field except for `@id` is empty.
+	/// It is empty is every field other than `@id` is empty.
 	pub fn is_empty(&self) -> bool {
 		self.types.is_empty()
 		&& self.graph.is_none()
