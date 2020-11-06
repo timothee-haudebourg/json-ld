@@ -1,8 +1,6 @@
 use std::collections::HashSet;
-use std::convert::TryFrom;
 use std::borrow::Borrow;
 use futures::future::{BoxFuture, FutureExt};
-use mown::Mown;
 // use mapped_mut::MappedMut;
 use json::JsonValue;
 use crate::{
@@ -25,7 +23,6 @@ use crate::{
 		Loader,
 		ProcessingStack,
 		Local,
-		InverseContext,
 		inverse::{
 			Inversible,
 			TypeSelection,
@@ -198,7 +195,6 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T
 					type_lang_value = Some(TypeLangValue::Type(TypeSelection::Reverse));
 					containers.push(Container::Set);
 				} else {
-					let mut has_index = false;
 					let value_ref = value.map(|v| {
 						has_index = v.index().is_some();
 						v.inner().as_ref()
@@ -374,7 +370,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T
 					Selection::Any
 				} else {
 					match type_lang_value {
-						Some(TypeLangValue::Type(mut type_value)) => {
+						Some(TypeLangValue::Type(type_value)) => {
 							let mut selection: Vec<TypeSelection<T>> = Vec::new();
 
 							if type_value == TypeSelection::Reverse {
@@ -606,8 +602,7 @@ async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L: Lo
 	// Here starts the Value Compaction Algorithm.
 
 	// Initialize result to a copy of value.
-	// NOTE done later.
-	let mut result: json::object::Object;
+	let mut result = json::object::Object::new();
 
 	// If the active context has a null inverse context,
 	// set inverse context in active context to the result of calling the
@@ -658,8 +653,6 @@ async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L: Lo
 	};
 
 	let remove_index = (index.is_some() && container_mapping.contains(ContainerType::Index)) || index.is_none();
-
-	let mut result = json::object::Object::new();
 
 	match value {
 		Value::Literal(lit, ty) => {
@@ -754,7 +747,6 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 	// If element does not contain an @value entry, and element does not consist of
 	// a single @id entry, set active context to previous context from active context,
 	// as the scope of a term-scoped context does not apply when processing new node objects.
-	let mut active_context_changed = false;
 	if !(node.is_empty() && node.id().is_some()) { // does not consist of a single @id entry
 		if let Some(previous_context) = active_context.previous_context() {
 			println!("previous context");
