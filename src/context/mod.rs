@@ -24,7 +24,10 @@ use crate::{
 pub use definition::*;
 pub use loader::*;
 pub use processing::*;
-pub use inverse::InverseContext;
+pub use inverse::{
+	InverseContext,
+	Inversible
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ProcessingOptions {
@@ -114,10 +117,6 @@ pub trait Context<T: Id = IriBuf> : Clone {
 	fn previous_context(&self) -> Option<&Self>;
 
 	fn definitions<'a>(&'a self) -> Box<dyn 'a + Iterator<Item = (&'a String, &'a TermDefinition<T, Self>)>>;
-
-	fn invert(&self) -> InverseContext<T> {
-		InverseContext::from(self)
-	}
 }
 
 pub trait ContextMut<T: Id = IriBuf>: Context<T> {

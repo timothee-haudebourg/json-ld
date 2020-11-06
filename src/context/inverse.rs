@@ -3,6 +3,9 @@ use std::{
 	collections::{HashMap, HashSet},
 	fmt
 };
+use once_cell::sync::OnceCell;
+use mown::Mown;
+use std::sync::Arc;
 use crate::{
 	Id,
 	Nullable,
@@ -16,6 +19,85 @@ use crate::{
 use super::{
 	Context
 };
+
+/// Context that can be inverted.
+/// 
+/// This type keeps an inversion of the underlying context which is computed
+/// when [`inverse`] is called and reset when the context is mutabily accessed.
+pub struct Inversible<T: Id, C> {
+	/// Underlying context.
+	context: C,
+
+	/// Inverse context.
+	inverse: OnceCell<Arc<InverseContext<T>>>
+}
+
+impl<T: Id, C: Clone> Clone for Inversible<T, C> {
+	#[inline]
+	fn clone(&self) -> Self {
+		Inversible {
+			context: self.context.clone(),
+			inverse: self.inverse.clone()
+		}
+	}
+}
+
+impl<T: Id, C> std::ops::Deref for Inversible<T, C> {
+	type Target = C;
+
+	#[inline]
+	fn deref(&self) -> &C {
+		&self.context
+	}
+}
+
+impl<T: Id, C> std::ops::DerefMut for Inversible<T, C> {
+	#[inline]
+	fn deref_mut(&mut self) -> &mut C {
+		self.inverse = OnceCell::new();
+		&mut self.context
+	}
+}
+
+impl<T: Id, C> Inversible<T, C> {
+	pub fn new(context: C) -> Inversible<T, C> {
+		Inversible {
+			context,
+			inverse: OnceCell::new()
+		}
+	}
+
+	pub fn inverse(&self) -> &InverseContext<T> where C: std::ops::Deref, C::Target: Context<T> {
+		self.inverse.get_or_init(|| {
+			Arc::new(InverseContext::from(&*self.context))
+		})
+	}
+
+	pub fn into_owned<'a>(self) -> Inversible<T, Mown<'a, C>> {
+		Inversible {
+			context: Mown::Owned(self.context),
+			inverse: self.inverse
+		}
+	}
+}
+
+impl<'a, T: Id, C> Inversible<T, &'a C> {
+	pub fn into_borrowed(self) -> Inversible<T, Mown<'a, C>> {
+		Inversible {
+			context: Mown::Borrowed(self.context),
+			inverse: self.inverse
+		}
+	}
+}
+
+impl<'a, T: Id, C> Inversible<T, Mown<'a, C>> {
+	pub fn as_ref(&self) -> Inversible<T, &C> {
+		Inversible {
+			context: self.context.as_ref(),
+			inverse: self.inverse.clone()
+		}
+	}
+}
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum TypeSelection<T: Id> {
