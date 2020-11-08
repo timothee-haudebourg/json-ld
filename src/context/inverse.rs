@@ -29,7 +29,7 @@ pub struct Inversible<T: Id, C> {
 	context: C,
 
 	/// Inverse context.
-	inverse: OnceCell<Arc<InverseContext<T>>>
+	inverse: Arc<OnceCell<InverseContext<T>>>
 }
 
 impl<T: Id, C: Clone> Clone for Inversible<T, C> {
@@ -54,7 +54,7 @@ impl<T: Id, C> std::ops::Deref for Inversible<T, C> {
 impl<T: Id, C> std::ops::DerefMut for Inversible<T, C> {
 	#[inline]
 	fn deref_mut(&mut self) -> &mut C {
-		self.inverse = OnceCell::new();
+		self.inverse = Arc::new(OnceCell::new());
 		&mut self.context
 	}
 }
@@ -63,13 +63,13 @@ impl<T: Id, C> Inversible<T, C> {
 	pub fn new(context: C) -> Inversible<T, C> {
 		Inversible {
 			context,
-			inverse: OnceCell::new()
+			inverse: Arc::new(OnceCell::new())
 		}
 	}
 
 	pub fn inverse(&self) -> &InverseContext<T> where C: std::ops::Deref, C::Target: Context<T> {
 		self.inverse.get_or_init(|| {
-			Arc::new(InverseContext::from(&*self.context))
+			InverseContext::from(&*self.context)
 		})
 	}
 
@@ -303,11 +303,11 @@ impl<T: Id> InverseContext<T> {
 		}
 	}
 
-	fn contains(&self, term: &Term<T>) -> bool {
+	pub fn contains(&self, term: &Term<T>) -> bool {
 		self.map.contains_key(term)
 	}
 
-	fn insert(&mut self, term: Term<T>, value: InverseDefinition<T>) {
+	pub fn insert(&mut self, term: Term<T>, value: InverseDefinition<T>) {
 		self.map.insert(term, value);
 	}
 
@@ -315,7 +315,7 @@ impl<T: Id> InverseContext<T> {
 		self.map.get(term)
 	}
 
-	fn get_mut(&mut self, term: &Term<T>) -> Option<&mut InverseDefinition<T>> {
+	pub fn get_mut(&mut self, term: &Term<T>) -> Option<&mut InverseDefinition<T>> {
 		self.map.get_mut(term)
 	}
 
@@ -414,7 +414,7 @@ impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 											lang_map.set(Nullable::Some((None, Some(*direction))), term)
 										},
 										Nullable::Null => {
-											lang_map.set(Nullable::Null, term)
+											lang_map.set(Nullable::Some((None, None)), term)
 										}
 									}
 								},

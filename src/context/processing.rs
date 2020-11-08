@@ -40,7 +40,7 @@ use super::{
 
 impl<T: Id> Local<T> for JsonValue {
 	/// Load a local context.
-	fn process_with<'a, 's: 'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'s self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, options: ProcessingOptions) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
+	fn process_full<'a, 's: 'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'s self, active_context: &'a C, stack: ProcessingStack, loader: &'a mut L, base_url: Option<Iri<'a>>, options: ProcessingOptions) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
 		async move {
 			Ok(Processed::new(self, process_context(active_context, self, stack, loader, base_url, options).await?))
 		}.boxed()
@@ -246,7 +246,7 @@ fn process_context<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: S
 							propagate: true
 						};
 
-						result = loaded_context.process_with(&result, remote_contexts.clone(), loader, Some(context_document.url()), new_options).await?.into_inner();
+						result = loaded_context.process_full(&result, remote_contexts.clone(), loader, Some(context_document.url()), new_options).await?.into_inner();
 						// result = process_context(&result, loaded_context, remote_contexts, loader, Some(context_document.url()), new_options).await?
 					}
 				},
@@ -255,6 +255,8 @@ fn process_context<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: S
 				JsonValue::Object(context) => {
 					// 5.5) If context has an @version entry:
 					if let Some(version_value) = context.get(Keyword::Version.into()) {
+						println!("explicit version: {}", version_value);
+						
 						// 5.5.1) If the associated value is not 1.1, an invalid @version value has
 						// been detected.
 						if version_value.as_str() != Some("1.1") && version_value.as_f32() != Some(1.1) {

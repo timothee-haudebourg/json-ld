@@ -13,6 +13,7 @@ use json_ld::{{
 	ProcessingMode,
 	Document,
 	context::{{
+		ProcessingOptions,
 		JsonContext,
 		Processed,
 		Local,
@@ -27,6 +28,7 @@ use json_ld::{{
 	FsLoader
 }};
 
+#[derive(Clone, Copy)]
 struct Options<'a> {{
 	processing_mode: ProcessingMode,
 	compact_arrays: bool,
@@ -44,6 +46,15 @@ impl<'a> From<Options<'a>> for compaction::Options {{
 	}}
 }}
 
+impl<'a> From<Options<'a>> for ProcessingOptions {{
+	fn from(options: Options<'a>) -> ProcessingOptions {{
+		ProcessingOptions {{
+			processing_mode: options.processing_mode,
+			..ProcessingOptions::default()
+		}}
+	}}
+}}
+
 fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {{
 	let mut loader = FsLoader::new();
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
@@ -57,7 +68,7 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 
 	if let Some(context_url) = options.context {{
 		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
-		input_context = task::block_on(local_context.process(input_context.as_ref(), &mut loader, Some(base_url))).unwrap().owned();
+		input_context = task::block_on(local_context.process_with(input_context.as_ref(), &mut loader, Some(base_url), options.into())).unwrap().owned();
 	}}
 
 	let result = task::block_on(input.compact_with(Some(base_url), &input_context, &mut loader, options.into())).unwrap();
@@ -83,7 +94,13 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 
 	if let Some(context_url) = options.context {{
 		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
-		input_context = task::block_on(local_context.process(input_context.as_ref(), &mut loader, Some(base_url))).unwrap().owned();
+		input_context = match task::block_on(local_context.process_with(input_context.as_ref(), &mut loader, Some(base_url), options.into())) {{
+			Ok(context) => context.owned(),
+			Err(e) => {{
+				assert_eq!(e.code(), error_code);
+				return
+			}}
+		}};
 	}}
 
 	match task::block_on(input.compact_with(Some(base_url), &input_context, &mut loader, options.into())) {{

@@ -163,7 +163,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T
 		return Ok(JsonValue::Null)
 	}
 
-	println!("compact iri {}", var.as_str());
+	// println!("compact iri {}", var.as_str());
 	if vocab {
 		// println!("vocab");
 		if let Lenient::Ok(var) = var {
@@ -511,7 +511,11 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T
 	// if the IRI scheme of var matches any term in active context with prefix flag set to true,
 	// and var has no IRI authority (preceded by double-forward-slash (//),
 	// an IRI confused with prefix error has been detected, and processing is aborted.
-	// TODO
+	if let Some(iri) = var.as_iri() {
+		if active_context.contains(iri.scheme().as_str()) {
+			return Err(ErrorCode::IriConfusedWithPrefix.into())
+		}
+	}
 
 	// If vocab is false,
 	// transform var to a relative IRI reference using the base IRI from active context,
@@ -571,7 +575,7 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 				if let Some(active_property) = active_property {
 					if let Some(active_property_definition) = active_context.get(active_property) {
 						if let Some(local_context) = &active_property_definition.context {
-							active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), ProcessingStack::new(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned();
+							active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned();
 						}
 					}
 				}
@@ -589,7 +593,7 @@ async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L: Lo
 	if let Some(active_property) = active_property {
 		if let Some(active_property_definition) = active_context.get(active_property) {
 			if let Some(local_context) = &active_property_definition.context {
-				active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), ProcessingStack::new(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned()
+				active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned()
 			}
 		}
 	}
@@ -763,7 +767,7 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 		if let Some(active_property_definition) = type_scoped_context.get(active_property) {
 			println!("found!");
 			if let Some(local_context) = &active_property_definition.context {
-				active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), ProcessingStack::new(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned()
+				active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned()
 			}
 		}
 	}
@@ -791,7 +795,7 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 				if let Some(local_context) = &term_definition.context {
 					println!("CHANGE ACTIVE CONTEXT FOR {}", term);
 					let processing_options = context::ProcessingOptions::from(options).without_propagation();
-					active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), ProcessingStack::new(), loader, term_definition.base_url(), processing_options).await?.into_inner()).into_owned()
+					active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), loader, term_definition.base_url(), processing_options).await?.into_inner()).into_owned()
 				}
 			}
 		}
@@ -866,7 +870,7 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 		let active_property = "@reverse";
 		if let Some(active_property_definition) = active_context.get(active_property) {
 			if let Some(local_context) = &active_property_definition.context {
-				active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), ProcessingStack::new(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned()
+				active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned()
 			}
 		}
 
