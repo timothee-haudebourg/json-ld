@@ -940,6 +940,10 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 		compact_property(&mut result, expanded_property.clone().into(), expanded_value, index, active_context.as_ref(), type_scoped_context.clone(), loader, false, options).await?
 	}
 
+	if let Some(included) = &node.included {
+		compact_property(&mut result, Term::Keyword(Keyword::Included), included, index, active_context.as_ref(), type_scoped_context.clone(), loader, false, options).await?
+	}
+
 	Ok(JsonValue::Object(result))
 }
 
