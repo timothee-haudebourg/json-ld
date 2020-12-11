@@ -217,6 +217,9 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 							expanded_entries.push(Entry((*key, expanded_key), value))
 						},
 						Lenient::Unknown(_) => {
+							if options.strict {
+								return Err(ErrorCode::KeyExpansionFailed.into());
+							}
 							warn!("failed to expand key `{}`", key)
 						}
 					}

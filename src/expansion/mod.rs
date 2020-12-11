@@ -39,6 +39,9 @@ pub struct Options {
 	/// Sets the processing mode.
 	pub processing_mode: ProcessingMode,
 
+	/// If true, an error is returned if a value fails to expand. If false, the value is dropped.
+	pub strict: bool,
+
 	/// If set to true, input document entries are processed lexicographically.
 	/// If false, order is not considered in processing.
 	pub ordered: bool
