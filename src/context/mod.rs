@@ -11,6 +11,10 @@ use std::{
 };
 use futures::future::BoxFuture;
 use iref::{Iri, IriBuf};
+use langtag::{
+	LanguageTag,
+	LanguageTagBuf
+};
 use json::JsonValue;
 use crate::{
 	ProcessingMode,
@@ -113,7 +117,7 @@ pub trait Context<T: Id = IriBuf> : Clone {
 	fn vocabulary(&self) -> Option<&Term<T>>;
 
 	/// Optional default language.
-	fn default_language(&self) -> Option<&String>;
+	fn default_language(&self) -> Option<LanguageTag>;
 
 	/// Optional default base direction.
 	fn default_base_direction(&self) -> Option<Direction>;
@@ -131,7 +135,7 @@ pub trait ContextMut<T: Id = IriBuf>: Context<T> {
 
 	fn set_vocabulary(&mut self, vocab: Option<Term<T>>);
 
-	fn set_default_language(&mut self, lang: Option<String>);
+	fn set_default_language(&mut self, lang: Option<LanguageTagBuf>);
 
 	fn set_default_base_direction(&mut self, dir: Option<Direction>);
 
@@ -217,7 +221,7 @@ pub struct JsonContext<T: Id = IriBuf> {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term<T>>,
-	default_language: Option<String>,
+	default_language: Option<LanguageTagBuf>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
 	definitions: HashMap<String, TermDefinition<T, Self>>
@@ -283,8 +287,11 @@ impl<T: Id> Context<T> for JsonContext<T> {
 		}
 	}
 
-	fn default_language(&self) -> Option<&String> {
-		self.default_language.as_ref()
+	fn default_language(&self) -> Option<LanguageTag> {
+		match &self.default_language {
+			Some(tag) => Some(tag.as_ref()),
+			None => None
+		}
 	}
 
 	fn default_base_direction(&self) -> Option<Direction> {
@@ -330,7 +337,7 @@ impl<T: Id> ContextMut<T> for JsonContext<T> {
 		self.vocabulary = vocab;
 	}
 
-	fn set_default_language(&mut self, lang: Option<String>) {
+	fn set_default_language(&mut self, lang: Option<LanguageTagBuf>) {
 		self.default_language = lang;
 	}
 

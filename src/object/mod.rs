@@ -7,6 +7,7 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::fmt;
 use iref::{Iri, IriBuf};
+use langtag::LanguageTag;
 use json::JsonValue;
 use crate::{
 	Id,
@@ -35,7 +36,7 @@ pub trait Any<T: Id>: AsJson {
 	}
 
 	#[inline]
-	fn language<'a>(&'a self) -> Option<&'a String> where T: 'a {
+	fn language<'a>(&'a self) -> Option<LanguageTag> where T: 'a {
 		match self.as_ref() {
 			Ref::Value(value) => value.language(),
 			_ => None
@@ -183,7 +184,7 @@ impl<T: Id> Object<T> {
 
 	/// If the objat is a language-tagged value,
 	/// Return its associated language.
-	pub fn language(&self) -> Option<&String> {
+	pub fn language(&self) -> Option<LanguageTag> {
 		match self {
 			Object::Value(value) => value.language(),
 			_ => None

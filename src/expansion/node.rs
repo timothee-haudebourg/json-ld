@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use futures::future::{BoxFuture, FutureExt};
 use mown::Mown;
 use iref::Iri;
+use langtag::LanguageTagBuf;
 use json::JsonValue;
 use crate::{
 	Error,
@@ -363,7 +364,10 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 										let language = if expand_iri(active_context, language, false, true) == Term::Keyword(Keyword::None) {
 											None
 										} else {
-											Some(language.to_string())
+											match LanguageTagBuf::parse_copy(language) {
+												Ok(lang) => Some(lang),
+												Err(_) => return Err(ErrorCode::InvalidLanguageMapValue.into())
+											}
 										};
 
 										// initialize a new map v consisting of two

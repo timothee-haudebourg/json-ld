@@ -5,6 +5,7 @@ use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 use futures::future::{BoxFuture, FutureExt};
 use json::{JsonValue, object::Object as JsonObject};
+use langtag::LanguageTagBuf;
 use iref::{Iri, IriBuf, IriRef};
 use crate::util::as_array;
 use crate::{
@@ -394,7 +395,10 @@ fn process_context<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: S
 						} else if let Some(str) = value.as_str() {
 							// 5.9.3) Otherwise, if value is string, the default language of result is
 							// set to value.
-							result.set_default_language(Some(str.to_string()));
+							match LanguageTagBuf::parse_copy(str) {
+								Ok(lang) => result.set_default_language(Some(lang)),
+								Err(_) => return Err(ErrorCode::InvalidDefaultLanguage.into())
+							}
 						} else {
 							return Err(ErrorCode::InvalidDefaultLanguage.into())
 						}
@@ -1032,8 +1036,10 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 							definition.language = Some(match language_value {
 								JsonValue::Null => Nullable::Null,
 								JsonValue::String(_) | JsonValue::Short(_) => {
-									// TODO lang tags
-									Nullable::Some(language_value.as_str().unwrap().to_string())
+									match LanguageTagBuf::parse_copy(language_value.as_str().unwrap()) {
+										Ok(lang) => Nullable::Some(lang),
+										Err(_) => return Err(ErrorCode::InvalidLanguageMapping.into())
+									}
 								},
 								_ => {
 									return Err(ErrorCode::InvalidLanguageMapping.into())

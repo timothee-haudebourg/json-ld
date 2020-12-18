@@ -4,6 +4,10 @@ use std::{
 	fmt
 };
 use once_cell::sync::OnceCell;
+use langtag::{
+	LanguageTagBuf,
+	LanguageTag
+};
 use mown::Mown;
 use std::sync::Arc;
 use crate::{
@@ -150,7 +154,7 @@ impl<T: Id> InverseType<T> {
 	}
 }
 
-type LangDir = Nullable<(Option<String>, Option<Direction>)>;
+type LangDir = Nullable<(Option<LanguageTagBuf>, Option<Direction>)>;
 
 struct InverseLang {
 	any: Option<String>,
@@ -160,7 +164,7 @@ struct InverseLang {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LangSelection<'a> {
 	Any,
-	Lang(Nullable<(Option<&'a String>, Option<Direction>)>)
+	Lang(Nullable<(Option<LanguageTag<'a>>, Option<Direction>)>)
 }
 
 impl InverseLang {
@@ -168,7 +172,7 @@ impl InverseLang {
 		match selection {
 			LangSelection::Any => self.any.as_ref(),
 			LangSelection::Lang(lang_dir) => {
-				let lang_dir = lang_dir.map(|(l, d)| (l.cloned(), d));
+				let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.cloned()), d));
 				self.map.get(&lang_dir)
 			}
 		}.map(|v| v.as_str())
@@ -184,8 +188,8 @@ impl InverseLang {
 		self.set(Nullable::Some((None, None)), term)
 	}
 
-	fn set(&mut self, lang_dir: Nullable<(Option<&String>, Option<Direction>)>, term: &str) {
-		let lang_dir = lang_dir.map(|(l, d)| (l.cloned(), d));
+	fn set(&mut self, lang_dir: Nullable<(Option<LanguageTag>, Option<Direction>)>, term: &str) {
+		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.cloned()), d));
 		if !self.map.contains_key(&lang_dir) {
 			self.map.insert(lang_dir, term.to_string());
 		}
@@ -381,10 +385,10 @@ impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 									// and a direction mapping:
 									match (language, direction) {
 										(Nullable::Some(language), Nullable::Some(direction)) => {
-											lang_map.set(Nullable::Some((Some(language), Some(*direction))), term)
+											lang_map.set(Nullable::Some((Some(language.as_ref()), Some(*direction))), term)
 										},
 										(Nullable::Some(language), Nullable::Null) => {
-											lang_map.set(Nullable::Some((Some(language), None)), term)
+											lang_map.set(Nullable::Some((Some(language.as_ref()), None)), term)
 										},
 										(Nullable::Null, Nullable::Some(direction)) => {
 											lang_map.set(Nullable::Some((None, Some(*direction))), term)
@@ -399,7 +403,7 @@ impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 									// be null):
 									match language {
 										Nullable::Some(language) => {
-											lang_map.set(Nullable::Some((Some(language), None)), term)
+											lang_map.set(Nullable::Some((Some(language.as_ref()), None)), term)
 										},
 										Nullable::Null => {
 											lang_map.set(Nullable::Null, term)

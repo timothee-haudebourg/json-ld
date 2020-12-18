@@ -1,5 +1,5 @@
-use std::collections::HashSet;
 use std::convert::TryFrom;
+use langtag::LanguageTagBuf;
 use json::JsonValue;
 use crate::{
 	Error,
@@ -159,8 +159,15 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 		}
 
 		if let Literal::String(str) = result {
-			let result = LangString::new(str, language, direction).unwrap();
+			let lang = match language {
+				Some(language) => match LanguageTagBuf::new(language.into_bytes()) {
+					Ok(lang) => Some(lang),
+					Err(_) => return Err(ErrorCode::InvalidLanguageTaggedValue.into())
+				},
+				None => None
+			};
 
+			let result = LangString::new(str, lang, direction).unwrap();
 			return Ok(Some(Indexed::new(Object::Value(Value::LangString(result)), index)))
 		} else {
 			return Err(ErrorCode::InvalidLanguageTaggedValue.into())

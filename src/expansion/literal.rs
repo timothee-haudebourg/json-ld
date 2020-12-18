@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use langtag::LanguageTagBuf;
 use json::JsonValue;
 use crate::{
 	Error,
@@ -16,9 +17,9 @@ use super::{
 	node_id_of_term
 };
 
-fn clone_default_language<T: Id, C: Context<T>>(active_context: &C) -> Option<String> {
+fn clone_default_language<T: Id, C: Context<T>>(active_context: &C) -> Option<LanguageTagBuf> {
 	match active_context.default_language() {
-		Some(lang) => Some(lang.to_string()),
+		Some(lang) => Some(lang.cloned()),
 		None => None
 	}
 }
@@ -85,7 +86,7 @@ pub fn expand_literal<T: Id, C: Context<T>>(active_context: &C, active_property:
 						// default language of `active_context`.
 						let language = if let Some(active_property_definition) = active_property_definition {
 							if let Some(language) = &active_property_definition.language {
-								language.clone().option()
+								language.as_ref().cloned().option()
 							} else {
 								clone_default_language(active_context)
 							}

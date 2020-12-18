@@ -565,23 +565,35 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 			}.boxed(),
 			object::Ref::List(list) => async move {
 				let mut active_context = active_context;
+				// If active context has a previous context, the active context is not propagated.
+				// If element does not contain an @value entry, and element does not consist of
+				// a single @id entry, set active context to previous context from active context,
+				// as the scope of a term-scoped context does not apply when processing new node objects.
 				if let Some(previous_context) = active_context.previous_context() {
 					active_context = Inversible::new(previous_context)
 				}
 
 				// If the term definition for active property in active context has a local context:
+				// FIXME https://github.com/w3c/json-ld-api/issues/502
+				//       Seems that the term definition should be looked up in `type_scoped_context`.
 				let mut active_context = active_context.into_borrowed();
-				// let mut inverse_context = Mown::Borrowed(inverse_context);
+				let mut list_container = false;
 				if let Some(active_property) = active_property {
-					if let Some(active_property_definition) = active_context.get(active_property) {
+					if let Some(active_property_definition) = type_scoped_context.get(active_property) {
 						if let Some(local_context) = &active_property_definition.context {
-							active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned();
+							active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned()
 						}
+
+						list_container = active_property_definition.container.contains(ContainerType::List);
 					}
 				}
 
-				panic!("WHAT??");
-				Ok(self.as_json())
+				if list_container {
+					compact_collection_with(list.iter(), active_context.as_ref(), active_context.as_ref(), active_property, loader, options).await
+				} else {
+					panic!("TODO: compact indexed list without container")
+					// Ok(self.as_json())
+				}
 			}.boxed()
 		}
 	}
@@ -625,7 +637,7 @@ async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L: Lo
 	// if any, otherwise to the default language of active context.
 	let language = match active_property_definition {
 		Some(def) => match def.language.as_ref() {
-			Some(lang) => lang.as_ref().option(),
+			Some(lang) => lang.as_ref().map(|l| l.as_ref()).option(),
 			None => active_context.default_language()
 		},
 		None => active_context.default_language()
@@ -753,7 +765,6 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 	// as the scope of a term-scoped context does not apply when processing new node objects.
 	if !(node.is_empty() && node.id().is_some()) { // does not consist of a single @id entry
 		if let Some(previous_context) = active_context.previous_context() {
-			println!("previous context");
 			active_context = Inversible::new(previous_context)
 		}
 	}
@@ -763,9 +774,7 @@ async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loa
 	//       Seems that the term definition should be looked up in `type_scoped_context`.
 	let mut active_context = active_context.into_borrowed();
 	if let Some(active_property) = active_property {
-		println!("looking for term definition for {}", active_property);
 		if let Some(active_property_definition) = type_scoped_context.get(active_property) {
-			println!("found!");
 			if let Some(local_context) = &active_property_definition.context {
 				active_context = Inversible::new(local_context.process_with(*active_context.as_ref(), loader, active_property_definition.base_url(), context::ProcessingOptions::from(options).with_override()).await?.into_inner()).into_owned()
 			}
@@ -1292,7 +1301,7 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 							}
 
 							match expanded_item.language() {
-								Some(lang) => Some(lang.clone()),
+								Some(lang) => Some(lang.to_string()),
 								None => None
 							}
 						} else if container_type == ContainerType::Index {

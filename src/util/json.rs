@@ -1,5 +1,9 @@
 use std::collections::HashSet;
 use json::JsonValue;
+use langtag::{
+	LanguageTag,
+	LanguageTagBuf
+};
 
 pub trait AsJson {
 	fn as_json(&self) -> JsonValue;
@@ -24,6 +28,18 @@ impl AsJson for str {
 }
 
 impl AsJson for String {
+	fn as_json(&self) -> JsonValue {
+		self.as_str().as_json()
+	}
+}
+
+impl<'a, T: AsRef<[u8]> + ?Sized> AsJson for LanguageTag<'a, T> {
+	fn as_json(&self) -> JsonValue {
+		self.as_str().as_json()
+	}
+}
+
+impl<T: AsRef<[u8]>> AsJson for LanguageTagBuf<T> {
 	fn as_json(&self) -> JsonValue {
 		self.as_str().as_json()
 	}

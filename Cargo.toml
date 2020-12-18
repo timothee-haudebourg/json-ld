@@ -23,6 +23,8 @@ iref = "^1.4.3"
 futures = "^0.3"
 once_cell = "^1.4"
 reqwest = { version = "^0.10", optional = true }
+# langtag = "^0.1.1"
+langtag = { git = "https://github.com/timothee-haudebourg/langtag", branch = "master" }
 
 [dev-dependencies]
 async-std = { version = "^1.5", features = ["attributes"] }

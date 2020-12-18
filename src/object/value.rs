@@ -1,6 +1,6 @@
-use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use iref::IriBuf;
+use langtag::LanguageTag;
 use json::JsonValue;
 use crate::{
 	Id,
@@ -105,9 +105,9 @@ impl<T: Id> Value<T> {
 	/// If the value is a language tagged string, return its associated language if any.
 	///
 	/// Returns `None` if the value is not a language tagged string.
-	pub fn language(&self) -> Option<&String> {
+	pub fn language(&self) -> Option<LanguageTag> {
 		match self {
-			Value::LangString(str) => str.language(),
+			Value::LangString(tag) => tag.language(),
 			_ => None
 		}
 	}

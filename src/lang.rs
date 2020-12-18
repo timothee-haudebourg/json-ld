@@ -1,9 +1,13 @@
 use crate::Direction;
+use langtag::{
+	LanguageTag,
+	LanguageTagBuf
+};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct LangString {
 	data: String,
-	language: Option<String>,
+	language: Option<LanguageTagBuf>,
 	direction: Option<Direction>
 }
 
@@ -11,7 +15,7 @@ pub struct LangString {
 pub struct InvalidLangString;
 
 impl LangString {
-	pub fn new(str: String, language: Option<String>, direction: Option<Direction>) -> Result<LangString, String> {
+	pub fn new(str: String, language: Option<LanguageTagBuf>, direction: Option<Direction>) -> Result<LangString, String> {
 		if language.is_some() || direction.is_some() {
 			Ok(LangString {
 				data: str,
@@ -27,11 +31,14 @@ impl LangString {
 		self.data.as_str()
 	}
 
-	pub fn language(&self) -> Option<&String> {
-		self.language.as_ref()
+	pub fn language(&self) -> Option<LanguageTag> {
+		match &self.language {
+			Some(tag) => Some(tag.as_ref()),
+			None => None
+		}
 	}
 
-	pub fn set_language(&mut self, language: Option<String>) -> Result<(), InvalidLangString> {
+	pub fn set_language(&mut self, language: Option<LanguageTagBuf>) -> Result<(), InvalidLangString> {
 		if self.direction.is_some() || language.is_some() {
 			self.language = language;
 			Ok(())
@@ -53,7 +60,7 @@ impl LangString {
 		}
 	}
 
-	pub fn set(&mut self, language: Option<String>, direction: Option<Direction>) -> Result<(), InvalidLangString> {
+	pub fn set(&mut self, language: Option<LanguageTagBuf>, direction: Option<Direction>) -> Result<(), InvalidLangString> {
 		if direction.is_some() || language.is_some() {
 			self.language = language;
 			self.direction = direction;

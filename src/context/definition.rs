@@ -1,4 +1,5 @@
 use iref::{Iri, IriBuf};
+use langtag::LanguageTagBuf;
 use crate::{
 	Nullable,
 	Id,
@@ -42,7 +43,7 @@ pub struct TermDefinition<T: Id, C: Context<T>> {
 	pub index: Option<String>,
 
 	// Optional language mapping.
-	pub language: Option<Nullable<String>>,
+	pub language: Option<Nullable<LanguageTagBuf>>,
 
 	// Optional nest value.
 	pub nest: Option<String>,
