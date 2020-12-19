@@ -1,5 +1,4 @@
 //! This simple example shows how to compact a document using the `Document::compact` method.
-use json::JsonValue;
 use json_ld::{
 	JsonContext,
 	NoLoader,
