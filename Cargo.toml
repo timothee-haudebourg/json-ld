@@ -1,6 +1,6 @@
 [package]
 name = "json-ld"
-version = "0.2.0-alpha"
+version = "0.3.0-alpha"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2018"
 categories = ["web-programming", "database", "data-structures"]
@@ -23,8 +23,7 @@ iref = "^1.4.3"
 futures = "^0.3"
 once_cell = "^1.4"
 reqwest = { version = "^0.10", optional = true }
-# langtag = "^0.1.1"
-langtag = { git = "https://github.com/timothee-haudebourg/langtag", branch = "master" }
+langtag = "^0.2"
 
 [dev-dependencies]
 async-std = { version = "^1.5", features = ["attributes"] }
