@@ -26,8 +26,7 @@ use crate::{
 		is_keyword,
 		is_keyword_like,
 		ContainerType
-	},
-	util::AsJson
+	}
 };
 use super::{
 	ProcessingOptions,
@@ -50,7 +49,6 @@ impl<T: Id> Local<T> for JsonValue {
 
 pub fn has_protected_items<T: Id, C: Context<T>>(active_context: &C) -> bool {
 	for (_, definition) in active_context.definitions() {
-		eprintln!("DEF: {:?}", definition.value);
 		if definition.protected {
 			return true
 		}
@@ -257,8 +255,6 @@ fn process_context<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: S
 				JsonValue::Object(context) => {
 					// 5.5) If context has an @version entry:
 					if let Some(version_value) = context.get(Keyword::Version.into()) {
-						println!("explicit version: {}", version_value);
-						
 						// 5.5.1) If the associated value is not 1.1, an invalid @version value has
 						// been detected.
 						if version_value.as_str() != Some("1.1") && version_value.as_f32() != Some(1.1) {
@@ -792,7 +788,7 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 	
 										Some(value)
 									},
-									r => {
+									_ => {
 										// If the resulting IRI mapping is neither a keyword,
 										// nor an IRI, nor a blank node identifier, an
 										// invalid IRI mapping error has been detected and processing
@@ -952,7 +948,6 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 							if let Some(entry) = entry.as_str() {
 								match ContainerType::try_from(entry) {
 									Ok(c) => {
-										eprintln!("add {:?} in container {:?}", c, definition.container);
 										if !definition.container.add(c) {
 											return Err(ErrorCode::InvalidContainerMapping.into())
 										}

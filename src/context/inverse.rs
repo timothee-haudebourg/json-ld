@@ -1,6 +1,6 @@
 use std::{
 	cmp::Ordering,
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	fmt
 };
 use once_cell::sync::OnceCell;
@@ -341,7 +341,6 @@ impl<T: Id> InverseContext<T> {
 impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 	fn from(context: &'a C) -> InverseContext<T> {
 		let mut result = InverseContext::new();
-		let mut default_language = context.default_language();
 
 		let mut definitions: Vec<_> = context.definitions().collect();
 		definitions.sort_by(|(a, _), (b, _)| {

@@ -17,7 +17,6 @@ use crate::{
 		Term
 	}
 };
-use crate::util::as_array;
 use super::{Entry, expand_iri};
 
 pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term<T>>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
@@ -115,7 +114,7 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 
 	// Otherwise, if value is not a scalar or null, an invalid value object value
 	// error has been detected and processing is aborted.
-	let mut result = match value_entry {
+	let result = match value_entry {
 		JsonValue::Null => {
 			Literal::Null
 		},

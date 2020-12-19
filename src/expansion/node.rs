@@ -17,7 +17,6 @@ use crate::{
 	context::{
 		ContextMut,
 		Local,
-		ProcessingStack,
 		Loader
 	},
 	syntax::{

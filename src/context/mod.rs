@@ -5,10 +5,7 @@ mod loader;
 mod processing;
 pub mod inverse;
 
-use std::{
-	collections::HashMap,
-	marker::PhantomData
-};
+use std::collections::HashMap;
 use futures::future::BoxFuture;
 use iref::{Iri, IriBuf};
 use langtag::{

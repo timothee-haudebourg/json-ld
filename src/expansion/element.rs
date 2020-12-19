@@ -12,7 +12,6 @@ use crate::{
 	context::{
 		ContextMut,
 		ProcessingOptions,
-		ProcessingStack,
 		Local,
 		Loader
 	},
@@ -253,14 +252,14 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 					Ok(Expanded::Object(Indexed::new(Object::List(result), index)))
 				} else if let Some(set_entry) = set_entry {
 					// Set objects.
-					let mut index = None;
+					// let mut index = None;
 					for Entry((_, expanded_key), value) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
 								match value.as_str() {
-									Some(value) => {
-										panic!("expand set @index");
-										index = Some(value.to_string())
+									Some(_value) => {
+										panic!("TODO expand set @index");
+										// index = Some(value.to_string())
 									},
 									None => return Err(ErrorCode::InvalidIndexValue.into())
 								}
