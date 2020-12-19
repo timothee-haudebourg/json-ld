@@ -91,7 +91,7 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 						}
 					}
 				} else {
-					return Err(ErrorCode::InvalidTypeValue.into())
+					return Err(ErrorCode::InvalidTypedValue.into())
 				}
 			},
 			Term::Keyword(Keyword::Value) => (),
