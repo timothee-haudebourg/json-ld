@@ -59,7 +59,8 @@ impl From<crate::compaction::Options> for Options {
 	fn from(options: crate::compaction::Options) -> Options {
 		Options {
 			processing_mode: options.processing_mode,
-			ordered: options.ordered
+			ordered: options.ordered,
+			..Options::default()
 		}
 	}
 }
