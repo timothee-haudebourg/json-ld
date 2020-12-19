@@ -197,6 +197,10 @@ pub enum ErrorCode {
 	/// (because its IRI scheme matches a term definition and it has no IRI authority).
 	IriConfusedWithPrefix,
 
+	/// Unable to expand a key to a IRI or keyword in strict expansion mode.
+	/// Note: this error is not defined in the JSON-LD API specification.
+	KeyExpansionFailed,
+
 	/// A keyword redefinition has been detected.
 	KeywordRedefinition,
 
@@ -267,6 +271,7 @@ impl ErrorCode {
 			InvalidValueObjectValue => "invalid value object value",
 			InvalidVocabMapping => "invalid vocab mapping",
 			IriConfusedWithPrefix => "IRI confused with prefix",
+			KeyExpansionFailed => "key expansion failed",
 			KeywordRedefinition => "keyword redefinition",
 			LoadingDocumentFailed => "loading document failed",
 			LoadingRemoteContextFailed => "loading remote context failed",
@@ -326,6 +331,7 @@ impl<'a> TryFrom<&'a str> for ErrorCode {
 			"invalid value object value" => Ok(InvalidValueObjectValue),
 			"invalid vocab mapping" => Ok(InvalidVocabMapping),
 			"IRI confused with prefix" => Ok(IriConfusedWithPrefix),
+			"key expansion failed" => Ok(KeyExpansionFailed),
 			"keyword redefinition" => Ok(KeywordRedefinition),
 			"loading document failed" => Ok(LoadingDocumentFailed),
 			"loading remote context failed" => Ok(LoadingRemoteContextFailed),
