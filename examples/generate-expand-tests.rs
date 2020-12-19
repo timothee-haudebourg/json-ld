@@ -62,10 +62,9 @@ async fn main() {
 
 	let doc = loader.load(URL).await.expect("unable to load the test suite");
 
-	let context: JsonContext<Id> = JsonContext::new(Some(URL));
-	let expanded_doc = doc.expand(&context, &mut loader).await.expect("expansion failed");
+	let expanded_doc = doc.expand::<JsonContext<Id>, _>(&mut loader).await.expect("expansion failed");
 
-	println!(include_str!("../tests/templates/header-expand.rs"));
+	println!(include_str!("../tests/templates/expand-header.rs"));
 
 	for item in &expanded_doc {
 		if let Object::Node(item) = item.as_ref() {
@@ -144,7 +143,7 @@ fn generate_test(entry: &Node<Id>) {
 		let output_url = entry.get(Vocab::Result).next().unwrap().as_iri().unwrap();
 
 		println!(
-			include_str!("../tests/templates/test-positive.rs"),
+			include_str!("../tests/templates/expand-test-positive.rs"),
 			func_name,
 			url,
 			base_url,
@@ -158,7 +157,7 @@ fn generate_test(entry: &Node<Id>) {
 		let error_code: ErrorCode = entry.get(Vocab::Result).next().unwrap().as_str().unwrap().try_into().unwrap();
 
 		println!(
-			include_str!("../tests/templates/test-negative.rs"),
+			include_str!("../tests/templates/expand-test-negative.rs"),
 			func_name,
 			url,
 			base_url,

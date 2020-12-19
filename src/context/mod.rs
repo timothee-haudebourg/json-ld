@@ -6,7 +6,10 @@ mod processing;
 pub mod inverse;
 
 use std::collections::HashMap;
-use futures::future::BoxFuture;
+use futures::{
+	FutureExt,
+	future::BoxFuture
+};
 use iref::{Iri, IriBuf};
 use langtag::{
 	LanguageTag,
@@ -139,6 +142,12 @@ pub trait ContextMut<T: Id = IriBuf>: Context<T> {
 	fn set_previous_context(&mut self, previous: Self);
 }
 
+pub trait ContextMutProxy<T: Id = IriBuf> {
+	type Target: ContextMut<T>;
+
+	fn deref(&self) -> &Self::Target;
+}
+
 /// Local context used for context expansion.
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
@@ -154,8 +163,11 @@ pub trait Local<T: Id = IriBuf>: Sized + PartialEq {
 
 	/// Process the local context with the given active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, 's: 'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'s self, active_context: &'a C, loader: &'a mut L, base_url: Option<Iri<'a>>) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
-		self.process_full(active_context, ProcessingStack::new(), loader, base_url, ProcessingOptions::default())
+	fn process<'a, 's: 'a, C: Send + Sync + ContextMut<T> + Default, L: Send + Sync + Loader>(&'s self, loader: &'a mut L, base_url: Option<Iri<'a>>) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>> where Self: Sync, C::LocalContext: Send + Sync + From<L::Output> + From<Self>, L::Output: Into<Self>, T: Send + Sync {
+		async move {
+			let active_context = C::default();
+			self.process_full(&active_context, ProcessingStack::new(), loader, base_url, ProcessingOptions::default()).await
+		}.boxed()
 	}
 }
 
@@ -175,6 +187,14 @@ impl<L, C> Processed<L, C> {
 
 	pub fn into_inner(self) -> C {
 		self.processed
+	}
+}
+
+impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<L, C> {
+	type Target = C;
+
+	fn deref(&self) -> &C {
+		&self.processed
 	}
 }
 
@@ -235,6 +255,14 @@ impl<T: Id> JsonContext<T> {
 			previous_context: None,
 			definitions: HashMap::new()
 		}
+	}
+}
+
+impl<T: Id> ContextMutProxy<T> for JsonContext<T> {
+	type Target = Self;
+
+	fn deref(&self) -> &Self {
+		self
 	}
 }
 

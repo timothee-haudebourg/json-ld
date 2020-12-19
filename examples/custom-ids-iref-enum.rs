@@ -28,9 +28,6 @@ type Id = Lexicon<Foaf>;
 
 #[async_std::main]
 async fn main() {
-	// Create the initial context.
-	let context: JsonContext<Id> = JsonContext::new(None);
-
 	// The JSON-LD document to expand.
 	let doc = json::parse(r#"
 		{
@@ -45,7 +42,7 @@ async fn main() {
 	"#).unwrap();
 
 	// Expansion.
-	let expanded_doc = doc.expand(&context, &mut NoLoader).await.unwrap();
+	let expanded_doc = doc.expand::<JsonContext<Id>, _>(&mut NoLoader).await.unwrap();
 
 	// Iterate through the expanded objects.
 	for object in expanded_doc {

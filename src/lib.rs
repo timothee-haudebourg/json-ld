@@ -47,5 +47,6 @@ pub use object::{Object, Node, Value};
 pub use context::{
 	Context,
 	ContextMut,
+	ContextMutProxy,
 	JsonContext
 };

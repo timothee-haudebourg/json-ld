@@ -14,7 +14,9 @@ use crate::{
 	Id,
 	Indexed,
 	Object,
+	Context,
 	ContextMut,
+	ContextMutProxy,
 	context::{
 		self,
 		Loader
@@ -99,8 +101,9 @@ pub trait Document<T: Id> {
 		}.boxed()
 	}
 
-	fn compact_with<'a, C: Send + Sync + ContextMut<T> + Default, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri<'a>>, context: &'a R, loader: &'a mut L, options: compaction::Options) -> BoxFuture<'a, Result<JsonValue, Error>> where
-		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
+	fn compact_with<'a, C: ContextMutProxy<T> + Send + Sync + crate::util::AsJson, L: Send + Sync + Loader>(&'a self, base_url: Option<Iri<'a>>, context: &'a C, loader: &'a mut L, options: compaction::Options) -> BoxFuture<'a, Result<JsonValue, Error>> where
+		C::Target: Send + Sync + Default,
+		<C::Target as Context<T>>::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
 		T: 'a + Send + Sync,
 		Self: Sync
@@ -109,10 +112,7 @@ pub trait Document<T: Id> {
 		async move {
 			let json_context = context.as_json();
 			let context = context::Inversible::new(context.deref());
-			let expanded = self.expand_with(base_url, &C::new(base_url), loader, options.into()).await?;
-
-			use crate::util::AsJson;
-			println!("expanded: {}", expanded.as_json().pretty(2));
+			let expanded = self.expand_with(base_url, &C::Target::new(base_url), loader, options.into()).await?;
 
 			let compacted = if expanded.len() == 1 && options.compact_arrays {
 				expanded.into_iter().next().unwrap().compact_with(context.clone(), context.clone(), None, loader, options.into()).await?
@@ -149,8 +149,9 @@ pub trait Document<T: Id> {
 		}.boxed()
 	}
 
-	fn compact<'a, C: Send + Sync + ContextMut<T> + Default, R: Send + Sync + crate::util::AsJson + Deref<Target=C>, L: Send + Sync + Loader>(&'a self, context: &'a R, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where
-		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
+	fn compact<'a, C: ContextMutProxy<T> + Send + Sync + crate::util::AsJson, L: Send + Sync + Loader>(&'a self, context: &'a C, loader: &'a mut L) -> BoxFuture<'a, Result<JsonValue, Error>> where
+		C::Target: Send + Sync + Default,	
+		<C::Target as Context<T>>::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
 		L::Output: Into<Self::LocalContext>,
 		T: 'a + Id + Send + Sync,
 		Self: Sync

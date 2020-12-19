@@ -15,9 +15,6 @@ use json_ld::{
 
 #[async_std::main]
 async fn main() {
-	// Create the initial context.
-	let context: JsonContext = JsonContext::new(None);
-
 	// The JSON-LD document to expand.
 	let doc = json::parse(r#"
 		{
@@ -30,7 +27,7 @@ async fn main() {
 	"#).unwrap();
 
 	// Expansion.
-	let expanded_doc = doc.expand(&context, &mut NoLoader).await.unwrap();
+	let expanded_doc = doc.expand::<JsonContext, _>(&mut NoLoader).await.unwrap();
 
 	// Reference to the `name` property.
 	let name_property = Reference::Id(IriBuf::new("http://xmlns.com/foaf/0.1/name").unwrap());

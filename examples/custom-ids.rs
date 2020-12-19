@@ -45,9 +45,9 @@ impl<'a> TryFrom<Iri<'a>> for Foaf {
 	}
 }
 
-impl<'a> From<&'a Foaf> for Iri<'static> {
-	fn from(term: &'a Foaf) -> Iri<'static> {
-		match term {
+impl iref::AsIri for Foaf {
+	fn as_iri(&self) -> Iri {
+		match self {
 			Foaf::Name => iri!("http://xmlns.com/foaf/0.1/name"),
 			Foaf::Mbox => iri!("http://xmlns.com/foaf/0.1/mbox")
 		}
@@ -58,9 +58,6 @@ type Id = Lexicon<Foaf>;
 
 #[async_std::main]
 async fn main() {
-	// Create the initial context.
-	let context: JsonContext<Id> = JsonContext::new(None);
-
 	// The JSON-LD document to expand.
 	let doc = json::parse(r#"
 		{
@@ -75,7 +72,7 @@ async fn main() {
 	"#).unwrap();
 
 	// Expansion.
-	let expanded_doc = doc.expand(&context, &mut NoLoader).await.unwrap();
+	let expanded_doc = doc.expand::<JsonContext<Id>, _>(&mut NoLoader).await.unwrap();
 
 	// Iterate through the expanded objects.
 	for object in expanded_doc {
