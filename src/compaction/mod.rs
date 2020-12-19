@@ -591,8 +591,33 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 				if list_container {
 					compact_collection_with(list.iter(), active_context.as_ref(), active_context.as_ref(), active_property, loader, options).await
 				} else {
-					panic!("TODO: compact indexed list without container")
-					// Ok(self.as_json())
+					let mut result = json::object::Object::new();
+					compact_property(&mut result, Term::Keyword(Keyword::List), list, index, active_context.as_ref(), type_scoped_context.clone(), loader, false, options).await?;
+
+					// If expanded property is @index and active property has a container mapping in
+					// active context that includes @index,
+					if let Some(index) = index {
+						let mut index_container = false;
+						if let Some(active_property) = active_property {
+							if let Some(active_property_definition) = active_context.get(active_property) {
+								if active_property_definition.container.contains(ContainerType::Index) {
+									// then the compacted result will be inside of an @index container,
+									// drop the @index entry by continuing to the next expanded property.
+									index_container = true;
+								}
+							}
+						}
+
+						if !index_container {
+							// Initialize alias by IRI compacting expanded property.
+							let alias = compact_iri(active_context.as_ref(), Keyword::Index, true, false, options)?;
+
+							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
+							result.insert(alias.as_str().unwrap(), index.as_json());
+						}
+					}
+
+					Ok(JsonValue::Object(result))
 				}
 			}.boxed()
 		}
@@ -1324,15 +1349,27 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 
 								// Set `map_key` to the first value of
 								// `container_key` in `compacted_item`, if any.
-								let map_key = match &compacted_item {
-									JsonValue::Object(map) => match map.get(container_key.as_str().unwrap()) {
-										Some(value) => match value.as_str() {
-											Some(str) => Some(str.to_string()),
-											None => None
+								let (map_key, remaining_values) = match &mut compacted_item {
+									JsonValue::Object(map) => match map.remove(container_key.as_str().unwrap()) {
+										Some(value) => match value {
+											JsonValue::Short(_) | JsonValue::String(_) => {
+												(Some(value.as_str().unwrap().to_string()), Vec::new())
+											},
+											JsonValue::Array(mut values) => {
+												values.reverse();
+												match values.pop() {
+													Some(first_value) => {
+														values.reverse();
+														(first_value.as_str().map(|v| v.to_string()), values)
+													},
+													None => (None, Vec::new())
+												}
+											},
+											_ => (None, Vec::new())
 										},
-										None => None
+										None => (None, Vec::new())
 									},
-									_ => None
+									_ => (None, Vec::new())
 								};
 
 								// If there are remaining values in `compacted_item`
@@ -1340,7 +1377,16 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 								// those remaining values to the `container_key`
 								// in `compacted_item`.
 								// Otherwise, remove that entry from compacted item.
-								// TODO 12.8.9.6.3
+								if !remaining_values.is_empty() {
+									match &mut compacted_item {
+										JsonValue::Object(map) => {
+											for value in remaining_values {
+												add_value(map, container_key.as_str().unwrap(), value, false)
+											}
+										},
+										_ => ()
+									}
+								}
 
 								map_key
 							}
@@ -1362,15 +1408,27 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 
 							// Set `map_key` to the first value of `container_key` in
 							// `compacted_item`, if any.
-							let map_key = match &compacted_item {
-								JsonValue::Object(map) => match map.get(container_key.as_str().unwrap()) {
-									Some(value) => match value.as_str() {
-										Some(str) => Some(str.to_string()),
-										None => None
+							let (map_key, remaining_values) = match &mut compacted_item {
+								JsonValue::Object(map) => match map.remove(container_key.as_str().unwrap()) {
+									Some(value) => match value {
+										JsonValue::Short(_) | JsonValue::String(_) => {
+											(Some(value.as_str().unwrap().to_string()), Vec::new())
+										},
+										JsonValue::Array(mut values) => {
+											values.reverse();
+											match values.pop() {
+												Some(first_value) => {
+													values.reverse();
+													(first_value.as_str().map(|v| v.to_string()), values)
+												},
+												None => (None, Vec::new())
+											}
+										},
+										_ => (None, Vec::new())
 									},
-									None => None
+									None => (None, Vec::new())
 								},
-								_ => None
+								_ => (None, Vec::new())
 							};
 
 							// If there are remaining values in `compacted_item` for
@@ -1378,7 +1436,16 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 							// remaining values to the `container_key` in
 							// `compacted_item`.
 							// Otherwise, remove that entry from compacted item.
-							// TODO 12.8.9.8.2
+							if !remaining_values.is_empty() {
+								match &mut compacted_item {
+									JsonValue::Object(map) => {
+										for value in remaining_values {
+											add_value(map, container_key.as_str().unwrap(), value, false)
+										}
+									},
+									_ => ()
+								}
+							}
 
 							// If `compacted_item` contains a single entry with a key
 							// expanding to @id, set `compacted_item` to the result of
@@ -1395,7 +1462,7 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 								}
 							}
 
-							None
+							map_key
 						};
 
 						// If `map_key` is null, set it to the result of
