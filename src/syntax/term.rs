@@ -1,4 +1,7 @@
-use std::fmt;
+use std::{
+	fmt,
+	borrow::Borrow
+};
 use iref::{
 	Iri,
 	AsIri
@@ -158,6 +161,60 @@ impl<T: AsIri> AsJson for Term<T> {
 			Term::Ref(p) => p.as_str().into(),
 			Term::Keyword(kw) => kw.into_str().into(),
 			Term::Null => JsonValue::Null
+		}
+	}
+}
+
+pub trait ToLenientTerm<T: Id> {
+	type Target: Borrow<Lenient<Term<T>>>;
+
+	fn to_lenient_term(&self) -> Self::Target;
+}
+
+impl<'a, T: Id> ToLenientTerm<T> for &'a Lenient<Term<T>> {
+	type Target = &'a Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> &'a Lenient<Term<T>> {
+		self
+	}
+}
+
+impl<'a, T: Id> ToLenientTerm<T> for &'a T {
+	type Target = Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> Lenient<Term<T>> {
+		Lenient::Ok(Term::Ref(Reference::Id((*self).clone())))
+	}
+}
+
+impl<T: Id> ToLenientTerm<T> for Keyword {
+	type Target = Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> Lenient<Term<T>> {
+		Lenient::Ok(Term::Keyword(*self))
+	}
+}
+
+impl<'a, T: Id> ToLenientTerm<T> for &'a Reference<T> {
+	type Target = Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> Lenient<Term<T>> {
+		Lenient::Ok(Term::Ref((*self).clone()))
+	}
+}
+
+impl<'a, T: Id> ToLenientTerm<T> for &'a Lenient<Reference<T>> {
+	type Target = Lenient<Term<T>>;
+
+	#[inline]
+	fn to_lenient_term(&self) -> Lenient<Term<T>> {
+		match self {
+			Lenient::Ok(r) => Lenient::Ok(Term::Ref((*r).clone())),
+			Lenient::Unknown(u) => Lenient::Unknown(u.clone())
 		}
 	}
 }
