@@ -76,6 +76,7 @@ pub trait Any<T: Id>: AsJson {
 	}
 }
 
+/// Object reference.
 pub enum Ref<'a, T: Id> {
 	/// Value object.
 	Value(&'a Value<T>),

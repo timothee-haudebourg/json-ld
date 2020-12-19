@@ -47,6 +47,7 @@ impl<T: Id> Local<T> for JsonValue {
 	}
 }
 
+/// Checks if the given context has a protected definition.
 pub fn has_protected_items<T: Id, C: Context<T>>(active_context: &C) -> bool {
 	for (_, definition) in active_context.definitions() {
 		if definition.protected {
@@ -57,6 +58,7 @@ pub fn has_protected_items<T: Id, C: Context<T>>(active_context: &C) -> bool {
 	false
 }
 
+/// Resolve `iri_ref` against the given base IRI.
 fn resolve_iri(iri_ref: IriRef, base_iri: Option<Iri>) -> Option<IriBuf> {
 	match base_iri {
 		Some(base_iri) => Some(iri_ref.resolved(base_iri)),
@@ -67,12 +69,17 @@ fn resolve_iri(iri_ref: IriRef, base_iri: Option<Iri>) -> Option<IriBuf> {
 	}
 }
 
+/// Single frame of the context processing stack.
 struct StackNode {
+	/// Previous frame.
 	previous: Option<Arc<StackNode>>,
+
+	/// URL of the last loaded context.
 	url: IriBuf
 }
 
 impl StackNode {
+	/// Create a new stack frame registering the load of the given context URL.
 	fn new(previous: Option<Arc<StackNode>>, url: IriBuf) -> StackNode {
 		StackNode {
 			previous,
@@ -80,6 +87,7 @@ impl StackNode {
 		}
 	}
 
+	/// Checks if this frame or any parent holds the given URL.
 	fn contains(&self, url: Iri) -> bool {
 		if self.url == url {
 			true
@@ -92,22 +100,30 @@ impl StackNode {
 	}
 }
 
+/// Context processing stack.
+/// 
+/// Contains the list of the loaded contexts to detect loops.
 #[derive(Clone)]
 pub struct ProcessingStack {
 	head: Option<Arc<StackNode>>
 }
 
 impl ProcessingStack {
+	/// Creates a new empty processing stack.
 	pub fn new() -> ProcessingStack {
 		ProcessingStack {
 			head: None
 		}
 	}
 
+	/// Checks if the stack is empty.
 	pub fn is_empty(&self) -> bool {
 		self.head.is_none()
 	}
 
+	/// Checks if the given URL is already in the stack.
+	/// 
+	/// This is used for loop detection.
 	pub fn cycle(&self, url: Iri) -> bool {
 		match &self.head {
 			Some(head) => head.contains(url),
@@ -115,6 +131,10 @@ impl ProcessingStack {
 		}
 	}
 
+	/// Push a new URL to the stack, unless it is already in the stack.
+	/// 
+	/// Returns `true` if the URL was successfully added or
+	/// `false` if a loop has been detected.
 	pub fn push(&mut self, url: Iri) -> bool {
 		if self.cycle(url) {
 			false

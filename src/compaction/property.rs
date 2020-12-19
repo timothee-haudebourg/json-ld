@@ -249,6 +249,7 @@ fn select_nest_result<'a, T: Id, C: ContextMut<T>>(result: &'a mut json::object:
 	Ok((nest_result, container, as_array))
 }
 
+/// Compact the given property into the `result` compacted object.
 pub async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> + Sync + Send, O: IntoIterator<Item=&'a Indexed<N>>, C: ContextMut<T>, L: Loader>(result: &mut json::object::Object, expanded_property: Term<T>, expanded_value: O, active_context: Inversible<T, &C>, loader: &mut L, inside_reverse: bool, options: Options)
 -> Result<(), Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
 	let lenient_expanded_property: Lenient<Term<T>> = expanded_property.into();

@@ -30,15 +30,23 @@ use super::{
 	TypeLangValue
 };
 
+/// Compact the given term without considering any value.
+/// 
+/// Calls [`compact_iri_full`] with `None` for `value`.
 pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>>(active_context: Inversible<T, &C>, var: V, vocab: bool, reverse: bool, options: Options) -> Result<JsonValue, Error> {
 	compact_iri_full::<T, C, V, Object<T>>(active_context, var, None, vocab, reverse, options)
 }
 
+/// Compact the given term considering the given value object.
+/// 
+/// Calls [`compact_iri_full`] with `Some(value)`.
 pub(crate) fn compact_iri_with<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>, N: object::Any<T>>(active_context: Inversible<T, &C>, var: V, value: &Indexed<N>, vocab: bool, reverse: bool, options: Options) -> Result<JsonValue, Error> {
 	compact_iri_full(active_context, var, Some(value), vocab, reverse, options)
 }
 
-// default value for `value` is `None` and `false` for `vocab` and `reverse`.
+/// Compact the given term.
+/// 
+/// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
 pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, V: ToLenientTerm<T>, N: object::Any<T>>(active_context: Inversible<T, &C>, var: V, value: Option<&Indexed<N>>, vocab: bool, reverse: bool, options: Options) -> Result<JsonValue, Error> {
 	let var = var.to_lenient_term();
 	let var = var.borrow();

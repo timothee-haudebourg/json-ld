@@ -15,9 +15,12 @@ use crate::{
 	}
 };
 
+/// Document loader.
 pub trait Loader {
+	/// The type of documents that can be loaded.
 	type Document;
 
+	/// Load the document behind the given URL.
 	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>>;
 }
 

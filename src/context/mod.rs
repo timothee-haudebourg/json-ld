@@ -33,6 +33,7 @@ pub use inverse::{
 	Inversible
 };
 
+/// Options of the Context Processing Algorithm.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ProcessingOptions {
 	/// The processing mode
@@ -78,9 +79,9 @@ impl Default for ProcessingOptions {
 	}
 }
 
-/// JSON-LD active context.
+/// JSON-LD context.
 ///
-/// An active context holds all the term definitions used to expand a JSON-LD value.
+/// A context holds all the term definitions used to expand a JSON-LD value.
 pub trait Context<T: Id = IriBuf> : Clone {
 	// Later
 	// type Definitions<'a>: Iterator<Item = (&'a str, TermDefinition<T, Self>)>;
@@ -128,23 +129,35 @@ pub trait Context<T: Id = IriBuf> : Clone {
 	fn definitions<'a>(&'a self) -> Box<dyn 'a + Iterator<Item = (&'a String, &'a TermDefinition<T, Self>)>>;
 }
 
+/// Mutable JSON-LD context.
 pub trait ContextMut<T: Id = IriBuf>: Context<T> {
+	/// Defines the given term.
 	fn set(&mut self, term: &str, definition: Option<TermDefinition<T, Self>>) -> Option<TermDefinition<T, Self>>;
 
+	/// Sets the base IRI of the context.
 	fn set_base_iri(&mut self, iri: Option<Iri>);
 
+	/// Sets the vocabulary.
 	fn set_vocabulary(&mut self, vocab: Option<Term<T>>);
 
+	/// Sets the default language.
 	fn set_default_language(&mut self, lang: Option<LanguageTagBuf>);
 
+	/// Sets de default language base direction.
 	fn set_default_base_direction(&mut self, dir: Option<Direction>);
 
+	/// Sets the previous context.
 	fn set_previous_context(&mut self, previous: Self);
 }
 
+/// Trait for types that are or wrap a mutable context.
+/// 
+/// This trait is used by the [`Document::compact`](crate::Document::compact)
+/// function to accept either a context or a wrapper to a context.
 pub trait ContextMutProxy<T: Id = IriBuf> {
 	type Target: ContextMut<T>;
 
+	/// Returns a reference to the mutable context.
 	fn deref(&self) -> &Self::Target;
 }
 
@@ -171,13 +184,21 @@ pub trait Local<T: Id = IriBuf>: Sized + PartialEq {
 	}
 }
 
+/// Processed context attached to its original unprocessed local context.
+/// 
+/// This is usefull for instance to attach a processed context to its original JSON form,
+/// which is then used by the compaction algorithm to put the context in the compacted document.
 #[derive(Clone)]
 pub struct Processed<L, C> {
+	/// Original unprocessed context.
 	local: L,
+
+	/// Processed context.
 	processed: C
 }
 
 impl<L, C> Processed<L, C> {
+	/// Wraps a processed context along with its original local representation.
 	pub fn new(local: L, processed: C) -> Processed<L, C> {
 		Processed {
 			local,
@@ -185,6 +206,7 @@ impl<L, C> Processed<L, C> {
 		}
 	}
 
+	/// Consumes the wrapper and returns the processed context.
 	pub fn into_inner(self) -> C {
 		self.processed
 	}
@@ -199,6 +221,7 @@ impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<L, C> {
 }
 
 impl<'a, L: Clone, C> Processed<&'a L, C> {
+	/// Clone the referenced local context.
 	pub fn owned(self) -> Processed<L, C> {
 		Processed {
 			local: L::clone(self.local),

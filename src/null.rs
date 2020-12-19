@@ -1,13 +1,23 @@
 use json::JsonValue;
 use crate::util::AsJson;
 
+/// Value that can be null.
+/// 
+/// The `Option` type is used in the crate to design value that
+/// may or may not be defined.
+/// Sometimes value can be explicitelly defined as `null`,
+/// hence the need of the type.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 pub enum Nullable<T> {
+	/// Null.
 	Null,
+
+	/// Some value.
 	Some(T)
 }
 
 impl<T> Nullable<T> {
+	/// Checks if the value is `null`.
 	#[inline]
 	pub fn is_null(&self) -> bool {
 		match self {
@@ -16,6 +26,7 @@ impl<T> Nullable<T> {
 		}
 	}
 
+	/// Checks if the value is not `null`.
 	#[inline]
 	pub fn is_some(&self) -> bool {
 		match self {
@@ -24,6 +35,9 @@ impl<T> Nullable<T> {
 		}
 	}
 
+	/// Unwraps a non-null value.
+	/// 
+	/// Panics if the value is `null`.
 	#[inline]
 	pub fn unwrap(self) -> T {
 		match self {
@@ -32,6 +46,7 @@ impl<T> Nullable<T> {
 		}
 	}
 
+	/// Returns a nullabl reference to the inner value.
 	#[inline]
 	pub fn as_ref(&self) -> Nullable<&T> {
 		match self {
@@ -40,6 +55,7 @@ impl<T> Nullable<T> {
 		}
 	}
 
+	/// Transform into an `Option` value.
 	#[inline]
 	pub fn option(self) -> Option<T> {
 		match self {
@@ -48,6 +64,7 @@ impl<T> Nullable<T> {
 		}
 	}
 
+	/// Map the inner value using the given function.
 	#[inline]
 	pub fn map<F, U>(self, f: F) -> Nullable<U> where F: FnOnce(T) -> U {
 		match self {
@@ -58,6 +75,7 @@ impl<T> Nullable<T> {
 }
 
 impl<'a, T: Clone> Nullable<&'a T> {
+	/// Clone the referenced inner value.
 	#[inline]
 	pub fn cloned(&self) -> Nullable<T> {
 		match self {

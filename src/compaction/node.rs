@@ -29,6 +29,7 @@ use super::{
 	add_value
 };
 
+/// Compact the given indexed node.
 pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(node: &Node<T>, index: Option<&str>, mut active_context: Inversible<T, &C>, type_scoped_context: Inversible<T, &C>, active_property: Option<&str>, loader: &mut L, options: Options) -> Result<JsonValue, Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
 	// If active context has a previous context, the active context is not propagated.
 	// If element does not contain an @value entry, and element does not consist of
@@ -225,7 +226,7 @@ pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L:
 	Ok(JsonValue::Object(result))
 }
 
-
+/// Compact the given list of types into the given `result` compacted object.
 fn compact_types<T: Sync + Send + Id, C: ContextMut<T>>(result: &mut json::object::Object, types: &[Lenient<Reference<T>>], active_context: Inversible<T, &C>, type_scoped_context: Inversible<T, &C>, options: Options) -> Result<(), Error> {
 	// If expanded property is @type:
 	if !types.is_empty() {

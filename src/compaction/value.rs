@@ -23,6 +23,7 @@ use super::{
 	compact_iri
 };
 
+/// Compact the given indexed value.
 pub async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(value: &Value<T>, index: Option<&str>, active_context: Inversible<T, &C>, active_property: Option<&str>, loader: &mut L, options: Options) -> Result<JsonValue, Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
 	// If the term definition for active property in active context has a local context:
 	let mut active_context = active_context.into_borrowed();

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::convert::TryFrom;
 
-/// Processing modes
+/// Processing mode.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ProcessingMode {
 	/// JSON-LD 1.0.
@@ -12,6 +12,7 @@ pub enum ProcessingMode {
 }
 
 impl ProcessingMode {
+	/// Returns the name of the processing mode.
 	pub fn as_str(&self) -> &str {
 		match self {
 			ProcessingMode::JsonLd1_0 => "json-ld-1.0",
