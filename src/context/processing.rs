@@ -50,6 +50,7 @@ impl<T: Id> Local<T> for JsonValue {
 
 pub fn has_protected_items<T: Id, C: Context<T>>(active_context: &C) -> bool {
 	for (_, definition) in active_context.definitions() {
+		eprintln!("DEF: {:?}", definition.value);
 		if definition.protected {
 			return true
 		}
@@ -181,7 +182,7 @@ fn process_context<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: S
 					// If `override_protected` is false and `active_context` contains any protected term
 					// definitions, an invalid context nullification has been detected and processing
 					// is aborted.
-					if !options.override_protected && has_protected_items(active_context) {
+					if !options.override_protected && has_protected_items(&result) {
 						return Err(ErrorCode::InvalidContextNullification.into())
 					} else {
 						// Otherwise, initialize result as a newly-initialized active context, setting
@@ -506,9 +507,20 @@ fn is_gen_delim_or_blank<T: Id>(t: &Term<T>) -> bool {
 	}
 }
 
-fn contains_nz(id: &str, c: char) -> bool {
+/// Checks if the the given character is included in the given string anywhere but at the first position.
+fn contains_after_first(id: &str, c: char) -> bool {
 	if let Some(i) = id.find(c) {
 		i > 0
+	} else {
+		false
+	}
+}
+
+/// Checks if the the given character is included in the given string anywhere but at the first or last position.
+fn contains_between_boundaries(id: &str, c: char) -> bool {
+	if let Some(i) = id.find(c) {
+		let j = id.rfind(c).unwrap();
+		i > 0 && j < id.len()-1
 	} else {
 		false
 	}
@@ -770,26 +782,29 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 								// Otherwise, set the IRI mapping of `definition` to the result
 								// of IRI expanding the value associated with the `@id` entry,
 								// using `local_context`, and `defined`.
-								definition.value = if let Lenient::Ok(value) = expand_iri(active_context, id_value, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
-									// if it equals `@context`, an invalid keyword alias error has
-									// been detected and processing is aborted.
-									if value == Term::Keyword(Keyword::Context) {
-										return Err(ErrorCode::InvalidKeywordAlias.into())
+								definition.value = match expand_iri(active_context, id_value, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
+									Lenient::Ok(value) => {
+										// if it equals `@context`, an invalid keyword alias error has
+										// been detected and processing is aborted.
+										if value == Term::Keyword(Keyword::Context) {
+											return Err(ErrorCode::InvalidKeywordAlias.into())
+										}
+	
+										Some(value)
+									},
+									r => {
+										// If the resulting IRI mapping is neither a keyword,
+										// nor an IRI, nor a blank node identifier, an
+										// invalid IRI mapping error has been detected and processing
+										// is aborted;
+										return Err(ErrorCode::InvalidIriMapping.into())
 									}
-
-									Some(value)
-								} else {
-									// If the resulting IRI mapping is neither a keyword,
-									// nor an IRI, nor a blank node identifier, an
-									// invalid IRI mapping error has been detected and processing
-									// is aborted;
-									return Err(ErrorCode::InvalidIriMapping.into())
 								};
 
 								// If `term` contains a colon (:) anywhere but as the first or
 								// last character of `term`, or if it contains a slash (/)
 								// anywhere:
-								if contains_nz(term, ':') || term.contains('/') {
+								if contains_between_boundaries(term, ':') || term.contains('/') {
 									// Set the value associated with `defined`'s `term` entry
 									// to `true`.
 									defined.insert(term.to_string(), true);
@@ -826,7 +841,7 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 								return Err(ErrorCode::InvalidIriMapping.into())
 							}
 						}
-					} else if contains_nz(term, ':') {
+					} else if contains_after_first(term, ':') {
 						// Otherwise if the `term` contains a colon (:) anywhere after the first
 						// character:
 						let i = term.find(':').unwrap();
@@ -937,6 +952,7 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 							if let Some(entry) = entry.as_str() {
 								match ContainerType::try_from(entry) {
 									Ok(c) => {
+										eprintln!("add {:?} in container {:?}", c, definition.container);
 										if !definition.container.add(c) {
 											return Err(ErrorCode::InvalidContainerMapping.into())
 										}
@@ -1171,7 +1187,10 @@ pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Se
 		} else {
 			// If value has the form of a keyword, a processor SHOULD generate a warning and return
 			// null.
-			// TODO
+			if is_keyword_like(value.as_ref()) {
+				// TODO warning
+				return Ok(Term::Null.into())
+			}
 
 			// If `local_context` is not null, it contains an entry with a key that equals value, and the
 			// value of the entry for value in defined is not true, invoke the Create Term Definition

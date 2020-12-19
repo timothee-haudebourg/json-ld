@@ -1362,10 +1362,13 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 														values.reverse();
 														(first_value.as_str().map(|v| v.to_string()), values)
 													},
-													None => (None, Vec::new())
+													None => {
+														values.reverse();
+														(None, values)
+													}
 												}
 											},
-											_ => (None, Vec::new())
+											other_value => (None, vec![other_value])
 										},
 										None => (None, Vec::new())
 									},
@@ -1421,10 +1424,13 @@ async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> +
 													values.reverse();
 													(first_value.as_str().map(|v| v.to_string()), values)
 												},
-												None => (None, Vec::new())
+												None => {
+													values.reverse();
+													(None, values)
+												}
 											}
 										},
-										_ => (None, Vec::new())
+										other_value => (None, vec![other_value])
 									},
 									None => (None, Vec::new())
 								},

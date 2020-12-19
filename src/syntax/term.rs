@@ -19,7 +19,7 @@ pub trait TermLike {
 	fn as_str(&self) -> &str;
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Term<T: AsIri> {
 	Null,
 	Ref(Reference<T>),
@@ -138,6 +138,16 @@ impl<T: AsIri + fmt::Display> fmt::Display for Term<T> {
 			Term::Ref(p) => p.fmt(f),
 			Term::Keyword(kw) => kw.into_str().fmt(f),
 			Term::Null => write!(f, "null")
+		}
+	}
+}
+
+impl<T: AsIri> fmt::Debug for Term<T> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Term::Ref(p) => write!(f, "Term::Ref({:?})", p),
+			Term::Keyword(kw) => write!(f, "Term::Keyword({})", kw),
+			Term::Null => write!(f, "Term::Null")
 		}
 	}
 }

@@ -173,6 +173,7 @@ impl Container {
 			(Container::Id, ContainerType::Set) => Container::IdSet,
 			(Container::Index, ContainerType::Index) => *self,
 			(Container::Index, ContainerType::Graph) => Container::GraphIndex,
+			(Container::Index, ContainerType::Set) => Container::IndexSet,
 			(Container::Language, ContainerType::Language) => *self,
 			(Container::Language, ContainerType::Set) => Container::LanguageSet,
 			(Container::List, ContainerType::List) => *self,

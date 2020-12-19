@@ -18,7 +18,7 @@ use crate::{
 ///
 /// Used to reference a node across a document or to a remote document.
 /// It can be an identifier (IRI) or a blank node identifier for local blank nodes.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Reference<T: AsIri = IriBuf> {
 	/// Node identifier, essentially an IRI.
 	Id(T),
@@ -150,6 +150,15 @@ impl<T: AsIri> fmt::Display for Reference<T> {
 		match self {
 			Reference::Id(id) => id.as_iri().fmt(f),
 			Reference::Blank(b) => b.fmt(f)
+		}
+	}
+}
+
+impl<T: AsIri> fmt::Debug for Reference<T> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Reference::Id(id) => write!(f, "Reference::Id({})", id.as_iri()),
+			Reference::Blank(b) => write!(f, "Refernce::Blank({})", b)
 		}
 	}
 }

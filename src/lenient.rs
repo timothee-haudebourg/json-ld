@@ -80,6 +80,15 @@ impl<T: fmt::Display> fmt::Display for Lenient<T> {
 	}
 }
 
+impl<T: fmt::Debug> fmt::Debug for Lenient<T> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Lenient::Ok(t) => write!(f, "Lenient::Ok({:?})", t),
+			Lenient::Unknown(u) => write!(f, "Lenient::Unknown({:?})", u),
+		}
+	}
+}
+
 impl<T: util::AsJson> util::AsJson for Lenient<T> {
 	fn as_json(&self) -> JsonValue {
 		match self {
