@@ -11,7 +11,7 @@ This crate is a Rust implementation of the
 data interchange format.
 
 NOTE: This crate is in early development.
-All the features are not yet implemented (only the expansion algorithm is).
+All the features are not yet implemented (only the expansion and compaction algorithms are).
 The API is not yet stabilized and may change rapidly.
 
 [Linked Data (LD)](https://www.w3.org/standards/semanticweb/data)
@@ -50,7 +50,8 @@ use async_std::task;
 use iref::IriBuf;
 use json_ld::{JsonContext, NoLoader, Document, Object, Reference};
 
-fn main() {
+#[async_std::main]
+fn main() -> Result<(), json_ld::Error> {
 	// The JSON-LD document to expand.
 	let doc = json::parse(r#"
 		{
@@ -62,11 +63,8 @@ fn main() {
 		}
 	"#).unwrap();
 
-	// Create the initial context.
-	let context: JsonContext = JsonContext::new(None);
-
 	// Expansion.
-	let expanded_doc = task::block_on(doc.expand(&context, &mut NoLoader)).unwrap();
+	let expanded_doc = doc.expand::<JsonContext, _>(&mut NoLoader).await?;
 
 	// Reference to the `name` property.
 	let name_property = Reference::Id(IriBuf::new("http://xmlns.com/foaf/0.1/name").unwrap());
@@ -93,10 +91,41 @@ This crate provides multiple loader implementations:
 	Note that `reqwest` requires the
 	[`tokio`](https://crates.io/crates/tokio) runtime to work.
 
-### Compaction & Flattening
+### Compaction
 
-These operations are not implemented yet,
-but will be a feature.
+The `Document` trait also provides a `Document::compact` function to compact a document using a given context.
+
+```rust
+#[async_std::main]
+async fn main() -> Result<(), json_ld::Error> {
+	// Input JSON-LD document to compact.
+	let input = json::parse(r#"
+		[{
+			"http://xmlns.com/foaf/0.1/name": ["Timothée Haudebourg"],
+			"http://xmlns.com/foaf/0.1/homepage": [{"@id": "https://haudebourg.net/"}]
+		}]
+	"#).unwrap();
+
+	// Context
+	let context = json::parse(r#"
+		{
+			"name": "http://xmlns.com/foaf/0.1/name",
+			"homepage": {"@id": "http://xmlns.com/foaf/0.1/homepage", "@type": "@id"}
+		}
+	"#).unwrap();
+	let processed_context = context.process::<JsonContext, _>(&mut NoLoader, None).await?;
+	
+	// Compaction.
+	let output = input.compact(&processed_context, &mut NoLoader).await.unwrap();
+	println!("{}", output.pretty(2));
+
+	Ok(())
+}
+```
+
+### Flattening
+
+Flattening is not yet implemented, but will be in the future.
 
 ## Custom identifiers
 
@@ -151,13 +180,14 @@ It can be imported using the `generate-expand-tests` example:
 $ git submodule init
 $ git submodule update
 $ cargo run --example generate-expand-tests > tests/expand.rs
+$ cargo run --example generate-compact-tests > tests/compact.rs
 ```
 
 This will checkout the [JSON-LD test suite](https://github.com/w3c/json-ld-api/) included in a submodule,
 and write the associated Rust test file `tests/expand.rs`.
 Then use `cargo test` to run the tests.
-All the tests should pass except for the expansion test `0122`
-(see [#480](https://github.com/w3c/json-ld-api/issues/480#) on the `json-ld-api` repository).
+All the tests should pass except for the compaction test `p004`
+(see [#517](https://github.com/w3c/json-ld-api/issues/517#) on the `json-ld-api` repository).
 
 ## License
 
