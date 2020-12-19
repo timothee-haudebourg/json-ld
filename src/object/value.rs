@@ -65,6 +65,20 @@ impl Literal {
 			_ => None
 		}
 	}
+
+	pub fn as_bool(&self) -> Option<bool> {
+		match self {
+			Literal::Boolean(b) => Some(*b),
+			_ => None
+		}
+	}
+
+	pub fn as_number(&self) -> Option<json::number::Number> {
+		match self {
+			Literal::Number(n) => Some(*n),
+			_ => None
+		}
+	}
 }
 
 /// Value object.
@@ -88,6 +102,20 @@ impl<T: Id> Value<T> {
 			Value::Literal(lit, _) => lit.as_str(),
 			Value::LangString(str) => Some(str.as_str()),
 			Value::Json(_) => None
+		}
+	}
+
+	pub fn as_bool(&self) -> Option<bool> {
+		match self {
+			Value::Literal(lit, _) => lit.as_bool(),
+			_ => None
+		}
+	}
+
+	pub fn as_number(&self) -> Option<json::number::Number> {
+		match self {
+			Value::Literal(lit, _) => lit.as_number(),
+			_ => None
 		}
 	}
 

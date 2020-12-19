@@ -169,6 +169,22 @@ impl<T: Id> Object<T> {
 		}
 	}
 
+	/// Get the value as a boolean, if it is.
+	pub fn as_bool(&self) -> Option<bool> {
+		match self {
+			Object::Value(value) => value.as_bool(),
+			_ => None
+		}
+	}
+
+	/// Get the value as a number, if it is.
+	pub fn as_number(&self) -> Option<json::number::Number> {
+		match self {
+			Object::Value(value) => value.as_number(),
+			_ => None
+		}
+	}
+
 	/// Try to convert this object into an unnamed graph.
 	pub fn into_unnamed_graph(self: Indexed<Self>) -> Result<HashSet<Indexed<Object<T>>>, Indexed<Self>> {
 		let (obj, index) = self.into_parts();

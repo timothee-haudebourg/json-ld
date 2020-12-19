@@ -46,6 +46,7 @@ pub enum Vocab {
 	#[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
 	#[iri("vocab:option")] Option,
 	#[iri("vocab:specVersion")] SpecVersion,
+	#[iri("vocab:normative")] Normative,
 	#[iri("vocab:processingMode")] ProcessingMode,
 	#[iri("vocab:expandContext")] ExpandContext,
 	#[iri("vocab:base")] Base
@@ -107,10 +108,17 @@ fn generate_test(entry: &Node<Id>) {
 
 	for option in entry.get(Vocab::Option) {
 		if let Object::Node(option) = option.as_ref() {
+			for normative in option.get(Vocab::Normative) {
+				if let Some(false) = normative.inner().as_bool() {
+					info!("skipping test {} (non normative)", url);
+					return
+				}
+			}
+
 			for spec_version in option.get(Vocab::SpecVersion) {
 				if let Some(spec_version) = spec_version.as_str() {
 					if spec_version != "json-ld-1.1" {
-						info!("skipping {} test {} (unsupported json-ld version 1.1)", spec_version, url);
+						info!("skipping test {} (unsupported json-ld version {})", url, spec_version);
 						return
 					}
 				}
