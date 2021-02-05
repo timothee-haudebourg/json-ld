@@ -16,12 +16,12 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v2
     - name: Build
-      run: cargo build --verbose
+      run: cargo +nightly build --verbose
     - name: Generate tests
       run: |
         git submodule init
         git submodule update
-        cargo run --example generate-expand-tests > tests/expand.rs
-        cargo run --example generate-compact-tests > tests/compact.rs
+        cargo +nightly run --example generate-expand-tests > tests/expand.rs
+        cargo +nightly run --example generate-compact-tests > tests/compact.rs
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo +nightly test --verbose
