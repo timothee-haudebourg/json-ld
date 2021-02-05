@@ -68,11 +68,9 @@ pub trait Document<T: Id> {
 	///
 	/// # Example
 	/// ```
-	/// use std_async::task;
+	/// # fn main() -> Result<(), json_ld::Error> {
+	/// use async_std::task;
 	/// use json_ld::{Document, JsonContext, NoLoader};
-	///
-	/// // Prepare the initial context.
-	/// let context = JsonContext::new();
 	///
 	/// let doc = json::parse("{
 	/// 	\"@context\": {
@@ -86,8 +84,10 @@ pub trait Document<T: Id> {
 	/// 			\"name\": \"Amélie Barbe\"
 	/// 		}
 	/// 	]
-	/// }")?;
-	/// let expanded_doc = task::block_on(doc.expand(&context, &mut NoLoader))?;
+	/// }").unwrap();
+	/// let expanded_doc = task::block_on(doc.expand::<JsonContext, _>(&mut NoLoader))?;
+	/// # Ok(())
+	/// # }
 	/// ```
 	fn expand<'a, C: 'a + Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(&'a self, loader: &'a mut L) -> BoxFuture<'a, Result<ExpandedDocument<T>, Error>> where
 		C::LocalContext: Send + Sync + From<L::Output> + From<Self::LocalContext>,
@@ -189,17 +189,21 @@ impl<T: Id> Document<T> for JsonValue {
 ///
 /// # Example
 /// ```
-/// #[macro_use]
-/// extern crate static_iref;
+/// use static_iref::*;
 ///
-/// use std_async::task;
-/// use json_ld::FsLoader;
+/// use async_std::task;
+/// use json::JsonValue;
+/// use json_ld::{
+/// 	Loader,
+/// 	FsLoader,
+/// 	RemoteDocument
+/// };
 ///
-/// # Prepare the loader.
+/// // Prepare the loader.
 /// let mut loader = FsLoader::new();
 /// loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 ///
-/// # Load the remote document.
+/// // Load the remote document.
 /// let url = iri!("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld");
 /// let doc: RemoteDocument<JsonValue> = task::block_on(loader.load(url)).unwrap();
 /// ```

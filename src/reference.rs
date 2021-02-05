@@ -169,7 +169,7 @@ impl<T: AsIri> fmt::Debug for Reference<T> {
 /// For instance consider the [`Node::get`](crate::Node::get) method, used to get the objects associated to the
 /// given reference property for a given node.
 /// It essentially have the following signature:
-/// ```
+/// ```ignore
 /// fn get(&self, id: &Reference<T>) -> Objects;
 /// ```
 /// However building a `Refrence` by hand can be tedious, especilly while using [`Lexicon`](crate::Lexicon) and
@@ -177,7 +177,7 @@ impl<T: AsIri> fmt::Debug for Reference<T> {
 /// Thanks to `ToReference` which is implemented by `Lexicon<V>` for any type `V` implementing `Vocab`,
 /// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct) where
 /// the signature of `get` becomes:
-/// ```
+/// ```ignore
 /// fn get<R: ToReference<T>>(&self, id: R) -> Objects;
 /// ```
 pub trait ToReference<T: Id> {

@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLORS: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --verbose
+    - name: Generate tests
+      run: |
+        git submodule init
+        git submodule update
+        cargo run --example generate-expand-tests > tests/expand.rs
+        cargo run --example generate-compact-tests > tests/compact.rs
+    - name: Run tests
+      run: cargo test --verbose

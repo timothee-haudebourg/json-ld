@@ -24,10 +24,7 @@ use crate::{
 /// This can be done throught the use of the [`Lexicon`](`crate::Lexicon`) type along with the
 /// [`iref-enum`](https://crates.io/crates/iref-enum) crate:
 /// ```
-/// #[macro_use]
-/// extern crate iref_enum;
-/// extern crate json_ld;
-///
+/// use iref_enum::*;
 /// use json_ld::Lexicon;
 ///
 /// /// Vocabulary used in the implementation.

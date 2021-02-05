@@ -103,6 +103,12 @@ fn generate_test(entry: &Node<Id>) {
 	let name = entry.get(Vocab::Name).next().unwrap().as_str().unwrap();
 	let url = entry.get(Vocab::Action).next().unwrap().as_iri().unwrap();
 	let mut base_url = url;
+
+	if url == "https://w3c.github.io/json-ld-api/tests/compact/p004-in.jsonld" {
+		warn!("skipping invalid test {} (https://github.com/w3c/json-ld-api/issues/517)", url);
+		return
+	}
+
 	let func_name = func_name(url.path().file_name().unwrap());
 
 	let mut processing_mode = ProcessingMode::JsonLd1_1;

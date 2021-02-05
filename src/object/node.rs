@@ -100,9 +100,12 @@ impl<T: Id> Node<T> {
 	///
 	/// # Example
 	/// ```
+	/// # use json_ld::syntax::{Term, Keyword};
+	/// # let node: json_ld::Node = json_ld::Node::new();
+	/// 
 	/// // Checks if the JSON object representation of the node has an `@id` key.
-	/// if node.has_key(Term::Keyword(Keyword::Id)) {
-	///   ...
+	/// if node.has_key(&Term::Keyword(Keyword::Id)) {
+	///   // ...
 	/// }
 	/// ```
 	pub fn has_key(&self, key: &Term<T>) -> bool {

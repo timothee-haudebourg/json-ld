@@ -76,10 +76,7 @@ impl<V: Vocab> PartialEq<V> for Lexicon<V> {
 /// crate to automatically derive the convertion of the
 /// `Vocab` type from/into IRIs.
 /// ```
-/// #[macro_use]
-/// extern crate iref_enum;
-/// extern crate json_ld;
-///
+/// use iref_enum::*;
 /// use json_ld::Lexicon;
 ///
 /// /// Vocabulary used in the implementation.
