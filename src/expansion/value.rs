@@ -161,7 +161,7 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 			let lang = match language {
 				Some(language) => match LanguageTagBuf::new(language.into_bytes()) {
 					Ok(lang) => Some(lang),
-					Err(_) => return Err(ErrorCode::InvalidLanguageTaggedValue.into())
+					Err(_) => return Ok(None)
 				},
 				None => None
 			};
