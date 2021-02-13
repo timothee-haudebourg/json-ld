@@ -1,7 +1,7 @@
 //! This bit of code is used to generate the compaction tests for the crate. It it also a good
 //! example of what the crate is capable of.
 
-#![feature(proc_macro_hygiene)]
+//#![feature(proc_macro_hygiene)]
 
 #[macro_use]
 extern crate log;

@@ -1,6 +1,6 @@
 //! This example shows how to use the `reqwest::Loader` to download remote documents by
 //! enabeling the `reqwest-loader` feature.
-#![feature(proc_macro_hygiene)]
+//#![feature(proc_macro_hygiene)]
 
 extern crate tokio;
 extern crate iref;
