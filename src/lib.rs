@@ -1,5 +1,3 @@
-#![feature(arbitrary_self_types)]
-
 #[macro_use]
 extern crate log;
 extern crate json;

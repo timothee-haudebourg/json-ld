@@ -7,7 +7,7 @@
 //! cover the rest. The identifer type (`Id`) is then `Lexicon<Foaf>`.
 //! See the `custom-ids-iref-enum.rs` example to see how to simplify the definition of `Foaf` using
 //! the `iref-enum` crate.
-#![feature(proc_macro_hygiene)]
+//#![feature(proc_macro_hygiene)]
 
 extern crate async_std;
 extern crate iref;

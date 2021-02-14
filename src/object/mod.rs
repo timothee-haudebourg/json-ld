@@ -185,8 +185,19 @@ impl<T: Id> Object<T> {
 		}
 	}
 
+	/// If the objat is a language-tagged value,
+	/// Return its associated language.
+	pub fn language(&self) -> Option<LanguageTag> {
+		match self {
+			Object::Value(value) => value.language(),
+			_ => None
+		}
+	}
+}
+
+impl <T: Id> Indexed<Object<T>> {
 	/// Try to convert this object into an unnamed graph.
-	pub fn into_unnamed_graph(self: Indexed<Self>) -> Result<HashSet<Indexed<Object<T>>>, Indexed<Self>> {
+	pub fn into_unnamed_graph(self: Indexed<Object<T>>) -> Result<HashSet<Self>, Self> {
 		let (obj, index) = self.into_parts();
 		match obj {
 			Object::Node(n) => {
@@ -198,16 +209,8 @@ impl<T: Id> Object<T> {
 			obj => Err(Indexed::new(obj, index))
 		}
 	}
-
-	/// If the objat is a language-tagged value,
-	/// Return its associated language.
-	pub fn language(&self) -> Option<LanguageTag> {
-		match self {
-			Object::Value(value) => value.language(),
-			_ => None
-		}
-	}
 }
+
 
 impl<T: Id> Any<T> for Object<T> {
 	fn as_ref(&self) -> Ref<T> {

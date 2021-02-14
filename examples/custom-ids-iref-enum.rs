@@ -1,6 +1,6 @@
 //! This example show how to simplify the `custom-ids.rs` example by using the `iref-enum` crate
 //! to automatically generate the conversions to/from `Iri` using the `IriEnum` derive macro.
-#![feature(proc_macro_hygiene)]
+//#![feature(proc_macro_hygiene)]
 
 extern crate async_std;
 extern crate iref;
