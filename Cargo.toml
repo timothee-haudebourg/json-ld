@@ -17,8 +17,7 @@ reqwest-loader = ["reqwest"]
 [dependencies]
 log = "^0.4"
 mown = "^0.2"
-# json = "^0.12"
-json = { git = "https://github.com/timothee-haudebourg/json-rust", branch = "fix#190" }
+json = "^0.12"
 iref = "^1.4.3"
 futures = "^0.3"
 once_cell = "^1.4"
