@@ -161,7 +161,8 @@ pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L:
 
 		// For each property and value in compacted value:
 		let mut reverse_map = json::object::Object::new();
-		for (property, value) in reverse_result {
+		for (property, value) in reverse_result.iter_mut() {
+			let value = value.take();
 			// If the term definition for property in the active context indicates that
 			// property is a reverse property
 			if let Some(term_definition) = active_context.get(&property) {
