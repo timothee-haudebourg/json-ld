@@ -10,11 +10,8 @@ This crate is a Rust implementation of the
 [JSON-LD](https://www.w3.org/TR/json-ld/)
 data interchange format.
 
-NOTE: This crate is in early development. Although it may seem dead, it is not.
+NOTE: This crate is in early development.
 All the features are not yet implemented (only the expansion and compaction algorithms are).
-The API is not yet stabilized and may change rapidly.
-I'm having trouble finding free time to consistently work on this project.
-If you want to seen it come to life, please consider sponsoring it.
 
 [Linked Data (LD)](https://www.w3.org/standards/semanticweb/data)
 is a [World Wide Web Consortium (W3C)](https://www.w3.org/)
@@ -190,6 +187,12 @@ and write the associated Rust test file `tests/expand.rs`.
 Then use `cargo test` to run the tests.
 All the tests should pass except for the compaction test `p004`
 (see [#517](https://github.com/w3c/json-ld-api/issues/517#) on the `json-ld-api` repository).
+
+## Sponsoring
+
+![](https://uploads-ssl.webflow.com/5f37276ebba6e91b4cdefcea/5f398730ecda61a7494906ba_Spruce_Logo_Horizontal.png)
+
+Many thanks to [Spruce](www.spruceid.com) for sponsoring this project!
 
 ## License
 
