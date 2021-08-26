@@ -1,0 +1,13 @@
+[
+	{
+	  "foo:bar": [
+		{
+		  "@list": [
+			{
+			  "@id": "http://invalid/<>/test"
+			}
+		  ]
+		}
+	  ]
+	}
+  ]
