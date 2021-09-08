@@ -208,9 +208,9 @@ fn is_alpha(c: char) -> bool {
 	(c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a)
 }
 
-pub fn is_keyword_like(str: &str) -> bool {
-	if str.len() > 1 {
-		for (i, c) in str.chars().enumerate() {
+pub fn is_keyword_like(s: &str) -> bool {
+	if s.len() > 1 {
+		for (i, c) in s.chars().enumerate() {
 			if (i == 0 && c != '@') || (i > 0 && !is_alpha(c)) {
 				return false
 			}
