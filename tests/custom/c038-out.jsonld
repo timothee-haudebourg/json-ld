@@ -1,0 +1,48 @@
+[
+	{
+	  "@id": "http://example.org/base/book/one",
+	  "@type": [
+		"http://purl.org/ontology/bibo/Book"
+	  ],
+	  "http://purl.org/dc/terms/Isbn": [
+		{
+		  "http://purl.org/dc/terms/value": [
+			{
+			  "@value": "1234567890"
+			}
+		  ]
+		}
+	  ],
+	  "http://purl.org/dc/terms/aut": [
+		{
+		  "http://purl.org/dc/terms/agent": [
+			{
+			  "http://www.w3.org/2000/01/rdf-schema#label": [
+				{
+				  "@value": "Some Body"
+				}
+			  ]
+			}
+		  ]
+		}
+	  ],
+	  "http://purl.org/dc/terms/Publication": [
+		{
+		  "http://purl.org/dc/terms/agent": [
+			{
+			  "http://www.w3.org/2000/01/rdf-schema#label": [
+				{
+				  "@value": "PubCorp"
+				}
+			  ]
+			}
+		  ],
+		  "http://purl.org/dc/terms/date": [
+			{
+			  "@value": "1999"
+			}
+		  ]
+		}
+	  ]
+	}
+  ]
