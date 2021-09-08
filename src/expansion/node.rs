@@ -17,7 +17,8 @@ use crate::{
 	context::{
 		ContextMut,
 		Local,
-		Loader
+		Loader,
+		ProcessingOptions
 	},
 	syntax::{
 		Keyword,
@@ -257,12 +258,38 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 						},
 						// If expanded property is @nest
 						Keyword::Nest => {
-							for nested in as_array(value) {
-								if let JsonValue::Object(nested) = nested {
+							let nesting_key = key;
+							// Recursively repeat steps 3, 8, 13, and 14 using `nesting_key` for active property,
+							// and nested value for element.
+							for nested_value in as_array(value) {
+								// Step 3 again.
+								let mut property_scoped_base_url = None;
+								let property_scoped_context = match active_context.get(nesting_key) {
+									Some(definition) => {
+										if let Some(base_url) = &definition.base_url {
+											property_scoped_base_url = Some(base_url.as_iri());
+										}
+	
+										definition.context.as_ref()
+									},
+									None => None
+								};
+
+								// Step 8 again.
+								let active_context = match property_scoped_context {
+									Some(property_scoped_context) => {
+										let options: ProcessingOptions = options.into();
+										Mown::Owned(property_scoped_context.process_with(active_context, loader, property_scoped_base_url, options.with_override()).await?.into_inner())
+									},
+									None => Mown::Borrowed(active_context)
+								};
+
+								// Steps 13 and 14 again.
+								if let JsonValue::Object(nested_value) = nested_value {
 									let mut nested_entries = Vec::new();
 
-									for (nested_key, nested_value) in nested.iter() {
-										nested_entries.push(Entry(nested_key, nested_value))
+									for (key, value) in nested_value.iter() {
+										nested_entries.push(Entry(key, value))
 									}
 
 									if options.ordered {
@@ -270,13 +297,13 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 									}
 
 									let nested_expanded_entries = nested_entries.into_iter().filter_map(|Entry(key, value)| {
-										match expand_iri(active_context, key, false, true) {
+										match expand_iri(active_context.as_ref(), key, false, true) {
 											Lenient::Ok(expanded_key) => Some(Entry((key, expanded_key), value)),
 											_ => None
 										}
 									});
 
-									expand_node_entries(result, has_value_object_entries, active_context, type_scoped_context, active_property, nested_expanded_entries.collect(), base_url, loader, options).await?
+									expand_node_entries(result, has_value_object_entries, active_context.as_ref(), type_scoped_context, active_property, nested_expanded_entries.collect(), base_url, loader, options).await?
 								} else {
 									return Err(ErrorCode::InvalidNestValue.into())
 								}
