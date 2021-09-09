@@ -373,8 +373,7 @@ impl<T: Id> ContextMut<T> for JsonContext<T> {
 	fn set_base_iri(&mut self, iri: Option<Iri>) {
 		self.base_iri = match iri {
 			Some(iri) => {
-				let mut iri_buf: IriBuf = iri.into();
-				iri_buf.path_mut().normalize();
+				let iri_buf: IriBuf = iri.into();
 				Some(iri_buf)
 			},
 			None => None
