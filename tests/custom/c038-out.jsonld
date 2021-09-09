@@ -4,42 +4,30 @@
 	  "@type": [
 		"http://purl.org/ontology/bibo/Book"
 	  ],
-	  "http://purl.org/dc/terms/Isbn": [
+	  "http://purl.org/dc/terms/creator": [
 		{
-		  "http://purl.org/dc/terms/value": [
+		  "http://www.w3.org/2000/01/rdf-schema#label": [
 			{
-			  "@value": "1234567890"
+			  "@value": "Some Body"
 			}
 		  ]
 		}
 	  ],
-	  "http://purl.org/dc/terms/aut": [
+	  "http://purl.org/ontology/bibo/isbn": [
 		{
-		  "http://purl.org/dc/terms/agent": [
-			{
-			  "http://www.w3.org/2000/01/rdf-schema#label": [
-				{
-				  "@value": "Some Body"
-				}
-			  ]
-			}
-		  ]
+		  "@value": "1234567890"
 		}
 	  ],
-	  "http://purl.org/dc/terms/Publication": [
+	  "http://purl.org/dc/terms/published": [
 		{
-		  "http://purl.org/dc/terms/agent": [
+		  "@value": "1999"
+		}
+	  ],
+	  "http://purl.org/dc/terms/publisher": [
+		{
+		  "http://www.w3.org/2000/01/rdf-schema#label": [
 			{
-			  "http://www.w3.org/2000/01/rdf-schema#label": [
-				{
-				  "@value": "PubCorp"
-				}
-			  ]
-			}
-		  ],
-		  "http://purl.org/dc/terms/date": [
-			{
-			  "@value": "1999"
+			  "@value": "PubCorp"
 			}
 		  ]
 		}
