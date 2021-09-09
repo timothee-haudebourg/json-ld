@@ -103,21 +103,22 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 	}
 }
 
-#[test]
-fn custom_li12() {
-	let input_url = iri!("file://crate/tests/custom/li12-in.jsonld");
-	let base_url = iri!("file://crate/tests/custom/li12-in.jsonld");
-	let output_url = iri!("file://crate/tests/custom/li12-out.jsonld");
-	positive_test(
-		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
-		},
-		input_url,
-		base_url,
-		output_url
-	)
-}
+// See See w3c/json-ld-api#533
+// #[test]
+// fn custom_li12() {
+// 	let input_url = iri!("file://crate/tests/custom/li12-in.jsonld");
+// 	let base_url = iri!("file://crate/tests/custom/li12-in.jsonld");
+// 	let output_url = iri!("file://crate/tests/custom/li12-out.jsonld");
+// 	positive_test(
+// 		Options {
+// 			processing_mode: ProcessingMode::JsonLd1_1,
+// 			context: None
+// 		},
+// 		input_url,
+// 		base_url,
+// 		output_url
+// 	)
+// }
 
 #[test]
 fn custom_e111() {
@@ -151,21 +152,22 @@ fn custom_e112() {
 	)
 }
 
-#[test]
-fn custom_e122() {
-	let input_url = iri!("file://crate/tests/custom/e122-in.jsonld");
-	let base_url = iri!("file://crate/tests/custom/e122-in.jsonld");
-	let output_url = iri!("file://crate/tests/custom/e122-out.jsonld");
-	positive_test(
-		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
-		},
-		input_url,
-		base_url,
-		output_url
-	)
-}
+// See w3c/json-ld-api#480
+// #[test]
+// fn custom_e122() {
+// 	let input_url = iri!("file://crate/tests/custom/e122-in.jsonld");
+// 	let base_url = iri!("file://crate/tests/custom/e122-in.jsonld");
+// 	let output_url = iri!("file://crate/tests/custom/e122-out.jsonld");
+// 	positive_test(
+// 		Options {
+// 			processing_mode: ProcessingMode::JsonLd1_1,
+// 			context: None
+// 		},
+// 		input_url,
+// 		base_url,
+// 		output_url
+// 	)
+// }
 
 #[test]
 fn custom_c037() {
