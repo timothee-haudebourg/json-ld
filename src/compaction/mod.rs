@@ -156,7 +156,7 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 
 						if !index_container {
 							// Initialize alias by IRI compacting expanded property.
-							let alias = compact_iri(active_context.as_ref(), Keyword::Index, true, false, options)?;
+							let alias = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Index), true, false, options)?;
 
 							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
 							result.insert(alias.as_str().unwrap(), index.as_json());

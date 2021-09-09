@@ -3,8 +3,8 @@ use iref::{Iri, IriRef};
 use crate::{
 	BlankId,
 	Id,
-	Lenient,
 	Context,
+	Reference,
 	syntax::{
 		Keyword,
 		is_keyword_like,
@@ -13,14 +13,14 @@ use crate::{
 };
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
-pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Lenient<Term<T>> {
+pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, document_relative: bool, vocab: bool) -> Term<T> {
 	if let Ok(keyword) = Keyword::try_from(value) {
-		Term::Keyword(keyword).into()
+		Term::Keyword(keyword)
 	} else {
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
 		if is_keyword_like(value) {
-			return Term::Null.into()
+			return Term::Null
 		}
 
 		if let Some(term_definition) = active_context.get(value) {
@@ -28,7 +28,7 @@ pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, documen
 			// is a keyword, return that keyword.
 			if let Some(value) = &term_definition.value {
 				if value.is_keyword() {
-					return Term::from(value.clone()).into()
+					return Term::from(value.clone())
 				}
 			}
 
@@ -36,9 +36,9 @@ pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, documen
 			// associated IRI mapping.
 			if vocab {
 				if let Some(mapped_value) = &term_definition.value {
-					return mapped_value.clone().into()
+					return mapped_value.clone()
 				} else {
-					return Lenient::Unknown(value.to_string()).into()
+					return Reference::Invalid(value.to_string()).into()
 				}
 			}
 		}
@@ -54,14 +54,14 @@ pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, documen
 				// If prefix is underscore (_) or suffix begins with double-forward-slash (//),
 				// return value as it is already an IRI or a blank node identifier.
 				if prefix == "_" {
-					return Term::from(BlankId::new(suffix)).into()
+					return Term::from(BlankId::new(suffix))
 				}
 
 				if suffix.starts_with("//") {
 					if let Ok(iri) = Iri::new(value) {
-						return Term::from(T::from_iri(iri)).into()
+						return Term::from(T::from_iri(iri))
 					} else {
-						return Lenient::Unknown(value.to_string())
+						return Reference::Invalid(value.to_string()).into()
 					}
 				}
 
@@ -75,12 +75,12 @@ pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, documen
 							result.push_str(suffix);
 
 							if let Ok(result) = Iri::new(&result) {
-								return Term::from(T::from_iri(result)).into()
+								return Term::from(T::from_iri(result))
 							} else {
 								if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-									return Term::from(blank).into()
+									return Term::from(blank)
 								} else {
-									return Lenient::Unknown(result)
+									return Reference::Invalid(result).into()
 								}
 							}
 						}
@@ -89,7 +89,7 @@ pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, documen
 
 				// If value has the form of an IRI, return value.
 				if let Ok(result) = Iri::new(value) {
-					return Term::from(T::from_iri(result)).into()
+					return Term::from(T::from_iri(result))
 				}
 			}
 		}
@@ -106,13 +106,13 @@ pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, documen
 						return Term::from(T::from_iri(result)).into()
 					} else {
 						if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-							return Term::from(blank).into()
+							return Term::from(blank)
 						} else {
-							return Lenient::Unknown(result)
+							return Reference::Invalid(result).into()
 						}
 					}
 				} else {
-					return Lenient::Unknown(value.to_string())
+					return Reference::Invalid(value.to_string()).into()
 				}
 			}
 		}
@@ -127,16 +127,16 @@ pub fn expand_iri<T: Id, C: Context<T>>(active_context: &C, value: &str, documen
 			if let Ok(iri_ref) = IriRef::new(value) {
 				if let Some(base_iri) = active_context.base_iri() {
 					let value = iri_ref.resolved(base_iri);
-					return Term::from(T::from_iri(value.as_iri())).into()
+					return Term::from(T::from_iri(value.as_iri()))
 				} else {
-					return Lenient::Unknown(value.to_string())
+					return Reference::Invalid(value.to_string()).into()
 				}
 			} else {
-				return Lenient::Unknown(value.to_string())
+				return Reference::Invalid(value.to_string()).into()
 			}
 		}
 
 		// Return value as is.
-		Lenient::Unknown(value.to_string())
+		Reference::Invalid(value.to_string()).into()
 	}
 }

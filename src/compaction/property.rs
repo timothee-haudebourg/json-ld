@@ -1,12 +1,12 @@
 use json::JsonValue;
 use crate::{
 	Id,
+	Reference,
 	ContextMut,
 	Indexed,
 	object,
 	Object,
 	Node,
-	Lenient,
 	Error,
 	ErrorCode,
 	context::{
@@ -47,7 +47,7 @@ async fn compact_property_list<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>
 		// a map containing an entry where the key is the result of
 		// IRI compacting @list and the value is the original
 		// compacted item.
-		let key = compact_iri(active_context.clone(), Keyword::List, true, false, options)?;
+		let key = compact_iri(active_context.clone(), &Term::Keyword(Keyword::List), true, false, options)?;
 		let mut list_object = json::object::Object::new();
 		list_object.insert(key.as_str().unwrap(), compacted_item);
 		compacted_item = JsonValue::Object(list_object);
@@ -56,7 +56,7 @@ async fn compact_property_list<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>
 		// then add an entry to compacted item where the key is
 		// the result of IRI compacting @index and value is value.
 		if let Some(index) = expanded_index {
-			let key = compact_iri(active_context.clone(), Keyword::Index, true, false, options)?;
+			let key = compact_iri(active_context.clone(), &Term::Keyword(Keyword::Index), true, false, options)?;
 			match compacted_item {
 				JsonValue::Object(ref mut obj) => obj.insert(key.as_str().unwrap(), index.into()),
 				_ => unreachable!()
@@ -96,9 +96,9 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 		// `expanded_item` or @none if no such value exists
 		// with `vocab` set to false if there is an @id entry in
 		// `expanded_item`.
-		let (id_value, vocab): (Lenient<Term<T>>, bool) = match node.id() {
-			Some(term) => (term.clone().cast(), false),
-			None => (Lenient::Ok(Term::Keyword(Keyword::None)), true)
+		let (id_value, vocab): (Term<T>, bool) = match node.id() {
+			Some(term) => (term.clone().into_term(), false),
+			None => (Term::Keyword(Keyword::None), true)
 		};
 
 		let map_key = compact_iri(active_context, &id_value, vocab, false, options)?;
@@ -142,7 +142,7 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 		// the original `compacted_item` as the value.
 		compacted_item = match compacted_item {
 			JsonValue::Array(items) if items.len() > 1 => {
-				let key = compact_iri(active_context, Keyword::Included, true, false, options)?;
+				let key = compact_iri(active_context, &Term::Keyword(Keyword::Included), true, false, options)?;
 				let mut map = json::object::Object::new();
 				map.insert(key.as_str().unwrap(), JsonValue::Array(items));
 				JsonValue::Object(map)
@@ -159,7 +159,7 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 
 		// Set `compacted_item` to a new map containing the key from
 		// IRI compacting @graph using the original `compacted_item` as a value.
-		let key = compact_iri(active_context.clone(), Keyword::Graph, true, false, options)?;
+		let key = compact_iri(active_context.clone(), &Term::Keyword(Keyword::Graph), true, false, options)?;
 		let mut map = json::object::Object::new();
 		map.insert(key.as_str().unwrap(), compacted_item);
 
@@ -169,8 +169,8 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 		// IRI compacting the value of @id in `expanded_item` using
 		// false for vocab.
 		if let Some(id) = node.id() {
-			let key = compact_iri(active_context.clone(), Keyword::Id, false, false, options)?;
-			let value = compact_iri(active_context.clone(), id, false, false, options)?;
+			let key = compact_iri(active_context.clone(), &Term::Keyword(Keyword::Id), false, false, options)?;
+			let value = compact_iri(active_context.clone(), &id.clone().into_term(), false, false, options)?;
 			map.insert(key.as_str().unwrap(), value);
 		}
 
@@ -178,7 +178,7 @@ async fn compact_property_graph<T: Sync + Send + Id, C: ContextMut<T>, L: Loader
 		// add an entry in `compacted_item` using the key from
 		// IRI compacting @index and the value of @index in `expanded_item`.
 		if let Some(index) = expanded_index {
-			let key = compact_iri(active_context.clone(), Keyword::Index, true, false, options)?;
+			let key = compact_iri(active_context.clone(), &Term::Keyword(Keyword::Index), true, false, options)?;
 			map.insert(key.as_str().unwrap(), index.into());
 		}
 
@@ -252,7 +252,7 @@ fn select_nest_result<'a, T: Id, C: ContextMut<T>>(result: &'a mut json::object:
 /// Compact the given property into the `result` compacted object.
 pub async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<T> + Sync + Send, O: IntoIterator<Item=&'a Indexed<N>>, C: ContextMut<T>, L: Loader>(result: &mut json::object::Object, expanded_property: Term<T>, expanded_value: O, active_context: Inversible<T, &C>, loader: &mut L, inside_reverse: bool, options: Options)
 -> Result<(), Error> where C: Sync + Send, C::LocalContext: Send + Sync + From<L::Output>, L: Sync + Send {
-	let lenient_expanded_property: Lenient<Term<T>> = expanded_property.into();
+	let lenient_expanded_property: Term<T> = expanded_property.into();
 	let mut is_empty = true;
 
 	// For each item `expanded_item` in `expanded value`
@@ -311,7 +311,7 @@ pub async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<
 							ContainerType::Type
 						};
 
-						let mut container_key = compact_iri(active_context.clone(), &Lenient::Ok(Term::Keyword(container_type.into())), true, false, options)?;
+						let mut container_key = compact_iri(active_context.clone(), &Term::Keyword(container_type.into()), true, false, options)?;
 
 						// Initialize `index_key` to the value of index mapping in
 						// the term definition associated with `item_active_property`
@@ -350,7 +350,7 @@ pub async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<
 
 								// Reinitialize `container_key` by
 								// IRI compacting `index_key`.
-								let lenient_index : Lenient<Term<T>> = Lenient::Unknown(index_key.to_string());
+								let lenient_index : Term<T> = Term::Ref(Reference::Invalid(index_key.to_string()));
 								container_key = compact_iri(active_context.clone(), &lenient_index, true, false, options)?;
 
 								// Set `map_key` to the first value of
@@ -482,7 +482,7 @@ pub async fn compact_property<'a, T: 'a + Sync + Send + Id, N: 'a + object::Any<
 						let map_key = match map_key {
 							Some(key) => key,
 							None => {
-								let key = compact_iri(active_context.clone(), Keyword::None, true, false, options)?;
+								let key = compact_iri(active_context.clone(), &Term::Keyword(Keyword::None), true, false, options)?;
 								key.as_str().unwrap().to_string()
 							}
 						};

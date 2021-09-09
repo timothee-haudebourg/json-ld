@@ -125,13 +125,12 @@ pub trait Document<T: Id> {
 					let mut map = json::object::Object::new();
 					if !items.is_empty() {
 						use crate::{
-							Lenient,
 							syntax::{
 								Term,
 								Keyword
 							}
 						};
-						let key = crate::compaction::compact_iri(context.clone(), &Lenient::Ok(Term::Keyword(Keyword::Graph)), true, false, options.into())?;
+						let key = crate::compaction::compact_iri(context.clone(), &Term::Keyword(Keyword::Graph), true, false, options.into())?;
 						map.insert(key.as_str().unwrap(), JsonValue::Array(items));
 					}
 

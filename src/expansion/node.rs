@@ -1,4 +1,7 @@
-use std::collections::HashSet;
+use std::{
+	collections::HashSet,
+	convert::TryInto
+};
 use futures::future::{BoxFuture, FutureExt};
 use mown::Mown;
 use iref::Iri;
@@ -11,7 +14,6 @@ use crate::{
 	LangString,
 	Id,
 	Reference,
-	Lenient,
 	Indexed,
 	object::*,
 	context::{
@@ -33,12 +35,11 @@ use super::{Expanded, Entry, Options, expand_element, expand_literal, expand_iri
 
 /// Convert a lenient term to a node id, if possible.
 /// Return `None` if the term is `null`.
-pub fn node_id_of_term<T: Id>(term: Lenient<Term<T>>) -> Option<Lenient<Reference<T>>> {
+pub fn node_id_of_term<T: Id>(term: Term<T>) -> Option<Reference<T>> {
 	match term {
-		Lenient::Ok(Term::Null) => None,
-		Lenient::Ok(Term::Ref(prop)) => Some(Lenient::Ok(prop)),
-		Lenient::Ok(Term::Keyword(kw)) => Some(Lenient::Unknown(kw.into_str().to_string())),
-		Lenient::Unknown(u) => Some(Lenient::Unknown(u))
+		Term::Null => None,
+		Term::Ref(prop) => Some(prop),
+		Term::Keyword(kw) => Some(Reference::Invalid(kw.into_str().to_string()))
 	}
 }
 
@@ -138,7 +139,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 							// context, and true for document relative.
 							for ty in value {
 								if let Some(ty) = ty.as_str() {
-									if let Ok(ty) = expand_iri(type_scoped_context, ty, true, true).try_cast() {
+									if let Ok(ty) = expand_iri(type_scoped_context, ty, true, true).try_into() {
 										result.types.push(ty)
 									} else {
 										return Err(ErrorCode::InvalidTypeValue.into())
@@ -221,10 +222,10 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 
 								for Entry(reverse_key, reverse_value) in reverse_entries {
 									match expand_iri(active_context, reverse_key, false, true) {
-										Lenient::Ok(Term::Keyword(_)) => {
+										Term::Keyword(_) => {
 											return Err(ErrorCode::InvalidReversePropertyMap.into())
 										},
-										Lenient::Ok(Term::Ref(reverse_prop)) => {
+										Term::Ref(reverse_prop) if reverse_prop.as_str().contains(':') => {
 											let reverse_expanded_value = expand_element(active_context, Some(reverse_key), reverse_value, base_url, loader, options, false).await?;
 
 											let is_double_reversed = if let Some(reverse_key_definition) = active_context.get(reverse_key) {
@@ -298,7 +299,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 
 									let nested_expanded_entries = nested_entries.into_iter().filter_map(|Entry(key, value)| {
 										match expand_iri(active_context.as_ref(), key, false, true) {
-											Lenient::Ok(expanded_key) => Some(Entry((key, expanded_key), value)),
+											expanded_key => Some(Entry((key, expanded_key), value)),
 											_ => None
 										}
 									});
@@ -320,7 +321,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 					}
 				},
 
-				Term::Ref(prop) => {
+				Term::Ref(prop) if prop.as_str().contains(':') => {
 					let mut container_mapping = Mown::Owned(Container::new());
 
 					let key_definition = active_context.get(key);
@@ -486,7 +487,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 							// Initialize `expanded_index` to the result of IRI
 							// expanding index.
 							let expanded_index = match expand_iri(active_context, index, false, true) {
-								Lenient::Ok(Term::Null) | Lenient::Ok(Term::Keyword(Keyword::None)) => None,
+								Term::Null | Term::Keyword(Keyword::None) => None,
 								key => Some(key)
 							};
 
@@ -537,7 +538,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 										// Initialize expanded index key to the result
 										// of IRI expanding index key.
 										let expanded_index_key = match expand_iri(active_context, index_key, false, true) {
-											Lenient::Ok(Term::Ref(prop)) => prop,
+											Term::Ref(prop) => prop,
 											_ => continue
 										};
 
@@ -576,7 +577,7 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 										// of expanded index followed by any existing
 										// values of @type in item. Add the key-value
 										// pair (@type-types) to item.
-										if let Ok(typ) = expanded_index.clone().unwrap().try_cast() {
+										if let Ok(typ) = expanded_index.clone().unwrap().try_into() {
 											if let Object::Node(ref mut node) = *item {
 												node.types.insert(0, typ);
 											}
@@ -646,7 +647,9 @@ fn expand_node_entries<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, 
 							result.insert_all(prop, expanded_value.into_iter());
 						}
 					}
-				}
+				},
+
+				Term::Ref(_) => () // non-keyword properties that does not include a ':' are skipped.
 			}
 		};
 

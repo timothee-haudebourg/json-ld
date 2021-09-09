@@ -11,7 +11,6 @@ use langtag::LanguageTag;
 use json::JsonValue;
 use crate::{
 	Id,
-	Lenient,
 	Reference,
 	Indexed,
 	syntax::Keyword,
@@ -28,7 +27,7 @@ pub trait Any<T: Id>: AsJson {
 	fn as_ref(&self) -> Ref<T>;
 
 	#[inline]
-	fn id(&self) -> Option<&Lenient<Reference<T>>> {
+	fn id(&self) -> Option<&Reference<T>> {
 		match self.as_ref() {
 			Ref::Node(n) => n.id.as_ref(),
 			_ => None
@@ -106,7 +105,7 @@ pub enum Object<T: Id = IriBuf> {
 
 impl<T: Id> Object<T> {
 	/// Identifier of the object, if it is a node object.
-	pub fn id(&self) -> Option<&Lenient<Reference<T>>> {
+	pub fn id(&self) -> Option<&Reference<T>> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
 			_ => None

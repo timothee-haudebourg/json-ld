@@ -7,7 +7,6 @@ use crate::{
 	ErrorCode,
 	Id,
 	Indexed,
-	Lenient,
 	object::*,
 	context::{
 		ContextMut,
@@ -83,10 +82,10 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 
 				for Entry(key, value) in entries.iter() {
 					match expand_iri(active_context, key, false, true) {
-						Lenient::Ok(Term::Keyword(Keyword::Value)) => {
+						Term::Keyword(Keyword::Value) => {
 							value_entry = Some(value)
 						},
-						Lenient::Ok(Term::Keyword(Keyword::Id)) => {
+						Term::Keyword(Keyword::Id) => {
 							id_entry = Some(value)
 						},
 						_ => ()
@@ -129,7 +128,7 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 				for Entry(key, value) in entries.iter() {
 					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
 					match &expanded_key {
-						Lenient::Ok(Term::Keyword(Keyword::Type)) => {
+						Term::Keyword(Keyword::Type) => {
 							type_entries.push(Entry(key, value));
 						},
 						_ => ()
@@ -199,30 +198,21 @@ pub fn expand_element<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L
 				let mut set_entry = None;
 				value_entry = None;
 				for Entry(key, value) in entries.iter() {
-					match expand_iri(active_context.as_ref(), key, false, true) {
-						Lenient::Ok(expanded_key) => {
-							match &expanded_key {
-								Term::Keyword(Keyword::Value) => {
-									value_entry = Some(value)
-								},
-								Term::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
-									list_entry = Some(value)
-								},
-								Term::Keyword(Keyword::Set) => {
-									set_entry = Some(value)
-								},
-								_ => ()
-							}
-
-							expanded_entries.push(Entry((*key, expanded_key), value))
+					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
+					match &expanded_key {
+						Term::Keyword(Keyword::Value) => {
+							value_entry = Some(value)
 						},
-						Lenient::Unknown(_) => {
-							if options.strict {
-								return Err(ErrorCode::KeyExpansionFailed.into());
-							}
-							warn!("failed to expand key `{}`", key);
-						}
+						Term::Keyword(Keyword::List) if active_property.is_some() && active_property != Some("@graph") => {
+							list_entry = Some(value)
+						},
+						Term::Keyword(Keyword::Set) => {
+							set_entry = Some(value)
+						},
+						_ => ()
 					}
+
+					expanded_entries.push(Entry((*key, expanded_key), value))
 				}
 
 				if let Some(list_entry) = list_entry {

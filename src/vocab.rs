@@ -5,8 +5,7 @@ use iref::{Iri, IriBuf, AsIri};
 use crate::{
 	Id,
 	Reference,
-	ToReference,
-	Lenient
+	ToReference
 };
 
 pub trait Vocab: AsIri + Clone + PartialEq + Eq + Hash {
@@ -27,17 +26,6 @@ impl<V: Vocab> ToReference<Lexicon<V>> for V {
 
 	fn to_ref(&self) -> Self::Reference {
 		Reference::Id(Lexicon::Id(self.clone()))
-	}
-}
-
-impl<V: Vocab> PartialEq<V> for Lenient<Reference<Lexicon<V>>> {
-	fn eq(&self, other: &V) -> bool {
-		match self {
-			Lenient::Ok(Reference::Id(Lexicon::Id(v))) => {
-				other == v
-			},
-			_ => false
-		}
 	}
 }
 

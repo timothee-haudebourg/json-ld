@@ -1,6 +1,7 @@
 use json::JsonValue;
 use crate::{
 	Id,
+	Reference,
 	ContextMut,
 	Value,
 	Error,
@@ -11,6 +12,7 @@ use crate::{
 		Inversible
 	},
 	syntax::{
+		Term,
 		Keyword,
 		Container,
 		ContainerType,
@@ -107,13 +109,13 @@ pub async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L
 						if ty.is_some() || (language.is_none() && direction.is_none()) {
 							return Ok(s.as_json())
 						} else {
-							let compact_key  = compact_iri(active_context.as_ref(), Keyword::Value, true, false, options)?;
+							let compact_key  = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
 							result.insert(compact_key.as_str().unwrap(), s.as_json())
 						}
 					}
 				}
 			} else {
-				let compact_key = compact_iri(active_context.as_ref(), Keyword::Value, true, false, options)?;
+				let compact_key = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
 				match lit {
 					Literal::Null => {
 						result.insert(compact_key.as_str().unwrap(), JsonValue::Null)
@@ -130,8 +132,8 @@ pub async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L
 				}
 
 				if let Some(ty) = ty {
-					let compact_key = compact_iri(active_context.as_ref(), Keyword::Type, true, false, options)?;
-					let compact_ty = compact_iri(active_context.as_ref(), ty, true, false, options)?;
+					let compact_key = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Type), true, false, options)?;
+					let compact_ty = compact_iri(active_context.as_ref(), &Term::Ref(Reference::Id(ty.clone())), true, false, options)?;
 					result.insert(compact_key.as_str().unwrap(), compact_ty)
 				}
 			}
@@ -145,16 +147,16 @@ pub async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L
 			&& (ls_direction.is_none() || direction == ls_direction) { // || (ls.direction().is_none() && direction.is_none())) {
 				return Ok(ls.as_str().as_json())
 			} else {
-				let compact_key  = compact_iri(active_context.as_ref(), Keyword::Value, true, false, options)?;
+				let compact_key  = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
 				result.insert(compact_key.as_str().unwrap(), ls.as_str().into());
 
 				if let Some(language) = ls.language() {
-					let compact_key  = compact_iri(active_context.as_ref(), Keyword::Language, true, false, options)?;
+					let compact_key  = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Language), true, false, options)?;
 					result.insert(compact_key.as_str().unwrap(), language.as_json());
 				}
 
 				if let Some(direction) = ls.direction() {
-					let compact_key  = compact_iri(active_context.as_ref(), Keyword::Direction, true, false, options)?;
+					let compact_key  = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Direction), true, false, options)?;
 					result.insert(compact_key.as_str().unwrap(), direction.as_json());
 				}
 			}
@@ -163,11 +165,11 @@ pub async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L
 			if type_mapping == Some(Type::Json) && remove_index {
 				return Ok(value.clone())
 			} else {
-				let compact_key  = compact_iri(active_context.as_ref(), Keyword::Value, true, false, options)?;
+				let compact_key  = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Value), true, false, options)?;
 				result.insert(compact_key.as_str().unwrap(), value.clone());
 
-				let compact_key = compact_iri(active_context.as_ref(), Keyword::Type, true, false, options)?;
-				let compact_ty = compact_iri(active_context.as_ref(), Keyword::Json, true, false, options)?;
+				let compact_key = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Type), true, false, options)?;
+				let compact_ty = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Json), true, false, options)?;
 				result.insert(compact_key.as_str().unwrap(), compact_ty);
 			}
 		}
@@ -175,7 +177,7 @@ pub async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L
 
 	if !remove_index {
 		if let Some(index) = index {
-			let compact_key = compact_iri(active_context.as_ref(), Keyword::Index, true, false, options)?;
+			let compact_key = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Index), true, false, options)?;
 			result.insert(compact_key.as_str().unwrap(), index.as_json())
 		}
 	}

@@ -15,7 +15,6 @@ use crate::{
 	BlankId,
 	Id,
 	Reference,
-	Lenient,
 	Nullable,
 	Direction,
 	expansion,
@@ -394,7 +393,7 @@ fn process_context<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: S
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
 								match expansion::expand_iri(&result, value, true, true) {
-									Lenient::Ok(Term::Ref(vocab)) => result.set_vocabulary(Some(Term::Ref(vocab))),
+									Term::Ref(vocab) => result.set_vocabulary(Some(Term::Ref(vocab))),
 									_ => return Err(ErrorCode::InvalidVocabMapping.into())
 								}
 							},
@@ -508,9 +507,9 @@ fn is_gen_delim(c: char) -> bool {
 	}
 }
 
+// Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
 fn is_gen_delim_or_blank<T: Id>(t: &Term<T>) -> bool {
 	match t {
-		Term::Keyword(_) => false,
 		Term::Ref(Reference::Blank(_)) => true,
 		Term::Ref(Reference::Id(id)) => {
 			if let Some(c) = id.as_iri().as_str().chars().last() {
@@ -519,7 +518,7 @@ fn is_gen_delim_or_blank<T: Id>(t: &Term<T>) -> bool {
 				false
 			}
 		},
-		Term::Null => false
+		_ => false
 	}
 }
 
@@ -680,25 +679,19 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 						if let Some(typ) = type_value.as_str() {
 							// Set `typ` to the result of IRI expanding type, using local context,
 							// and defined.
-							match expand_iri(active_context, typ, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
-								Lenient::Ok(typ) => {
-									// If the expanded type is @json or @none, and processing mode is
-									// json-ld-1.0, an invalid type mapping error has been detected and
-									// processing is aborted.
-									if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Term::Keyword(Keyword::Json) || typ == Term::Keyword(Keyword::None)) {
-										return Err(ErrorCode::InvalidTypeMapping.into())
-									}
+							let typ = expand_iri(active_context, typ, false, true, local_context, defined, remote_contexts.clone(), loader, options).await?;
+							// If the expanded type is @json or @none, and processing mode is
+							// json-ld-1.0, an invalid type mapping error has been detected and
+							// processing is aborted.
+							if options.processing_mode == ProcessingMode::JsonLd1_0 && (typ == Term::Keyword(Keyword::Json) || typ == Term::Keyword(Keyword::None)) {
+								return Err(ErrorCode::InvalidTypeMapping.into())
+							}
 
-									if let Ok(typ) = typ.try_into() {
-										// Set the type mapping for definition to type.
-										definition.typ = Some(typ);
-									} else {
-										return Err(ErrorCode::InvalidTypeMapping.into())
-									}
-								},
-								Lenient::Unknown(_) => {
-									return Err(ErrorCode::InvalidTypeMapping.into())
-								}
+							if let Ok(typ) = typ.try_into() {
+								// Set the type mapping for definition to type.
+								definition.typ = Some(typ);
+							} else {
+								return Err(ErrorCode::InvalidTypeMapping.into())
 							}
 						} else {
 							return Err(ErrorCode::InvalidTypeMapping.into())
@@ -728,7 +721,7 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 							// identifier, an invalid IRI mapping error has been detected and
 							// processing is aborted.
 							match expand_iri(active_context, reverse_value, false, true, local_context, defined, remote_contexts, loader, options).await? {
-								Lenient::Ok(Term::Ref(mapping)) => {
+								Term::Ref(mapping) if mapping.is_valid() => {
 									definition.value = Some(Term::Ref(mapping))
 								},
 								_ => {
@@ -799,22 +792,19 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 								// of IRI expanding the value associated with the `@id` entry,
 								// using `local_context`, and `defined`.
 								definition.value = match expand_iri(active_context, id_value, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
-									Lenient::Ok(value) => {
+									Term::Keyword(Keyword::Context) => {
 										// if it equals `@context`, an invalid keyword alias error has
 										// been detected and processing is aborted.
-										if value == Term::Keyword(Keyword::Context) {
-											return Err(ErrorCode::InvalidKeywordAlias.into())
-										}
-	
-										Some(value)
+										return Err(ErrorCode::InvalidKeywordAlias.into())
 									},
-									_ => {
+									Term::Ref(prop) if !prop.is_valid() => {
 										// If the resulting IRI mapping is neither a keyword,
 										// nor an IRI, nor a blank node identifier, an
 										// invalid IRI mapping error has been detected and processing
 										// is aborted;
 										return Err(ErrorCode::InvalidIriMapping.into())
 									}
+									value => Some(value)
 								};
 
 								// If `term` contains a colon (:) anywhere but as the first or
@@ -829,15 +819,8 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 									// `local_context`, and `defined`, is not the same as the
 									// IRI mapping of definition, an invalid IRI mapping error
 									// has been detected and processing is aborted.
-									if let Lenient::Ok(expanded_term) = expand_iri(active_context, term, false, true, local_context, defined, remote_contexts.clone(), loader, options).await? {
-										// if !iri_eq_opt(&Some(expanded_term), &definition.value) {
-										// 	return Err(ErrorCode::InvalidIriMapping.into())
-										// }
-
-										if definition.value != Some(expanded_term) {
-											return Err(ErrorCode::InvalidIriMapping.into())
-										}
-									} else {
+									let expanded_term = expand_iri(active_context, term, false, true, local_context, defined, remote_contexts.clone(), loader, options).await?;
+									if definition.value != Some(expanded_term) {
 										return Err(ErrorCode::InvalidIriMapping.into())
 									}
 								}
@@ -907,7 +890,7 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 						// Set the IRI mapping of definition to the result of IRI expanding
 						// term.
 						match expansion::expand_iri(active_context, term, false, true) {
-							Lenient::Ok(Term::Ref(Reference::Id(id))) => {
+							Term::Ref(Reference::Id(id)) => {
 								definition.value = Some(id.into())
 							},
 							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
@@ -1015,7 +998,7 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
 							match expansion::expand_iri(active_context, index, false, true) {
-								Lenient::Ok(Term::Ref(Reference::Id(_))) => (),
+								Term::Ref(Reference::Id(_)) => (),
 								_ => {
 									return Err(ErrorCode::InvalidTermDefinition.into())
 								}
@@ -1194,17 +1177,17 @@ pub fn define<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send +
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ProcessingOptions) -> impl 'a + Future<Output = Result<Lenient<Term<T>>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
+pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(active_context: &'a mut C, value: &str, document_relative: bool, vocab: bool, local_context: &'a JsonObject, defined: &'a mut HashMap<String, bool>, remote_contexts: ProcessingStack, loader: &'a mut L, options: ProcessingOptions) -> impl 'a + Future<Output = Result<Term<T>, Error>> where C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>, L::Output: Into<JsonValue> {
 	let value = value.to_string();
 	async move {
 		if let Ok(keyword) = Keyword::try_from(value.as_ref()) {
-			Ok(Term::Keyword(keyword).into())
+			Ok(Term::Keyword(keyword))
 		} else {
 			// If value has the form of a keyword, a processor SHOULD generate a warning and return
 			// null.
 			if is_keyword_like(value.as_ref()) {
 				// TODO warning
-				return Ok(Term::Null.into())
+				return Ok(Term::Null)
 			}
 
 			// If `local_context` is not null, it contains an entry with a key that equals value, and the
@@ -1219,7 +1202,7 @@ pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Se
 				// is a keyword, return that keyword.
 				if let Some(value) = &term_definition.value {
 					if value.is_keyword() {
-						return Ok(Term::from(value.clone()).into())
+						return Ok(Term::from(value.clone()))
 					}
 				}
 
@@ -1227,9 +1210,9 @@ pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Se
 				// associated IRI mapping.
 				if vocab {
 					if let Some(value) = &term_definition.value {
-						return Ok(Term::from(value.clone()).into())
+						return Ok(Term::from(value.clone()))
 					} else {
-						return Ok(Lenient::Unknown(value.to_string()))
+						return Ok(Reference::Invalid(value.to_string()).into())
 					}
 				}
 			}
@@ -1245,14 +1228,14 @@ pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Se
 					// If prefix is underscore (_) or suffix begins with double-forward-slash (//),
 					// return value as it is already an IRI or a blank node identifier.
 					if prefix == "_" {
-						return Ok(Term::from(BlankId::new(suffix)).into())
+						return Ok(Term::from(BlankId::new(suffix)))
 					}
 
 					if suffix.starts_with("//") {
 						if let Ok(iri) = Iri::new(value.as_ref() as &str) {
-							return Ok(Term::from(T::from_iri(iri)).into())
+							return Ok(Term::from(T::from_iri(iri)))
 						} else {
-							return Ok(Lenient::Unknown(value.to_string()))
+							return Ok(Reference::Invalid(value.to_string()).into())
 						}
 					}
 
@@ -1273,12 +1256,12 @@ pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Se
 								result.push_str(suffix);
 
 								if let Ok(result) = Iri::new(&result) {
-									return Ok(Term::from(T::from_iri(result)).into())
+									return Ok(Term::from(T::from_iri(result)))
 								} else {
 									if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-										return Ok(Term::from(blank).into())
+										return Ok(Term::from(blank))
 									} else {
-										return Ok(Lenient::Unknown(result))
+										return Ok(Reference::Invalid(result).into())
 									}
 								}
 							}
@@ -1287,7 +1270,7 @@ pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Se
 
 					// If value has the form of an IRI, return value.
 					if let Ok(result) = Iri::new(value.as_ref() as &str) {
-						return Ok(Term::from(T::from_iri(result)).into())
+						return Ok(Term::from(T::from_iri(result)))
 					}
 				}
 			}
@@ -1301,16 +1284,16 @@ pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Se
 						result.push_str(value.as_ref());
 
 						if let Ok(result) = Iri::new(&result) {
-							return Ok(Term::from(T::from_iri(result)).into())
+							return Ok(Term::from(T::from_iri(result)))
 						} else {
 							if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-								return Ok(Term::from(blank).into())
+								return Ok(Term::from(blank))
 							} else {
-								return Ok(Lenient::Unknown(result))
+								return Ok(Reference::Invalid(result).into())
 							}
 						}
 					} else {
-						return Ok(Lenient::Unknown(value.to_string()))
+						return Ok(Reference::Invalid(value.to_string()).into())
 					}
 				}
 			}
@@ -1324,17 +1307,17 @@ pub fn expand_iri<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Se
 			if document_relative {
 				if let Ok(iri_ref) = IriRef::new(value.as_ref() as &str) {
 					if let Some(value) = resolve_iri(iri_ref, active_context.base_iri()) {
-						return Ok(Term::from(T::from_iri(value.as_iri())).into())
+						return Ok(Term::from(T::from_iri(value.as_iri())))
 					} else {
-						return Ok(Lenient::Unknown(value.to_string()))
+						return Ok(Reference::Invalid(value.to_string()).into())
 					}
 				} else {
-					return Ok(Lenient::Unknown(value.to_string()))
+					return Ok(Reference::Invalid(value.to_string()).into())
 				}
 			}
 
 			// Return value as is.
-			Ok(Lenient::Unknown(value.to_string()))
+			Ok(Reference::Invalid(value.to_string()).into())
 		}
 	}
 }

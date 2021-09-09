@@ -8,7 +8,6 @@ use crate::{
 	LangString,
 	Id,
 	Reference,
-	Lenient,
 	Indexed,
 	object::*,
 	ContextMut,
@@ -19,8 +18,8 @@ use crate::{
 };
 use super::{Entry, expand_iri};
 
-pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term<T>>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
-	let mut is_json = input_type == Some(Lenient::Ok(Term::Keyword(Keyword::Json)));
+pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Term<T>>, type_scoped_context: &C, expanded_entries: Vec<Entry<(&str, Term<T>)>>, value_entry: &JsonValue) -> Result<Option<Indexed<Object<T>>>, Error> {
+	let mut is_json = input_type == Some(Term::Keyword(Keyword::Json));
 	let mut ty = None;
 	let mut index = None;
 	let mut language = None;
@@ -79,10 +78,10 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(input_type: Option<Lenient<Term
 					let expanded_ty = expand_iri(type_scoped_context, ty_value, true, true);
 
 					match expanded_ty {
-						Lenient::Ok(Term::Keyword(Keyword::Json)) => {
+						Term::Keyword(Keyword::Json) => {
 							is_json = true;
 						},
-						Lenient::Ok(Term::Ref(Reference::Id(expanded_ty))) => {
+						Term::Ref(Reference::Id(expanded_ty)) => {
 							is_json = false;
 							ty = Some(expanded_ty)
 						},

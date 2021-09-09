@@ -4,7 +4,6 @@ use crate::{
 	ContextMut,
 	Node,
 	Reference,
-	Lenient,
 	Error,
 	ProcessingMode,
 	context::{
@@ -63,7 +62,7 @@ pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L:
 		// lexicographically:
 		let mut compacted_types = Vec::new();
 		for ty in node.types() {
-			let compacted_ty = compact_iri(type_scoped_context.clone(), ty, true, false, options)?;
+			let compacted_ty = compact_iri(type_scoped_context.clone(), &ty.clone().into_term(), true, false, options)?;
 			compacted_types.push(compacted_ty)
 		}
 
@@ -92,6 +91,8 @@ pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L:
 
 	// If expanded property is @id:
 	if let Some(id) = &node.id {
+		let id = id.clone().into_term();
+
 		if node.is_empty() {
 			// This captures step 7:
 			// If element has an @value or @id entry and the result of using the
@@ -114,24 +115,24 @@ pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L:
 			};
 
 			if type_mapping == Some(&Type::Id) {
-				let compacted_value = compact_iri(active_context.as_ref(), id, false, false, options)?;
+				let compacted_value = compact_iri(active_context.as_ref(), &id, false, false, options)?;
 				return Ok(compacted_value)
 			}
 
 			// Otherwise, if the type mapping of active property is set to @vocab,
 			// set result to the result of IRI compacting the value associated with the @id entry.
 			if type_mapping == Some(&Type::Vocab) {
-				let compacted_value = compact_iri(active_context.as_ref(), id, true, false, options)?;
+				let compacted_value = compact_iri(active_context.as_ref(), &id, true, false, options)?;
 				return Ok(compacted_value)
 			}
 		}
 
 		// If expanded value is a string, then initialize compacted value by IRI
 		// compacting expanded value with vocab set to false.
-		let compacted_value = compact_iri(active_context.as_ref(), id, false, false, options)?;
+		let compacted_value = compact_iri(active_context.as_ref(), &id, false, false, options)?;
 
 		// Initialize alias by IRI compacting expanded property.
-		let alias = compact_iri(active_context.as_ref(), Keyword::Id, true, false, options)?;
+		let alias = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Id), true, false, options)?;
 
 		// Add an entry alias to result whose value is set to compacted value and continue
 		// to the next expanded property.
@@ -182,7 +183,7 @@ pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L:
 
 		if !reverse_map.is_empty() {
 			// Initialize alias by IRI compacting @reverse.
-			let alias = compact_iri(active_context.as_ref(), Keyword::Reverse, true, false, options)?;
+			let alias = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Reverse), true, false, options)?;
 
 			// Set the value of the alias entry of result to compacted value.
 			result.insert(alias.as_str().unwrap(), JsonValue::Object(reverse_map));
@@ -205,7 +206,7 @@ pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L:
 
 		if !index_container {
 			// Initialize alias by IRI compacting expanded property.
-			let alias = compact_iri(active_context.as_ref(), Keyword::Index, true, false, options)?;
+			let alias = compact_iri(active_context.as_ref(), &Term::Keyword(Keyword::Index), true, false, options)?;
 
 			// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
 			result.insert(alias.as_str().unwrap(), index.as_json());
@@ -228,14 +229,14 @@ pub async fn compact_indexed_node_with<T: Sync + Send + Id, C: ContextMut<T>, L:
 }
 
 /// Compact the given list of types into the given `result` compacted object.
-fn compact_types<T: Sync + Send + Id, C: ContextMut<T>>(result: &mut json::object::Object, types: &[Lenient<Reference<T>>], active_context: Inversible<T, &C>, type_scoped_context: Inversible<T, &C>, options: Options) -> Result<(), Error> {
+fn compact_types<T: Sync + Send + Id, C: ContextMut<T>>(result: &mut json::object::Object, types: &[Reference<T>], active_context: Inversible<T, &C>, type_scoped_context: Inversible<T, &C>, options: Options) -> Result<(), Error> {
 	// If expanded property is @type:
 	if !types.is_empty() {
 		// If expanded value is a string,
 		// then initialize compacted value by IRI compacting expanded value using
 		// type-scoped context for active context.
 		let compacted_value = if types.len() == 1 {
-			compact_iri(type_scoped_context.clone(), &types[0], true, false, options)?
+			compact_iri(type_scoped_context.clone(), &types[0].clone().into_term(), true, false, options)?
 		} else {
 			// Otherwise, expanded value must be a @type array:
 			// Initialize compacted value to an empty array.
@@ -243,8 +244,10 @@ fn compact_types<T: Sync + Send + Id, C: ContextMut<T>>(result: &mut json::objec
 
 			// For each item expanded type in expanded value:
 			for ty in types {
+				let ty = ty.clone().into_term();
+
 				// Set term by IRI compacting expanded type using type-scoped context for active context.
-				let compacted_ty = compact_iri(type_scoped_context.clone(), ty, true, false, options)?;
+				let compacted_ty = compact_iri(type_scoped_context.clone(), &ty, true, false, options)?;
 
 				// Append term, to compacted value.
 				compacted_value.push(compacted_ty)
@@ -254,7 +257,7 @@ fn compact_types<T: Sync + Send + Id, C: ContextMut<T>>(result: &mut json::objec
 		};
 
 		// Initialize alias by IRI compacting expanded property.
-		let alias = compact_iri(active_context.clone(), Keyword::Type, true, false, options)?;
+		let alias = compact_iri(active_context.clone(), &Term::Keyword(Keyword::Type), true, false, options)?;
 
 		// Initialize as array to true if processing mode is json-ld-1.1 and the
 		// container mapping for alias in the active context includes @set,

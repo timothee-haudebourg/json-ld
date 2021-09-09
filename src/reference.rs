@@ -6,7 +6,6 @@ use json::JsonValue;
 use crate::{
 	Id,
 	BlankId,
-	Lenient,
 	syntax::{
 		Term,
 		TermLike,
@@ -24,17 +23,32 @@ pub enum Reference<T: AsIri = IriBuf> {
 	Id(T),
 
 	/// Blank node identifier.
-	Blank(BlankId)
+	Blank(BlankId),
+
+	/// Invalid reference.
+	Invalid(String)
 }
 
 impl<T: AsIri> Reference<T> {
+	/// Checks if this is a valid reference.
+	/// 
+	/// Returns `true` is this reference is a node identifier or a blank node identifier,
+	/// `false` otherwise.
+	pub fn is_valid(&self) -> bool {
+		match self {
+			Self::Invalid(_) => false,
+			_ => true
+		}
+	}
+
 	/// Get a string representation of the reference.
 	///
 	/// This will either return a string slice of an IRI, or a blank node identifier.
 	pub fn as_str(&self) -> &str {
 		match self {
 			Reference::Id(id) => id.as_iri().into_str(),
-			Reference::Blank(id) => id.as_str()
+			Reference::Blank(id) => id.as_str(),
+			Reference::Invalid(id) => id.as_str()
 		}
 	}
 
@@ -44,8 +58,12 @@ impl<T: AsIri> Reference<T> {
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
 			Reference::Id(k) => Some(k.as_iri()),
-			Reference::Blank(_) => None
+			_ => None
 		}
+	}
+
+	pub fn into_term(self) -> Term<T> {
+		Term::Ref(self)
 	}
 }
 
@@ -68,29 +86,12 @@ impl<T: AsIri + PartialEq> PartialEq<T> for Reference<T> {
 	}
 }
 
-impl<T: AsIri + PartialEq> PartialEq<T> for Lenient<Reference<T>> {
-	fn eq(&self, other: &T) -> bool {
-		match self {
-			Lenient::Ok(Reference::Id(id)) => id == other,
-			_ => false
-		}
-	}
-}
-
 impl<'a, T: AsIri> From<&'a Reference<T>> for Reference<&'a T> {
 	fn from(r: &'a Reference<T>) -> Reference<&'a T> {
 		match r {
 			Reference::Id(id) => Reference::Id(id),
-			Reference::Blank(id) => Reference::Blank(id.clone())
-		}
-	}
-}
-
-impl<'a, T: AsIri> From<&'a Lenient<Reference<T>>> for Lenient<Reference<&'a T>> {
-	fn from(r: &'a Lenient<Reference<T>>) -> Lenient<Reference<&'a T>> {
-		match r {
-			Lenient::Ok(r) => Lenient::Ok(r.into()),
-			Lenient::Unknown(u) => Lenient::Unknown(u.clone())
+			Reference::Blank(id) => Reference::Blank(id.clone()),
+			Reference::Invalid(id) => Reference::Invalid(id.clone())
 		}
 	}
 }
@@ -140,7 +141,8 @@ impl<T: AsIri + util::AsJson> util::AsJson for Reference<T> {
 	fn as_json(&self) -> JsonValue {
 		match self {
 			Reference::Id(id) => id.as_json(),
-			Reference::Blank(b) => b.as_json()
+			Reference::Blank(b) => b.as_json(),
+			Reference::Invalid(id) => id.as_json()
 		}
 	}
 }
@@ -149,7 +151,8 @@ impl<T: AsIri> fmt::Display for Reference<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Reference::Id(id) => id.as_iri().fmt(f),
-			Reference::Blank(b) => b.fmt(f)
+			Reference::Blank(b) => b.fmt(f),
+			Reference::Invalid(id) => id.fmt(f)
 		}
 	}
 }
@@ -158,7 +161,8 @@ impl<T: AsIri> fmt::Debug for Reference<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Reference::Id(id) => write!(f, "Reference::Id({})", id.as_iri()),
-			Reference::Blank(b) => write!(f, "Refernce::Blank({})", b)
+			Reference::Blank(b) => write!(f, "Reference::Blank({})", b),
+			Reference::Invalid(id) => write!(f, "Reference::Invalid({})", id)
 		}
 	}
 }
@@ -172,7 +176,7 @@ impl<T: AsIri> fmt::Debug for Reference<T> {
 /// ```ignore
 /// fn get(&self, id: &Reference<T>) -> Objects;
 /// ```
-/// However building a `Refrence` by hand can be tedious, especilly while using [`Lexicon`](crate::Lexicon) and
+/// However building a `Reference` by hand can be tedious, especially while using [`Lexicon`](crate::Lexicon) and
 /// [`Vocab`](crate::Vocab). It can be as verbose as `node.get(&Reference::Id(Lexicon::Id(MyVocab::Term)))`.
 /// Thanks to `ToReference` which is implemented by `Lexicon<V>` for any type `V` implementing `Vocab`,
 /// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct) where
@@ -181,7 +185,7 @@ impl<T: AsIri> fmt::Debug for Reference<T> {
 /// fn get<R: ToReference<T>>(&self, id: R) -> Objects;
 /// ```
 pub trait ToReference<T: Id> {
-	/// The target type of the convertion, which can be borrowed as a `Reference<T>`.
+	/// The target type of the conversion, which can be borrowed as a `Reference<T>`.
 	type Reference: Borrow<Reference<T>>;
 
 	/// Convert the value into a reference.

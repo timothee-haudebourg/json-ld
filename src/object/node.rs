@@ -8,7 +8,6 @@ use crate::{
 	Id,
 	Reference,
 	ToReference,
-	Lenient,
 	object,
 	Object,
 	Indexed,
@@ -29,12 +28,12 @@ pub struct Node<T: Id = IriBuf> {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
-	pub(crate) id: Option<Lenient<Reference<T>>>,
+	pub(crate) id: Option<Reference<T>>,
 
 	/// Types.
 	///
 	/// This is the `@type` field.
-	pub(crate) types: Vec<Lenient<Reference<T>>>,
+	pub(crate) types: Vec<Reference<T>>,
 
 	/// Associated graph.
 	///
@@ -85,7 +84,7 @@ impl<T: Id> Node<T> {
 	}
 
 	/// Create a new empty node with the given id.
-	pub fn with_id(id: Lenient<Reference<T>>) -> Node<T> {
+	pub fn with_id(id: Reference<T>) -> Node<T> {
 		Node {
 			id: Some(id),
 			types: Vec::new(),
@@ -123,7 +122,7 @@ impl<T: Id> Node<T> {
 	/// Get the identifier of the node.
 	///
 	/// This correspond to the `@id` field of the JSON object.
-	pub fn id(&self) -> Option<&Lenient<Reference<T>>> {
+	pub fn id(&self) -> Option<&Reference<T>> {
 		self.id.as_ref()
 	}
 
@@ -152,12 +151,12 @@ impl<T: Id> Node<T> {
 	///
 	/// This returns a list of `Lenient` types, including malformed types that are not
 	/// IRIs of blank node identifiers.
-	pub fn types(&self) -> &[Lenient<Reference<T>>] {
+	pub fn types(&self) -> &[Reference<T>] {
 		self.types.as_ref()
 	}
 
 	/// Checks if the node has the given type.
-	pub fn has_type<U>(&self, ty: &U) -> bool where Lenient<Reference<T>>: PartialEq<U> {
+	pub fn has_type<U>(&self, ty: &U) -> bool where Reference<T>: PartialEq<U> {
 		for self_ty in &self.types {
 			if self_ty == ty {
 				return true
