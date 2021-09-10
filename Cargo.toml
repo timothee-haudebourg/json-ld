@@ -1,6 +1,6 @@
 [package]
 name = "json-ld"
-version = "0.2.0-alpha"
+version = "0.3.0"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2018"
 categories = ["web-programming", "database", "data-structures"]
