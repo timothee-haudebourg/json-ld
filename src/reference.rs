@@ -1,6 +1,6 @@
 use crate::{
-    syntax::{Term, TermLike},
-    util, BlankId, Id,
+	syntax::{Term, TermLike},
+	util, BlankId, Id,
 };
 use iref::{AsIri, Iri, IriBuf};
 use json::JsonValue;
@@ -14,152 +14,152 @@ use std::fmt;
 /// It can be an identifier (IRI) or a blank node identifier for local blank nodes.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Reference<T: AsIri = IriBuf> {
-    /// Node identifier, essentially an IRI.
-    Id(T),
+	/// Node identifier, essentially an IRI.
+	Id(T),
 
-    /// Blank node identifier.
-    Blank(BlankId),
+	/// Blank node identifier.
+	Blank(BlankId),
 
-    /// Invalid reference.
-    Invalid(String),
+	/// Invalid reference.
+	Invalid(String),
 }
 
 impl<T: AsIri> Reference<T> {
-    /// Checks if this is a valid reference.
-    ///
-    /// Returns `true` is this reference is a node identifier or a blank node identifier,
-    /// `false` otherwise.
-    pub fn is_valid(&self) -> bool {
-        match self {
-            Self::Invalid(_) => false,
-            _ => true,
-        }
-    }
+	/// Checks if this is a valid reference.
+	///
+	/// Returns `true` is this reference is a node identifier or a blank node identifier,
+	/// `false` otherwise.
+	pub fn is_valid(&self) -> bool {
+		match self {
+			Self::Invalid(_) => false,
+			_ => true,
+		}
+	}
 
-    /// Get a string representation of the reference.
-    ///
-    /// This will either return a string slice of an IRI, or a blank node identifier.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Reference::Id(id) => id.as_iri().into_str(),
-            Reference::Blank(id) => id.as_str(),
-            Reference::Invalid(id) => id.as_str(),
-        }
-    }
+	/// Get a string representation of the reference.
+	///
+	/// This will either return a string slice of an IRI, or a blank node identifier.
+	pub fn as_str(&self) -> &str {
+		match self {
+			Reference::Id(id) => id.as_iri().into_str(),
+			Reference::Blank(id) => id.as_str(),
+			Reference::Invalid(id) => id.as_str(),
+		}
+	}
 
-    /// If the renference is a node identifier, returns the node IRI.
-    ///
-    /// Returns `None` if it is a blank node reference.
-    pub fn as_iri(&self) -> Option<Iri> {
-        match self {
-            Reference::Id(k) => Some(k.as_iri()),
-            _ => None,
-        }
-    }
+	/// If the renference is a node identifier, returns the node IRI.
+	///
+	/// Returns `None` if it is a blank node reference.
+	pub fn as_iri(&self) -> Option<Iri> {
+		match self {
+			Reference::Id(k) => Some(k.as_iri()),
+			_ => None,
+		}
+	}
 
-    pub fn into_term(self) -> Term<T> {
-        Term::Ref(self)
-    }
+	pub fn into_term(self) -> Term<T> {
+		Term::Ref(self)
+	}
 }
 
 impl<T: AsIri> TermLike for Reference<T> {
-    fn as_iri(&self) -> Option<Iri> {
-        self.as_iri()
-    }
+	fn as_iri(&self) -> Option<Iri> {
+		self.as_iri()
+	}
 
-    fn as_str(&self) -> &str {
-        self.as_str()
-    }
+	fn as_str(&self) -> &str {
+		self.as_str()
+	}
 }
 
 impl<T: AsIri + PartialEq> PartialEq<T> for Reference<T> {
-    fn eq(&self, other: &T) -> bool {
-        match self {
-            Reference::Id(id) => id == other,
-            _ => false,
-        }
-    }
+	fn eq(&self, other: &T) -> bool {
+		match self {
+			Reference::Id(id) => id == other,
+			_ => false,
+		}
+	}
 }
 
 impl<'a, T: AsIri> From<&'a Reference<T>> for Reference<&'a T> {
-    fn from(r: &'a Reference<T>) -> Reference<&'a T> {
-        match r {
-            Reference::Id(id) => Reference::Id(id),
-            Reference::Blank(id) => Reference::Blank(id.clone()),
-            Reference::Invalid(id) => Reference::Invalid(id.clone()),
-        }
-    }
+	fn from(r: &'a Reference<T>) -> Reference<&'a T> {
+		match r {
+			Reference::Id(id) => Reference::Id(id),
+			Reference::Blank(id) => Reference::Blank(id.clone()),
+			Reference::Invalid(id) => Reference::Invalid(id.clone()),
+		}
+	}
 }
 
 impl<T: AsIri> From<T> for Reference<T> {
-    fn from(id: T) -> Reference<T> {
-        Reference::Id(id)
-    }
+	fn from(id: T) -> Reference<T> {
+		Reference::Id(id)
+	}
 }
 
 impl<T: AsIri + PartialEq> PartialEq<Term<T>> for Reference<T> {
-    fn eq(&self, term: &Term<T>) -> bool {
-        match term {
-            Term::Ref(prop) => self == prop,
-            _ => false,
-        }
-    }
+	fn eq(&self, term: &Term<T>) -> bool {
+		match term {
+			Term::Ref(prop) => self == prop,
+			_ => false,
+		}
+	}
 }
 
 impl<T: AsIri + PartialEq> PartialEq<Reference<T>> for Term<T> {
-    fn eq(&self, r: &Reference<T>) -> bool {
-        match self {
-            Term::Ref(prop) => prop == r,
-            _ => false,
-        }
-    }
+	fn eq(&self, r: &Reference<T>) -> bool {
+		match self {
+			Term::Ref(prop) => prop == r,
+			_ => false,
+		}
+	}
 }
 
 impl<T: AsIri> TryFrom<Term<T>> for Reference<T> {
-    type Error = Term<T>;
+	type Error = Term<T>;
 
-    fn try_from(term: Term<T>) -> Result<Reference<T>, Term<T>> {
-        match term {
-            Term::Ref(prop) => Ok(prop),
-            term => Err(term),
-        }
-    }
+	fn try_from(term: Term<T>) -> Result<Reference<T>, Term<T>> {
+		match term {
+			Term::Ref(prop) => Ok(prop),
+			term => Err(term),
+		}
+	}
 }
 
 impl<T: AsIri> From<BlankId> for Reference<T> {
-    fn from(blank: BlankId) -> Reference<T> {
-        Reference::Blank(blank)
-    }
+	fn from(blank: BlankId) -> Reference<T> {
+		Reference::Blank(blank)
+	}
 }
 
 impl<T: AsIri + util::AsJson> util::AsJson for Reference<T> {
-    fn as_json(&self) -> JsonValue {
-        match self {
-            Reference::Id(id) => id.as_json(),
-            Reference::Blank(b) => b.as_json(),
-            Reference::Invalid(id) => id.as_json(),
-        }
-    }
+	fn as_json(&self) -> JsonValue {
+		match self {
+			Reference::Id(id) => id.as_json(),
+			Reference::Blank(b) => b.as_json(),
+			Reference::Invalid(id) => id.as_json(),
+		}
+	}
 }
 
 impl<T: AsIri> fmt::Display for Reference<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Reference::Id(id) => id.as_iri().fmt(f),
-            Reference::Blank(b) => b.fmt(f),
-            Reference::Invalid(id) => id.fmt(f),
-        }
-    }
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Reference::Id(id) => id.as_iri().fmt(f),
+			Reference::Blank(b) => b.fmt(f),
+			Reference::Invalid(id) => id.fmt(f),
+		}
+	}
 }
 
 impl<T: AsIri> fmt::Debug for Reference<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Reference::Id(id) => write!(f, "Reference::Id({})", id.as_iri()),
-            Reference::Blank(b) => write!(f, "Reference::Blank({})", b),
-            Reference::Invalid(id) => write!(f, "Reference::Invalid({})", id),
-        }
-    }
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Reference::Id(id) => write!(f, "Reference::Id({})", id.as_iri()),
+			Reference::Blank(b) => write!(f, "Reference::Blank({})", b),
+			Reference::Invalid(id) => write!(f, "Reference::Invalid({})", id),
+		}
+	}
 }
 
 /// Types that can be converted into a borrowed node reference.
@@ -180,17 +180,17 @@ impl<T: AsIri> fmt::Debug for Reference<T> {
 /// fn get<R: ToReference<T>>(&self, id: R) -> Objects;
 /// ```
 pub trait ToReference<T: Id> {
-    /// The target type of the conversion, which can be borrowed as a `Reference<T>`.
-    type Reference: Borrow<Reference<T>>;
+	/// The target type of the conversion, which can be borrowed as a `Reference<T>`.
+	type Reference: Borrow<Reference<T>>;
 
-    /// Convert the value into a reference.
-    fn to_ref(&self) -> Self::Reference;
+	/// Convert the value into a reference.
+	fn to_ref(&self) -> Self::Reference;
 }
 
 impl<'a, T: Id> ToReference<T> for &'a Reference<T> {
-    type Reference = &'a Reference<T>;
+	type Reference = &'a Reference<T>;
 
-    fn to_ref(&self) -> Self::Reference {
-        self
-    }
+	fn to_ref(&self) -> Self::Reference {
+		self
+	}
 }

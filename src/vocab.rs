@@ -5,45 +5,45 @@ use std::fmt;
 use std::hash::Hash;
 
 pub trait Vocab: AsIri + Clone + PartialEq + Eq + Hash {
-    fn from_iri(iri: Iri) -> Option<Self>;
+	fn from_iri(iri: Iri) -> Option<Self>;
 }
 
 impl<T: AsIri + Clone + PartialEq + Eq + Hash> Vocab for T
 where
-    for<'a> T: TryFrom<Iri<'a>>,
+	for<'a> T: TryFrom<Iri<'a>>,
 {
-    fn from_iri(iri: Iri) -> Option<Self> {
-        match T::try_from(iri) {
-            Ok(t) => Some(t),
-            Err(_) => None,
-        }
-    }
+	fn from_iri(iri: Iri) -> Option<Self> {
+		match T::try_from(iri) {
+			Ok(t) => Some(t),
+			Err(_) => None,
+		}
+	}
 }
 
 impl<V: Vocab> ToReference<Lexicon<V>> for V {
-    type Reference = Reference<Lexicon<V>>;
+	type Reference = Reference<Lexicon<V>>;
 
-    fn to_ref(&self) -> Self::Reference {
-        Reference::Id(Lexicon::Id(self.clone()))
-    }
+	fn to_ref(&self) -> Self::Reference {
+		Reference::Id(Lexicon::Id(self.clone()))
+	}
 }
 
 impl<V: Vocab> PartialEq<V> for Reference<Lexicon<V>> {
-    fn eq(&self, other: &V) -> bool {
-        match self {
-            Reference::Id(Lexicon::Id(v)) => other == v,
-            _ => false,
-        }
-    }
+	fn eq(&self, other: &V) -> bool {
+		match self {
+			Reference::Id(Lexicon::Id(v)) => other == v,
+			_ => false,
+		}
+	}
 }
 
 impl<V: Vocab> PartialEq<V> for Lexicon<V> {
-    fn eq(&self, other: &V) -> bool {
-        match self {
-            Lexicon::Id(v) => other == v,
-            _ => false,
-        }
-    }
+	fn eq(&self, other: &V) -> bool {
+		match self {
+			Lexicon::Id(v) => other == v,
+			_ => false,
+		}
+	}
 }
 
 /// Lexicon identifier.
@@ -95,37 +95,37 @@ impl<V: Vocab> PartialEq<V> for Lexicon<V> {
 /// ```
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Lexicon<V: Vocab> {
-    /// Identifier from the known vocabulary.
-    Id(V),
+	/// Identifier from the known vocabulary.
+	Id(V),
 
-    /// Any other IRI outside of the vocabulary.
-    Iri(IriBuf),
+	/// Any other IRI outside of the vocabulary.
+	Iri(IriBuf),
 }
 
 impl<V: Vocab> fmt::Display for Lexicon<V> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Lexicon::Id(id) => id.as_iri().fmt(f),
-            Lexicon::Iri(iri) => iri.fmt(f),
-        }
-    }
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Lexicon::Id(id) => id.as_iri().fmt(f),
+			Lexicon::Iri(iri) => iri.fmt(f),
+		}
+	}
 }
 
 impl<V: Vocab> AsIri for Lexicon<V> {
-    fn as_iri(&self) -> Iri {
-        match self {
-            Lexicon::Id(id) => id.as_iri(),
-            Lexicon::Iri(iri) => iri.as_iri(),
-        }
-    }
+	fn as_iri(&self) -> Iri {
+		match self {
+			Lexicon::Id(id) => id.as_iri(),
+			Lexicon::Iri(iri) => iri.as_iri(),
+		}
+	}
 }
 
 impl<V: Vocab> Id for Lexicon<V> {
-    fn from_iri(iri: Iri) -> Lexicon<V> {
-        if let Some(v) = V::from_iri(iri) {
-            Lexicon::Id(v)
-        } else {
-            Lexicon::Iri(iri.into())
-        }
-    }
+	fn from_iri(iri: Iri) -> Lexicon<V> {
+		if let Some(v) = V::from_iri(iri) {
+			Lexicon::Id(v)
+		} else {
+			Lexicon::Iri(iri.into())
+		}
+	}
 }

@@ -9,118 +9,118 @@ extern crate json_ld;
 use async_std::task;
 use iref::{Iri, IriBuf};
 use json_ld::{
-    context::{JsonContext, Loader as ContextLoader, Local, ProcessingOptions},
-    expansion,
-    util::{json_ld_eq, AsJson},
-    Document, ErrorCode, FsLoader, Loader, ProcessingMode,
+	context::{JsonContext, Loader as ContextLoader, Local, ProcessingOptions},
+	expansion,
+	util::{json_ld_eq, AsJson},
+	Document, ErrorCode, FsLoader, Loader, ProcessingMode,
 };
 
 #[derive(Clone, Copy)]
 struct Options<'a> {
-    processing_mode: ProcessingMode,
-    context: Option<Iri<'a>>,
+	processing_mode: ProcessingMode,
+	context: Option<Iri<'a>>,
 }
 
 impl<'a> From<Options<'a>> for expansion::Options {
-    fn from(options: Options<'a>) -> expansion::Options {
-        expansion::Options {
-            processing_mode: options.processing_mode,
-            ordered: false,
-            ..expansion::Options::default()
-        }
-    }
+	fn from(options: Options<'a>) -> expansion::Options {
+		expansion::Options {
+			processing_mode: options.processing_mode,
+			ordered: false,
+			..expansion::Options::default()
+		}
+	}
 }
 
 impl<'a> From<Options<'a>> for ProcessingOptions {
-    fn from(options: Options<'a>) -> ProcessingOptions {
-        ProcessingOptions {
-            processing_mode: options.processing_mode,
-            ..ProcessingOptions::default()
-        }
-    }
+	fn from(options: Options<'a>) -> ProcessingOptions {
+		ProcessingOptions {
+			processing_mode: options.processing_mode,
+			..ProcessingOptions::default()
+		}
+	}
 }
 
 fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {
-    let mut loader = FsLoader::new();
-    loader.mount(iri!("file://crate/tests"), "tests");
+	let mut loader = FsLoader::new();
+	loader.mount(iri!("file://crate/tests"), "tests");
 
-    let input = task::block_on(loader.load(input_url)).unwrap();
-    let output = task::block_on(loader.load(output_url)).unwrap();
-    let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
+	let input = task::block_on(loader.load(input_url)).unwrap();
+	let output = task::block_on(loader.load(output_url)).unwrap();
+	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
 
-    if let Some(context_url) = options.context {
-        let local_context = task::block_on(loader.load_context(context_url))
-            .unwrap()
-            .into_context();
-        input_context = task::block_on(local_context.process_with(
-            &input_context,
-            &mut loader,
-            Some(base_url),
-            options.into(),
-        ))
-        .unwrap()
-        .into_inner();
-    }
+	if let Some(context_url) = options.context {
+		let local_context = task::block_on(loader.load_context(context_url))
+			.unwrap()
+			.into_context();
+		input_context = task::block_on(local_context.process_with(
+			&input_context,
+			&mut loader,
+			Some(base_url),
+			options.into(),
+		))
+		.unwrap()
+		.into_inner();
+	}
 
-    let result = task::block_on(input.expand_with(
-        Some(base_url),
-        &input_context,
-        &mut loader,
-        options.into(),
-    ))
-    .unwrap();
+	let result = task::block_on(input.expand_with(
+		Some(base_url),
+		&input_context,
+		&mut loader,
+		options.into(),
+	))
+	.unwrap();
 
-    let result_json = result.as_json();
-    let success = json_ld_eq(&result_json, &output);
+	let result_json = result.as_json();
+	let success = json_ld_eq(&result_json, &output);
 
-    if success {
-        println!("output=\n{}", result_json.pretty(2));
-    } else {
-        println!("output=\n{}", result_json.pretty(2));
-        println!("\nexpected=\n{}", output.pretty(2));
-    }
+	if success {
+		println!("output=\n{}", result_json.pretty(2));
+	} else {
+		println!("output=\n{}", result_json.pretty(2));
+		println!("\nexpected=\n{}", output.pretty(2));
+	}
 
-    assert!(success)
+	assert!(success)
 }
 
 fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {
-    let mut loader = FsLoader::new();
-    loader.mount(iri!("file://crate/tests"), "tests");
+	let mut loader = FsLoader::new();
+	loader.mount(iri!("file://crate/tests"), "tests");
 
-    let input = task::block_on(loader.load(input_url)).unwrap();
-    let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
+	let input = task::block_on(loader.load(input_url)).unwrap();
+	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
 
-    if let Some(context_url) = options.context {
-        let local_context = task::block_on(loader.load_context(context_url))
-            .unwrap()
-            .into_context();
-        input_context = task::block_on(local_context.process_with(
-            &input_context,
-            &mut loader,
-            Some(base_url),
-            options.into(),
-        ))
-        .unwrap()
-        .into_inner();
-    }
+	if let Some(context_url) = options.context {
+		let local_context = task::block_on(loader.load_context(context_url))
+			.unwrap()
+			.into_context();
+		input_context = task::block_on(local_context.process_with(
+			&input_context,
+			&mut loader,
+			Some(base_url),
+			options.into(),
+		))
+		.unwrap()
+		.into_inner();
+	}
 
-    match task::block_on(input.expand_with(
-        Some(base_url),
-        &input_context,
-        &mut loader,
-        options.into(),
-    )) {
-        Ok(result) => {
-            println!("output=\n{}", result.as_json().pretty(2));
-            panic!(
-                "expansion succeeded where it should have failed with code: {}",
-                error_code
-            )
-        }
-        Err(e) => {
-            assert_eq!(e.code(), error_code)
-        }
-    }
+	match task::block_on(input.expand_with(
+		Some(base_url),
+		&input_context,
+		&mut loader,
+		options.into(),
+	)) {
+		Ok(result) => {
+			println!("output=\n{}", result.as_json().pretty(2));
+			panic!(
+				"expansion succeeded where it should have failed with code: {}",
+				error_code
+			)
+		}
+		Err(e) => {
+			assert_eq!(e.code(), error_code)
+		}
+	}
 }
 
 // See See w3c/json-ld-api#533
@@ -142,34 +142,34 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 
 #[test]
 fn custom_e111() {
-    let input_url = iri!("file://crate/tests/custom/e111-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/e111-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/e111-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/e111-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/e111-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/e111-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
 
 #[test]
 fn custom_e112() {
-    let input_url = iri!("file://crate/tests/custom/e112-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/e112-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/e112-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/e112-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/e112-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/e112-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
 
 // See w3c/json-ld-api#480
@@ -191,112 +191,112 @@ fn custom_e112() {
 
 #[test]
 fn custom_c037() {
-    let input_url = iri!("file://crate/tests/custom/c037-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/c037-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/c037-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/c037-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/c037-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/c037-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
 
 #[test]
 fn custom_c038() {
-    let input_url = iri!("file://crate/tests/custom/c038-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/c038-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/c038-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/c038-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/c038-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/c038-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
 
 #[test]
 fn custom_0120() {
-    let input_url = iri!("file://crate/tests/custom/0120-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/0120-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/0120-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/0120-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/0120-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/0120-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
 
 #[test]
 fn custom_0122() {
-    let input_url = iri!("file://crate/tests/custom/0122-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/0122-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/0122-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/0122-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/0122-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/0122-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
 
 #[test]
 fn custom_0123() {
-    let input_url = iri!("file://crate/tests/custom/0123-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/0123-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/0123-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/0123-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/0123-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/0123-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
 
 #[test]
 fn custom_0124() {
-    let input_url = iri!("file://crate/tests/custom/0124-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/0124-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/0124-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/0124-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/0124-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/0124-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
 
 #[test]
 fn custom_0125() {
-    let input_url = iri!("file://crate/tests/custom/0125-in.jsonld");
-    let base_url = iri!("file://crate/tests/custom/0125-in.jsonld");
-    let output_url = iri!("file://crate/tests/custom/0125-out.jsonld");
-    positive_test(
-        Options {
-            processing_mode: ProcessingMode::JsonLd1_1,
-            context: None,
-        },
-        input_url,
-        base_url,
-        output_url,
-    )
+	let input_url = iri!("file://crate/tests/custom/0125-in.jsonld");
+	let base_url = iri!("file://crate/tests/custom/0125-in.jsonld");
+	let output_url = iri!("file://crate/tests/custom/0125-out.jsonld");
+	positive_test(
+		Options {
+			processing_mode: ProcessingMode::JsonLd1_1,
+			context: None,
+		},
+		input_url,
+		base_url,
+		output_url,
+	)
 }
