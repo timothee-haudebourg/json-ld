@@ -12,7 +12,7 @@ use json_ld::{
 	context::{JsonContext, Loader as ContextLoader, Local, ProcessingOptions},
 	expansion,
 	util::{json_ld_eq, AsJson},
-	Document, ErrorCode, FsLoader, Loader, ProcessingMode,
+	Document, FsLoader, Loader, ProcessingMode,
 };
 
 #[derive(Clone, Copy)]
