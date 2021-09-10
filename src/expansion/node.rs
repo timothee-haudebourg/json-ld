@@ -385,16 +385,15 @@ where
 										nested_entries.sort();
 									}
 
-									let nested_expanded_entries = nested_entries
-										.into_iter()
-										.filter_map(|Entry(key, value)| {
+									let nested_expanded_entries =
+										nested_entries.into_iter().map(|Entry(key, value)| {
 											let expanded_key = expand_iri(
 												active_context.as_ref(),
 												key,
 												false,
 												true,
 											);
-											Some(Entry((key, expanded_key), value))
+											Entry((key, expanded_key), value)
 										});
 
 									expand_node_entries(

@@ -178,9 +178,7 @@ impl InverseLang {
 
 	fn set(&mut self, lang_dir: Nullable<(Option<LanguageTag>, Option<Direction>)>, term: &str) {
 		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.cloned()), d));
-		if !self.map.contains_key(&lang_dir) {
-			self.map.insert(lang_dir, term.to_string());
-		}
+		self.map.entry(lang_dir).or_insert_with(|| term.to_string());
 	}
 }
 
@@ -238,7 +236,7 @@ impl<T: Id> InverseDefinition<T> {
 		insert: F,
 	) -> &mut InverseContainer<T> {
 		if !self.contains(container) {
-			self.map.insert(container.clone(), insert());
+			self.map.insert(*container, insert());
 		}
 		self.map.get_mut(container).unwrap()
 	}
@@ -337,6 +335,12 @@ impl<T: Id> InverseContext<T> {
 	}
 }
 
+impl<T: Id> Default for InverseContext<T> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 	fn from(context: &'a C) -> InverseContext<T> {
 		let mut result = InverseContext::new();
@@ -354,7 +358,7 @@ impl<'a, T: Id, C: Context<T>> From<&'a C> for InverseContext<T> {
 		for (term, term_definition) in definitions {
 			if let Some(var) = term_definition.value.as_ref() {
 				let container = &term_definition.container;
-				let container_map = result.reference_mut(var, || InverseDefinition::new());
+				let container_map = result.reference_mut(var, InverseDefinition::new);
 				let type_lang_map =
 					container_map.reference_mut(container, || InverseContainer::new(term));
 

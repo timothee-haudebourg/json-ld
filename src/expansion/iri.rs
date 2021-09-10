@@ -26,7 +26,7 @@ pub fn expand_iri<T: Id, C: Context<T>>(
 			// is a keyword, return that keyword.
 			if let Some(value) = &term_definition.value {
 				if value.is_keyword() {
-					return Term::from(value.clone());
+					return value.clone();
 				}
 			}
 
@@ -74,12 +74,10 @@ pub fn expand_iri<T: Id, C: Context<T>>(
 
 							if let Ok(result) = Iri::new(&result) {
 								return Term::from(T::from_iri(result));
+							} else if let Ok(blank) = BlankId::try_from(result.as_ref()) {
+								return Term::from(blank);
 							} else {
-								if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-									return Term::from(blank);
-								} else {
-									return Reference::Invalid(result).into();
-								}
+								return Reference::Invalid(result).into();
 							}
 						}
 					}
@@ -95,23 +93,21 @@ pub fn expand_iri<T: Id, C: Context<T>>(
 		// If vocab is true, and active context has a vocabulary mapping, return the result of
 		// concatenating the vocabulary mapping with value.
 		if vocab {
-			if let Some(vocabulary) = active_context.vocabulary() {
-				if let Term::Ref(mapping) = vocabulary {
+			match active_context.vocabulary() {
+				Some(Term::Ref(mapping)) => {
 					let mut result = mapping.as_str().to_string();
 					result.push_str(value);
 
 					if let Ok(result) = Iri::new(&result) {
-						return Term::from(T::from_iri(result)).into();
+						return Term::from(T::from_iri(result));
+					} else if let Ok(blank) = BlankId::try_from(result.as_ref()) {
+						return Term::from(blank);
 					} else {
-						if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-							return Term::from(blank);
-						} else {
-							return Reference::Invalid(result).into();
-						}
+						return Reference::Invalid(result).into();
 					}
-				} else {
-					return Reference::Invalid(value.to_string()).into();
 				}
+				Some(_) => return Reference::Invalid(value.to_string()).into(),
+				None => (),
 			}
 		}
 

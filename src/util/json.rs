@@ -107,10 +107,8 @@ pub fn json_ld_eq(a: &JsonValue, b: &JsonValue) -> bool {
 								}
 							}
 						}
-					} else {
-						if !json_ld_eq(value_a, value_b) {
-							return false;
-						}
+					} else if !json_ld_eq(value_a, value_b) {
+						return false;
 					}
 				} else {
 					return false;

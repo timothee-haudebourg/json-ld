@@ -136,24 +136,24 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 									break;
 								}
 							}
+						}
 
-							if common_lang_dir.is_none() {
-								common_lang_dir = Some(Nullable::Some((None, None)))
-							}
-							let common_lang_dir = common_lang_dir.unwrap();
+						if common_lang_dir.is_none() {
+							common_lang_dir = Some(Nullable::Some((None, None)))
+						}
+						let common_lang_dir = common_lang_dir.unwrap();
 
-							if common_type.is_none() {
-								common_type = Some(None)
-							}
-							let common_type = common_type.unwrap();
+						if common_type.is_none() {
+							common_type = Some(None)
+						}
+						let common_type = common_type.unwrap();
 
-							if let Some(common_type) = common_type {
-								type_lang_value =
-									Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
-							} else {
-								type_lang_value =
-									Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
-							}
+						if let Some(common_type) = common_type {
+							type_lang_value =
+								Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
+						} else {
+							type_lang_value =
+								Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
 						}
 					}
 					Some(object::Ref::Node(node)) if node.is_graph() => {
@@ -290,12 +290,12 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 									if vocab {
 										selection.push(TypeSelection::Type(Type::Vocab));
 										selection.push(TypeSelection::Type(Type::Id));
-										selection.push(TypeSelection::Type(Type::None));
 									} else {
 										selection.push(TypeSelection::Type(Type::Id));
 										selection.push(TypeSelection::Type(Type::Vocab));
-										selection.push(TypeSelection::Type(Type::None));
 									}
+
+									selection.push(TypeSelection::Type(Type::None));
 								}
 							}
 						}
@@ -310,12 +310,11 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 						Selection::Type(selection)
 					}
 					Some(TypeLangValue::Lang(lang_value)) => {
-						let mut selection = Vec::new();
-
-						selection.push(lang_value);
-						selection.push(LangSelection::Lang(Nullable::Some((None, None))));
-
-						selection.push(LangSelection::Any);
+						let mut selection = vec![
+							lang_value,
+							LangSelection::Lang(Nullable::Some((None, None))),
+							LangSelection::Any,
+						];
 
 						if let LangSelection::Lang(Nullable::Some((Some(_), Some(dir)))) =
 							lang_value
@@ -325,13 +324,11 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 
 						Selection::Lang(selection)
 					}
-					None => {
-						let mut selection = Vec::new();
-						selection.push(LangSelection::Lang(Nullable::Null));
-						selection.push(LangSelection::Lang(Nullable::Some((None, None))));
-						selection.push(LangSelection::Any);
-						Selection::Lang(selection)
-					}
+					None => Selection::Lang(vec![
+						LangSelection::Lang(Nullable::Null),
+						LangSelection::Lang(Nullable::Some((None, None))),
+						LangSelection::Any,
+					]),
 				}
 			};
 
@@ -347,10 +344,8 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 			// suffix to the substring of var that does not match. If suffix does not have a term
 			// definition in active context, then return suffix.
 			if let Some(suffix) = var.as_str().strip_prefix(vocab_mapping.as_str()) {
-				if !suffix.is_empty() {
-					if active_context.get(suffix).is_none() {
-						return Ok(suffix.into());
-					}
+				if !suffix.is_empty() && active_context.get(suffix).is_none() {
+					return Ok(suffix.into());
 				}
 			}
 		}
@@ -388,7 +383,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 							&& (candidate_def.is_none()
 								|| (candidate_def.is_some()
 									&& candidate_def
-										.map_or(None, |def| def.value.as_ref())
+										.and_then(|def| def.value.as_ref())
 										.map_or(false, |v| v.as_str() == var.as_str())
 									&& value.is_none()))
 						{

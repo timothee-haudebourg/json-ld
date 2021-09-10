@@ -8,7 +8,7 @@ use json::JsonValue;
 use langtag::LanguageTagBuf;
 use std::convert::TryFrom;
 
-pub fn expand_value<'a, T: Id, C: ContextMut<T>>(
+pub fn expand_value<T: Id, C: ContextMut<T>>(
 	input_type: Option<Term<T>>,
 	type_scoped_context: &C,
 	expanded_entries: Vec<Entry<(&str, Term<T>)>>,
@@ -126,13 +126,7 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(
 
 	// Otherwise, if the value of result's @value entry is null, or an empty array,
 	// return null
-	let is_empty = match result {
-		Literal::Null => true,
-		// Value::Array(ary) => ary.is_empty(),
-		_ => false,
-	};
-
-	if is_empty {
+	if matches!(result, Literal::Null) {
 		return Ok(None);
 	}
 
@@ -169,8 +163,8 @@ pub fn expand_value<'a, T: Id, C: ContextMut<T>>(
 	// @list, set result to null.
 	// TODO
 
-	return Ok(Some(Indexed::new(
+	Ok(Some(Indexed::new(
 		Object::Value(Value::Literal(result, ty)),
 		index,
-	)));
+	)))
 }

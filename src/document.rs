@@ -64,17 +64,17 @@ pub trait Document<T: Id> {
 	/// use json_ld::{Document, JsonContext, NoLoader};
 	///
 	/// let doc = json::parse("{
-	/// 	\"@context\": {
-	/// 		\"name\": \"http://xmlns.com/foaf/0.1/name\",
-	/// 		\"knows\": \"http://xmlns.com/foaf/0.1/knows\"
-	/// 	},
-	/// 	\"@id\": \"http://timothee.haudebourg.net/\",
-	/// 	\"name\": \"Timothée Haudebourg\",
-	/// 	\"knows\": [
-	/// 		{
-	/// 			\"name\": \"Amélie Barbe\"
-	/// 		}
-	/// 	]
+	///   \"@context\": {
+	///     \"name\": \"http://xmlns.com/foaf/0.1/name\",
+	///     \"knows\": \"http://xmlns.com/foaf/0.1/knows\"
+	///   },
+	///   \"@id\": \"http://timothee.haudebourg.net/\",
+	///   \"name\": \"Timothée Haudebourg\",
+	///   \"knows\": [
+	///     {
+	///       \"name\": \"Amélie Barbe\"
+	///     }
+	///   ]
 	/// }").unwrap();
 	/// let expanded_doc = task::block_on(doc.expand::<JsonContext, _>(&mut NoLoader))?;
 	/// # Ok(())
@@ -135,23 +135,11 @@ pub trait Document<T: Id> {
 					.into_iter()
 					.next()
 					.unwrap()
-					.compact_with(
-						context.clone(),
-						context.clone(),
-						None,
-						loader,
-						options.into(),
-					)
+					.compact_with(context.clone(), context.clone(), None, loader, options)
 					.await?
 			} else {
 				expanded
-					.compact_with(
-						context.clone(),
-						context.clone(),
-						None,
-						loader,
-						options.into(),
-					)
+					.compact_with(context.clone(), context.clone(), None, loader, options)
 					.await?
 			};
 
@@ -165,7 +153,7 @@ pub trait Document<T: Id> {
 							&Term::Keyword(Keyword::Graph),
 							true,
 							false,
-							options.into(),
+							options,
 						)?;
 						map.insert(key.as_str().unwrap(), JsonValue::Array(items));
 					}
@@ -252,9 +240,9 @@ impl<T: Id> Document<T> for JsonValue {
 /// use async_std::task;
 /// use json::JsonValue;
 /// use json_ld::{
-/// 	Loader,
-/// 	FsLoader,
-/// 	RemoteDocument
+///   Loader,
+///   FsLoader,
+///   RemoteDocument
 /// };
 ///
 /// // Prepare the loader.
@@ -279,7 +267,7 @@ impl<D> RemoteDocument<D> {
 	pub fn new(doc: D, base_url: Iri) -> RemoteDocument<D> {
 		RemoteDocument {
 			base_url: base_url.into(),
-			doc: doc,
+			doc,
 		}
 	}
 

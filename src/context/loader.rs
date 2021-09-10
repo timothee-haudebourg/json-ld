@@ -11,15 +11,12 @@ impl<C> RemoteContext<C> {
 	pub fn new(url: Iri, context: C) -> RemoteContext<C> {
 		RemoteContext {
 			url: IriBuf::from(url),
-			context: context,
+			context,
 		}
 	}
 
 	pub fn from_parts(url: IriBuf, context: C) -> RemoteContext<C> {
-		RemoteContext {
-			url: url,
-			context: context,
-		}
+		RemoteContext { url, context }
 	}
 
 	pub fn context(&self) -> &C {

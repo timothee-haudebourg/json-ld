@@ -149,11 +149,8 @@ where
 				let mut type_entries = Vec::new();
 				for Entry(key, value) in entries.iter() {
 					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
-					match &expanded_key {
-						Term::Keyword(Keyword::Type) => {
-							type_entries.push(Entry(key, value));
-						}
-						_ => (),
+					if let Term::Keyword(Keyword::Type) = expanded_key {
+						type_entries.push(Entry(key, value));
 					}
 				}
 
@@ -178,7 +175,7 @@ where
 							sorted_value.push(term);
 						}
 					}
-					sorted_value.sort();
+					sorted_value.sort_unstable();
 
 					// if `term` is a string, and `term`'s term definition in `type_scoped_context`
 					// has a `local_context`,
@@ -214,11 +211,9 @@ where
 				// Both the key and value of the matched entry are IRI expanded.
 				let input_type = if let Some(Entry(_, value)) = type_entries.first() {
 					if let Some(input_type) = as_array(value).last() {
-						if let Some(input_type) = input_type.as_str() {
-							Some(expand_iri(active_context.as_ref(), input_type, false, true))
-						} else {
-							None
-						}
+						input_type.as_str().map(|input_type| {
+							expand_iri(active_context.as_ref(), input_type, false, true)
+						})
 					} else {
 						None
 					}
@@ -321,7 +316,7 @@ where
 						expanded_entries,
 						value_entry,
 					)? {
-						Ok(Expanded::Object(value.into()))
+						Ok(Expanded::Object(value))
 					} else {
 						Ok(Expanded::Null)
 					}
@@ -362,16 +357,15 @@ where
 				let active_context = if let Some(property_scoped_context) = property_scoped_context
 				{
 					// FIXME it is unclear what we should use as `base_url` if there is no term definition for `active_context`.
-					let base_url = if let Some(definition) = active_context.get_opt(active_property)
-					{
-						if let Some(base_url) = &definition.base_url {
-							Some(base_url.as_iri())
-						} else {
-							None
-						}
-					} else {
-						None
-					};
+					let base_url = active_context
+						.get_opt(active_property)
+						.map(|definition| {
+							definition
+								.base_url
+								.as_ref()
+								.map(|base_url| base_url.as_iri())
+						})
+						.flatten();
 
 					let result = property_scoped_context
 						.process_with(active_context, loader, base_url, options.into())

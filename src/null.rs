@@ -20,19 +20,13 @@ impl<T> Nullable<T> {
 	/// Checks if the value is `null`.
 	#[inline]
 	pub fn is_null(&self) -> bool {
-		match self {
-			Nullable::Null => true,
-			_ => false,
-		}
+		matches!(self, Nullable::Null)
 	}
 
 	/// Checks if the value is not `null`.
 	#[inline]
 	pub fn is_some(&self) -> bool {
-		match self {
-			Nullable::Some(_) => true,
-			_ => false,
-		}
+		matches!(self, Nullable::Some(_))
 	}
 
 	/// Unwraps a non-null value.

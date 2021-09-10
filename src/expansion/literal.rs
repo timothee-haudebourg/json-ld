@@ -1,23 +1,6 @@
 use super::{expand_iri, node_id_of_term};
-use crate::{
-	object::*, syntax::Type, Context, Direction, Error, ErrorCode, Id, Indexed, LangString,
-};
+use crate::{object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString};
 use json::JsonValue;
-use langtag::LanguageTagBuf;
-
-fn clone_default_language<T: Id, C: Context<T>>(active_context: &C) -> Option<LanguageTagBuf> {
-	match active_context.default_language() {
-		Some(lang) => Some(lang.cloned()),
-		None => None,
-	}
-}
-
-fn clone_default_base_direction<T: Id, C: Context<T>>(active_context: &C) -> Option<Direction> {
-	match active_context.default_base_direction() {
-		Some(dir) => Some(dir),
-		None => None,
-	}
-}
 
 /// https://www.w3.org/TR/json-ld11-api/#value-expansion
 pub fn expand_literal<T: Id, C: Context<T>>(
@@ -94,10 +77,10 @@ pub fn expand_literal<T: Id, C: Context<T>>(
 								if let Some(language) = &active_property_definition.language {
 									language.as_ref().cloned().option()
 								} else {
-									clone_default_language(active_context)
+									active_context.default_language().map(|lang| lang.cloned())
 								}
 							} else {
-								clone_default_language(active_context)
+								active_context.default_language().map(|lang| lang.cloned())
 							};
 
 						// Initialize `direction` to the direction mapping for
@@ -106,12 +89,12 @@ pub fn expand_literal<T: Id, C: Context<T>>(
 						let direction =
 							if let Some(active_property_definition) = active_property_definition {
 								if let Some(direction) = &active_property_definition.direction {
-									direction.clone().option()
+									(*direction).option()
 								} else {
-									clone_default_base_direction(active_context)
+									active_context.default_base_direction()
 								}
 							} else {
-								clone_default_base_direction(active_context)
+								active_context.default_base_direction()
 							};
 
 						// If `language` is not null, add `@language` to result with the value

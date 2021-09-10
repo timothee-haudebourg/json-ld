@@ -38,18 +38,12 @@ pub trait Any<T: Id>: AsJson {
 
 	#[inline]
 	fn is_value(&self) -> bool {
-		match self.as_ref() {
-			Ref::Value(_) => true,
-			_ => false,
-		}
+		matches!(self.as_ref(), Ref::Value(_))
 	}
 
 	#[inline]
 	fn is_node(&self) -> bool {
-		match self.as_ref() {
-			Ref::Node(_) => true,
-			_ => false,
-		}
+		matches!(self.as_ref(), Ref::Node(_))
 	}
 
 	#[inline]
@@ -62,10 +56,7 @@ pub trait Any<T: Id>: AsJson {
 
 	#[inline]
 	fn is_list(&self) -> bool {
-		match self.as_ref() {
-			Ref::List(_) => true,
-			_ => false,
-		}
+		matches!(self.as_ref(), Ref::List(_))
 	}
 }
 
@@ -119,18 +110,12 @@ impl<T: Id> Object<T> {
 
 	/// Tests if the object is a value.
 	pub fn is_value(&self) -> bool {
-		match self {
-			Object::Value(_) => true,
-			_ => false,
-		}
+		matches!(self, Object::Value(_))
 	}
 
 	/// Tests if the object is a node.
 	pub fn is_node(&self) -> bool {
-		match self {
-			Object::Node(_) => true,
-			_ => false,
-		}
+		matches!(self, Object::Node(_))
 	}
 
 	/// Tests if the object is a graph object (a node with a `@graph` field).
@@ -143,10 +128,7 @@ impl<T: Id> Object<T> {
 
 	/// Tests if the object is a list.
 	pub fn is_list(&self) -> bool {
-		match self {
-			Object::List(_) => true,
-			_ => false,
-		}
+		matches!(self, Object::List(_))
 	}
 
 	/// Get the object as a string.

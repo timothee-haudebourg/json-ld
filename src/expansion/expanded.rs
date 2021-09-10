@@ -16,11 +16,12 @@ impl<T: Id> Expanded<T> {
 		}
 	}
 
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+
 	pub fn is_null(&self) -> bool {
-		match self {
-			Expanded::Null => true,
-			_ => false,
-		}
+		matches!(self, Expanded::Null)
 	}
 
 	pub fn is_list(&self) -> bool {

@@ -171,9 +171,7 @@ impl<T: Id> util::AsJson for Value<T> {
 				match lit {
 					Literal::Null => obj.insert(Keyword::Value.into(), JsonValue::Null),
 					Literal::Boolean(b) => obj.insert(Keyword::Value.into(), b.as_json()),
-					Literal::Number(n) => {
-						obj.insert(Keyword::Value.into(), JsonValue::Number(n.clone()))
-					}
+					Literal::Number(n) => obj.insert(Keyword::Value.into(), JsonValue::Number(*n)),
 					Literal::String(s) => obj.insert(Keyword::Value.into(), s.as_json()),
 				}
 

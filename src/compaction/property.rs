@@ -123,7 +123,7 @@ where
 		// Initialize `map_object` to the value of `item_active_property`
 		// in `nest_result`, initializing it to a new empty map,
 		// if necessary.
-		if !nest_result.get(item_active_property).is_some() {
+		if nest_result.get(item_active_property).is_none() {
 			nest_result.insert(item_active_property, JsonValue::new_object())
 		}
 
@@ -158,7 +158,7 @@ where
 		// Initialize `map_object` to the value of `item_active_property`
 		// in `nest_result`, initializing it to a new empty map,
 		// if necessary.
-		if !nest_result.get(item_active_property).is_some() {
+		if nest_result.get(item_active_property).is_none() {
 			nest_result.insert(item_active_property, JsonValue::new_object())
 		}
 
@@ -169,10 +169,7 @@ where
 
 		// Initialize `map_key` the value of @index in `expanded_item`
 		// or @none, if no such value exists.
-		let map_key = match expanded_index {
-			Some(index) => index,
-			None => "@none",
-		};
+		let map_key = expanded_index.unwrap_or("@none");
 
 		// Use `add_value` to add `compacted_item` to
 		// the `map_key` entry in `map_object` using `as_array`.
@@ -286,10 +283,7 @@ fn select_nest_result<'a, T: Id, C: ContextMut<T>>(
 					if nest_term != "@nest" {
 						match active_context.get(nest_term.as_ref()) {
 							Some(term_def)
-								if term_def.value == Some(Term::Keyword(Keyword::Nest)) =>
-							{
-								()
-							}
+								if term_def.value == Some(Term::Keyword(Keyword::Nest)) => {}
 							_ => return Err(ErrorCode::InvalidNestValue.into()),
 						}
 					}
@@ -359,7 +353,6 @@ where
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
 {
-	let lenient_expanded_property: Term<T> = expanded_property.into();
 	let mut is_empty = true;
 
 	// For each item `expanded_item` in `expanded value`
@@ -369,7 +362,7 @@ where
 		// using `expanded_item` for value and `inside_reverse` for `reverse`.
 		let item_active_property = compact_iri_with(
 			active_context.clone(),
-			&lenient_expanded_property,
+			&expanded_property,
 			expanded_item,
 			true,
 			inside_reverse,
@@ -444,7 +437,7 @@ where
 						// Initialize `map_object` to the value of
 						// `item_active_property` in `nest_result`,
 						// initializing it to a new empty map, if necessary.
-						if !nest_result.get(item_active_property).is_some() {
+						if nest_result.get(item_active_property).is_none() {
 							nest_result.insert(item_active_property, JsonValue::new_object())
 						}
 
@@ -493,19 +486,13 @@ where
 								compacted_item = value_value(value)
 							}
 
-							match expanded_item.language() {
-								Some(lang) => Some(lang.to_string()),
-								None => None,
-							}
+							expanded_item.language().map(|lang| lang.to_string())
 						} else if container_type == ContainerType::Index {
 							if index_key == "@index" {
 								// Otherwise, if `container` includes @index and
 								// `index_key` is @index, set `map_key` to the value of
 								// @index in `expanded_item`, if any.
-								match expanded_item.index() {
-									Some(index) => Some(index.to_string()),
-									None => None,
-								}
+								expanded_item.index().map(|index| index.to_string())
 							} else {
 								// Otherwise, if `container` includes @index and
 								// `index_key` is not @index:
@@ -564,18 +551,15 @@ where
 								// in `compacted_item`.
 								// Otherwise, remove that entry from compacted item.
 								if !remaining_values.is_empty() {
-									match &mut compacted_item {
-										JsonValue::Object(map) => {
-											for value in remaining_values {
-												add_value(
-													map,
-													container_key.as_str().unwrap(),
-													value,
-													false,
-												)
-											}
+									if let JsonValue::Object(map) = &mut compacted_item {
+										for value in remaining_values {
+											add_value(
+												map,
+												container_key.as_str().unwrap(),
+												value,
+												false,
+											)
 										}
-										_ => (),
 									}
 								}
 
@@ -638,18 +622,15 @@ where
 							// `compacted_item`.
 							// Otherwise, remove that entry from compacted item.
 							if !remaining_values.is_empty() {
-								match &mut compacted_item {
-									JsonValue::Object(map) => {
-										for value in remaining_values {
-											add_value(
-												map,
-												container_key.as_str().unwrap(),
-												value,
-												false,
-											)
-										}
+								if let JsonValue::Object(map) = &mut compacted_item {
+									for value in remaining_values {
+										add_value(
+											map,
+											container_key.as_str().unwrap(),
+											value,
+											false,
+										)
 									}
-									_ => (),
 								}
 							}
 
@@ -660,22 +641,20 @@ where
 							// `active_property`, and a map composed of the single
 							// entry for @id from `expanded_item` for `element`.
 							if let JsonValue::Object(map) = &compacted_item {
-								if map.len() == 1 {
-									if let Some(_) = map.get("@id") {
-										let obj = Object::Node(Node::with_id(
-											expanded_item.id().unwrap().clone(),
-										));
-										compacted_item = obj
-											.compact_indexed_with(
-												None,
-												active_context.clone(),
-												active_context.clone(),
-												Some(item_active_property),
-												loader,
-												options,
-											)
-											.await?
-									}
+								if map.len() == 1 && map.get("@id").is_some() {
+									let obj = Object::Node(Node::with_id(
+										expanded_item.id().unwrap().clone(),
+									));
+									compacted_item = obj
+										.compact_indexed_with(
+											None,
+											active_context.clone(),
+											active_context.clone(),
+											Some(item_active_property),
+											loader,
+											options,
+										)
+										.await?
 								}
 							}
 
@@ -718,7 +697,7 @@ where
 		// `inside_reverse` for `reverse`.
 		let item_active_property = compact_iri_with(
 			active_context.clone(),
-			&lenient_expanded_property,
+			&expanded_property,
 			&Indexed::new(Object::Node(Node::new()), None),
 			true,
 			inside_reverse,

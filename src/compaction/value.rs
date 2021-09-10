@@ -106,11 +106,11 @@ where
 	match value {
 		Value::Literal(lit, ty) => {
 			use crate::object::value::Literal;
-			if ty.as_ref().map(|t| Type::Ref(t)) == type_mapping && remove_index {
+			if ty.as_ref().map(Type::Ref) == type_mapping && remove_index {
 				match lit {
 					Literal::Null => return Ok(JsonValue::Null),
 					Literal::Boolean(b) => return Ok(b.as_json()),
-					Literal::Number(n) => return Ok(JsonValue::Number(n.clone())),
+					Literal::Number(n) => return Ok(JsonValue::Number(*n)),
 					Literal::String(s) => {
 						if ty.is_some() || (language.is_none() && direction.is_none()) {
 							return Ok(s.as_json());
@@ -140,7 +140,7 @@ where
 						result.insert(compact_key.as_str().unwrap(), b.as_json())
 					}
 					Literal::Number(n) => {
-						result.insert(compact_key.as_str().unwrap(), JsonValue::Number(n.clone()))
+						result.insert(compact_key.as_str().unwrap(), JsonValue::Number(*n))
 					}
 					Literal::String(s) => result.insert(compact_key.as_str().unwrap(), s.as_json()),
 				}

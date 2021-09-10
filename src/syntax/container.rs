@@ -103,6 +103,12 @@ pub enum Container {
 	GraphIndexSet,
 }
 
+impl Default for Container {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl Container {
 	pub fn new() -> Container {
 		Container::None
@@ -157,10 +163,7 @@ impl Container {
 	}
 
 	pub fn is_empty(&self) -> bool {
-		match self {
-			Container::None => true,
-			_ => false,
-		}
+		matches!(self, Container::None)
 	}
 
 	pub fn contains(&self, c: ContainerType) -> bool {

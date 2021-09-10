@@ -61,5 +61,5 @@ where
 	}
 
 	// Return result.
-	return Ok(Expanded::Array(result));
+	Ok(Expanded::Array(result))
 }

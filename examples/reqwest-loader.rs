@@ -35,9 +35,6 @@ type Id = Lexicon<Vocab>;
 async fn main() {
 	let mut loader = Loader::new();
 
-	// Create the initial context.
-	let context: JsonContext<Id> = JsonContext::new(None);
-
 	// The JSON-LD document to expand.
 	let doc = loader
 		.load(iri!(
@@ -47,7 +44,7 @@ async fn main() {
 		.unwrap();
 
 	// Expansion.
-	let expanded_doc = doc.expand(&context, &mut loader).await.unwrap();
+	let expanded_doc = doc.expand::<JsonContext<Id>, _>(&mut loader).await.unwrap();
 
 	// Iterate through the expanded objects.
 	for object in expanded_doc {

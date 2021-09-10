@@ -19,10 +19,7 @@ pub enum Term<T: AsIri> {
 
 impl<T: AsIri> Term<T> {
 	pub fn is_null(&self) -> bool {
-		match self {
-			Term::Null => true,
-			_ => false,
-		}
+		matches!(self, Term::Null)
 	}
 
 	pub fn into_id(self) -> Result<T, Self> {
@@ -41,10 +38,7 @@ impl<T: AsIri> Term<T> {
 	}
 
 	pub fn is_keyword(&self) -> bool {
-		match self {
-			Term::Keyword(_) => true,
-			_ => false,
-		}
+		matches!(self, Term::Keyword(_))
 	}
 
 	pub fn as_iri(&self) -> Option<Iri> {

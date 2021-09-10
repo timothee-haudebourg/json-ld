@@ -205,7 +205,7 @@ pub fn is_keyword(str: &str) -> bool {
 
 fn is_alpha(c: char) -> bool {
 	let c = c as u32;
-	(c >= 0x41 && c <= 0x5a) || (c >= 0x61 && c <= 0x7a)
+	(0x41..=0x5a).contains(&c) || (0x61..=0x7a).contains(&c)
 }
 
 pub fn is_keyword_like(s: &str) -> bool {

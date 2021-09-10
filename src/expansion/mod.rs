@@ -41,9 +41,10 @@ pub struct Options {
 
 impl From<Options> for ProcessingOptions {
 	fn from(options: Options) -> ProcessingOptions {
-		let mut copt = ProcessingOptions::default();
-		copt.processing_mode = options.processing_mode;
-		copt
+		ProcessingOptions {
+			processing_mode: options.processing_mode,
+			..Default::default()
+		}
 	}
 }
 
@@ -74,10 +75,7 @@ impl<'a, T: Ord> Ord for Entry<'a, T> {
 
 fn filter_top_level_item<T: Id>(item: &Indexed<Object<T>>) -> bool {
 	// Remove dangling values.
-	match item.inner() {
-		Object::Value(_) => false,
-		_ => true,
-	}
+	!matches!(item.inner(), Object::Value(_))
 }
 
 pub fn expand<'a, T: Send + Sync + Id, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(
@@ -91,7 +89,7 @@ where
 	C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>,
 	L::Output: Into<JsonValue>,
 {
-	let base_url = base_url.map(|url| IriBuf::from(url));
+	let base_url = base_url.map(IriBuf::from);
 
 	async move {
 		let base_url = base_url.as_ref().map(|url| url.as_iri());

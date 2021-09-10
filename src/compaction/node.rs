@@ -218,7 +218,7 @@ where
 			let value = value.take();
 			// If the term definition for property in the active context indicates that
 			// property is a reverse property
-			if let Some(term_definition) = active_context.get(&property) {
+			if let Some(term_definition) = active_context.get(property) {
 				if term_definition.reverse_property {
 					// Initialize as array to true if the container mapping for property in
 					// the active context includes @set, otherwise the negation of compactArrays.
@@ -226,12 +226,12 @@ where
 						|| !options.compact_arrays;
 
 					// Use add value to add value to the property entry in result using as array.
-					add_value(&mut result, &property, value, as_array);
+					add_value(&mut result, property, value, as_array);
 					continue;
 				}
 			}
 
-			reverse_map.insert(&property, value);
+			reverse_map.insert(property, value);
 		}
 
 		if !reverse_map.is_empty() {

@@ -1,3 +1,5 @@
+#![allow(clippy::derive_hash_xor_eq)]
+
 extern crate iref;
 extern crate json;
 extern crate log;

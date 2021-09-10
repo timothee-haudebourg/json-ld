@@ -348,17 +348,11 @@ impl<T: Id> Context<T> for JsonContext<T> {
 	}
 
 	fn original_base_url(&self) -> Option<Iri> {
-		match &self.original_base_url {
-			Some(iri) => Some(iri.as_iri()),
-			None => None,
-		}
+		self.original_base_url.as_ref().map(|iri| iri.as_iri())
 	}
 
 	fn base_iri(&self) -> Option<Iri> {
-		match &self.base_iri {
-			Some(iri) => Some(iri.as_iri()),
-			None => None,
-		}
+		self.base_iri.as_ref().map(|iri| iri.as_iri())
 	}
 
 	fn vocabulary(&self) -> Option<&Term<T>> {
@@ -369,10 +363,7 @@ impl<T: Id> Context<T> for JsonContext<T> {
 	}
 
 	fn default_language(&self) -> Option<LanguageTag> {
-		match &self.default_language {
-			Some(tag) => Some(tag.as_ref()),
-			None => None,
-		}
+		self.default_language.as_ref().map(|tag| tag.as_ref())
 	}
 
 	fn default_base_direction(&self) -> Option<Direction> {

@@ -28,8 +28,8 @@ impl LangString {
 		if language.is_some() || direction.is_some() {
 			Ok(LangString {
 				data: str,
-				language: language,
-				direction: direction,
+				language,
+				direction,
 			})
 		} else {
 			Err(str)
@@ -43,10 +43,7 @@ impl LangString {
 
 	/// Gets the associated language tag, if any.
 	pub fn language(&self) -> Option<LanguageTag> {
-		match &self.language {
-			Some(tag) => Some(tag.as_ref()),
-			None => None,
-		}
+		self.language.as_ref().map(|tag| tag.as_ref())
 	}
 
 	/// Sets the associated language tag.

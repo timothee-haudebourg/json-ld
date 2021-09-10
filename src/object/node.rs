@@ -62,6 +62,12 @@ impl<'a, T: Id> Iterator for Objects<'a, T> {
 	}
 }
 
+impl<T: Id> Default for Node<T> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl<T: Id> Node<T> {
 	/// Create a new empty node.
 	pub fn new() -> Node<T> {
@@ -252,8 +258,7 @@ impl<T: Id> Node<T> {
 		if let Some(node_values) = self.properties.get_mut(&prop) {
 			node_values.push(value);
 		} else {
-			let mut node_values = Vec::new();
-			node_values.push(value);
+			let node_values = vec![value];
 			self.properties.insert(prop, node_values);
 		}
 	}
@@ -275,8 +280,7 @@ impl<T: Id> Node<T> {
 		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
 			node_values.push(reverse_value);
 		} else {
-			let mut node_values = Vec::new();
-			node_values.push(reverse_value);
+			let node_values = vec![reverse_value];
 			self.reverse_properties.insert(reverse_prop, node_values);
 		}
 	}

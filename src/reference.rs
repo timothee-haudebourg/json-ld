@@ -30,10 +30,7 @@ impl<T: AsIri> Reference<T> {
 	/// Returns `true` is this reference is a node identifier or a blank node identifier,
 	/// `false` otherwise.
 	pub fn is_valid(&self) -> bool {
-		match self {
-			Self::Invalid(_) => false,
-			_ => true,
-		}
+		!matches!(self, Self::Invalid(_))
 	}
 
 	/// Get a string representation of the reference.

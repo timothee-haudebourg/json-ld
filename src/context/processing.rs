@@ -135,6 +135,12 @@ impl ProcessingStack {
 	}
 }
 
+impl Default for ProcessingStack {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 // This function tries to follow the recommended context proessing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
@@ -157,16 +163,10 @@ where
 	C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>,
 	L::Output: Into<JsonValue>,
 {
-	let base_url = match base_url {
-		Some(base_url) => Some(IriBuf::from(base_url)),
-		None => None,
-	};
+	let base_url = base_url.map(IriBuf::from);
 
 	async move {
-		let base_url = match base_url.as_ref() {
-			Some(base_url) => Some(base_url.as_iri()),
-			None => None,
-		};
+		let base_url = base_url.as_ref().map(|base_url| base_url.as_iri());
 
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = active_context.clone();
@@ -232,7 +232,7 @@ where
 					// a loading document failed error has been detected and processing is aborted.
 					let context = if let Ok(iri_ref) = IriRef::new(context.as_str().unwrap()) {
 						resolve_iri(iri_ref, base_url)
-							.ok_or(Error::from(ErrorCode::LoadingRemoteContextFailed))?
+							.ok_or_else(|| Error::from(ErrorCode::LoadingRemoteContextFailed))?
 					} else {
 						return Err(ErrorCode::LoadingDocumentFailed.into());
 					};
@@ -319,7 +319,7 @@ where
 							// @import.
 							let import = if let Ok(iri_ref) = IriRef::new(import_value) {
 								resolve_iri(iri_ref, base_url)
-									.ok_or(Error::from(ErrorCode::InvalidImportValue))?
+									.ok_or_else(|| Error::from(ErrorCode::InvalidImportValue))?
 							} else {
 								return Err(ErrorCode::InvalidImportValue.into());
 							};
@@ -339,7 +339,7 @@ where
 							if let JsonValue::Object(import_context) = import_context {
 								// If `import_context` has a @import entry, an invalid context entry
 								// error has been detected and processing is aborted.
-								if let Some(_) = import_context.get(Keyword::Import.into()) {
+								if import_context.get(Keyword::Import.into()).is_some() {
 									return Err(ErrorCode::InvalidContextEntry.into());
 								}
 
@@ -382,9 +382,10 @@ where
 											Ok(value) => result.set_base_iri(Some(value)),
 											Err(value) => {
 												let resolved =
-													resolve_iri(value, result.base_iri()).ok_or(
-														Error::from(ErrorCode::InvalidBaseIri),
-													)?;
+													resolve_iri(value, result.base_iri())
+														.ok_or_else(|| {
+															Error::from(ErrorCode::InvalidBaseIri)
+														})?;
 												result.set_base_iri(Some(resolved.as_iri()))
 											}
 										}
@@ -523,7 +524,7 @@ enum JsonObjectRef<'a> {
 impl<'a> JsonObjectRef<'a> {
 	fn as_ref(&self) -> &JsonObject {
 		match self {
-			JsonObjectRef::Owned(obj) => &obj,
+			JsonObjectRef::Owned(obj) => obj,
 			JsonObjectRef::Borrowed(obj) => obj,
 		}
 	}
@@ -538,10 +539,7 @@ impl<'a> Deref for JsonObjectRef<'a> {
 }
 
 fn is_gen_delim(c: char) -> bool {
-	match c {
-		':' | '/' | '?' | '#' | '[' | ']' | '@' => true,
-		_ => false,
-	}
+	matches!(c, ':' | '/' | '?' | '#' | '[' | ']' | '@')
 }
 
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
@@ -698,8 +696,10 @@ where
 
 					// Create a new term definition, `definition`, initializing `prefix` flag to
 					// `false`, `protected` to `protected`, and `reverse_property` to `false`.
-					let mut definition = TermDefinition::<T, C>::default();
-					definition.protected = protected;
+					let mut definition = TermDefinition::<T, C> {
+						protected,
+						..Default::default()
+					};
 
 					// If the @protected entry in value is true set the protected flag in
 					// definition to true.
@@ -837,7 +837,7 @@ where
 							// Set the term definition of `term` in `active_context` to
 							// `definition` and the value associated with `defined`'s entry `term`
 							// to `true` and return.
-							active_context.set(term, Some(definition.into()));
+							active_context.set(term, Some(definition));
 							defined.insert(term.to_string(), true);
 							return Ok(());
 						} else {
@@ -849,69 +849,28 @@ where
 					}
 
 					// If `value` contains the entry `@id` and its value does not equal `term`:
-					let id_value = value.get("@id");
-					if id_value.is_some() && id_value.unwrap().as_str() != Some(term) {
-						let id_value = id_value.unwrap();
-						// If the `@id` entry of value is `null`, the term is not used for IRI
-						// expansion, but is retained to be able to detect future redefinitions
-						// of this term.
-						if !id_value.is_null() {
-							// Otherwise:
-							if let Some(id_value) = id_value.as_str() {
-								// If the value associated with the `@id` entry is not a
-								// keyword, but has the form of a keyword, return;
-								// processors SHOULD generate a warning.
-								if is_keyword_like(id_value) && !is_keyword(id_value) {
-									// TODO warning
-									return Ok(());
-								}
-
-								// Otherwise, set the IRI mapping of `definition` to the result
-								// of IRI expanding the value associated with the `@id` entry,
-								// using `local_context`, and `defined`.
-								definition.value = match expand_iri(
-									active_context,
-									id_value,
-									false,
-									true,
-									local_context,
-									defined,
-									remote_contexts.clone(),
-									loader,
-									options,
-								)
-								.await?
-								{
-									Term::Keyword(Keyword::Context) => {
-										// if it equals `@context`, an invalid keyword alias error has
-										// been detected and processing is aborted.
-										return Err(ErrorCode::InvalidKeywordAlias.into());
+					match value.get("@id") {
+						Some(id_value) if id_value.as_str() != Some(term) => {
+							// If the `@id` entry of value is `null`, the term is not used for IRI
+							// expansion, but is retained to be able to detect future redefinitions
+							// of this term.
+							if !id_value.is_null() {
+								// Otherwise:
+								if let Some(id_value) = id_value.as_str() {
+									// If the value associated with the `@id` entry is not a
+									// keyword, but has the form of a keyword, return;
+									// processors SHOULD generate a warning.
+									if is_keyword_like(id_value) && !is_keyword(id_value) {
+										// TODO warning
+										return Ok(());
 									}
-									Term::Ref(prop) if !prop.is_valid() => {
-										// If the resulting IRI mapping is neither a keyword,
-										// nor an IRI, nor a blank node identifier, an
-										// invalid IRI mapping error has been detected and processing
-										// is aborted;
-										return Err(ErrorCode::InvalidIriMapping.into());
-									}
-									value => Some(value),
-								};
 
-								// If `term` contains a colon (:) anywhere but as the first or
-								// last character of `term`, or if it contains a slash (/)
-								// anywhere:
-								if contains_between_boundaries(term, ':') || term.contains('/') {
-									// Set the value associated with `defined`'s `term` entry
-									// to `true`.
-									defined.insert(term.to_string(), true);
-
-									// If the result of IRI expanding `term` using
-									// `local_context`, and `defined`, is not the same as the
-									// IRI mapping of definition, an invalid IRI mapping error
-									// has been detected and processing is aborted.
-									let expanded_term = expand_iri(
+									// Otherwise, set the IRI mapping of `definition` to the result
+									// of IRI expanding the value associated with the `@id` entry,
+									// using `local_context`, and `defined`.
+									definition.value = match expand_iri(
 										active_context,
-										term,
+										id_value,
 										false,
 										true,
 										local_context,
@@ -920,122 +879,167 @@ where
 										loader,
 										options,
 									)
-									.await?;
-									if definition.value != Some(expanded_term) {
-										return Err(ErrorCode::InvalidIriMapping.into());
+									.await?
+									{
+										Term::Keyword(Keyword::Context) => {
+											// if it equals `@context`, an invalid keyword alias error has
+											// been detected and processing is aborted.
+											return Err(ErrorCode::InvalidKeywordAlias.into());
+										}
+										Term::Ref(prop) if !prop.is_valid() => {
+											// If the resulting IRI mapping is neither a keyword,
+											// nor an IRI, nor a blank node identifier, an
+											// invalid IRI mapping error has been detected and processing
+											// is aborted;
+											return Err(ErrorCode::InvalidIriMapping.into());
+										}
+										value => Some(value),
+									};
+
+									// If `term` contains a colon (:) anywhere but as the first or
+									// last character of `term`, or if it contains a slash (/)
+									// anywhere:
+									if contains_between_boundaries(term, ':') || term.contains('/')
+									{
+										// Set the value associated with `defined`'s `term` entry
+										// to `true`.
+										defined.insert(term.to_string(), true);
+
+										// If the result of IRI expanding `term` using
+										// `local_context`, and `defined`, is not the same as the
+										// IRI mapping of definition, an invalid IRI mapping error
+										// has been detected and processing is aborted.
+										let expanded_term = expand_iri(
+											active_context,
+											term,
+											false,
+											true,
+											local_context,
+											defined,
+											remote_contexts.clone(),
+											loader,
+											options,
+										)
+										.await?;
+										if definition.value != Some(expanded_term) {
+											return Err(ErrorCode::InvalidIriMapping.into());
+										}
 									}
-								}
 
-								// If `term` contains neither a colon (:) nor a slash (/),
-								// simple term is true, and if the IRI mapping of definition
-								// is either an IRI ending with a gen-delim character,
-								// or a blank node identifier, set the `prefix` flag in
-								// `definition` to true.
-								if !term.contains(':')
-									&& !term.contains('/') && simple_term
-									&& is_gen_delim_or_blank(definition.value.as_ref().unwrap())
-								{
-									definition.prefix = true;
-								}
-							} else {
-								// If the value associated with the `@id` entry is not a
-								// string, an invalid IRI mapping error has been detected and
-								// processing is aborted.
-								return Err(ErrorCode::InvalidIriMapping.into());
-							}
-						}
-					} else if contains_after_first(term, ':') {
-						// Otherwise if the `term` contains a colon (:) anywhere after the first
-						// character:
-						let i = term.find(':').unwrap();
-						let (prefix, suffix) = term.split_at(i);
-						let suffix = &suffix[1..suffix.len()];
-
-						// If `term` is a compact IRI with a prefix that is an entry in local
-						// context a dependency has been found.
-						// Use this algorithm recursively passing `active_context`,
-						// `local_context`, the prefix as term, and `defined`.
-						define(
-							active_context,
-							local_context,
-							prefix,
-							defined,
-							remote_contexts.clone(),
-							loader,
-							None,
-							false,
-							options.with_no_override(),
-						)
-						.await?;
-
-						// If `term`'s prefix has a term definition in `active_context`, set the
-						// IRI mapping of `definition` to the result of concatenating the value
-						// associated with the prefix's IRI mapping and the term's suffix.
-						if let Some(prefix_definition) = active_context.get(prefix) {
-							let mut result = String::new();
-
-							if let Some(prefix_key) = &prefix_definition.value {
-								if let Some(prefix_iri) = prefix_key.as_iri() {
-									result = prefix_iri.as_str().to_string()
-								}
-							}
-
-							result.push_str(suffix);
-
-							if let Ok(iri) = Iri::new(result.as_str()) {
-								definition.value = Some(Term::<T>::from(T::from_iri(iri)))
-							} else {
-								return Err(ErrorCode::InvalidIriMapping.into());
-							}
-						} else {
-							// Otherwise, `term` is an IRI or blank node identifier.
-							// Set the IRI mapping of `definition` to `term`.
-							if prefix == "_" {
-								// blank node
-								definition.value = Some(BlankId::new(suffix).into())
-							} else {
-								if let Ok(iri) = Iri::new(term) {
-									definition.value = Some(Term::<T>::from(T::from_iri(iri)))
+									// If `term` contains neither a colon (:) nor a slash (/),
+									// simple term is true, and if the IRI mapping of definition
+									// is either an IRI ending with a gen-delim character,
+									// or a blank node identifier, set the `prefix` flag in
+									// `definition` to true.
+									if !term.contains(':')
+										&& !term.contains('/') && simple_term
+										&& is_gen_delim_or_blank(definition.value.as_ref().unwrap())
+									{
+										definition.prefix = true;
+									}
 								} else {
+									// If the value associated with the `@id` entry is not a
+									// string, an invalid IRI mapping error has been detected and
+									// processing is aborted.
 									return Err(ErrorCode::InvalidIriMapping.into());
 								}
 							}
 						}
-					} else if term.contains('/') {
-						// Term is a relative IRI reference.
-						// Set the IRI mapping of definition to the result of IRI expanding
-						// term.
-						match expansion::expand_iri(active_context, term, false, true) {
-							Term::Ref(Reference::Id(id)) => definition.value = Some(id.into()),
-							// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
-							// error has been detected and processing is aborted.
-							_ => return Err(ErrorCode::InvalidIriMapping.into()),
-						}
-					} else if term == "@type" {
-						// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
-						// `@type`.
-						definition.value = Some(Term::Keyword(Keyword::Type))
-					} else if let Some(vocabulary) = active_context.vocabulary() {
-						// Otherwise, if `active_context` has a vocabulary mapping, the IRI mapping
-						// of `definition` is set to the result of concatenating the value
-						// associated with the vocabulary mapping and `term`.
-						// If it does not have a vocabulary mapping, an invalid IRI mapping error
-						// been detected and processing is aborted.
-						if let Some(vocabulary_iri) = vocabulary.as_iri() {
-							let mut result = vocabulary_iri.as_str().to_string();
-							result.push_str(term);
-							if let Ok(iri) = Iri::new(result.as_str()) {
-								definition.value = Some(Term::<T>::from(T::from_iri(iri)))
+						_ => {
+							if contains_after_first(term, ':') {
+								// Otherwise if the `term` contains a colon (:) anywhere after the first
+								// character:
+								let i = term.find(':').unwrap();
+								let (prefix, suffix) = term.split_at(i);
+								let suffix = &suffix[1..suffix.len()];
+
+								// If `term` is a compact IRI with a prefix that is an entry in local
+								// context a dependency has been found.
+								// Use this algorithm recursively passing `active_context`,
+								// `local_context`, the prefix as term, and `defined`.
+								define(
+									active_context,
+									local_context,
+									prefix,
+									defined,
+									remote_contexts.clone(),
+									loader,
+									None,
+									false,
+									options.with_no_override(),
+								)
+								.await?;
+
+								// If `term`'s prefix has a term definition in `active_context`, set the
+								// IRI mapping of `definition` to the result of concatenating the value
+								// associated with the prefix's IRI mapping and the term's suffix.
+								if let Some(prefix_definition) = active_context.get(prefix) {
+									let mut result = String::new();
+
+									if let Some(prefix_key) = &prefix_definition.value {
+										if let Some(prefix_iri) = prefix_key.as_iri() {
+											result = prefix_iri.as_str().to_string()
+										}
+									}
+
+									result.push_str(suffix);
+
+									if let Ok(iri) = Iri::new(result.as_str()) {
+										definition.value = Some(Term::<T>::from(T::from_iri(iri)))
+									} else {
+										return Err(ErrorCode::InvalidIriMapping.into());
+									}
+								} else {
+									// Otherwise, `term` is an IRI or blank node identifier.
+									// Set the IRI mapping of `definition` to `term`.
+									if prefix == "_" {
+										// blank node
+										definition.value = Some(BlankId::new(suffix).into())
+									} else if let Ok(iri) = Iri::new(term) {
+										definition.value = Some(Term::<T>::from(T::from_iri(iri)))
+									} else {
+										return Err(ErrorCode::InvalidIriMapping.into());
+									}
+								}
+							} else if term.contains('/') {
+								// Term is a relative IRI reference.
+								// Set the IRI mapping of definition to the result of IRI expanding
+								// term.
+								match expansion::expand_iri(active_context, term, false, true) {
+									Term::Ref(Reference::Id(id)) => {
+										definition.value = Some(id.into())
+									}
+									// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
+									// error has been detected and processing is aborted.
+									_ => return Err(ErrorCode::InvalidIriMapping.into()),
+								}
+							} else if term == "@type" {
+								// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
+								// `@type`.
+								definition.value = Some(Term::Keyword(Keyword::Type))
+							} else if let Some(vocabulary) = active_context.vocabulary() {
+								// Otherwise, if `active_context` has a vocabulary mapping, the IRI mapping
+								// of `definition` is set to the result of concatenating the value
+								// associated with the vocabulary mapping and `term`.
+								// If it does not have a vocabulary mapping, an invalid IRI mapping error
+								// been detected and processing is aborted.
+								if let Some(vocabulary_iri) = vocabulary.as_iri() {
+									let mut result = vocabulary_iri.as_str().to_string();
+									result.push_str(term);
+									if let Ok(iri) = Iri::new(result.as_str()) {
+										definition.value = Some(Term::<T>::from(T::from_iri(iri)))
+									} else {
+										return Err(ErrorCode::InvalidIriMapping.into());
+									}
+								} else {
+									return Err(ErrorCode::InvalidIriMapping.into());
+								}
 							} else {
+								// If it does not have a vocabulary mapping, an invalid IRI mapping error
+								// been detected and processing is aborted.
 								return Err(ErrorCode::InvalidIriMapping.into());
 							}
-						} else {
-							return Err(ErrorCode::InvalidIriMapping.into());
 						}
-					} else {
-						// If it does not have a vocabulary mapping, an invalid IRI mapping error
-						// been detected and processing is aborted.
-						return Err(ErrorCode::InvalidIriMapping.into());
 					}
 
 					// If value contains the entry @container:
@@ -1139,7 +1143,7 @@ where
 						// Invoke the Context Processing algorithm using the `active_context`,
 						// `context` as local context, `base_url`, and `true` for override
 						// protected.
-						if let Err(_) = process_context(
+						if process_context(
 							active_context,
 							context,
 							remote_contexts.clone(),
@@ -1148,6 +1152,7 @@ where
 							options.with_override(),
 						)
 						.await
+						.is_err()
 						{
 							// If any error is detected, an invalid scoped context error has been
 							// detected and processing is aborted.
@@ -1293,7 +1298,7 @@ where
 
 					// Set the term definition of `term` in `active_context` to `definition` and
 					// set the value associated with `defined`'s entry term to true.
-					active_context.set(term, Some(definition.into()));
+					active_context.set(term, Some(definition));
 					defined.insert(term.to_string(), true);
 				}
 
@@ -1361,7 +1366,7 @@ where
 				// is a keyword, return that keyword.
 				if let Some(value) = &term_definition.value {
 					if value.is_keyword() {
-						return Ok(Term::from(value.clone()));
+						return Ok(value.clone());
 					}
 				}
 
@@ -1369,7 +1374,7 @@ where
 				// associated IRI mapping.
 				if vocab {
 					if let Some(value) = &term_definition.value {
-						return Ok(Term::from(value.clone()));
+						return Ok(value.clone());
 					} else {
 						return Ok(Reference::Invalid(value.to_string()).into());
 					}
@@ -1427,12 +1432,10 @@ where
 
 								if let Ok(result) = Iri::new(&result) {
 									return Ok(Term::from(T::from_iri(result)));
+								} else if let Ok(blank) = BlankId::try_from(result.as_ref()) {
+									return Ok(Term::from(blank));
 								} else {
-									if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-										return Ok(Term::from(blank));
-									} else {
-										return Ok(Reference::Invalid(result).into());
-									}
+									return Ok(Reference::Invalid(result).into());
 								}
 							}
 						}
@@ -1448,23 +1451,21 @@ where
 			// If vocab is true, and active context has a vocabulary mapping, return the result of
 			// concatenating the vocabulary mapping with value.
 			if vocab {
-				if let Some(vocabulary) = active_context.vocabulary() {
-					if let Term::Ref(mapping) = vocabulary {
+				match active_context.vocabulary() {
+					Some(Term::Ref(mapping)) => {
 						let mut result = mapping.as_str().to_string();
 						result.push_str(value.as_ref());
 
 						if let Ok(result) = Iri::new(&result) {
 							return Ok(Term::from(T::from_iri(result)));
+						} else if let Ok(blank) = BlankId::try_from(result.as_ref()) {
+							return Ok(Term::from(blank));
 						} else {
-							if let Ok(blank) = BlankId::try_from(result.as_ref()) {
-								return Ok(Term::from(blank));
-							} else {
-								return Ok(Reference::Invalid(result).into());
-							}
+							return Ok(Reference::Invalid(result).into());
 						}
-					} else {
-						return Ok(Reference::Invalid(value.to_string()).into());
 					}
+					Some(_) => return Ok(Reference::Invalid(value.to_string()).into()),
+					None => (),
 				}
 			}
 

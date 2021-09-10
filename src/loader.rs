@@ -92,6 +92,12 @@ impl FsLoader {
 	}
 }
 
+impl Default for FsLoader {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl Loader for FsLoader {
 	type Document = JsonValue;
 
@@ -106,32 +112,29 @@ impl Loader for FsLoader {
 				None => {
 					for (path, target_url) in &self.mount_points {
 						let url_ref = url.as_iri_ref();
-						match url_ref.suffix(target_url.as_iri_ref()) {
-							Some((suffix, _, _)) => {
-								let mut filepath = path.clone();
-								for seg in suffix.as_path().segments() {
-									filepath.push(seg.as_str())
-								}
+						if let Some((suffix, _, _)) = url_ref.suffix(target_url.as_iri_ref()) {
+							let mut filepath = path.clone();
+							for seg in suffix.as_path().segments() {
+								filepath.push(seg.as_str())
+							}
 
-								if let Ok(file) = File::open(filepath) {
-									let mut buf_reader = BufReader::new(file);
-									let mut contents = String::new();
-									if buf_reader.read_to_string(&mut contents).is_ok() {
-										if let Ok(doc) = json::parse(contents.as_str()) {
-											let remote_doc = RemoteDocument::new(doc, url.as_iri());
-											self.cache.insert(url.clone(), remote_doc.clone());
-											return Ok(remote_doc);
-										} else {
-											return Err(ErrorCode::LoadingDocumentFailed.into());
-										}
+							if let Ok(file) = File::open(filepath) {
+								let mut buf_reader = BufReader::new(file);
+								let mut contents = String::new();
+								if buf_reader.read_to_string(&mut contents).is_ok() {
+									if let Ok(doc) = json::parse(contents.as_str()) {
+										let remote_doc = RemoteDocument::new(doc, url.as_iri());
+										self.cache.insert(url.clone(), remote_doc.clone());
+										return Ok(remote_doc);
 									} else {
 										return Err(ErrorCode::LoadingDocumentFailed.into());
 									}
 								} else {
 									return Err(ErrorCode::LoadingDocumentFailed.into());
 								}
+							} else {
+								return Err(ErrorCode::LoadingDocumentFailed.into());
 							}
-							None => (),
 						}
 					}
 

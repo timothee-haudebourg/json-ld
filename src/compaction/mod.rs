@@ -33,9 +33,10 @@ pub struct Options {
 
 impl From<Options> for context::ProcessingOptions {
 	fn from(options: Options) -> context::ProcessingOptions {
-		let mut opt = context::ProcessingOptions::default();
-		opt.processing_mode = options.processing_mode;
-		opt
+		context::ProcessingOptions {
+			processing_mode: options.processing_mode,
+			..Default::default()
+		}
 	}
 }
 
@@ -329,7 +330,7 @@ fn value_value<T: Id>(value: &Value<T>) -> JsonValue {
 		Value::Literal(lit, _ty) => match lit {
 			Literal::Null => JsonValue::Null,
 			Literal::Boolean(b) => b.as_json(),
-			Literal::Number(n) => JsonValue::Number(n.clone()),
+			Literal::Number(n) => JsonValue::Number(*n),
 			Literal::String(s) => s.as_json(),
 		},
 		Value::LangString(str) => str.as_str().into(),
@@ -397,7 +398,7 @@ where
 			return Ok(JsonValue::Array(result));
 		}
 
-		return Ok(result.into_iter().next().unwrap());
+		Ok(result.into_iter().next().unwrap())
 	}
 	.boxed()
 }

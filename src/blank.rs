@@ -11,8 +11,8 @@ use std::fmt;
 ///   "@id": "_:node1",
 ///   "name": "Local blank node 1",
 ///   "knows": {
-///   	"name": "Local blank node 2, that needs to refer to local node 1",
-///   	"knows": { "@id": "_:node1" }
+///     "name": "Local blank node 2, that needs to refer to local node 1",
+///     "knows": { "@id": "_:node1" }
 ///   }
 /// }
 /// ```

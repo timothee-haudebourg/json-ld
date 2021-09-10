@@ -83,46 +83,6 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 	assert!(success)
 }
 
-fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {
-	let mut loader = FsLoader::new();
-	loader.mount(iri!("file://crate/tests"), "tests");
-
-	let input = task::block_on(loader.load(input_url)).unwrap();
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
-
-	if let Some(context_url) = options.context {
-		let local_context = task::block_on(loader.load_context(context_url))
-			.unwrap()
-			.into_context();
-		input_context = task::block_on(local_context.process_with(
-			&input_context,
-			&mut loader,
-			Some(base_url),
-			options.into(),
-		))
-		.unwrap()
-		.into_inner();
-	}
-
-	match task::block_on(input.expand_with(
-		Some(base_url),
-		&input_context,
-		&mut loader,
-		options.into(),
-	)) {
-		Ok(result) => {
-			println!("output=\n{}", result.as_json().pretty(2));
-			panic!(
-				"expansion succeeded where it should have failed with code: {}",
-				error_code
-			)
-		}
-		Err(e) => {
-			assert_eq!(e.code(), error_code)
-		}
-	}
-}
-
 // See See w3c/json-ld-api#533
 // #[test]
 // fn custom_li12() {

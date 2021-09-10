@@ -30,20 +30,20 @@ use std::hash::Hash;
 /// #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
 /// #[iri_prefix("vocab" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
 /// pub enum Vocab {
-/// 	#[iri("rdfs:comment")] Comment,
+///   #[iri("rdfs:comment")] Comment,
 ///
-/// 	#[iri("manifest:name")] Name,
-/// 	#[iri("manifest:entries")] Entries,
-/// 	#[iri("manifest:action")] Action,
-/// 	#[iri("manifest:result")] Result,
+///   #[iri("manifest:name")] Name,
+///   #[iri("manifest:entries")] Entries,
+///   #[iri("manifest:action")] Action,
+///   #[iri("manifest:result")] Result,
 ///
-/// 	#[iri("vocab:PositiveEvaluationTest")] PositiveEvalTest,
-/// 	#[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
-/// 	#[iri("vocab:option")] Option,
-/// 	#[iri("vocab:specVersion")] SpecVersion,
-/// 	#[iri("vocab:processingMode")] ProcessingMode,
-/// 	#[iri("vocab:expandContext")] ExpandContext,
-/// 	#[iri("vocab:base")] Base
+///   #[iri("vocab:PositiveEvaluationTest")] PositiveEvalTest,
+///   #[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
+///   #[iri("vocab:option")] Option,
+///   #[iri("vocab:specVersion")] SpecVersion,
+///   #[iri("vocab:processingMode")] ProcessingMode,
+///   #[iri("vocab:expandContext")] ExpandContext,
+///   #[iri("vocab:base")] Base
 /// }
 ///
 /// /// A fully functional identifier type.
@@ -51,7 +51,7 @@ use std::hash::Hash;
 ///
 /// fn handle_node(node: &json_ld::Node<Id>) {
 ///   for name in node.get(Vocab::Name) { // <- note that we can directly use `Vocab` here.
-///   	println!("node name: {}", name.as_str().unwrap());
+///     println!("node name: {}", name.as_str().unwrap());
 ///   }
 /// }
 /// ```

@@ -14,7 +14,7 @@ pub fn is_json_media_type(ty: &str) -> bool {
 }
 
 pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<RemoteDocument, Error> {
-	info!("loading remote document `{}'", url);
+	log::info!("loading remote document `{}'", url);
 	use reqwest::header::*;
 
 	let client = reqwest::Client::new();
