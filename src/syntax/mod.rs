@@ -1,11 +1,11 @@
 //! Syntax elements.
 
-mod keyword;
 mod container;
+mod keyword;
 mod term;
 mod typ;
 
-pub use keyword::*;
 pub use container::*;
+pub use keyword::*;
 pub use term::*;
 pub use typ::*;

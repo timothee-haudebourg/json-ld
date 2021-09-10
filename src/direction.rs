@@ -1,7 +1,7 @@
+use crate::util::AsJson;
+use json::JsonValue;
 use std::convert::TryFrom;
 use std::fmt;
-use json::JsonValue;
-use crate::util::AsJson;
 
 /// Internationalized string direction.
 ///
@@ -9,42 +9,42 @@ use crate::util::AsJson;
 /// This can be either left-to-right (`"ltr"`) or right-to-left (`"rtl"`).
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Direction {
-	/// Left-to-right direction.
-	Ltr,
+    /// Left-to-right direction.
+    Ltr,
 
-	/// Right-to-left direction.
-	Rtl
+    /// Right-to-left direction.
+    Rtl,
 }
 
 impl<'a> TryFrom<&'a str> for Direction {
-	type Error = &'a str;
+    type Error = &'a str;
 
-	/// Convert the strings `"rtl"` and `"ltr"` into a `Direction`.
-	fn try_from(name: &'a str) -> Result<Direction, &'a str> {
-		match name {
-			"ltr" => Ok(Direction::Ltr),
-			"rtl" => Ok(Direction::Rtl),
-			_ => Err(name)
-		}
-	}
+    /// Convert the strings `"rtl"` and `"ltr"` into a `Direction`.
+    fn try_from(name: &'a str) -> Result<Direction, &'a str> {
+        match name {
+            "ltr" => Ok(Direction::Ltr),
+            "rtl" => Ok(Direction::Rtl),
+            _ => Err(name),
+        }
+    }
 }
 
 impl fmt::Display for Direction {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Direction::Ltr => write!(f, "ltr"),
-			Direction::Rtl => write!(f, "rtl")
-		}
-	}
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Direction::Ltr => write!(f, "ltr"),
+            Direction::Rtl => write!(f, "rtl"),
+        }
+    }
 }
 
 impl AsJson for Direction {
-	/// Convert the direction into a JSON string.
-	/// Either `"rtl"` or `"ltr"`.
-	fn as_json(&self) -> JsonValue {
-		match self {
-			Direction::Ltr => "ltr".into(),
-			Direction::Rtl => "rtl".into()
-		}
-	}
+    /// Convert the direction into a JSON string.
+    /// Either `"rtl"` or `"ltr"`.
+    fn as_json(&self) -> JsonValue {
+        match self {
+            Direction::Ltr => "ltr".into(),
+            Direction::Rtl => "rtl".into(),
+        }
+    }
 }
