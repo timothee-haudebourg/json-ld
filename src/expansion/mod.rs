@@ -32,7 +32,7 @@ pub struct Options {
 	pub processing_mode: ProcessingMode,
 
 	/// Term expansion policy.
-	/// 
+	///
 	/// Default is `Policy::Standard`.
 	pub policy: Policy,
 
