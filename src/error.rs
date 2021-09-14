@@ -194,7 +194,8 @@ pub enum ErrorCode {
 	/// (because its IRI scheme matches a term definition and it has no IRI authority).
 	IriConfusedWithPrefix,
 
-	/// Unable to expand a key to a IRI or keyword in strict expansion mode.
+	/// Unable to expand a key into a IRI, blank node identifier or keyword
+	/// using the current [key expansion policy](crate::expansion::Policy).
 	/// Note: this error is not defined in the JSON-LD API specification.
 	KeyExpansionFailed,
 

@@ -1,5 +1,5 @@
 use super::{
-	expand_element, expand_iri, expand_literal, filter_top_level_item, Entry, Expanded, Options,
+	expand_element, expand_iri, expand_literal, filter_top_level_item, Entry, Expanded, Options, Policy
 };
 use crate::util::as_array;
 use crate::{
@@ -279,8 +279,11 @@ where
 										Term::Keyword(_) => {
 											return Err(ErrorCode::InvalidReversePropertyMap.into())
 										}
+										Term::Ref(Reference::Invalid(_)) if options.policy == Policy::Strictest => {
+											return Err(ErrorCode::KeyExpansionFailed.into())
+										}
 										Term::Ref(reverse_prop)
-											if reverse_prop.as_str().contains(':') =>
+											if reverse_prop.as_str().contains(':') || options.policy == Policy::Relaxed =>
 										{
 											let reverse_expanded_value = expand_element(
 												active_context,
@@ -327,7 +330,12 @@ where
 												)
 											}
 										}
-										_ => (),
+										_ => {
+											if options.policy.is_strict() {
+												return Err(ErrorCode::KeyExpansionFailed.into())
+											}
+											// otherwise the key is just dropped.
+										},
 									}
 								}
 							} else {
@@ -422,7 +430,11 @@ where
 					}
 				}
 
-				Term::Ref(prop) if prop.as_str().contains(':') => {
+				Term::Ref(Reference::Invalid(_)) if options.policy == Policy::Strictest => {
+					return Err(ErrorCode::KeyExpansionFailed.into())
+				}
+
+				Term::Ref(prop) if prop.as_str().contains(':') || options.policy == Policy::Relaxed => {
 					let mut container_mapping = Mown::Owned(Container::new());
 
 					let key_definition = active_context.get(key);
@@ -840,7 +852,12 @@ where
 					}
 				}
 
-				Term::Ref(_) => (), // non-keyword properties that does not include a ':' are skipped.
+				Term::Ref(_) => {
+					if options.policy.is_strict() {
+						return Err(ErrorCode::KeyExpansionFailed.into())
+					}
+					// non-keyword properties that does not include a ':' are skipped.
+				},
 			}
 		}
 
