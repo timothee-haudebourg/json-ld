@@ -11,6 +11,10 @@ documentation = "https://docs.rs/json-ld"
 license = "MIT/Apache-2.0"
 readme = "README.md"
 
+exclude = [
+	"/json-ld-api"
+]
+
 [features]
 reqwest-loader = ["reqwest"]
 
