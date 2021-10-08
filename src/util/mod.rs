@@ -1,47 +1,11 @@
 //! Utility functions.
 
-use ::json::{number::Number, JsonValue};
+use generic_json::{Json, ValueRef};
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 mod json;
 pub use self::json::*;
-
-pub fn as_array(json: &JsonValue) -> &[JsonValue] {
-	match json {
-		JsonValue::Array(ary) => ary,
-		_ => unsafe { std::mem::transmute::<&JsonValue, &[JsonValue; 1]>(json) as &[JsonValue] },
-	}
-}
-
-pub fn hash_json_number<H: Hasher>(number: &Number, hasher: &mut H) {
-	let (positive, mantissa, exponent) = number.as_parts();
-	positive.hash(hasher);
-	mantissa.hash(hasher);
-	exponent.hash(hasher);
-}
-
-pub fn hash_json<H: Hasher>(value: &JsonValue, hasher: &mut H) {
-	match value {
-		JsonValue::Null => (),
-		JsonValue::Boolean(b) => b.hash(hasher),
-		JsonValue::Number(n) => hash_json_number(n, hasher),
-		JsonValue::Short(str) => str.hash(hasher),
-		JsonValue::String(str) => str.hash(hasher),
-		JsonValue::Array(ary) => {
-			for item in ary {
-				hash_json(item, hasher)
-			}
-		}
-		JsonValue::Object(obj) => {
-			// in JSON, the order of elements matters, so we don't need to be vigilant here.
-			for (key, value) in obj.iter() {
-				key.hash(hasher);
-				hash_json(value, hasher);
-			}
-		}
-	}
-}
 
 pub fn hash_set<T: Hash, H: Hasher>(set: &HashSet<T>, hasher: &mut H) {
 	// Elements must be combined with a associative and commutative operation •.

@@ -1,5 +1,5 @@
 use crate::util;
-use json::JsonValue;
+use generic_json::Json;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -193,9 +193,13 @@ impl fmt::Display for Keyword {
 	}
 }
 
-impl util::AsJson for Keyword {
-	fn as_json(&self) -> JsonValue {
-		self.into_str().into()
+impl<J: Json> util::AsJson<J> for Keyword {
+	fn as_json_with<M>(&self, meta: M) -> J
+	where
+		M: Clone + Fn() -> J::MetaData,
+	{
+		// self.into_str().into()
+		panic!("TODO keyword as json")
 	}
 }
 

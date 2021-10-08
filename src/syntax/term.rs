@@ -1,7 +1,7 @@
 use super::Keyword;
 use crate::{util::AsJson, BlankId, Reference};
+use generic_json::Json;
 use iref::{AsIri, Iri};
-use json::JsonValue;
 use std::fmt;
 
 pub trait TermLike {
@@ -107,13 +107,17 @@ impl<T: AsIri> fmt::Debug for Term<T> {
 	}
 }
 
-impl<T: AsIri> AsJson for Term<T> {
-	fn as_json(&self) -> JsonValue {
-		match self {
-			Term::Ref(p) => p.as_str().into(),
-			Term::Keyword(kw) => kw.into_str().into(),
-			Term::Null => JsonValue::Null,
-		}
+impl<J: Json, T: AsIri> AsJson<J> for Term<T> {
+	fn as_json_with<M>(&self, meta: M) -> J
+	where
+		M: Clone + Fn() -> J::MetaData,
+	{
+		// match self {
+		// 	Term::Ref(p) => p.as_str().into(),
+		// 	Term::Keyword(kw) => kw.into_str().into(),
+		// 	Term::Null => JsonValue::Null,
+		// }
+		panic!("TODO Term as json")
 	}
 }
 

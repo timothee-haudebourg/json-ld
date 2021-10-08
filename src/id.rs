@@ -1,6 +1,6 @@
 use crate::{syntax::TermLike, util};
+use generic_json::Json;
 use iref::{AsIri, Iri, IriBuf};
-use json::JsonValue;
 use std::hash::Hash;
 
 /// Unique identifier types.
@@ -76,8 +76,12 @@ impl<T: Id> TermLike for T {
 	}
 }
 
-impl<T: Id> util::AsJson for T {
-	fn as_json(&self) -> JsonValue {
-		self.as_iri().as_str().into()
+impl<J: Json, T: Id> util::AsJson<J> for T {
+	fn as_json_with<M>(&self, meta: M) -> J
+	where
+		M: Clone + Fn() -> J::MetaData,
+	{
+		// self.as_iri().as_str().into()
+		panic!("TODO id as json")
 	}
 }

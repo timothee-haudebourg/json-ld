@@ -1,26 +1,29 @@
-use super::{expand_iri, Entry};
+use super::{expand_iri, ExpandedEntry};
 use crate::{
 	object::*,
 	syntax::{Keyword, Term},
 	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Reference,
 };
-use json::JsonValue;
+use generic_json::{Json, ValueRef};
 use langtag::LanguageTagBuf;
 use std::convert::TryFrom;
 
-pub fn expand_value<T: Id, C: ContextMut<T>>(
+pub fn expand_value<'e, J: Json, T: Id, C: ContextMut<T>>(
 	input_type: Option<Term<T>>,
 	type_scoped_context: &C,
-	expanded_entries: Vec<Entry<(&str, Term<T>)>>,
-	value_entry: &JsonValue,
-) -> Result<Option<Indexed<Object<T>>>, Error> {
+	expanded_entries: Vec<ExpandedEntry<'e, J, Term<T>>>,
+	value_entry: &J,
+) -> Result<Option<Indexed<Object<J, T>>>, Error>
+where
+	J::Object: 'e,
+{
 	let mut is_json = input_type == Some(Term::Keyword(Keyword::Json));
 	let mut ty = None;
 	let mut index = None;
 	let mut language = None;
 	let mut direction = None;
 
-	for Entry((_, expanded_key), value) in expanded_entries {
+	for ExpandedEntry(_, expanded_key, value) in expanded_entries {
 		match expanded_key {
 			// If expanded property is @language:
 			Term::Keyword(Keyword::Language) => {
@@ -108,13 +111,11 @@ pub fn expand_value<T: Id, C: ContextMut<T>>(
 
 	// Otherwise, if value is not a scalar or null, an invalid value object value
 	// error has been detected and processing is aborted.
-	let result = match value_entry {
-		JsonValue::Null => Literal::Null,
-		JsonValue::Short(_) | JsonValue::String(_) => {
-			Literal::String(value_entry.as_str().unwrap().to_string())
-		}
-		JsonValue::Number(n) => Literal::Number(*n),
-		JsonValue::Boolean(b) => Literal::Boolean(*b),
+	let result = match value_entry.as_value_ref() {
+		ValueRef::Null => Literal::Null,
+		ValueRef::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
+		ValueRef::Number(n) => Literal::Number(n.clone()),
+		ValueRef::Boolean(b) => Literal::Boolean(b),
 		_ => {
 			return Err(ErrorCode::InvalidValueObjectValue.into());
 		}
@@ -148,11 +149,13 @@ pub fn expand_value<T: Id, C: ContextMut<T>>(
 				None => None,
 			};
 
-			let result = LangString::new(str, lang, direction).unwrap();
-			return Ok(Some(Indexed::new(
-				Object::Value(Value::LangString(result)),
-				index,
-			)));
+			return match LangString::new(str, lang, direction) {
+				Ok(result) => Ok(Some(Indexed::new(
+					Object::Value(Value::LangString(result)),
+					index,
+				))),
+				Err(_) => Err(ErrorCode::InvalidLanguageTaggedValue.into()),
+			};
 		} else {
 			return Err(ErrorCode::InvalidLanguageTaggedValue.into());
 		}

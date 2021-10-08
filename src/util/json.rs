@@ -1,122 +1,78 @@
-use json::JsonValue;
-use langtag::{LanguageTag, LanguageTagBuf};
-use std::collections::HashSet;
+use generic_json::{Json, ValueRef};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
-pub trait AsJson {
-	fn as_json(&self) -> JsonValue;
+mod build;
+
+pub use build::*;
+
+pub enum AsArrayItem<'a, J: Json> {
+	NotArray(&'a J),
+	Array(<J::Array as cc_traits::CollectionRef>::ItemRef<'a>),
 }
 
-impl AsJson for JsonValue {
-	fn as_json(&self) -> JsonValue {
-		self.clone()
-	}
-}
+impl<'a, J: Json> std::ops::Deref for AsArrayItem<'a, J> {
+	type Target = J;
 
-impl AsJson for bool {
-	fn as_json(&self) -> JsonValue {
-		JsonValue::Boolean(*self)
-	}
-}
-
-impl AsJson for str {
-	fn as_json(&self) -> JsonValue {
-		self.into()
-	}
-}
-
-impl AsJson for String {
-	fn as_json(&self) -> JsonValue {
-		self.as_str().as_json()
-	}
-}
-
-impl<'a, T: AsRef<[u8]> + ?Sized> AsJson for LanguageTag<'a, T> {
-	fn as_json(&self) -> JsonValue {
-		self.as_str().as_json()
-	}
-}
-
-impl<T: AsRef<[u8]>> AsJson for LanguageTagBuf<T> {
-	fn as_json(&self) -> JsonValue {
-		self.as_str().as_json()
-	}
-}
-
-impl<T: AsJson> AsJson for [T] {
-	fn as_json(&self) -> JsonValue {
-		let mut ary = Vec::with_capacity(self.len());
-		for item in self {
-			ary.push(item.as_json())
+	fn deref(&self) -> &J {
+		match self {
+			Self::NotArray(i) => i,
+			Self::Array(i) => i.deref(),
 		}
-
-		JsonValue::Array(ary)
 	}
 }
 
-impl<T: AsJson> AsJson for Vec<T> {
-	fn as_json(&self) -> JsonValue {
-		self.as_slice().as_json()
-	}
+pub enum AsArray<'a, J: Json> {
+	NotArray(Option<&'a J>),
+	Array(<J::Array as cc_traits::Iter>::Iter<'a>),
 }
 
-impl<T: AsJson> AsJson for HashSet<T> {
-	fn as_json(&self) -> JsonValue {
-		let mut ary = Vec::with_capacity(self.len());
-		for item in self {
-			ary.push(item.as_json())
+impl<'a, J: Json> Iterator for AsArray<'a, J> {
+	type Item = AsArrayItem<'a, J>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::NotArray(item) => item.take().map(AsArrayItem::NotArray),
+			Self::Array(ary) => ary.next().map(AsArrayItem::Array),
 		}
-
-		JsonValue::Array(ary)
 	}
 }
 
-pub fn json_ld_eq(a: &JsonValue, b: &JsonValue) -> bool {
-	match (a, b) {
-		(JsonValue::Array(a), JsonValue::Array(b)) if a.len() == b.len() => {
-			let mut selected = Vec::with_capacity(a.len());
-			selected.resize(a.len(), false);
+pub fn as_array<J: Json>(json: &J) -> (AsArray<J>, usize) {
+	use cc_traits::{Iter, Len};
+	match json.as_value_ref() {
+		ValueRef::Array(ary) => (AsArray::Array(ary.iter()), ary.len()),
+		_ => (AsArray::NotArray(Some(json)), 1),
+	}
+}
 
-			'a_items: for item in a {
-				for i in 0..b.len() {
-					if !selected[i] && json_ld_eq(&b[i], item) {
-						selected[i] = true;
-						continue 'a_items;
-					}
-				}
-
-				return false;
+pub fn hash_json<J: Json, H: Hasher>(json: &J, hasher: &mut H)
+where
+	J::Number: Hash,
+{
+	use cc_traits::{Iter, MapIter};
+	match json.as_value_ref() {
+		ValueRef::Null => (),
+		ValueRef::Boolean(b) => b.hash(hasher),
+		ValueRef::Number(n) => n.hash(hasher),
+		ValueRef::String(s) => s.hash(hasher),
+		ValueRef::Array(ary) => {
+			for item in ary.iter() {
+				hash_json(&*item, hasher)
 			}
 		}
-		(JsonValue::Object(a), JsonValue::Object(b)) if a.len() == b.len() => {
-			for (key, value_a) in a.iter() {
-				if let Some(value_b) = b.get(key) {
-					if key == "@list" {
-						match (value_a, value_b) {
-							(JsonValue::Array(item_a), JsonValue::Array(item_b))
-								if item_a.len() == item_b.len() =>
-							{
-								for i in 0..item_a.len() {
-									if !json_ld_eq(&item_a[i], &item_b[i]) {
-										return false;
-									}
-								}
-							}
-							_ => {
-								if !json_ld_eq(value_a, value_b) {
-									return false;
-								}
-							}
-						}
-					} else if !json_ld_eq(value_a, value_b) {
-						return false;
-					}
-				} else {
-					return false;
-				}
+		ValueRef::Object(obj) => {
+			// Elements must be combined with a associative and commutative operation •.
+			// (u64, •, 0) must form a commutative monoid.
+			// This is satisfied by • = u64::wrapping_add.
+			let mut hash = 0;
+			for (key, value) in obj.iter() {
+				let mut h = DefaultHasher::new();
+				key.as_ref().hash(&mut h);
+				hash_json(&*value, &mut h);
+				hash = u64::wrapping_add(hash, h.finish());
 			}
+			hasher.write_u64(hash);
 		}
-		_ => return a == b,
 	}
-
-	true
 }

@@ -2,8 +2,8 @@ use crate::{
 	syntax::{Term, TermLike},
 	util, BlankId, Id,
 };
+use generic_json::Json;
 use iref::{AsIri, Iri, IriBuf};
-use json::JsonValue;
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
@@ -129,13 +129,17 @@ impl<T: AsIri> From<BlankId> for Reference<T> {
 	}
 }
 
-impl<T: AsIri + util::AsJson> util::AsJson for Reference<T> {
-	fn as_json(&self) -> JsonValue {
-		match self {
-			Reference::Id(id) => id.as_json(),
-			Reference::Blank(b) => b.as_json(),
-			Reference::Invalid(id) => id.as_json(),
-		}
+impl<J: Json, T: AsIri + util::AsJson<J>> util::AsJson<J> for Reference<T> {
+	fn as_json_with<M>(&self, meta: M) -> J
+	where
+		M: Clone + Fn() -> J::MetaData,
+	{
+		// match self {
+		// 	Reference::Id(id) => id.as_json_with(meta),
+		// 	Reference::Blank(b) => b.as_json_with(meta),
+		// 	Reference::Invalid(id) => id.as_json_with(meta),
+		// }
+		panic!("TODO Reference as json")
 	}
 }
 
