@@ -3,8 +3,8 @@ use crate::{
 	syntax::{Keyword, Term},
 	util, Id, Indexed, Object, Reference, ToReference,
 };
-use generic_json::{Json, JsonClone, JsonHash};
 use cc_traits::MapInsert;
+use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
@@ -364,15 +364,24 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 		}
 
 		if !self.types.is_empty() {
-			obj.insert(Keyword::Type.into_str().into(), self.types.as_json_with(meta.clone()));
+			obj.insert(
+				Keyword::Type.into_str().into(),
+				self.types.as_json_with(meta.clone()),
+			);
 		}
 
 		if let Some(graph) = &self.graph {
-			obj.insert(Keyword::Graph.into_str().into(), graph.as_json_with(meta.clone()));
+			obj.insert(
+				Keyword::Graph.into_str().into(),
+				graph.as_json_with(meta.clone()),
+			);
 		}
 
 		if let Some(included) = &self.included {
-			obj.insert(Keyword::Included.into_str().into(), included.as_json_with(meta.clone()));
+			obj.insert(
+				Keyword::Included.into_str().into(),
+				included.as_json_with(meta.clone()),
+			);
 		}
 
 		if !self.reverse_properties.is_empty() {
@@ -381,7 +390,10 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 				reverse.insert(key.as_str().into(), value.as_json_with(meta.clone()));
 			}
 
-			obj.insert(Keyword::Reverse.into_str().into(), K::object(reverse, meta(None)));
+			obj.insert(
+				Keyword::Reverse.into_str().into(),
+				K::object(reverse, meta(None)),
+			);
 		}
 
 		for (key, value) in &self.properties {

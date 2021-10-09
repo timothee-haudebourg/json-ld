@@ -3,9 +3,9 @@ use crate::{
 	syntax::{Keyword, Type},
 	util, Direction, Id, LangString,
 };
+use cc_traits::MapInsert;
 use derivative::Derivative;
 use generic_json::{Json, JsonClone, JsonHash};
-use cc_traits::MapInsert;
 use iref::IriBuf;
 use langtag::LanguageTag;
 use std::{
@@ -244,30 +244,59 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, 
 		match self {
 			Value::Literal(lit, ty) => {
 				match lit {
-					Literal::Null => obj.insert(Keyword::Value.into_str().into(), K::null(meta(None))),
-					Literal::Boolean(b) => obj.insert(Keyword::Value.into_str().into(), b.as_json_with(meta.clone())),
-					Literal::Number(n) => obj.insert(Keyword::Value.into_str().into(), K::number(n.clone().into(), meta(None))),
-					Literal::String(s) => obj.insert(Keyword::Value.into_str().into(), s.as_json_with(meta.clone())),
+					Literal::Null => {
+						obj.insert(Keyword::Value.into_str().into(), K::null(meta(None)))
+					}
+					Literal::Boolean(b) => obj.insert(
+						Keyword::Value.into_str().into(),
+						b.as_json_with(meta.clone()),
+					),
+					Literal::Number(n) => obj.insert(
+						Keyword::Value.into_str().into(),
+						K::number(n.clone().into(), meta(None)),
+					),
+					Literal::String(s) => obj.insert(
+						Keyword::Value.into_str().into(),
+						s.as_json_with(meta.clone()),
+					),
 				};
 
 				if let Some(ty) = ty {
-					obj.insert(Keyword::Type.into_str().into(), ty.as_json_with(meta.clone()));
+					obj.insert(
+						Keyword::Type.into_str().into(),
+						ty.as_json_with(meta.clone()),
+					);
 				}
 			}
 			Value::LangString(str) => {
-				obj.insert(Keyword::Value.into_str().into(), str.as_str().as_json_with(meta.clone()));
+				obj.insert(
+					Keyword::Value.into_str().into(),
+					str.as_str().as_json_with(meta.clone()),
+				);
 
 				if let Some(language) = str.language() {
-					obj.insert(Keyword::Language.into_str().into(), language.as_json_with(meta.clone()));
+					obj.insert(
+						Keyword::Language.into_str().into(),
+						language.as_json_with(meta.clone()),
+					);
 				}
 
 				if let Some(direction) = str.direction() {
-					obj.insert(Keyword::Direction.into_str().into(), direction.as_json_with(meta.clone()));
+					obj.insert(
+						Keyword::Direction.into_str().into(),
+						direction.as_json_with(meta.clone()),
+					);
 				}
 			}
 			Value::Json(json) => {
-				obj.insert(Keyword::Value.into_str().into(), util::json_to_json(json, meta.clone()));
-				obj.insert(Keyword::Type.into_str().into(), Keyword::Json.as_json_with(meta.clone()));
+				obj.insert(
+					Keyword::Value.into_str().into(),
+					util::json_to_json(json, meta.clone()),
+				);
+				obj.insert(
+					Keyword::Type.into_str().into(),
+					Keyword::Json.as_json_with(meta.clone()),
+				);
 			}
 		}
 

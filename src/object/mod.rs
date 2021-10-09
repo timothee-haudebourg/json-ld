@@ -3,7 +3,11 @@
 pub mod node;
 pub mod value;
 
-use crate::{syntax::Keyword, util::{JsonFrom, AsJson}, Id, Indexed, Reference};
+use crate::{
+	syntax::Keyword,
+	util::{AsJson, JsonFrom},
+	Id, Indexed, Reference,
+};
 use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use langtag::LanguageTag;
@@ -234,7 +238,10 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, 
 			Object::Node(n) => n.as_json_with(meta),
 			Object::List(items) => {
 				let mut obj = K::Object::default();
-				obj.insert(Keyword::List.into_str().into(), items.as_json_with(meta.clone()));
+				obj.insert(
+					Keyword::List.into_str().into(),
+					items.as_json_with(meta.clone()),
+				);
 				K::object(obj, meta(None))
 			}
 		}

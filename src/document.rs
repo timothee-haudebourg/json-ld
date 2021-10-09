@@ -11,7 +11,7 @@ use crate::{
 	Object,
 };
 use futures::future::{FutureExt, LocalBoxFuture};
-use generic_json::{Json, JsonHash, JsonClone};
+use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};

@@ -1,6 +1,9 @@
-use crate::{syntax::Keyword, util::{JsonFrom, AsJson}};
-use generic_json::{Json, JsonClone};
+use crate::{
+	syntax::Keyword,
+	util::{AsJson, JsonFrom},
+};
 use cc_traits::MapInsert;
+use generic_json::{Json, JsonClone};
 use std::convert::{TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
@@ -129,7 +132,7 @@ impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Indexed<T> 
 				obj.insert(Keyword::Index.into_str().into(), index.as_json_with(meta));
 			}
 		}
-		
+
 		json
 	}
 }

@@ -5,7 +5,11 @@ pub mod inverse;
 mod loader;
 mod processing;
 
-use crate::{syntax::Term, util::{JsonFrom, AsJson}, Direction, Error, Id, ProcessingMode};
+use crate::{
+	syntax::Term,
+	util::{AsJson, JsonFrom},
+	Direction, Error, Id, ProcessingMode,
+};
 use futures::{future::LocalBoxFuture, FutureExt};
 use generic_json::{Json, JsonClone};
 use iref::{Iri, IriBuf};

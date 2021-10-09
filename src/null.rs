@@ -1,4 +1,4 @@
-use crate::util::{JsonFrom, AsJson};
+use crate::util::{AsJson, JsonFrom};
 use generic_json::JsonClone;
 
 /// Value that can be null.

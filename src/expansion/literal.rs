@@ -1,6 +1,6 @@
 use super::{expand_iri, node_id_of_term};
 use crate::{object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString};
-use generic_json::{Json, JsonHash, JsonClone, ValueRef};
+use generic_json::{Json, JsonClone, JsonHash, ValueRef};
 
 pub enum LiteralValue<'a, J> {
 	Given(&'a J),

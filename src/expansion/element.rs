@@ -11,7 +11,7 @@ use crate::{
 };
 use cc_traits::{CollectionRef, Get, KeyedRef, Len, MapIter};
 use futures::future::{FutureExt, LocalBoxFuture};
-use generic_json::{Json, JsonHash, JsonClone, ValueRef};
+use generic_json::{Json, JsonClone, JsonHash, ValueRef};
 use iref::Iri;
 use mown::Mown;
 

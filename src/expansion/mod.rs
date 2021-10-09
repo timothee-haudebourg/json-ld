@@ -6,7 +6,7 @@ use crate::{
 use cc_traits::{CollectionRef, KeyedRef};
 use derivative::Derivative;
 use futures::Future;
-use generic_json::{Json, JsonHash, JsonClone};
+use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use std::cmp::{Ord, Ordering};
 use std::collections::HashSet;

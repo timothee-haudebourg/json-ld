@@ -1,5 +1,8 @@
 use super::Keyword;
-use crate::{util::{JsonFrom, AsJson}, BlankId, Reference};
+use crate::{
+	util::{AsJson, JsonFrom},
+	BlankId, Reference,
+};
 use generic_json::{Json, JsonClone};
 use iref::{AsIri, Iri};
 use std::fmt;
