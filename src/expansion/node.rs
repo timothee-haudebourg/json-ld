@@ -11,7 +11,7 @@ use crate::{
 };
 use cc_traits::{Iter, Len, MapIter};
 use futures::future::{FutureExt, LocalBoxFuture};
-use generic_json::{Json, ValueRef};
+use generic_json::{Json, JsonHash, JsonClone, ValueRef};
 use iref::Iri;
 use langtag::LanguageTagBuf;
 use mown::Mown;
@@ -27,7 +27,7 @@ pub fn node_id_of_term<T: Id>(term: Term<T>) -> Option<Reference<T>> {
 	}
 }
 
-pub async fn expand_node<'a, J: 'a + Json, T: 'a + Id, C: ContextMut<T>, L: Loader>(
+pub async fn expand_node<'a, J: 'a + JsonHash + JsonClone, T: 'a + Id, C: ContextMut<T>, L: Loader>(
 	active_context: &'a C,
 	type_scoped_context: &'a C,
 	active_property: Option<&'a str>,
@@ -90,7 +90,7 @@ where
 	Ok(Some(result))
 }
 
-fn expand_node_entries<'a, J: 'a + Json, T: 'a + Id, C: ContextMut<T>, L: Loader>(
+fn expand_node_entries<'a, J: 'a + JsonHash + JsonClone, T: 'a + Id, C: ContextMut<T>, L: Loader>(
 	mut result: Indexed<Node<J, T>>,
 	mut has_value_object_entries: bool,
 	active_context: &'a C,

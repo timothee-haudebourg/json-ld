@@ -10,7 +10,7 @@ use crate::{
 	ContextMut, Error, Id, Indexed, Object, ProcessingMode, Value,
 };
 use futures::future::{BoxFuture, FutureExt};
-use json::JsonValue;
+use generic_json::Json;
 use std::collections::HashSet;
 
 mod iri;
@@ -61,26 +61,27 @@ impl Default for Options {
 	}
 }
 
-pub trait Compact<T: Id> {
-	fn compact_with<'a, C: ContextMut<T>, L: Loader>(
+pub trait Compact<J: Json, T: Id> {
+	/// Compact a JSON-LD document into a `K` JSON value.
+	fn compact_with<'a, K: Json, C: ContextMut<T>, L: Loader>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		T: 'a,
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send;
 
-	fn compact<'a, C: ContextMut<T>, L: Loader>(
+	fn compact<'a, K: Json, C: ContextMut<T>, L: Loader>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		loader: &'a mut L,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		Self: Sync,
 		T: 'a + Sync + Send,
@@ -107,8 +108,8 @@ enum TypeLangValue<'a, T: Id> {
 	Lang(LangSelection<'a>),
 }
 
-pub trait CompactIndexed<T: Id> {
-	fn compact_indexed_with<'a, C: ContextMut<T>, L: Loader>(
+pub trait CompactIndexed<J: Json, T: Id> {
+	fn compact_indexed_with<'a, K: Json, C: ContextMut<T>, L: Loader>(
 		&'a self,
 		index: Option<&'a str>,
 		active_context: Inversible<T, &'a C>,
@@ -116,7 +117,7 @@ pub trait CompactIndexed<T: Id> {
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		T: 'a,
 		C: Sync + Send,
@@ -124,15 +125,15 @@ pub trait CompactIndexed<T: Id> {
 		L: Sync + Send;
 }
 
-impl<T: Sync + Send + Id, V: Sync + Send + CompactIndexed<T>> Compact<T> for Indexed<V> {
-	fn compact_with<'a, C: ContextMut<T>, L: Loader>(
+impl<J: Json, T: Sync + Send + Id, V: Sync + Send + CompactIndexed<J, T>> Compact<J, T> for Indexed<V> {
+	fn compact_with<'a, K: Json, C: ContextMut<T>, L: Loader>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		T: 'a,
 		C: Sync + Send,
@@ -150,8 +151,8 @@ impl<T: Sync + Send + Id, V: Sync + Send + CompactIndexed<T>> Compact<T> for Ind
 	}
 }
 
-impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for N {
-	fn compact_indexed_with<'a, C: ContextMut<T>, L: Loader>(
+impl<J: Json, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> CompactIndexed<J, T> for N {
+	fn compact_indexed_with<'a, K: Json, C: ContextMut<T>, L: Loader>(
 		&'a self,
 		index: Option<&'a str>,
 		active_context: Inversible<T, &'a C>,
@@ -159,7 +160,7 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		T: 'a,
 		C: Sync + Send,
@@ -340,6 +341,7 @@ fn value_value<T: Id>(value: &Value<T>) -> JsonValue {
 
 fn compact_collection_with<
 	'a,
+	K: Json,
 	T: 'a + Sync + Send + Id,
 	O: 'a + Send + Iterator<Item = &'a Indexed<Object<T>>>,
 	C: ContextMut<T>,
@@ -351,7 +353,7 @@ fn compact_collection_with<
 	active_property: Option<&'a str>,
 	loader: &'a mut L,
 	options: Options,
-) -> BoxFuture<'a, Result<JsonValue, Error>>
+) -> BoxFuture<'a, Result<K, Error>>
 where
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
@@ -403,15 +405,15 @@ where
 	.boxed()
 }
 
-impl<T: Sync + Send + Id> Compact<T> for HashSet<Indexed<Object<T>>> {
-	fn compact_with<'a, C: ContextMut<T>, L: Loader>(
+impl<J: Json, T: Sync + Send + Id> Compact<J, T> for HashSet<Indexed<Object<T>>> {
+	fn compact_with<'a, K: Json, C: ContextMut<T>, L: Loader>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		T: 'a,
 		C: Sync + Send,

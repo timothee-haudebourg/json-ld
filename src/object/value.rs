@@ -4,7 +4,8 @@ use crate::{
 	util, Direction, Id, LangString,
 };
 use derivative::Derivative;
-use generic_json::Json;
+use generic_json::{Json, JsonClone, JsonHash};
+use cc_traits::MapInsert;
 use iref::IriBuf;
 use langtag::LanguageTag;
 use std::{
@@ -103,7 +104,7 @@ impl<J: Json> PartialEq for Literal<J> {
 
 impl<J: Json> Eq for Literal<J> {}
 
-impl<J: Json> Hash for Literal<J> {
+impl<J: JsonHash> Hash for Literal<J> {
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
 			Literal::Null => (),
@@ -152,7 +153,7 @@ pub enum Value<J: Json, T: Id = IriBuf> {
 	Json(J),
 }
 
-impl<J: Json, T: Id> Clone for Value<J, T> {
+impl<J: JsonClone, T: Id> Clone for Value<J, T> {
 	fn clone(&self) -> Self {
 		match self {
 			Self::Literal(l, t) => Self::Literal(l.clone(), t.clone()),
@@ -217,13 +218,13 @@ impl<J: Json, T: Id> Value<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> object::Any<J, T> for Value<J, T> {
+impl<J: JsonHash, T: Id> object::Any<J, T> for Value<J, T> {
 	fn as_ref(&self) -> object::Ref<J, T> {
 		object::Ref::Value(self)
 	}
 }
 
-impl<J: Json, T: Id> Hash for Value<J, T> {
+impl<J: JsonHash, T: Id> Hash for Value<J, T> {
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
 			Value::Literal(lit, ty) => {
@@ -236,44 +237,40 @@ impl<J: Json, T: Id> Hash for Value<J, T> {
 	}
 }
 
-impl<J: Json, K: Json, T: Id> util::AsJson<K> for Value<J, T> {
-	fn as_json_with<M>(&self, meta: M) -> K
-	where
-		M: Clone + Fn() -> K::MetaData,
-	{
-		// let mut obj = json::object::Object::new();
+impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		let mut obj = K::Object::default();
 
-		// match self {
-		// 	Value::Literal(lit, ty) => {
-		// 		match lit {
-		// 			Literal::Null => obj.insert(Keyword::Value.into(), JsonValue::Null),
-		// 			Literal::Boolean(b) => obj.insert(Keyword::Value.into(), b.as_json()),
-		// 			Literal::Number(n) => obj.insert(Keyword::Value.into(), JsonValue::Number(*n)),
-		// 			Literal::String(s) => obj.insert(Keyword::Value.into(), s.as_json()),
-		// 		}
+		match self {
+			Value::Literal(lit, ty) => {
+				match lit {
+					Literal::Null => obj.insert(Keyword::Value.into_str().into(), K::null(meta(None))),
+					Literal::Boolean(b) => obj.insert(Keyword::Value.into_str().into(), b.as_json_with(meta.clone())),
+					Literal::Number(n) => obj.insert(Keyword::Value.into_str().into(), K::number(n.clone().into(), meta(None))),
+					Literal::String(s) => obj.insert(Keyword::Value.into_str().into(), s.as_json_with(meta.clone())),
+				};
 
-		// 		if let Some(ty) = ty {
-		// 			obj.insert(Keyword::Type.into(), ty.as_json())
-		// 		}
-		// 	}
-		// 	Value::LangString(str) => {
-		// 		obj.insert(Keyword::Value.into(), str.as_str().into());
+				if let Some(ty) = ty {
+					obj.insert(Keyword::Type.into_str().into(), ty.as_json_with(meta.clone()));
+				}
+			}
+			Value::LangString(str) => {
+				obj.insert(Keyword::Value.into_str().into(), str.as_str().as_json_with(meta.clone()));
 
-		// 		if let Some(language) = str.language() {
-		// 			obj.insert(Keyword::Language.into(), language.as_json());
-		// 		}
+				if let Some(language) = str.language() {
+					obj.insert(Keyword::Language.into_str().into(), language.as_json_with(meta.clone()));
+				}
 
-		// 		if let Some(direction) = str.direction() {
-		// 			obj.insert(Keyword::Direction.into(), direction.as_json());
-		// 		}
-		// 	}
-		// 	Value::Json(json) => {
-		// 		obj.insert(Keyword::Value.into(), json.clone());
-		// 		obj.insert(Keyword::Type.into(), Keyword::Json.as_json())
-		// 	}
-		// }
+				if let Some(direction) = str.direction() {
+					obj.insert(Keyword::Direction.into_str().into(), direction.as_json_with(meta.clone()));
+				}
+			}
+			Value::Json(json) => {
+				obj.insert(Keyword::Value.into_str().into(), util::json_to_json(json, meta.clone()));
+				obj.insert(Keyword::Type.into_str().into(), Keyword::Json.as_json_with(meta.clone()));
+			}
+		}
 
-		// JsonValue::Object(obj)
-		panic!("TODO value as json")
+		K::object(obj, meta(None))
 	}
 }

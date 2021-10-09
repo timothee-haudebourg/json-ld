@@ -1,6 +1,6 @@
 use super::{expand_iri, node_id_of_term};
 use crate::{object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString};
-use generic_json::{Json, ValueRef};
+use generic_json::{Json, JsonHash, JsonClone, ValueRef};
 
 pub enum LiteralValue<'a, J> {
 	Given(&'a J),
@@ -24,7 +24,7 @@ impl<'a, J: Json> LiteralValue<'a, J> {
 }
 
 /// https://www.w3.org/TR/json-ld11-api/#value-expansion
-pub fn expand_literal<J: Json, T: Id, C: Context<T>>(
+pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 	active_context: &C,
 	active_property: Option<&str>,
 	value: LiteralValue<J>,

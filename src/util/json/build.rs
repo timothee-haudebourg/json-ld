@@ -1,131 +1,85 @@
 use cc_traits::{Get, Iter, Len, MapIter};
-use generic_json::{Json, Value, ValueRef};
+use generic_json::{Json, JsonClone, JsonBuild, JsonMut, Value, ValueRef};
 use langtag::{LanguageTag, LanguageTagBuf};
-use std::{collections::HashSet, iter::FromIterator};
+use std::collections::HashSet;
 
-pub trait AsJson<J: Json> {
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData;
-
-	fn as_json(&self) -> J
-	where
-		J::MetaData: Default,
-	{
-		self.as_json_with(|| J::MetaData::default())
-	}
-}
-
-// impl<J: Json> AsJson<J> for J where J: Clone {
-// 	fn as_json_with<M>(&self, _meta: M) -> J where M: Clone + Fn() -> J::MetaData {
-// 		self.clone()
-// 	}
-// }
-
-impl<J: Json> AsJson<J> for bool {
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		Value::<J>::Boolean(*self).with(meta())
-	}
-}
-
-impl<'a, J: Json> AsJson<J> for &'a str
+pub trait JsonFrom<J: JsonClone> = JsonBuild + JsonMut + From<J>
 where
-	J::String: From<&'a str>,
-{
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		Value::<J>::String((*self).into()).with(meta())
+	<Self as Json>::Number: From<<J as Json>::Number>;
+
+pub trait AsJson<J: JsonClone, K: JsonFrom<J>> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K;
+	
+	fn as_json(&self) -> K where K::MetaData: Default {
+		self.as_json_with(|_| K::MetaData::default())
 	}
 }
 
-impl<J: Json> AsJson<J> for str
-where
-	J::String: for<'a> From<&'a str>,
-{
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		<&str as AsJson<J>>::as_json_with(&self, meta)
+pub fn json_to_json<J: JsonClone, K: JsonFrom<J>>(input: &J, m: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	let meta: K::MetaData = m(Some(input.metadata()));
+	match input.as_value_ref() {
+		ValueRef::Null => K::null(meta),
+		ValueRef::Boolean(b) => K::boolean(b, meta),
+		ValueRef::Number(n) => K::number(n.clone().into(), meta),
+		ValueRef::String(s) => K::string(s.as_ref().into(), meta),
+		ValueRef::Array(a) => K::array(a.iter().map(|value| json_to_json(&*value, m.clone())).collect(), meta),
+		ValueRef::Object(o) => K::object(o.iter().map(|(key, value)| (key.as_ref().into(), json_to_json(&*value, m.clone()))).collect(), meta)
 	}
 }
 
-impl<J: Json> AsJson<J> for String
-where
-	J::String: for<'a> From<&'a str>,
-{
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		AsJson::<J>::as_json_with(self.as_str(), meta)
+impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for bool {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		Value::<K>::Boolean(*self).with(meta(None))
 	}
 }
 
-impl<'a, T: AsRef<[u8]> + ?Sized, J: Json> AsJson<J> for LanguageTag<'a, T>
-where
-	J::String: for<'s> From<&'s str>,
-{
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		AsJson::<J>::as_json_with(self.as_str(), meta)
+impl<'a, J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for &'a str {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		Value::<K>::String((*self).into()).with(meta(None))
 	}
 }
 
-impl<T: AsRef<[u8]>, J: Json> AsJson<J> for LanguageTagBuf<T>
-where
-	J::String: for<'a> From<&'a str>,
-{
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		AsJson::<J>::as_json_with(self.as_str(), meta)
+impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for str {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		<&str as AsJson<J, K>>::as_json_with(&self, meta)
 	}
 }
 
-impl<J: Json, T: AsJson<J>> AsJson<J> for [T]
-where
-	J::Array: FromIterator<J>,
-{
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		let array = J::Array::from_iter(self.iter().map(|value| value.as_json_with(meta.clone())));
-		Value::<J>::Array(array).with(meta())
+impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for String {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		AsJson::<J, K>::as_json_with(self.as_str(), meta)
 	}
 }
 
-impl<J: Json, T: AsJson<J>> AsJson<J> for Vec<T>
-where
-	J::Array: FromIterator<J>,
-{
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		AsJson::<J>::as_json_with(self.as_slice(), meta)
+impl<'a, J: JsonClone, K: JsonFrom<J>, T: AsRef<[u8]> + ?Sized> AsJson<J, K> for LanguageTag<'a, T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		AsJson::<J, K>::as_json_with(self.as_str(), meta)
 	}
 }
 
-impl<J: Json, T: AsJson<J>> AsJson<J> for HashSet<T>
-where
-	J::Array: FromIterator<J>,
-{
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		let array = J::Array::from_iter(self.iter().map(|value| value.as_json_with(meta.clone())));
-		Value::<J>::Array(array).with(meta())
+impl<J: JsonClone, K: JsonFrom<J>, T: AsRef<[u8]>> AsJson<J, K> for LanguageTagBuf<T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		AsJson::<J, K>::as_json_with(self.as_str(), meta)
+	}
+}
+
+impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for [T] {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		let array = K::Array::from_iter(self.iter().map(|value| value.as_json_with(meta.clone())));
+		Value::<K>::Array(array).with(meta(None))
+	}
+}
+
+impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Vec<T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		AsJson::<J, K>::as_json_with(self.as_slice(), meta)
+	}
+}
+
+impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for HashSet<T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		let array = self.iter().map(|value| value.as_json_with(meta.clone())).collect();
+		Value::<K>::Array(array).with(meta(None))
 	}
 }
 

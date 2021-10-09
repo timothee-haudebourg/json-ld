@@ -5,9 +5,9 @@ pub mod inverse;
 mod loader;
 mod processing;
 
-use crate::{syntax::Term, util::AsJson, Direction, Error, Id, ProcessingMode};
+use crate::{syntax::Term, util::{JsonFrom, AsJson}, Direction, Error, Id, ProcessingMode};
 use futures::{future::LocalBoxFuture, FutureExt};
-use generic_json::Json;
+use generic_json::{Json, JsonClone};
 use iref::{Iri, IriBuf};
 use langtag::{LanguageTag, LanguageTagBuf};
 use std::collections::HashMap;
@@ -259,20 +259,11 @@ impl<'a, L: Clone, C> Processed<&'a L, C> {
 	}
 }
 
-impl<J: Json, L: AsJson<J>, C> AsJson<J> for Processed<L, C> {
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
+impl<J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for Processed<L, C> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		self.local.as_json_with(meta)
 	}
 }
-
-// impl<'a, J: Json, C> AsJson<J> for Processed<&'a J, C> where J: Clone {
-// 	fn as_json_with<M>(&self, _meta: M) -> J where M: Clone + Fn() -> J::MetaData {
-// 		self.local.clone()
-// 	}
-// }
 
 impl<L, C> std::ops::Deref for Processed<L, C> {
 	type Target = C;
@@ -289,7 +280,7 @@ impl<L, C> std::convert::AsRef<C> for Processed<L, C> {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct JsonContext<J: Json, T: Id = IriBuf> {
+pub struct JsonContext<J: JsonClone, T: Id = IriBuf> {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term<T>>,
@@ -299,7 +290,7 @@ pub struct JsonContext<J: Json, T: Id = IriBuf> {
 	definitions: HashMap<String, TermDefinition<T, Self>>,
 }
 
-impl<J: Json, T: Id> JsonContext<J, T> {
+impl<J: JsonClone, T: Id> JsonContext<J, T> {
 	pub fn new(base_iri: Option<Iri>) -> Self {
 		Self {
 			original_base_url: base_iri.map(|iri| iri.into()),
@@ -313,7 +304,7 @@ impl<J: Json, T: Id> JsonContext<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> ContextMutProxy<T> for JsonContext<J, T> {
+impl<J: JsonClone, T: Id> ContextMutProxy<T> for JsonContext<J, T> {
 	type Target = Self;
 
 	fn deref(&self) -> &Self {
@@ -321,7 +312,7 @@ impl<J: Json, T: Id> ContextMutProxy<T> for JsonContext<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> Default for JsonContext<J, T> {
+impl<J: JsonClone, T: Id> Default for JsonContext<J, T> {
 	fn default() -> Self {
 		Self {
 			original_base_url: None,
@@ -335,7 +326,7 @@ impl<J: Json, T: Id> Default for JsonContext<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> Context<T> for JsonContext<J, T> {
+impl<J: JsonClone, T: Id> Context<T> for JsonContext<J, T> {
 	type LocalContext = J;
 
 	fn new(base_iri: Option<Iri>) -> Self {
@@ -383,7 +374,7 @@ impl<J: Json, T: Id> Context<T> for JsonContext<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> ContextMut<T> for JsonContext<J, T> {
+impl<J: JsonClone, T: Id> ContextMut<T> for JsonContext<J, T> {
 	fn set(
 		&mut self,
 		term: &str,

@@ -5,21 +5,22 @@ use crate::{
 	util::AsJson,
 	ContextMut, Error, Id, Reference, Value,
 };
-use json::JsonValue;
+use generic_json::Json;
 
 /// Compact the given indexed value.
-pub async fn compact_indexed_value_with<T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(
-	value: &Value<T>,
+pub async fn compact_indexed_value_with<J: Json, K: Json, T: Sync + Send + Id, C: ContextMut<T>, L: Loader>(
+	value: &Value<J, T>,
 	index: Option<&str>,
 	active_context: Inversible<T, &C>,
 	active_property: Option<&str>,
 	loader: &mut L,
 	options: Options,
-) -> Result<JsonValue, Error>
+) -> Result<K, Error>
 where
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
+	J::Object: cc_traits::Insert
 {
 	// If the term definition for active property in active context has a local context:
 	let mut active_context = active_context.into_borrowed();
@@ -50,7 +51,7 @@ where
 	// Here starts the Value Compaction Algorithm.
 
 	// Initialize result to a copy of value.
-	let mut result = json::object::Object::new();
+	let mut result = J::Object::default();
 
 	// If the active context has a null inverse context,
 	// set inverse context in active context to the result of calling the

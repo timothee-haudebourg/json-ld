@@ -1,5 +1,5 @@
 use crate::{syntax::TermLike, util};
-use generic_json::Json;
+use generic_json::{Json, JsonClone};
 use iref::{AsIri, Iri, IriBuf};
 use std::hash::Hash;
 
@@ -76,12 +76,8 @@ impl<T: Id> TermLike for T {
 	}
 }
 
-impl<J: Json, T: Id> util::AsJson<J> for T {
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		// self.as_iri().as_str().into()
-		panic!("TODO id as json")
+impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for T {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		self.as_iri().as_str().as_json_with(meta)
 	}
 }

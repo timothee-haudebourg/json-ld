@@ -1,4 +1,4 @@
-use generic_json::{Json, ValueRef};
+use generic_json::{Json, JsonHash, ValueRef};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
@@ -46,10 +46,7 @@ pub fn as_array<J: Json>(json: &J) -> (AsArray<J>, usize) {
 	}
 }
 
-pub fn hash_json<J: Json, H: Hasher>(json: &J, hasher: &mut H)
-where
-	J::Number: Hash,
-{
+pub fn hash_json<J: JsonHash, H: Hasher>(json: &J, hasher: &mut H) {
 	use cc_traits::{Iter, MapIter};
 	match json.as_value_ref() {
 		ValueRef::Null => (),

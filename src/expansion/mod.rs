@@ -6,7 +6,7 @@ use crate::{
 use cc_traits::{CollectionRef, KeyedRef};
 use derivative::Derivative;
 use futures::Future;
-use generic_json::Json;
+use generic_json::{Json, JsonHash, JsonClone};
 use iref::{Iri, IriBuf};
 use std::cmp::{Ord, Ordering};
 use std::collections::HashSet;
@@ -123,21 +123,6 @@ pub struct Entry<'a, J: Json>(
 where
 	J::Object: 'a;
 
-impl<'a, J: Json> Entry<'a, J>
-where
-	J::Object: 'a,
-{
-	fn reborrow_clone<'b>(&self) -> Entry<'b, J>
-	where
-		'a: 'b,
-	{
-		Entry(
-			J::Object::reborrow_key(self.0.clone()),
-			J::Object::reborrow(self.1.clone()),
-		)
-	}
-}
-
 impl<'a, J: Json> PartialEq for Entry<'a, J>
 where
 	J::Object: 'a,
@@ -218,12 +203,12 @@ where
 // 	}
 // }
 
-fn filter_top_level_item<J: Json, T: Id>(item: &Indexed<Object<J, T>>) -> bool {
+fn filter_top_level_item<J: JsonHash, T: Id>(item: &Indexed<Object<J, T>>) -> bool {
 	// Remove dangling values.
 	!matches!(item.inner(), Object::Value(_))
 }
 
-pub fn expand<'a, J: Json, T: Id, C: ContextMut<T>, L: Loader>(
+pub fn expand<'a, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>, L: Loader>(
 	active_context: &'a C,
 	element: &'a J,
 	base_url: Option<Iri>,

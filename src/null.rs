@@ -1,5 +1,5 @@
-use crate::util::AsJson;
-use generic_json::Json;
+use crate::util::{JsonFrom, AsJson};
+use generic_json::JsonClone;
 
 /// Value that can be null.
 ///
@@ -82,14 +82,11 @@ impl<'a, T: Clone> Nullable<&'a T> {
 	}
 }
 
-impl<J: Json, T: AsJson<J>> AsJson<J> for Nullable<T> {
+impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Nullable<T> {
 	#[inline]
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		match self {
-			Nullable::Null => J::null(meta()),
+			Nullable::Null => K::null(meta(None)),
 			Nullable::Some(t) => t.as_json_with(meta),
 		}
 	}

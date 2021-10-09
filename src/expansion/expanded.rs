@@ -1,14 +1,14 @@
 use crate::{Id, Indexed, Object};
-use generic_json::Json;
+use generic_json::{Json, JsonHash};
 use iref::IriBuf;
 
-pub enum Expanded<J: Json, T: Id = IriBuf> {
+pub enum Expanded<J: JsonHash, T: Id = IriBuf> {
 	Null,
 	Object(Indexed<Object<J, T>>),
 	Array(Vec<Indexed<Object<J, T>>>),
 }
 
-impl<J: Json, T: Id> Expanded<J, T> {
+impl<J: JsonHash, T: Id> Expanded<J, T> {
 	pub fn len(&self) -> usize {
 		match self {
 			Expanded::Null => 0,
@@ -41,7 +41,7 @@ impl<J: Json, T: Id> Expanded<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> IntoIterator for Expanded<J, T> {
+impl<J: JsonHash, T: Id> IntoIterator for Expanded<J, T> {
 	type Item = Indexed<Object<J, T>>;
 	type IntoIter = IntoIter<J, T>;
 
@@ -54,7 +54,7 @@ impl<J: Json, T: Id> IntoIterator for Expanded<J, T> {
 	}
 }
 
-impl<'a, J: Json, T: Id> IntoIterator for &'a Expanded<J, T> {
+impl<'a, J: JsonHash, T: Id> IntoIterator for &'a Expanded<J, T> {
 	type Item = &'a Indexed<Object<J, T>>;
 	type IntoIter = Iter<'a, J, T>;
 
@@ -63,13 +63,13 @@ impl<'a, J: Json, T: Id> IntoIterator for &'a Expanded<J, T> {
 	}
 }
 
-pub enum Iter<'a, J: Json, T: Id> {
+pub enum Iter<'a, J: JsonHash, T: Id> {
 	Null,
 	Object(Option<&'a Indexed<Object<J, T>>>),
 	Array(std::slice::Iter<'a, Indexed<Object<J, T>>>),
 }
 
-impl<'a, J: Json, T: Id> Iterator for Iter<'a, J, T> {
+impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
 	type Item = &'a Indexed<Object<J, T>>;
 
 	fn next(&mut self) -> Option<&'a Indexed<Object<J, T>>> {
@@ -85,13 +85,13 @@ impl<'a, J: Json, T: Id> Iterator for Iter<'a, J, T> {
 	}
 }
 
-pub enum IntoIter<J: Json, T: Id> {
+pub enum IntoIter<J: JsonHash, T: Id> {
 	Null,
 	Object(Option<Indexed<Object<J, T>>>),
 	Array(std::vec::IntoIter<Indexed<Object<J, T>>>),
 }
 
-impl<J: Json, T: Id> Iterator for IntoIter<J, T> {
+impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
 	type Item = Indexed<Object<J, T>>;
 
 	fn next(&mut self) -> Option<Indexed<Object<J, T>>> {
@@ -107,13 +107,13 @@ impl<J: Json, T: Id> Iterator for IntoIter<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> From<Indexed<Object<J, T>>> for Expanded<J, T> {
+impl<J: JsonHash, T: Id> From<Indexed<Object<J, T>>> for Expanded<J, T> {
 	fn from(obj: Indexed<Object<J, T>>) -> Expanded<J, T> {
 		Expanded::Object(obj)
 	}
 }
 
-impl<J: Json, T: Id> From<Vec<Indexed<Object<J, T>>>> for Expanded<J, T> {
+impl<J: JsonHash, T: Id> From<Vec<Indexed<Object<J, T>>>> for Expanded<J, T> {
 	fn from(list: Vec<Indexed<Object<J, T>>>) -> Expanded<J, T> {
 		Expanded::Array(list)
 	}

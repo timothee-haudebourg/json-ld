@@ -26,7 +26,7 @@ mown = "^0.2"
 # cc-traits = "^0.6"
 cc-traits = { path = "../../traits/cc-traits" }
 # generic-json = "^0.1"
-generic-json = { path = "../../json/generic" }
+generic-json = { path = "../../json/generic", features = ["nightly"] }
 iref = "^2.0.3"
 futures = "^0.3"
 once_cell = "^1.4"

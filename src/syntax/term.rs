@@ -1,6 +1,6 @@
 use super::Keyword;
-use crate::{util::AsJson, BlankId, Reference};
-use generic_json::Json;
+use crate::{util::{JsonFrom, AsJson}, BlankId, Reference};
+use generic_json::{Json, JsonClone};
 use iref::{AsIri, Iri};
 use std::fmt;
 
@@ -107,17 +107,13 @@ impl<T: AsIri> fmt::Debug for Term<T> {
 	}
 }
 
-impl<J: Json, T: AsIri> AsJson<J> for Term<T> {
-	fn as_json_with<M>(&self, meta: M) -> J
-	where
-		M: Clone + Fn() -> J::MetaData,
-	{
-		// match self {
-		// 	Term::Ref(p) => p.as_str().into(),
-		// 	Term::Keyword(kw) => kw.into_str().into(),
-		// 	Term::Null => JsonValue::Null,
-		// }
-		panic!("TODO Term as json")
+impl<J: JsonClone, K: JsonFrom<J>, T: AsIri> AsJson<J, K> for Term<T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		match self {
+			Term::Ref(p) => p.as_str().as_json_with(meta),
+			Term::Keyword(kw) => kw.into_str().as_json_with(meta),
+			Term::Null => K::null(meta(None)),
+		}
 	}
 }
 

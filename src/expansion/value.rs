@@ -4,11 +4,11 @@ use crate::{
 	syntax::{Keyword, Term},
 	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Reference,
 };
-use generic_json::{Json, ValueRef};
+use generic_json::{Json, JsonHash, JsonClone, ValueRef};
 use langtag::LanguageTagBuf;
 use std::convert::TryFrom;
 
-pub fn expand_value<'e, J: Json, T: Id, C: ContextMut<T>>(
+pub fn expand_value<'e, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>>(
 	input_type: Option<Term<T>>,
 	type_scoped_context: &C,
 	expanded_entries: Vec<ExpandedEntry<'e, J, Term<T>>>,

@@ -6,10 +6,10 @@ use crate::{
 	ContextMut, Error, Id,
 };
 use cc_traits::Iter;
-use generic_json::Json;
+use generic_json::{JsonHash, JsonClone};
 use iref::Iri;
 
-pub async fn expand_array<J: Json, T: Id, C: ContextMut<T>, L: Loader>(
+pub async fn expand_array<J: JsonHash + JsonClone, T: Id, C: ContextMut<T>, L: Loader>(
 	active_context: &C,
 	active_property: Option<&str>,
 	active_property_definition: Option<&TermDefinition<T, C>>,

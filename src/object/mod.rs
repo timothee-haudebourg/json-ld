@@ -3,8 +3,8 @@
 pub mod node;
 pub mod value;
 
-use crate::{syntax::Keyword, util::AsJson, Id, Indexed, Reference};
-use generic_json::Json;
+use crate::{syntax::Keyword, util::{JsonFrom, AsJson}, Id, Indexed, Reference};
+use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use langtag::LanguageTag;
 use std::collections::HashSet;
@@ -14,7 +14,7 @@ use std::hash::{Hash, Hasher};
 pub use node::Node;
 pub use value::{Literal, LiteralString, Value};
 
-pub trait Any<J: Json, T: Id> {
+pub trait Any<J: JsonHash, T: Id> {
 	fn as_ref(&self) -> Ref<J, T>;
 
 	#[inline]
@@ -65,7 +65,7 @@ pub trait Any<J: Json, T: Id> {
 }
 
 /// Object reference.
-pub enum Ref<'a, J: Json, T: Id> {
+pub enum Ref<'a, J: JsonHash, T: Id> {
 	/// Value object.
 	Value(&'a Value<J, T>),
 
@@ -81,7 +81,7 @@ pub enum Ref<'a, J: Json, T: Id> {
 /// JSON-LD connects together multiple kinds of data objects.
 /// Objects may be nodes, values or lists of objects.
 #[derive(PartialEq, Eq)]
-pub enum Object<J: Json, T: Id = IriBuf> {
+pub enum Object<J: JsonHash, T: Id = IriBuf> {
 	/// Value object.
 	Value(Value<J, T>),
 
@@ -92,7 +92,7 @@ pub enum Object<J: Json, T: Id = IriBuf> {
 	List(Vec<Indexed<Self>>),
 }
 
-impl<J: Json, T: Id> Object<J, T> {
+impl<J: JsonHash, T: Id> Object<J, T> {
 	/// Identifier of the object, if it is a node object.
 	pub fn id(&self) -> Option<&Reference<T>> {
 		match self {
@@ -174,7 +174,7 @@ impl<J: Json, T: Id> Object<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> Hash for Object<J, T> {
+impl<J: JsonHash, T: Id> Hash for Object<J, T> {
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
 			Self::Value(v) => v.hash(h),
@@ -184,7 +184,7 @@ impl<J: Json, T: Id> Hash for Object<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> Indexed<Object<J, T>> {
+impl<J: JsonHash, T: Id> Indexed<Object<J, T>> {
 	/// Try to convert this object into an unnamed graph.
 	pub fn into_unnamed_graph(self: Indexed<Object<J, T>>) -> Result<HashSet<Self>, Self> {
 		let (obj, index) = self.into_parts();
@@ -198,7 +198,7 @@ impl<J: Json, T: Id> Indexed<Object<J, T>> {
 	}
 }
 
-impl<J: Json, T: Id> Any<J, T> for Object<J, T> {
+impl<J: JsonHash, T: Id> Any<J, T> for Object<J, T> {
 	fn as_ref(&self) -> Ref<J, T> {
 		match self {
 			Object::Value(value) => Ref::Value(value),
@@ -215,32 +215,28 @@ impl<J: Json, T: Id> Any<J, T> for Object<J, T> {
 // 	}
 // }
 
-impl<J: Json, T: Id> From<Value<J, T>> for Object<J, T> {
+impl<J: JsonHash, T: Id> From<Value<J, T>> for Object<J, T> {
 	fn from(value: Value<J, T>) -> Self {
 		Self::Value(value)
 	}
 }
 
-impl<J: Json, T: Id> From<Node<J, T>> for Object<J, T> {
+impl<J: JsonHash, T: Id> From<Node<J, T>> for Object<J, T> {
 	fn from(node: Node<J, T>) -> Self {
 		Self::Node(node)
 	}
 }
 
-impl<J: Json, K: Json, T: Id> AsJson<K> for Object<J, T> {
-	fn as_json_with<M>(&self, meta: M) -> K
-	where
-		M: Clone + Fn() -> K::MetaData,
-	{
-		// match self {
-		// 	Object::Value(v) => v.as_json(),
-		// 	Object::Node(n) => n.as_json(),
-		// 	Object::List(items) => {
-		// 		let mut obj = json::object::Object::new();
-		// 		obj.insert(Keyword::List.into(), items.as_json());
-		// 		JsonValue::Object(obj)
-		// 	}
-		// }
-		panic!("TODO object as json")
+impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		match self {
+			Object::Value(v) => v.as_json_with(meta),
+			Object::Node(n) => n.as_json_with(meta),
+			Object::List(items) => {
+				let mut obj = K::Object::default();
+				obj.insert(Keyword::List.into_str().into(), items.as_json_with(meta.clone()));
+				K::object(obj, meta(None))
+			}
+		}
 	}
 }

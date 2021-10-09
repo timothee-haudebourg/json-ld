@@ -11,13 +11,13 @@ use crate::{
 };
 use cc_traits::{CollectionRef, Get, KeyedRef, Len, MapIter};
 use futures::future::{FutureExt, LocalBoxFuture};
-use generic_json::{Json, ValueRef};
+use generic_json::{Json, JsonHash, JsonClone, ValueRef};
 use iref::Iri;
 use mown::Mown;
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, J: Json, T: Id, C: ContextMut<T>, L: Loader>(
+pub fn expand_element<'a, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>, L: Loader>(
 	active_context: &'a C,
 	active_property: Option<&'a str>,
 	element: &'a J,
@@ -242,9 +242,9 @@ where
 					}
 
 					expanded_entries.push(ExpandedEntry(
-						J::Object::reborrow_key(key),
+						J::Object::upcast_key_ref(key),
 						expanded_key,
-						J::Object::reborrow(value),
+						J::Object::upcast_item_ref(value),
 					))
 				}
 

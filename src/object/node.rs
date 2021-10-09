@@ -3,7 +3,8 @@ use crate::{
 	syntax::{Keyword, Term},
 	util, Id, Indexed, Object, Reference, ToReference,
 };
-use generic_json::Json;
+use generic_json::{Json, JsonClone, JsonHash};
+use cc_traits::MapInsert;
 use iref::{Iri, IriBuf};
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
@@ -18,7 +19,7 @@ use std::hash::{Hash, Hasher};
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
 #[derive(PartialEq, Eq)]
-pub struct Node<J: Json, T: Id = IriBuf> {
+pub struct Node<J: JsonHash, T: Id = IriBuf> {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
@@ -51,9 +52,9 @@ pub struct Node<J: Json, T: Id = IriBuf> {
 }
 
 /// Iterator through indexed objects.
-pub struct Objects<'a, J: Json, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>);
+pub struct Objects<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>);
 
-impl<'a, J: Json, T: Id> Iterator for Objects<'a, J, T> {
+impl<'a, J: JsonHash, T: Id> Iterator for Objects<'a, J, T> {
 	type Item = &'a Indexed<Object<J, T>>;
 
 	fn next(&mut self) -> Option<&'a Indexed<Object<J, T>>> {
@@ -64,13 +65,13 @@ impl<'a, J: Json, T: Id> Iterator for Objects<'a, J, T> {
 	}
 }
 
-impl<J: Json, T: Id> Default for Node<J, T> {
+impl<J: JsonHash, T: Id> Default for Node<J, T> {
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl<J: Json, T: Id> Node<J, T> {
+impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Create a new empty node.
 	pub fn new() -> Self {
 		Self {
@@ -326,13 +327,13 @@ impl<J: Json, T: Id> Node<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> object::Any<J, T> for Node<J, T> {
+impl<J: JsonHash, T: Id> object::Any<J, T> for Node<J, T> {
 	fn as_ref(&self) -> object::Ref<J, T> {
 		object::Ref::Node(self)
 	}
 }
 
-impl<J: Json, T: Id> TryFrom<Object<J, T>> for Node<J, T> {
+impl<J: JsonHash, T: Id> TryFrom<Object<J, T>> for Node<J, T> {
 	type Error = Object<J, T>;
 
 	fn try_from(obj: Object<J, T>) -> Result<Node<J, T>, Object<J, T>> {
@@ -343,7 +344,7 @@ impl<J: Json, T: Id> TryFrom<Object<J, T>> for Node<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> Hash for Node<J, T> {
+impl<J: JsonHash, T: Id> Hash for Node<J, T> {
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		self.id.hash(h);
 		self.types.hash(h);
@@ -354,43 +355,39 @@ impl<J: Json, T: Id> Hash for Node<J, T> {
 	}
 }
 
-impl<J: Json, K: Json, T: Id> util::AsJson<K> for Node<J, T> {
-	fn as_json_with<M>(&self, meta: M) -> K
-	where
-		M: Clone + Fn() -> K::MetaData,
-	{
-		panic!("TODO node as json")
-		// let mut obj = json::object::Object::new();
+impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Node<J, T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		let mut obj = K::Object::default();
 
-		// if let Some(id) = &self.id {
-		// 	obj.insert(Keyword::Id.into(), id.as_json());
-		// }
+		if let Some(id) = &self.id {
+			obj.insert(Keyword::Id.into_str().into(), id.as_json_with(meta.clone()));
+		}
 
-		// if !self.types.is_empty() {
-		// 	obj.insert(Keyword::Type.into(), self.types.as_json())
-		// }
+		if !self.types.is_empty() {
+			obj.insert(Keyword::Type.into_str().into(), self.types.as_json_with(meta.clone()));
+		}
 
-		// if let Some(graph) = &self.graph {
-		// 	obj.insert(Keyword::Graph.into(), graph.as_json())
-		// }
+		if let Some(graph) = &self.graph {
+			obj.insert(Keyword::Graph.into_str().into(), graph.as_json_with(meta.clone()));
+		}
 
-		// if let Some(included) = &self.included {
-		// 	obj.insert(Keyword::Included.into(), included.as_json())
-		// }
+		if let Some(included) = &self.included {
+			obj.insert(Keyword::Included.into_str().into(), included.as_json_with(meta.clone()));
+		}
 
-		// if !self.reverse_properties.is_empty() {
-		// 	let mut reverse = json::object::Object::new();
-		// 	for (key, value) in &self.reverse_properties {
-		// 		reverse.insert(key.as_str(), value.as_json())
-		// 	}
+		if !self.reverse_properties.is_empty() {
+			let mut reverse = K::Object::default();
+			for (key, value) in &self.reverse_properties {
+				reverse.insert(key.as_str().into(), value.as_json_with(meta.clone()));
+			}
 
-		// 	obj.insert(Keyword::Reverse.into(), JsonValue::Object(reverse))
-		// }
+			obj.insert(Keyword::Reverse.into_str().into(), K::object(reverse, meta(None)));
+		}
 
-		// for (key, value) in &self.properties {
-		// 	obj.insert(key.as_str(), value.as_json())
-		// }
+		for (key, value) in &self.properties {
+			obj.insert(key.as_str().into(), value.as_json_with(meta.clone()));
+		}
 
-		// JsonValue::Object(obj)
+		K::object(obj, meta(None))
 	}
 }

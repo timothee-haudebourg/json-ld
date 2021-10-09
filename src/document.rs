@@ -11,7 +11,7 @@ use crate::{
 	Object,
 };
 use futures::future::{FutureExt, LocalBoxFuture};
-use generic_json::Json;
+use generic_json::{Json, JsonHash, JsonClone};
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
@@ -47,7 +47,7 @@ pub trait Document<T: Id> {
 		options: expansion::Options,
 	) -> LocalBoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
 	where
-		Self::Json: Json, // TODO this bound is currently required, but should not.
+		Self::Json: JsonHash + JsonClone, // TODO this bound is currently required, but should not.
 		C::LocalContext: From<L::Output> + From<Self::Json>,
 		L::Output: Into<Self::Json>, // TODO get rid of this bound?
 		T: 'a;
@@ -90,7 +90,7 @@ pub trait Document<T: Id> {
 		loader: &'a mut L,
 	) -> LocalBoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
 	where
-		Self::Json: Json,
+		Self::Json: JsonHash + JsonClone,
 		C::LocalContext: From<L::Output> + From<Self::Json>,
 		L::Output: Into<Self::Json>,
 		T: 'a,
@@ -303,6 +303,7 @@ impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 		options: expansion::Options,
 	) -> LocalBoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
 	where
+		D::Json: JsonHash + JsonClone,
 		C::LocalContext: From<L::Output> + From<Self::Json>,
 		L::Output: Into<Self::Json>,
 		T: 'a,
