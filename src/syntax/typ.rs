@@ -1,6 +1,6 @@
 use super::{Keyword, Term, TermLike};
 use crate::{util, Id, Reference};
-use generic_json::{Json, JsonClone};
+use generic_json::JsonClone;
 use iref::Iri;
 use std::convert::TryFrom;
 use std::fmt;

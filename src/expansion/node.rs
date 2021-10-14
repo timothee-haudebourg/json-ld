@@ -1,6 +1,6 @@
 use super::{
 	expand_element, expand_iri, expand_literal, filter_top_level_item, Entry, Expanded,
-	ExpandedEntry, LiteralValue, Options, Policy,
+	ExpandedEntry, JsonExpand, LiteralValue, Options, Policy,
 };
 use crate::util::as_array;
 use crate::{
@@ -9,9 +9,9 @@ use crate::{
 	syntax::{Container, ContainerType, Keyword, Term, Type},
 	Error, ErrorCode, Id, Indexed, LangString, ProcessingMode, Reference,
 };
-use cc_traits::{Iter, Len, MapIter};
-use futures::future::{FutureExt, LocalBoxFuture};
-use generic_json::{Json, JsonClone, JsonHash, ValueRef};
+use cc_traits::{Len, MapIter};
+use futures::future::{BoxFuture, FutureExt};
+use generic_json::ValueRef;
 use iref::Iri;
 use langtag::LanguageTagBuf;
 use mown::Mown;
@@ -29,10 +29,10 @@ pub fn node_id_of_term<T: Id>(term: Term<T>) -> Option<Reference<T>> {
 
 pub async fn expand_node<
 	'a,
-	J: 'a + JsonHash + JsonClone,
-	T: 'a + Id,
-	C: ContextMut<T>,
-	L: Loader,
+	J: JsonExpand,
+	T: 'a + Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
 >(
 	active_context: &'a C,
 	type_scoped_context: &'a C,
@@ -43,7 +43,6 @@ pub async fn expand_node<
 	options: Options,
 ) -> Result<Option<Indexed<Node<J, T>>>, Error>
 where
-	J::Object: 'a,
 	C::LocalContext: From<L::Output> + From<J>,
 	L::Output: Into<J>,
 {
@@ -96,7 +95,13 @@ where
 	Ok(Some(result))
 }
 
-fn expand_node_entries<'a, J: 'a + JsonHash + JsonClone, T: 'a + Id, C: ContextMut<T>, L: Loader>(
+fn expand_node_entries<
+	'a,
+	J: JsonExpand,
+	T: 'a + Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
+>(
 	mut result: Indexed<Node<J, T>>,
 	mut has_value_object_entries: bool,
 	active_context: &'a C,
@@ -106,10 +111,9 @@ fn expand_node_entries<'a, J: 'a + JsonHash + JsonClone, T: 'a + Id, C: ContextM
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
-) -> LocalBoxFuture<'a, Result<(Indexed<Node<J, T>>, bool), Error>>
+) -> BoxFuture<'a, Result<(Indexed<Node<J, T>>, bool), Error>>
 where
-	J::Object: 'a,
-	C::LocalContext: From<L::Output> + From<J>,
+	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
 {
 	async move {
@@ -915,5 +919,5 @@ where
 
 		Ok((result, has_value_object_entries))
 	}
-	.boxed_local()
+	.boxed()
 }

@@ -1,6 +1,4 @@
 //! Utility functions.
-
-use generic_json::{Json, ValueRef};
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 

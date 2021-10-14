@@ -2,7 +2,7 @@ use crate::{
 	syntax::{Term, TermLike},
 	util, BlankId, Id,
 };
-use generic_json::{Json, JsonClone};
+use generic_json::JsonClone;
 use iref::{AsIri, Iri, IriBuf};
 use std::borrow::Borrow;
 use std::convert::TryFrom;

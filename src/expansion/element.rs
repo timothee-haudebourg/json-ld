@@ -1,6 +1,6 @@
 use super::{
 	expand_array, expand_iri, expand_literal, expand_node, expand_value, Entry, Expanded,
-	ExpandedEntry, LiteralValue, Options,
+	ExpandedEntry, JsonExpand, LiteralValue, Options,
 };
 use crate::util::as_array;
 use crate::{
@@ -10,14 +10,20 @@ use crate::{
 	Error, ErrorCode, Id, Indexed,
 };
 use cc_traits::{CollectionRef, Get, KeyedRef, Len, MapIter};
-use futures::future::{FutureExt, LocalBoxFuture};
-use generic_json::{Json, JsonClone, JsonHash, ValueRef};
+use futures::future::{BoxFuture, FutureExt};
+use generic_json::ValueRef;
 use iref::Iri;
 use mown::Mown;
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>, L: Loader>(
+pub fn expand_element<
+	'a,
+	J: JsonExpand,
+	T: 'a + Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
+>(
 	active_context: &'a C,
 	active_property: Option<&'a str>,
 	element: &'a J,
@@ -25,9 +31,9 @@ pub fn expand_element<'a, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>, L: L
 	loader: &'a mut L,
 	options: Options,
 	from_map: bool,
-) -> LocalBoxFuture<'a, Result<Expanded<J, T>, Error>>
+) -> BoxFuture<'a, Result<Expanded<J, T>, Error>>
 where
-	C::LocalContext: From<L::Output> + From<J>,
+	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
 {
 	async move {
@@ -394,5 +400,5 @@ where
 			}
 		}
 	}
-	.boxed_local()
+	.boxed()
 }

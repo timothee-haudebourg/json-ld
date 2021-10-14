@@ -6,7 +6,7 @@ use crate::{
 use cc_traits::{CollectionRef, KeyedRef};
 use derivative::Derivative;
 use futures::Future;
-use generic_json::{Json, JsonClone, JsonHash};
+use generic_json::{Json, JsonClone, JsonHash, JsonLft, JsonSendSync};
 use iref::{Iri, IriBuf};
 use std::cmp::{Ord, Ordering};
 use std::collections::HashSet;
@@ -26,6 +26,9 @@ pub use iri::*;
 pub use literal::*;
 pub use node::*;
 pub use value::*;
+
+/// JSON document that can be expanded.
+pub trait JsonExpand = JsonSendSync + JsonHash + JsonClone + JsonLft<'static>;
 
 #[derive(Clone, Copy, Default)]
 pub struct Options {
@@ -104,15 +107,15 @@ impl From<Options> for ProcessingOptions {
 	}
 }
 
-// impl From<crate::compaction::Options> for Options {
-// 	fn from(options: crate::compaction::Options) -> Options {
-// 		Options {
-// 			processing_mode: options.processing_mode,
-// 			ordered: options.ordered,
-// 			..Options::default()
-// 		}
-// 	}
-// }
+impl From<crate::compaction::Options> for Options {
+	fn from(options: crate::compaction::Options) -> Options {
+		Options {
+			processing_mode: options.processing_mode,
+			ordered: options.ordered,
+			..Options::default()
+		}
+	}
+}
 
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
@@ -139,7 +142,7 @@ where
 	J::Object: 'a,
 {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		self.0.as_ref().partial_cmp(&other.0.as_ref())
+		self.0.as_ref().partial_cmp(other.0.as_ref())
 	}
 }
 
@@ -148,7 +151,7 @@ where
 	J::Object: 'a,
 {
 	fn cmp(&self, other: &Self) -> Ordering {
-		self.0.as_ref().cmp(&other.0.as_ref())
+		self.0.as_ref().cmp(other.0.as_ref())
 	}
 }
 
@@ -176,7 +179,7 @@ where
 	J::Object: 'a,
 {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		self.0.as_ref().partial_cmp(&other.0.as_ref())
+		self.0.as_ref().partial_cmp(other.0.as_ref())
 	}
 }
 
@@ -185,7 +188,7 @@ where
 	J::Object: 'a,
 {
 	fn cmp(&self, other: &Self) -> Ordering {
-		self.0.as_ref().cmp(&other.0.as_ref())
+		self.0.as_ref().cmp(other.0.as_ref())
 	}
 }
 
@@ -208,13 +211,19 @@ fn filter_top_level_item<J: JsonHash, T: Id>(item: &Indexed<Object<J, T>>) -> bo
 	!matches!(item.inner(), Object::Value(_))
 }
 
-pub fn expand<'a, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>, L: Loader>(
+pub fn expand<
+	'a,
+	J: JsonExpand,
+	T: Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
+>(
 	active_context: &'a C,
 	element: &'a J,
 	base_url: Option<Iri>,
 	loader: &'a mut L,
 	options: Options,
-) -> impl 'a + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
+) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
 	L::Output: Into<J>,

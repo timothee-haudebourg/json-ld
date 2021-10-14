@@ -1,5 +1,5 @@
 use crate::{Id, Indexed, Object};
-use generic_json::{Json, JsonHash};
+use generic_json::JsonHash;
 use iref::IriBuf;
 
 pub enum Expanded<J: JsonHash, T: Id = IriBuf> {

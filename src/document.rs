@@ -1,10 +1,7 @@
 use crate::{
-	// compaction,
-	context::{self, Loader},
+	context::Loader,
 	expansion,
-	Context,
 	ContextMut,
-	ContextMutProxy,
 	Error,
 	Id,
 	Indexed,
@@ -19,7 +16,7 @@ use std::ops::{Deref, DerefMut};
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
-pub type ExpandedDocument<J: Json, T> = HashSet<Indexed<Object<J, T>>>;
+pub type ExpandedDocument<J, T> = HashSet<Indexed<Object<J, T>>>;
 
 /// JSON-LD document.
 ///

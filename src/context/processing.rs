@@ -1,4 +1,6 @@
-use super::{Context, ContextMut, Loader, Local, Processed, ProcessingOptions, TermDefinition};
+use super::{
+	Context, ContextMut, JsonContext, Loader, Local, Processed, ProcessingOptions, TermDefinition,
+};
 use crate::util::as_array;
 use crate::{
 	expansion,
@@ -6,7 +8,7 @@ use crate::{
 	BlankId, Direction, Error, ErrorCode, Id, Nullable, ProcessingMode, Reference,
 };
 use cc_traits::{Get, Len, MapIter};
-use futures::future::{FutureExt, LocalBoxFuture};
+use futures::future::{BoxFuture, FutureExt};
 use generic_json::{Json, ValueRef};
 use iref::{Iri, IriBuf, IriRef};
 use langtag::LanguageTagBuf;
@@ -14,10 +16,7 @@ use mown::Mown;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::future::Future;
-use std::ops::Deref;
 use std::sync::Arc;
-
-pub trait JsonContext = Json + PartialEq + Clone;
 
 /// Local JSON-LD context.
 pub struct LocalContextObject<'o, O> {
@@ -136,7 +135,7 @@ impl<'a, J: Json> WrappedValue<'a, J> {
 		debug_assert_ne!(key, "@id");
 		match self {
 			Self::WrappedNull => None,
-			Self::Wrapped(value) => None,
+			Self::Wrapped(_) => None,
 			Self::Unwrapped(object) => object.get(key),
 		}
 	}
@@ -199,39 +198,25 @@ where
 		self.as_value_ref().is_null()
 	}
 
-	fn as_bool(&self) -> Option<bool> {
-		self.as_value_ref().as_bool()
-	}
-
 	fn as_str(&self) -> Option<&str> {
 		self.as_value_ref().into_str()
 	}
 }
 
-// impl<'r, 'a: 'r, J: Json> Deref for IdValue<'r, 'a, J> {
-// 	type Target = J;
-
-// 	fn deref(&self) -> &Self::Target {
-// 		match self {
-// 			Self::Value(value) => value,
-// 			Self::Ref(r) => r.deref()
-// 		}
-// 	}
-// }
-
 impl<J: JsonContext, T: Id> Local<T> for J {
 	/// Load a local context.
-	fn process_full<'a, 's: 'a, C: ContextMut<T>, L: Loader>(
+	fn process_full<'a, 's: 'a, C: ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
 		&'s self,
 		active_context: &'a C,
 		stack: ProcessingStack,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> LocalBoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
+		T: Send + Sync,
 	{
 		async move {
 			Ok(Processed::new(
@@ -239,7 +224,7 @@ impl<J: JsonContext, T: Id> Local<T> for J {
 				process_context(active_context, self, stack, loader, base_url, options).await?,
 			))
 		}
-		.boxed_local()
+		.boxed()
 	}
 }
 
@@ -349,14 +334,20 @@ impl Default for ProcessingStack {
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, J: JsonContext, T: Id, C: ContextMut<T>, L: Loader>(
+fn process_context<
+	'a,
+	J: JsonContext,
+	T: Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
+>(
 	active_context: &'a C,
 	local_context: &'a J,
 	mut remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	base_url: Option<Iri>,
 	mut options: ProcessingOptions,
-) -> LocalBoxFuture<'a, Result<C, Error>>
+) -> BoxFuture<'a, Result<C, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
 	L::Output: Into<J>,
@@ -708,29 +699,7 @@ where
 
 		Ok(result)
 	}
-	.boxed_local()
-}
-
-enum JsonObjectRef<'a, J: Json> {
-	Owned(J::Object),
-	Borrowed(&'a J::Object),
-}
-
-impl<'a, J: Json> JsonObjectRef<'a, J> {
-	fn as_ref(&self) -> &J::Object {
-		match self {
-			JsonObjectRef::Owned(obj) => obj,
-			JsonObjectRef::Borrowed(obj) => obj,
-		}
-	}
-}
-
-impl<'a, J: Json> Deref for JsonObjectRef<'a, J> {
-	type Target = J::Object;
-
-	fn deref(&self) -> &J::Object {
-		self.as_ref()
-	}
+	.boxed()
 }
 
 fn is_gen_delim(c: char) -> bool {
@@ -775,7 +744,13 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
-pub fn define<'a, J: JsonContext, T: Id, C: ContextMut<T>, L: Loader>(
+pub fn define<
+	'a,
+	J: JsonContext,
+	T: Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
+>(
 	active_context: &'a mut C,
 	local_context: &'a LocalContextObject<'a, J::Object>,
 	term: &'a str,
@@ -785,9 +760,9 @@ pub fn define<'a, J: JsonContext, T: Id, C: ContextMut<T>, L: Loader>(
 	base_url: Option<Iri<'a>>,
 	protected: bool,
 	options: ProcessingOptions,
-) -> LocalBoxFuture<'a, Result<(), Error>>
+) -> BoxFuture<'a, Result<(), Error>>
 where
-	C::LocalContext: From<L::Output> + From<J>,
+	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
 {
 	// let term = term.to_string();
@@ -870,23 +845,16 @@ where
 						ValueRef::Null => {
 							// If `value` is null, convert it to a map consisting of a single entry
 							// whose key is @id and whose value is null.
-							// let mut map = J::Object::with_capacity(1);
-							// map.insert("@id".into(), generic_json::Value::Null.with_default());
-							// JsonObjectRef::Owned(map)
 							WrappedValue::WrappedNull
 						}
 						ValueRef::String(value) => {
 							// Otherwise, if value is a string, convert it to a map consisting of a
 							// single entry whose key is @id and whose value is value. Set simple
 							// term to true (it already is).
-							// let mut map = J::Object::with_capacity(1);
-							// map.insert("@id".into(), value.clone());
-							// JsonObjectRef::Owned(map)
 							WrappedValue::Wrapped(value)
 						}
 						ValueRef::Object(value) => {
 							simple_term = false;
-							// JsonObjectRef::Borrowed(value)
 							WrappedValue::Unwrapped(value)
 						}
 						_ => return Err(ErrorCode::InvalidTermDefinition.into()),
@@ -1506,11 +1474,17 @@ where
 			}
 		}
 	}
-	.boxed_local()
+	.boxed()
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<'a, J: JsonContext, T: Id, C: ContextMut<T>, L: Loader>(
+pub fn expand_iri<
+	'a,
+	J: JsonContext,
+	T: Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
+>(
 	active_context: &'a mut C,
 	value: &str,
 	document_relative: bool,
@@ -1520,7 +1494,7 @@ pub fn expand_iri<'a, J: JsonContext, T: Id, C: ContextMut<T>, L: Loader>(
 	remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	options: ProcessingOptions,
-) -> impl 'a + Future<Output = Result<Term<T>, Error>>
+) -> impl 'a + Send + Future<Output = Result<Term<T>, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
 	L::Output: Into<J>,

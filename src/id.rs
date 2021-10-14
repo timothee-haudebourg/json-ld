@@ -1,5 +1,5 @@
 use crate::{syntax::TermLike, util};
-use generic_json::{Json, JsonClone};
+use generic_json::JsonClone;
 use iref::{AsIri, Iri, IriBuf};
 use std::hash::Hash;
 

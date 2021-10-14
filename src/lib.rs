@@ -6,7 +6,7 @@ extern crate iref;
 extern crate log;
 
 mod blank;
-// pub mod compaction;
+pub mod compaction;
 pub mod context;
 mod direction;
 mod document;
@@ -28,7 +28,7 @@ mod vocab;
 pub mod reqwest;
 
 pub use blank::*;
-// pub use compaction::Compact;
+pub use compaction::Compact;
 pub use direction::*;
 pub use document::*;
 pub use error::*;

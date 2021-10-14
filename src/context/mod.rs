@@ -10,8 +10,8 @@ use crate::{
 	util::{AsJson, JsonFrom},
 	Direction, Error, Id, ProcessingMode,
 };
-use futures::{future::LocalBoxFuture, FutureExt};
-use generic_json::{Json, JsonClone};
+use futures::{future::BoxFuture, FutureExt};
+use generic_json::{JsonClone, JsonSendSync};
 use iref::{Iri, IriBuf};
 use langtag::{LanguageTag, LanguageTagBuf};
 use std::collections::HashMap;
@@ -20,6 +20,8 @@ pub use definition::*;
 pub use inverse::{InverseContext, Inversible};
 pub use loader::*;
 pub use processing::*;
+
+pub trait JsonContext = JsonSendSync + JsonClone;
 
 /// Options of the Context Processing Algorithm.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -159,31 +161,33 @@ pub trait ContextMutProxy<T: Id = IriBuf> {
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
-pub trait Local<T: Id = IriBuf>: Json + PartialEq {
+pub trait Local<T: Id = IriBuf>: JsonSendSync {
 	/// Process the local context with specific options.
-	fn process_full<'a, 's: 'a, C: ContextMut<T>, L: Loader>(
+	fn process_full<'a, 's: 'a, C: ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
 		&'s self,
 		active_context: &'a C,
 		stack: ProcessingStack,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> LocalBoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
-		L::Output: Into<Self>;
+		L::Output: Into<Self>,
+		T: Send + Sync;
 
 	/// Process the local context with specific options.
-	fn process_with<'a, 's: 'a, C: ContextMut<T>, L: Loader>(
+	fn process_with<'a, 's: 'a, C: ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
 		&'s self,
 		active_context: &'a C,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> LocalBoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
+		T: Send + Sync,
 	{
 		self.process_full(
 			active_context,
@@ -196,14 +200,15 @@ pub trait Local<T: Id = IriBuf>: Json + PartialEq {
 
 	/// Process the local context with the given active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, 's: 'a, C: ContextMut<T> + Default, L: Loader>(
+	fn process<'a, 's: 'a, C: ContextMut<T> + Default + Send + Sync, L: Loader + Send + Sync>(
 		&'s self,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
-	) -> LocalBoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
+		T: Send + Sync,
 	{
 		async move {
 			let active_context = C::default();
@@ -216,7 +221,7 @@ pub trait Local<T: Id = IriBuf>: Json + PartialEq {
 			)
 			.await
 		}
-		.boxed_local()
+		.boxed()
 	}
 }
 
@@ -284,7 +289,7 @@ impl<L, C> std::convert::AsRef<C> for Processed<L, C> {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct JsonContext<J: JsonClone, T: Id = IriBuf> {
+pub struct Json<J: JsonContext, T: Id = IriBuf> {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term<T>>,
@@ -294,7 +299,7 @@ pub struct JsonContext<J: JsonClone, T: Id = IriBuf> {
 	definitions: HashMap<String, TermDefinition<T, Self>>,
 }
 
-impl<J: JsonClone, T: Id> JsonContext<J, T> {
+impl<J: JsonContext, T: Id> Json<J, T> {
 	pub fn new(base_iri: Option<Iri>) -> Self {
 		Self {
 			original_base_url: base_iri.map(|iri| iri.into()),
@@ -308,7 +313,7 @@ impl<J: JsonClone, T: Id> JsonContext<J, T> {
 	}
 }
 
-impl<J: JsonClone, T: Id> ContextMutProxy<T> for JsonContext<J, T> {
+impl<J: JsonContext, T: Id> ContextMutProxy<T> for Json<J, T> {
 	type Target = Self;
 
 	fn deref(&self) -> &Self {
@@ -316,7 +321,7 @@ impl<J: JsonClone, T: Id> ContextMutProxy<T> for JsonContext<J, T> {
 	}
 }
 
-impl<J: JsonClone, T: Id> Default for JsonContext<J, T> {
+impl<J: JsonContext, T: Id> Default for Json<J, T> {
 	fn default() -> Self {
 		Self {
 			original_base_url: None,
@@ -330,7 +335,7 @@ impl<J: JsonClone, T: Id> Default for JsonContext<J, T> {
 	}
 }
 
-impl<J: JsonClone, T: Id> Context<T> for JsonContext<J, T> {
+impl<J: JsonContext, T: Id> Context<T> for Json<J, T> {
 	type LocalContext = J;
 
 	fn new(base_iri: Option<Iri>) -> Self {
@@ -378,7 +383,7 @@ impl<J: JsonClone, T: Id> Context<T> for JsonContext<J, T> {
 	}
 }
 
-impl<J: JsonClone, T: Id> ContextMut<T> for JsonContext<J, T> {
+impl<J: JsonContext, T: Id> ContextMut<T> for Json<J, T> {
 	fn set(
 		&mut self,
 		term: &str,

@@ -1,10 +1,12 @@
 use cc_traits::{Get, Iter, Len, MapIter};
-use generic_json::{Json, JsonBuild, JsonClone, JsonMut, Value, ValueRef};
+use generic_json::{
+	Json, JsonBuild, JsonClone, JsonIntoMut, JsonMutSendSync, Value, ValueRef,
+};
 use langtag::{LanguageTag, LanguageTagBuf};
 use std::collections::HashSet;
 
-pub trait JsonFrom<J: JsonClone> =
-	JsonBuild + JsonMut + From<J> where <Self as Json>::Number: From<<J as Json>::Number>;
+pub trait JsonFrom<J: JsonClone> = JsonMutSendSync + JsonBuild + JsonIntoMut
+where <Self as Json>::Number: From<<J as Json>::Number>;
 
 pub trait AsJson<J: JsonClone, K: JsonFrom<J>> {
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K;
@@ -113,9 +115,9 @@ where
 			selected.resize(a.len(), false);
 
 			'a_items: for item in a.iter() {
-				for i in 0..b.len() {
-					if !selected[i] && json_ld_eq(&*item, &*b.get(i).unwrap()) {
-						selected[i] = true;
+				for (i, sel) in selected.iter_mut().enumerate().take(b.len()) {
+					if !*sel && json_ld_eq(&*item, &*b.get(i).unwrap()) {
+						*sel = true;
 						continue 'a_items;
 					}
 				}

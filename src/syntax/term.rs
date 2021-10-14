@@ -3,7 +3,7 @@ use crate::{
 	util::{AsJson, JsonFrom},
 	BlankId, Reference,
 };
-use generic_json::{Json, JsonClone};
+use generic_json::JsonClone;
 use iref::{AsIri, Iri};
 use std::fmt;
 

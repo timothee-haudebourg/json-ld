@@ -4,7 +4,7 @@ use crate::{
 	syntax::{Keyword, Term},
 	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Reference,
 };
-use generic_json::{Json, JsonClone, JsonHash, ValueRef};
+use generic_json::{JsonClone, JsonHash, ValueRef};
 use langtag::LanguageTagBuf;
 use std::convert::TryFrom;
 

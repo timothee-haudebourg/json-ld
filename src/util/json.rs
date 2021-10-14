@@ -1,6 +1,6 @@
 use generic_json::{Json, JsonHash, ValueRef};
 use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::hash::Hasher;
 
 mod build;
 

@@ -4,7 +4,7 @@ use crate::{
 	util, Id, Indexed, Object, Reference, ToReference,
 };
 use cc_traits::MapInsert;
-use generic_json::{Json, JsonClone, JsonHash};
+use generic_json::{JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};

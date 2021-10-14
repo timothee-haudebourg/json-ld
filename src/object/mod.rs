@@ -8,11 +8,10 @@ use crate::{
 	util::{AsJson, JsonFrom},
 	Id, Indexed, Reference,
 };
-use generic_json::{Json, JsonClone, JsonHash};
+use generic_json::{JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use langtag::LanguageTag;
 use std::collections::HashSet;
-use std::fmt;
 use std::hash::{Hash, Hasher};
 
 pub use node::Node;

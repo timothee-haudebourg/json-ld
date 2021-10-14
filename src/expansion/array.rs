@@ -1,4 +1,4 @@
-use super::{expand_element, Expanded, Options};
+use super::{expand_element, Expanded, JsonExpand, Options};
 use crate::{
 	context::{Loader, TermDefinition},
 	object::*,
@@ -6,10 +6,14 @@ use crate::{
 	ContextMut, Error, Id,
 };
 use cc_traits::Iter;
-use generic_json::{JsonClone, JsonHash};
 use iref::Iri;
 
-pub async fn expand_array<J: JsonHash + JsonClone, T: Id, C: ContextMut<T>, L: Loader>(
+pub async fn expand_array<
+	J: JsonExpand,
+	T: Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
+>(
 	active_context: &C,
 	active_property: Option<&str>,
 	active_property_definition: Option<&TermDefinition<T, C>>,

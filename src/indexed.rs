@@ -2,8 +2,7 @@ use crate::{
 	syntax::Keyword,
 	util::{AsJson, JsonFrom},
 };
-use cc_traits::MapInsert;
-use generic_json::{Json, JsonClone};
+use generic_json::JsonClone;
 use std::convert::{TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
