@@ -1,5 +1,5 @@
-use crate::{syntax::TermLike, util};
-use generic_json::JsonClone;
+use crate::{syntax::TermLike};
+use generic_json::JsonBuild;
 use iref::{AsIri, Iri, IriBuf};
 use std::hash::Hash;
 
@@ -58,6 +58,10 @@ use std::hash::Hash;
 pub trait Id: AsIri + Clone + PartialEq + Eq + Hash {
 	/// Create an identifier from its IRI.
 	fn from_iri(iri: Iri) -> Self;
+
+	fn as_json<K: JsonBuild>(&self, meta: K::MetaData) -> K {
+		K::string(self.as_iri().as_str().into(), meta)
+	}
 }
 
 impl Id for IriBuf {
@@ -76,8 +80,8 @@ impl<T: Id> TermLike for T {
 	}
 }
 
-impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for T {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		self.as_iri().as_str().as_json_with(meta)
-	}
-}
+// impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for T {
+// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+// 		self.as_iri().as_str().as_json_with(meta)
+// 	}
+// }

@@ -409,3 +409,13 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 		K::object(obj, meta(None))
 	}
 }
+
+impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for HashSet<Indexed<Node<J, T>>> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		let array = self
+			.iter()
+			.map(|value| value.as_json_with(meta.clone()))
+			.collect();
+		K::array(array, meta(None))
+	}
+}

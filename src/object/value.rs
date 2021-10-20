@@ -1,7 +1,7 @@
 use crate::{
 	object,
 	syntax::{Keyword, Type},
-	util, Direction, Id, LangString,
+	util::{self, AsAnyJson}, Direction, Id, LangString,
 };
 use cc_traits::MapInsert;
 use derivative::Derivative;
@@ -249,7 +249,7 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, 
 					}
 					Literal::Boolean(b) => obj.insert(
 						K::new_key(Keyword::Value.into_str(), meta(None)),
-						b.as_json_with(meta.clone()),
+						b.as_json_with(meta(None)),
 					),
 					Literal::Number(n) => obj.insert(
 						K::new_key(Keyword::Value.into_str(), meta(None)),
@@ -257,34 +257,34 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, 
 					),
 					Literal::String(s) => obj.insert(
 						K::new_key(Keyword::Value.into_str(), meta(None)),
-						s.as_json_with(meta.clone()),
+						s.as_json_with(meta(None)),
 					),
 				};
 
 				if let Some(ty) = ty {
 					obj.insert(
 						K::new_key(Keyword::Type.into_str(), meta(None)),
-						ty.as_json_with(meta.clone()),
+						ty.as_json(meta(None)),
 					);
 				}
 			}
 			Value::LangString(str) => {
 				obj.insert(
 					K::new_key(Keyword::Value.into_str(), meta(None)),
-					str.as_str().as_json_with(meta.clone()),
+					str.as_str().as_json_with(meta(None)),
 				);
 
 				if let Some(language) = str.language() {
 					obj.insert(
 						K::new_key(Keyword::Language.into_str(), meta(None)),
-						language.as_json_with(meta.clone()),
+						language.as_json_with(meta(None)),
 					);
 				}
 
 				if let Some(direction) = str.direction() {
 					obj.insert(
 						K::new_key(Keyword::Direction.into_str(), meta(None)),
-						direction.as_json_with(meta.clone()),
+						direction.as_json_with(meta(None)),
 					);
 				}
 			}
@@ -295,7 +295,7 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, 
 				);
 				obj.insert(
 					K::new_key(Keyword::Type.into_str(), meta(None)),
-					Keyword::Json.as_json_with(meta.clone()),
+					Keyword::Json.as_json_with(meta(None)),
 				);
 			}
 		}

@@ -170,7 +170,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -183,7 +183,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -198,13 +198,13 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		)
 	}
 
-	/// Process the local context with the given active context with the default options:
+	/// Process the local context with the given initial active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
 	fn process<'a, 's: 'a, C: ContextMut<T> + Default + Send + Sync, L: Loader + Send + Sync>(
 		&'s self,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
-	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -230,7 +230,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 /// This is usefull for instance to attach a processed context to its original JSON form,
 /// which is then used by the compaction algorithm to put the context in the compacted document.
 #[derive(Clone)]
-pub struct Processed<L, C> {
+pub struct ProcessedOwned<L, C> {
 	/// Original unprocessed context.
 	local: L,
 
@@ -238,10 +238,10 @@ pub struct Processed<L, C> {
 	processed: C,
 }
 
-impl<L, C> Processed<L, C> {
+impl<L, C> ProcessedOwned<L, C> {
 	/// Wraps a processed context along with its original local representation.
-	pub fn new(local: L, processed: C) -> Processed<L, C> {
-		Processed { local, processed }
+	pub fn new(local: L, processed: C) -> ProcessedOwned<L, C> {
+		ProcessedOwned { local, processed }
 	}
 
 	/// Consumes the wrapper and returns the processed context.
@@ -250,7 +250,7 @@ impl<L, C> Processed<L, C> {
 	}
 }
 
-impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<L, C> {
+impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -258,23 +258,61 @@ impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<L, C> {
 	}
 }
 
-impl<'a, L: Clone, C> Processed<&'a L, C> {
-	/// Clone the referenced local context.
-	pub fn owned(self) -> Processed<L, C> {
-		Processed {
+impl<L, C> std::ops::Deref for ProcessedOwned<L, C> {
+	type Target = C;
+
+	fn deref(&self) -> &C {
+		&self.processed
+	}
+}
+
+impl<L, C> std::convert::AsRef<C> for ProcessedOwned<L, C> {
+	fn as_ref(&self) -> &C {
+		&self.processed
+	}
+}
+
+impl<J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for ProcessedOwned<L, C> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		self.local.as_json_with(meta)
+	}
+}
+
+/// Processed context referencing its original unprocessed local context.
+///
+/// This is usefull for instance to attach a processed context to its original JSON form,
+/// which is then used by the compaction algorithm to put the context in the compacted document.
+#[derive(Clone)]
+pub struct Processed<'a, L, C> {
+	/// Original unprocessed context.
+	local: &'a L,
+
+	/// Processed context.
+	processed: C,
+}
+
+impl<'a, L, C> Processed<'a, L, C> {
+	/// Wraps a processed context along with a reference to its original local representation.
+	pub fn new(local: &'a L, processed: C) -> Self {
+		Self { local, processed }
+	}
+
+	/// Consumes the wrapper and returns the processed context.
+	pub fn into_inner(self) -> C {
+		self.processed
+	}
+
+	/// Clone the referenced local context and return
+	/// a `Processed` context that owns the original local context.
+	pub fn owned(self) -> ProcessedOwned<L, C> where L: Clone {
+		ProcessedOwned {
 			local: L::clone(self.local),
 			processed: self.processed,
 		}
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for Processed<L, C> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		self.local.as_json_with(meta)
-	}
-}
-
-impl<L, C> std::ops::Deref for Processed<L, C> {
+impl<'a, T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<'a, L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -282,9 +320,23 @@ impl<L, C> std::ops::Deref for Processed<L, C> {
 	}
 }
 
-impl<L, C> std::convert::AsRef<C> for Processed<L, C> {
+impl<'a, L, C> std::ops::Deref for Processed<'a, L, C> {
+	type Target = C;
+
+	fn deref(&self) -> &C {
+		&self.processed
+	}
+}
+
+impl<'a, L, C> std::convert::AsRef<C> for Processed<'a, L, C> {
 	fn as_ref(&self) -> &C {
 		&self.processed
+	}
+}
+
+impl<'a, J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for Processed<'a, L, C> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		self.local.as_json_with(meta)
 	}
 }
 

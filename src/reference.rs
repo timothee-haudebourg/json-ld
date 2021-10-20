@@ -1,6 +1,6 @@
 use crate::{
 	syntax::{Term, TermLike},
-	util, BlankId, Id,
+	util::{self, AsAnyJson}, BlankId, Id,
 };
 use generic_json::JsonClone;
 use iref::{AsIri, Iri, IriBuf};
@@ -129,14 +129,26 @@ impl<T: AsIri> From<BlankId> for Reference<T> {
 	}
 }
 
-impl<J: JsonClone, K: util::JsonFrom<J>, T: AsIri + util::AsJson<J, K>> util::AsJson<J, K>
+// impl<J: JsonClone, K: util::JsonFrom<J>, T: AsIri + util::AsJson<J, K>> util::AsJson<J, K>
+// 	for Reference<T>
+// {
+// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+// 		match self {
+// 			Reference::Id(id) => id.as_json_with(meta),
+// 			Reference::Blank(b) => b.as_json_with(meta),
+// 			Reference::Invalid(id) => id.as_json_with(meta),
+// 		}
+// 	}
+// }
+
+impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K>
 	for Reference<T>
 {
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		match self {
-			Reference::Id(id) => id.as_json_with(meta),
-			Reference::Blank(b) => b.as_json_with(meta),
-			Reference::Invalid(id) => id.as_json_with(meta),
+			Reference::Id(id) => id.as_json(meta(None)),
+			Reference::Blank(b) => b.as_json_with(meta(None)),
+			Reference::Invalid(id) => id.as_json_with(meta(None)),
 		}
 	}
 }

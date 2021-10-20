@@ -212,7 +212,7 @@ impl<J: JsonContext, T: Id> Local<T> for J {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,

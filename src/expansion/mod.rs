@@ -142,7 +142,7 @@ where
 	J::Object: 'a,
 {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		(*self.0).partial_cmp(&*other.0)
+		(*self.0).partial_cmp(&**other.0)
 	}
 }
 
@@ -179,7 +179,7 @@ where
 	J::Object: 'a,
 {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		(*self.0).partial_cmp(&*other.0)
+		(*self.0).partial_cmp(&**other.0)
 	}
 }
 

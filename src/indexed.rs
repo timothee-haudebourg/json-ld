@@ -1,6 +1,6 @@
 use crate::{
 	syntax::Keyword,
-	util::{AsJson, JsonFrom},
+	util::{AsJson, AsAnyJson, JsonFrom},
 };
 use generic_json::JsonClone;
 use std::convert::{TryFrom, TryInto};
@@ -130,7 +130,7 @@ impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Indexed<T> 
 			if let Some(index) = &self.index {
 				obj.insert(
 					K::new_key(Keyword::Index.into_str(), meta(None)),
-					index.as_json_with(meta)
+					index.as_json_with(meta(None))
 				);
 			}
 		}

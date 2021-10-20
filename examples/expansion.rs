@@ -5,12 +5,13 @@ extern crate iref;
 extern crate json_ld;
 
 use iref::IriBuf;
-use json_ld::{Document, JsonContext, NoLoader, Object, Reference};
+use json_ld::{Document, context, NoLoader, Object, Reference};
+use ijson::IValue;
 
 #[async_std::main]
 async fn main() {
 	// The JSON-LD document to expand.
-	let doc = json::parse(
+	let doc: IValue = serde_json::from_str(
 		r#"
 		{
 			"@context": {
@@ -23,8 +24,11 @@ async fn main() {
 	)
 	.unwrap();
 
+	// JSON document loader.
+	let mut loader = NoLoader::<IValue>::new();
+
 	// Expansion.
-	let expanded_doc = doc.expand::<JsonContext, _>(&mut NoLoader).await.unwrap();
+	let expanded_doc = doc.expand::<context::Json<IValue>, _>(&mut loader).await.unwrap();
 
 	// Reference to the `name` property.
 	let name_property = Reference::Id(IriBuf::new("http://xmlns.com/foaf/0.1/name").unwrap());

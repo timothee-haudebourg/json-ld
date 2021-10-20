@@ -3,10 +3,31 @@ use generic_json::{
 	Json, JsonBuild, JsonClone, JsonIntoMut, JsonMutSendSync, Key, Value, ValueRef,
 };
 use langtag::{LanguageTag, LanguageTagBuf};
-use std::collections::HashSet;
 
-pub trait JsonFrom<J: JsonClone> = JsonMutSendSync + JsonBuild + JsonIntoMut
+pub trait JsonFrom<J: Json> = JsonMutSendSync + JsonBuild + JsonIntoMut
 where <Self as Json>::Number: From<<J as Json>::Number>;
+
+// pub trait AsOtherJson<K: JsonFrom<Self::Source>> {
+// 	type Source: Json;
+
+// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&<Self::Source as Json>::MetaData>) -> K::MetaData) -> K where Self::Source: JsonClone;
+
+// 	fn as_json(&self) -> K
+// 	where
+// 		Self::Source: JsonClone,
+// 		K::MetaData: Default,
+// 	{
+// 		self.as_json_with(|_| K::MetaData::default())
+// 	}
+// }
+
+// impl<J: JsonClone, K: JsonFrom<J>> AsOtherJson<K> for J {
+// 	type Source = Self;
+
+// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&<Self::Source as Json>::MetaData>) -> K::MetaData) -> K {
+// 		json_to_json(self, meta)
+// 	}
+// }
 
 pub trait AsJson<J: JsonClone, K: JsonFrom<J>> {
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K;
@@ -16,6 +37,17 @@ pub trait AsJson<J: JsonClone, K: JsonFrom<J>> {
 		K::MetaData: Default,
 	{
 		self.as_json_with(|_| K::MetaData::default())
+	}
+}
+
+pub trait AsAnyJson<K: JsonBuild> {
+	fn as_json_with(&self, meta: K::MetaData) -> K;
+
+	fn as_json(&self) -> K
+	where
+		K::MetaData: Default,
+	{
+		self.as_json_with(K::MetaData::default())
 	}
 }
 
@@ -47,41 +79,53 @@ pub fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for bool {
+// impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for &T {
+// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+// 		(*self).as_json_with(meta)
+// 	}
+// }
+
+impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for J {
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		Value::<K>::Boolean(*self).with(meta(None))
+		json_to_json(self, meta)
 	}
 }
 
-impl<'a, J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for &'a str {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		Value::<K>::String((*self).into()).with(meta(None))
+impl<K: JsonBuild> AsAnyJson<K> for bool {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		Value::<K>::Boolean(*self).with(meta)
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for str {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		<&str as AsJson<J, K>>::as_json_with(&self, meta)
+impl<'a, K: JsonBuild> AsAnyJson<K> for &'a str {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		Value::<K>::String((*self).into()).with(meta)
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for String {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		AsJson::<J, K>::as_json_with(self.as_str(), meta)
+impl<K: JsonBuild> AsAnyJson<K> for str {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		<&str as AsAnyJson<K>>::as_json_with(&self, meta)
 	}
 }
 
-impl<'a, J: JsonClone, K: JsonFrom<J>, T: AsRef<[u8]> + ?Sized> AsJson<J, K>
+impl<K: JsonBuild> AsAnyJson<K> for String {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		AsAnyJson::<K>::as_json_with(self.as_str(), meta)
+	}
+}
+
+impl<'a, K: JsonBuild, T: AsRef<[u8]> + ?Sized> AsAnyJson<K>
 	for LanguageTag<'a, T>
 {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		AsJson::<J, K>::as_json_with(self.as_str(), meta)
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		AsAnyJson::<K>::as_json_with(self.as_str(), meta)
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>, T: AsRef<[u8]>> AsJson<J, K> for LanguageTagBuf<T> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		AsJson::<J, K>::as_json_with(self.as_str(), meta)
+impl<K: JsonBuild, T: AsRef<[u8]>> AsAnyJson<K> for LanguageTagBuf<T> {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		AsAnyJson::<K>::as_json_with(self.as_str(), meta)
 	}
 }
 
@@ -92,21 +136,21 @@ impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for [T] {
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Vec<T> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		AsJson::<J, K>::as_json_with(self.as_slice(), meta)
-	}
-}
+// impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Vec<T> {
+// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+// 		AsJson::<J, K>::as_json_with(self.as_slice(), meta)
+// 	}
+// }
 
-impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for HashSet<T> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		let array = self
-			.iter()
-			.map(|value| value.as_json_with(meta.clone()))
-			.collect();
-		Value::<K>::Array(array).with(meta(None))
-	}
-}
+// impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for HashSet<T> {
+// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+// 		let array = self
+// 			.iter()
+// 			.map(|value| value.as_json_with(meta.clone()))
+// 			.collect();
+// 		Value::<K>::Array(array).with(meta(None))
+// 	}
+// }
 
 pub fn json_ld_eq<J: Json, K: Json>(a: &J, b: &K) -> bool
 where

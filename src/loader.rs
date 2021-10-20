@@ -96,11 +96,11 @@ impl<J: Json> Loader for NoLoader<J> {
 pub struct FsLoader<J> {
 	cache: HashMap<IriBuf, RemoteDocument<J>>,
 	mount_points: HashMap<PathBuf, IriBuf>,
-	parser: Box<dyn 'static + Send + FnMut(&str) -> Result<J, Error>>
+	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>
 }
 
 impl<J> FsLoader<J> {
-	pub fn new<E: 'static + std::error::Error>(mut parser: impl 'static + Send + FnMut(&str) -> Result<J, E>) -> Self {
+	pub fn new<E: 'static + std::error::Error>(mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>) -> Self {
 		Self {
 			cache: HashMap::new(),
 			mount_points: HashMap::new(),
@@ -125,7 +125,7 @@ impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 	fn load<'a>(
 		&'a mut self,
 		url: Iri<'_>,
-	) -> BoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>> {
+	) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
 		let url: IriBuf = url.into();
 		async move {
 			match self.cache.get(&url) {

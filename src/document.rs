@@ -1,14 +1,19 @@
 use crate::{
-	context::Loader,
+	context::{self, Loader},
 	expansion,
+	compaction,
+	Context,
 	ContextMut,
+	ContextMutProxy,
 	Error,
 	Id,
 	Indexed,
 	Object,
+	util::{AsJson, JsonFrom}
 };
-use futures::future::{FutureExt, LocalBoxFuture};
-use generic_json::{Json, JsonClone, JsonHash};
+use futures::future::{FutureExt, BoxFuture};
+use generic_json::{Json, JsonClone};
+use cc_traits::Len;
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
@@ -21,7 +26,7 @@ pub type ExpandedDocument<J, T> = HashSet<Indexed<Object<J, T>>>;
 /// JSON-LD document.
 ///
 /// This trait represent a JSON-LD document that can be expanded into an [`ExpandedDocument`].
-/// It is notabily implemented for the [`JsonValue`] type.
+/// It is notably implemented for the [`JsonValue`] type.
 pub trait Document<T: Id> {
 	type Json: Json;
 
@@ -36,18 +41,18 @@ pub trait Document<T: Id> {
 	///
 	/// This is an asynchronous method since expanding the context may require loading remote
 	/// ressources. It returns a boxed [`Future`](`std::future::Future`) to the result.
-	fn expand_with<'a, C: ContextMut<T>, L: Loader>(
+	fn expand_with<'a, C: 'a + ContextMut<T> + Send + Sync, L: 'a + Loader + Send + Sync>(
 		&'a self,
 		base_url: Option<Iri>,
 		context: &'a C,
 		loader: &'a mut L,
 		options: expansion::Options,
-	) -> LocalBoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
+	) -> BoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
 	where
-		Self::Json: JsonHash + JsonClone, // TODO this bound is currently required, but should not.
+		Self::Json: expansion::JsonExpand,
 		C::LocalContext: From<L::Output> + From<Self::Json>,
 		L::Output: Into<Self::Json>, // TODO get rid of this bound?
-		T: 'a;
+		T: 'a + Send + Sync;
 
 	/// Expand the document.
 	///
@@ -82,15 +87,16 @@ pub trait Document<T: Id> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	fn expand<'a, C: 'a + ContextMut<T>, L: Loader>(
+	fn expand<'a, C: 'a + ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
 		&'a self,
 		loader: &'a mut L,
-	) -> LocalBoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
+	) -> BoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
 	where
-		Self::Json: JsonHash + JsonClone,
+		Self: Send + Sync,
+		Self::Json: expansion::JsonExpand,
 		C::LocalContext: From<L::Output> + From<Self::Json>,
 		L::Output: Into<Self::Json>,
-		T: 'a,
+		T: 'a + Send + Sync,
 	{
 		async move {
 			let context = C::new(self.base_url());
@@ -102,131 +108,153 @@ pub trait Document<T: Id> {
 			)
 			.await
 		}
-		.boxed_local()
+		.boxed()
 	}
 
-	// fn compact_with<
-	// 	'a,
-	// 	C: ContextMutProxy<T> + crate::util::AsJson,
-	// 	L: Loader,
-	// >(
-	// 	&'a self,
-	// 	base_url: Option<Iri<'a>>,
-	// 	context: &'a C,
-	// 	loader: &'a mut L,
-	// 	options: compaction::Options,
-	// ) -> BoxFuture<'a, Result<JsonValue, Error>>
-	// where
-	// 	C::Target: Send + Sync + Default,
-	// 	<C::Target as Context<T>>::LocalContext:
-	// 		Send + Sync + From<L::Output> + From<Self::LocalContext>,
-	// 	L::Output: Into<Self::LocalContext>,
-	// 	T: 'a + Send + Sync,
-	// 	Self: Sync,
-	// {
-	// 	use compaction::Compact;
-	// 	async move {
-	// 		let json_context = context.as_json();
-	// 		let context = context::Inversible::new(context.deref());
-	// 		let expanded = self
-	// 			.expand_with(base_url, &C::Target::new(base_url), loader, options.into())
-	// 			.await?;
+	/// Compact the document with a custom base URL, context, document loader and options.
+	/// 
+	/// The `meta_context` parameter is a function to convert the metadata
+	/// associated to the input context (JSON representation) to `K::MetaData`.
+	/// The `meta_document` parameter is another conversion function for the
+	/// metadata attached to the document.
+	fn compact_with<
+		'a,
+		K: JsonFrom<Self::Json> + JsonFrom<<C::Target as Context<T>>::LocalContext>,
+		C: ContextMutProxy<T> + AsJson<<C::Target as Context<T>>::LocalContext, K>,
+		L: Loader,
+		M1,
+		M2
+	>(
+		&'a self,
+		base_url: Option<Iri<'a>>,
+		context: &'a C,
+		loader: &'a mut L,
+		options: compaction::Options,
+		meta_context: M1,
+		meta_document: M2
+	) -> BoxFuture<'a, Result<K, Error>>
+	where
+		Self: Sync,
+		T: 'a + Send + Sync,
+		Self::Json: expansion::JsonExpand + compaction::JsonSrc,
+		C: Send + Sync,
+		<C::Target as Context<T>>::LocalContext: compaction::JsonSrc + From<L::Output> + From<Self::Json>,
+		C::Target: Send + Sync,
+		L: 'a + Send + Sync,
+		M1: 'a + Clone + Send + Sync + Fn(Option<&<<C::Target as Context<T>>::LocalContext as Json>::MetaData>) -> K::MetaData,
+		M2: 'a + Clone + Send + Sync + Fn(Option<&<Self::Json as Json>::MetaData>) -> K::MetaData,
+		L::Output: Into<Self::Json>
+	{
+		use compaction::Compact;
+		async move {
+			let json_context = context.as_json_with(meta_context);
+			let context = context::Inversible::new(context.deref());
+			let expanded = self
+				.expand_with(base_url, &C::Target::new(base_url), loader, options.into())
+				.await?;
 
-	// 		let compacted = if expanded.len() == 1 && options.compact_arrays {
-	// 			expanded
-	// 				.into_iter()
-	// 				.next()
-	// 				.unwrap()
-	// 				.compact_with(context.clone(), context.clone(), None, loader, options)
-	// 				.await?
-	// 		} else {
-	// 			expanded
-	// 				.compact_with(context.clone(), context.clone(), None, loader, options)
-	// 				.await?
-	// 		};
+			let compacted: K = if expanded.len() == 1 && options.compact_arrays {
+				expanded
+					.into_iter()
+					.next()
+					.unwrap()
+					.compact_with(context.clone(), context.clone(), None, loader, options, meta_document.clone())
+					.await?
+			} else {
+				expanded
+					.compact_with(context.clone(), context.clone(), None, loader, options, meta_document.clone())
+					.await?
+			};
 
-	// 		let mut map = match compacted {
-	// 			JsonValue::Array(items) => {
-	// 				let mut map = json::object::Object::new();
-	// 				if !items.is_empty() {
-	// 					use crate::syntax::{Keyword, Term};
-	// 					let key = crate::compaction::compact_iri(
-	// 						context.clone(),
-	// 						&Term::Keyword(Keyword::Graph),
-	// 						true,
-	// 						false,
-	// 						options,
-	// 					)?;
-	// 					map.insert(key.as_str().unwrap(), JsonValue::Array(items));
-	// 				}
+			let (mut map, metadata) = match compacted.into_parts() {
+				(generic_json::Value::Array(items), metadata) => {
+					let mut map = K::Object::default();
+					if !items.is_empty() {
+						use crate::syntax::{Keyword, Term};
+						let key = crate::compaction::compact_iri::<Self::Json, _, _>(
+							context.clone(),
+							&Term::Keyword(Keyword::Graph),
+							true,
+							false,
+							options,
+						)?;
+						map.insert(K::new_key(&key.unwrap(), meta_document(None)), K::array(items, metadata));
+					}
 
-	// 				map
-	// 			}
-	// 			JsonValue::Object(map) => map,
-	// 			_ => panic!("invalid compact document"),
-	// 		};
+					(map, meta_document(None))
+				}
+				(generic_json::Value::Object(map), metadata) => (map, metadata),
+				_ => panic!("invalid compact document"),
+			};
 
-	// 		if !map.is_empty() && !json_context.is_null() && !json_context.is_empty() {
-	// 			map.insert("@context", json_context)
-	// 		}
+			if !map.is_empty() && !json_context.is_null() && !json_context.is_empty_array_or_object() {
+				map.insert(K::new_key("@context", meta_document(None)), json_context);
+			}
 
-	// 		Ok(JsonValue::Object(map))
-	// 	}
-	// 	.boxed()
-	// }
+			Ok(K::object(map, metadata))
+		}
+		.boxed()
+	}
 
-	// fn compact<
-	// 	'a,
-	// 	C: ContextMutProxy<T> + Send + Sync + crate::util::AsJson,
-	// 	L: Send + Sync + Loader,
-	// >(
-	// 	&'a self,
-	// 	context: &'a C,
-	// 	loader: &'a mut L,
-	// ) -> BoxFuture<'a, Result<JsonValue, Error>>
-	// where
-	// 	C::Target: Send + Sync + Default,
-	// 	<C::Target as Context<T>>::LocalContext:
-	// 		Send + Sync + From<L::Output> + From<Self::LocalContext>,
-	// 	L::Output: Into<Self::LocalContext>,
-	// 	T: 'a + Id + Send + Sync,
-	// 	Self: Sync,
-	// {
-	// 	self.compact_with(
-	// 		self.base_url(),
-	// 		context,
-	// 		loader,
-	// 		compaction::Options::default(),
-	// 	)
-	// }
+	/// Compact the document.
+	fn compact<
+		'a,
+		C: ContextMutProxy<T> + AsJson<Self::Json, Self::Json>,
+		L: Loader
+	>(
+		&'a self,
+		context: &'a C,
+		loader: &'a mut L,
+	) -> BoxFuture<'a, Result<Self::Json, Error>>
+	where
+		Self: Sync,
+		Self::Json: JsonFrom<Self::Json> + expansion::JsonExpand + compaction::JsonSrc + From<L::Output>,
+		<Self::Json as Json>::MetaData: Default,
+		T: 'a + Send + Sync,
+		C::Target: Context<T, LocalContext=Self::Json>,
+		C: Send + Sync,
+		C::Target: Send + Sync,
+		L: 'a + Send + Sync,
+		L::Output: Into<Self::Json>
+	{
+		self.compact_with(
+			self.base_url(),
+			context,
+			loader,
+			compaction::Options::default(),
+			|m| m.cloned().unwrap_or_default(),
+			|m| m.cloned().unwrap_or_default()
+		)
+	}
 }
 
-// /// Default JSON document implementation.
-// impl<T: Id> Document<T> for JsonValue {
-// 	type LocalContext = JsonValue;
+/// Default JSON document implementation.
+impl<J: Json, T: Id> Document<T> for J {
+	type Json = Self;
 
-// 	/// Returns `None`.
-// 	///
-// 	/// Use [`RemoteDocument`] to attach a base URL to a `JsonValue` document.
-// 	fn base_url(&self) -> Option<Iri> {
-// 		None
-// 	}
+	/// Returns `None`.
+	///
+	/// Use [`RemoteDocument`] to attach a base URL to a `JsonValue` document.
+	fn base_url(&self) -> Option<Iri> {
+		None
+	}
 
-// 	fn expand_with<'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(
-// 		&'a self,
-// 		base_url: Option<Iri>,
-// 		context: &'a C,
-// 		loader: &'a mut L,
-// 		options: expansion::Options,
-// 	) -> BoxFuture<'a, Result<ExpandedDocument<T>, Error>>
-// 	where
-// 		C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>,
-// 		L::Output: Into<JsonValue>,
-// 		T: 'a + Send + Sync,
-// 	{
-// 		expansion::expand(context, self, base_url, loader, options).boxed()
-// 	}
-// }
+	fn expand_with<'a, C: ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
+		&'a self,
+		base_url: Option<Iri>,
+		context: &'a C,
+		loader: &'a mut L,
+		options: expansion::Options,
+	) -> BoxFuture<'a, Result<ExpandedDocument<Self, T>, Error>>
+	where
+		Self: expansion::JsonExpand,
+		C::LocalContext: From<L::Output> + From<Self>,
+		L::Output: Into<Self>,
+		T: 'a + Send + Sync,
+	{
+		expansion::expand(context, self, base_url, loader, options).boxed()
+	}
+}
 
 /// Remote JSON-LD document.
 ///
@@ -292,18 +320,18 @@ impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 		Some(self.base_url.as_iri())
 	}
 
-	fn expand_with<'a, C: ContextMut<T>, L: Loader>(
+	fn expand_with<'a, C: 'a + ContextMut<T> + Send + Sync, L: 'a + Loader + Send + Sync>(
 		&'a self,
 		base_url: Option<Iri>,
 		context: &'a C,
 		loader: &'a mut L,
 		options: expansion::Options,
-	) -> LocalBoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
+	) -> BoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
 	where
-		D::Json: JsonHash + JsonClone,
+		D::Json: expansion::JsonExpand,
 		C::LocalContext: From<L::Output> + From<Self::Json>,
 		L::Output: Into<Self::Json>,
-		T: 'a,
+		T: 'a + Send + Sync,
 	{
 		self.doc.expand_with(base_url, context, loader, options)
 	}

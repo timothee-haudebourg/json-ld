@@ -16,7 +16,8 @@ extern crate static_iref;
 extern crate json_ld;
 
 use iref::Iri;
-use json_ld::{Document, JsonContext, Lexicon, NoLoader, Object};
+use json_ld::{Document, context, Lexicon, NoLoader, Object};
+use ijson::IValue;
 use std::convert::TryFrom;
 
 // Parts of the FOAF vocabulary will need.
@@ -53,7 +54,7 @@ type Id = Lexicon<Foaf>;
 #[async_std::main]
 async fn main() {
 	// The JSON-LD document to expand.
-	let doc = json::parse(
+	let doc: IValue = serde_json::from_str(
 		r#"
 		{
 			"@context": {
@@ -68,9 +69,12 @@ async fn main() {
 	)
 	.unwrap();
 
+	// JSON document loader.
+	let mut loader = NoLoader::<IValue>::new();
+
 	// Expansion.
 	let expanded_doc = doc
-		.expand::<JsonContext<Id>, _>(&mut NoLoader)
+		.expand::<context::Json<IValue, Id>, _>(&mut loader)
 		.await
 		.unwrap();
 

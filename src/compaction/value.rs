@@ -2,7 +2,7 @@ use super::{compact_iri, JsonSrc, Options};
 use crate::{
 	context::{self, Inversible, Loader, Local},
 	syntax::{Container, ContainerType, Keyword, Term, Type},
-	util::{json_to_json, AsJson, JsonFrom},
+	util::{json_to_json, AsAnyJson, JsonFrom},
 	ContextMut, Error, Id, Reference, Value,
 };
 
@@ -117,11 +117,11 @@ where
 			if ty.as_ref().map(Type::Ref) == type_mapping && remove_index {
 				match lit {
 					Literal::Null => return Ok(K::null(meta(None))),
-					Literal::Boolean(b) => return Ok(b.as_json_with(meta)),
+					Literal::Boolean(b) => return Ok(b.as_json_with(meta(None))),
 					Literal::Number(n) => return Ok(K::number(n.clone().into(), meta(None))),
 					Literal::String(s) => {
 						if ty.is_some() || (language.is_none() && direction.is_none()) {
-							return Ok(s.as_json_with(meta));
+							return Ok(s.as_json_with(meta(None)));
 						} else {
 							let compact_key = compact_iri::<J, _, _>(
 								active_context.as_ref(),
@@ -132,7 +132,7 @@ where
 							)?;
 							result.insert(
 								K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
-								s.as_json_with(meta.clone()),
+								s.as_json_with(meta(None)),
 							);
 						}
 					}
@@ -155,7 +155,7 @@ where
 					Literal::Boolean(b) => {
 						result.insert(
 							K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
-							b.as_json_with(meta.clone()),
+							b.as_json_with(meta(None)),
 						);
 					}
 					Literal::Number(n) => {
@@ -167,7 +167,7 @@ where
 					Literal::String(s) => {
 						result.insert(
 							K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
-							s.as_json_with(meta.clone()),
+							s.as_json_with(meta(None)),
 						);
 					}
 				}
@@ -206,7 +206,7 @@ where
 			&& (ls_direction.is_none() || direction == ls_direction)
 			{
 				// || (ls.direction().is_none() && direction.is_none())) {
-				return Ok(ls.as_str().as_json_with(meta));
+				return Ok(ls.as_str().as_json_with(meta(None)));
 			} else {
 				let compact_key = compact_iri::<J, _, _>(
 					active_context.as_ref(),
@@ -230,7 +230,7 @@ where
 					)?;
 					result.insert(
 						K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
-						language.as_json_with(meta.clone()),
+						language.as_json_with(meta(None)),
 					);
 				}
 
@@ -244,7 +244,7 @@ where
 					)?;
 					result.insert(
 						K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
-						direction.as_json_with(meta.clone())
+						direction.as_json_with(meta(None))
 					);
 				}
 			}
@@ -301,7 +301,7 @@ where
 			)?;
 			result.insert(
 				K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
-				index.as_json_with(meta.clone()),
+				index.as_json_with(meta(None)),
 			);
 		}
 	}

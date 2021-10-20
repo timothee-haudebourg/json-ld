@@ -2,7 +2,7 @@ use super::{add_value, compact_iri, compact_property, optional_string, JsonSrc, 
 use crate::{
 	context::{self, Inversible, Loader, Local},
 	syntax::{Container, ContainerType, Keyword, Term, Type},
-	util::{AsJson, JsonFrom},
+	util::{AsAnyJson, JsonFrom},
 	ContextMut, Error, Id, Node, ProcessingMode, Reference,
 };
 use cc_traits::Len;
@@ -306,7 +306,7 @@ where
 			// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
 			result.insert(
 				K::new_key(alias.unwrap().as_str(), meta(None)),
-				index.as_json_with(meta.clone()),
+				index.as_json_with(meta(None)),
 			);
 		}
 	}

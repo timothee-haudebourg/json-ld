@@ -6,7 +6,7 @@ use crate::{
 	},
 	object,
 	syntax::{ContainerType, Keyword, Term},
-	util::{json_to_json, AsJson, JsonFrom},
+	util::{json_to_json, AsAnyJson, JsonFrom},
 	ContextMut, Error, Id, Indexed, Object, ProcessingMode, Value,
 };
 use futures::future::{BoxFuture, FutureExt};
@@ -322,7 +322,7 @@ impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> Compac
 							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
 							result.insert(
 								K::new_key(alias.unwrap().as_str(), meta(None)),
-								index.as_json_with(meta.clone()),
+								index.as_json_with(meta(None)),
 							);
 						}
 					}
@@ -389,9 +389,9 @@ where
 	match value {
 		Value::Literal(lit, _ty) => match lit {
 			Literal::Null => K::null(meta(None)),
-			Literal::Boolean(b) => b.as_json_with(meta),
+			Literal::Boolean(b) => b.as_json_with(meta(None)),
 			Literal::Number(n) => K::number(n.clone().into(), meta(None)),
-			Literal::String(s) => s.as_json_with(meta),
+			Literal::String(s) => s.as_json_with(meta(None)),
 		},
 		Value::LangString(str) => K::string(str.as_str().into(), meta(None)),
 		Value::Json(json) => json_to_json(json, meta),

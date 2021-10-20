@@ -15,8 +15,9 @@ extern crate json_ld;
 
 use iref::Iri;
 use json_ld::{
-	context::JsonContext, object::*, Document, ErrorCode, FsLoader, Lexicon, Loader, ProcessingMode,
+	context, object::*, Document, ErrorCode, FsLoader, Lexicon, Loader, ProcessingMode,
 };
+use ijson::IValue;
 use std::convert::TryInto;
 
 const URL: Iri = iri!("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld");
@@ -64,7 +65,7 @@ pub type Id = Lexicon<Vocab>;
 async fn main() {
 	stderrlog::new().verbosity(VERBOSITY).init().unwrap();
 
-	let mut loader = FsLoader::new();
+	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let doc = loader
@@ -73,7 +74,7 @@ async fn main() {
 		.expect("unable to load the test suite");
 
 	let expanded_doc = doc
-		.expand::<JsonContext<Id>, _>(&mut loader)
+		.expand::<context::Json<IValue, Id>, _>(&mut loader)
 		.await
 		.expect("expansion failed");
 
@@ -109,7 +110,7 @@ fn func_name(id: &str) -> String {
 	name
 }
 
-fn generate_test(entry: &Node<Id>) {
+fn generate_test(entry: &Node<IValue, Id>) {
 	let name = entry.get(Vocab::Name).next().unwrap().as_str().unwrap();
 	let url = entry.get(Vocab::Action).next().unwrap().as_iri().unwrap();
 	let mut base_url = url;
