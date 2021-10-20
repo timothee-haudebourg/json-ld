@@ -1,6 +1,6 @@
 use cc_traits::{Get, Iter, Len, MapIter};
 use generic_json::{
-	Json, JsonBuild, JsonClone, JsonIntoMut, JsonMutSendSync, Value, ValueRef,
+	Json, JsonBuild, JsonClone, JsonIntoMut, JsonMutSendSync, Key, Value, ValueRef,
 };
 use langtag::{LanguageTag, LanguageTagBuf};
 use std::collections::HashSet;
@@ -28,7 +28,7 @@ pub fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 		ValueRef::Null => K::null(meta),
 		ValueRef::Boolean(b) => K::boolean(b, meta),
 		ValueRef::Number(n) => K::number(n.clone().into(), meta),
-		ValueRef::String(s) => K::string(s.as_ref().into(), meta),
+		ValueRef::String(s) => K::string((&**s).into(), meta),
 		ValueRef::Array(a) => K::array(
 			a.iter()
 				.map(|value| json_to_json(&*value, m.clone()))
@@ -37,7 +37,10 @@ pub fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 		),
 		ValueRef::Object(o) => K::object(
 			o.iter()
-				.map(|(key, value)| (key.as_ref().into(), json_to_json(&*value, m.clone())))
+				.map(|(key, value)| (
+					K::new_key(&**key, m(Some(key.metadata()))),
+					json_to_json(&*value, m.clone())
+				))
 				.collect(),
 			meta,
 		),
@@ -163,7 +166,7 @@ where
 		}
 		(ValueRef::Null, ValueRef::Null) => true,
 		(ValueRef::Number(a), ValueRef::Number(b)) => a == b,
-		(ValueRef::String(a), ValueRef::String(b)) => a.as_ref() == b.as_ref(),
+		(ValueRef::String(a), ValueRef::String(b)) => (**a) == (**b),
 		_ => false,
 	}
 }

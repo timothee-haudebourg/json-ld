@@ -72,7 +72,10 @@ where
 			options,
 		)?;
 		let mut compacted_item_list_object = K::Object::default();
-		compacted_item_list_object.insert(key.unwrap().as_str().into(), compacted_item);
+		compacted_item_list_object.insert(
+			K::new_key(key.unwrap().as_str(), meta(None)),
+			compacted_item
+		);
 
 		// If `expanded_item` contains the entry @index-value,
 		// then add an entry to compacted item where the key is
@@ -86,7 +89,7 @@ where
 				options,
 			)?;
 			compacted_item_list_object.insert(
-				key.unwrap().as_str().into(),
+				K::new_key(key.unwrap().as_str(), meta(None)),
 				K::string(index.into(), meta(None)),
 			);
 		}
@@ -104,7 +107,7 @@ where
 		)
 	} else {
 		// Otherwise, set the value of the item active property entry in nest result to compacted item.
-		nest_result.insert(item_active_property.into(), compacted_item);
+		nest_result.insert(K::new_key(item_active_property, meta(None)), compacted_item);
 	}
 
 	Ok(())
@@ -157,7 +160,7 @@ where
 		// if necessary.
 		if nest_result.get(item_active_property).is_none() {
 			nest_result.insert(
-				item_active_property.into(),
+				K::new_key(item_active_property, meta(None)),
 				K::object(K::Object::default(), meta(None)),
 			);
 		}
@@ -195,7 +198,7 @@ where
 		// if necessary.
 		if nest_result.get(item_active_property).is_none() {
 			nest_result.insert(
-				item_active_property.into(),
+				K::new_key(item_active_property, meta(None)),
 				K::object(K::Object::default(), meta(None)),
 			);
 		}
@@ -232,7 +235,7 @@ where
 				)?
 				.unwrap();
 				let mut map = K::Object::default();
-				map.insert(key.as_str().into(), K::array(items, items_meta));
+				map.insert(K::new_key(key.as_str(), meta(None)), K::array(items, items_meta));
 				K::object(map, meta(None))
 			}
 			(item, item_meta) => K::new(item, item_meta),
@@ -262,7 +265,7 @@ where
 		)?
 		.unwrap();
 		let mut map = K::Object::default();
-		map.insert(key.as_str().into(), compacted_item);
+		map.insert(K::new_key(key.as_str(), meta(None)), compacted_item);
 
 		// If `expanded_item` contains an @id entry,
 		// add an entry in `compacted_item` using the key from
@@ -286,7 +289,7 @@ where
 				options,
 			)?;
 			map.insert(
-				key.as_str().into(),
+				K::new_key(key.as_str(), meta(None)),
 				match value {
 					Some(s) => K::string(s.as_str().into(), meta(None)),
 					None => K::null(meta(None)),
@@ -306,7 +309,7 @@ where
 				options,
 			)?
 			.unwrap();
-			map.insert(key.as_str().into(), K::string(index.into(), meta(None)));
+			map.insert(K::new_key(key.as_str(), meta(None)), K::string(index.into(), meta(None)));
 		}
 
 		// Use `add_value` to add `compacted_item` to the
@@ -379,7 +382,7 @@ where
 					// initialize it to an empty map.
 					if result.get(nest_term).is_none() {
 						result.insert(
-							nest_term.as_str().into(),
+							K::new_key(nest_term.as_str(), meta()),
 							K::object(K::Object::default(), meta()),
 						);
 					}
@@ -538,7 +541,7 @@ where
 						// initializing it to a new empty map, if necessary.
 						if nest_result.get(item_active_property.as_str()).is_none() {
 							nest_result.insert(
-								item_active_property.as_str().into(),
+								K::new_key(item_active_property.as_str(), meta(None)),
 								K::empty_object(meta(None)),
 							);
 						}
@@ -619,7 +622,7 @@ where
 										match map.remove(container_key.as_ref().unwrap().as_str()) {
 											Some(value) => match value.into_parts() {
 												(generic_json::Value::String(s), _) => {
-													(Some(s.as_ref().to_string()), Vec::new())
+													(Some((*s).to_string()), Vec::new())
 												}
 												(generic_json::Value::Array(values), _) => {
 													let mut values = values.into_iter();
@@ -687,7 +690,7 @@ where
 									match map.remove(container_key.as_ref().unwrap().as_str()) {
 										Some(value) => match value.into_parts() {
 											(generic_json::Value::String(s), _) => {
-												(Some(s.as_ref().to_string()), Vec::new())
+												(Some((*s).to_string()), Vec::new())
 											}
 											(generic_json::Value::Array(values), _) => {
 												let mut values = values.into_iter();

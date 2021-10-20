@@ -65,7 +65,7 @@ pub fn hash_json<J: JsonHash, H: Hasher>(json: &J, hasher: &mut H) {
 			let mut hash = 0;
 			for (key, value) in obj.iter() {
 				let mut h = DefaultHasher::new();
-				key.as_ref().hash(&mut h);
+				(*key).hash(&mut h);
 				hash_json(&*value, &mut h);
 				hash = u64::wrapping_add(hash, h.finish());
 			}

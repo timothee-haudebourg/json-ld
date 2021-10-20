@@ -73,7 +73,7 @@ where
 impl<'a, 'o, O> Iterator for MergedObjectIter<'a, 'o, O>
 where
 	O: cc_traits::MapIter + for<'s> Get<&'s str>,
-	O::Key: AsRef<str>,
+	O::Key: std::ops::Deref<Target=str>,
 {
 	type Item = (O::KeyRef<'a>, <O as cc_traits::CollectionRef>::ItemRef<'a>);
 
@@ -671,7 +671,7 @@ where
 					// and the value of the @protected entry from context, if any, for protected.
 					// (and the value of override protected)
 					for (key, _) in context.iter() {
-						let key = key.as_ref();
+						let key: &str = &**key;
 						match key {
 							"@base" | "@direction" | "@import" | "@language" | "@propagate"
 							| "@protected" | "@version" | "@vocab" => (),

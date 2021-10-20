@@ -131,7 +131,7 @@ where
 								options,
 							)?;
 							result.insert(
-								compact_key.as_ref().unwrap().as_str().into(),
+								K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 								s.as_json_with(meta.clone()),
 							);
 						}
@@ -148,25 +148,25 @@ where
 				match lit {
 					Literal::Null => {
 						result.insert(
-							compact_key.as_ref().unwrap().as_str().into(),
+							K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 							K::null(meta(None)),
 						);
 					}
 					Literal::Boolean(b) => {
 						result.insert(
-							compact_key.as_ref().unwrap().as_str().into(),
+							K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 							b.as_json_with(meta.clone()),
 						);
 					}
 					Literal::Number(n) => {
 						result.insert(
-							compact_key.as_ref().unwrap().as_str().into(),
+							K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 							K::number(n.clone().into(), meta(None)),
 						);
 					}
 					Literal::String(s) => {
 						result.insert(
-							compact_key.as_ref().unwrap().as_str().into(),
+							K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 							s.as_json_with(meta.clone()),
 						);
 					}
@@ -188,7 +188,7 @@ where
 						options,
 					)?;
 					result.insert(
-						compact_key.as_ref().unwrap().as_str().into(),
+						K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 						match compact_ty {
 							Some(s) => K::string(s.as_str().into(), meta(None)),
 							None => K::null(meta(None)),
@@ -216,7 +216,7 @@ where
 					options,
 				)?;
 				result.insert(
-					compact_key.as_ref().unwrap().as_str().into(),
+					K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 					K::string(ls.as_str().into(), meta(None)),
 				);
 
@@ -229,7 +229,7 @@ where
 						options,
 					)?;
 					result.insert(
-						compact_key.as_ref().unwrap().as_str().into(),
+						K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 						language.as_json_with(meta.clone()),
 					);
 				}
@@ -243,8 +243,8 @@ where
 						options,
 					)?;
 					result.insert(
-						compact_key.as_ref().unwrap().as_str().into(),
-						direction.as_json_with(meta.clone()),
+						K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
+						direction.as_json_with(meta.clone())
 					);
 				}
 			}
@@ -261,7 +261,7 @@ where
 					options,
 				)?;
 				result.insert(
-					compact_key.as_ref().unwrap().as_str().into(),
+					K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 					json_to_json(value, meta.clone()),
 				);
 
@@ -280,7 +280,7 @@ where
 					options,
 				)?;
 				result.insert(
-					compact_key.as_ref().unwrap().as_str().into(),
+					K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 					match compact_ty {
 						Some(s) => K::string(s.as_str().into(), meta(None)),
 						None => K::null(meta(None)),
@@ -300,7 +300,7 @@ where
 				options,
 			)?;
 			result.insert(
-				compact_key.as_ref().unwrap().as_str().into(),
+				K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
 				index.as_json_with(meta.clone()),
 			);
 		}

@@ -510,6 +510,7 @@ where
 								}
 
 								for Entry(language, language_value) in language_entries {
+									let language: &str = &*language;
 									// If language value is not an array set language value to
 									// an array containing only language value.
 									let (language_value, _) = as_array(&*language_value);
@@ -526,7 +527,7 @@ where
 												let language =
 													if expand_iri(
 														active_context,
-														language.as_ref(),
+														language,
 														false,
 														true,
 													) == Term::Keyword(Keyword::None)
@@ -534,7 +535,7 @@ where
 														None
 													} else {
 														match LanguageTagBuf::parse_copy(
-															language.as_ref(),
+															language,
 														) {
 															Ok(lang) => Some(lang),
 															Err(_) => return Err(
@@ -737,7 +738,7 @@ where
 												let re_expanded_index = expand_literal(
 													active_context,
 													Some(index_key),
-													LiteralValue::Inferred(index.as_ref().into()),
+													LiteralValue::Inferred((&**index).into()),
 												)?;
 												// let re_expanded_index = if let Object::Value(Value::Literal(Literal::String { data, .. }, _), _) = re_expanded_index {
 												// 	data
@@ -783,7 +784,7 @@ where
 												// @index, item does not have an entry @index,
 												// and expanded index is not @none, add the
 												// key-value pair (@index-index) to item.
-												item.set_index(Some(index.as_ref().to_string()))
+												item.set_index(Some((*index).to_string()))
 											} else if container_mapping.contains(ContainerType::Id)
 												&& item.id().is_none()
 											{

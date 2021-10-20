@@ -43,7 +43,7 @@ where
 					let (doc, url) = remote_doc.into_parts();
 					if let generic_json::Value::Object(obj) = doc.into() {
 						for (key, value) in obj {
-							if key.as_ref() == "@context" {
+							if &*key == "@context" {
 								return Ok(RemoteContext::from_parts(url, value));
 							}
 						}

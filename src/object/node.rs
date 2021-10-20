@@ -360,26 +360,26 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 		let mut obj = K::Object::default();
 
 		if let Some(id) = &self.id {
-			obj.insert(Keyword::Id.into_str().into(), id.as_json_with(meta.clone()));
+			obj.insert(K::new_key(Keyword::Id.into_str(), meta(None)), id.as_json_with(meta.clone()));
 		}
 
 		if !self.types.is_empty() {
 			obj.insert(
-				Keyword::Type.into_str().into(),
+				K::new_key(Keyword::Type.into_str(), meta(None)),
 				self.types.as_json_with(meta.clone()),
 			);
 		}
 
 		if let Some(graph) = &self.graph {
 			obj.insert(
-				Keyword::Graph.into_str().into(),
+				K::new_key(Keyword::Graph.into_str(), meta(None)),
 				graph.as_json_with(meta.clone()),
 			);
 		}
 
 		if let Some(included) = &self.included {
 			obj.insert(
-				Keyword::Included.into_str().into(),
+				K::new_key(Keyword::Included.into_str(), meta(None)),
 				included.as_json_with(meta.clone()),
 			);
 		}
@@ -387,17 +387,23 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 		if !self.reverse_properties.is_empty() {
 			let mut reverse = K::Object::default();
 			for (key, value) in &self.reverse_properties {
-				reverse.insert(key.as_str().into(), value.as_json_with(meta.clone()));
+				reverse.insert(
+					K::new_key(key.as_str(), meta(None)),
+					value.as_json_with(meta.clone())
+				);
 			}
 
 			obj.insert(
-				Keyword::Reverse.into_str().into(),
+				K::new_key(Keyword::Reverse.into_str(), meta(None)),
 				K::object(reverse, meta(None)),
 			);
 		}
 
 		for (key, value) in &self.properties {
-			obj.insert(key.as_str().into(), value.as_json_with(meta.clone()));
+			obj.insert(
+				K::new_key(key.as_str(), meta(None)),
+				value.as_json_with(meta.clone())
+			);
 		}
 
 		K::object(obj, meta(None))

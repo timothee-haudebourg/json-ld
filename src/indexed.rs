@@ -128,7 +128,10 @@ impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Indexed<T> 
 
 		if let Some(obj) = json.as_object_mut() {
 			if let Some(index) = &self.index {
-				obj.insert(Keyword::Index.into_str().into(), index.as_json_with(meta));
+				obj.insert(
+					K::new_key(Keyword::Index.into_str(), meta(None)),
+					index.as_json_with(meta)
+				);
 			}
 		}
 

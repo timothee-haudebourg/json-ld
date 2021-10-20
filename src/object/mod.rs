@@ -238,7 +238,7 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, 
 			Object::List(items) => {
 				let mut obj = K::Object::default();
 				obj.insert(
-					Keyword::List.into_str().into(),
+					K::new_key(Keyword::List.into_str(), meta(None)),
 					items.as_json_with(meta.clone()),
 				);
 				K::object(obj, meta(None))

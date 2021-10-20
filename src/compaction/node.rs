@@ -178,7 +178,7 @@ where
 		// to the next expanded property.
 		if let Some(key) = alias {
 			result.insert(
-				key.as_str().into(),
+				K::new_key(key.as_str(), meta(None)),
 				optional_string(compacted_value, meta(None)),
 			);
 		}
@@ -252,7 +252,10 @@ where
 				}
 			}
 
-			reverse_map.insert(property.as_ref().into(), value);
+			reverse_map.insert(
+				K::new_key(&**property, meta(None)),
+				value
+			);
 		}
 
 		if !reverse_map.is_empty() {
@@ -267,7 +270,7 @@ where
 
 			// Set the value of the alias entry of result to compacted value.
 			result.insert(
-				alias.unwrap().as_str().into(),
+				K::new_key(alias.unwrap().as_str(), meta(None)),
 				K::object(reverse_map, meta(None)),
 			);
 		}
@@ -302,7 +305,7 @@ where
 
 			// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
 			result.insert(
-				alias.unwrap().as_str().into(),
+				K::new_key(alias.unwrap().as_str(), meta(None)),
 				index.as_json_with(meta.clone()),
 			);
 		}

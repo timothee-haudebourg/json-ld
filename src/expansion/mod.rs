@@ -131,7 +131,7 @@ where
 	J::Object: 'a,
 {
 	fn eq(&self, other: &Self) -> bool {
-		self.0.as_ref() == other.0.as_ref()
+		&*self.0 == &*other.0
 	}
 }
 
@@ -142,7 +142,7 @@ where
 	J::Object: 'a,
 {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		self.0.as_ref().partial_cmp(other.0.as_ref())
+		(*self.0).partial_cmp(&*other.0)
 	}
 }
 
@@ -151,7 +151,7 @@ where
 	J::Object: 'a,
 {
 	fn cmp(&self, other: &Self) -> Ordering {
-		self.0.as_ref().cmp(other.0.as_ref())
+		(*self.0).cmp(&*other.0)
 	}
 }
 
@@ -168,7 +168,7 @@ where
 	J::Object: 'a,
 {
 	fn eq(&self, other: &Self) -> bool {
-		self.0.as_ref() == other.0.as_ref()
+		&*self.0 == &*other.0
 	}
 }
 
@@ -179,7 +179,7 @@ where
 	J::Object: 'a,
 {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		self.0.as_ref().partial_cmp(other.0.as_ref())
+		(*self.0).partial_cmp(&*other.0)
 	}
 }
 
@@ -188,7 +188,7 @@ where
 	J::Object: 'a,
 {
 	fn cmp(&self, other: &Self) -> Ordering {
-		self.0.as_ref().cmp(other.0.as_ref())
+		(*self.0).cmp(&*other.0)
 	}
 }
 

@@ -245,56 +245,56 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, 
 			Value::Literal(lit, ty) => {
 				match lit {
 					Literal::Null => {
-						obj.insert(Keyword::Value.into_str().into(), K::null(meta(None)))
+						obj.insert(K::new_key(Keyword::Value.into_str(), meta(None)), K::null(meta(None)))
 					}
 					Literal::Boolean(b) => obj.insert(
-						Keyword::Value.into_str().into(),
+						K::new_key(Keyword::Value.into_str(), meta(None)),
 						b.as_json_with(meta.clone()),
 					),
 					Literal::Number(n) => obj.insert(
-						Keyword::Value.into_str().into(),
+						K::new_key(Keyword::Value.into_str(), meta(None)),
 						K::number(n.clone().into(), meta(None)),
 					),
 					Literal::String(s) => obj.insert(
-						Keyword::Value.into_str().into(),
+						K::new_key(Keyword::Value.into_str(), meta(None)),
 						s.as_json_with(meta.clone()),
 					),
 				};
 
 				if let Some(ty) = ty {
 					obj.insert(
-						Keyword::Type.into_str().into(),
+						K::new_key(Keyword::Type.into_str(), meta(None)),
 						ty.as_json_with(meta.clone()),
 					);
 				}
 			}
 			Value::LangString(str) => {
 				obj.insert(
-					Keyword::Value.into_str().into(),
+					K::new_key(Keyword::Value.into_str(), meta(None)),
 					str.as_str().as_json_with(meta.clone()),
 				);
 
 				if let Some(language) = str.language() {
 					obj.insert(
-						Keyword::Language.into_str().into(),
+						K::new_key(Keyword::Language.into_str(), meta(None)),
 						language.as_json_with(meta.clone()),
 					);
 				}
 
 				if let Some(direction) = str.direction() {
 					obj.insert(
-						Keyword::Direction.into_str().into(),
+						K::new_key(Keyword::Direction.into_str(), meta(None)),
 						direction.as_json_with(meta.clone()),
 					);
 				}
 			}
 			Value::Json(json) => {
 				obj.insert(
-					Keyword::Value.into_str().into(),
+					K::new_key(Keyword::Value.into_str(), meta(None)),
 					util::json_to_json(json, meta.clone()),
 				);
 				obj.insert(
-					Keyword::Type.into_str().into(),
+					K::new_key(Keyword::Type.into_str(), meta(None)),
 					Keyword::Json.as_json_with(meta.clone()),
 				);
 			}

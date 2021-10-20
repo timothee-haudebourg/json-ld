@@ -321,7 +321,7 @@ impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> Compac
 
 							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
 							result.insert(
-								alias.unwrap().as_str().into(),
+								K::new_key(alias.unwrap().as_str(), meta(None)),
 								index.as_json_with(meta.clone()),
 							);
 						}
@@ -346,10 +346,16 @@ fn add_value<K: JsonBuild + JsonMut>(
 	match map.get(key).map(|value| value.is_array()) {
 		Some(false) => {
 			let value = map.remove(key).unwrap();
-			map.insert(key.into(), K::array(Some(value).into_iter().collect(), meta()));
+			map.insert(
+				K::new_key(key, meta()),
+				K::array(Some(value).into_iter().collect(), meta())
+			);
 		}
 		None if as_array => {
-			map.insert(key.into(), K::empty_array(meta()));
+			map.insert(
+				K::new_key(key, meta()),
+				K::empty_array(meta())
+			);
 		},
 		_ => (),
 	}
@@ -366,7 +372,10 @@ fn add_value<K: JsonBuild + JsonMut>(
 				return
 			}
 
-			map.insert(key.into(), K::new(value, metadata));
+			map.insert(
+				K::new_key(key, meta()),
+				K::new(value, metadata)
+			);
 		},
 	}
 }
