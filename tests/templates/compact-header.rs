@@ -27,6 +27,7 @@ use json_ld::{{
 	Loader,
 	FsLoader
 }};
+use ijson::IValue;
 
 #[derive(Clone, Copy)]
 struct Options<'a> {{
@@ -56,7 +57,7 @@ impl<'a> From<Options<'a>> for ProcessingOptions {{
 }}
 
 fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {{
-	let mut loader = FsLoader::new();
+	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
