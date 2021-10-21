@@ -162,7 +162,7 @@ where
 			selected.resize(a.len(), false);
 
 			'a_items: for item in a.iter() {
-				for (i, sel) in selected.iter_mut().enumerate().take(b.len()) {
+				for (i, sel) in selected.iter_mut().enumerate() {
 					if !*sel && json_ld_eq(&*item, &*b.get(i).unwrap()) {
 						*sel = true;
 						continue 'a_items;
@@ -209,6 +209,7 @@ where
 			true
 		}
 		(ValueRef::Null, ValueRef::Null) => true,
+		(ValueRef::Boolean(a), ValueRef::Boolean(b)) => a == b,
 		(ValueRef::Number(a), ValueRef::Number(b)) => a == b,
 		(ValueRef::String(a), ValueRef::String(b)) => (**a) == (**b),
 		_ => false,
