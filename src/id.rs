@@ -23,6 +23,7 @@ use std::hash::Hash;
 /// ```
 /// use iref_enum::*;
 /// use json_ld::Lexicon;
+/// use ijson::IValue;
 ///
 /// /// Vocabulary used in the implementation.
 /// #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
@@ -49,7 +50,7 @@ use std::hash::Hash;
 /// /// A fully functional identifier type.
 /// pub type Id = Lexicon<Vocab>;
 ///
-/// fn handle_node(node: &json_ld::Node<Id>) {
+/// fn handle_node(node: &json_ld::Node<IValue, Id>) {
 ///   for name in node.get(Vocab::Name) { // <- note that we can directly use `Vocab` here.
 ///     println!("node name: {}", name.as_str().unwrap());
 ///   }

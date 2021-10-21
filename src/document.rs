@@ -62,9 +62,10 @@ pub trait Document<T: Id> {
 	/// ```
 	/// # fn main() -> Result<(), json_ld::Error> {
 	/// use async_std::task;
-	/// use json_ld::{Document, JsonContext, NoLoader};
+	/// use json_ld::{Document, context, NoLoader};
+	/// use ijson::IValue;
 	///
-	/// let doc = json::parse("{
+	/// let doc: IValue = serde_json::from_str("{
 	///   \"@context\": {
 	///     \"name\": \"http://xmlns.com/foaf/0.1/name\",
 	///     \"knows\": \"http://xmlns.com/foaf/0.1/knows\"
@@ -77,7 +78,8 @@ pub trait Document<T: Id> {
 	///     }
 	///   ]
 	/// }").unwrap();
-	/// let expanded_doc = task::block_on(doc.expand::<JsonContext, _>(&mut NoLoader))?;
+	/// let mut loader = NoLoader::<IValue>::new();
+	/// let expanded_doc = task::block_on(doc.expand::<context::Json<IValue>, _>(&mut loader))?;
 	/// # Ok(())
 	/// # }
 	/// ```
@@ -284,7 +286,7 @@ impl<J: Json, T: Id> Document<T> for J {
 /// use static_iref::*;
 ///
 /// use async_std::task;
-/// use json::JsonValue;
+/// use ijson::IValue;
 /// use json_ld::{
 ///   Loader,
 ///   FsLoader,
@@ -292,12 +294,12 @@ impl<J: Json, T: Id> Document<T> for J {
 /// };
 ///
 /// // Prepare the loader.
-/// let mut loader = FsLoader::new();
+/// let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
 /// loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 ///
 /// // Load the remote document.
 /// let url = iri!("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld");
-/// let doc: RemoteDocument<JsonValue> = task::block_on(loader.load(url)).unwrap();
+/// let doc: RemoteDocument<IValue> = task::block_on(loader.load(url)).unwrap();
 /// ```
 #[derive(Clone)]
 pub struct RemoteDocument<D> {
