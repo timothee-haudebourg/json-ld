@@ -1,3 +1,4 @@
+#![cfg(feature="test")]
 #![feature(proc_macro_hygiene)]
 
 extern crate async_std;

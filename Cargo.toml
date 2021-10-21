@@ -17,6 +17,7 @@ exclude = [
 
 [features]
 reqwest-loader = ["reqwest"]
+test = ["generic-json/ijson-impl"]
 
 [dependencies]
 log = "^0.4"
