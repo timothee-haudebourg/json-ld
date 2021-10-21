@@ -83,9 +83,9 @@ where
 				Some(entries) => {
 					match entries.next() {
 						Some((key, value)) => {
-							if self.entries.len() > 1 {
+							if self.objects.len() > 1 {
 								// Checks that the key is not overshadowed by a merged object.
-								if self.objects[0..self.entries.len() - 1]
+								if self.objects[(self.objects.len() - self.entries.len() + 1)..]
 									.iter()
 									.any(|object| object.contains(key.as_ref()))
 								{
