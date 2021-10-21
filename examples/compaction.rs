@@ -2,7 +2,7 @@
 use ijson::IValue;
 use json_ld::{
 	context::{self, Local},
-	Compact, Document, JsonContext, NoLoader,
+	Document, NoLoader,
 };
 
 #[async_std::main]
