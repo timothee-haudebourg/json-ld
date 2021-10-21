@@ -131,7 +131,7 @@ where
 	J::Object: 'a,
 {
 	fn eq(&self, other: &Self) -> bool {
-		&*self.0 == &*other.0
+		*self.0 == *other.0
 	}
 }
 
@@ -168,7 +168,7 @@ where
 	J::Object: 'a,
 {
 	fn eq(&self, other: &Self) -> bool {
-		&*self.0 == &*other.0
+		*self.0 == *other.0
 	}
 }
 

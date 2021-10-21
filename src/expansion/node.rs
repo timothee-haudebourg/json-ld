@@ -95,6 +95,13 @@ where
 	Ok(Some(result))
 }
 
+/// Type returned by the `expand_node_entries` function.
+/// 
+/// It is a tuple containing both the node beeing expanded
+/// and a boolean flag set to `true` if the node contains
+/// value object entries (in practice, if it has a `@language` entry).
+type ExpandedNode<J, T> = (Indexed<Node<J, T>>, bool);
+
 fn expand_node_entries<
 	'a,
 	J: JsonExpand,
@@ -111,7 +118,7 @@ fn expand_node_entries<
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
-) -> BoxFuture<'a, Result<(Indexed<Node<J, T>>, bool), Error>>
+) -> BoxFuture<'a, Result<ExpandedNode<J, T>, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
