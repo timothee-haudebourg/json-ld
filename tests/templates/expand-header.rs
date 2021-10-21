@@ -13,8 +13,8 @@ use json_ld::{{
 	ProcessingMode,
 	Document,
 	context::{{
+		self,
 		ProcessingOptions,
-		JsonContext,
 		Local,
 		Loader as ContextLoader
 	}},
@@ -26,6 +26,7 @@ use json_ld::{{
 	Loader,
 	FsLoader
 }};
+use ijson::IValue;
 
 #[derive(Clone, Copy)]
 struct Options<'a> {{
@@ -53,46 +54,55 @@ impl<'a> From<Options<'a>> for ProcessingOptions {{
 }}
 
 fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {{
-	let mut loader = FsLoader::new();
+	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
-	let output = task::block_on(loader.load(output_url)).unwrap();
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
+	let expected_output = task::block_on(loader.load(output_url)).unwrap();
+	let mut input_context: context::Json<IValue, IriBuf> = context::Json::new(Some(base_url));
 
 	if let Some(context_url) = options.context {{
 		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
 		input_context = task::block_on(local_context.process_with(&input_context, &mut loader, Some(base_url), options.into())).unwrap().into_inner();
 	}}
 
-	let result = task::block_on(input.expand_with(Some(base_url), &input_context, &mut loader, options.into())).unwrap();
+	let output = task::block_on(input.expand_with(Some(base_url), &input_context, &mut loader, options.into())).unwrap();
+	let output_json: IValue = output.as_json();
 
-	let result_json = result.as_json();
-	let success = json_ld_eq(&result_json, &output);
+	let success = json_ld_eq(&output_json, &*expected_output);
 
 	if !success {{
-		println!("output=\n{{}}", result_json.pretty(2));
-		println!("\nexpected=\n{{}}", output.pretty(2));
+		println!(
+			"output=\n{{}}",
+			serde_json::to_string_pretty(&output_json).unwrap()
+		);
+		println!(
+			"\nexpected=\n{{}}",
+			serde_json::to_string_pretty(&*expected_output).unwrap()
+		);
 	}}
 
 	assert!(success)
 }}
 
 fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {{
-	let mut loader = FsLoader::new();
+	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
+	let mut input_context: context::Json<IValue, IriBuf> = context::Json::new(Some(base_url));
 
 	if let Some(context_url) = options.context {{
 		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
 		input_context = task::block_on(local_context.process_with(&input_context, &mut loader, Some(base_url), options.into())).unwrap().into_inner();
 	}}
 
-	match task::block_on(input.expand_with(Some(base_url), &input_context, &mut loader, options.into())) {{
-		Ok(result) => {{
-			println!("output=\n{{}}", result.as_json().pretty(2));
+	let result = task::block_on(input.expand_with(Some(base_url), &input_context, &mut loader, options.into()));
+
+	match result {{
+		Ok(output) => {{
+			let output_json: IValue = output.as_json();
+			println!("output=\n{{}}", serde_json::to_string_pretty(&output_json).unwrap());
 			panic!("expansion succeeded where it should have failed with code: {{}}", error_code)
 		}},
 		Err(e) => {{
