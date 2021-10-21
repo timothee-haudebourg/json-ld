@@ -73,7 +73,7 @@ where
 impl<'a, 'o, O> Iterator for MergedObjectIter<'a, 'o, O>
 where
 	O: cc_traits::MapIter + for<'s> Get<&'s str>,
-	O::Key: std::ops::Deref<Target=str>,
+	O::Key: std::ops::Deref<Target = str>,
 {
 	type Item = (O::KeyRef<'a>, <O as cc_traits::CollectionRef>::ItemRef<'a>);
 
@@ -478,9 +478,11 @@ where
 				ValueRef::Object(context) => {
 					// 5.5) If context has an @version entry:
 					if let Some(version_value) = context.get(Keyword::Version.into()) {
-						// 5.5.1) If the associated value is not 1.1, an invalid @version value has
+						// 5.5.1) If the associated value is not `1.1`, an invalid @version value has
 						// been detected.
-						if version_value.as_str() != Some("1.1") {
+						if version_value.as_f32() != Some(1.1)
+							&& version_value.as_f64() != Some(1.1)
+						{
 							return Err(ErrorCode::InvalidVersionValue.into());
 						}
 
