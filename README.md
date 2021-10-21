@@ -10,9 +10,6 @@ This crate is a Rust implementation of the
 [JSON-LD](https://www.w3.org/TR/json-ld/)
 data interchange format.
 
-NOTE: This crate is in early development.
-All the features are not yet implemented (only the expansion and compaction algorithms are).
-
 [Linked Data (LD)](https://www.w3.org/standards/semanticweb/data)
 is a [World Wide Web Consortium (W3C)](https://www.w3.org/)
 initiative built upon standard Web technologies to create an
@@ -29,7 +26,7 @@ JSON-LD documents.
 With the help of the [`json`](https://crates.io/crates/json)
 crate it can also expand, compact and flatten JSON-LD documents of any kind.
 
-## Basic Usage
+### Basic Usage
 
 JSON-LD documents are represented by the `Document` trait,
 implemented for instance by the `json::JsonValue` type.
@@ -41,42 +38,44 @@ and document loader
 (which may be needed to load remote documents during expansion).
 
 ```rust
-extern crate async_std;
-extern crate iref;
-extern crate json_ld;
-
 use async_std::task;
 use iref::IriBuf;
-use json_ld::{JsonContext, NoLoader, Document, Object, Reference};
+use json_ld::{context, NoLoader, Document, Object, Reference};
+use ijson::IValue;
 
 #[async_std::main]
-fn main() -> Result<(), json_ld::Error> {
-	// The JSON-LD document to expand.
-	let doc = json::parse(r#"
-		{
-			"@context": {
-				"name": "http://xmlns.com/foaf/0.1/name"
-			},
-			"@id": "https://www.rust-lang.org",
-			"name": "Rust Programming Language"
-		}
-	"#).unwrap();
+async fn main() -> Result<(), json_ld::Error> {
+  // The JSON-LD document to expand.
+  let doc: IValue = serde_json::from_str(r#"
+    {
+      "@context": {
+        "name": "http://xmlns.com/foaf/0.1/name"
+      },
+      "@id": "https://www.rust-lang.org",
+      "name": "Rust Programming Language"
+    }
+  "#).unwrap();
 
-	// Expansion.
-	let expanded_doc = doc.expand::<JsonContext, _>(&mut NoLoader).await?;
+  // JSON document loader.
+  let mut loader = NoLoader::<IValue>::new();
 
-	// Reference to the `name` property.
-	let name_property = Reference::Id(IriBuf::new("http://xmlns.com/foaf/0.1/name").unwrap());
+  // Expansion.
+  let expanded_doc = doc.expand::<context::Json<IValue>, _>(&mut loader).await?;
 
-	// Iterate through the expanded objects.
-	for object in expanded_doc {
-		if let Object::Node(node) = object.as_ref() {
-			println!("node: {}", node.id().unwrap()); // print the `@id`
-			for name in node.get(&name_property) { // get the names.
-				println!("name: {}", name.as_str().unwrap());
-			}
-		}
-	}
+  // Reference to the `name` property.
+  let name_property = Reference::Id(IriBuf::new("http://xmlns.com/foaf/0.1/name").unwrap());
+
+  // Iterate through the expanded objects.
+  for object in expanded_doc {
+    if let Object::Node(node) = object.as_ref() {
+      println!("node: {}", node.id().unwrap()); // print the `@id`
+      for name in node.get(&name_property) { // get the names.
+        println!("name: {}", name.as_str().unwrap());
+      }
+    }
+  }
+
+  Ok(())
 }
 ```
 
@@ -87,46 +86,51 @@ This crate provides multiple loader implementations:
     mount point system.
   - `reqwest::Loader` provided by the `reqwest-loader` feature that uses the
     [`reqwest`](https://crates.io/crates/reqwest) crate to load remote documents.
-	Note that `reqwest` requires the
-	[`tokio`](https://crates.io/crates/tokio) runtime to work.
+  Note that `reqwest` requires the
+  [`tokio`](https://crates.io/crates/tokio) runtime to work.
 
-### Compaction
+#### Compaction
 
 The `Document` trait also provides a `Document::compact` function to compact a document using a given context.
 
 ```rust
 #[async_std::main]
 async fn main() -> Result<(), json_ld::Error> {
-	// Input JSON-LD document to compact.
-	let input = json::parse(r#"
-		[{
-			"http://xmlns.com/foaf/0.1/name": ["Timothée Haudebourg"],
-			"http://xmlns.com/foaf/0.1/homepage": [{"@id": "https://haudebourg.net/"}]
-		}]
-	"#).unwrap();
+  // Input JSON-LD document to compact.
+  let input: IValue = serde_json::from_str(r#"
+    [{
+      "http://xmlns.com/foaf/0.1/name": ["Timothée Haudebourg"],
+      "http://xmlns.com/foaf/0.1/homepage": [{"@id": "https://haudebourg.net/"}]
+    }]
+  "#).unwrap();
 
-	// Context
-	let context = json::parse(r#"
-		{
-			"name": "http://xmlns.com/foaf/0.1/name",
-			"homepage": {"@id": "http://xmlns.com/foaf/0.1/homepage", "@type": "@id"}
-		}
-	"#).unwrap();
-	let processed_context = context.process::<JsonContext, _>(&mut NoLoader, None).await?;
-	
-	// Compaction.
-	let output = input.compact(&processed_context, &mut NoLoader).await.unwrap();
-	println!("{}", output.pretty(2));
+  // JSON-LD context.
+  let context: IValue = serde_json::from_str(r#"
+    {
+      "name": "http://xmlns.com/foaf/0.1/name",
+      "homepage": {"@id": "http://xmlns.com/foaf/0.1/homepage", "@type": "@id"}
+    }
+  "#).unwrap();
 
-	Ok(())
+  // JSON document loader.
+  let mut loader = NoLoader::<IValue>::new();
+
+  // Process the context.
+  let processed_context = context.process::<context::Json<IValue>, _>(&mut loader, None).await?;
+
+  // Compact the input document.
+  let output = input.compact(&processed_context, &mut loader).await.unwrap();
+  println!("{}", serde_json::to_string_pretty(&output).unwrap());
+
+  Ok(())
 }
 ```
 
-### Flattening
+#### Flattening
 
 Flattening is not yet implemented, but will be in the future.
 
-## Custom identifiers
+### Custom identifiers
 
 Storing and comparing IRIs can be costly.
 This is why while JSON-LD uses IRIs to identify nodes and properties, this implementation
@@ -136,28 +140,25 @@ One usage example is through the `Vocab` trait and `Lexicon` wrapper that can
 transform any `enum` type into an identifier type.
 
 ```rust
-#[macro_use]
-extern crate iref_enum;
-extern crate json_ld;
-
+use iref_enum::IriEnum;
 use json_ld::Lexicon;
 
 // Vocabulary used in the implementation.
 #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
 #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
 pub enum MyVocab {
-	#[iri("manifest:name")] Name,
-	#[iri("manifest:entries")] Entries,
-	#[iri("manifest:action")] Action,
-	#[iri("manifest:result")] Result,
+  #[iri("manifest:name")] Name,
+  #[iri("manifest:entries")] Entries,
+  #[iri("manifest:action")] Action,
+  #[iri("manifest:result")] Result,
 }
 
 // A fully functional identifier type.
 pub type Id = Lexicon<MyVocab>;
 
-fn handle_node(node: &json_ld::Node<Id>) {
+fn handle_node(node: &json_ld::Node<IValue, Id>) {
   for name in node.get(MyVocab::Name) { // <- NOTE: we can directly use `MyVocab` here.
-  	println!("node name: {}", name.as_str().unwrap());
+    println!("node name: {}", name.as_str().unwrap());
   }
 }
 ```
@@ -166,7 +167,7 @@ Note that we use the [`iref-enum`](https://crates.io/crates/iref-enum)
 crate that provides the `IriEnum` derive macro which automatically generate
 conversions between the `MyVocab` and `iref::Iri` types.
 
-## RDF Serialization/Deserialization
+### RDF Serialization/Deserialization
 
 This is not and will not be handled directly by this crate.
 
@@ -192,7 +193,11 @@ All the tests should pass except for the compaction test `p004`
 
 ![](https://uploads-ssl.webflow.com/5f37276ebba6e91b4cdefcea/5f398730ecda61a7494906ba_Spruce_Logo_Horizontal.png)
 
+<<<<<<< HEAD
 Many thanks to [Spruce](https://www.spruceid.com/) for sponsoring this project!
+=======
+Many thanks to [Spruce](https://www.spruceid.com) for sponsoring this project!
+>>>>>>> f2cc229 (Use README template.)
 
 ## License
 
