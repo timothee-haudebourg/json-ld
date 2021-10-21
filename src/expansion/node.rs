@@ -97,7 +97,7 @@ where
 
 /// Type returned by the `expand_node_entries` function.
 /// 
-/// It is a tuple containing both the node beeing expanded
+/// It is a tuple containing both the node being expanded
 /// and a boolean flag set to `true` if the node contains
 /// value object entries (in practice, if it has a `@language` entry).
 type ExpandedNode<J, T> = (Indexed<Node<J, T>>, bool);
