@@ -10,7 +10,7 @@ use crate::{
 	ContextMut, Error, Id, Indexed, Object, ProcessingMode, Value,
 };
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::{JsonBuild, JsonMut, JsonClone, JsonHash, JsonSendSync};
+use generic_json::{JsonBuild, JsonClone, JsonHash, JsonMut, JsonSendSync};
 use std::collections::HashSet;
 
 /// Compaction source JSON type.
@@ -348,15 +348,12 @@ fn add_value<K: JsonBuild + JsonMut>(
 			let value = map.remove(key).unwrap();
 			map.insert(
 				K::new_key(key, meta()),
-				K::array(Some(value).into_iter().collect(), meta())
+				K::array(Some(value).into_iter().collect(), meta()),
 			);
 		}
 		None if as_array => {
-			map.insert(
-				K::new_key(key, meta()),
-				K::empty_array(meta())
-			);
-		},
+			map.insert(K::new_key(key, meta()), K::empty_array(meta()));
+		}
 		_ => (),
 	}
 
@@ -368,15 +365,15 @@ fn add_value<K: JsonBuild + JsonMut>(
 		}
 		(value, metadata) => {
 			if let Some(mut array) = map.get_mut(key) {
-				array.as_array_mut().unwrap().push_back(K::new(value, metadata));
-				return
+				array
+					.as_array_mut()
+					.unwrap()
+					.push_back(K::new(value, metadata));
+				return;
 			}
 
-			map.insert(
-				K::new_key(key, meta()),
-				K::new(value, metadata)
-			);
-		},
+			map.insert(K::new_key(key, meta()), K::new(value, metadata));
+		}
 	}
 }
 
@@ -427,15 +424,15 @@ where
 
 		for item in items {
 			let compacted_item: K = item
-			.compact_with(
-				active_context.clone(),
-				type_scoped_context.clone(),
-				active_property,
-				loader,
-				options,
-				meta.clone()
-			)
-			.await?;
+				.compact_with(
+					active_context.clone(),
+					type_scoped_context.clone(),
+					active_property,
+					loader,
+					options,
+					meta.clone(),
+				)
+				.await?;
 
 			if !compacted_item.is_null() {
 				result.push(compacted_item)

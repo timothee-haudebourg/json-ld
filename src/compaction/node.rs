@@ -247,15 +247,14 @@ where
 						|| !options.compact_arrays;
 
 					// Use add value to add value to the property entry in result using as array.
-					add_value(&mut result, property.as_ref(), value, as_array, || meta(None));
+					add_value(&mut result, property.as_ref(), value, as_array, || {
+						meta(None)
+					});
 					continue;
 				}
 			}
 
-			reverse_map.insert(
-				K::new_key(&**property, meta(None)),
-				value
-			);
+			reverse_map.insert(K::new_key(&**property, meta(None)), value);
 		}
 
 		if !reverse_map.is_empty() {
@@ -429,13 +428,9 @@ fn compact_types<
 			|| !options.compact_arrays;
 
 		// Use add value to add compacted value to the alias entry in result using as array.
-		add_value(
-			result,
-			alias.as_str(),
-			compacted_value,
-			as_array,
-			|| meta(None),
-		)
+		add_value(result, alias.as_str(), compacted_value, as_array, || {
+			meta(None)
+		})
 	}
 
 	Ok(())

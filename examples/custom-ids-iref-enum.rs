@@ -8,8 +8,8 @@ extern crate iref;
 extern crate iref_enum;
 extern crate json_ld;
 
-use json_ld::{Document, context, Lexicon, NoLoader, Object};
 use ijson::IValue;
+use json_ld::{context, Document, Lexicon, NoLoader, Object};
 
 // Parts of the FOAF vocabulary will need.
 #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]

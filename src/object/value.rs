@@ -1,7 +1,8 @@
 use crate::{
 	object,
 	syntax::{Keyword, Type},
-	util::{self, AsAnyJson}, Direction, Id, LangString,
+	util::{self, AsAnyJson},
+	Direction, Id, LangString,
 };
 use cc_traits::MapInsert;
 use derivative::Derivative;
@@ -244,9 +245,10 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, 
 		match self {
 			Value::Literal(lit, ty) => {
 				match lit {
-					Literal::Null => {
-						obj.insert(K::new_key(Keyword::Value.into_str(), meta(None)), K::null(meta(None)))
-					}
+					Literal::Null => obj.insert(
+						K::new_key(Keyword::Value.into_str(), meta(None)),
+						K::null(meta(None)),
+					),
 					Literal::Boolean(b) => obj.insert(
 						K::new_key(Keyword::Value.into_str(), meta(None)),
 						b.as_json_with(meta(None)),

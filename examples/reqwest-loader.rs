@@ -10,8 +10,8 @@ extern crate iref_enum;
 extern crate static_iref;
 extern crate json_ld;
 
-use json_ld::{reqwest::Loader, Document, context, Lexicon, Object};
 use ijson::IValue;
+use json_ld::{context, reqwest::Loader, Document, Lexicon, Object};
 
 /// Vocabulary of the test manifest
 #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
@@ -45,7 +45,10 @@ async fn main() {
 		.unwrap();
 
 	// Expansion.
-	let expanded_doc = doc.expand::<context::Json<IValue, Id>, _>(&mut loader).await.unwrap();
+	let expanded_doc = doc
+		.expand::<context::Json<IValue, Id>, _>(&mut loader)
+		.await
+		.unwrap();
 
 	// Iterate through the expanded objects.
 	for object in expanded_doc {

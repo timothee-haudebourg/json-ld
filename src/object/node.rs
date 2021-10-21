@@ -360,7 +360,10 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 		let mut obj = K::Object::default();
 
 		if let Some(id) = &self.id {
-			obj.insert(K::new_key(Keyword::Id.into_str(), meta(None)), id.as_json_with(meta.clone()));
+			obj.insert(
+				K::new_key(Keyword::Id.into_str(), meta(None)),
+				id.as_json_with(meta.clone()),
+			);
 		}
 
 		if !self.types.is_empty() {
@@ -389,7 +392,7 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 			for (key, value) in &self.reverse_properties {
 				reverse.insert(
 					K::new_key(key.as_str(), meta(None)),
-					value.as_json_with(meta.clone())
+					value.as_json_with(meta.clone()),
 				);
 			}
 
@@ -402,7 +405,7 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 		for (key, value) in &self.properties {
 			obj.insert(
 				K::new_key(key.as_str(), meta(None)),
-				value.as_json_with(meta.clone())
+				value.as_json_with(meta.clone()),
 			);
 		}
 
@@ -410,7 +413,9 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 	}
 }
 
-impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for HashSet<Indexed<Node<J, T>>> {
+impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K>
+	for HashSet<Indexed<Node<J, T>>>
+{
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		let array = self
 			.iter()

@@ -74,7 +74,7 @@ where
 		let mut compacted_item_list_object = K::Object::default();
 		compacted_item_list_object.insert(
 			K::new_key(key.unwrap().as_str(), meta(None)),
-			compacted_item
+			compacted_item,
 		);
 
 		// If `expanded_item` contains the entry @index-value,
@@ -235,7 +235,10 @@ where
 				)?
 				.unwrap();
 				let mut map = K::Object::default();
-				map.insert(K::new_key(key.as_str(), meta(None)), K::array(items, items_meta));
+				map.insert(
+					K::new_key(key.as_str(), meta(None)),
+					K::array(items, items_meta),
+				);
 				K::object(map, meta(None))
 			}
 			(item, item_meta) => K::new(item, item_meta),
@@ -309,7 +312,10 @@ where
 				options,
 			)?
 			.unwrap();
-			map.insert(K::new_key(key.as_str(), meta(None)), K::string(index.into(), meta(None)));
+			map.insert(
+				K::new_key(key.as_str(), meta(None)),
+				K::string(index.into(), meta(None)),
+			);
 		}
 
 		// Use `add_value` to add `compacted_item` to the
@@ -777,7 +783,9 @@ where
 
 						// Use `add_value` to add `compacted_item` to
 						// the `map_key` entry in `map_object` using `as_array`.
-						add_value(map_object, &map_key, compacted_item, as_array, || meta(None))
+						add_value(map_object, &map_key, compacted_item, as_array, || {
+							meta(None)
+						})
 					} else {
 						// Otherwise, use `add_value` to add `compacted_item` to the
 						// `item_active_property` entry in `nest_result` using `as_array`.

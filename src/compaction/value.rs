@@ -244,7 +244,7 @@ where
 					)?;
 					result.insert(
 						K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
-						direction.as_json_with(meta(None))
+						direction.as_json_with(meta(None)),
 					);
 				}
 			}

@@ -2,10 +2,6 @@ use crate::{
 	context::{self, RemoteContext},
 	Error, ErrorCode, RemoteDocument,
 };
-use std::{
-	marker::PhantomData,
-	str::FromStr
-};
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::Json;
 use iref::{Iri, IriBuf};
@@ -13,6 +9,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
+use std::{marker::PhantomData, str::FromStr};
 
 /// JSON document loader.
 pub trait Loader {
@@ -96,15 +93,19 @@ impl<J: Json> Loader for NoLoader<J> {
 pub struct FsLoader<J> {
 	cache: HashMap<IriBuf, RemoteDocument<J>>,
 	mount_points: HashMap<PathBuf, IriBuf>,
-	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>
+	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>,
 }
 
 impl<J> FsLoader<J> {
-	pub fn new<E: 'static + std::error::Error>(mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>) -> Self {
+	pub fn new<E: 'static + std::error::Error>(
+		mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>,
+	) -> Self {
 		Self {
 			cache: HashMap::new(),
 			mount_points: HashMap::new(),
-			parser: Box::new(move |s| parser(s).map_err(|e| Error::new(ErrorCode::LoadingDocumentFailed, e)))
+			parser: Box::new(move |s| {
+				parser(s).map_err(|e| Error::new(ErrorCode::LoadingDocumentFailed, e))
+			}),
 		}
 	}
 
@@ -113,7 +114,10 @@ impl<J> FsLoader<J> {
 	}
 }
 
-impl<J: FromStr> Default for FsLoader<J> where J::Err: 'static + std::error::Error {
+impl<J: FromStr> Default for FsLoader<J>
+where
+	J::Err: 'static + std::error::Error,
+{
 	fn default() -> Self {
 		Self::new(|s| J::from_str(s))
 	}
@@ -122,10 +126,7 @@ impl<J: FromStr> Default for FsLoader<J> where J::Err: 'static + std::error::Err
 impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 	type Document = J;
 
-	fn load<'a>(
-		&'a mut self,
-		url: Iri<'_>,
-	) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
+	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
 		let url: IriBuf = url.into();
 		async move {
 			match self.cache.get(&url) {

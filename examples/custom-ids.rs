@@ -15,9 +15,9 @@ extern crate iref;
 extern crate static_iref;
 extern crate json_ld;
 
-use iref::Iri;
-use json_ld::{Document, context, Lexicon, NoLoader, Object};
 use ijson::IValue;
+use iref::Iri;
+use json_ld::{context, Document, Lexicon, NoLoader, Object};
 use std::convert::TryFrom;
 
 // Parts of the FOAF vocabulary will need.

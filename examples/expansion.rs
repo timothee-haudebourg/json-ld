@@ -4,9 +4,9 @@ extern crate async_std;
 extern crate iref;
 extern crate json_ld;
 
-use iref::IriBuf;
-use json_ld::{Document, context, NoLoader, Object, Reference};
 use ijson::IValue;
+use iref::IriBuf;
+use json_ld::{context, Document, NoLoader, Object, Reference};
 
 #[async_std::main]
 async fn main() {
@@ -28,7 +28,10 @@ async fn main() {
 	let mut loader = NoLoader::<IValue>::new();
 
 	// Expansion.
-	let expanded_doc = doc.expand::<context::Json<IValue>, _>(&mut loader).await.unwrap();
+	let expanded_doc = doc
+		.expand::<context::Json<IValue>, _>(&mut loader)
+		.await
+		.unwrap();
 
 	// Reference to the `name` property.
 	let name_property = Reference::Id(IriBuf::new("http://xmlns.com/foaf/0.1/name").unwrap());

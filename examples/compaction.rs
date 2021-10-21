@@ -1,6 +1,9 @@
 //! This simple example shows how to compact a document using the `Document::compact` method.
-use json_ld::{context::{self, Local}, Document, JsonContext, NoLoader, Compact};
 use ijson::IValue;
+use json_ld::{
+	context::{self, Local},
+	Compact, Document, JsonContext, NoLoader,
+};
 
 #[async_std::main]
 async fn main() -> Result<(), json_ld::Error> {
@@ -26,18 +29,18 @@ async fn main() -> Result<(), json_ld::Error> {
 	.unwrap();
 
 	// JSON-LD document loader.
-	// 
+	//
 	// We won't be loading any external document here,
 	// so we use the `NoLoader` type.
 	let mut loader = NoLoader::<IValue>::new();
 
-	let processed_context = context.process::<context::Json<IValue>, _>(
-		&mut loader,
-		None
-	).await?;
+	let processed_context = context
+		.process::<context::Json<IValue>, _>(&mut loader, None)
+		.await?;
 
 	// Compaction.
-	let output: IValue = input.compact(&processed_context, &mut loader)
+	let output: IValue = input
+		.compact(&processed_context, &mut loader)
 		.await
 		.unwrap();
 

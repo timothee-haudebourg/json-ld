@@ -7,6 +7,7 @@ extern crate static_iref;
 extern crate json_ld;
 
 use async_std::task;
+use ijson::IValue;
 use iref::{Iri, IriBuf};
 use json_ld::{
 	context::{self, Loader as ContextLoader, Local, ProcessingOptions},
@@ -14,7 +15,6 @@ use json_ld::{
 	util::{json_ld_eq, AsJson},
 	Document, FsLoader, Loader, ProcessingMode,
 };
-use ijson::IValue;
 
 #[derive(Clone, Copy)]
 struct Options<'a> {
@@ -75,10 +75,19 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 	let success = json_ld_eq(&result_json, &*output);
 
 	if success {
-		println!("output=\n{}", serde_json::to_string_pretty(&result_json).unwrap());
+		println!(
+			"output=\n{}",
+			serde_json::to_string_pretty(&result_json).unwrap()
+		);
 	} else {
-		println!("output=\n{}", serde_json::to_string_pretty(&result_json).unwrap());
-		println!("\nexpected=\n{}", serde_json::to_string_pretty(&*output).unwrap());
+		println!(
+			"output=\n{}",
+			serde_json::to_string_pretty(&result_json).unwrap()
+		);
+		println!(
+			"\nexpected=\n{}",
+			serde_json::to_string_pretty(&*output).unwrap()
+		);
 	}
 
 	assert!(success)

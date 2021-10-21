@@ -1,19 +1,13 @@
 use crate::{
+	compaction,
 	context::{self, Loader},
 	expansion,
-	compaction,
-	Context,
-	ContextMut,
-	ContextMutProxy,
-	Error,
-	Id,
-	Indexed,
-	Object,
-	util::{AsJson, JsonFrom}
+	util::{AsJson, JsonFrom},
+	Context, ContextMut, ContextMutProxy, Error, Id, Indexed, Object,
 };
-use futures::future::{FutureExt, BoxFuture};
-use generic_json::{Json, JsonClone};
 use cc_traits::Len;
+use futures::future::{BoxFuture, FutureExt};
+use generic_json::{Json, JsonClone};
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
@@ -112,7 +106,7 @@ pub trait Document<T: Id> {
 	}
 
 	/// Compact the document with a custom base URL, context, document loader and options.
-	/// 
+	///
 	/// The `meta_context` parameter is a function to convert the metadata
 	/// associated to the input context (JSON representation) to `K::MetaData`.
 	/// The `meta_document` parameter is another conversion function for the
@@ -123,7 +117,7 @@ pub trait Document<T: Id> {
 		C: ContextMutProxy<T> + AsJson<<C::Target as Context<T>>::LocalContext, K>,
 		L: Loader,
 		M1,
-		M2
+		M2,
 	>(
 		&'a self,
 		base_url: Option<Iri<'a>>,
@@ -131,19 +125,24 @@ pub trait Document<T: Id> {
 		loader: &'a mut L,
 		options: compaction::Options,
 		meta_context: M1,
-		meta_document: M2
+		meta_document: M2,
 	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		Self: Sync,
 		T: 'a + Send + Sync,
 		Self::Json: expansion::JsonExpand + compaction::JsonSrc,
 		C: Send + Sync,
-		<C::Target as Context<T>>::LocalContext: compaction::JsonSrc + From<L::Output> + From<Self::Json>,
+		<C::Target as Context<T>>::LocalContext:
+			compaction::JsonSrc + From<L::Output> + From<Self::Json>,
 		C::Target: Send + Sync,
 		L: 'a + Send + Sync,
-		M1: 'a + Clone + Send + Sync + Fn(Option<&<<C::Target as Context<T>>::LocalContext as Json>::MetaData>) -> K::MetaData,
+		M1: 'a
+			+ Clone
+			+ Send
+			+ Sync
+			+ Fn(Option<&<<C::Target as Context<T>>::LocalContext as Json>::MetaData>) -> K::MetaData,
 		M2: 'a + Clone + Send + Sync + Fn(Option<&<Self::Json as Json>::MetaData>) -> K::MetaData,
-		L::Output: Into<Self::Json>
+		L::Output: Into<Self::Json>,
 	{
 		use compaction::Compact;
 		async move {
@@ -158,11 +157,25 @@ pub trait Document<T: Id> {
 					.into_iter()
 					.next()
 					.unwrap()
-					.compact_with(context.clone(), context.clone(), None, loader, options, meta_document.clone())
+					.compact_with(
+						context.clone(),
+						context.clone(),
+						None,
+						loader,
+						options,
+						meta_document.clone(),
+					)
 					.await?
 			} else {
 				expanded
-					.compact_with(context.clone(), context.clone(), None, loader, options, meta_document.clone())
+					.compact_with(
+						context.clone(),
+						context.clone(),
+						None,
+						loader,
+						options,
+						meta_document.clone(),
+					)
 					.await?
 			};
 
@@ -178,7 +191,10 @@ pub trait Document<T: Id> {
 							false,
 							options,
 						)?;
-						map.insert(K::new_key(&key.unwrap(), meta_document(None)), K::array(items, metadata));
+						map.insert(
+							K::new_key(&key.unwrap(), meta_document(None)),
+							K::array(items, metadata),
+						);
 					}
 
 					(map, meta_document(None))
@@ -187,7 +203,10 @@ pub trait Document<T: Id> {
 				_ => panic!("invalid compact document"),
 			};
 
-			if !map.is_empty() && !json_context.is_null() && !json_context.is_empty_array_or_object() {
+			if !map.is_empty()
+				&& !json_context.is_null()
+				&& !json_context.is_empty_array_or_object()
+			{
 				map.insert(K::new_key("@context", meta_document(None)), json_context);
 			}
 
@@ -197,25 +216,22 @@ pub trait Document<T: Id> {
 	}
 
 	/// Compact the document.
-	fn compact<
-		'a,
-		C: ContextMutProxy<T> + AsJson<Self::Json, Self::Json>,
-		L: Loader
-	>(
+	fn compact<'a, C: ContextMutProxy<T> + AsJson<Self::Json, Self::Json>, L: Loader>(
 		&'a self,
 		context: &'a C,
 		loader: &'a mut L,
 	) -> BoxFuture<'a, Result<Self::Json, Error>>
 	where
 		Self: Sync,
-		Self::Json: JsonFrom<Self::Json> + expansion::JsonExpand + compaction::JsonSrc + From<L::Output>,
+		Self::Json:
+			JsonFrom<Self::Json> + expansion::JsonExpand + compaction::JsonSrc + From<L::Output>,
 		<Self::Json as Json>::MetaData: Default,
 		T: 'a + Send + Sync,
-		C::Target: Context<T, LocalContext=Self::Json>,
+		C::Target: Context<T, LocalContext = Self::Json>,
 		C: Send + Sync,
 		C::Target: Send + Sync,
 		L: 'a + Send + Sync,
-		L::Output: Into<Self::Json>
+		L::Output: Into<Self::Json>,
 	{
 		self.compact_with(
 			self.base_url(),
@@ -223,7 +239,7 @@ pub trait Document<T: Id> {
 			loader,
 			compaction::Options::default(),
 			|m| m.cloned().unwrap_or_default(),
-			|m| m.cloned().unwrap_or_default()
+			|m| m.cloned().unwrap_or_default(),
 		)
 	}
 }

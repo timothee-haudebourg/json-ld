@@ -69,10 +69,12 @@ pub fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 		),
 		ValueRef::Object(o) => K::object(
 			o.iter()
-				.map(|(key, value)| (
-					K::new_key(&**key, m(Some(key.metadata()))),
-					json_to_json(&*value, m.clone())
-				))
+				.map(|(key, value)| {
+					(
+						K::new_key(&**key, m(Some(key.metadata()))),
+						json_to_json(&*value, m.clone()),
+					)
+				})
 				.collect(),
 			meta,
 		),
@@ -115,9 +117,7 @@ impl<K: JsonBuild> AsAnyJson<K> for String {
 	}
 }
 
-impl<'a, K: JsonBuild, T: AsRef<[u8]> + ?Sized> AsAnyJson<K>
-	for LanguageTag<'a, T>
-{
+impl<'a, K: JsonBuild, T: AsRef<[u8]> + ?Sized> AsAnyJson<K> for LanguageTag<'a, T> {
 	fn as_json_with(&self, meta: K::MetaData) -> K {
 		AsAnyJson::<K>::as_json_with(self.as_str(), meta)
 	}

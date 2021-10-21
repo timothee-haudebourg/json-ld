@@ -534,9 +534,7 @@ where
 													{
 														None
 													} else {
-														match LanguageTagBuf::parse_copy(
-															language,
-														) {
+														match LanguageTagBuf::parse_copy(language) {
 															Ok(lang) => Some(lang),
 															Err(_) => return Err(
 																ErrorCode::InvalidLanguageMapValue

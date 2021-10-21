@@ -304,7 +304,10 @@ impl<'a, L, C> Processed<'a, L, C> {
 
 	/// Clone the referenced local context and return
 	/// a `Processed` context that owns the original local context.
-	pub fn owned(self) -> ProcessedOwned<L, C> where L: Clone {
+	pub fn owned(self) -> ProcessedOwned<L, C>
+	where
+		L: Clone,
+	{
 		ProcessedOwned {
 			local: L::clone(self.local),
 			processed: self.processed,

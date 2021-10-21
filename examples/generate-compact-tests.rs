@@ -13,11 +13,9 @@ extern crate static_iref;
 extern crate iref_enum;
 extern crate json_ld;
 
-use iref::Iri;
-use json_ld::{
-	context, object::*, Document, ErrorCode, FsLoader, Lexicon, Loader, ProcessingMode,
-};
 use ijson::IValue;
+use iref::Iri;
+use json_ld::{context, object::*, Document, ErrorCode, FsLoader, Lexicon, Loader, ProcessingMode};
 use std::convert::TryInto;
 
 const URL: Iri = iri!("https://w3c.github.io/json-ld-api/tests/compact-manifest.jsonld");

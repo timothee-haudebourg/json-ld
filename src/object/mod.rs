@@ -247,7 +247,9 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, 
 	}
 }
 
-impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for HashSet<Indexed<Object<J, T>>> {
+impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
+	for HashSet<Indexed<Object<J, T>>>
+{
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		let array = self
 			.iter()

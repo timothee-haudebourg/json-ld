@@ -1,4 +1,4 @@
-use crate::{syntax::TermLike};
+use crate::syntax::TermLike;
 use generic_json::JsonBuild;
 use iref::{AsIri, Iri, IriBuf};
 use std::hash::Hash;

@@ -4,8 +4,8 @@ use crate::{
 	context::{self, RemoteContext},
 	Error, ErrorCode, RemoteDocument,
 };
-use generic_json::Json;
 use futures::future::{BoxFuture, FutureExt};
+use generic_json::Json;
 use iref::{Iri, IriBuf};
 use std::collections::HashMap;
 
@@ -15,10 +15,10 @@ pub fn is_json_media_type(ty: &str) -> bool {
 
 pub async fn load_remote_json_ld_document<J, P>(
 	url: Iri<'_>,
-	parser: &mut P
+	parser: &mut P,
 ) -> Result<RemoteDocument<J>, Error>
 where
-	P: Send + Sync + FnMut(&str) -> Result<J, Error>
+	P: Send + Sync + FnMut(&str) -> Result<J, Error>,
 {
 	log::info!("loading remote document `{}'", url);
 	use reqwest::header::*;
@@ -55,14 +55,18 @@ where
 
 pub struct Loader<J> {
 	cache: HashMap<IriBuf, RemoteDocument<J>>,
-	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>
+	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>,
 }
 
 impl<J: Clone + Send> Loader<J> {
-	pub fn new<E: 'static + std::error::Error>(mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>) -> Self {
+	pub fn new<E: 'static + std::error::Error>(
+		mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>,
+	) -> Self {
 		Self {
 			cache: HashMap::new(),
-			parser: Box::new(move |s| parser(s).map_err(|e| Error::new(ErrorCode::LoadingDocumentFailed, e)))
+			parser: Box::new(move |s| {
+				parser(s).map_err(|e| Error::new(ErrorCode::LoadingDocumentFailed, e))
+			}),
 		}
 	}
 
@@ -82,10 +86,7 @@ impl<J: Clone + Send> Loader<J> {
 impl<J: Json + Clone + Send + Sync> crate::Loader for Loader<J> {
 	type Document = J;
 
-	fn load<'a>(
-		&'a mut self,
-		url: Iri<'_>,
-	) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
+	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
 		let url: IriBuf = url.into();
 		async move {
 			match self.cache.get(&url) {
@@ -96,7 +97,8 @@ impl<J: Json + Clone + Send + Sync> crate::Loader for Loader<J> {
 					Ok(doc)
 				}
 			}
-		}.boxed()
+		}
+		.boxed()
 	}
 }
 
