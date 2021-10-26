@@ -1,18 +1,24 @@
 use crate::{
 	object,
 	syntax::{Keyword, Term},
-	util, Id, Indexed, Object, Reference, ToReference,
+	util, Id, Indexed, Object, Objects, Reference, ToReference,
 };
 use cc_traits::MapInsert;
 use generic_json::{JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
-use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
+pub mod properties;
+pub mod reverse_properties;
+
+pub use properties::Properties;
+pub use reverse_properties::ReverseProperties;
+
 /// Node object.
 ///
+/// A node object represents zero or more properties of a node in the graph serialized by a JSON-LD document.
 /// A node is defined by its identifier (`@id` field), types, properties and reverse properties.
 /// In addition, a node may represent a graph (`@graph field`) and includes nodes
 /// (`@included` field).
@@ -43,26 +49,12 @@ pub struct Node<J: JsonHash, T: Id = IriBuf> {
 	/// Properties.
 	///
 	/// Any non-keyword field.
-	pub(crate) properties: HashMap<Reference<T>, Vec<Indexed<Object<J, T>>>>,
+	pub(crate) properties: Properties<J, T>,
 
 	/// Reverse properties.
 	///
 	/// This is the `@reverse` field.
-	pub(crate) reverse_properties: HashMap<Reference<T>, Vec<Indexed<Self>>>,
-}
-
-/// Iterator through indexed objects.
-pub struct Objects<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>);
-
-impl<'a, J: JsonHash, T: Id> Iterator for Objects<'a, J, T> {
-	type Item = &'a Indexed<Object<J, T>>;
-
-	fn next(&mut self) -> Option<&'a Indexed<Object<J, T>>> {
-		match &mut self.0 {
-			None => None,
-			Some(it) => it.next(),
-		}
-	}
+	pub(crate) reverse_properties: ReverseProperties<J, T>,
 }
 
 impl<J: JsonHash, T: Id> Default for Node<J, T> {
@@ -79,8 +71,8 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 			types: Vec::new(),
 			graph: None,
 			included: None,
-			properties: HashMap::new(),
-			reverse_properties: HashMap::new(),
+			properties: Properties::new(),
+			reverse_properties: ReverseProperties::new(),
 		}
 	}
 
@@ -91,8 +83,8 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 			types: Vec::new(),
 			graph: None,
 			included: None,
-			properties: HashMap::new(),
-			reverse_properties: HashMap::new(),
+			properties: Properties::new(),
+			reverse_properties: ReverseProperties::new(),
 		}
 	}
 
@@ -115,7 +107,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 			Term::Keyword(Keyword::Graph) => self.graph.is_some(),
 			Term::Keyword(Keyword::Included) => self.included.is_some(),
 			Term::Keyword(Keyword::Reverse) => !self.reverse_properties.is_empty(),
-			Term::Ref(prop) => self.properties.get(prop).is_some(),
+			Term::Ref(prop) => self.properties.contains(prop),
 			_ => false,
 		}
 	}
@@ -228,39 +220,33 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		self.included = included
 	}
 
+	/// Returns the properties of the node.
+	pub fn properties(&self) -> &Properties<J, T> {
+		&self.properties
+	}
+
 	/// Get all the objects associated to the node with the given property.
 	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Objects<J, T>
 	where
 		T: 'a,
 	{
-		match self.properties.get(prop.to_ref().borrow()) {
-			Some(values) => Objects(Some(values.iter())),
-			None => Objects(None),
-		}
+		self.properties.get(prop)
 	}
 
 	/// Get one of the objects associated to the node with the given property.
 	///
-	/// If multiple objects are attaced to the node with this property, there are no guaranties
+	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
 	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Object<J, T>>>
 	where
 		T: 'a,
 	{
-		match self.properties.get(prop.to_ref().borrow()) {
-			Some(values) => values.iter().next(),
-			None => None,
-		}
+		self.properties.get_any(prop)
 	}
 
 	/// Associate the given object to the node through the given property.
 	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Object<J, T>>) {
-		if let Some(node_values) = self.properties.get_mut(&prop) {
-			node_values.push(value);
-		} else {
-			let node_values = vec![value];
-			self.properties.insert(prop, node_values);
-		}
+		self.properties.insert(prop, value)
 	}
 
 	/// Associate all the given objects to the node through the given property.
@@ -269,20 +255,11 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		prop: Reference<T>,
 		values: Objects,
 	) {
-		if let Some(node_values) = self.properties.get_mut(&prop) {
-			node_values.extend(values);
-		} else {
-			self.properties.insert(prop, values.collect());
-		}
+		self.properties.insert_all(prop, values)
 	}
 
 	pub fn insert_reverse(&mut self, reverse_prop: Reference<T>, reverse_value: Indexed<Self>) {
-		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
-			node_values.push(reverse_value);
-		} else {
-			let node_values = vec![reverse_value];
-			self.reverse_properties.insert(reverse_prop, node_values);
-		}
+		self.reverse_properties.insert(reverse_prop, reverse_value)
 	}
 
 	pub fn insert_all_reverse<Nodes: Iterator<Item = Indexed<Self>>>(
@@ -290,12 +267,8 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		reverse_prop: Reference<T>,
 		reverse_values: Nodes,
 	) {
-		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
-			node_values.extend(reverse_values);
-		} else {
-			self.reverse_properties
-				.insert(reverse_prop, reverse_values.collect());
-		}
+		self.reverse_properties
+			.insert_all(reverse_prop, reverse_values)
 	}
 
 	/// Tests if the node is an unnamed graph object.
@@ -347,8 +320,8 @@ impl<J: JsonHash, T: Id> Hash for Node<J, T> {
 		self.types.hash(h);
 		util::hash_set_opt(&self.graph, h);
 		util::hash_set_opt(&self.included, h);
-		util::hash_map(&self.properties, h);
-		util::hash_map(&self.reverse_properties, h);
+		self.properties.hash(h);
+		self.reverse_properties.hash(h)
 	}
 }
 
@@ -419,5 +392,25 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K>
 			.map(|value| value.as_json_with(meta.clone()))
 			.collect();
 		K::array(array, meta(None))
+	}
+}
+
+/// Iterator through indexed nodes.
+pub struct Nodes<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Node<J, T>>>>);
+
+impl<'a, J: JsonHash, T: Id> Nodes<'a, J, T> {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Indexed<Node<J, T>>>>) -> Self {
+		Self(inner)
+	}
+}
+
+impl<'a, J: JsonHash, T: Id> Iterator for Nodes<'a, J, T> {
+	type Item = &'a Indexed<Node<J, T>>;
+
+	fn next(&mut self) -> Option<&'a Indexed<Node<J, T>>> {
+		match &mut self.0 {
+			None => None,
+			Some(it) => it.next(),
+		}
 	}
 }

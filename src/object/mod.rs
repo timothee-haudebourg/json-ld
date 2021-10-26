@@ -14,7 +14,7 @@ use langtag::LanguageTag;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
-pub use node::Node;
+pub use node::{Node, Nodes};
 pub use value::{Literal, LiteralString, Value};
 
 pub trait Any<J: JsonHash, T: Id> {
@@ -256,5 +256,25 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
 			.map(|value| value.as_json_with(meta.clone()))
 			.collect();
 		K::array(array, meta(None))
+	}
+}
+
+/// Iterator through indexed objects.
+pub struct Objects<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>);
+
+impl<'a, J: JsonHash, T: Id> Objects<'a, J, T> {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>) -> Self {
+		Self(inner)
+	}
+}
+
+impl<'a, J: JsonHash, T: Id> Iterator for Objects<'a, J, T> {
+	type Item = &'a Indexed<Object<J, T>>;
+
+	fn next(&mut self) -> Option<&'a Indexed<Object<J, T>>> {
+		match &mut self.0 {
+			None => None,
+			Some(it) => it.next(),
+		}
 	}
 }

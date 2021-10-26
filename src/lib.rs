@@ -211,4 +211,4 @@ pub use reference::*;
 pub use vocab::*;
 
 pub use context::{Context, ContextMut, ContextMutProxy, JsonContext};
-pub use object::{Node, Object, Value};
+pub use object::{Node, Nodes, Object, Objects, Value};

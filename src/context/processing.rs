@@ -1312,7 +1312,9 @@ where
 						// Invoke the Context Processing algorithm using the `active_context`,
 						// `context` as local context, `base_url`, and `true` for override
 						// protected.
-						if process_context(
+						// If any error is detected, an invalid scoped context error has been
+						// detected and processing is aborted.
+						process_context(
 							active_context,
 							&*context,
 							remote_contexts.clone(),
@@ -1321,12 +1323,7 @@ where
 							options.with_override(),
 						)
 						.await
-						.is_err()
-						{
-							// If any error is detected, an invalid scoped context error has been
-							// detected and processing is aborted.
-							return Err(ErrorCode::InvalidScopedContext.into());
-						}
+						.map_err(|_| Error::from(ErrorCode::InvalidScopedContext))?;
 
 						// Set the local context of definition to context, and base URL to base URL.
 						definition.context = Some(C::LocalContext::from((*context).clone()));
