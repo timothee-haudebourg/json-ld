@@ -12,7 +12,8 @@ use std::fmt;
 /// Node reference.
 ///
 /// Used to reference a node across a document or to a remote document.
-/// It can be an identifier (IRI) or a blank node identifier for local blank nodes.
+/// It can be an identifier (IRI), a blank node identifier for local blank nodes
+/// or an invalid reference (a string that is neither an IRI nor blank node identifier).
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Reference<T: AsIri = IriBuf> {
 	/// Node identifier, essentially an IRI.

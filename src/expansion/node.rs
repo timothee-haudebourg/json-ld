@@ -17,7 +17,7 @@ use langtag::LanguageTagBuf;
 use mown::Mown;
 use std::{collections::HashSet, convert::TryInto};
 
-/// Convert a lenient term to a node id, if possible.
+/// Convert a term to a node id, if possible.
 /// Return `None` if the term is `null`.
 pub fn node_id_of_term<T: Id>(term: Term<T>) -> Option<Reference<T>> {
 	match term {

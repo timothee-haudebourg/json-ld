@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
-/// A node object.
+/// Node object.
 ///
 /// A node is defined by its identifier (`@id` field), types, properties and reverse properties.
 /// In addition, a node may represent a graph (`@graph field`) and includes nodes
@@ -72,7 +72,7 @@ impl<J: JsonHash, T: Id> Default for Node<J, T> {
 }
 
 impl<J: JsonHash, T: Id> Node<J, T> {
-	/// Create a new empty node.
+	/// Creates a new empty node.
 	pub fn new() -> Self {
 		Self {
 			id: None,
@@ -84,7 +84,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		}
 	}
 
-	/// Create a new empty node with the given id.
+	/// Creates a new empty node with the given id.
 	pub fn with_id(id: Reference<T>) -> Self {
 		Self {
 			id: Some(id),
@@ -149,9 +149,6 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	}
 
 	/// Get the list of the node's types.
-	///
-	/// This returns a list of `Lenient` types, including malformed types that are not
-	/// IRIs of blank node identifiers.
 	pub fn types(&self) -> &[Reference<T>] {
 		self.types.as_ref()
 	}

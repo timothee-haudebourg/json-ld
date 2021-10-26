@@ -609,11 +609,9 @@ where
 
 								// Reinitialize `container_key` by
 								// IRI compacting `index_key`.
-								let lenient_index: Term<T> =
-									Term::Ref(Reference::Invalid(index_key.to_string()));
 								container_key = compact_iri::<J, _, _>(
 									active_context.clone(),
-									&lenient_index,
+									&Term::Ref(Reference::Invalid(index_key.to_string())),
 									true,
 									false,
 									options,
