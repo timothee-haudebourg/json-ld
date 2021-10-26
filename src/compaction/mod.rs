@@ -6,7 +6,7 @@ use crate::{
 	},
 	object,
 	syntax::{ContainerType, Keyword, Term},
-	util::{json_to_json, AsAnyJson, JsonFrom},
+	util::{AsJson, AsAnyJson, JsonFrom},
 	ContextMut, Error, Id, Indexed, Object, ProcessingMode, Value,
 };
 use futures::future::{BoxFuture, FutureExt};
@@ -391,7 +391,7 @@ where
 			Literal::String(s) => s.as_json_with(meta(None)),
 		},
 		Value::LangString(str) => K::string(str.as_str().into(), meta(None)),
-		Value::Json(json) => json_to_json(json, meta),
+		Value::Json(json) => json.as_json_with(meta),
 	}
 }
 

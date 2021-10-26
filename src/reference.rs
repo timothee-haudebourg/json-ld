@@ -131,18 +131,6 @@ impl<T: AsIri> From<BlankId> for Reference<T> {
 	}
 }
 
-// impl<J: JsonClone, K: util::JsonFrom<J>, T: AsIri + util::AsJson<J, K>> util::AsJson<J, K>
-// 	for Reference<T>
-// {
-// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-// 		match self {
-// 			Reference::Id(id) => id.as_json_with(meta),
-// 			Reference::Blank(b) => b.as_json_with(meta),
-// 			Reference::Invalid(id) => id.as_json_with(meta),
-// 		}
-// 	}
-// }
-
 impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Reference<T> {
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		match self {
@@ -185,8 +173,8 @@ impl<T: AsIri> fmt::Debug for Reference<T> {
 /// However building a `Reference` by hand can be tedious, especially while using [`Lexicon`](crate::Lexicon) and
 /// [`Vocab`](crate::Vocab). It can be as verbose as `node.get(&Reference::Id(Lexicon::Id(MyVocab::Term)))`.
 /// Thanks to `ToReference` which is implemented by `Lexicon<V>` for any type `V` implementing `Vocab`,
-/// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct) where
-/// the signature of `get` becomes:
+/// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct).
+/// The signature of `get` becomes:
 /// ```ignore
 /// fn get<R: ToReference<T>>(&self, id: R) -> Objects;
 /// ```

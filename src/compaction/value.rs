@@ -2,7 +2,7 @@ use super::{compact_iri, JsonSrc, Options};
 use crate::{
 	context::{self, Inversible, Loader, Local},
 	syntax::{Container, ContainerType, Keyword, Term, Type},
-	util::{json_to_json, AsAnyJson, JsonFrom},
+	util::{AsJson, AsAnyJson, JsonFrom},
 	ContextMut, Error, Id, Reference, Value,
 };
 
@@ -251,7 +251,7 @@ where
 		}
 		Value::Json(value) => {
 			if type_mapping == Some(Type::Json) && remove_index {
-				return Ok(json_to_json(value, meta));
+				return Ok(value.as_json_with(meta));
 			} else {
 				let compact_key = compact_iri::<J, _, _>(
 					active_context.as_ref(),
@@ -262,7 +262,7 @@ where
 				)?;
 				result.insert(
 					K::new_key(compact_key.as_ref().unwrap().as_str(), meta(None)),
-					json_to_json(value, meta.clone()),
+					value.as_json_with(meta.clone()),
 				);
 
 				let compact_key = compact_iri::<J, _, _>(

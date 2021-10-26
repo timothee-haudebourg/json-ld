@@ -6,6 +6,9 @@ mod build;
 
 pub use build::*;
 
+/// Item of the [`AsArray`] iterator.
+/// 
+/// [`Deref`] into `J`.
 pub enum AsArrayItem<'a, J: Json> {
 	NotArray(&'a J),
 	Array(<J::Array as cc_traits::CollectionRef>::ItemRef<'a>),
@@ -22,8 +25,17 @@ impl<'a, J: Json> std::ops::Deref for AsArrayItem<'a, J> {
 	}
 }
 
+/// Iterator over the items of a JSON value
+/// converted into an array.
+/// 
+/// Each item is referenced through the [`AsArrayItem`] type
+/// that [`Deref`](std::ops::Deref) into `J`.
 pub enum AsArray<'a, J: Json> {
+	/// The value is not an array,
+	/// and is hence interpreted as an array with one single element.
 	NotArray(Option<&'a J>),
+
+	/// The value already was an array.
 	Array(<J::Array as cc_traits::Iter>::Iter<'a>),
 }
 
@@ -38,6 +50,11 @@ impl<'a, J: Json> Iterator for AsArray<'a, J> {
 	}
 }
 
+/// Converts the given `json` value into an array
+/// if it is not already.
+/// 
+/// Returns a tuple providing an iterator over the items
+/// of the array, and the size of the array.
 pub fn as_array<J: Json>(json: &J) -> (AsArray<J>, usize) {
 	use cc_traits::{Iter, Len};
 	match json.as_value_ref() {
@@ -46,6 +63,11 @@ pub fn as_array<J: Json>(json: &J) -> (AsArray<J>, usize) {
 	}
 }
 
+/// Hash a JSON value.
+/// 
+/// This bypasses any implementations of `Hash` for `J`
+/// since most JSON implementations (such as `serde_json`) do
+/// no provide it.
 pub fn hash_json<J: JsonHash, H: Hasher>(json: &J, hasher: &mut H) {
 	use cc_traits::{Iter, MapIter};
 	match json.as_value_ref() {

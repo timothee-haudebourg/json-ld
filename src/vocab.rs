@@ -4,6 +4,19 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::hash::Hash;
 
+/// Vocabulary type.
+/// 
+/// Directly using [`IriBuf`] to identify each node
+/// can be very expensive.
+/// When you know in advance the set of IRIs will be used
+/// in your application, it is more effective to use
+/// an `enum` type where each variant represents an IRI.
+/// In this case, storing and comparing IRIs become very cheap.
+/// 
+/// In this setting, such `enum` type can implement the
+/// `Vocab` trait, automatically implemented in most cases.
+/// It can then be wrapped around the [`Vocab`] type to handle unexpected
+/// IRIs, and be used as identifier type instead of `IriBuf`.
 pub trait Vocab: AsIri + Clone + PartialEq + Eq + Hash {
 	fn from_iri(iri: Iri) -> Option<Self>;
 }

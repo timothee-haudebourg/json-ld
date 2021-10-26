@@ -293,7 +293,7 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, 
 			Value::Json(json) => {
 				obj.insert(
 					K::new_key(Keyword::Value.into_str(), meta(None)),
-					util::json_to_json(json, meta.clone()),
+					json.as_json_with(meta.clone())
 				);
 				obj.insert(
 					K::new_key(Keyword::Type.into_str(), meta(None)),

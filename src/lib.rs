@@ -15,8 +15,8 @@
 //!
 //! This crate aims to provide a set of types to build and process expanded
 //! JSON-LD documents.
-//! With the help of the [`json`](https://crates.io/crates/json)
-//! crate it can also expand, compact and flatten JSON-LD documents of any kind.
+//! It can expand, compact and flatten JSON-LD documents backed by various
+//! JSON implementations thanks to the [`generic-json`] crate.
 //!
 //! ## Basic Usage
 //!

@@ -4,34 +4,20 @@ use generic_json::{
 };
 use langtag::{LanguageTag, LanguageTagBuf};
 
+/// JSON value that can be converted from a `J` value.
 pub trait JsonFrom<J: Json> = JsonMutSendSync + JsonBuild + JsonIntoMut
 where <Self as Json>::Number: From<<J as Json>::Number>;
 
-// pub trait AsOtherJson<K: JsonFrom<Self::Source>> {
-// 	type Source: Json;
-
-// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&<Self::Source as Json>::MetaData>) -> K::MetaData) -> K where Self::Source: JsonClone;
-
-// 	fn as_json(&self) -> K
-// 	where
-// 		Self::Source: JsonClone,
-// 		K::MetaData: Default,
-// 	{
-// 		self.as_json_with(|_| K::MetaData::default())
-// 	}
-// }
-
-// impl<J: JsonClone, K: JsonFrom<J>> AsOtherJson<K> for J {
-// 	type Source = Self;
-
-// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&<Self::Source as Json>::MetaData>) -> K::MetaData) -> K {
-// 		json_to_json(self, meta)
-// 	}
-// }
-
+/// Type composed of `J` JSON values that can be converted
+/// into a `K` JSON value.
 pub trait AsJson<J: JsonClone, K: JsonFrom<J>> {
+	/// Converts this value into a `K` JSON value using the given
+	/// `meta` function to convert `J::MetaData` into `K::MetaData`.
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K;
 
+	/// Converts this value into a `K` JSON value.
+	/// 
+	/// The `K` value is annotated with the default value of `K::MetaData`.
 	fn as_json(&self) -> K
 	where
 		K::MetaData: Default,
@@ -40,9 +26,14 @@ pub trait AsJson<J: JsonClone, K: JsonFrom<J>> {
 	}
 }
 
+/// Type that can be converted into a `K` JSON value.
 pub trait AsAnyJson<K: JsonBuild> {
+	/// Converts this value into a `K` JSON value using the
+	/// given `meta` value as metadata.
 	fn as_json_with(&self, meta: K::MetaData) -> K;
 
+	/// Converts this value into a `K` JSON value using the
+	/// default metadata value.
 	fn as_json(&self) -> K
 	where
 		K::MetaData: Default,
@@ -51,7 +42,8 @@ pub trait AsAnyJson<K: JsonBuild> {
 	}
 }
 
-pub fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
+/// Converts a JSON value into the same JSON value represented with another type.
+fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 	input: &J,
 	m: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 ) -> K {
@@ -80,12 +72,6 @@ pub fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 		),
 	}
 }
-
-// impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for &T {
-// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-// 		(*self).as_json_with(meta)
-// 	}
-// }
 
 impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for J {
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
