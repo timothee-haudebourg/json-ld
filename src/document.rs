@@ -202,7 +202,11 @@ pub trait Document<T: Id> {
 					(map, meta_document(None))
 				}
 				(generic_json::Value::Object(map), metadata) => (map, metadata),
-				_ => panic!("invalid compact document"),
+				_ => {
+					// This should never be triggered unless some user
+					// uses a custom faulty `Compact` implementation.
+					panic!("invalid compact document")
+				},
 			};
 
 			if !map.is_empty()

@@ -27,6 +27,7 @@ pub fn node_id_of_term<T: Id>(term: Term<T>) -> Option<Reference<T>> {
 	}
 }
 
+/// Expand a node object.
 pub async fn expand_node<
 	'a,
 	J: JsonExpand,
@@ -82,12 +83,11 @@ where
 	// If active property is null or @graph, drop free-floating
 	// values as follows:
 	if active_property == None || active_property == Some("@graph") {
-		// If `result` is a map which is empty, or contains only the entries `@value`
-		// or `@list`, set `result` to null.
-		// => drop values
-
+		// If `result` is a map which is empty,
+		// [or contains only the entries `@value` or `@list` (does not apply here)]
+		// set `result` to null.
 		// Otherwise, if result is a map whose only entry is @id, set result to null.
-		if result.is_empty() {
+		if result.is_empty() { // both cases are covered by checking `is_empty`.
 			return Ok(None);
 		}
 	}
@@ -259,9 +259,7 @@ where
 						// If expanded property is @language:
 						Keyword::Language => has_value_object_entries = true,
 						// If expanded property is @direction:
-						Keyword::Direction => {
-							panic!("TODO direction")
-						}
+						Keyword::Direction => has_value_object_entries = true,
 						// If expanded property is @index:
 						Keyword::Index => {
 							if let Some(value) = value.as_str() {
@@ -745,12 +743,6 @@ where
 													Some(index_key),
 													LiteralValue::Inferred((&**index).into()),
 												)?;
-												// let re_expanded_index = if let Object::Value(Value::Literal(Literal::String { data, .. }, _), _) = re_expanded_index {
-												// 	data
-												// } else {
-												// 	panic!("invalid index value");
-												// 	return Err(ErrorCode::InvalidIndexValue.into())
-												// };
 
 												// Initialize expanded index key to the result
 												// of IRI expanding index key.
