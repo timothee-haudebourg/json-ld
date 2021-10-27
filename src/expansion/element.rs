@@ -44,11 +44,6 @@ where
 
 		let active_property_definition = active_context.get_opt(active_property);
 
-		// // If `active_property` is `@default`, initialize the `frame_expansion` flag to `false`.
-		// if active_property == Some("@default") {
-		// 	frame_expansion = false;
-		// }
-
 		// If `active_property` has a term definition in `active_context` with a local context,
 		// initialize property-scoped context to that local context.
 		let mut property_scoped_base_url = None;
@@ -270,7 +265,7 @@ where
 
 					// Initialize expanded value to the result of using this algorithm
 					// recursively passing active context, active property, value for element,
-					// base URL, and the frameExpansion and ordered flags, ensuring that the
+					// base URL, and the ordered flags, ensuring that the
 					// result is an array..
 					let mut result = Vec::new();
 					let (list_entry, _) = as_array(&*list_entry);
@@ -292,25 +287,21 @@ where
 					Ok(Expanded::Object(Indexed::new(Object::List(result), index)))
 				} else if let Some(set_entry) = set_entry {
 					// Set objects.
-					for ExpandedEntry(_, expanded_key, value) in expanded_entries {
+					for ExpandedEntry(_, expanded_key, _) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
-								match value.as_str() {
-									Some(_value) => {
-										panic!("TODO expand set @index");
-										// index = Some(value.to_string())
-									}
-									None => return Err(ErrorCode::InvalidIndexValue.into()),
-								}
-							}
+								// having an `@index` here is tolerated,
+								// but is ignored.
+								()
+							},
 							Term::Keyword(Keyword::Set) => (),
 							_ => return Err(ErrorCode::InvalidSetOrListObject.into()),
 						}
 					}
 
 					// set expanded value to the result of using this algorithm recursively,
-					// passing active context, active property, value for element, base URL, and
-					// the frameExpansion and ordered flags.
+					// passing active context, active property, value for element, base URL,
+					// and ordered flags.
 					expand_element(
 						active_context.as_ref(),
 						active_property,
