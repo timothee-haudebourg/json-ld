@@ -193,11 +193,7 @@ All the tests should pass except for the compaction test `p004`
 
 ![](https://uploads-ssl.webflow.com/5f37276ebba6e91b4cdefcea/5f398730ecda61a7494906ba_Spruce_Logo_Horizontal.png)
 
-<<<<<<< HEAD
 Many thanks to [Spruce](https://www.spruceid.com/) for sponsoring this project!
-=======
-Many thanks to [Spruce](https://www.spruceid.com) for sponsoring this project!
->>>>>>> f2cc229 (Use README template.)
 
 ## License
 
