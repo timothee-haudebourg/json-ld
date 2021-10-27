@@ -292,8 +292,7 @@ where
 							Term::Keyword(Keyword::Index) => {
 								// having an `@index` here is tolerated,
 								// but is ignored.
-								()
-							},
+							}
 							Term::Keyword(Keyword::Set) => (),
 							_ => return Err(ErrorCode::InvalidSetOrListObject.into()),
 						}
