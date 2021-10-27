@@ -1,5 +1,8 @@
-use crate::{syntax::Keyword, util::AsJson};
-use json::JsonValue;
+use crate::{
+	syntax::Keyword,
+	util::{AsAnyJson, AsJson, JsonFrom},
+};
+use generic_json::JsonClone;
 use std::convert::{TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
@@ -119,13 +122,16 @@ impl<T> AsMut<T> for Indexed<T> {
 	}
 }
 
-impl<T: AsJson> AsJson for Indexed<T> {
-	fn as_json(&self) -> JsonValue {
-		let mut json = self.value.as_json();
+impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Indexed<T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		let mut json = self.value.as_json_with(meta.clone());
 
-		if let JsonValue::Object(ref mut obj) = &mut json {
+		if let Some(obj) = json.as_object_mut() {
 			if let Some(index) = &self.index {
-				obj.insert(Keyword::Index.into(), index.as_json())
+				obj.insert(
+					K::new_key(Keyword::Index.into_str(), meta(None)),
+					index.as_json_with(meta(None)),
+				);
 			}
 		}
 

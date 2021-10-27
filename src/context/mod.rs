@@ -5,10 +5,14 @@ pub mod inverse;
 mod loader;
 mod processing;
 
-use crate::{syntax::Term, util, Direction, Error, Id, ProcessingMode};
+use crate::{
+	syntax::Term,
+	util::{AsJson, JsonFrom},
+	Direction, Error, Id, ProcessingMode,
+};
 use futures::{future::BoxFuture, FutureExt};
+use generic_json::{JsonClone, JsonSendSync};
 use iref::{Iri, IriBuf};
-use json::JsonValue;
 use langtag::{LanguageTag, LanguageTagBuf};
 use std::collections::HashMap;
 
@@ -16,6 +20,8 @@ pub use definition::*;
 pub use inverse::{InverseContext, Inversible};
 pub use loader::*;
 pub use processing::*;
+
+pub trait JsonContext = JsonSendSync + JsonClone;
 
 /// Options of the Context Processing Algorithm.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -67,7 +73,7 @@ impl Default for ProcessingOptions {
 ///
 /// A context holds all the term definitions used to expand a JSON-LD value.
 pub trait Context<T: Id = IriBuf>: Clone {
-	// Later
+	// TODO Later
 	// type Definitions<'a>: Iterator<Item = (&'a str, TermDefinition<T, Self>)>;
 
 	/// The type of local contexts associated to this type of contexts.
@@ -155,31 +161,31 @@ pub trait ContextMutProxy<T: Id = IriBuf> {
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
 /// existing active context.
-pub trait Local<T: Id = IriBuf>: Sized + PartialEq {
+pub trait Local<T: Id = IriBuf>: JsonSendSync {
 	/// Process the local context with specific options.
-	fn process_full<'a, 's: 'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(
+	fn process_full<'a, 's: 'a, C: ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
 		&'s self,
 		active_context: &'a C,
 		stack: ProcessingStack,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
 	where
-		C::LocalContext: Send + Sync + From<L::Output> + From<Self>,
+		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
 		T: Send + Sync;
 
 	/// Process the local context with specific options.
-	fn process_with<'a, 's: 'a, C: Send + Sync + ContextMut<T>, L: Send + Sync + Loader>(
+	fn process_with<'a, 's: 'a, C: ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
 		&'s self,
 		active_context: &'a C,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
 	where
-		C::LocalContext: Send + Sync + From<L::Output> + From<Self>,
+		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
 		T: Send + Sync,
 	{
@@ -192,16 +198,15 @@ pub trait Local<T: Id = IriBuf>: Sized + PartialEq {
 		)
 	}
 
-	/// Process the local context with the given active context with the default options:
+	/// Process the local context with the given initial active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, 's: 'a, C: Send + Sync + ContextMut<T> + Default, L: Send + Sync + Loader>(
+	fn process<'a, 's: 'a, C: ContextMut<T> + Default + Send + Sync, L: Loader + Send + Sync>(
 		&'s self,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
-	) -> BoxFuture<'a, Result<Processed<&'s Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
 	where
-		Self: Sync,
-		C::LocalContext: Send + Sync + From<L::Output> + From<Self>,
+		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
 		T: Send + Sync,
 	{
@@ -225,7 +230,7 @@ pub trait Local<T: Id = IriBuf>: Sized + PartialEq {
 /// This is usefull for instance to attach a processed context to its original JSON form,
 /// which is then used by the compaction algorithm to put the context in the compacted document.
 #[derive(Clone)]
-pub struct Processed<L, C> {
+pub struct ProcessedOwned<L, C> {
 	/// Original unprocessed context.
 	local: L,
 
@@ -233,10 +238,10 @@ pub struct Processed<L, C> {
 	processed: C,
 }
 
-impl<L, C> Processed<L, C> {
+impl<L, C> ProcessedOwned<L, C> {
 	/// Wraps a processed context along with its original local representation.
-	pub fn new(local: L, processed: C) -> Processed<L, C> {
-		Processed { local, processed }
+	pub fn new(local: L, processed: C) -> ProcessedOwned<L, C> {
+		ProcessedOwned { local, processed }
 	}
 
 	/// Consumes the wrapper and returns the processed context.
@@ -245,7 +250,7 @@ impl<L, C> Processed<L, C> {
 	}
 }
 
-impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<L, C> {
+impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -253,29 +258,64 @@ impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<L, C> {
 	}
 }
 
-impl<'a, L: Clone, C> Processed<&'a L, C> {
-	/// Clone the referenced local context.
-	pub fn owned(self) -> Processed<L, C> {
-		Processed {
+impl<L, C> std::ops::Deref for ProcessedOwned<L, C> {
+	type Target = C;
+
+	fn deref(&self) -> &C {
+		&self.processed
+	}
+}
+
+impl<L, C> std::convert::AsRef<C> for ProcessedOwned<L, C> {
+	fn as_ref(&self) -> &C {
+		&self.processed
+	}
+}
+
+impl<J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for ProcessedOwned<L, C> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		self.local.as_json_with(meta)
+	}
+}
+
+/// Processed context referencing its original unprocessed local context.
+///
+/// This is usefull for instance to attach a processed context to its original JSON form,
+/// which is then used by the compaction algorithm to put the context in the compacted document.
+#[derive(Clone)]
+pub struct Processed<'a, L, C> {
+	/// Original unprocessed context.
+	local: &'a L,
+
+	/// Processed context.
+	processed: C,
+}
+
+impl<'a, L, C> Processed<'a, L, C> {
+	/// Wraps a processed context along with a reference to its original local representation.
+	pub fn new(local: &'a L, processed: C) -> Self {
+		Self { local, processed }
+	}
+
+	/// Consumes the wrapper and returns the processed context.
+	pub fn into_inner(self) -> C {
+		self.processed
+	}
+
+	/// Clone the referenced local context and return
+	/// a `Processed` context that owns the original local context.
+	pub fn owned(self) -> ProcessedOwned<L, C>
+	where
+		L: Clone,
+	{
+		ProcessedOwned {
 			local: L::clone(self.local),
 			processed: self.processed,
 		}
 	}
 }
 
-impl<L: util::AsJson, C> util::AsJson for Processed<L, C> {
-	fn as_json(&self) -> JsonValue {
-		self.local.as_json()
-	}
-}
-
-impl<'a, C> util::AsJson for Processed<&'a JsonValue, C> {
-	fn as_json(&self) -> JsonValue {
-		self.local.clone()
-	}
-}
-
-impl<L, C> std::ops::Deref for Processed<L, C> {
+impl<'a, T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<'a, L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -283,14 +323,28 @@ impl<L, C> std::ops::Deref for Processed<L, C> {
 	}
 }
 
-impl<L, C> std::convert::AsRef<C> for Processed<L, C> {
+impl<'a, L, C> std::ops::Deref for Processed<'a, L, C> {
+	type Target = C;
+
+	fn deref(&self) -> &C {
+		&self.processed
+	}
+}
+
+impl<'a, L, C> std::convert::AsRef<C> for Processed<'a, L, C> {
 	fn as_ref(&self) -> &C {
 		&self.processed
 	}
 }
 
+impl<'a, J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for Processed<'a, L, C> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		self.local.as_json_with(meta)
+	}
+}
+
 #[derive(Clone, PartialEq, Eq)]
-pub struct JsonContext<T: Id = IriBuf> {
+pub struct Json<J: JsonContext, T: Id = IriBuf> {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term<T>>,
@@ -300,9 +354,9 @@ pub struct JsonContext<T: Id = IriBuf> {
 	definitions: HashMap<String, TermDefinition<T, Self>>,
 }
 
-impl<T: Id> JsonContext<T> {
-	pub fn new(base_iri: Option<Iri>) -> JsonContext<T> {
-		JsonContext {
+impl<J: JsonContext, T: Id> Json<J, T> {
+	pub fn new(base_iri: Option<Iri>) -> Self {
+		Self {
 			original_base_url: base_iri.map(|iri| iri.into()),
 			base_iri: base_iri.map(|iri| iri.into()),
 			vocabulary: None,
@@ -314,7 +368,7 @@ impl<T: Id> JsonContext<T> {
 	}
 }
 
-impl<T: Id> ContextMutProxy<T> for JsonContext<T> {
+impl<J: JsonContext, T: Id> ContextMutProxy<T> for Json<J, T> {
 	type Target = Self;
 
 	fn deref(&self) -> &Self {
@@ -322,9 +376,9 @@ impl<T: Id> ContextMutProxy<T> for JsonContext<T> {
 	}
 }
 
-impl<T: Id> Default for JsonContext<T> {
-	fn default() -> JsonContext<T> {
-		JsonContext {
+impl<J: JsonContext, T: Id> Default for Json<J, T> {
+	fn default() -> Self {
+		Self {
 			original_base_url: None,
 			base_iri: None,
 			vocabulary: None,
@@ -336,10 +390,10 @@ impl<T: Id> Default for JsonContext<T> {
 	}
 }
 
-impl<T: Id> Context<T> for JsonContext<T> {
-	type LocalContext = JsonValue;
+impl<J: JsonContext, T: Id> Context<T> for Json<J, T> {
+	type LocalContext = J;
 
-	fn new(base_iri: Option<Iri>) -> JsonContext<T> {
+	fn new(base_iri: Option<Iri>) -> Self {
 		Self::new(base_iri)
 	}
 
@@ -384,7 +438,7 @@ impl<T: Id> Context<T> for JsonContext<T> {
 	}
 }
 
-impl<T: Id> ContextMut<T> for JsonContext<T> {
+impl<J: JsonContext, T: Id> ContextMut<T> for Json<J, T> {
 	fn set(
 		&mut self,
 		term: &str,

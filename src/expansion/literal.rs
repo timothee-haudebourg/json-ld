@@ -1,13 +1,34 @@
 use super::{expand_iri, node_id_of_term};
 use crate::{object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString};
-use json::JsonValue;
+use generic_json::{Json, JsonClone, JsonHash, ValueRef};
+
+pub enum LiteralValue<'a, J> {
+	Given(&'a J),
+	Inferred(String),
+}
+
+impl<'a, J: Json> LiteralValue<'a, J> {
+	pub fn is_string(&self) -> bool {
+		match self {
+			Self::Given(v) => v.is_string(),
+			Self::Inferred(_) => true,
+		}
+	}
+
+	pub fn as_str(&self) -> Option<&str> {
+		match self {
+			Self::Given(v) => v.as_str(),
+			Self::Inferred(s) => Some(s.as_str()),
+		}
+	}
+}
 
 /// https://www.w3.org/TR/json-ld11-api/#value-expansion
-pub fn expand_literal<T: Id, C: Context<T>>(
+pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 	active_context: &C,
 	active_property: Option<&str>,
-	value: &JsonValue,
-) -> Result<Indexed<Object<T>>, Error> {
+	value: LiteralValue<J>,
+) -> Result<Indexed<Object<J, T>>, Error> {
 	let active_property_definition = active_context.get_opt(active_property);
 
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
@@ -51,14 +72,15 @@ pub fn expand_literal<T: Id, C: Context<T>>(
 		_ => {
 			// Otherwise, initialize `result` to a map with an `@value` entry whose value is set to
 			// `value`.
-			let result = match value {
-				JsonValue::Null => Literal::Null,
-				JsonValue::Boolean(b) => Literal::Boolean(*b),
-				JsonValue::Number(n) => Literal::Number(*n),
-				JsonValue::Short(_) | JsonValue::String(_) => {
-					Literal::String(value.as_str().unwrap().to_string())
-				}
-				_ => panic!("expand_literal must be called with a literal JSON value"),
+			let result: Literal<J> = match value {
+				LiteralValue::Given(v) => match v.as_value_ref() {
+					ValueRef::Null => Literal::Null,
+					ValueRef::Boolean(b) => Literal::Boolean(b),
+					ValueRef::Number(n) => Literal::Number(n.clone()),
+					ValueRef::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
+					_ => panic!("expand_literal must be called with a literal JSON value"),
+				},
+				LiteralValue::Inferred(s) => Literal::String(LiteralString::Inferred(s)),
 			};
 
 			// If `active_property` has a type mapping in active context, other than `@id`,

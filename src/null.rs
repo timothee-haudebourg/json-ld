@@ -1,18 +1,19 @@
-use crate::util::AsJson;
-use json::JsonValue;
+use crate::util::{AsJson, JsonFrom};
+use generic_json::JsonClone;
 
 /// Value that can be null.
 ///
-/// The `Option` type is used in the crate to design value that
+/// The `Option` type is used in this crate to indicate values that
 /// may or may not be defined.
-/// Sometimes value can be explicitelly defined as `null`,
-/// hence the need of the type.
+/// Sometimes however,
+/// value can be explicitly defined as `null`,
+/// hence the need for this type.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 pub enum Nullable<T> {
-	/// Null.
+	/// Null value.
 	Null,
 
-	/// Some value.
+	/// Some other value.
 	Some(T),
 }
 
@@ -82,12 +83,12 @@ impl<'a, T: Clone> Nullable<&'a T> {
 	}
 }
 
-impl<T: AsJson> AsJson for Nullable<T> {
+impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Nullable<T> {
 	#[inline]
-	fn as_json(&self) -> JsonValue {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		match self {
-			Nullable::Null => JsonValue::Null,
-			Nullable::Some(t) => t.as_json(),
+			Nullable::Null => K::null(meta(None)),
+			Nullable::Some(t) => t.as_json_with(meta),
 		}
 	}
 }

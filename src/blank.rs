@@ -1,5 +1,5 @@
 use crate::util;
-use json::JsonValue;
+use generic_json::JsonBuild;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -57,10 +57,10 @@ impl<'a> TryFrom<&'a str> for BlankId {
 	}
 }
 
-impl util::AsJson for BlankId {
+impl<K: JsonBuild> util::AsAnyJson<K> for BlankId {
 	/// Returns a JSON string of the form `_:name`.
-	fn as_json(&self) -> JsonValue {
-		self.0.as_json()
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		self.0.as_json_with(meta)
 	}
 }
 

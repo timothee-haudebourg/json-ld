@@ -1,9 +1,10 @@
 use crate::{
 	syntax::{Term, TermLike},
-	util, BlankId, Id,
+	util::{self, AsAnyJson},
+	BlankId, Id,
 };
+use generic_json::JsonClone;
 use iref::{AsIri, Iri, IriBuf};
-use json::JsonValue;
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
@@ -11,7 +12,8 @@ use std::fmt;
 /// Node reference.
 ///
 /// Used to reference a node across a document or to a remote document.
-/// It can be an identifier (IRI) or a blank node identifier for local blank nodes.
+/// It can be an identifier (IRI), a blank node identifier for local blank nodes
+/// or an invalid reference (a string that is neither an IRI nor blank node identifier).
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Reference<T: AsIri = IriBuf> {
 	/// Node identifier, essentially an IRI.
@@ -129,12 +131,12 @@ impl<T: AsIri> From<BlankId> for Reference<T> {
 	}
 }
 
-impl<T: AsIri + util::AsJson> util::AsJson for Reference<T> {
-	fn as_json(&self) -> JsonValue {
+impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Reference<T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		match self {
-			Reference::Id(id) => id.as_json(),
-			Reference::Blank(b) => b.as_json(),
-			Reference::Invalid(id) => id.as_json(),
+			Reference::Id(id) => id.as_json(meta(None)),
+			Reference::Blank(b) => b.as_json_with(meta(None)),
+			Reference::Invalid(id) => id.as_json_with(meta(None)),
 		}
 	}
 }
@@ -171,8 +173,8 @@ impl<T: AsIri> fmt::Debug for Reference<T> {
 /// However building a `Reference` by hand can be tedious, especially while using [`Lexicon`](crate::Lexicon) and
 /// [`Vocab`](crate::Vocab). It can be as verbose as `node.get(&Reference::Id(Lexicon::Id(MyVocab::Term)))`.
 /// Thanks to `ToReference` which is implemented by `Lexicon<V>` for any type `V` implementing `Vocab`,
-/// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct) where
-/// the signature of `get` becomes:
+/// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct).
+/// The signature of `get` becomes:
 /// ```ignore
 /// fn get<R: ToReference<T>>(&self, id: R) -> Objects;
 /// ```

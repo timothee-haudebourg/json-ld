@@ -1,7 +1,7 @@
 use super::Keyword;
-use crate::{util::AsJson, BlankId, Reference};
+use crate::{util::AsAnyJson, BlankId, Reference};
+use generic_json::JsonBuild;
 use iref::{AsIri, Iri};
-use json::JsonValue;
 use std::fmt;
 
 pub trait TermLike {
@@ -107,66 +107,12 @@ impl<T: AsIri> fmt::Debug for Term<T> {
 	}
 }
 
-impl<T: AsIri> AsJson for Term<T> {
-	fn as_json(&self) -> JsonValue {
+impl<K: JsonBuild, T: AsIri> AsAnyJson<K> for Term<T> {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
 		match self {
-			Term::Ref(p) => p.as_str().into(),
-			Term::Keyword(kw) => kw.into_str().into(),
-			Term::Null => JsonValue::Null,
+			Term::Ref(p) => p.as_str().as_json_with(meta),
+			Term::Keyword(kw) => kw.into_str().as_json_with(meta),
+			Term::Null => K::null(meta),
 		}
 	}
 }
-
-// pub trait ToLenientTerm<T: Id> {
-// 	type Target: Borrow<Lenient<Term<T>>>;
-
-// 	fn to_lenient_term(&self) -> Self::Target;
-// }
-
-// impl<'a, T: Id> ToLenientTerm<T> for &'a Lenient<Term<T>> {
-// 	type Target = &'a Lenient<Term<T>>;
-
-// 	#[inline]
-// 	fn to_lenient_term(&self) -> &'a Lenient<Term<T>> {
-// 		self
-// 	}
-// }
-
-// impl<'a, T: Id> ToLenientTerm<T> for &'a T {
-// 	type Target = Lenient<Term<T>>;
-
-// 	#[inline]
-// 	fn to_lenient_term(&self) -> Lenient<Term<T>> {
-// 		Lenient::Ok(Term::Ref(Reference::Id((*self).clone())))
-// 	}
-// }
-
-// impl<T: Id> ToLenientTerm<T> for Keyword {
-// 	type Target = Lenient<Term<T>>;
-
-// 	#[inline]
-// 	fn to_lenient_term(&self) -> Lenient<Term<T>> {
-// 		Lenient::Ok(Term::Keyword(*self))
-// 	}
-// }
-
-// impl<'a, T: Id> ToLenientTerm<T> for &'a Reference<T> {
-// 	type Target = Lenient<Term<T>>;
-
-// 	#[inline]
-// 	fn to_lenient_term(&self) -> Lenient<Term<T>> {
-// 		Lenient::Ok(Term::Ref((*self).clone()))
-// 	}
-// }
-
-// impl<'a, T: Id> ToLenientTerm<T> for &'a Lenient<Reference<T>> {
-// 	type Target = Lenient<Term<T>>;
-
-// 	#[inline]
-// 	fn to_lenient_term(&self) -> Lenient<Term<T>> {
-// 		match self {
-// 			Lenient::Ok(r) => Lenient::Ok(Term::Ref((*r).clone())),
-// 			Lenient::Unknown(u) => Lenient::Unknown(u.clone())
-// 		}
-// 	}
-// }

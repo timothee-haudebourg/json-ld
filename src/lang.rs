@@ -1,4 +1,6 @@
-use crate::Direction;
+use crate::{object::LiteralString, Direction};
+use derivative::Derivative;
+use generic_json::Json;
 use langtag::{LanguageTag, LanguageTagBuf};
 
 /// Language string.
@@ -6,10 +8,17 @@ use langtag::{LanguageTag, LanguageTagBuf};
 /// A language string is a string tagged with language and reading direction information.
 ///
 /// A valid language string is associated to either a language tag or a direction, or both.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub struct LangString {
+#[derive(Derivative)]
+#[derivative(
+	Clone(bound = "J::String: Clone"),
+	PartialEq(bound = ""),
+	Eq(bound = ""),
+	Hash(bound = ""),
+	Debug(bound = "")
+)]
+pub struct LangString<J: Json> {
 	/// Actual content of the string.
-	data: String,
+	data: LiteralString<J>,
 	language: Option<LanguageTagBuf>,
 	direction: Option<Direction>,
 }
@@ -18,15 +27,15 @@ pub struct LangString {
 #[derive(Clone, Copy, Debug)]
 pub struct InvalidLangString;
 
-impl LangString {
+impl<J: Json> LangString<J> {
 	/// Create a new language string.
 	pub fn new(
-		str: String,
+		str: LiteralString<J>,
 		language: Option<LanguageTagBuf>,
 		direction: Option<Direction>,
-	) -> Result<LangString, String> {
+	) -> Result<Self, LiteralString<J>> {
 		if language.is_some() || direction.is_some() {
-			Ok(LangString {
+			Ok(Self {
 				data: str,
 				language,
 				direction,
@@ -36,9 +45,14 @@ impl LangString {
 		}
 	}
 
-	/// Reference to the undrlying string.
+	/// Reference to the underlying `str`.
+	pub fn as_string(&self) -> &LiteralString<J> {
+		&self.data
+	}
+
+	/// Reference to the underlying `str`.
 	pub fn as_str(&self) -> &str {
-		self.data.as_str()
+		self.data.as_ref()
 	}
 
 	/// Gets the associated language tag, if any.

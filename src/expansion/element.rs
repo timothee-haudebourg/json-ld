@@ -1,5 +1,6 @@
 use super::{
-	expand_array, expand_iri, expand_literal, expand_node, expand_value, Entry, Expanded, Options,
+	expand_array, expand_iri, expand_literal, expand_node, expand_value, Entry, Expanded,
+	ExpandedEntry, JsonExpand, LiteralValue, Options,
 };
 use crate::util::as_array;
 use crate::{
@@ -8,30 +9,32 @@ use crate::{
 	syntax::{Keyword, Term},
 	Error, ErrorCode, Id, Indexed,
 };
+use cc_traits::{CollectionRef, Get, KeyedRef, Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
+use generic_json::ValueRef;
 use iref::Iri;
-use json::JsonValue;
 use mown::Mown;
 
 /// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
 /// The default specified value for `ordered` and `from_map` is `false`.
 pub fn expand_element<
 	'a,
-	T: Send + Sync + Id,
-	C: Send + Sync + ContextMut<T>,
-	L: Send + Sync + Loader,
+	J: JsonExpand,
+	T: 'a + Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
 >(
 	active_context: &'a C,
 	active_property: Option<&'a str>,
-	element: &'a JsonValue,
+	element: &'a J,
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
 	from_map: bool,
-) -> BoxFuture<'a, Result<Expanded<T>, Error>>
+) -> BoxFuture<'a, Result<Expanded<J, T>, Error>>
 where
-	C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>,
-	L::Output: Into<JsonValue>,
+	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
+	L::Output: Into<J>,
 {
 	async move {
 		// If `element` is null, return null.
@@ -59,9 +62,9 @@ where
 			None
 		};
 
-		match element {
-			JsonValue::Null => unreachable!(),
-			JsonValue::Array(element) => {
+		match element.as_value_ref() {
+			ValueRef::Null => unreachable!(),
+			ValueRef::Array(element) => {
 				expand_array(
 					active_context,
 					active_property,
@@ -75,9 +78,9 @@ where
 				.await
 			}
 
-			JsonValue::Object(element) => {
+			ValueRef::Object(element) => {
 				// We will need to consider expanded keys, and maybe ordered keys.
-				let mut entries: Vec<Entry<&'a str>> = Vec::with_capacity(element.len());
+				let mut entries: Vec<Entry<J>> = Vec::with_capacity(element.len());
 				for (key, value) in element.iter() {
 					entries.push(Entry(key, value));
 				}
@@ -86,13 +89,13 @@ where
 					entries.sort()
 				}
 
-				let mut value_entry: Option<&JsonValue> = None;
+				let mut value_entry1 = None;
 				let mut id_entry = None;
 
 				for Entry(key, value) in entries.iter() {
-					match expand_iri(active_context, key, false, true) {
-						Term::Keyword(Keyword::Value) => value_entry = Some(value),
-						Term::Keyword(Keyword::Id) => id_entry = Some(value),
+					match expand_iri(active_context, key.as_ref(), false, true) {
+						Term::Keyword(Keyword::Value) => value_entry1 = Some(value.clone()),
+						Term::Keyword(Keyword::Id) => id_entry = Some(value.clone()),
 						_ => (),
 					}
 				}
@@ -108,7 +111,8 @@ where
 					// previous context from active context, as the scope of a term-scoped context
 					// does not apply when processing new Object objects.
 					if !from_map
-						&& value_entry.is_none() && !(element.len() == 1 && id_entry.is_some())
+						&& value_entry1.is_none()
+						&& !(element.len() == 1 && id_entry.is_some())
 					{
 						active_context = Mown::Owned(previous_context.clone())
 					}
@@ -146,11 +150,12 @@ where
 					);
 				}
 
-				let mut type_entries = Vec::new();
-				for Entry(key, value) in entries.iter() {
-					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
+				let mut type_entries: Vec<Entry<J>> = Vec::new();
+				for entry @ Entry(key, _) in entries.iter() {
+					let expanded_key =
+						expand_iri(active_context.as_ref(), key.as_ref(), false, true);
 					if let Term::Keyword(Keyword::Type) = expanded_key {
-						type_entries.push(Entry(key, value));
+						type_entries.push(entry.clone());
 					}
 				}
 
@@ -166,20 +171,21 @@ where
 				// key IRI expands to @type:
 				for Entry(_, value) in &type_entries {
 					// Convert `value` into an array, if necessary.
-					let value = as_array(value);
+					let (value, len) = as_array(&**value);
 
 					// For each `term` which is a value of `value` ordered lexicographically,
-					let mut sorted_value = Vec::with_capacity(value.len());
+					let mut sorted_value = Vec::with_capacity(len);
 					for term in value {
-						if let Some(term) = term.as_str() {
+						if term.is_string() {
 							sorted_value.push(term);
 						}
 					}
-					sorted_value.sort_unstable();
+					sorted_value.sort_unstable_by(|a, b| a.as_str().cmp(&b.as_str()));
 
 					// if `term` is a string, and `term`'s term definition in `type_scoped_context`
 					// has a `local_context`,
 					for term in sorted_value {
+						let term = term.as_str().unwrap();
 						if let Some(term_definition) = type_scoped_context.get(term) {
 							if let Some(local_context) = &term_definition.context {
 								// set `active_context` to the result of
@@ -210,7 +216,8 @@ where
 				// key.
 				// Both the key and value of the matched entry are IRI expanded.
 				let input_type = if let Some(Entry(_, value)) = type_entries.first() {
-					if let Some(input_type) = as_array(value).last() {
+					let (value, _) = as_array(&**value);
+					if let Some(input_type) = value.last() {
 						input_type.as_str().map(|input_type| {
 							expand_iri(active_context.as_ref(), input_type, false, true)
 						})
@@ -221,30 +228,36 @@ where
 					None
 				};
 
-				let mut expanded_entries = Vec::with_capacity(element.len());
+				let mut expanded_entries: Vec<ExpandedEntry<J, Term<T>>> =
+					Vec::with_capacity(element.len());
 				let mut list_entry = None;
 				let mut set_entry = None;
-				value_entry = None;
-				for Entry(key, value) in entries.iter() {
-					let expanded_key = expand_iri(active_context.as_ref(), key, false, true);
+				let mut value_entry = None;
+				for Entry(key, value) in entries {
+					let expanded_key =
+						expand_iri(active_context.as_ref(), key.as_ref(), false, true);
 					match &expanded_key {
-						Term::Keyword(Keyword::Value) => value_entry = Some(value),
+						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
 						Term::Keyword(Keyword::List)
 							if active_property.is_some() && active_property != Some("@graph") =>
 						{
-							list_entry = Some(value)
+							list_entry = Some(value.clone())
 						}
-						Term::Keyword(Keyword::Set) => set_entry = Some(value),
+						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
 						_ => (),
 					}
 
-					expanded_entries.push(Entry((*key, expanded_key), value))
+					expanded_entries.push(ExpandedEntry(
+						J::Object::upcast_key_ref(key),
+						expanded_key,
+						J::Object::upcast_item_ref(value),
+					))
 				}
 
 				if let Some(list_entry) = list_entry {
 					// List objects.
 					let mut index = None;
-					for Entry((_, expanded_key), value) in expanded_entries {
+					for ExpandedEntry(_, expanded_key, value) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_str() {
 								Some(value) => index = Some(value.to_string()),
@@ -260,12 +273,13 @@ where
 					// base URL, and the frameExpansion and ordered flags, ensuring that the
 					// result is an array..
 					let mut result = Vec::new();
-					for item in as_array(list_entry) {
+					let (list_entry, _) = as_array(&*list_entry);
+					for item in list_entry {
 						result.extend(
 							expand_element(
 								active_context.as_ref(),
 								active_property,
-								item,
+								&*item,
 								base_url,
 								loader,
 								options,
@@ -278,8 +292,7 @@ where
 					Ok(Expanded::Object(Indexed::new(Object::List(result), index)))
 				} else if let Some(set_entry) = set_entry {
 					// Set objects.
-					// let mut index = None;
-					for Entry((_, expanded_key), value) in expanded_entries {
+					for ExpandedEntry(_, expanded_key, value) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
 								match value.as_str() {
@@ -301,7 +314,7 @@ where
 					expand_element(
 						active_context.as_ref(),
 						active_property,
-						set_entry,
+						&*set_entry,
 						base_url,
 						loader,
 						options,
@@ -314,7 +327,7 @@ where
 						input_type,
 						type_scoped_context,
 						expanded_entries,
-						value_entry,
+						&*value_entry,
 					)? {
 						Ok(Expanded::Object(value))
 					} else {
@@ -333,7 +346,7 @@ where
 					)
 					.await?
 					{
-						Ok(result.cast::<Object<T>>().into())
+						Ok(result.cast::<Object<J, T>>().into())
 					} else {
 						Ok(Expanded::Null)
 					}
@@ -381,7 +394,7 @@ where
 				return Ok(Expanded::Object(expand_literal(
 					active_context.as_ref(),
 					active_property,
-					element,
+					LiteralValue::Given(element),
 				)?));
 			}
 		}

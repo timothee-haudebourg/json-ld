@@ -1,5 +1,5 @@
-use crate::util::AsJson;
-use json::JsonValue;
+use crate::util::AsAnyJson;
+use generic_json::JsonBuild;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -38,13 +38,13 @@ impl fmt::Display for Direction {
 	}
 }
 
-impl AsJson for Direction {
+impl<K: JsonBuild> AsAnyJson<K> for Direction {
 	/// Convert the direction into a JSON string.
 	/// Either `"rtl"` or `"ltr"`.
-	fn as_json(&self) -> JsonValue {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
 		match self {
-			Direction::Ltr => "ltr".into(),
-			Direction::Rtl => "rtl".into(),
+			Direction::Ltr => "ltr".as_json_with(meta),
+			Direction::Rtl => "rtl".as_json_with(meta),
 		}
 	}
 }

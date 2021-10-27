@@ -6,12 +6,15 @@ use crate::{
 	},
 	object,
 	syntax::{ContainerType, Keyword, Term},
-	util::AsJson,
+	util::{AsAnyJson, AsJson, JsonFrom},
 	ContextMut, Error, Id, Indexed, Object, ProcessingMode, Value,
 };
 use futures::future::{BoxFuture, FutureExt};
-use json::JsonValue;
+use generic_json::{JsonBuild, JsonClone, JsonHash, JsonMut, JsonSendSync};
 use std::collections::HashSet;
+
+/// Compaction source JSON type.
+pub trait JsonSrc = JsonClone + JsonHash + JsonSendSync;
 
 mod iri;
 mod node;
@@ -22,6 +25,13 @@ pub(crate) use iri::*;
 use node::*;
 use property::*;
 use value::*;
+
+fn optional_string<K: JsonBuild>(s: Option<String>, meta: K::MetaData) -> K {
+	match s {
+		Some(s) => K::string(s.as_str().into(), meta),
+		None => K::null(meta),
+	}
+}
 
 #[derive(Clone, Copy)]
 pub struct Options {
@@ -61,32 +71,38 @@ impl Default for Options {
 	}
 }
 
-pub trait Compact<T: Id> {
-	fn compact_with<'a, C: ContextMut<T>, L: Loader>(
+pub trait Compact<J: JsonSrc, T: Id> {
+	/// Compact a JSON-LD document into a `K` JSON value.
+	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
+		J: 'a,
 		T: 'a,
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
-		L: Sync + Send;
+		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData;
 
-	fn compact<'a, C: ContextMut<T>, L: Loader>(
+	fn compact<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		loader: &'a mut L,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		Self: Sync,
 		T: 'a + Sync + Send,
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
 		async move {
 			self.compact_with(
@@ -95,6 +111,7 @@ pub trait Compact<T: Id> {
 				None,
 				loader,
 				Options::default(),
+				meta,
 			)
 			.await
 		}
@@ -107,8 +124,8 @@ enum TypeLangValue<'a, T: Id> {
 	Lang(LangSelection<'a>),
 }
 
-pub trait CompactIndexed<T: Id> {
-	fn compact_indexed_with<'a, C: ContextMut<T>, L: Loader>(
+pub trait CompactIndexed<J: JsonSrc, T: Id> {
+	fn compact_indexed_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		index: Option<&'a str>,
 		active_context: Inversible<T, &'a C>,
@@ -116,28 +133,36 @@ pub trait CompactIndexed<T: Id> {
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
+		J: 'a,
 		T: 'a,
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
-		L: Sync + Send;
+		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData;
 }
 
-impl<T: Sync + Send + Id, V: Sync + Send + CompactIndexed<T>> Compact<T> for Indexed<V> {
-	fn compact_with<'a, C: ContextMut<T>, L: Loader>(
+impl<J: JsonSrc, T: Sync + Send + Id, V: Sync + Send + CompactIndexed<J, T>> Compact<J, T>
+	for Indexed<V>
+{
+	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
+		J: 'a,
 		T: 'a,
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
 		self.inner().compact_indexed_with(
 			self.index(),
@@ -146,12 +171,15 @@ impl<T: Sync + Send + Id, V: Sync + Send + CompactIndexed<T>> Compact<T> for Ind
 			active_property,
 			loader,
 			options,
+			meta,
 		)
 	}
 }
 
-impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for N {
-	fn compact_indexed_with<'a, C: ContextMut<T>, L: Loader>(
+impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> CompactIndexed<J, T>
+	for N
+{
+	fn compact_indexed_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		index: Option<&'a str>,
 		active_context: Inversible<T, &'a C>,
@@ -159,12 +187,15 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
+		J: 'a,
 		T: 'a,
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
 		match self.as_ref() {
 			object::Ref::Value(value) => async move {
@@ -175,6 +206,7 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 					active_property,
 					loader,
 					options,
+					meta,
 				)
 				.await
 			}
@@ -188,6 +220,7 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 					active_property,
 					loader,
 					options,
+					meta,
 				)
 				.await
 			}
@@ -240,11 +273,12 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 						active_property,
 						loader,
 						options,
+						meta,
 					)
 					.await
 				} else {
-					let mut result = json::object::Object::new();
-					compact_property(
+					let mut result = K::Object::default();
+					compact_property::<J, K, _, _, _, _, _, _>(
 						&mut result,
 						Term::Keyword(Keyword::List),
 						list,
@@ -252,6 +286,7 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 						loader,
 						false,
 						options,
+						meta.clone(),
 					)
 					.await?;
 
@@ -276,7 +311,7 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 
 						if !index_container {
 							// Initialize alias by IRI compacting expanded property.
-							let alias = compact_iri(
+							let alias = compact_iri::<J, _, _>(
 								active_context.as_ref(),
 								&Term::Keyword(Keyword::Index),
 								true,
@@ -285,11 +320,14 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 							)?;
 
 							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
-							result.insert(alias.as_str().unwrap(), index.as_json());
+							result.insert(
+								K::new_key(alias.unwrap().as_str(), meta(None)),
+								index.as_json_with(meta(None)),
+							);
 						}
 					}
 
-					Ok(JsonValue::Object(result))
+					Ok(K::object(result, meta(None)))
 				}
 			}
 			.boxed(),
@@ -298,52 +336,74 @@ impl<T: Sync + Send + Id, N: object::Any<T> + Sync + Send> CompactIndexed<T> for
 }
 
 /// Default value of `as_array` is false.
-fn add_value(map: &mut json::object::Object, key: &str, value: JsonValue, as_array: bool) {
-	match map.get(key) {
-		Some(JsonValue::Array(_)) => (),
-		Some(original_value) => {
-			let value = original_value.clone();
-			map.insert(key, JsonValue::Array(vec![value]))
+fn add_value<K: JsonBuild + JsonMut>(
+	map: &mut K::Object,
+	key: &str,
+	value: K,
+	as_array: bool,
+	meta: impl Clone + Fn() -> K::MetaData,
+) {
+	match map.get(key).map(|value| value.is_array()) {
+		Some(false) => {
+			let value = map.remove(key).unwrap();
+			map.insert(
+				K::new_key(key, meta()),
+				K::array(Some(value).into_iter().collect(), meta()),
+			);
 		}
-		None if as_array => map.insert(key, JsonValue::Array(Vec::new())),
-		None => (),
+		None if as_array => {
+			map.insert(K::new_key(key, meta()), K::empty_array(meta()));
+		}
+		_ => (),
 	}
 
-	match value {
-		JsonValue::Array(values) => {
+	match value.into_parts() {
+		(generic_json::Value::Array(values), _) => {
 			for value in values {
-				add_value(map, key, value, false)
+				add_value(map, key, value, false, meta.clone())
 			}
 		}
-		value => match map.get_mut(key) {
-			Some(JsonValue::Array(values)) => values.push(value),
-			Some(_) => unreachable!(),
-			None => map.insert(key, value),
-		},
+		(value, metadata) => {
+			if let Some(mut array) = map.get_mut(key) {
+				array
+					.as_array_mut()
+					.unwrap()
+					.push_back(K::new(value, metadata));
+				return;
+			}
+
+			map.insert(K::new_key(key, meta()), K::new(value, metadata));
+		}
 	}
 }
 
 /// Get the `@value` field of a value object.
-fn value_value<T: Id>(value: &Value<T>) -> JsonValue {
+fn value_value<J: JsonClone, K: JsonFrom<J>, T: Id, M>(value: &Value<J, T>, meta: M) -> K
+where
+	M: Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+{
 	use crate::object::value::Literal;
 	match value {
 		Value::Literal(lit, _ty) => match lit {
-			Literal::Null => JsonValue::Null,
-			Literal::Boolean(b) => b.as_json(),
-			Literal::Number(n) => JsonValue::Number(*n),
-			Literal::String(s) => s.as_json(),
+			Literal::Null => K::null(meta(None)),
+			Literal::Boolean(b) => b.as_json_with(meta(None)),
+			Literal::Number(n) => K::number(n.clone().into(), meta(None)),
+			Literal::String(s) => s.as_json_with(meta(None)),
 		},
-		Value::LangString(str) => str.as_str().into(),
-		Value::Json(json) => json.clone(),
+		Value::LangString(str) => K::string(str.as_str().into(), meta(None)),
+		Value::Json(json) => json.as_json_with(meta),
 	}
 }
 
 fn compact_collection_with<
 	'a,
+	J: 'a + JsonSrc,
+	K: JsonFrom<J>,
 	T: 'a + Sync + Send + Id,
-	O: 'a + Send + Iterator<Item = &'a Indexed<Object<T>>>,
+	O: 'a + Send + Iterator<Item = &'a Indexed<Object<J, T>>>,
 	C: ContextMut<T>,
 	L: Loader,
+	M: 'a,
 >(
 	items: O,
 	active_context: Inversible<T, &'a C>,
@@ -351,28 +411,31 @@ fn compact_collection_with<
 	active_property: Option<&'a str>,
 	loader: &'a mut L,
 	options: Options,
-) -> BoxFuture<'a, Result<JsonValue, Error>>
+	meta: M,
+) -> BoxFuture<'a, Result<K, Error>>
 where
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
+	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 {
 	async move {
 		let mut result = Vec::new();
 
 		for item in items {
-			match item
+			let compacted_item: K = item
 				.compact_with(
 					active_context.clone(),
 					type_scoped_context.clone(),
 					active_property,
 					loader,
 					options,
+					meta.clone(),
 				)
-				.await?
-			{
-				JsonValue::Null => (),
-				compacted_item => result.push(compacted_item),
+				.await?;
+
+			if !compacted_item.is_null() {
+				result.push(compacted_item)
 			}
 		}
 
@@ -395,7 +458,7 @@ where
 			|| active_property == Some("@set")
 			|| list_or_set
 		{
-			return Ok(JsonValue::Array(result));
+			return Ok(K::array(result.into_iter().collect(), meta(None)));
 		}
 
 		Ok(result.into_iter().next().unwrap())
@@ -403,20 +466,22 @@ where
 	.boxed()
 }
 
-impl<T: Sync + Send + Id> Compact<T> for HashSet<Indexed<Object<T>>> {
-	fn compact_with<'a, C: ContextMut<T>, L: Loader>(
+impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for HashSet<Indexed<Object<J, T>>> {
+	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<JsonValue, Error>>
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		T: 'a,
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
 		compact_collection_with(
 			self.iter(),
@@ -425,6 +490,7 @@ impl<T: Sync + Send + Id> Compact<T> for HashSet<Indexed<Object<T>>> {
 			active_property,
 			loader,
 			options,
+			meta,
 		)
 	}
 }

@@ -2,6 +2,10 @@ use std::convert::TryFrom;
 use std::fmt;
 
 /// Processing mode.
+///
+/// This is a property of the
+/// [`context::ProcessingOptions`] and [`compaction::Options`] types.
+/// New features defined in JSON-LD 1.1 are available unless the processing mode is set to [`ProcessingModel::JsonLd1_0`].
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ProcessingMode {
 	/// JSON-LD 1.0.

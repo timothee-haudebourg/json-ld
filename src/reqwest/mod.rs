@@ -5,15 +5,21 @@ use crate::{
 	Error, ErrorCode, RemoteDocument,
 };
 use futures::future::{BoxFuture, FutureExt};
+use generic_json::Json;
 use iref::{Iri, IriBuf};
-use json::JsonValue;
 use std::collections::HashMap;
 
 pub fn is_json_media_type(ty: &str) -> bool {
 	ty == "application/json" || ty == "application/ld+json"
 }
 
-pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<RemoteDocument, Error> {
+pub async fn load_remote_json_ld_document<J, P>(
+	url: Iri<'_>,
+	parser: &mut P,
+) -> Result<RemoteDocument<J>, Error>
+where
+	P: Send + Sync + FnMut(&str) -> Result<J, Error>,
+{
 	log::info!("loading remote document `{}'", url);
 	use reqwest::header::*;
 
@@ -38,7 +44,7 @@ pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<RemoteDocument
 	{
 		let body = response.text().await?;
 
-		match json::parse(body.as_str()) {
+		match (*parser)(body.as_str()) {
 			Ok(doc) => Ok(RemoteDocument::new(doc, url.into())),
 			Err(e) => panic!("invalid json: {:?}: {}", e, body.as_str()),
 		}
@@ -47,23 +53,29 @@ pub async fn load_remote_json_ld_document(url: Iri<'_>) -> Result<RemoteDocument
 	}
 }
 
-pub struct Loader {
-	cache: HashMap<IriBuf, RemoteDocument>,
+pub struct Loader<J> {
+	cache: HashMap<IriBuf, RemoteDocument<J>>,
+	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>,
 }
 
-impl Loader {
-	pub fn new() -> Loader {
-		Loader {
+impl<J: Clone + Send> Loader<J> {
+	pub fn new<E: 'static + std::error::Error>(
+		mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>,
+	) -> Self {
+		Self {
 			cache: HashMap::new(),
+			parser: Box::new(move |s| {
+				parser(s).map_err(|e| Error::new(ErrorCode::LoadingDocumentFailed, e))
+			}),
 		}
 	}
 
-	pub async fn load(&mut self, url: Iri<'_>) -> Result<RemoteDocument, Error> {
+	pub async fn load(&mut self, url: Iri<'_>) -> Result<RemoteDocument<J>, Error> {
 		let url = IriBuf::from(url);
 		match self.cache.get(&url) {
 			Some(doc) => Ok(doc.clone()),
 			None => {
-				let doc = load_remote_json_ld_document(url.as_iri()).await?;
+				let doc = load_remote_json_ld_document(url.as_iri(), &mut self.parser).await?;
 				self.cache.insert(url, doc.clone());
 				Ok(doc)
 			}
@@ -71,29 +83,19 @@ impl Loader {
 	}
 }
 
-impl context::Loader for Loader {
-	type Output = JsonValue;
+impl<J: Json + Clone + Send + Sync> crate::Loader for Loader<J> {
+	type Document = J;
 
-	fn load_context<'a>(
-		&'a mut self,
-		url: Iri,
-	) -> BoxFuture<'a, Result<RemoteContext<JsonValue>, Error>> {
-		let url = IriBuf::from(url);
+	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
+		let url: IriBuf = url.into();
 		async move {
-			match self.load(url.as_iri()).await {
-				Ok(remote_doc) => {
-					let (doc, url) = remote_doc.into_parts();
-					if let JsonValue::Object(obj) = doc {
-						if let Some(context) = obj.get("@context") {
-							Ok(RemoteContext::from_parts(url, context.clone()))
-						} else {
-							Err(ErrorCode::InvalidRemoteContext.into())
-						}
-					} else {
-						Err(ErrorCode::InvalidRemoteContext.into())
-					}
+			match self.cache.get(&url) {
+				Some(doc) => Ok(doc.clone()),
+				None => {
+					let doc = load_remote_json_ld_document(url.as_iri(), &mut self.parser).await?;
+					self.cache.insert(url, doc.clone());
+					Ok(doc)
 				}
-				Err(_) => Err(ErrorCode::LoadingRemoteContextFailed.into()),
 			}
 		}
 		.boxed()

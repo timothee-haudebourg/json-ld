@@ -1,30 +1,31 @@
-use super::{expand_element, Expanded, Options};
+use super::{expand_element, Expanded, JsonExpand, Options};
 use crate::{
 	context::{Loader, TermDefinition},
 	object::*,
 	syntax::ContainerType,
 	ContextMut, Error, Id,
 };
+use cc_traits::Iter;
 use iref::Iri;
-use json::JsonValue;
 
 pub async fn expand_array<
-	T: Send + Sync + Id,
-	C: Send + Sync + ContextMut<T>,
-	L: Send + Sync + Loader,
+	J: JsonExpand,
+	T: Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
 >(
 	active_context: &C,
 	active_property: Option<&str>,
 	active_property_definition: Option<&TermDefinition<T, C>>,
-	element: &[JsonValue],
+	element: &J::Array,
 	base_url: Option<Iri<'_>>,
 	loader: &mut L,
 	options: Options,
 	from_map: bool,
-) -> Result<Expanded<T>, Error>
+) -> Result<Expanded<J, T>, Error>
 where
-	C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>,
-	L::Output: Into<JsonValue>,
+	C::LocalContext: From<L::Output> + From<J>,
+	L::Output: Into<J>,
 {
 	// Initialize an empty array, result.
 	let mut is_list = false;
@@ -38,7 +39,7 @@ where
 	}
 
 	// For each item in element:
-	for item in element {
+	for item in element.iter() {
 		// Initialize `expanded_item` to the result of using this algorithm
 		// recursively, passing `active_context`, `active_property`, `item` as element,
 		// `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
@@ -46,7 +47,7 @@ where
 			expand_element(
 				active_context,
 				active_property,
-				item,
+				&*item,
 				base_url,
 				loader,
 				options,

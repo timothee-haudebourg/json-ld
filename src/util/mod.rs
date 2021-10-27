@@ -1,49 +1,19 @@
 //! Utility functions.
-
-use ::json::{number::Number, JsonValue};
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
 mod json;
 pub use self::json::*;
 
-pub fn as_array(json: &JsonValue) -> &[JsonValue] {
-	match json {
-		JsonValue::Array(ary) => ary,
-		_ => unsafe { std::mem::transmute::<&JsonValue, &[JsonValue; 1]>(json) as &[JsonValue] },
-	}
-}
-
-pub fn hash_json_number<H: Hasher>(number: &Number, hasher: &mut H) {
-	let (positive, mantissa, exponent) = number.as_parts();
-	positive.hash(hasher);
-	mantissa.hash(hasher);
-	exponent.hash(hasher);
-}
-
-pub fn hash_json<H: Hasher>(value: &JsonValue, hasher: &mut H) {
-	match value {
-		JsonValue::Null => (),
-		JsonValue::Boolean(b) => b.hash(hasher),
-		JsonValue::Number(n) => hash_json_number(n, hasher),
-		JsonValue::Short(str) => str.hash(hasher),
-		JsonValue::String(str) => str.hash(hasher),
-		JsonValue::Array(ary) => {
-			for item in ary {
-				hash_json(item, hasher)
-			}
-		}
-		JsonValue::Object(obj) => {
-			// in JSON, the order of elements matters, so we don't need to be vigilant here.
-			for (key, value) in obj.iter() {
-				key.hash(hasher);
-				hash_json(value, hasher);
-			}
-		}
-	}
-}
-
+/// Hash a [`HashSet`].
+///
+/// The standard library does not provide (yet) a `Hash` implementation
+/// for the [`HashSet`] type. This can be used instead.
+///
+/// Note that this function not particularly strong and does
+/// not protect against DoS attacks.
 pub fn hash_set<T: Hash, H: Hasher>(set: &HashSet<T>, hasher: &mut H) {
+	// See: https://github.com/rust-lang/rust/pull/48366
 	// Elements must be combined with a associative and commutative operation •.
 	// (u64, •, 0) must form a commutative monoid.
 	// This is satisfied by • = u64::wrapping_add.
@@ -57,13 +27,22 @@ pub fn hash_set<T: Hash, H: Hasher>(set: &HashSet<T>, hasher: &mut H) {
 	hasher.write_u64(hash);
 }
 
+/// Hash an optional [`HashSet`].
 pub fn hash_set_opt<T: Hash, H: Hasher>(set_opt: &Option<HashSet<T>>, hasher: &mut H) {
 	if let Some(set) = set_opt.as_ref() {
 		hash_set(set, hasher)
 	}
 }
 
+/// Hash a [`HashMap`].
+///
+/// The standard library does not provide (yet) a `Hash` implementation
+/// for the [`HashMap`] type. This can be used instead.
+///
+/// Note that this function not particularly strong and does
+/// not protect against DoS attacks.
 pub fn hash_map<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H) {
+	// See: https://github.com/rust-lang/rust/pull/48366
 	// Elements must be combined with a associative and commutative operation •.
 	// (u64, •, 0) must form a commutative monoid.
 	// This is satisfied by • = u64::wrapping_add.
@@ -76,18 +55,3 @@ pub fn hash_map<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H
 
 	hasher.write_u64(hash);
 }
-
-// pub fn hash_map_of_sets<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, HashSet<V>>, hasher: &mut H) {
-// 	// Elements must be combined with a associative and commutative operation •.
-// 	// (u64, •, 0) must form a commutative monoid.
-// 	// This is satisfied by • = u64::wrapping_add.
-// 	let mut hash = 0;
-// 	for (key, value) in map {
-// 		let mut h = DefaultHasher::new();
-// 		key.hash(&mut h);
-// 		hash_set(value, &mut h);
-// 		hash = u64::wrapping_add(hash, h.finish());
-// 	}
-//
-// 	hasher.write_u64(hash);
-// }

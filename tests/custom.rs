@@ -7,9 +7,10 @@ extern crate static_iref;
 extern crate json_ld;
 
 use async_std::task;
+use ijson::IValue;
 use iref::{Iri, IriBuf};
 use json_ld::{
-	context::{JsonContext, Loader as ContextLoader, Local, ProcessingOptions},
+	context::{self, Loader as ContextLoader, Local, ProcessingOptions},
 	expansion,
 	util::{json_ld_eq, AsJson},
 	Document, FsLoader, Loader, ProcessingMode,
@@ -41,12 +42,12 @@ impl<'a> From<Options<'a>> for ProcessingOptions {
 }
 
 fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {
-	let mut loader = FsLoader::new();
+	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("file://crate/tests"), "tests");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
 	let output = task::block_on(loader.load(output_url)).unwrap();
-	let mut input_context: JsonContext<IriBuf> = JsonContext::new(Some(base_url));
+	let mut input_context: context::Json<IValue, IriBuf> = context::Json::new(Some(base_url));
 
 	if let Some(context_url) = options.context {
 		let local_context = task::block_on(loader.load_context(context_url))
@@ -70,14 +71,23 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 	))
 	.unwrap();
 
-	let result_json = result.as_json();
-	let success = json_ld_eq(&result_json, &output);
+	let result_json: IValue = result.as_json();
+	let success = json_ld_eq(&result_json, &*output);
 
 	if success {
-		println!("output=\n{}", result_json.pretty(2));
+		println!(
+			"output=\n{}",
+			serde_json::to_string_pretty(&result_json).unwrap()
+		);
 	} else {
-		println!("output=\n{}", result_json.pretty(2));
-		println!("\nexpected=\n{}", output.pretty(2));
+		println!(
+			"output=\n{}",
+			serde_json::to_string_pretty(&result_json).unwrap()
+		);
+		println!(
+			"\nexpected=\n{}",
+			serde_json::to_string_pretty(&*output).unwrap()
+		);
 	}
 
 	assert!(success)

@@ -1,7 +1,7 @@
 use super::{Keyword, Term, TermLike};
 use crate::{util, Id, Reference};
+use generic_json::JsonBuild;
 use iref::Iri;
-use json::JsonValue;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -113,14 +113,14 @@ impl<T: Id> TryFrom<Term<T>> for Type<T> {
 	}
 }
 
-impl<T: util::AsJson> util::AsJson for Type<T> {
-	fn as_json(&self) -> JsonValue {
+impl<K: JsonBuild, T: util::AsAnyJson<K>> util::AsAnyJson<K> for Type<T> {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
 		match self {
-			Type::Id => "@id".into(),
-			Type::Json => "@json".into(),
-			Type::None => "@none".into(),
-			Type::Vocab => "@vocab".into(),
-			Type::Ref(id) => id.as_json(),
+			Type::Id => "@id".as_json_with(meta),
+			Type::Json => "@json".as_json_with(meta),
+			Type::None => "@none".as_json_with(meta),
+			Type::Vocab => "@vocab".as_json_with(meta),
+			Type::Ref(id) => id.as_json_with(meta),
 		}
 	}
 }

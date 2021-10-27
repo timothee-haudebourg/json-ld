@@ -1,6 +1,6 @@
-use crate::{syntax::TermLike, util};
+use crate::syntax::TermLike;
+use generic_json::JsonBuild;
 use iref::{AsIri, Iri, IriBuf};
-use json::JsonValue;
 use std::hash::Hash;
 
 /// Unique identifier types.
@@ -23,6 +23,7 @@ use std::hash::Hash;
 /// ```
 /// use iref_enum::*;
 /// use json_ld::Lexicon;
+/// use ijson::IValue;
 ///
 /// /// Vocabulary used in the implementation.
 /// #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
@@ -49,7 +50,7 @@ use std::hash::Hash;
 /// /// A fully functional identifier type.
 /// pub type Id = Lexicon<Vocab>;
 ///
-/// fn handle_node(node: &json_ld::Node<Id>) {
+/// fn handle_node(node: &json_ld::Node<IValue, Id>) {
 ///   for name in node.get(Vocab::Name) { // <- note that we can directly use `Vocab` here.
 ///     println!("node name: {}", name.as_str().unwrap());
 ///   }
@@ -58,6 +59,10 @@ use std::hash::Hash;
 pub trait Id: AsIri + Clone + PartialEq + Eq + Hash {
 	/// Create an identifier from its IRI.
 	fn from_iri(iri: Iri) -> Self;
+
+	fn as_json<K: JsonBuild>(&self, meta: K::MetaData) -> K {
+		K::string(self.as_iri().as_str().into(), meta)
+	}
 }
 
 impl Id for IriBuf {
@@ -76,8 +81,8 @@ impl<T: Id> TermLike for T {
 	}
 }
 
-impl<T: Id> util::AsJson for T {
-	fn as_json(&self) -> JsonValue {
-		self.as_iri().as_str().into()
-	}
-}
+// impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for T {
+// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+// 		self.as_iri().as_str().as_json_with(meta)
+// 	}
+// }

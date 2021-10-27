@@ -1,6 +1,6 @@
 use super::{
-	expand_element, expand_iri, expand_literal, filter_top_level_item, Entry, Expanded, Options,
-	Policy,
+	expand_element, expand_iri, expand_literal, filter_top_level_item, Entry, Expanded,
+	ExpandedEntry, JsonExpand, LiteralValue, Options, Policy,
 };
 use crate::util::as_array;
 use crate::{
@@ -9,14 +9,15 @@ use crate::{
 	syntax::{Container, ContainerType, Keyword, Term, Type},
 	Error, ErrorCode, Id, Indexed, LangString, ProcessingMode, Reference,
 };
+use cc_traits::{Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
+use generic_json::ValueRef;
 use iref::Iri;
-use json::JsonValue;
 use langtag::LanguageTagBuf;
 use mown::Mown;
 use std::{collections::HashSet, convert::TryInto};
 
-/// Convert a lenient term to a node id, if possible.
+/// Convert a term to a node id, if possible.
 /// Return `None` if the term is `null`.
 pub fn node_id_of_term<T: Id>(term: Term<T>) -> Option<Reference<T>> {
 	match term {
@@ -26,30 +27,33 @@ pub fn node_id_of_term<T: Id>(term: Term<T>) -> Option<Reference<T>> {
 	}
 }
 
+/// Expand a node object.
 pub async fn expand_node<
-	T: Send + Sync + Id,
-	C: Send + Sync + ContextMut<T>,
-	L: Send + Sync + Loader,
+	'a,
+	J: JsonExpand,
+	T: 'a + Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
 >(
-	active_context: &C,
-	type_scoped_context: &C,
-	active_property: Option<&str>,
-	expanded_entries: Vec<Entry<'_, (&str, Term<T>)>>,
-	base_url: Option<Iri<'_>>,
-	loader: &mut L,
+	active_context: &'a C,
+	type_scoped_context: &'a C,
+	active_property: Option<&'a str>,
+	expanded_entries: Vec<ExpandedEntry<'a, J, Term<T>>>,
+	base_url: Option<Iri<'a>>,
+	loader: &'a mut L,
 	options: Options,
-) -> Result<Option<Indexed<Node<T>>>, Error>
+) -> Result<Option<Indexed<Node<J, T>>>, Error>
 where
-	C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>,
-	L::Output: Into<JsonValue>,
+	C::LocalContext: From<L::Output> + From<J>,
+	L::Output: Into<J>,
 {
 	// Initialize two empty maps, `result` and `nests`.
-	let mut result = Indexed::new(Node::new(), None);
-	let mut has_value_object_entries = false;
+	// let mut result = Indexed::new(Node::new(), None);
+	// let mut has_value_object_entries = false;
 
-	expand_node_entries(
-		&mut result,
-		&mut has_value_object_entries,
+	let (result, has_value_object_entries) = expand_node_entries(
+		Indexed::new(Node::new(), None),
+		false,
 		active_context,
 		type_scoped_context,
 		active_property,
@@ -79,12 +83,12 @@ where
 	// If active property is null or @graph, drop free-floating
 	// values as follows:
 	if active_property == None || active_property == Some("@graph") {
-		// If `result` is a map which is empty, or contains only the entries `@value`
-		// or `@list`, set `result` to null.
-		// => drop values
-
+		// If `result` is a map which is empty,
+		// [or contains only the entries `@value` or `@list` (does not apply here)]
+		// set `result` to null.
 		// Otherwise, if result is a map whose only entry is @id, set result to null.
 		if result.is_empty() {
+			// both cases are covered by checking `is_empty`.
 			return Ok(None);
 		}
 	}
@@ -92,30 +96,38 @@ where
 	Ok(Some(result))
 }
 
+/// Type returned by the `expand_node_entries` function.
+///
+/// It is a tuple containing both the node being expanded
+/// and a boolean flag set to `true` if the node contains
+/// value object entries (in practice, if it has a `@language` entry).
+type ExpandedNode<J, T> = (Indexed<Node<J, T>>, bool);
+
 fn expand_node_entries<
 	'a,
-	T: Send + Sync + Id,
-	C: Send + Sync + ContextMut<T>,
-	L: Send + Sync + Loader,
+	J: JsonExpand,
+	T: 'a + Id + Send + Sync,
+	C: ContextMut<T> + Send + Sync,
+	L: Loader + Send + Sync,
 >(
-	result: &'a mut Indexed<Node<T>>,
-	has_value_object_entries: &'a mut bool,
+	mut result: Indexed<Node<J, T>>,
+	mut has_value_object_entries: bool,
 	active_context: &'a C,
 	type_scoped_context: &'a C,
 	active_property: Option<&'a str>,
-	expanded_entries: Vec<Entry<'a, (&'a str, Term<T>)>>,
+	expanded_entries: Vec<ExpandedEntry<'a, J, Term<T>>>,
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
-) -> BoxFuture<'a, Result<(), Error>>
+) -> BoxFuture<'a, Result<ExpandedNode<J, T>, Error>>
 where
-	C::LocalContext: Send + Sync + From<L::Output> + From<JsonValue>,
-	L::Output: Into<JsonValue>,
+	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
+	L::Output: Into<J>,
 {
 	async move {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:
-		for Entry((key, expanded_key), value) in expanded_entries {
+		for ExpandedEntry(key, expanded_key, value) in expanded_entries {
 			match expanded_key {
 				Term::Null => (),
 
@@ -167,7 +179,7 @@ where
 							// If value is neither a string nor an array of strings, an
 							// invalid type value error has been detected and processing
 							// is aborted.
-							let value = as_array(value);
+							let (value, _) = as_array(&*value);
 							// Set `expanded_value` to the result of IRI expanding each
 							// of its values using `type_scoped_context` for active
 							// context, and true for document relative.
@@ -195,7 +207,7 @@ where
 							let expanded_value = expand_element(
 								active_context,
 								Some("@graph"),
-								value,
+								&*value,
 								base_url,
 								loader,
 								options,
@@ -224,7 +236,7 @@ where
 							let expanded_value = expand_element(
 								active_context,
 								Some("@included"),
-								value,
+								&*value,
 								base_url,
 								loader,
 								options,
@@ -233,7 +245,7 @@ where
 							.await?;
 							let mut expanded_nodes = Vec::new();
 							for obj in expanded_value.into_iter() {
-								match obj.try_cast::<Node<T>>() {
+								match obj.try_cast::<Node<J, T>>() {
 									Ok(node) => expanded_nodes.push(node),
 									Err(_) => return Err(ErrorCode::InvalidIncludedValue.into()),
 								}
@@ -246,11 +258,9 @@ where
 							}
 						}
 						// If expanded property is @language:
-						Keyword::Language => *has_value_object_entries = true,
+						Keyword::Language => has_value_object_entries = true,
 						// If expanded property is @direction:
-						Keyword::Direction => {
-							panic!("TODO direction")
-						}
+						Keyword::Direction => has_value_object_entries = true,
 						// If expanded property is @index:
 						Keyword::Index => {
 							if let Some(value) = value.as_str() {
@@ -265,8 +275,9 @@ where
 						Keyword::Reverse => {
 							// If value is not a map, an invalid @reverse value error
 							// has been detected and processing is aborted.
-							if let JsonValue::Object(value) = value {
-								let mut reverse_entries = Vec::with_capacity(value.len());
+							if let Some(value) = value.as_object() {
+								let mut reverse_entries: Vec<Entry<J>> =
+									Vec::with_capacity(value.len());
 								for (reverse_key, reverse_value) in value.iter() {
 									reverse_entries.push(Entry(reverse_key, reverse_value));
 								}
@@ -276,7 +287,12 @@ where
 								}
 
 								for Entry(reverse_key, reverse_value) in reverse_entries {
-									match expand_iri(active_context, reverse_key, false, true) {
+									match expand_iri(
+										active_context,
+										reverse_key.as_ref(),
+										false,
+										true,
+									) {
 										Term::Keyword(_) => {
 											return Err(ErrorCode::InvalidReversePropertyMap.into())
 										}
@@ -291,8 +307,8 @@ where
 										{
 											let reverse_expanded_value = expand_element(
 												active_context,
-												Some(reverse_key),
-												reverse_value,
+												Some(reverse_key.as_ref()),
+												&*reverse_value,
 												base_url,
 												loader,
 												options,
@@ -302,7 +318,7 @@ where
 
 											let is_double_reversed =
 												if let Some(reverse_key_definition) =
-													active_context.get(reverse_key)
+													active_context.get(reverse_key.as_ref())
 												{
 													reverse_key_definition.reverse_property
 												} else {
@@ -317,7 +333,7 @@ where
 											} else {
 												let mut reverse_expanded_nodes = Vec::new();
 												for object in reverse_expanded_value {
-													match object.try_cast::<Node<T>>() {
+													match object.try_cast::<Node<J, T>>() {
 														Ok(node) => {
 															reverse_expanded_nodes.push(node)
 														}
@@ -351,20 +367,21 @@ where
 							let nesting_key = key;
 							// Recursively repeat steps 3, 8, 13, and 14 using `nesting_key` for active property,
 							// and nested value for element.
-							for nested_value in as_array(value) {
+							let (value, _) = as_array(&*value);
+							for nested_value in value {
 								// Step 3 again.
 								let mut property_scoped_base_url = None;
-								let property_scoped_context = match active_context.get(nesting_key)
-								{
-									Some(definition) => {
-										if let Some(base_url) = &definition.base_url {
-											property_scoped_base_url = Some(base_url.as_iri());
-										}
+								let property_scoped_context =
+									match active_context.get(nesting_key.as_ref()) {
+										Some(definition) => {
+											if let Some(base_url) = &definition.base_url {
+												property_scoped_base_url = Some(base_url.as_iri());
+											}
 
-										definition.context.as_ref()
-									}
-									None => None,
-								};
+											definition.context.as_ref()
+										}
+										None => None,
+									};
 
 								// Step 8 again.
 								let active_context = match property_scoped_context {
@@ -386,8 +403,8 @@ where
 								};
 
 								// Steps 13 and 14 again.
-								if let JsonValue::Object(nested_value) = nested_value {
-									let mut nested_entries = Vec::new();
+								if let Some(nested_value) = nested_value.as_object() {
+									let mut nested_entries: Vec<Entry<J>> = Vec::new();
 
 									for (key, value) in nested_value.iter() {
 										nested_entries.push(Entry(key, value))
@@ -401,25 +418,29 @@ where
 										nested_entries.into_iter().map(|Entry(key, value)| {
 											let expanded_key = expand_iri(
 												active_context.as_ref(),
-												key,
+												key.as_ref(),
 												false,
 												true,
 											);
-											Entry((key, expanded_key), value)
+											ExpandedEntry(key, expanded_key, value)
 										});
 
-									expand_node_entries(
-										result,
-										has_value_object_entries,
-										active_context.as_ref(),
-										type_scoped_context,
-										active_property,
-										nested_expanded_entries.collect(),
-										base_url,
-										loader,
-										options,
-									)
-									.await?
+									let (new_result, new_has_value_object_entries) =
+										expand_node_entries(
+											result,
+											has_value_object_entries,
+											active_context.as_ref(),
+											type_scoped_context,
+											active_property,
+											nested_expanded_entries.collect(),
+											base_url,
+											loader,
+											options,
+										)
+										.await?;
+
+									result = new_result;
+									has_value_object_entries = new_has_value_object_entries;
 								} else {
 									return Err(ErrorCode::InvalidNestValue.into());
 								}
@@ -443,7 +464,7 @@ where
 				{
 					let mut container_mapping = Mown::Owned(Container::new());
 
-					let key_definition = active_context.get(key);
+					let key_definition = active_context.get(key.as_ref());
 					let mut is_reverse_property = false;
 					let mut is_json = false;
 
@@ -462,340 +483,368 @@ where
 					}
 
 					let mut expanded_value = if is_json {
-						Expanded::Object(Object::Value(Value::Json(value.clone())).into())
-					} else if value.is_object()
-						&& container_mapping.contains(ContainerType::Language)
-					{
-						// Otherwise, if container mapping includes @language and value is a map then
-						// value is expanded from a language map as follows:
-						// Initialize expanded value to an empty array.
-						let mut expanded_value = Vec::new();
+						Expanded::Object(Object::Value(Value::Json((*value).clone())).into())
+					} else {
+						match value.as_object() {
+							Some(value) if container_mapping.contains(ContainerType::Language) => {
+								// Otherwise, if container mapping includes @language and value is a map then
+								// value is expanded from a language map as follows:
+								// Initialize expanded value to an empty array.
+								let mut expanded_value = Vec::new();
 
-						// Initialize direction to the default base direction from active context.
-						let mut direction = active_context.default_base_direction();
+								// Initialize direction to the default base direction from active context.
+								let mut direction = active_context.default_base_direction();
 
-						// If key's term definition in active context has a
-						// direction mapping, update direction with that value.
-						if let Some(key_definition) = key_definition {
-							if let Some(key_direction) = key_definition.direction {
-								direction = key_direction.option()
-							}
-						}
+								// If key's term definition in active context has a
+								// direction mapping, update direction with that value.
+								if let Some(key_definition) = key_definition {
+									if let Some(key_direction) = key_definition.direction {
+										direction = key_direction.option()
+									}
+								}
 
-						// For each key-value pair language-language value in
-						// value, ordered lexicographically by language if ordered is true:
-						let mut language_entries = Vec::with_capacity(value.len());
-						for (language, language_value) in value.entries() {
-							language_entries.push(Entry(language, language_value));
-						}
+								// For each key-value pair language-language value in
+								// value, ordered lexicographically by language if ordered is true:
+								let mut language_entries: Vec<Entry<J>> =
+									Vec::with_capacity(value.len());
+								for (language, language_value) in value.iter() {
+									language_entries.push(Entry(language, language_value));
+								}
 
-						if options.ordered {
-							language_entries.sort();
-						}
+								if options.ordered {
+									language_entries.sort();
+								}
 
-						for Entry(language, language_value) in language_entries {
-							// If language value is not an array set language value to
-							// an array containing only language value.
-							let language_value = as_array(language_value);
+								for Entry(language, language_value) in language_entries {
+									let language: &str = &*language;
+									// If language value is not an array set language value to
+									// an array containing only language value.
+									let (language_value, _) = as_array(&*language_value);
 
-							// For each item in language value:
-							for item in language_value {
-								match item {
-									// If item is null, continue to the next entry in
-									// language value.
-									JsonValue::Null => (),
-									JsonValue::Short(_) | JsonValue::String(_) => {
-										let item = item.as_str().unwrap();
+									// For each item in language value:
+									for item in language_value {
+										match item.as_value_ref() {
+											// If item is null, continue to the next entry in
+											// language value.
+											ValueRef::Null => (),
+											ValueRef::String(item) => {
+												// If language is @none, or expands to
+												// @none, remove @language from v.
+												let language =
+													if expand_iri(
+														active_context,
+														language,
+														false,
+														true,
+													) == Term::Keyword(Keyword::None)
+													{
+														None
+													} else {
+														match LanguageTagBuf::parse_copy(language) {
+															Ok(lang) => Some(lang),
+															Err(_) => return Err(
+																ErrorCode::InvalidLanguageMapValue
+																	.into(),
+															),
+														}
+													};
 
-										// If language is @none, or expands to
-										// @none, remove @language from v.
-										let language =
-											if expand_iri(active_context, language, false, true)
-												== Term::Keyword(Keyword::None)
-											{
-												None
-											} else {
-												match LanguageTagBuf::parse_copy(language) {
-													Ok(lang) => Some(lang),
-													Err(_) => {
-														return Err(
-															ErrorCode::InvalidLanguageMapValue
-																.into(),
-														)
-													}
+												// initialize a new map v consisting of two
+												// key-value pairs: (@value-item) and
+												// (@language-language).
+												if let Ok(v) = LangString::new(
+													LiteralString::Expanded(item.clone()),
+													language,
+													direction,
+												) {
+													// If item is neither @none nor well-formed
+													// according to section 2.2.9 of [BCP47],
+													// processors SHOULD issue a warning.
+													// TODO warning
+
+													// Append v to expanded value.
+													expanded_value.push(
+														Object::Value(Value::LangString(v)).into(),
+													)
+												} else {
+													expanded_value.push(
+														Object::Value(Value::Literal(
+															Literal::String(
+																LiteralString::Expanded(
+																	item.clone(),
+																),
+															),
+															None,
+														))
+														.into(),
+													)
 												}
-											};
-
-										// initialize a new map v consisting of two
-										// key-value pairs: (@value-item) and
-										// (@language-language).
-										if let Ok(v) =
-											LangString::new(item.to_string(), language, direction)
-										{
-											// If item is neither @none nor well-formed
-											// according to section 2.2.9 of [BCP47],
-											// processors SHOULD issue a warning.
-											// TODO warning
-
-											// Append v to expanded value.
-											expanded_value
-												.push(Object::Value(Value::LangString(v)).into())
-										} else {
-											expanded_value.push(
-												Object::Value(Value::Literal(
-													Literal::String(item.to_string()),
-													None,
-												))
-												.into(),
-											)
+											}
+											_ => {
+												// item must be a string, otherwise an
+												// invalid language map value error has
+												// been detected and processing is aborted.
+												return Err(
+													ErrorCode::InvalidLanguageMapValue.into()
+												);
+											}
 										}
 									}
-									_ => {
-										// item must be a string, otherwise an
-										// invalid language map value error has
-										// been detected and processing is aborted.
-										return Err(ErrorCode::InvalidLanguageMapValue.into());
-									}
 								}
+
+								Expanded::Array(expanded_value)
 							}
-						}
-
-						Expanded::Array(expanded_value)
-					} else if value.is_object() && container_mapping.contains(ContainerType::Index)
-						|| container_mapping.contains(ContainerType::Type)
-						|| container_mapping.contains(ContainerType::Id)
-					{
-						// Otherwise, if container mapping includes @index, @type, or @id and value
-						// is a map then value is expanded from a map as follows:
-
-						// Initialize expanded value to an empty array.
-						let mut expanded_value: Vec<Indexed<Object<T>>> = Vec::new();
-
-						// Initialize `index_key` to the key's index mapping in
-						// `active_context`, or @index, if it does not exist.
-						let index_key = if let Some(key_definition) = key_definition {
-							if let Some(index) = &key_definition.index {
-								index.as_str()
-							} else {
-								"@index"
-							}
-						} else {
-							"@index"
-						};
-
-						// For each key-value pair index-index value in value,
-						// ordered lexicographically by index if ordered is true:
-						let mut entries = Vec::with_capacity(value.len());
-						for (key, value) in value.entries() {
-							entries.push(Entry(key, value))
-						}
-
-						if options.ordered {
-							entries.sort();
-						}
-
-						for Entry(index, index_value) in &entries {
-							// If container mapping includes @id or @type,
-							// initialize `map_context` to the `previous_context`
-							// from `active_context` if it exists, otherwise, set
-							// `map_context` to `active_context`.
-							let mut map_context = Mown::Borrowed(active_context);
-							if container_mapping.contains(ContainerType::Type)
-								|| container_mapping.contains(ContainerType::Id)
+							Some(value)
+								if container_mapping.contains(ContainerType::Index)
+									|| container_mapping.contains(ContainerType::Type)
+									|| container_mapping.contains(ContainerType::Id) =>
 							{
-								if let Some(previous_context) = active_context.previous_context() {
-									map_context = Mown::Borrowed(previous_context)
-								}
-							}
+								// Otherwise, if container mapping includes @index, @type, or @id and value
+								// is a map then value is expanded from a map as follows:
 
-							// If container mapping includes @type and
-							// index's term definition in map context has a
-							// local context, update map context to the result of
-							// the Context Processing algorithm, passing
-							// map context as active context the value of the
-							// index's local context as local context and base URL
-							// from the term definition for index in map context.
-							if container_mapping.contains(ContainerType::Type) {
-								if let Some(index_definition) = map_context.get(index) {
-									if let Some(local_context) = &index_definition.context {
-										let base_url = index_definition
-											.base_url
-											.as_ref()
-											.map(|url| url.as_iri());
-										map_context = Mown::Owned(
-											local_context
-												.process_with(
-													map_context.as_ref(),
-													loader,
-													base_url,
-													options.into(),
-												)
-												.await?
-												.into_inner(),
-										)
+								// Initialize expanded value to an empty array.
+								let mut expanded_value: Vec<Indexed<Object<J, T>>> = Vec::new();
+
+								// Initialize `index_key` to the key's index mapping in
+								// `active_context`, or @index, if it does not exist.
+								let index_key = if let Some(key_definition) = key_definition {
+									if let Some(index) = &key_definition.index {
+										index.as_str()
+									} else {
+										"@index"
 									}
-								}
-							}
-
-							// Otherwise, set map context to active context.
-							// TODO What?
-
-							// Initialize `expanded_index` to the result of IRI
-							// expanding index.
-							let expanded_index =
-								match expand_iri(active_context, index, false, true) {
-									Term::Null | Term::Keyword(Keyword::None) => None,
-									key => Some(key),
+								} else {
+									"@index"
 								};
 
-							// If index value is not an array set index value to
-							// an array containing only index value.
-							// let index_value = as_array(index_value);
-
-							// Initialize index value to the result of using this
-							// algorithm recursively, passing map context as
-							// active context, key as active property,
-							// index value as element, base URL, and the
-							// frameExpansion and ordered flags.
-							// And `true` for `from_map`.
-							let index_value = expand_element(
-								map_context.as_ref(),
-								Some(key),
-								index_value,
-								base_url,
-								loader,
-								options,
-								true,
-							)
-							.await?;
-							// For each item in index value:
-							for mut item in index_value {
-								// If container mapping includes @graph,
-								// and item is not a graph object, set item to
-								// a new map containing the key-value pair
-								// @graph-item, ensuring that the value is
-								// represented using an array.
-								if container_mapping.contains(ContainerType::Graph)
-									&& !item.is_graph()
-								{
-									let mut node = Node::new();
-									let mut graph = HashSet::new();
-									graph.insert(item);
-									node.graph = Some(graph);
-									item = Object::Node(node).into();
+								// For each key-value pair index-index value in value,
+								// ordered lexicographically by index if ordered is true:
+								let mut entries: Vec<Entry<J>> = Vec::with_capacity(value.len());
+								for (key, value) in value.iter() {
+									entries.push(Entry(key, value))
 								}
 
-								if expanded_index.is_some() {
-									// If `container_mapping` includes @index,
-									// index key is not @index, and expanded index is
-									// not @none:
-									// TODO the @none part.
-									if container_mapping.contains(ContainerType::Index)
-										&& index_key != "@index"
-									{
-										// Initialize re-expanded index to the result
-										// of calling the Value Expansion algorithm,
-										// passing the active context, index key as
-										// active property, and index as value.
-										let re_expanded_index = expand_literal(
-											active_context,
-											Some(index_key),
-											&JsonValue::String(index.to_string()),
-										)?;
-										// let re_expanded_index = if let Object::Value(Value::Literal(Literal::String { data, .. }, _), _) = re_expanded_index {
-										// 	data
-										// } else {
-										// 	panic!("invalid index value");
-										// 	return Err(ErrorCode::InvalidIndexValue.into())
-										// };
+								if options.ordered {
+									entries.sort();
+								}
 
-										// Initialize expanded index key to the result
-										// of IRI expanding index key.
-										let expanded_index_key = match expand_iri(
-											active_context,
-											index_key,
-											false,
-											true,
-										) {
-											Term::Ref(prop) => prop,
-											_ => continue,
-										};
-
-										// Add the key-value pair (expanded index
-										// key-index property values) to item.
-										if let Object::Node(ref mut node) = *item {
-											node.insert(expanded_index_key, re_expanded_index);
-										} else {
-											// If item is a value object, it MUST NOT
-											// contain any extra properties; an invalid
-											// value object error has been detected and
-											// processing is aborted.
-											return Err(ErrorCode::InvalidValueObject.into());
-										}
-									} else if container_mapping.contains(ContainerType::Index)
-										&& item.index().is_none()
+								for Entry(index, index_value) in entries {
+									// If container mapping includes @id or @type,
+									// initialize `map_context` to the `previous_context`
+									// from `active_context` if it exists, otherwise, set
+									// `map_context` to `active_context`.
+									let mut map_context = Mown::Borrowed(active_context);
+									if container_mapping.contains(ContainerType::Type)
+										|| container_mapping.contains(ContainerType::Id)
 									{
-										// Otherwise, if container mapping includes
-										// @index, item does not have an entry @index,
-										// and expanded index is not @none, add the
-										// key-value pair (@index-index) to item.
-										item.set_index(Some(index.to_string()))
-									} else if container_mapping.contains(ContainerType::Id)
-										&& item.id().is_none()
-									{
-										// Otherwise, if container mapping includes
-										// @id item does not have the entry @id,
-										// and expanded index is not @none, add the
-										// key-value pair (@id-expanded index) to
-										// item, where expanded index is set to the
-										// result of IRI expanding index using true for
-										// document relative and false for vocab.
-										if let Object::Node(ref mut node) = *item {
-											node.id = node_id_of_term(expand_iri(
-												active_context,
-												index,
-												true,
-												false,
-											));
-										}
-									} else if container_mapping.contains(ContainerType::Type) {
-										// Otherwise, if container mapping includes
-										// @type and expanded index is not @none,
-										// initialize types to a new array consisting
-										// of expanded index followed by any existing
-										// values of @type in item. Add the key-value
-										// pair (@type-types) to item.
-										if let Ok(typ) = expanded_index.clone().unwrap().try_into()
+										if let Some(previous_context) =
+											active_context.previous_context()
 										{
-											if let Object::Node(ref mut node) = *item {
-												node.types.insert(0, typ);
-											}
-										} else {
-											return Err(ErrorCode::InvalidTypeValue.into());
+											map_context = Mown::Borrowed(previous_context)
 										}
+									}
+
+									// If container mapping includes @type and
+									// index's term definition in map context has a
+									// local context, update map context to the result of
+									// the Context Processing algorithm, passing
+									// map context as active context the value of the
+									// index's local context as local context and base URL
+									// from the term definition for index in map context.
+									if container_mapping.contains(ContainerType::Type) {
+										if let Some(index_definition) =
+											map_context.get(index.as_ref())
+										{
+											if let Some(local_context) = &index_definition.context {
+												let base_url = index_definition
+													.base_url
+													.as_ref()
+													.map(|url| url.as_iri());
+												map_context = Mown::Owned(
+													local_context
+														.process_with(
+															map_context.as_ref(),
+															loader,
+															base_url,
+															options.into(),
+														)
+														.await?
+														.into_inner(),
+												)
+											}
+										}
+									}
+
+									// Otherwise, set map context to active context.
+									// TODO What?
+
+									// Initialize `expanded_index` to the result of IRI
+									// expanding index.
+									let expanded_index = match expand_iri(
+										active_context,
+										index.as_ref(),
+										false,
+										true,
+									) {
+										Term::Null | Term::Keyword(Keyword::None) => None,
+										key => Some(key),
+									};
+
+									// If index value is not an array set index value to
+									// an array containing only index value.
+									// let index_value = as_array(index_value);
+
+									// Initialize index value to the result of using this
+									// algorithm recursively, passing map context as
+									// active context, key as active property,
+									// index value as element, base URL, and the
+									// frameExpansion and ordered flags.
+									// And `true` for `from_map`.
+									let index_value = expand_element(
+										map_context.as_ref(),
+										Some(key.as_ref()),
+										&*index_value,
+										base_url,
+										loader,
+										options,
+										true,
+									)
+									.await?;
+									// For each item in index value:
+									for mut item in index_value {
+										// If container mapping includes @graph,
+										// and item is not a graph object, set item to
+										// a new map containing the key-value pair
+										// @graph-item, ensuring that the value is
+										// represented using an array.
+										if container_mapping.contains(ContainerType::Graph)
+											&& !item.is_graph()
+										{
+											let mut node = Node::new();
+											let mut graph = HashSet::new();
+											graph.insert(item);
+											node.graph = Some(graph);
+											item = Object::Node(node).into();
+										}
+
+										if expanded_index.is_some() {
+											// If `container_mapping` includes @index,
+											// index key is not @index, and expanded index is
+											// not @none:
+											// TODO the @none part.
+											if container_mapping.contains(ContainerType::Index)
+												&& index_key != "@index"
+											{
+												// Initialize re-expanded index to the result
+												// of calling the Value Expansion algorithm,
+												// passing the active context, index key as
+												// active property, and index as value.
+												let re_expanded_index = expand_literal(
+													active_context,
+													Some(index_key),
+													LiteralValue::Inferred((&**index).into()),
+												)?;
+
+												// Initialize expanded index key to the result
+												// of IRI expanding index key.
+												let expanded_index_key = match expand_iri(
+													active_context,
+													index_key,
+													false,
+													true,
+												) {
+													Term::Ref(prop) => prop,
+													_ => continue,
+												};
+
+												// Add the key-value pair (expanded index
+												// key-index property values) to item.
+												if let Object::Node(ref mut node) = *item {
+													node.insert(
+														expanded_index_key,
+														re_expanded_index,
+													);
+												} else {
+													// If item is a value object, it MUST NOT
+													// contain any extra properties; an invalid
+													// value object error has been detected and
+													// processing is aborted.
+													return Err(
+														ErrorCode::InvalidValueObject.into()
+													);
+												}
+											} else if container_mapping
+												.contains(ContainerType::Index) && item
+												.index()
+												.is_none()
+											{
+												// Otherwise, if container mapping includes
+												// @index, item does not have an entry @index,
+												// and expanded index is not @none, add the
+												// key-value pair (@index-index) to item.
+												item.set_index(Some((*index).to_string()))
+											} else if container_mapping.contains(ContainerType::Id)
+												&& item.id().is_none()
+											{
+												// Otherwise, if container mapping includes
+												// @id item does not have the entry @id,
+												// and expanded index is not @none, add the
+												// key-value pair (@id-expanded index) to
+												// item, where expanded index is set to the
+												// result of IRI expanding index using true for
+												// document relative and false for vocab.
+												if let Object::Node(ref mut node) = *item {
+													node.id = node_id_of_term(expand_iri(
+														active_context,
+														index.as_ref(),
+														true,
+														false,
+													));
+												}
+											} else if container_mapping
+												.contains(ContainerType::Type)
+											{
+												// Otherwise, if container mapping includes
+												// @type and expanded index is not @none,
+												// initialize types to a new array consisting
+												// of expanded index followed by any existing
+												// values of @type in item. Add the key-value
+												// pair (@type-types) to item.
+												if let Ok(typ) =
+													expanded_index.clone().unwrap().try_into()
+												{
+													if let Object::Node(ref mut node) = *item {
+														node.types.insert(0, typ);
+													}
+												} else {
+													return Err(ErrorCode::InvalidTypeValue.into());
+												}
+											}
+										}
+
+										// Append item to expanded value.
+										expanded_value.push(item)
 									}
 								}
 
-								// Append item to expanded value.
-								expanded_value.push(item)
+								Expanded::Array(expanded_value)
+							}
+							_ => {
+								// Otherwise, initialize expanded value to the result of using this
+								// algorithm recursively, passing active context, key for active property,
+								// value for element, base URL, and the frameExpansion and ordered flags.
+								expand_element(
+									active_context,
+									Some(key.as_ref()),
+									&*value,
+									base_url,
+									loader,
+									options,
+									false,
+								)
+								.await?
 							}
 						}
-
-						Expanded::Array(expanded_value)
-					} else {
-						// Otherwise, initialize expanded value to the result of using this
-						// algorithm recursively, passing active context, key for active property,
-						// value for element, base URL, and the frameExpansion and ordered flags.
-						expand_element(
-							active_context,
-							Some(key),
-							value,
-							base_url,
-							loader,
-							options,
-							false,
-						)
-						.await?
 					};
 
 					// If container mapping includes @list and expanded value is
@@ -840,7 +889,7 @@ where
 							// We must filter out anything that is not an object.
 							let mut reverse_expanded_nodes = Vec::new();
 							for object in expanded_value {
-								match object.try_cast::<Node<T>>() {
+								match object.try_cast::<Node<J, T>>() {
 									Ok(node) => reverse_expanded_nodes.push(node),
 									Err(_) => {
 										return Err(ErrorCode::InvalidReversePropertyValue.into())
@@ -867,7 +916,7 @@ where
 			}
 		}
 
-		Ok(())
+		Ok((result, has_value_object_entries))
 	}
 	.boxed()
 }

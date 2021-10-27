@@ -1,22 +1,31 @@
 use crate::{
 	object,
 	syntax::{Keyword, Term},
-	util, Id, Indexed, Object, Reference, ToReference,
+	util, Id, Indexed, Object, Objects, Reference, ToReference,
 };
+use cc_traits::MapInsert;
+use generic_json::{JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
-use json::JsonValue;
-use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
-/// A node object.
+pub mod properties;
+pub mod reverse_properties;
+
+pub use properties::Properties;
+pub use reverse_properties::ReverseProperties;
+
+/// Node object.
 ///
+/// A node object represents zero or more properties of a node in the graph serialized by a JSON-LD document.
 /// A node is defined by its identifier (`@id` field), types, properties and reverse properties.
 /// In addition, a node may represent a graph (`@graph field`) and includes nodes
 /// (`@included` field).
+// NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
+//      in which case the Json bound should be lifted.
 #[derive(PartialEq, Eq)]
-pub struct Node<T: Id = IriBuf> {
+pub struct Node<J: JsonHash, T: Id = IriBuf> {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
@@ -30,66 +39,52 @@ pub struct Node<T: Id = IriBuf> {
 	/// Associated graph.
 	///
 	/// This is the `@graph` field.
-	pub(crate) graph: Option<HashSet<Indexed<Object<T>>>>,
+	pub(crate) graph: Option<HashSet<Indexed<Object<J, T>>>>,
 
 	/// Included nodes.
 	///
 	/// This is the `@included` field.
-	pub(crate) included: Option<HashSet<Indexed<Node<T>>>>,
+	pub(crate) included: Option<HashSet<Indexed<Self>>>,
 
 	/// Properties.
 	///
 	/// Any non-keyword field.
-	pub(crate) properties: HashMap<Reference<T>, Vec<Indexed<Object<T>>>>,
+	pub(crate) properties: Properties<J, T>,
 
 	/// Reverse properties.
 	///
 	/// This is the `@reverse` field.
-	pub(crate) reverse_properties: HashMap<Reference<T>, Vec<Indexed<Node<T>>>>,
+	pub(crate) reverse_properties: ReverseProperties<J, T>,
 }
 
-/// Iterator through indexed objects.
-pub struct Objects<'a, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<T>>>>);
-
-impl<'a, T: Id> Iterator for Objects<'a, T> {
-	type Item = &'a Indexed<Object<T>>;
-
-	fn next(&mut self) -> Option<&'a Indexed<Object<T>>> {
-		match &mut self.0 {
-			None => None,
-			Some(it) => it.next(),
-		}
-	}
-}
-
-impl<T: Id> Default for Node<T> {
+impl<J: JsonHash, T: Id> Default for Node<J, T> {
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl<T: Id> Node<T> {
-	/// Create a new empty node.
-	pub fn new() -> Node<T> {
-		Node {
+impl<J: JsonHash, T: Id> Node<J, T> {
+	/// Creates a new empty node.
+	pub fn new() -> Self {
+		Self {
 			id: None,
 			types: Vec::new(),
 			graph: None,
 			included: None,
-			properties: HashMap::new(),
-			reverse_properties: HashMap::new(),
+			properties: Properties::new(),
+			reverse_properties: ReverseProperties::new(),
 		}
 	}
 
-	/// Create a new empty node with the given id.
-	pub fn with_id(id: Reference<T>) -> Node<T> {
-		Node {
+	/// Creates a new empty node with the given id.
+	pub fn with_id(id: Reference<T>) -> Self {
+		Self {
 			id: Some(id),
 			types: Vec::new(),
 			graph: None,
 			included: None,
-			properties: HashMap::new(),
-			reverse_properties: HashMap::new(),
+			properties: Properties::new(),
+			reverse_properties: ReverseProperties::new(),
 		}
 	}
 
@@ -98,7 +93,7 @@ impl<T: Id> Node<T> {
 	/// # Example
 	/// ```
 	/// # use json_ld::syntax::{Term, Keyword};
-	/// # let node: json_ld::Node = json_ld::Node::new();
+	/// # let node: json_ld::Node<ijson::IValue> = json_ld::Node::new();
 	///
 	/// // Checks if the JSON object representation of the node has an `@id` key.
 	/// if node.has_key(&Term::Keyword(Keyword::Id)) {
@@ -112,7 +107,7 @@ impl<T: Id> Node<T> {
 			Term::Keyword(Keyword::Graph) => self.graph.is_some(),
 			Term::Keyword(Keyword::Included) => self.included.is_some(),
 			Term::Keyword(Keyword::Reverse) => !self.reverse_properties.is_empty(),
-			Term::Ref(prop) => self.properties.get(prop).is_some(),
+			Term::Ref(prop) => self.properties.contains(prop),
 			_ => false,
 		}
 	}
@@ -146,9 +141,6 @@ impl<T: Id> Node<T> {
 	}
 
 	/// Get the list of the node's types.
-	///
-	/// This returns a list of `Lenient` types, including malformed types that are not
-	/// IRIs of blank node identifiers.
 	pub fn types(&self) -> &[Reference<T>] {
 		self.types.as_ref()
 	}
@@ -195,107 +187,88 @@ impl<T: Id> Node<T> {
 	}
 
 	/// If the node is a graph object, get the graph.
-	pub fn graph(&self) -> Option<&HashSet<Indexed<Object<T>>>> {
+	pub fn graph(&self) -> Option<&HashSet<Indexed<Object<J, T>>>> {
 		self.graph.as_ref()
 	}
 
 	/// If the node is a graph object, get the mutable graph.
-	pub fn graph_mut(&mut self) -> Option<&mut HashSet<Indexed<Object<T>>>> {
+	pub fn graph_mut(&mut self) -> Option<&mut HashSet<Indexed<Object<J, T>>>> {
 		self.graph.as_mut()
 	}
 
 	/// Set the graph.
-	pub fn set_graph(&mut self, graph: Option<HashSet<Indexed<Object<T>>>>) {
+	pub fn set_graph(&mut self, graph: Option<HashSet<Indexed<Object<J, T>>>>) {
 		self.graph = graph
 	}
 
 	/// Get the set of nodes included by this node.
 	///
 	/// This correspond to the `@included` field in the JSON representation.
-	pub fn included(&self) -> Option<&HashSet<Indexed<Node<T>>>> {
+	pub fn included(&self) -> Option<&HashSet<Indexed<Self>>> {
 		self.included.as_ref()
 	}
 
 	/// Get the mutable set of nodes included by this node.
 	///
 	/// This correspond to the `@included` field in the JSON representation.
-	pub fn included_mut(&mut self) -> Option<&mut HashSet<Indexed<Node<T>>>> {
+	pub fn included_mut(&mut self) -> Option<&mut HashSet<Indexed<Self>>> {
 		self.included.as_mut()
 	}
 
 	/// Set the set of nodes included by the node.
-	pub fn set_included(&mut self, included: Option<HashSet<Indexed<Node<T>>>>) {
+	pub fn set_included(&mut self, included: Option<HashSet<Indexed<Self>>>) {
 		self.included = included
 	}
 
+	/// Returns the properties of the node.
+	pub fn properties(&self) -> &Properties<J, T> {
+		&self.properties
+	}
+
 	/// Get all the objects associated to the node with the given property.
-	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Objects<T>
+	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Objects<J, T>
 	where
 		T: 'a,
 	{
-		match self.properties.get(prop.to_ref().borrow()) {
-			Some(values) => Objects(Some(values.iter())),
-			None => Objects(None),
-		}
+		self.properties.get(prop)
 	}
 
 	/// Get one of the objects associated to the node with the given property.
 	///
-	/// If multiple objects are attaced to the node with this property, there are no guaranties
+	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
-	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Object<T>>>
+	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Object<J, T>>>
 	where
 		T: 'a,
 	{
-		match self.properties.get(prop.to_ref().borrow()) {
-			Some(values) => values.iter().next(),
-			None => None,
-		}
+		self.properties.get_any(prop)
 	}
 
 	/// Associate the given object to the node through the given property.
-	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Object<T>>) {
-		if let Some(node_values) = self.properties.get_mut(&prop) {
-			node_values.push(value);
-		} else {
-			let node_values = vec![value];
-			self.properties.insert(prop, node_values);
-		}
+	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Object<J, T>>) {
+		self.properties.insert(prop, value)
 	}
 
 	/// Associate all the given objects to the node through the given property.
-	pub fn insert_all<Objects: Iterator<Item = Indexed<Object<T>>>>(
+	pub fn insert_all<Objects: Iterator<Item = Indexed<Object<J, T>>>>(
 		&mut self,
 		prop: Reference<T>,
 		values: Objects,
 	) {
-		if let Some(node_values) = self.properties.get_mut(&prop) {
-			node_values.extend(values);
-		} else {
-			self.properties.insert(prop, values.collect());
-		}
+		self.properties.insert_all(prop, values)
 	}
 
-	pub fn insert_reverse(&mut self, reverse_prop: Reference<T>, reverse_value: Indexed<Node<T>>) {
-		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
-			node_values.push(reverse_value);
-		} else {
-			let node_values = vec![reverse_value];
-			self.reverse_properties.insert(reverse_prop, node_values);
-		}
+	pub fn insert_reverse(&mut self, reverse_prop: Reference<T>, reverse_value: Indexed<Self>) {
+		self.reverse_properties.insert(reverse_prop, reverse_value)
 	}
 
-	pub fn insert_all_reverse<Nodes: Iterator<Item = Indexed<Node<T>>>>(
+	pub fn insert_all_reverse<Nodes: Iterator<Item = Indexed<Self>>>(
 		&mut self,
 		reverse_prop: Reference<T>,
 		reverse_values: Nodes,
 	) {
-		if let Some(node_values) = self.reverse_properties.get_mut(&reverse_prop) {
-			node_values.extend(reverse_values);
-		} else {
-			self.reverse_properties
-				.insert(reverse_prop, reverse_values.collect());
-		}
+		self.reverse_properties
+			.insert_all(reverse_prop, reverse_values)
 	}
 
 	/// Tests if the node is an unnamed graph object.
@@ -315,7 +288,7 @@ impl<T: Id> Node<T> {
 	///
 	/// The unnamed graph is returned as a set of indexed objects.
 	/// Fails and returns itself if the node is *not* an unnamed graph.
-	pub fn into_unnamed_graph(self) -> Result<HashSet<Indexed<Object<T>>>, Node<T>> {
+	pub fn into_unnamed_graph(self) -> Result<HashSet<Indexed<Object<J, T>>>, Self> {
 		if self.is_unnamed_graph() {
 			Ok(self.graph.unwrap())
 		} else {
@@ -324,16 +297,16 @@ impl<T: Id> Node<T> {
 	}
 }
 
-impl<T: Id> object::Any<T> for Node<T> {
-	fn as_ref(&self) -> object::Ref<T> {
+impl<J: JsonHash, T: Id> object::Any<J, T> for Node<J, T> {
+	fn as_ref(&self) -> object::Ref<J, T> {
 		object::Ref::Node(self)
 	}
 }
 
-impl<T: Id> TryFrom<Object<T>> for Node<T> {
-	type Error = Object<T>;
+impl<J: JsonHash, T: Id> TryFrom<Object<J, T>> for Node<J, T> {
+	type Error = Object<J, T>;
 
-	fn try_from(obj: Object<T>) -> Result<Node<T>, Object<T>> {
+	fn try_from(obj: Object<J, T>) -> Result<Node<J, T>, Object<J, T>> {
 		match obj {
 			Object::Node(node) => Ok(node),
 			obj => Err(obj),
@@ -341,50 +314,103 @@ impl<T: Id> TryFrom<Object<T>> for Node<T> {
 	}
 }
 
-impl<T: Id> Hash for Node<T> {
+impl<J: JsonHash, T: Id> Hash for Node<J, T> {
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		self.id.hash(h);
 		self.types.hash(h);
 		util::hash_set_opt(&self.graph, h);
 		util::hash_set_opt(&self.included, h);
-		util::hash_map(&self.properties, h);
-		util::hash_map(&self.reverse_properties, h);
+		self.properties.hash(h);
+		self.reverse_properties.hash(h)
 	}
 }
 
-impl<T: Id> util::AsJson for Node<T> {
-	fn as_json(&self) -> JsonValue {
-		let mut obj = json::object::Object::new();
+impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Node<J, T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		let mut obj = K::Object::default();
 
 		if let Some(id) = &self.id {
-			obj.insert(Keyword::Id.into(), id.as_json());
+			obj.insert(
+				K::new_key(Keyword::Id.into_str(), meta(None)),
+				id.as_json_with(meta.clone()),
+			);
 		}
 
 		if !self.types.is_empty() {
-			obj.insert(Keyword::Type.into(), self.types.as_json())
+			obj.insert(
+				K::new_key(Keyword::Type.into_str(), meta(None)),
+				self.types.as_json_with(meta.clone()),
+			);
 		}
 
 		if let Some(graph) = &self.graph {
-			obj.insert(Keyword::Graph.into(), graph.as_json())
+			obj.insert(
+				K::new_key(Keyword::Graph.into_str(), meta(None)),
+				graph.as_json_with(meta.clone()),
+			);
 		}
 
 		if let Some(included) = &self.included {
-			obj.insert(Keyword::Included.into(), included.as_json())
+			obj.insert(
+				K::new_key(Keyword::Included.into_str(), meta(None)),
+				included.as_json_with(meta.clone()),
+			);
 		}
 
 		if !self.reverse_properties.is_empty() {
-			let mut reverse = json::object::Object::new();
+			let mut reverse = K::Object::default();
 			for (key, value) in &self.reverse_properties {
-				reverse.insert(key.as_str(), value.as_json())
+				reverse.insert(
+					K::new_key(key.as_str(), meta(None)),
+					value.as_json_with(meta.clone()),
+				);
 			}
 
-			obj.insert(Keyword::Reverse.into(), JsonValue::Object(reverse))
+			obj.insert(
+				K::new_key(Keyword::Reverse.into_str(), meta(None)),
+				K::object(reverse, meta(None)),
+			);
 		}
 
 		for (key, value) in &self.properties {
-			obj.insert(key.as_str(), value.as_json())
+			obj.insert(
+				K::new_key(key.as_str(), meta(None)),
+				value.as_json_with(meta.clone()),
+			);
 		}
 
-		JsonValue::Object(obj)
+		K::object(obj, meta(None))
+	}
+}
+
+impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K>
+	for HashSet<Indexed<Node<J, T>>>
+{
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		let array = self
+			.iter()
+			.map(|value| value.as_json_with(meta.clone()))
+			.collect();
+		K::array(array, meta(None))
+	}
+}
+
+/// Iterator through indexed nodes.
+pub struct Nodes<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Node<J, T>>>>);
+
+impl<'a, J: JsonHash, T: Id> Nodes<'a, J, T> {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Indexed<Node<J, T>>>>) -> Self {
+		Self(inner)
+	}
+}
+
+impl<'a, J: JsonHash, T: Id> Iterator for Nodes<'a, J, T> {
+	type Item = &'a Indexed<Node<J, T>>;
+
+	fn next(&mut self) -> Option<&'a Indexed<Node<J, T>>> {
+		match &mut self.0 {
+			None => None,
+			Some(it) => it.next(),
+		}
 	}
 }

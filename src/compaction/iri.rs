@@ -5,48 +5,48 @@ use crate::{
 	syntax::{Container, Term, Type},
 	Context, Error, ErrorCode, Id, Indexed, Nullable, Object, ProcessingMode, Value,
 };
-use json::JsonValue;
+use generic_json::{JsonClone, JsonHash};
 
 /// Compact the given term without considering any value.
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
-pub(crate) fn compact_iri<'a, T: 'a + Id, C: Context<T>>(
+pub(crate) fn compact_iri<'a, J: JsonHash, T: 'a + Id, C: Context<T>>(
 	active_context: Inversible<T, &C>,
 	var: &Term<T>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<JsonValue, Error> {
-	compact_iri_full::<T, C, Object<T>>(active_context, var, None, vocab, reverse, options)
+) -> Result<Option<String>, Error> {
+	compact_iri_full::<J, T, C, Object<J, T>>(active_context, var, None, vocab, reverse, options)
 }
 
 /// Compact the given term considering the given value object.
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
-pub(crate) fn compact_iri_with<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>(
+pub(crate) fn compact_iri_with<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: object::Any<J, T>>(
 	active_context: Inversible<T, &C>,
 	var: &Term<T>,
 	value: &Indexed<N>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<JsonValue, Error> {
+) -> Result<Option<String>, Error> {
 	compact_iri_full(active_context, var, Some(value), vocab, reverse, options)
 }
 
 /// Compact the given term.
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
-pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>(
+pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: object::Any<J, T>>(
 	active_context: Inversible<T, &C>,
 	var: &Term<T>,
 	value: Option<&Indexed<N>>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<JsonValue, Error> {
+) -> Result<Option<String>, Error> {
 	if var.is_null() {
-		return Ok(JsonValue::Null);
+		return Ok(None);
 	}
 
 	if vocab {
@@ -272,7 +272,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 								{
 									has_id_type = true;
 									let mut vocab = false;
-									let compacted_iri = compact_iri(
+									let compacted_iri = compact_iri::<J, _, _>(
 										active_context.clone(),
 										&id.clone().into_term(),
 										true,
@@ -280,7 +280,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 										options,
 									)?;
 									if let Some(def) =
-										active_context.get(compacted_iri.as_str().unwrap())
+										active_context.get(compacted_iri.as_ref().unwrap())
 									{
 										if let Some(iri_mapping) = &def.value {
 											vocab = iri_mapping == id;
@@ -333,7 +333,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 			};
 
 			if let Some(term) = entry.select(&containers, &selection) {
-				return Ok(term.into());
+				return Ok(Some(term.into()));
 			}
 		}
 
@@ -345,7 +345,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 			// definition in active context, then return suffix.
 			if let Some(suffix) = var.as_str().strip_prefix(vocab_mapping.as_str()) {
 				if !suffix.is_empty() && active_context.get(suffix).is_none() {
-					return Ok(suffix.into());
+					return Ok(Some(suffix.into()));
 				}
 			}
 		}
@@ -398,7 +398,7 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 
 	// If compact IRI is not null, return compact IRI.
 	if !compact_iri.is_empty() {
-		return Ok(compact_iri.into());
+		return Ok(Some(compact_iri.as_str().into()));
 	}
 
 	// To ensure that the IRI var is not confused with a compact IRI,
@@ -417,11 +417,11 @@ pub(crate) fn compact_iri_full<'a, T: 'a + Id, C: Context<T>, N: object::Any<T>>
 	if !vocab {
 		if let Some(base_iri) = active_context.base_iri() {
 			if let Some(iri) = var.as_iri() {
-				return Ok(iri.relative_to(base_iri).as_str().into());
+				return Ok(Some(iri.relative_to(base_iri).as_str().into()));
 			}
 		}
 	}
 
 	// Finally, return var as is.
-	Ok(var.as_str().into())
+	Ok(Some(var.as_str().into()))
 }
