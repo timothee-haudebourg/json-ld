@@ -6,7 +6,7 @@ use crate::{
 	},
 	object,
 	syntax::{ContainerType, Keyword, Term},
-	util::{AsJson, AsAnyJson, JsonFrom},
+	util::{AsAnyJson, AsJson, JsonFrom},
 	ContextMut, Error, Id, Indexed, Object, ProcessingMode, Value,
 };
 use futures::future::{BoxFuture, FutureExt};

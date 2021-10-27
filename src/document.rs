@@ -206,7 +206,7 @@ pub trait Document<T: Id> {
 					// This should never be triggered unless some user
 					// uses a custom faulty `Compact` implementation.
 					panic!("invalid compact document")
-				},
+				}
 			};
 
 			if !map.is_empty()

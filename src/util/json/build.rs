@@ -16,7 +16,7 @@ pub trait AsJson<J: JsonClone, K: JsonFrom<J>> {
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K;
 
 	/// Converts this value into a `K` JSON value.
-	/// 
+	///
 	/// The `K` value is annotated with the default value of `K::MetaData`.
 	fn as_json(&self) -> K
 	where

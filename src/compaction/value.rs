@@ -2,7 +2,7 @@ use super::{compact_iri, JsonSrc, Options};
 use crate::{
 	context::{self, Inversible, Loader, Local},
 	syntax::{Container, ContainerType, Keyword, Term, Type},
-	util::{AsJson, AsAnyJson, JsonFrom},
+	util::{AsAnyJson, AsJson, JsonFrom},
 	ContextMut, Error, Id, Reference, Value,
 };
 

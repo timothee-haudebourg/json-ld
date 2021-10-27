@@ -6,10 +6,10 @@ mod json;
 pub use self::json::*;
 
 /// Hash a [`HashSet`].
-/// 
+///
 /// The standard library does not provide (yet) a `Hash` implementation
 /// for the [`HashSet`] type. This can be used instead.
-/// 
+///
 /// Note that this function not particularly strong and does
 /// not protect against DoS attacks.
 pub fn hash_set<T: Hash, H: Hasher>(set: &HashSet<T>, hasher: &mut H) {
@@ -35,10 +35,10 @@ pub fn hash_set_opt<T: Hash, H: Hasher>(set_opt: &Option<HashSet<T>>, hasher: &m
 }
 
 /// Hash a [`HashMap`].
-/// 
+///
 /// The standard library does not provide (yet) a `Hash` implementation
 /// for the [`HashMap`] type. This can be used instead.
-/// 
+///
 /// Note that this function not particularly strong and does
 /// not protect against DoS attacks.
 pub fn hash_map<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H) {
