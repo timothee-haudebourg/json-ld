@@ -1,3 +1,4 @@
+//! Compaction algorithm and related types.
 use crate::{
 	context::{
 		self,
@@ -13,7 +14,7 @@ use futures::future::{BoxFuture, FutureExt};
 use generic_json::{JsonBuild, JsonClone, JsonHash, JsonMut, JsonSendSync};
 use std::collections::HashSet;
 
-/// Compaction source JSON type.
+/// JSON type that can be used by the compaction algorithm.
 pub trait JsonSrc = JsonClone + JsonHash + JsonSendSync;
 
 mod iri;
@@ -33,11 +34,21 @@ fn optional_string<K: JsonBuild>(s: Option<String>, meta: K::MetaData) -> K {
 	}
 }
 
+/// Compaction options.
 #[derive(Clone, Copy)]
 pub struct Options {
+	/// JSON-LD processing mode.
 	pub processing_mode: ProcessingMode,
+
+	/// Determines if IRIs are compacted relative to the provided base IRI or document location when compacting.
 	pub compact_to_relative: bool,
+
+	/// If set to `true`, arrays with just one element are replaced with that element during compaction.
+	/// If set to `false`, all arrays will remain arrays even if they have just one element.
 	pub compact_arrays: bool,
+
+	/// If set to `true`, properties are processed by lexical order.
+	/// If `false`, order is not considered in processing.
 	pub ordered: bool,
 }
 
@@ -73,8 +84,12 @@ impl Default for Options {
 
 /// Type that can be compacted.
 pub trait Compact<J: JsonSrc, T: Id> {
-	/// Compact a JSON-LD document into a `K` JSON value.
-	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+	/// Compact a JSON-LD document into a `K` JSON value with the provided
+	/// type scoped context, active property and options.
+	/// 
+	/// Unless you know what you are doing, you will probably prefer
+	/// to use the [`compact`](Compact::compact) and [`compact_with`](Compact::compact_with) functions.
+	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,
@@ -91,6 +106,42 @@ pub trait Compact<J: JsonSrc, T: Id> {
 		L: Sync + Send,
 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData;
 
+	/// Compact a JSON-LD document into a `K` JSON value with the provided options.
+	/// 
+	/// This calls [`compact_full`](Compact::compact_full) with `active_context`
+	/// as type scoped context.
+	#[inline(always)]
+	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+		&'a self,
+		active_context: Inversible<T, &'a C>,
+		loader: &'a mut L,
+		options: Options,
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
+	where
+		Self: Sync,
+		T: 'a + Sync + Send,
+		C: Sync + Send,
+		C::LocalContext: Send + Sync + From<L::Output>,
+		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData
+	{
+		async move {
+			self.compact_full(
+				active_context.clone(),
+				active_context,
+				None,
+				loader,
+				options,
+				meta,
+			)
+			.await
+		}
+		.boxed()
+	}
+
+	/// Compact a JSON-LD document into a `K` JSON value with the default options.
+	#[inline(always)]
 	fn compact<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
@@ -105,18 +156,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 		L: Sync + Send,
 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
-		async move {
-			self.compact_with(
-				active_context.clone(),
-				active_context,
-				None,
-				loader,
-				Options::default(),
-				meta,
-			)
-			.await
-		}
-		.boxed()
+		self.compact_with(active_context, loader, Options::default(), meta)
 	}
 }
 
@@ -125,8 +165,10 @@ enum TypeLangValue<'a, T: Id> {
 	Lang(LangSelection<'a>),
 }
 
+/// Type that can be compacted with an index.
 pub trait CompactIndexed<J: JsonSrc, T: Id> {
-	fn compact_indexed_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+	/// Compact with the given optional index.
+	fn compact_indexed<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		index: Option<&'a str>,
 		active_context: Inversible<T, &'a C>,
@@ -148,7 +190,7 @@ pub trait CompactIndexed<J: JsonSrc, T: Id> {
 impl<J: JsonSrc, T: Sync + Send + Id, V: Sync + Send + CompactIndexed<J, T>> Compact<J, T>
 	for Indexed<V>
 {
-	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,
@@ -165,7 +207,7 @@ impl<J: JsonSrc, T: Sync + Send + Id, V: Sync + Send + CompactIndexed<J, T>> Com
 		L: Sync + Send,
 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
-		self.inner().compact_indexed_with(
+		self.inner().compact_indexed(
 			self.index(),
 			active_context,
 			type_scoped_context,
@@ -180,7 +222,7 @@ impl<J: JsonSrc, T: Sync + Send + Id, V: Sync + Send + CompactIndexed<J, T>> Com
 impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> CompactIndexed<J, T>
 	for N
 {
-	fn compact_indexed_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+	fn compact_indexed<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		index: Option<&'a str>,
 		active_context: Inversible<T, &'a C>,
@@ -425,7 +467,7 @@ where
 
 		for item in items {
 			let compacted_item: K = item
-				.compact_with(
+				.compact_full(
 					active_context.clone(),
 					type_scoped_context.clone(),
 					active_property,
@@ -468,7 +510,7 @@ where
 }
 
 impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for HashSet<Indexed<Object<J, T>>> {
-	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: Inversible<T, &'a C>,
 		type_scoped_context: Inversible<T, &'a C>,

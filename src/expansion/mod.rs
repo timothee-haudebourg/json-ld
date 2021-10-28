@@ -1,4 +1,4 @@
-//! Expansion algorithm and types.
+//! Expansion algorithm and related types.
 use crate::{
 	context::{Loader, ProcessingOptions},
 	ContextMut, Error, Id, Indexed, Object, ProcessingMode,

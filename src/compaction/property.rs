@@ -143,7 +143,7 @@ where
 		.graph
 		.as_ref()
 		.unwrap()
-		.compact_with(
+		.compact_full(
 			active_context.clone(),
 			active_context.clone(),
 			Some(item_active_property),
@@ -524,7 +524,7 @@ where
 				}
 				_ => {
 					let mut compacted_item: K = expanded_item
-						.compact_with(
+						.compact_full(
 							active_context.clone(),
 							active_context.clone(),
 							Some(item_active_property.as_str()),
@@ -747,7 +747,7 @@ where
 										expanded_item.id().unwrap().clone(),
 									));
 									compacted_item = obj
-										.compact_indexed_with(
+										.compact_indexed(
 											None,
 											active_context.clone(),
 											active_context.clone(),

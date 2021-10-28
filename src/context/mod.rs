@@ -1,4 +1,4 @@
-//! Context processing algorithm and types.
+//! Context processing algorithm and related types.
 
 mod definition;
 pub mod inverse;

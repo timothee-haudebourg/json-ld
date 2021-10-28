@@ -19,7 +19,8 @@ pub type ExpandedDocument<J, T> = HashSet<Indexed<Object<J, T>>>;
 
 /// JSON-LD document.
 ///
-/// This trait represent a JSON-LD document that can be expanded into an [`ExpandedDocument`].
+/// This trait represent a JSON-LD document that can be expanded into an [`ExpandedDocument`]
+/// or compacted. It is the main entry point to the JSON-LD API.
 /// It is notably implemented for any type implementing the [generic_json::Json] trait.
 pub trait Document<T: Id> {
 	type Json: Json;
@@ -157,7 +158,7 @@ pub trait Document<T: Id> {
 					.into_iter()
 					.next()
 					.unwrap()
-					.compact_with(
+					.compact_full(
 						context.clone(),
 						context.clone(),
 						None,
@@ -168,7 +169,7 @@ pub trait Document<T: Id> {
 					.await?
 			} else {
 				expanded
-					.compact_with(
+					.compact_full(
 						context.clone(),
 						context.clone(),
 						None,
