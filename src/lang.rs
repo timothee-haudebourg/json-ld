@@ -46,16 +46,19 @@ impl<J: Json> LangString<J> {
 	}
 
 	/// Reference to the underlying `str`.
+	#[inline(always)]
 	pub fn as_string(&self) -> &LiteralString<J> {
 		&self.data
 	}
 
 	/// Reference to the underlying `str`.
+	#[inline(always)]
 	pub fn as_str(&self) -> &str {
 		self.data.as_ref()
 	}
 
 	/// Gets the associated language tag, if any.
+	#[inline(always)]
 	pub fn language(&self) -> Option<LanguageTag> {
 		self.language.as_ref().map(|tag| tag.as_ref())
 	}
@@ -77,6 +80,7 @@ impl<J: Json> LangString<J> {
 	}
 
 	/// Gets the associated direction, if any.
+	#[inline(always)]
 	pub fn direction(&self) -> Option<Direction> {
 		self.direction
 	}

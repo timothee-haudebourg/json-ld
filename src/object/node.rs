@@ -58,6 +58,7 @@ pub struct Node<J: JsonHash, T: Id = IriBuf> {
 }
 
 impl<J: JsonHash, T: Id> Default for Node<J, T> {
+	#[inline(always)]
 	fn default() -> Self {
 		Self::new()
 	}
@@ -65,6 +66,7 @@ impl<J: JsonHash, T: Id> Default for Node<J, T> {
 
 impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Creates a new empty node.
+	#[inline(always)]
 	pub fn new() -> Self {
 		Self {
 			id: None,
@@ -77,6 +79,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	}
 
 	/// Creates a new empty node with the given id.
+	#[inline(always)]
 	pub fn with_id(id: Reference<T>) -> Self {
 		Self {
 			id: Some(id),
@@ -100,6 +103,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	///   // ...
 	/// }
 	/// ```
+	#[inline(always)]
 	pub fn has_key(&self, key: &Term<T>) -> bool {
 		match key {
 			Term::Keyword(Keyword::Id) => self.id.is_some(),
@@ -115,6 +119,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Get the identifier of the node.
 	///
 	/// This correspond to the `@id` field of the JSON object.
+	#[inline(always)]
 	pub fn id(&self) -> Option<&Reference<T>> {
 		self.id.as_ref()
 	}
@@ -122,6 +127,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Get the node's as an IRI if possible.
 	///
 	/// Returns the node's IRI id if any. Returns `None` otherwise.
+	#[inline(always)]
 	pub fn as_iri(&self) -> Option<Iri> {
 		if let Some(id) = &self.id {
 			id.as_iri()
@@ -133,6 +139,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Get the node's id, is any, as a string slice.
 	///
 	/// Returns `None` if the node has no `@id` field.
+	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self.as_iri() {
 			Some(iri) => Some(iri.into_str()),
@@ -141,11 +148,13 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	}
 
 	/// Get the list of the node's types.
+	#[inline(always)]
 	pub fn types(&self) -> &[Reference<T>] {
 		self.types.as_ref()
 	}
 
 	/// Checks if the node has the given type.
+	#[inline]
 	pub fn has_type<U>(&self, ty: &U) -> bool
 	where
 		Reference<T>: PartialEq<U>,
@@ -162,6 +171,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Tests if the node is empty.
 	///
 	/// It is empty is every field other than `@id` is empty.
+	#[inline]
 	pub fn is_empty(&self) -> bool {
 		self.types.is_empty()
 			&& self.graph.is_none()
@@ -173,6 +183,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Tests if the node is a graph object (has a `@graph` field, and optionally an `@id` field).
 	/// Note that node objects may have a @graph entry,
 	/// but are not considered graph objects if they include any other entries other than `@id`.
+	#[inline]
 	pub fn is_graph(&self) -> bool {
 		self.graph.is_some()
 			&& self.types.is_empty()
@@ -182,21 +193,25 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	}
 
 	/// Tests if the node is a simple graph object (a graph object without `@id` field)
+	#[inline(always)]
 	pub fn is_simple_graph(&self) -> bool {
 		self.id.is_none() && self.is_graph()
 	}
 
 	/// If the node is a graph object, get the graph.
+	#[inline(always)]
 	pub fn graph(&self) -> Option<&HashSet<Indexed<Object<J, T>>>> {
 		self.graph.as_ref()
 	}
 
 	/// If the node is a graph object, get the mutable graph.
+	#[inline(always)]
 	pub fn graph_mut(&mut self) -> Option<&mut HashSet<Indexed<Object<J, T>>>> {
 		self.graph.as_mut()
 	}
 
 	/// Set the graph.
+	#[inline(always)]
 	pub fn set_graph(&mut self, graph: Option<HashSet<Indexed<Object<J, T>>>>) {
 		self.graph = graph
 	}
@@ -204,6 +219,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Get the set of nodes included by this node.
 	///
 	/// This correspond to the `@included` field in the JSON representation.
+	#[inline(always)]
 	pub fn included(&self) -> Option<&HashSet<Indexed<Self>>> {
 		self.included.as_ref()
 	}
@@ -211,16 +227,19 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	/// Get the mutable set of nodes included by this node.
 	///
 	/// This correspond to the `@included` field in the JSON representation.
+	#[inline(always)]
 	pub fn included_mut(&mut self) -> Option<&mut HashSet<Indexed<Self>>> {
 		self.included.as_mut()
 	}
 
 	/// Set the set of nodes included by the node.
+	#[inline(always)]
 	pub fn set_included(&mut self, included: Option<HashSet<Indexed<Self>>>) {
 		self.included = included
 	}
 
 	/// Returns a reference to the properties of the node.
+	#[inline(always)]
 	pub fn properties(&self) -> &Properties<J, T> {
 		&self.properties
 	}
@@ -232,6 +251,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	}
 
 	/// Get all the objects associated to the node with the given property.
+	#[inline(always)]
 	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Objects<J, T>
 	where
 		T: 'a,
@@ -243,6 +263,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	///
 	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
+	#[inline(always)]
 	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Object<J, T>>>
 	where
 		T: 'a,
@@ -250,12 +271,17 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		self.properties.get_any(prop)
 	}
 
-	/// Associate the given object to the node through the given property.
+	/// Associates the given object to the node through the given property.
+	#[inline(always)]
 	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Object<J, T>>) {
 		self.properties.insert(prop, value)
 	}
 
-	/// Associate all the given objects to the node through the given property.
+	/// Associates all the given objects to the node through the given property.
+	/// 
+	/// If there already exists objects associated to the given reverse property,
+	/// `reverse_value` is added to the list. Duplicate objects are not removed.
+	#[inline(always)]
 	pub fn insert_all<Objects: Iterator<Item = Indexed<Object<J, T>>>>(
 		&mut self,
 		prop: Reference<T>,
@@ -264,10 +290,17 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		self.properties.insert_all(prop, values)
 	}
 
+	/// Associates the given node to the reverse property.
+	/// 
+	/// If there already exists nodes associated to the given reverse property,
+	/// `reverse_value` is added to the list. Duplicate nodes are not removed.
+	#[inline(always)]
 	pub fn insert_reverse(&mut self, reverse_prop: Reference<T>, reverse_value: Indexed<Self>) {
 		self.reverse_properties.insert(reverse_prop, reverse_value)
 	}
 
+	/// Associates all the given nodes to the reverse property.
+	#[inline(always)]
 	pub fn insert_all_reverse<Nodes: Iterator<Item = Indexed<Self>>>(
 		&mut self,
 		reverse_prop: Reference<T>,
@@ -281,6 +314,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	///
 	/// Returns `true` is the only field of the object is a `@graph` field.
 	/// Returns `false` otherwise.
+	#[inline]
 	pub fn is_unnamed_graph(&self) -> bool {
 		self.graph.is_some()
 			&& self.id.is_none()
@@ -294,6 +328,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	///
 	/// The unnamed graph is returned as a set of indexed objects.
 	/// Fails and returns itself if the node is *not* an unnamed graph.
+	#[inline(always)]
 	pub fn into_unnamed_graph(self) -> Result<HashSet<Indexed<Object<J, T>>>, Self> {
 		if self.is_unnamed_graph() {
 			Ok(self.graph.unwrap())
@@ -304,6 +339,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 }
 
 impl<J: JsonHash, T: Id> object::Any<J, T> for Node<J, T> {
+	#[inline(always)]
 	fn as_ref(&self) -> object::Ref<J, T> {
 		object::Ref::Node(self)
 	}
@@ -312,6 +348,7 @@ impl<J: JsonHash, T: Id> object::Any<J, T> for Node<J, T> {
 impl<J: JsonHash, T: Id> TryFrom<Object<J, T>> for Node<J, T> {
 	type Error = Object<J, T>;
 
+	#[inline(always)]
 	fn try_from(obj: Object<J, T>) -> Result<Node<J, T>, Object<J, T>> {
 		match obj {
 			Object::Node(node) => Ok(node),
@@ -321,6 +358,7 @@ impl<J: JsonHash, T: Id> TryFrom<Object<J, T>> for Node<J, T> {
 }
 
 impl<J: JsonHash, T: Id> Hash for Node<J, T> {
+	#[inline]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		self.id.hash(h);
 		self.types.hash(h);
@@ -392,6 +430,7 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> fo
 impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K>
 	for HashSet<Indexed<Node<J, T>>>
 {
+	#[inline(always)]
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		let array = self
 			.iter()
@@ -405,6 +444,7 @@ impl<J: JsonHash + JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K>
 pub struct Nodes<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Node<J, T>>>>);
 
 impl<'a, J: JsonHash, T: Id> Nodes<'a, J, T> {
+	#[inline(always)]
 	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Indexed<Node<J, T>>>>) -> Self {
 		Self(inner)
 	}
@@ -413,6 +453,7 @@ impl<'a, J: JsonHash, T: Id> Nodes<'a, J, T> {
 impl<'a, J: JsonHash, T: Id> Iterator for Nodes<'a, J, T> {
 	type Item = &'a Indexed<Node<J, T>>;
 
+	#[inline(always)]
 	fn next(&mut self) -> Option<&'a Indexed<Node<J, T>>> {
 		match &mut self.0 {
 			None => None,

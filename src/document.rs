@@ -86,6 +86,7 @@ pub trait Document<T: Id> {
 	/// # Ok(())
 	/// # }
 	/// ```
+	#[inline(always)]
 	fn expand<'a, C: 'a + ContextMut<T>, L: Loader>(
 		&'a self,
 		loader: &'a mut L,
@@ -221,6 +222,7 @@ pub trait Document<T: Id> {
 	}
 
 	/// Compact the document.
+	#[inline(always)]
 	fn compact<'a, C: ContextMutProxy<T> + AsJson<Self::Json, Self::Json>, L: Loader>(
 		&'a self,
 		context: &'a C,
@@ -256,10 +258,12 @@ impl<J: Json, T: Id> Document<T> for J {
 	/// Returns `None`.
 	///
 	/// Use [`RemoteDocument`] to attach a base URL to a `JsonValue` document.
+	#[inline(always)]
 	fn base_url(&self) -> Option<Iri> {
 		None
 	}
 
+	#[inline(always)]
 	fn expand_with<'a, C: ContextMut<T>, L: Loader>(
 		&'a self,
 		base_url: Option<Iri>,
@@ -317,6 +321,7 @@ pub struct RemoteDocument<D> {
 
 impl<D> RemoteDocument<D> {
 	/// Create a new remote document from the document contents and base URL.
+	#[inline(always)]
 	pub fn new(doc: D, base_url: Iri) -> RemoteDocument<D> {
 		RemoteDocument {
 			base_url: base_url.into(),
@@ -325,11 +330,13 @@ impl<D> RemoteDocument<D> {
 	}
 
 	/// Consume the remote document and return the inner document.
+	#[inline(always)]
 	pub fn into_document(self) -> D {
 		self.doc
 	}
 
 	/// Consume the remote document and return the inner document along with its base URL.
+	#[inline(always)]
 	pub fn into_parts(self) -> (D, IriBuf) {
 		(self.doc, self.base_url)
 	}
@@ -339,10 +346,12 @@ impl<D> RemoteDocument<D> {
 impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 	type Json = D::Json;
 
+	#[inline(always)]
 	fn base_url(&self) -> Option<Iri> {
 		Some(self.base_url.as_iri())
 	}
 
+	#[inline(always)]
 	fn expand_with<'a, C: 'a + ContextMut<T> + Send + Sync, L: 'a + Loader + Send + Sync>(
 		&'a self,
 		base_url: Option<Iri>,
@@ -363,12 +372,14 @@ impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 impl<D> Deref for RemoteDocument<D> {
 	type Target = D;
 
+	#[inline(always)]
 	fn deref(&self) -> &D {
 		&self.doc
 	}
 }
 
 impl<D> DerefMut for RemoteDocument<D> {
+	#[inline(always)]
 	fn deref_mut(&mut self) -> &mut D {
 		&mut self.doc
 	}

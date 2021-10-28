@@ -64,12 +64,14 @@ where
 pub struct NoLoader<J>(PhantomData<J>);
 
 impl<J> NoLoader<J> {
+	#[inline(always)]
 	pub fn new() -> Self {
 		Self(PhantomData)
 	}
 }
 
 impl<J> Default for NoLoader<J> {
+	#[inline(always)]
 	fn default() -> Self {
 		Self::new()
 	}
@@ -78,6 +80,7 @@ impl<J> Default for NoLoader<J> {
 impl<J: Json> Loader for NoLoader<J> {
 	type Document = J;
 
+	#[inline(always)]
 	fn load<'a>(
 		&'a mut self,
 		_url: Iri<'_>,
@@ -109,6 +112,7 @@ impl<J> FsLoader<J> {
 		}
 	}
 
+	#[inline(always)]
 	pub fn mount<P: AsRef<Path>>(&mut self, url: Iri, path: P) {
 		self.mount_points.insert(path.as_ref().into(), url.into());
 	}
@@ -118,6 +122,7 @@ impl<J: FromStr> Default for FsLoader<J>
 where
 	J::Err: 'static + std::error::Error,
 {
+	#[inline(always)]
 	fn default() -> Self {
 		Self::new(|s| J::from_str(s))
 	}

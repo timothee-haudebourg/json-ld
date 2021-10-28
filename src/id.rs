@@ -60,29 +60,27 @@ pub trait Id: AsIri + Clone + PartialEq + Eq + Hash {
 	/// Create an identifier from its IRI.
 	fn from_iri(iri: Iri) -> Self;
 
+	#[inline(always)]
 	fn as_json<K: JsonBuild>(&self, meta: K::MetaData) -> K {
 		K::string(self.as_iri().as_str().into(), meta)
 	}
 }
 
 impl Id for IriBuf {
+	#[inline(always)]
 	fn from_iri(iri: Iri) -> IriBuf {
 		iri.into()
 	}
 }
 
 impl<T: Id> TermLike for T {
+	#[inline(always)]
 	fn as_str(&self) -> &str {
 		self.as_iri().into_str()
 	}
 
+	#[inline(always)]
 	fn as_iri(&self) -> Option<Iri> {
 		Some(self.as_iri())
 	}
 }
-
-// impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for T {
-// 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-// 		self.as_iri().as_str().as_json_with(meta)
-// 	}
-// }

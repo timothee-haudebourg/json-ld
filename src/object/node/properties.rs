@@ -18,21 +18,25 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	}
 
 	/// Returns the number of properties.
+	#[inline(always)]
 	pub fn len(&self) -> usize {
 		self.0.len()
 	}
 
 	/// Checks if there are no defined properties.
+	#[inline(always)]
 	pub fn is_empty(&self) -> bool {
 		self.0.is_empty()
 	}
 
 	/// Checks if the given property is associated to any object.
+	#[inline(always)]
 	pub fn contains<Q: ToReference<T>>(&self, prop: Q) -> bool {
 		self.0.get(prop.to_ref().borrow()).is_some()
 	}
 
 	/// Returns an iterator over all the objects associated to the given property.
+	#[inline(always)]
 	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Objects<J, T>
 	where
 		T: 'a,
@@ -46,6 +50,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	/// Get one of the objects associated to the given property.
 	///
 	/// If multiple objects are found, there are no guaranties on which object will be returned.
+	#[inline(always)]
 	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Object<J, T>>>
 	where
 		T: 'a,
@@ -57,6 +62,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	}
 
 	/// Associate the given object to the node through the given property.
+	#[inline(always)]
 	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Object<J, T>>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.push(value);
@@ -67,6 +73,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	}
 
 	/// Associate all the given objects to the node through the given property.
+	#[inline(always)]
 	pub fn insert_all<Objects: Iterator<Item = Indexed<Object<J, T>>>>(
 		&mut self,
 		prop: Reference<T>,
@@ -80,6 +87,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	}
 
 	/// Returns an iterator over the properties and their associated objects.
+	#[inline(always)]
 	pub fn iter(&self) -> Iter<'_, J, T> {
 		Iter {
 			inner: self.0.iter(),
@@ -87,6 +95,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	}
 
 	/// Returns an iterator over the properties with a mutable reference to their associated objects.
+	#[inline(always)]
 	pub fn iter_mut(&mut self) -> IterMut<'_, J, T> {
 		IterMut {
 			inner: self.0.iter_mut(),
@@ -95,6 +104,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 }
 
 impl<J: JsonHash, T: Id> Hash for Properties<J, T> {
+	#[inline(always)]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		crate::util::hash_map(&self.0, h)
 	}
@@ -112,6 +122,7 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a Properties<J, T> {
 	type Item = BindingRef<'a, J, T>;
 	type IntoIter = Iter<'a, J, T>;
 
+	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
@@ -121,6 +132,7 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a mut Properties<J, T> {
 	type Item = BindingMut<'a, J, T>;
 	type IntoIter = IterMut<'a, J, T>;
 
+	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter_mut()
 	}
@@ -136,10 +148,12 @@ pub struct Iter<'a, J: JsonHash, T: Id> {
 impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
 	type Item = BindingRef<'a, J, T>;
 
+	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		self.inner.size_hint()
 	}
 
+	#[inline(always)]
 	fn next(&mut self) -> Option<Self::Item> {
 		self.inner
 			.next()
@@ -162,10 +176,12 @@ pub struct IterMut<'a, J: JsonHash, T: Id> {
 impl<'a, J: JsonHash, T: Id> Iterator for IterMut<'a, J, T> {
 	type Item = BindingMut<'a, J, T>;
 
+	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		self.inner.size_hint()
 	}
 
+	#[inline(always)]
 	fn next(&mut self) -> Option<Self::Item> {
 		self.inner.next()
 	}

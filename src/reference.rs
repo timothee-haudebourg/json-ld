@@ -31,6 +31,7 @@ impl<T: AsIri> Reference<T> {
 	///
 	/// Returns `true` is this reference is a node identifier or a blank node identifier,
 	/// `false` otherwise.
+	#[inline(always)]
 	pub fn is_valid(&self) -> bool {
 		!matches!(self, Self::Invalid(_))
 	}
@@ -38,6 +39,7 @@ impl<T: AsIri> Reference<T> {
 	/// Get a string representation of the reference.
 	///
 	/// This will either return a string slice of an IRI, or a blank node identifier.
+	#[inline(always)]
 	pub fn as_str(&self) -> &str {
 		match self {
 			Reference::Id(id) => id.as_iri().into_str(),
@@ -49,6 +51,7 @@ impl<T: AsIri> Reference<T> {
 	/// If the renference is a node identifier, returns the node IRI.
 	///
 	/// Returns `None` if it is a blank node reference.
+	#[inline(always)]
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
 			Reference::Id(k) => Some(k.as_iri()),
@@ -56,16 +59,19 @@ impl<T: AsIri> Reference<T> {
 		}
 	}
 
+	#[inline(always)]
 	pub fn into_term(self) -> Term<T> {
 		Term::Ref(self)
 	}
 }
 
 impl<T: AsIri> TermLike for Reference<T> {
+	#[inline(always)]
 	fn as_iri(&self) -> Option<Iri> {
 		self.as_iri()
 	}
 
+	#[inline(always)]
 	fn as_str(&self) -> &str {
 		self.as_str()
 	}
@@ -91,12 +97,14 @@ impl<'a, T: AsIri> From<&'a Reference<T>> for Reference<&'a T> {
 }
 
 impl<T: AsIri> From<T> for Reference<T> {
+	#[inline(always)]
 	fn from(id: T) -> Reference<T> {
 		Reference::Id(id)
 	}
 }
 
 impl<T: AsIri + PartialEq> PartialEq<Term<T>> for Reference<T> {
+	#[inline]
 	fn eq(&self, term: &Term<T>) -> bool {
 		match term {
 			Term::Ref(prop) => self == prop,
@@ -106,6 +114,7 @@ impl<T: AsIri + PartialEq> PartialEq<Term<T>> for Reference<T> {
 }
 
 impl<T: AsIri + PartialEq> PartialEq<Reference<T>> for Term<T> {
+	#[inline]
 	fn eq(&self, r: &Reference<T>) -> bool {
 		match self {
 			Term::Ref(prop) => prop == r,
@@ -117,6 +126,7 @@ impl<T: AsIri + PartialEq> PartialEq<Reference<T>> for Term<T> {
 impl<T: AsIri> TryFrom<Term<T>> for Reference<T> {
 	type Error = Term<T>;
 
+	#[inline]
 	fn try_from(term: Term<T>) -> Result<Reference<T>, Term<T>> {
 		match term {
 			Term::Ref(prop) => Ok(prop),
@@ -126,12 +136,14 @@ impl<T: AsIri> TryFrom<Term<T>> for Reference<T> {
 }
 
 impl<T: AsIri> From<BlankId> for Reference<T> {
+	#[inline(always)]
 	fn from(blank: BlankId) -> Reference<T> {
 		Reference::Blank(blank)
 	}
 }
 
 impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Reference<T> {
+	#[inline]
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		match self {
 			Reference::Id(id) => id.as_json(meta(None)),
@@ -142,6 +154,7 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Reference
 }
 
 impl<T: AsIri> fmt::Display for Reference<T> {
+	#[inline]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Reference::Id(id) => id.as_iri().fmt(f),
@@ -189,6 +202,7 @@ pub trait ToReference<T: Id> {
 impl<'a, T: Id> ToReference<T> for &'a Reference<T> {
 	type Reference = &'a Reference<T>;
 
+	#[inline(always)]
 	fn to_ref(&self) -> Self::Reference {
 		self
 	}

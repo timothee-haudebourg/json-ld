@@ -20,6 +20,7 @@ pub enum ProcessingMode {
 
 impl ProcessingMode {
 	/// Returns the name of the processing mode.
+	#[inline(always)]
 	pub fn as_str(&self) -> &str {
 		match self {
 			ProcessingMode::JsonLd1_0 => "json-ld-1.0",
@@ -29,6 +30,7 @@ impl ProcessingMode {
 }
 
 impl Default for ProcessingMode {
+	#[inline(always)]
 	fn default() -> ProcessingMode {
 		ProcessingMode::JsonLd1_1
 	}
@@ -47,6 +49,7 @@ impl<'a> TryFrom<&'a str> for ProcessingMode {
 }
 
 impl fmt::Display for ProcessingMode {
+	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.as_str())
 	}

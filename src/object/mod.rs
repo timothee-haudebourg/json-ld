@@ -97,6 +97,7 @@ pub enum Object<J: JsonHash, T: Id = IriBuf> {
 
 impl<J: JsonHash, T: Id> Object<J, T> {
 	/// Identifier of the object, if it is a node object.
+	#[inline(always)]
 	pub fn id(&self) -> Option<&Reference<T>> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
@@ -108,6 +109,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	///
 	/// If the object is a node identified by an IRI, returns this IRI.
 	/// Returns `None` otherwise.
+	#[inline(always)]
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
 			Object::Node(node) => node.as_iri(),
@@ -116,16 +118,19 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	}
 
 	/// Tests if the object is a value.
+	#[inline(always)]
 	pub fn is_value(&self) -> bool {
 		matches!(self, Object::Value(_))
 	}
 
 	/// Tests if the object is a node.
+	#[inline(always)]
 	pub fn is_node(&self) -> bool {
 		matches!(self, Object::Node(_))
 	}
 
 	/// Tests if the object is a graph object (a node with a `@graph` field).
+	#[inline(always)]
 	pub fn is_graph(&self) -> bool {
 		match self {
 			Object::Node(n) => n.is_graph(),
@@ -134,6 +139,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	}
 
 	/// Tests if the object is a list.
+	#[inline(always)]
 	pub fn is_list(&self) -> bool {
 		matches!(self, Object::List(_))
 	}
@@ -143,6 +149,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	/// If the object is a value that is a string, returns this string.
 	/// If the object is a node that is identified, returns the identifier as a string.
 	/// Returns `None` otherwise.
+	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
 			Object::Value(value) => value.as_str(),
@@ -152,6 +159,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	}
 
 	/// Get the value as a boolean, if it is.
+	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
 			Object::Value(value) => value.as_bool(),
@@ -160,6 +168,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	}
 
 	/// Get the value as a number, if it is.
+	#[inline(always)]
 	pub fn as_number(&self) -> Option<&J::Number> {
 		match self {
 			Object::Value(value) => value.as_number(),
@@ -169,6 +178,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 
 	/// If the objat is a language-tagged value,
 	/// Return its associated language.
+	#[inline(always)]
 	pub fn language(&self) -> Option<LanguageTag> {
 		match self {
 			Object::Value(value) => value.language(),
@@ -178,6 +188,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 }
 
 impl<J: JsonHash, T: Id> Hash for Object<J, T> {
+	#[inline]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
 			Self::Value(v) => v.hash(h),
@@ -202,6 +213,7 @@ impl<J: JsonHash, T: Id> Indexed<Object<J, T>> {
 }
 
 impl<J: JsonHash, T: Id> Any<J, T> for Object<J, T> {
+	#[inline(always)]
 	fn as_ref(&self) -> Ref<J, T> {
 		match self {
 			Object::Value(value) => Ref::Value(value),
@@ -211,20 +223,15 @@ impl<J: JsonHash, T: Id> Any<J, T> for Object<J, T> {
 	}
 }
 
-// TODO
-// impl<J: Json, T: Id> fmt::Debug for Object<J, T> {
-// 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-// 		write!(f, "{}", self.as_json().pretty(2))
-// 	}
-// }
-
 impl<J: JsonHash, T: Id> From<Value<J, T>> for Object<J, T> {
+	#[inline(always)]
 	fn from(value: Value<J, T>) -> Self {
 		Self::Value(value)
 	}
 }
 
 impl<J: JsonHash, T: Id> From<Node<J, T>> for Object<J, T> {
+	#[inline(always)]
 	fn from(node: Node<J, T>) -> Self {
 		Self::Node(node)
 	}
@@ -250,6 +257,7 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, 
 impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
 	for HashSet<Indexed<Object<J, T>>>
 {
+	#[inline(always)]
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		let array = self
 			.iter()
@@ -263,6 +271,7 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
 pub struct Objects<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>);
 
 impl<'a, J: JsonHash, T: Id> Objects<'a, J, T> {
+	#[inline(always)]
 	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>) -> Self {
 		Self(inner)
 	}
@@ -271,6 +280,7 @@ impl<'a, J: JsonHash, T: Id> Objects<'a, J, T> {
 impl<'a, J: JsonHash, T: Id> Iterator for Objects<'a, J, T> {
 	type Item = &'a Indexed<Object<J, T>>;
 
+	#[inline(always)]
 	fn next(&mut self) -> Option<&'a Indexed<Object<J, T>>> {
 		match &mut self.0 {
 			None => None,

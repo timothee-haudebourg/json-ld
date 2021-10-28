@@ -17,6 +17,7 @@ pub struct Error {
 
 impl Error {
 	/// Create a new error with a given error source.
+	#[inline(always)]
 	pub fn new<S: std::error::Error + 'static>(code: ErrorCode, source: S) -> Error {
 		Error {
 			code,
@@ -25,12 +26,14 @@ impl Error {
 	}
 
 	/// Get the error code associated to the error.
+	#[inline(always)]
 	pub fn code(&self) -> ErrorCode {
 		self.code
 	}
 }
 
 impl std::error::Error for Error {
+	#[inline(always)]
 	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
 		match &self.source {
 			Some(source) => Some(source.as_ref()),
@@ -40,12 +43,14 @@ impl std::error::Error for Error {
 }
 
 impl fmt::Display for Error {
+	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.code.as_str())
 	}
 }
 
 impl From<ErrorCode> for Error {
+	#[inline(always)]
 	fn from(code: ErrorCode) -> Error {
 		Error { code, source: None }
 	}
@@ -342,6 +347,7 @@ impl<'a> TryFrom<&'a str> for ErrorCode {
 }
 
 impl fmt::Display for ErrorCode {
+	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.as_str())
 	}

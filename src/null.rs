@@ -19,13 +19,13 @@ pub enum Nullable<T> {
 
 impl<T> Nullable<T> {
 	/// Checks if the value is `null`.
-	#[inline]
+	#[inline(always)]
 	pub fn is_null(&self) -> bool {
 		matches!(self, Nullable::Null)
 	}
 
 	/// Checks if the value is not `null`.
-	#[inline]
+	#[inline(always)]
 	pub fn is_some(&self) -> bool {
 		matches!(self, Nullable::Some(_))
 	}
@@ -33,7 +33,7 @@ impl<T> Nullable<T> {
 	/// Unwraps a non-null value.
 	///
 	/// Panics if the value is `null`.
-	#[inline]
+	#[inline(always)]
 	pub fn unwrap(self) -> T {
 		match self {
 			Nullable::Some(t) => t,
@@ -42,7 +42,7 @@ impl<T> Nullable<T> {
 	}
 
 	/// Returns a nullabl reference to the inner value.
-	#[inline]
+	#[inline(always)]
 	pub fn as_ref(&self) -> Nullable<&T> {
 		match self {
 			Nullable::Null => Nullable::Null,
@@ -51,7 +51,7 @@ impl<T> Nullable<T> {
 	}
 
 	/// Transform into an `Option` value.
-	#[inline]
+	#[inline(always)]
 	pub fn option(self) -> Option<T> {
 		match self {
 			Nullable::Null => None,
@@ -60,7 +60,7 @@ impl<T> Nullable<T> {
 	}
 
 	/// Map the inner value using the given function.
-	#[inline]
+	#[inline(always)]
 	pub fn map<F, U>(self, f: F) -> Nullable<U>
 	where
 		F: FnOnce(T) -> U,
@@ -74,7 +74,7 @@ impl<T> Nullable<T> {
 
 impl<'a, T: Clone> Nullable<&'a T> {
 	/// Clone the referenced inner value.
-	#[inline]
+	#[inline(always)]
 	pub fn cloned(&self) -> Nullable<T> {
 		match self {
 			Nullable::Null => Nullable::Null,
@@ -84,7 +84,7 @@ impl<'a, T: Clone> Nullable<&'a T> {
 }
 
 impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Nullable<T> {
-	#[inline]
+	#[inline(always)]
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		match self {
 			Nullable::Null => K::null(meta(None)),

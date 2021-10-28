@@ -25,6 +25,7 @@ pub enum LiteralString<J: Json> {
 }
 
 impl<J: Json> LiteralString<J> {
+	#[inline(always)]
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Expanded(s) => s.as_ref(),
@@ -34,12 +35,14 @@ impl<J: Json> LiteralString<J> {
 }
 
 impl<J: Json> AsRef<str> for LiteralString<J> {
+	#[inline(always)]
 	fn as_ref(&self) -> &str {
 		self.as_str()
 	}
 }
 
 impl<J: Json> std::borrow::Borrow<str> for LiteralString<J> {
+	#[inline(always)]
 	fn borrow(&self) -> &str {
 		self.as_str()
 	}
@@ -48,12 +51,14 @@ impl<J: Json> std::borrow::Borrow<str> for LiteralString<J> {
 impl<J: Json> std::ops::Deref for LiteralString<J> {
 	type Target = str;
 
+	#[inline(always)]
 	fn deref(&self) -> &str {
 		self.as_str()
 	}
 }
 
 impl<J: Json, K: Json> PartialEq<LiteralString<K>> for LiteralString<J> {
+	#[inline(always)]
 	fn eq(&self, other: &LiteralString<K>) -> bool {
 		self.as_str() == other.as_str()
 	}
@@ -62,12 +67,14 @@ impl<J: Json, K: Json> PartialEq<LiteralString<K>> for LiteralString<J> {
 impl<J: Json> Eq for LiteralString<J> {}
 
 impl<J: Json> Hash for LiteralString<J> {
+	#[inline(always)]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		self.as_str().hash(h)
 	}
 }
 
 impl<J: Json> fmt::Debug for LiteralString<J> {
+	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.as_str().fmt(f)
 	}
@@ -91,6 +98,7 @@ pub enum Literal<J: Json> {
 }
 
 impl<J: Json> PartialEq for Literal<J> {
+	#[inline(always)]
 	fn eq(&self, other: &Self) -> bool {
 		use Literal::*;
 		match (self, other) {
@@ -106,6 +114,7 @@ impl<J: Json> PartialEq for Literal<J> {
 impl<J: Json> Eq for Literal<J> {}
 
 impl<J: JsonHash> Hash for Literal<J> {
+	#[inline(always)]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
 			Literal::Null => (),
@@ -117,6 +126,8 @@ impl<J: JsonHash> Hash for Literal<J> {
 }
 
 impl<J: Json> Literal<J> {
+	/// Returns this value as a string if it is one.
+	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
 			Literal::String(s) => Some(s.as_ref()),
@@ -124,6 +135,8 @@ impl<J: Json> Literal<J> {
 		}
 	}
 
+	/// Returns this value as a boolean if it is one.
+	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
 			Literal::Boolean(b) => Some(*b),
@@ -131,6 +144,8 @@ impl<J: Json> Literal<J> {
 		}
 	}
 
+	/// Returns this value as a number if it is one.
+	#[inline(always)]
 	pub fn as_number(&self) -> Option<&J::Number> {
 		match self {
 			Literal::Number(n) => Some(n),
@@ -144,17 +159,18 @@ impl<J: Json> Literal<J> {
 /// Either a typed literal value, or an internationalized language string.
 #[derive(PartialEq, Eq)]
 pub enum Value<J: Json, T: Id = IriBuf> {
-	/// A typed value.
+	/// Typed literal value.
 	Literal(Literal<J>, Option<T>),
 
-	/// A language tagged string.
+	/// Language tagged string.
 	LangString(LangString<J>),
 
-	/// A JSON literal value.
+	/// JSON literal value.
 	Json(J),
 }
 
 impl<J: JsonClone, T: Id> Clone for Value<J, T> {
+	#[inline(always)]
 	fn clone(&self) -> Self {
 		match self {
 			Self::Literal(l, t) => Self::Literal(l.clone(), t.clone()),
@@ -165,6 +181,7 @@ impl<J: JsonClone, T: Id> Clone for Value<J, T> {
 }
 
 impl<J: Json, T: Id> Value<J, T> {
+	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
 			Value::Literal(lit, _) => lit.as_str(),
@@ -173,6 +190,7 @@ impl<J: Json, T: Id> Value<J, T> {
 		}
 	}
 
+	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
 			Value::Literal(lit, _) => lit.as_bool(),
@@ -180,6 +198,7 @@ impl<J: Json, T: Id> Value<J, T> {
 		}
 	}
 
+	#[inline(always)]
 	pub fn as_number(&self) -> Option<&J::Number> {
 		match self {
 			Value::Literal(lit, _) => lit.as_number(),
@@ -201,6 +220,7 @@ impl<J: Json, T: Id> Value<J, T> {
 	/// If the value is a language tagged string, return its associated language if any.
 	///
 	/// Returns `None` if the value is not a language tagged string.
+	#[inline(always)]
 	pub fn language(&self) -> Option<LanguageTag> {
 		match self {
 			Value::LangString(tag) => tag.language(),
@@ -211,6 +231,7 @@ impl<J: Json, T: Id> Value<J, T> {
 	/// If the value is a language tagged string, return its associated direction if any.
 	///
 	/// Returns `None` if the value is not a language tagged string.
+	#[inline(always)]
 	pub fn direction(&self) -> Option<Direction> {
 		match self {
 			Value::LangString(str) => str.direction(),
@@ -220,12 +241,14 @@ impl<J: Json, T: Id> Value<J, T> {
 }
 
 impl<J: JsonHash, T: Id> object::Any<J, T> for Value<J, T> {
+	#[inline(always)]
 	fn as_ref(&self) -> object::Ref<J, T> {
 		object::Ref::Value(self)
 	}
 }
 
 impl<J: JsonHash, T: Id> Hash for Value<J, T> {
+	#[inline]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
 			Value::Literal(lit, ty) => {

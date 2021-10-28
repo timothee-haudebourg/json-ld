@@ -25,6 +25,7 @@ impl BlankId {
 	/// Create a new blank identifier from a given `name`.
 	///
 	/// The created blank node will be of the form `_:name`.
+	#[inline(always)]
 	pub fn new(name: &str) -> BlankId {
 		BlankId("_:".to_string() + name)
 	}
@@ -33,6 +34,7 @@ impl BlankId {
 	///
 	/// This includes the `_:` prefix.
 	/// Use [`BlankId::name`] to get the suffix part only.
+	#[inline(always)]
 	pub fn as_str(&self) -> &str {
 		&self.0
 	}
@@ -40,6 +42,7 @@ impl BlankId {
 	/// Get the name/suffix part of the identifier.
 	///
 	/// For a blank identifier `_:name`, this returns a string slice to `name`.
+	#[inline(always)]
 	pub fn name(&self) -> &str {
 		&self.0[2..self.0.len()]
 	}
@@ -48,6 +51,7 @@ impl BlankId {
 impl<'a> TryFrom<&'a str> for BlankId {
 	type Error = ();
 
+	#[inline(always)]
 	fn try_from(str: &'a str) -> Result<BlankId, ()> {
 		if let Some(name) = str.strip_prefix("_:") {
 			Ok(BlankId::new(name))
@@ -59,12 +63,14 @@ impl<'a> TryFrom<&'a str> for BlankId {
 
 impl<K: JsonBuild> util::AsAnyJson<K> for BlankId {
 	/// Returns a JSON string of the form `_:name`.
+	#[inline(always)]
 	fn as_json_with(&self, meta: K::MetaData) -> K {
 		self.0.as_json_with(meta)
 	}
 }
 
 impl fmt::Display for BlankId {
+	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.0.fmt(f)
 	}
