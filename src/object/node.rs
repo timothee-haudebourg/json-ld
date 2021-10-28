@@ -220,9 +220,15 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		self.included = included
 	}
 
-	/// Returns the properties of the node.
+	/// Returns a reference to the properties of the node.
 	pub fn properties(&self) -> &Properties<J, T> {
 		&self.properties
+	}
+
+	/// Returns a reference to the reverse properties of the node.
+	#[inline(always)]
+	pub fn reverse_properties(&self) -> &ReverseProperties<J, T> {
+		&self.reverse_properties
 	}
 
 	/// Get all the objects associated to the node with the given property.
