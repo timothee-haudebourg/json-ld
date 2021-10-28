@@ -23,7 +23,8 @@ impl<'a, J: Json> LiteralValue<'a, J> {
 	}
 }
 
-/// https://www.w3.org/TR/json-ld11-api/#value-expansion
+/// Expand a literal value.
+/// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 	active_context: &C,
 	active_property: Option<&str>,

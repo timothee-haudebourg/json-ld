@@ -8,7 +8,7 @@ use generic_json::{JsonClone, JsonHash, ValueRef};
 use langtag::LanguageTagBuf;
 use std::convert::TryFrom;
 
-pub fn expand_value<'e, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>>(
+pub(crate) fn expand_value<'e, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>>(
 	input_type: Option<Term<T>>,
 	type_scoped_context: &C,
 	expanded_entries: Vec<ExpandedEntry<'e, J, Term<T>>>,

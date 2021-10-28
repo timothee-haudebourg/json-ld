@@ -71,6 +71,7 @@ impl Default for Options {
 	}
 }
 
+/// Type that can be compacted.
 pub trait Compact<J: JsonSrc, T: Id> {
 	/// Compact a JSON-LD document into a `K` JSON value.
 	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(

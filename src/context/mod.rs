@@ -19,7 +19,7 @@ use std::collections::HashMap;
 pub use definition::*;
 pub use inverse::{InverseContext, Inversible};
 pub use loader::*;
-pub use processing::*;
+use processing::*;
 
 pub trait JsonContext = JsonSendSync + JsonClone;
 

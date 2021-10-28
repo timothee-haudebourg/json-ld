@@ -1,6 +1,5 @@
 use generic_json::{Json, JsonHash, ValueRef};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hasher;
+use std::{collections::hash_map::DefaultHasher, hash::Hasher, ops::Deref};
 
 mod build;
 
@@ -14,7 +13,7 @@ pub enum AsArrayItem<'a, J: Json> {
 	Array(<J::Array as cc_traits::CollectionRef>::ItemRef<'a>),
 }
 
-impl<'a, J: Json> std::ops::Deref for AsArrayItem<'a, J> {
+impl<'a, J: Json> Deref for AsArrayItem<'a, J> {
 	type Target = J;
 
 	fn deref(&self) -> &J {

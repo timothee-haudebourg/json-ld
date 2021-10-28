@@ -19,17 +19,18 @@ mod literal;
 mod node;
 mod value;
 
-pub use array::*;
-pub use element::*;
-pub use expanded::*;
-pub use iri::*;
-pub use literal::*;
-pub use node::*;
-pub use value::*;
+use array::*;
+use element::*;
+use expanded::*;
+pub(crate) use iri::*;
+use literal::*;
+use node::*;
+use value::*;
 
 /// JSON document that can be expanded.
 pub trait JsonExpand = JsonSendSync + JsonHash + JsonClone + JsonLft<'static>;
 
+/// Expansion options.
 #[derive(Clone, Copy, Default)]
 pub struct Options {
 	/// Sets the processing mode.
@@ -63,7 +64,7 @@ pub enum Policy {
 	/// Relaxed policy.
 	///
 	/// Undefined keys are always kept in the expanded document
-	/// using the [`Reference::Invalid`] variant.
+	/// using the [`Reference::Invalid`](crate::Reference::Invalid) variant.
 	Relaxed,
 
 	/// Standard policy.
@@ -117,9 +118,10 @@ impl From<crate::compaction::Options> for Options {
 	}
 }
 
+/// JSON object entry reference.
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub struct Entry<'a, J: Json>(
+pub(crate) struct Entry<'a, J: Json>(
 	<J::Object as KeyedRef>::KeyRef<'a>,
 	<J::Object as CollectionRef>::ItemRef<'a>,
 )
@@ -155,7 +157,8 @@ where
 	}
 }
 
-pub struct ExpandedEntry<'a, J: Json, T>(
+/// JSON object entry, with the expanded key.
+pub(crate) struct ExpandedEntry<'a, J: Json, T>(
 	<J::Object as KeyedRef>::KeyRef<'a>,
 	T,
 	<J::Object as CollectionRef>::ItemRef<'a>,
@@ -192,40 +195,28 @@ where
 	}
 }
 
-// pub struct EntryRef<'r, 'a: 'r, J: Json>(&'r <J::Object as KeyedRef>::KeyRef<'a>, &'r <J::Object as CollectionRef>::ItemRef<'a>);
-
-// impl<'r, 'a: 'r, J: Json> PartialOrd for EntryRef<'r, 'a, J> where J::Object: 'a {
-// 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-// 		self.0.as_ref().partial_cmp(&other.0.as_ref())
-// 	}
-// }
-
-// impl<'r, 'a: 'r, J: Json> Ord for EntryRef<'r, 'a, J> where J::Object: 'a {
-// 	fn cmp(&self, other: &Self) -> Ordering {
-// 		self.0.as_ref().cmp(&other.0.as_ref())
-// 	}
-// }
-
 fn filter_top_level_item<J: JsonHash, T: Id>(item: &Indexed<Object<J, T>>) -> bool {
 	// Remove dangling values.
 	!matches!(item.inner(), Object::Value(_))
 }
 
-pub fn expand<
-	'a,
-	J: JsonExpand,
-	T: Id + Send + Sync,
-	C: ContextMut<T> + Send + Sync,
-	L: Loader + Send + Sync,
->(
+/// Expand the given JSON-LD document.
+///
+/// Note that you probably do not want to use this function directly,
+/// but instead use the [`Document::expand`](crate::Document::expand) method, implemented for
+/// every JSON type implementing the [`generic_json::Json`] trait.
+pub fn expand<'a, J: JsonExpand, T: Id, C: ContextMut<T>, L: Loader>(
 	active_context: &'a C,
-	element: &'a J,
+	document: &'a J,
 	base_url: Option<Iri>,
 	loader: &'a mut L,
 	options: Options,
 ) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
 where
+	T: Send + Sync,
+	C: Send + Sync,
 	C::LocalContext: From<L::Output> + From<J>,
+	L: Send + Sync,
 	L::Output: Into<J>,
 {
 	let base_url = base_url.map(IriBuf::from);
@@ -235,7 +226,7 @@ where
 		let expanded = expand_element(
 			active_context,
 			None,
-			element,
+			document,
 			base_url,
 			loader,
 			options,

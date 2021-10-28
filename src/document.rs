@@ -20,7 +20,7 @@ pub type ExpandedDocument<J, T> = HashSet<Indexed<Object<J, T>>>;
 /// JSON-LD document.
 ///
 /// This trait represent a JSON-LD document that can be expanded into an [`ExpandedDocument`].
-/// It is notably implemented for the [`JsonValue`] type.
+/// It is notably implemented for any type implementing the [generic_json::Json] trait.
 pub trait Document<T: Id> {
 	type Json: Json;
 
@@ -35,7 +35,7 @@ pub trait Document<T: Id> {
 	///
 	/// This is an asynchronous method since expanding the context may require loading remote
 	/// ressources. It returns a boxed [`Future`](`std::future::Future`) to the result.
-	fn expand_with<'a, C: 'a + ContextMut<T> + Send + Sync, L: 'a + Loader + Send + Sync>(
+	fn expand_with<'a, C: 'a + ContextMut<T>, L: 'a + Loader>(
 		&'a self,
 		base_url: Option<Iri>,
 		context: &'a C,
@@ -44,9 +44,11 @@ pub trait Document<T: Id> {
 	) -> BoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
 	where
 		Self::Json: expansion::JsonExpand,
+		T: 'a + Send + Sync,
+		C: Send + Sync,
 		C::LocalContext: From<L::Output> + From<Self::Json>,
-		L::Output: Into<Self::Json>, // TODO get rid of this bound?
-		T: 'a + Send + Sync;
+		L: Send + Sync,
+		L::Output: Into<Self::Json>; // TODO get rid of this bound?
 
 	/// Expand the document.
 	///
@@ -83,14 +85,16 @@ pub trait Document<T: Id> {
 	/// # Ok(())
 	/// # }
 	/// ```
-	fn expand<'a, C: 'a + ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
+	fn expand<'a, C: 'a + ContextMut<T>, L: Loader>(
 		&'a self,
 		loader: &'a mut L,
 	) -> BoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
 	where
 		Self: Send + Sync,
 		Self::Json: expansion::JsonExpand,
+		C: Send + Sync,
 		C::LocalContext: From<L::Output> + From<Self::Json>,
+		L: Send + Sync,
 		L::Output: Into<Self::Json>,
 		T: 'a + Send + Sync,
 	{
@@ -113,14 +117,7 @@ pub trait Document<T: Id> {
 	/// associated to the input context (JSON representation) to `K::MetaData`.
 	/// The `meta_document` parameter is another conversion function for the
 	/// metadata attached to the document.
-	fn compact_with<
-		'a,
-		K: JsonFrom<Self::Json> + JsonFrom<<C::Target as Context<T>>::LocalContext>,
-		C: ContextMutProxy<T> + AsJson<<C::Target as Context<T>>::LocalContext, K>,
-		L: Loader,
-		M1,
-		M2,
-	>(
+	fn compact_with<'a, K: JsonFrom<Self::Json>, C: ContextMutProxy<T>, L: Loader, M1, M2>(
 		&'a self,
 		base_url: Option<Iri<'a>>,
 		context: &'a C,
@@ -131,9 +128,10 @@ pub trait Document<T: Id> {
 	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		Self: Sync,
-		T: 'a + Send + Sync,
 		Self::Json: expansion::JsonExpand + compaction::JsonSrc,
-		C: Send + Sync,
+		T: 'a + Send + Sync,
+		K: JsonFrom<<C::Target as Context<T>>::LocalContext>,
+		C: AsJson<<C::Target as Context<T>>::LocalContext, K> + Send + Sync,
 		<C::Target as Context<T>>::LocalContext:
 			compaction::JsonSrc + From<L::Output> + From<Self::Json>,
 		C::Target: Send + Sync,
@@ -261,7 +259,7 @@ impl<J: Json, T: Id> Document<T> for J {
 		None
 	}
 
-	fn expand_with<'a, C: ContextMut<T> + Send + Sync, L: Loader + Send + Sync>(
+	fn expand_with<'a, C: ContextMut<T>, L: Loader>(
 		&'a self,
 		base_url: Option<Iri>,
 		context: &'a C,
@@ -270,7 +268,9 @@ impl<J: Json, T: Id> Document<T> for J {
 	) -> BoxFuture<'a, Result<ExpandedDocument<Self, T>, Error>>
 	where
 		Self: expansion::JsonExpand,
+		C: Send + Sync,
 		C::LocalContext: From<L::Output> + From<Self>,
+		L: Send + Sync,
 		L::Output: Into<Self>,
 		T: 'a + Send + Sync,
 	{

@@ -12,7 +12,7 @@ use std::{cmp::Ordering, collections::HashMap, fmt};
 /// Context that can be inverted.
 ///
 /// This type keeps an inversion of the underlying context which is computed
-/// when [`inverse`] is called and reset when the context is mutabily accessed.
+/// when [`inverse`](Inversible::inverse) is called and reset when the context is mutably accessed.
 pub struct Inversible<T: Id, C> {
 	/// Underlying context.
 	context: C,

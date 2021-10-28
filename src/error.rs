@@ -208,7 +208,7 @@ pub enum ErrorCode {
 	/// There was a problem encountered loading a remote context.
 	LoadingRemoteContextFailed,
 
-	/// Multiple HTTP Link Headers [RFC8288](https://tools.ietf.org/html/rfc8288) using the http://www.w3.org/ns/json-ld#context link
+	/// Multiple HTTP Link Headers [RFC8288](https://tools.ietf.org/html/rfc8288) using the <http://www.w3.org/ns/json-ld#context> link
 	/// relation have been detected.
 	MultipleContextLinkHeaders,
 

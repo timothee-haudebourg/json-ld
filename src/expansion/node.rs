@@ -28,7 +28,7 @@ pub fn node_id_of_term<T: Id>(term: Term<T>) -> Option<Reference<T>> {
 }
 
 /// Expand a node object.
-pub async fn expand_node<
+pub(crate) async fn expand_node<
 	'a,
 	J: JsonExpand,
 	T: 'a + Id + Send + Sync,

@@ -15,7 +15,9 @@ use generic_json::ValueRef;
 use iref::Iri;
 use mown::Mown;
 
-/// https://www.w3.org/TR/json-ld11-api/#expansion-algorithm
+/// Expand an element.
+///
+/// See <https://www.w3.org/TR/json-ld11-api/#expansion-algorithm>.
 /// The default specified value for `ordered` and `from_map` is `false`.
 pub fn expand_element<
 	'a,

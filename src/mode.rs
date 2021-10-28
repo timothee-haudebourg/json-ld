@@ -5,7 +5,10 @@ use std::fmt;
 ///
 /// This is a property of the
 /// [`context::ProcessingOptions`] and [`compaction::Options`] types.
-/// New features defined in JSON-LD 1.1 are available unless the processing mode is set to [`ProcessingModel::JsonLd1_0`].
+/// New features defined in JSON-LD 1.1 are available unless the processing mode is set to [`ProcessingMode::JsonLd1_0`].
+///
+/// [`context::ProcessingOptions`]: crate::context::ProcessingOptions
+/// [`compaction::Options`]: crate::compaction::Options
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ProcessingMode {
 	/// JSON-LD 1.0.

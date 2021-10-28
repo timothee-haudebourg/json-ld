@@ -130,7 +130,7 @@ impl<'a, J: Json> WrappedValue<'a, J> {
 	/// Get the value associated to the given `key`.
 	///
 	/// It is assumed that `key` is **not** `"@id"`.
-	/// Use [`id`] to get the `"@id"` key.
+	/// Use [`id`](WrappedValue::id) to get the `"@id"` key.
 	pub fn get(&self, key: &str) -> Option<<J::Object as cc_traits::CollectionRef>::ItemRef<'a>> {
 		debug_assert_ne!(key, "@id");
 		match self {
