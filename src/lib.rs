@@ -166,7 +166,7 @@
 //!
 //! ## RDF Serialization/Deserialization
 //!
-//! This is not and will not be handled directly by this crate.
+//! This is not directly handled by this crate.
 #![allow(clippy::derive_hash_xor_eq)]
 #![feature(generic_associated_types)]
 #![feature(trait_alias)]
