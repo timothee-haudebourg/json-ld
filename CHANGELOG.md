@@ -5,9 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2021-11-04
 ### Changed
 - Abstract the JSON implementation.
+  The JSON type (formerly `json::JsonValue`) is now a type parameter.
+  It can theoretically be replaced by any type you want, as long as
+  it implements the `generic_json::Json` trait.
+  As of now, only the `ijson::IValue` type implements this trait.
+  If the https://github.com/serde-rs/json/pull/814 PR is merged,
+  then `serde_json::Value` should follow.
 
 ## Added
 - `Object::into_node`, `into_value`, `into_list`, `as_node`, `as_value`, `as_list`.
