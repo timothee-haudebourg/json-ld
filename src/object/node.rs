@@ -278,7 +278,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	}
 
 	/// Associates all the given objects to the node through the given property.
-	/// 
+	///
 	/// If there already exists objects associated to the given reverse property,
 	/// `reverse_value` is added to the list. Duplicate objects are not removed.
 	#[inline(always)]
@@ -291,7 +291,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	}
 
 	/// Associates the given node to the reverse property.
-	/// 
+	///
 	/// If there already exists nodes associated to the given reverse property,
 	/// `reverse_value` is added to the list. Duplicate nodes are not removed.
 	#[inline(always)]

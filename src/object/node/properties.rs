@@ -8,6 +8,40 @@ use std::{
 };
 
 /// Properties of a node object, and their associated objects.
+///
+/// ## Example
+///
+/// ```rust
+/// use json_ld::{context, Document, NoLoader};
+/// use ijson::IValue;
+/// let doc: IValue = serde_json::from_str(
+///   r#"
+///   {
+///      "@context": {
+///        "name": "http://xmlns.com/foaf/0.1/name"
+///      },
+///      "@id": "https://www.rust-lang.org",
+///      "name": "Rust Programming Language"
+///    }
+/// "#,
+/// )
+/// .unwrap();
+///
+/// let mut loader = NoLoader::<IValue>::new();
+///
+/// let rt  = tokio::runtime::Runtime::new().unwrap();
+/// let expanded_doc = rt.block_on(doc
+///   .expand::<context::Json<IValue>, _>(&mut loader)).unwrap();
+///
+/// let node = expanded_doc.into_iter().next().unwrap().into_indexed_node().unwrap();
+///
+/// for (property, objects) in node.properties() {
+///   assert_eq!(property, "http://xmlns.com/foaf/0.1/name");
+///   for object in objects {
+///     // do something
+///   }
+/// }
+/// ```
 #[derive(PartialEq, Eq)]
 pub struct Properties<J: JsonHash, T: Id>(HashMap<Reference<T>, Vec<Indexed<Object<J, T>>>>);
 

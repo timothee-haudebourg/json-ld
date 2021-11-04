@@ -86,6 +86,19 @@ impl<T: AsIri + PartialEq> PartialEq<T> for Reference<T> {
 	}
 }
 
+impl<T: AsIri> PartialEq<str> for Reference<T> {
+	fn eq(&self, other: &str) -> bool {
+		match self {
+			Reference::Id(id) => match Iri::from_str(other) {
+				Ok(iri) => id.as_iri() == iri,
+				Err(_) => false,
+			},
+			Reference::Blank(id) => id.as_str() == other,
+			Reference::Invalid(id) => id == other,
+		}
+	}
+}
+
 impl<'a, T: AsIri> From<&'a Reference<T>> for Reference<&'a T> {
 	fn from(r: &'a Reference<T>) -> Reference<&'a T> {
 		match r {

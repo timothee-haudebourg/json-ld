@@ -123,10 +123,46 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 		matches!(self, Object::Value(_))
 	}
 
+	/// Returns this object as a value, if it is one.
+	#[inline(always)]
+	pub fn as_value(&self) -> Option<&Value<J, T>> {
+		match self {
+			Self::Value(v) => Some(v),
+			_ => None,
+		}
+	}
+
+	/// Converts this object as a value, if it is one.
+	#[inline(always)]
+	pub fn into_value(self) -> Option<Value<J, T>> {
+		match self {
+			Self::Value(v) => Some(v),
+			_ => None,
+		}
+	}
+
 	/// Tests if the object is a node.
 	#[inline(always)]
 	pub fn is_node(&self) -> bool {
 		matches!(self, Object::Node(_))
+	}
+
+	/// Returns this object as a node, if it is one.
+	#[inline(always)]
+	pub fn as_node(&self) -> Option<&Node<J, T>> {
+		match self {
+			Self::Node(n) => Some(n),
+			_ => None,
+		}
+	}
+
+	/// Converts this object into a node, if it is one.
+	#[inline(always)]
+	pub fn into_node(self) -> Option<Node<J, T>> {
+		match self {
+			Self::Node(n) => Some(n),
+			_ => None,
+		}
 	}
 
 	/// Tests if the object is a graph object (a node with a `@graph` field).
@@ -142,6 +178,24 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	#[inline(always)]
 	pub fn is_list(&self) -> bool {
 		matches!(self, Object::List(_))
+	}
+
+	/// Returns this object as a list, if it is one.
+	#[inline(always)]
+	pub fn as_list(&self) -> Option<&[Indexed<Self>]> {
+		match self {
+			Self::List(l) => Some(l.as_slice()),
+			_ => None,
+		}
+	}
+
+	/// Converts this object into a list, if it is one.
+	#[inline(always)]
+	pub fn into_list(self) -> Option<Vec<Indexed<Self>>> {
+		match self {
+			Self::List(l) => Some(l),
+			_ => None,
+		}
 	}
 
 	/// Get the object as a string.
@@ -199,8 +253,29 @@ impl<J: JsonHash, T: Id> Hash for Object<J, T> {
 }
 
 impl<J: JsonHash, T: Id> Indexed<Object<J, T>> {
+	/// Converts this indexed object into an indexed node, if it is one.
+	#[inline(always)]
+	pub fn into_indexed_node(self) -> Option<Indexed<Node<J, T>>> {
+		let (object, index) = self.into_parts();
+		object.into_node().map(|node| Indexed::new(node, index))
+	}
+
+	/// Converts this indexed object into an indexed node, if it is one.
+	#[inline(always)]
+	pub fn into_indexed_value(self) -> Option<Indexed<Value<J, T>>> {
+		let (object, index) = self.into_parts();
+		object.into_value().map(|value| Indexed::new(value, index))
+	}
+
+	/// Converts this indexed object into an indexed list, if it is one.
+	#[inline(always)]
+	pub fn into_indexed_list(self) -> Option<Indexed<Vec<Self>>> {
+		let (object, index) = self.into_parts();
+		object.into_list().map(|list| Indexed::new(list, index))
+	}
+
 	/// Try to convert this object into an unnamed graph.
-	pub fn into_unnamed_graph(self: Indexed<Object<J, T>>) -> Result<HashSet<Self>, Self> {
+	pub fn into_unnamed_graph(self) -> Result<HashSet<Self>, Self> {
 		let (obj, index) = self.into_parts();
 		match obj {
 			Object::Node(n) => match n.into_unnamed_graph() {

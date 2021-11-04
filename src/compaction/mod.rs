@@ -86,7 +86,7 @@ impl Default for Options {
 pub trait Compact<J: JsonSrc, T: Id> {
 	/// Compact a JSON-LD document into a `K` JSON value with the provided
 	/// type scoped context, active property and options.
-	/// 
+	///
 	/// Unless you know what you are doing, you will probably prefer
 	/// to use the [`compact`](Compact::compact) and [`compact_with`](Compact::compact_with) functions.
 	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
@@ -107,7 +107,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData;
 
 	/// Compact a JSON-LD document into a `K` JSON value with the provided options.
-	/// 
+	///
 	/// This calls [`compact_full`](Compact::compact_full) with `active_context`
 	/// as type scoped context.
 	#[inline(always)]
@@ -124,7 +124,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
 		async move {
 			self.compact_full(
