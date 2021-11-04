@@ -4,10 +4,11 @@ use crate::{
 	expansion,
 	util::{AsJson, JsonFrom},
 	Context, ContextMut, ContextMutProxy, Error, Id, Indexed, Object,
+	Warning
 };
 use cc_traits::Len;
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::{Json, JsonClone};
+use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
@@ -15,7 +16,82 @@ use std::ops::{Deref, DerefMut};
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
-pub type ExpandedDocument<J, T> = HashSet<Indexed<Object<J, T>>>;
+pub struct ExpandedDocument<J: JsonHash, T: Id> {
+	objects: HashSet<Indexed<Object<J, T>>>,
+	warnings: Vec<Warning>
+}
+
+impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
+	#[inline(always)]
+	pub fn new(objects: HashSet<Indexed<Object<J, T>>>, warnings: Vec<Warning>) -> Self {
+		Self {
+			objects,
+			warnings
+		}
+	}
+
+	#[inline(always)]
+	pub fn len(&self) -> usize {
+		self.objects.len()
+	}
+
+	#[inline(always)]
+	pub fn is_empty(&self) -> bool {
+		self.objects.is_empty()
+	}
+
+	#[inline(always)]
+	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Indexed<Object<J, T>>> {
+		self.objects.iter()
+	}
+}
+
+impl<J: compaction::JsonSrc, T: Sync + Send + Id> compaction::Compact<J, T> for ExpandedDocument<J, T> {
+	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+		&'a self,
+		active_context: context::Inversible<T, &'a C>,
+		type_scoped_context: context::Inversible<T, &'a C>,
+		active_property: Option<&'a str>,
+		loader: &'a mut L,
+		options: compaction::Options,
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
+	where
+		T: 'a,
+		C: Sync + Send,
+		C::LocalContext: Send + Sync + From<L::Output>,
+		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	{
+		self.objects.compact_full(active_context, type_scoped_context, active_property, loader, options, meta)
+	}
+}
+
+impl<J: JsonHash, T: Id> IntoIterator for ExpandedDocument<J, T> {
+	type IntoIter = std::collections::hash_set::IntoIter<Indexed<Object<J, T>>>;
+	type Item = Indexed<Object<J, T>>;
+
+	#[inline(always)]
+	fn into_iter(self) -> Self::IntoIter {
+		self.objects.into_iter()
+	}
+}
+
+impl<'a, J: JsonHash, T: Id> IntoIterator for &'a ExpandedDocument<J, T> {
+	type IntoIter = std::collections::hash_set::Iter<'a, Indexed<Object<J, T>>>;
+	type Item = &'a Indexed<Object<J, T>>;
+
+	#[inline(always)]
+	fn into_iter(self) -> Self::IntoIter {
+		self.iter()
+	}
+}
+
+impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<J, T> {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+		self.objects.as_json_with(meta)
+	}
+}
 
 /// JSON-LD document.
 ///
@@ -279,7 +355,13 @@ impl<J: Json, T: Id> Document<T> for J {
 		L::Output: Into<Self>,
 		T: 'a + Send + Sync,
 	{
-		expansion::expand(context, self, base_url, loader, options).boxed()
+		let base_url = base_url.map(IriBuf::from);
+
+		async move {
+			let mut warnings = Vec::new(); // TODO
+			let objects = expansion::expand(context, self, base_url, loader, options).await?;
+			Ok(ExpandedDocument::new(objects, warnings))
+		}.boxed()
 	}
 }
 
