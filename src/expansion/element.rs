@@ -235,7 +235,7 @@ where
 				let mut value_entry = None;
 				for Entry(key, value) in entries {
 					if key.is_empty() {
-						warnings.push(Meta::new(Warning::EmptyKey, key.metadata().clone()));
+						warnings.push(Meta::new(Warning::EmptyTerm, key.metadata().clone()));
 					}
 
 					let expanded_key =
