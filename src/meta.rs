@@ -4,16 +4,13 @@ use std::ops::{Deref, DerefMut};
 #[derive(Clone)]
 pub struct Meta<T, M> {
 	value: T,
-	metadata: M
+	metadata: M,
 }
 
 impl<T, M> Meta<T, M> {
 	/// Creates a new value attached to the given `metadata`.
 	pub fn new(value: T, metadata: M) -> Self {
-		Self {
-			value,
-			metadata
-		}
+		Self { value, metadata }
 	}
 
 	/// Returns a reference to the metadata associated to this value.

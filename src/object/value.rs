@@ -1,9 +1,9 @@
 use crate::{
+	lang::LenientLanguageTag,
 	object,
 	syntax::{Keyword, Type},
 	util::{self, AsAnyJson},
 	Direction, Id, LangString,
-	lang::LenientLanguageTag
 };
 use cc_traits::MapInsert;
 use derivative::Derivative;

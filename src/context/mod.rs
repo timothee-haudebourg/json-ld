@@ -6,11 +6,10 @@ mod loader;
 mod processing;
 
 use crate::{
+	lang::{LenientLanguageTag, LenientLanguageTagBuf},
 	syntax::Term,
 	util::{AsJson, JsonFrom},
-	Direction, Error, Id, ProcessingMode,
-	Meta, Warning,
-	lang::{LenientLanguageTag, LenientLanguageTagBuf}
+	Direction, Error, Id, Meta, ProcessingMode, Warning,
 };
 use futures::{future::BoxFuture, FutureExt};
 use generic_json::{JsonClone, JsonSendSync};
@@ -240,7 +239,7 @@ pub struct ProcessedOwned<L: generic_json::Json, C> {
 	processed: C,
 
 	/// Warnings collected during processing.
-	warnings: Vec<Meta<Warning, L::MetaData>>
+	warnings: Vec<Meta<Warning, L::MetaData>>,
 }
 
 impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
@@ -250,8 +249,16 @@ impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 	}
 
 	/// Wraps a processed context along with its original local representation and warnings emitted during processing.
-	pub fn with_warnings(local: L, processed: C, warnings: Vec<Meta<Warning, L::MetaData>>) -> Self {
-		ProcessedOwned { local, processed, warnings }
+	pub fn with_warnings(
+		local: L,
+		processed: C,
+		warnings: Vec<Meta<Warning, L::MetaData>>,
+	) -> Self {
+		ProcessedOwned {
+			local,
+			processed,
+			warnings,
+		}
 	}
 
 	/// Returns a reference to the warnings emitted during processing.
@@ -287,7 +294,9 @@ impl<L: generic_json::Json, C> std::convert::AsRef<C> for ProcessedOwned<L, C> {
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K> for ProcessedOwned<L, C> {
+impl<J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K>
+	for ProcessedOwned<L, C>
+{
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		self.local.as_json_with(meta)
 	}
@@ -306,7 +315,7 @@ pub struct Processed<'a, L: generic_json::Json, C> {
 	processed: C,
 
 	/// Warnings collected during processing.
-	warnings: Vec<Meta<Warning, L::MetaData>>
+	warnings: Vec<Meta<Warning, L::MetaData>>,
 }
 
 impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
@@ -317,8 +326,16 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 
 	/// Wraps a processed context along with a reference to its original local representation
 	/// and warnings emitted during processing.
-	pub fn with_warnings(local: &'a L, processed: C, warnings: Vec<Meta<Warning, L::MetaData>>) -> Self {
-		Processed { local, processed, warnings }
+	pub fn with_warnings(
+		local: &'a L,
+		processed: C,
+		warnings: Vec<Meta<Warning, L::MetaData>>,
+	) -> Self {
+		Processed {
+			local,
+			processed,
+			warnings,
+		}
 	}
 
 	/// Returns a reference to the warnings emitted during processing.
@@ -340,12 +357,14 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 		ProcessedOwned {
 			local: L::clone(self.local),
 			processed: self.processed,
-			warnings: self.warnings
+			warnings: self.warnings,
 		}
 	}
 }
 
-impl<'a, T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T> for Processed<'a, L, C> {
+impl<'a, T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T>
+	for Processed<'a, L, C>
+{
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -367,7 +386,9 @@ impl<'a, L: generic_json::Json, C> std::convert::AsRef<C> for Processed<'a, L, C
 	}
 }
 
-impl<'a, J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K> for Processed<'a, L, C> {
+impl<'a, J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K>
+	for Processed<'a, L, C>
+{
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		self.local.as_json_with(meta)
 	}

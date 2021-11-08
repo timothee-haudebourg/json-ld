@@ -3,8 +3,7 @@ use crate::{
 	context::{self, Loader},
 	expansion,
 	util::{AsJson, JsonFrom},
-	Context, ContextMut, ContextMutProxy, Error, Id, Indexed, Object,
-	Meta, Warning
+	Context, ContextMut, ContextMutProxy, Error, Id, Indexed, Meta, Object, Warning,
 };
 use cc_traits::Len;
 use futures::future::{BoxFuture, FutureExt};
@@ -18,16 +17,16 @@ use std::ops::{Deref, DerefMut};
 /// It is just an alias for a set of (indexed) objects.
 pub struct ExpandedDocument<J: JsonHash, T: Id> {
 	objects: HashSet<Indexed<Object<J, T>>>,
-	warnings: Vec<Meta<Warning, J::MetaData>>
+	warnings: Vec<Meta<Warning, J::MetaData>>,
 }
 
 impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	#[inline(always)]
-	pub fn new(objects: HashSet<Indexed<Object<J, T>>>, warnings: Vec<Meta<Warning, J::MetaData>>) -> Self {
-		Self {
-			objects,
-			warnings
-		}
+	pub fn new(
+		objects: HashSet<Indexed<Object<J, T>>>,
+		warnings: Vec<Meta<Warning, J::MetaData>>,
+	) -> Self {
+		Self { objects, warnings }
 	}
 
 	#[inline(always)]
@@ -51,7 +50,9 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	}
 }
 
-impl<J: compaction::JsonSrc, T: Sync + Send + Id> compaction::Compact<J, T> for ExpandedDocument<J, T> {
+impl<J: compaction::JsonSrc, T: Sync + Send + Id> compaction::Compact<J, T>
+	for ExpandedDocument<J, T>
+{
 	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		active_context: context::Inversible<T, &'a C>,
@@ -68,7 +69,14 @@ impl<J: compaction::JsonSrc, T: Sync + Send + Id> compaction::Compact<J, T> for 
 		L: Sync + Send,
 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
-		self.objects.compact_full(active_context, type_scoped_context, active_property, loader, options, meta)
+		self.objects.compact_full(
+			active_context,
+			type_scoped_context,
+			active_property,
+			loader,
+			options,
+			meta,
+		)
 	}
 }
 
@@ -364,9 +372,11 @@ impl<J: Json, T: Id> Document<T> for J {
 
 		async move {
 			let mut warnings = Vec::new();
-			let objects = expansion::expand(context, self, base_url, loader, options, &mut warnings).await?;
+			let objects =
+				expansion::expand(context, self, base_url, loader, options, &mut warnings).await?;
 			Ok(ExpandedDocument::new(objects, warnings))
-		}.boxed()
+		}
+		.boxed()
 	}
 }
 

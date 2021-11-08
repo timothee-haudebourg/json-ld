@@ -2,8 +2,7 @@ use super::{expand_iri, ExpandedEntry};
 use crate::{
 	object::*,
 	syntax::{Keyword, Term},
-	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Reference,
-	Meta, Warning
+	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Meta, Reference, Warning,
 };
 use generic_json::{JsonClone, JsonHash, ValueRef};
 use langtag::LanguageTagBuf;
@@ -14,7 +13,7 @@ pub(crate) fn expand_value<'e, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>>
 	type_scoped_context: &C,
 	expanded_entries: Vec<ExpandedEntry<'e, J, Term<T>>>,
 	value_entry: &J,
-	warnings: &mut Vec<Meta<Warning, J::MetaData>>
+	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
 ) -> Result<Option<Indexed<Object<J, T>>>, Error>
 where
 	J::Object: 'e,
@@ -76,7 +75,14 @@ where
 			// If expanded ...
 			Term::Keyword(Keyword::Type) => {
 				if let Some(ty_value) = value.as_str() {
-					let expanded_ty = expand_iri(type_scoped_context, ty_value, value.metadata(), true, true, warnings);
+					let expanded_ty = expand_iri(
+						type_scoped_context,
+						ty_value,
+						value.metadata(),
+						true,
+						true,
+						warnings,
+					);
 
 					match expanded_ty {
 						Term::Keyword(Keyword::Json) => {
@@ -150,11 +156,14 @@ where
 					match LanguageTagBuf::parse_copy(language.as_str()) {
 						Ok(lang) => Some(lang.into()),
 						Err(err) => {
-							warnings.push(Meta::new(Warning::MalformedLanguageTag(language.to_string(), err), language_metadata));
+							warnings.push(Meta::new(
+								Warning::MalformedLanguageTag(language.to_string(), err),
+								language_metadata,
+							));
 							Some(language.to_string().into())
-						},
+						}
 					}
-				},
+				}
 				None => None,
 			};
 

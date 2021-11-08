@@ -1,8 +1,7 @@
 //! Expansion algorithm and related types.
 use crate::{
 	context::{Loader, ProcessingOptions},
-	ContextMut, Error, Id, Indexed, Object, ProcessingMode,
-	Meta, Warning
+	ContextMut, Error, Id, Indexed, Meta, Object, ProcessingMode, Warning,
 };
 use cc_traits::{CollectionRef, KeyedRef};
 use derivative::Derivative;
@@ -211,8 +210,7 @@ pub async fn expand<'a, J: JsonExpand, T: Id, C: ContextMut<T>, L: Loader>(
 	base_url: Option<IriBuf>,
 	loader: &'a mut L,
 	options: Options,
-	warnings: &mut Vec<Meta<Warning, J::MetaData>>
-// ) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
+	warnings: &mut Vec<Meta<Warning, J::MetaData>>, // ) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
 ) -> Result<HashSet<Indexed<Object<J, T>>>, Error>
 where
 	T: Send + Sync,
@@ -224,31 +222,31 @@ where
 	// let base_url = base_url.map(IriBuf::from);
 
 	// async move {
-		let base_url = base_url.as_ref().map(|url| url.as_iri());
-		let expanded = expand_element(
-			active_context,
-			None,
-			document,
-			base_url,
-			loader,
-			options,
-			false,
-			warnings
-		)
-		.await?;
-		if expanded.len() == 1 {
-			match expanded.into_iter().next().unwrap().into_unnamed_graph() {
-				Ok(graph) => Ok(graph),
-				Err(obj) => {
-					let mut set = HashSet::new();
-					if filter_top_level_item(&obj) {
-						set.insert(obj);
-					}
-					Ok(set)
+	let base_url = base_url.as_ref().map(|url| url.as_iri());
+	let expanded = expand_element(
+		active_context,
+		None,
+		document,
+		base_url,
+		loader,
+		options,
+		false,
+		warnings,
+	)
+	.await?;
+	if expanded.len() == 1 {
+		match expanded.into_iter().next().unwrap().into_unnamed_graph() {
+			Ok(graph) => Ok(graph),
+			Err(obj) => {
+				let mut set = HashSet::new();
+				if filter_top_level_item(&obj) {
+					set.insert(obj);
 				}
+				Ok(set)
 			}
-		} else {
-			Ok(expanded.into_iter().filter(filter_top_level_item).collect())
 		}
+	} else {
+		Ok(expanded.into_iter().filter(filter_top_level_item).collect())
+	}
 	// }
 }

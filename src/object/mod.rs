@@ -4,10 +4,10 @@ pub mod node;
 pub mod value;
 
 use crate::{
+	lang::LenientLanguageTag,
 	syntax::Keyword,
 	util::{AsJson, JsonFrom},
 	Id, Indexed, Reference,
-	lang::LenientLanguageTag
 };
 use generic_json::{JsonClone, JsonHash};
 use iref::{Iri, IriBuf};

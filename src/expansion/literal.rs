@@ -1,5 +1,7 @@
 use super::{expand_iri, node_id_of_term};
-use crate::{object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString, Meta, Warning};
+use crate::{
+	object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString, Meta, Warning,
+};
 use generic_json::{Json, JsonClone, JsonHash, ValueRef};
 
 pub enum LiteralValue<'a, J: Json> {
@@ -25,7 +27,7 @@ impl<'a, J: Json> LiteralValue<'a, J> {
 	pub fn metadata(&self) -> &J::MetaData {
 		match self {
 			Self::Given(v) => v.metadata(),
-			Self::Inferred(_, meta) => meta
+			Self::Inferred(_, meta) => meta,
 		}
 	}
 }
@@ -36,7 +38,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 	active_context: &C,
 	active_property: Option<&str>,
 	value: LiteralValue<J>,
-	warnings: &mut Vec<Meta<Warning, J::MetaData>>
+	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
 ) -> Result<Indexed<Object<J, T>>, Error> {
 	let active_property_definition = active_context.get_opt(active_property);
 
@@ -60,7 +62,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 				value.metadata(),
 				true,
 				false,
-				warnings
+				warnings,
 			));
 			Ok(Object::Node(node).into())
 		}
@@ -77,7 +79,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 				value.metadata(),
 				true,
 				true,
-				warnings
+				warnings,
 			));
 			Ok(Object::Node(node).into())
 		}

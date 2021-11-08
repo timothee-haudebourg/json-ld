@@ -1,8 +1,8 @@
 use super::Context;
 use crate::{
+	lang::{LenientLanguageTag, LenientLanguageTagBuf},
 	syntax::{Container, Term, Type},
 	Direction, Id, Nullable,
-	lang::{LenientLanguageTag, LenientLanguageTagBuf}
 };
 use mown::Mown;
 use once_cell::sync::OnceCell;
@@ -176,7 +176,11 @@ impl InverseLang {
 		self.set(Nullable::Some((None, None)), term)
 	}
 
-	fn set(&mut self, lang_dir: Nullable<(Option<LenientLanguageTag>, Option<Direction>)>, term: &str) {
+	fn set(
+		&mut self,
+		lang_dir: Nullable<(Option<LenientLanguageTag>, Option<Direction>)>,
+		term: &str,
+	) {
 		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.cloned()), d));
 		self.map.entry(lang_dir).or_insert_with(|| term.to_string());
 	}

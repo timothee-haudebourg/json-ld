@@ -1,13 +1,14 @@
-use crate::{object::LiteralString, Direction, util::AsAnyJson};
+use crate::{object::LiteralString, util::AsAnyJson, Direction};
 use derivative::Derivative;
 use generic_json::{Json, JsonBuild};
 use langtag::{LanguageTag, LanguageTagBuf};
+use std::fmt;
 
 /// Language tag buffer that may not be well-formed.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum LenientLanguageTagBuf {
 	WellFormed(LanguageTagBuf),
-	Malformed(String)
+	Malformed(String),
 }
 
 impl LenientLanguageTagBuf {
@@ -18,21 +19,21 @@ impl LenientLanguageTagBuf {
 	pub fn as_ref(&self) -> LenientLanguageTag<'_> {
 		match self {
 			Self::WellFormed(tag) => LenientLanguageTag::WellFormed(tag.as_ref()),
-			Self::Malformed(tag) => LenientLanguageTag::Malformed(tag.as_ref())
+			Self::Malformed(tag) => LenientLanguageTag::Malformed(tag.as_ref()),
 		}
 	}
 
 	pub fn as_language_tag(&self) -> Option<LanguageTag<'_>> {
 		match self {
 			Self::WellFormed(tag) => Some(tag.as_ref()),
-			_ => None
+			_ => None,
 		}
 	}
 
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::WellFormed(tag) => tag.as_str(),
-			Self::Malformed(tag) => tag.as_str()
+			Self::Malformed(tag) => tag.as_str(),
 		}
 	}
 }
@@ -53,7 +54,7 @@ impl From<String> for LenientLanguageTagBuf {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum LenientLanguageTag<'a> {
 	WellFormed(LanguageTag<'a>),
-	Malformed(&'a str)
+	Malformed(&'a str),
 }
 
 impl<'a> LenientLanguageTag<'a> {
@@ -64,28 +65,30 @@ impl<'a> LenientLanguageTag<'a> {
 	pub fn as_language_tag(&self) -> Option<LanguageTag<'a>> {
 		match self {
 			Self::WellFormed(tag) => Some(*tag),
-			_ => None
+			_ => None,
 		}
 	}
 
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::WellFormed(tag) => tag.as_str(),
-			Self::Malformed(tag) => tag
-		}
-	}
-
-	pub fn to_string(&self) -> String {
-		match self {
-			Self::WellFormed(tag) => tag.to_string(),
-			Self::Malformed(tag) => tag.to_string()
+			Self::Malformed(tag) => tag,
 		}
 	}
 
 	pub fn cloned(&self) -> LenientLanguageTagBuf {
 		match self {
 			Self::WellFormed(tag) => LenientLanguageTagBuf::WellFormed(tag.cloned()),
-			Self::Malformed(tag) => LenientLanguageTagBuf::Malformed(tag.to_string())
+			Self::Malformed(tag) => LenientLanguageTagBuf::Malformed(tag.to_string()),
+		}
+	}
+}
+
+impl<'a> fmt::Display for LenientLanguageTag<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::WellFormed(tag) => tag.fmt(f),
+			Self::Malformed(tag) => tag.fmt(f),
 		}
 	}
 }

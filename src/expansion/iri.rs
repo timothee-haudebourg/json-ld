@@ -1,7 +1,6 @@
 use crate::{
 	syntax::{is_keyword_like, Keyword, Term},
-	BlankId, Context, Id, Reference,
-	Warning, Meta
+	BlankId, Context, Id, Meta, Reference, Warning,
 };
 use iref::{Iri, IriRef};
 use std::convert::TryFrom;
@@ -13,7 +12,7 @@ pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 	metadata: &M,
 	document_relative: bool,
 	vocab: bool,
-	warnings: &mut Vec<Meta<Warning, M>>
+	warnings: &mut Vec<Meta<Warning, M>>,
 ) -> Term<T> {
 	if let Ok(keyword) = Keyword::try_from(value) {
 		Term::Keyword(keyword)
@@ -21,7 +20,10 @@ pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
 		if is_keyword_like(value) {
-			warnings.push(Meta::new(Warning::KeywordLikeValue(value.to_string()), metadata.clone()));
+			warnings.push(Meta::new(
+				Warning::KeywordLikeValue(value.to_string()),
+				metadata.clone(),
+			));
 			return Term::Null;
 		}
 
@@ -140,7 +142,14 @@ pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 }
 
 /// Build an invalid reference and emit a warning.
-fn invalid<T: Id, M: Clone>(value: String, metadata: &M, warnings: &mut Vec<Meta<Warning, M>>) -> Term<T> {
-	warnings.push(Meta::new(Warning::MalformedIri(value.clone()), metadata.clone()));
+fn invalid<T: Id, M: Clone>(
+	value: String,
+	metadata: &M,
+	warnings: &mut Vec<Meta<Warning, M>>,
+) -> Term<T> {
+	warnings.push(Meta::new(
+		Warning::MalformedIri(value.clone()),
+		metadata.clone(),
+	));
 	Reference::Invalid(value).into()
 }

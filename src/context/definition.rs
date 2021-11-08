@@ -1,8 +1,8 @@
 use super::Context;
 use crate::{
+	lang::LenientLanguageTagBuf,
 	syntax::{Container, Term, Type},
 	Direction, Id, Nullable,
-	lang::LenientLanguageTagBuf
 };
 use iref::{Iri, IriBuf};
 // use langtag::LanguageTagBuf;

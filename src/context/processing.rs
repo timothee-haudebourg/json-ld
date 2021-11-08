@@ -5,12 +5,11 @@ use crate::util::as_array;
 use crate::{
 	expansion,
 	syntax::{is_keyword, is_keyword_like, ContainerType, Keyword, Term, Type},
-	BlankId, Direction, Error, ErrorCode, Id, Nullable, ProcessingMode, Reference,
-	Meta, Warning
+	BlankId, Direction, Error, ErrorCode, Id, Meta, Nullable, ProcessingMode, Reference, Warning,
 };
 use cc_traits::{Get, Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::{Key, Json, ValueRef};
+use generic_json::{Json, Key, ValueRef};
 use iref::{Iri, IriBuf, IriRef};
 use langtag::LanguageTagBuf;
 use mown::Mown;
@@ -207,7 +206,7 @@ where
 		match self {
 			Self::Null => None,
 			Self::Unwrapped(value) => Some(value.metadata()),
-			Self::Ref(r) => Some(r.metadata())
+			Self::Ref(r) => Some(r.metadata()),
 		}
 	}
 }
@@ -229,12 +228,17 @@ impl<J: JsonContext, T: Id> Local<T> for J {
 	{
 		async move {
 			let mut warnings = Vec::new();
-			let processed = process_context(active_context, self, stack, loader, base_url, options, &mut warnings).await?;
-			Ok(Processed::with_warnings(
+			let processed = process_context(
+				active_context,
 				self,
-				processed,
-				warnings
-			))
+				stack,
+				loader,
+				base_url,
+				options,
+				&mut warnings,
+			)
+			.await?;
+			Ok(Processed::with_warnings(self, processed, warnings))
 		}
 		.boxed()
 	}
@@ -359,7 +363,7 @@ fn process_context<
 	loader: &'a mut L,
 	base_url: Option<Iri>,
 	mut options: ProcessingOptions,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
 ) -> BoxFuture<'a, Result<C, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
@@ -618,7 +622,14 @@ where
 								// error has been detected and processing is aborted.
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
-								match expansion::expand_iri(&result, string_value, value.metadata(), true, true, warnings) {
+								match expansion::expand_iri(
+									&result,
+									string_value,
+									value.metadata(),
+									true,
+									true,
+									warnings,
+								) {
 									Term::Ref(vocab) => {
 										result.set_vocabulary(Some(Term::Ref(vocab)))
 									}
@@ -642,7 +653,10 @@ where
 								Err(err) => {
 									// If value is not well-formed according to section 2.2.9 of [BCP47],
 									// processors SHOULD issue a warning.
-									warnings.push(Meta::new(Warning::MalformedLanguageTag(str_value.to_string(), err), value.metadata().clone()));
+									warnings.push(Meta::new(
+										Warning::MalformedLanguageTag(str_value.to_string(), err),
+										value.metadata().clone(),
+									));
 									result.set_default_language(Some(str_value.to_string().into()));
 								}
 							}
@@ -708,7 +722,7 @@ where
 									base_url,
 									protected,
 									options,
-									warnings
+									warnings,
 								)
 								.await?
 							}
@@ -784,7 +798,7 @@ pub fn define<
 	base_url: Option<Iri<'a>>,
 	protected: bool,
 	options: ProcessingOptions,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
 ) -> BoxFuture<'a, Result<(), Error>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
@@ -848,7 +862,10 @@ where
 							// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
 							// from [RFC5234]), return; processors SHOULD generate a warning.
 							if is_keyword_like(term) {
-								warnings.push(Meta::new(Warning::KeywordLikeTerm(term.to_string()), term_metadata.clone()));
+								warnings.push(Meta::new(
+									Warning::KeywordLikeTerm(term.to_string()),
+									term_metadata.clone(),
+								));
 								return Ok(());
 							}
 						}
@@ -922,7 +939,7 @@ where
 								remote_contexts.clone(),
 								loader,
 								options,
-								warnings
+								warnings,
 							)
 							.await?;
 							// If the expanded type is @json or @none, and processing mode is
@@ -980,7 +997,7 @@ where
 								remote_contexts,
 								loader,
 								options,
-								warnings
+								warnings,
 							)
 							.await?
 							{
@@ -1069,7 +1086,7 @@ where
 										remote_contexts.clone(),
 										loader,
 										options,
-										warnings
+										warnings,
 									)
 									.await?
 									{
@@ -1112,7 +1129,7 @@ where
 											remote_contexts.clone(),
 											loader,
 											options,
-											warnings
+											warnings,
 										)
 										.await?;
 										if definition.value != Some(expanded_term) {
@@ -1162,7 +1179,7 @@ where
 									None,
 									false,
 									options.with_no_override(),
-									warnings
+									warnings,
 								)
 								.await?;
 
@@ -1201,7 +1218,14 @@ where
 								// Term is a relative IRI reference.
 								// Set the IRI mapping of definition to the result of IRI expanding
 								// term.
-								match expansion::expand_iri(active_context, term, term_metadata, false, true, warnings) {
+								match expansion::expand_iri(
+									active_context,
+									term,
+									term_metadata,
+									false,
+									true,
+									warnings,
+								) {
 									Term::Ref(Reference::Id(id)) => {
 										definition.value = Some(id.into())
 									}
@@ -1314,7 +1338,14 @@ where
 						// Otherwise, an invalid term definition has been detected and processing
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
-							match expansion::expand_iri(active_context, index, index_value.metadata(), false, true, warnings) {
+							match expansion::expand_iri(
+								active_context,
+								index,
+								index_value.metadata(),
+								false,
+								true,
+								warnings,
+							) {
 								Term::Ref(Reference::Id(_)) => (),
 								_ => return Err(ErrorCode::InvalidTermDefinition.into()),
 							}
@@ -1349,7 +1380,7 @@ where
 							loader,
 							base_url,
 							options.with_override(),
-							warnings
+							warnings,
 						)
 						.await
 						.map_err(|_| Error::from(ErrorCode::InvalidScopedContext))?;
@@ -1377,7 +1408,13 @@ where
 									match LanguageTagBuf::parse_copy(lang_str) {
 										Ok(lang) => Nullable::Some(lang.into()),
 										Err(err) => {
-											warnings.push(Meta::new(Warning::MalformedLanguageTag(lang_str.to_string().clone(), err), language_value.metadata().clone()));
+											warnings.push(Meta::new(
+												Warning::MalformedLanguageTag(
+													lang_str.to_string(),
+													err,
+												),
+												language_value.metadata().clone(),
+											));
 											Nullable::Some(lang_str.to_string().into())
 										}
 									}
@@ -1506,8 +1543,15 @@ where
 }
 
 /// Build an invalid reference and emit a warning.
-fn invalid_iri<T: Id, M: Clone>(value: String, metadata: &M, warnings: &mut Vec<Meta<Warning, M>>) -> Term<T> {
-	warnings.push(Meta::new(Warning::MalformedIri(value.clone()), metadata.clone()));
+fn invalid_iri<T: Id, M: Clone>(
+	value: String,
+	metadata: &M,
+	warnings: &mut Vec<Meta<Warning, M>>,
+) -> Term<T> {
+	warnings.push(Meta::new(
+		Warning::MalformedIri(value.clone()),
+		metadata.clone(),
+	));
 	Reference::Invalid(value).into()
 }
 
@@ -1529,7 +1573,7 @@ fn expand_iri<
 	remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	options: ProcessingOptions,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
 ) -> impl 'a + Send + Future<Output = Result<Term<T>, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
@@ -1543,7 +1587,10 @@ where
 			// If value has the form of a keyword, a processor SHOULD generate a warning and return
 			// null.
 			if is_keyword_like(value.as_ref()) {
-				warnings.push(Meta::new(Warning::KeywordLikeValue(value), metadata.clone()));
+				warnings.push(Meta::new(
+					Warning::KeywordLikeValue(value),
+					metadata.clone(),
+				));
 				return Ok(Term::Null);
 			}
 
@@ -1563,7 +1610,7 @@ where
 				None,
 				false,
 				options.with_no_override(),
-				warnings
+				warnings,
 			)
 			.await?;
 
@@ -1625,7 +1672,7 @@ where
 						None,
 						false,
 						options.with_no_override(),
-						warnings
+						warnings,
 					)
 					.await?;
 
