@@ -1,7 +1,106 @@
-use crate::{object::LiteralString, Direction};
+use crate::{object::LiteralString, Direction, util::AsAnyJson};
 use derivative::Derivative;
-use generic_json::Json;
+use generic_json::{Json, JsonBuild};
 use langtag::{LanguageTag, LanguageTagBuf};
+
+/// Language tag buffer that may not be well-formed.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub enum LenientLanguageTagBuf {
+	WellFormed(LanguageTagBuf),
+	Malformed(String)
+}
+
+impl LenientLanguageTagBuf {
+	pub fn is_well_formed(&self) -> bool {
+		matches!(self, Self::WellFormed(_))
+	}
+
+	pub fn as_ref(&self) -> LenientLanguageTag<'_> {
+		match self {
+			Self::WellFormed(tag) => LenientLanguageTag::WellFormed(tag.as_ref()),
+			Self::Malformed(tag) => LenientLanguageTag::Malformed(tag.as_ref())
+		}
+	}
+
+	pub fn as_language_tag(&self) -> Option<LanguageTag<'_>> {
+		match self {
+			Self::WellFormed(tag) => Some(tag.as_ref()),
+			_ => None
+		}
+	}
+
+	pub fn as_str(&self) -> &str {
+		match self {
+			Self::WellFormed(tag) => tag.as_str(),
+			Self::Malformed(tag) => tag.as_str()
+		}
+	}
+}
+
+impl From<LanguageTagBuf> for LenientLanguageTagBuf {
+	fn from(tag: LanguageTagBuf) -> Self {
+		Self::WellFormed(tag)
+	}
+}
+
+impl From<String> for LenientLanguageTagBuf {
+	fn from(tag: String) -> Self {
+		Self::Malformed(tag)
+	}
+}
+
+/// Language tag that may not be well-formed.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum LenientLanguageTag<'a> {
+	WellFormed(LanguageTag<'a>),
+	Malformed(&'a str)
+}
+
+impl<'a> LenientLanguageTag<'a> {
+	pub fn is_well_formed(&self) -> bool {
+		matches!(self, Self::WellFormed(_))
+	}
+
+	pub fn as_language_tag(&self) -> Option<LanguageTag<'a>> {
+		match self {
+			Self::WellFormed(tag) => Some(*tag),
+			_ => None
+		}
+	}
+
+	pub fn as_str(&self) -> &str {
+		match self {
+			Self::WellFormed(tag) => tag.as_str(),
+			Self::Malformed(tag) => tag
+		}
+	}
+
+	pub fn to_string(&self) -> String {
+		match self {
+			Self::WellFormed(tag) => tag.to_string(),
+			Self::Malformed(tag) => tag.to_string()
+		}
+	}
+
+	pub fn cloned(&self) -> LenientLanguageTagBuf {
+		match self {
+			Self::WellFormed(tag) => LenientLanguageTagBuf::WellFormed(tag.cloned()),
+			Self::Malformed(tag) => LenientLanguageTagBuf::Malformed(tag.to_string())
+		}
+	}
+}
+
+impl<'a, K: JsonBuild> AsAnyJson<K> for LenientLanguageTag<'a> {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		AsAnyJson::<K>::as_json_with(self.as_str(), meta)
+	}
+}
+
+impl<K: JsonBuild> AsAnyJson<K> for LenientLanguageTagBuf {
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		AsAnyJson::<K>::as_json_with(self.as_str(), meta)
+	}
+}
 
 /// Language string.
 ///
@@ -19,7 +118,7 @@ use langtag::{LanguageTag, LanguageTagBuf};
 pub struct LangString<J: Json> {
 	/// Actual content of the string.
 	data: LiteralString<J>,
-	language: Option<LanguageTagBuf>,
+	language: Option<LenientLanguageTagBuf>,
 	direction: Option<Direction>,
 }
 
@@ -31,7 +130,7 @@ impl<J: Json> LangString<J> {
 	/// Create a new language string.
 	pub fn new(
 		str: LiteralString<J>,
-		language: Option<LanguageTagBuf>,
+		language: Option<LenientLanguageTagBuf>,
 		direction: Option<Direction>,
 	) -> Result<Self, LiteralString<J>> {
 		if language.is_some() || direction.is_some() {
@@ -59,7 +158,7 @@ impl<J: Json> LangString<J> {
 
 	/// Gets the associated language tag, if any.
 	#[inline(always)]
-	pub fn language(&self) -> Option<LanguageTag> {
+	pub fn language(&self) -> Option<LenientLanguageTag> {
 		self.language.as_ref().map(|tag| tag.as_ref())
 	}
 
@@ -69,7 +168,7 @@ impl<J: Json> LangString<J> {
 	/// otherwise this function will fail with an [`InvalidLangString`] error.
 	pub fn set_language(
 		&mut self,
-		language: Option<LanguageTagBuf>,
+		language: Option<LenientLanguageTagBuf>,
 	) -> Result<(), InvalidLangString> {
 		if self.direction.is_some() || language.is_some() {
 			self.language = language;
@@ -104,7 +203,7 @@ impl<J: Json> LangString<J> {
 	/// this function will fail with an [`InvalidLangString`] error.
 	pub fn set(
 		&mut self,
-		language: Option<LanguageTagBuf>,
+		language: Option<LenientLanguageTagBuf>,
 		direction: Option<Direction>,
 	) -> Result<(), InvalidLangString> {
 		if direction.is_some() || language.is_some() {

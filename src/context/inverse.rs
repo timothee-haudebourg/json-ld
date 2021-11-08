@@ -2,8 +2,8 @@ use super::Context;
 use crate::{
 	syntax::{Container, Term, Type},
 	Direction, Id, Nullable,
+	lang::{LenientLanguageTag, LenientLanguageTagBuf}
 };
-use langtag::{LanguageTag, LanguageTagBuf};
 use mown::Mown;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
@@ -141,7 +141,7 @@ impl<T: Id> InverseType<T> {
 	}
 }
 
-type LangDir = Nullable<(Option<LanguageTagBuf>, Option<Direction>)>;
+type LangDir = Nullable<(Option<LenientLanguageTagBuf>, Option<Direction>)>;
 
 struct InverseLang {
 	any: Option<String>,
@@ -151,7 +151,7 @@ struct InverseLang {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LangSelection<'a> {
 	Any,
-	Lang(Nullable<(Option<LanguageTag<'a>>, Option<Direction>)>),
+	Lang(Nullable<(Option<LenientLanguageTag<'a>>, Option<Direction>)>),
 }
 
 impl InverseLang {
@@ -176,7 +176,7 @@ impl InverseLang {
 		self.set(Nullable::Some((None, None)), term)
 	}
 
-	fn set(&mut self, lang_dir: Nullable<(Option<LanguageTag>, Option<Direction>)>, term: &str) {
+	fn set(&mut self, lang_dir: Nullable<(Option<LenientLanguageTag>, Option<Direction>)>, term: &str) {
 		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.cloned()), d));
 		self.map.entry(lang_dir).or_insert_with(|| term.to_string());
 	}

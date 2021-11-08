@@ -6,10 +6,11 @@ use crate::{
 	expansion,
 	syntax::{is_keyword, is_keyword_like, ContainerType, Keyword, Term, Type},
 	BlankId, Direction, Error, ErrorCode, Id, Nullable, ProcessingMode, Reference,
+	Meta, Warning
 };
 use cc_traits::{Get, Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::{Json, ValueRef};
+use generic_json::{Key, Json, ValueRef};
 use iref::{Iri, IriBuf, IriRef};
 use langtag::LanguageTagBuf;
 use mown::Mown;
@@ -112,7 +113,7 @@ pub enum WrappedValue<'a, J: Json> {
 	WrappedNull,
 
 	/// Value wrapped inside a map `{ "@id": value }`.
-	Wrapped(&'a J::String),
+	Wrapped(Meta<&'a J::String, J::MetaData>),
 
 	/// Unwrapped value.
 	Unwrapped(&'a J::Object),
@@ -122,7 +123,7 @@ impl<'a, J: Json> WrappedValue<'a, J> {
 	pub fn id(&self) -> Option<IdValue<'a, J>> {
 		match self {
 			Self::WrappedNull => Some(IdValue::Null),
-			Self::Wrapped(value) => Some(IdValue::Unwrapped(*value)),
+			Self::Wrapped(value) => Some(IdValue::Unwrapped(value.clone())),
 			Self::Unwrapped(object) => object.get("@id").map(IdValue::Ref),
 		}
 	}
@@ -177,7 +178,7 @@ where
 	J::Object: 'a,
 {
 	Null,
-	Unwrapped(&'a J::String),
+	Unwrapped(Meta<&'a J::String, J::MetaData>),
 	Ref(<J::Object as cc_traits::CollectionRef>::ItemRef<'a>),
 }
 
@@ -189,7 +190,7 @@ where
 	fn as_value_ref(&self) -> ValueRef<'_, J> {
 		match self {
 			Self::Null => ValueRef::Null,
-			Self::Unwrapped(value) => ValueRef::String(*value),
+			Self::Unwrapped(value) => ValueRef::String(*value.as_ref()),
 			Self::Ref(value) => value.as_value_ref(),
 		}
 	}
@@ -200,6 +201,14 @@ where
 
 	fn as_str(&self) -> Option<&str> {
 		self.as_value_ref().into_str()
+	}
+
+	fn metadata(&self) -> Option<&J::MetaData> {
+		match self {
+			Self::Null => None,
+			Self::Unwrapped(value) => Some(value.metadata()),
+			Self::Ref(r) => Some(r.metadata())
+		}
 	}
 }
 
@@ -219,9 +228,12 @@ impl<J: JsonContext, T: Id> Local<T> for J {
 		T: Send + Sync,
 	{
 		async move {
+			let mut warnings = Vec::new();
+			let processed = process_context(active_context, self, stack, loader, base_url, options, &mut warnings).await?;
 			Ok(Processed::new(
 				self,
-				process_context(active_context, self, stack, loader, base_url, options).await?,
+				processed,
+				warnings
 			))
 		}
 		.boxed()
@@ -347,6 +359,7 @@ fn process_context<
 	loader: &'a mut L,
 	base_url: Option<Iri>,
 	mut options: ProcessingOptions,
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>
 ) -> BoxFuture<'a, Result<C, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
@@ -596,8 +609,8 @@ where
 								// If value is null, remove any vocabulary mapping from result.
 								result.set_vocabulary(None);
 							}
-							ValueRef::String(_) => {
-								let value = value.as_str().unwrap();
+							ValueRef::String(string_value) => {
+								let string_value = string_value.as_ref();
 								// Otherwise, if value is an IRI or blank node identifier, the
 								// vocabulary mapping of result is set to the result of IRI
 								// expanding value using true for document relative. If it is not
@@ -605,7 +618,7 @@ where
 								// error has been detected and processing is aborted.
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
-								match expansion::expand_iri(&result, value, true, true) {
+								match expansion::expand_iri(&result, string_value, value.metadata(), true, true, warnings) {
 									Term::Ref(vocab) => {
 										result.set_vocabulary(Some(Term::Ref(vocab)))
 									}
@@ -621,12 +634,17 @@ where
 						if value.is_null() {
 							// 5.9.2) If value is null, remove any default language from result.
 							result.set_default_language(None);
-						} else if let Some(str) = value.as_str() {
+						} else if let Some(str_value) = value.as_str() {
 							// 5.9.3) Otherwise, if value is string, the default language of result is
 							// set to value.
-							match LanguageTagBuf::parse_copy(str) {
-								Ok(lang) => result.set_default_language(Some(lang)),
-								Err(_) => return Err(ErrorCode::InvalidDefaultLanguage.into()),
+							match LanguageTagBuf::parse_copy(str_value) {
+								Ok(lang) => result.set_default_language(Some(lang.into())),
+								Err(err) => {
+									// If value is not well-formed according to section 2.2.9 of [BCP47],
+									// processors SHOULD issue a warning.
+									warnings.push(Meta::new(Warning::MalformedLanguageTag(str_value.to_string(), err), value.metadata().clone()));
+									result.set_default_language(Some(str_value.to_string().into()));
+								}
 							}
 						} else {
 							return Err(ErrorCode::InvalidDefaultLanguage.into());
@@ -673,6 +691,7 @@ where
 					// and the value of the @protected entry from context, if any, for protected.
 					// (and the value of override protected)
 					for (key, _) in context.iter() {
+						let key_metadata = key.metadata();
 						let key: &str = &**key;
 						match key {
 							"@base" | "@direction" | "@import" | "@language" | "@propagate"
@@ -682,12 +701,14 @@ where
 									&mut result,
 									&context,
 									key,
+									key_metadata,
 									&mut defined,
 									remote_contexts.clone(),
 									loader,
 									base_url,
 									protected,
 									options,
+									warnings
 								)
 								.await?
 							}
@@ -756,24 +777,19 @@ pub fn define<
 	active_context: &'a mut C,
 	local_context: &'a LocalContextObject<'a, J::Object>,
 	term: &'a str,
+	term_metadata: &'a J::MetaData,
 	defined: &'a mut HashMap<String, bool>,
 	remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	base_url: Option<Iri<'a>>,
 	protected: bool,
 	options: ProcessingOptions,
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>
 ) -> BoxFuture<'a, Result<(), Error>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
 {
-	// let term = term.to_string();
-	// let base_url = if let Some(base_url) = base_url {
-	// 	Some(IriBuf::from(base_url))
-	// } else {
-	// 	None
-	// };
-
 	async move {
 		match defined.get(term) {
 			// If defined contains the entry term and the associated value is true (indicating
@@ -832,7 +848,7 @@ where
 							// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
 							// from [RFC5234]), return; processors SHOULD generate a warning.
 							if is_keyword_like(term) {
-								// TODO warning
+								warnings.push(Meta::new(Warning::KeywordLikeTerm(term.to_string()), term_metadata.clone()));
 								return Ok(());
 							}
 						}
@@ -849,11 +865,11 @@ where
 							// whose key is @id and whose value is null.
 							WrappedValue::WrappedNull
 						}
-						ValueRef::String(value) => {
+						ValueRef::String(str_value) => {
 							// Otherwise, if value is a string, convert it to a map consisting of a
 							// single entry whose key is @id and whose value is value. Set simple
 							// term to true (it already is).
-							WrappedValue::Wrapped(value)
+							WrappedValue::Wrapped(Meta::new(str_value, value.metadata().clone()))
 						}
 						ValueRef::Object(value) => {
 							simple_term = false;
@@ -898,6 +914,7 @@ where
 							let typ = expand_iri(
 								active_context,
 								typ,
+								type_value.metadata(),
 								false,
 								true,
 								local_context,
@@ -905,6 +922,7 @@ where
 								remote_contexts.clone(),
 								loader,
 								options,
+								warnings
 							)
 							.await?;
 							// If the expanded type is @json or @none, and processing mode is
@@ -936,6 +954,7 @@ where
 							return Err(ErrorCode::InvalidReverseProperty.into());
 						}
 
+						let reverse_value_metadata = reverse_value.metadata();
 						if let Some(reverse_value) = reverse_value.as_str() {
 							// If the value associated with the @reverse entry is a string having
 							// the form of a keyword, return; processors SHOULD generate a warning.
@@ -953,6 +972,7 @@ where
 							match expand_iri(
 								active_context,
 								reverse_value,
+								reverse_value_metadata,
 								false,
 								true,
 								local_context,
@@ -960,6 +980,7 @@ where
 								remote_contexts,
 								loader,
 								options,
+								warnings
 							)
 							.await?
 							{
@@ -1024,6 +1045,7 @@ where
 							// of this term.
 							if !id_value.is_null() {
 								// Otherwise:
+								let id_value_metadata = id_value.metadata().unwrap();
 								if let Some(id_value) = id_value.as_str() {
 									// If the value associated with the `@id` entry is not a
 									// keyword, but has the form of a keyword, return;
@@ -1039,6 +1061,7 @@ where
 									definition.value = match expand_iri(
 										active_context,
 										id_value,
+										id_value_metadata,
 										false,
 										true,
 										local_context,
@@ -1046,6 +1069,7 @@ where
 										remote_contexts.clone(),
 										loader,
 										options,
+										warnings
 									)
 									.await?
 									{
@@ -1080,6 +1104,7 @@ where
 										let expanded_term = expand_iri(
 											active_context,
 											term,
+											term_metadata,
 											false,
 											true,
 											local_context,
@@ -1087,6 +1112,7 @@ where
 											remote_contexts.clone(),
 											loader,
 											options,
+											warnings
 										)
 										.await?;
 										if definition.value != Some(expanded_term) {
@@ -1129,12 +1155,14 @@ where
 									active_context,
 									local_context,
 									prefix,
+									term_metadata,
 									defined,
 									remote_contexts.clone(),
 									loader,
 									None,
 									false,
 									options.with_no_override(),
+									warnings
 								)
 								.await?;
 
@@ -1173,7 +1201,7 @@ where
 								// Term is a relative IRI reference.
 								// Set the IRI mapping of definition to the result of IRI expanding
 								// term.
-								match expansion::expand_iri(active_context, term, false, true) {
+								match expansion::expand_iri(active_context, term, term_metadata, false, true, warnings) {
 									Term::Ref(Reference::Id(id)) => {
 										definition.value = Some(id.into())
 									}
@@ -1286,7 +1314,7 @@ where
 						// Otherwise, an invalid term definition has been detected and processing
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
-							match expansion::expand_iri(active_context, index, false, true) {
+							match expansion::expand_iri(active_context, index, index_value.metadata(), false, true, warnings) {
 								Term::Ref(Reference::Id(_)) => (),
 								_ => return Err(ErrorCode::InvalidTermDefinition.into()),
 							}
@@ -1321,6 +1349,7 @@ where
 							loader,
 							base_url,
 							options.with_override(),
+							warnings
 						)
 						.await
 						.map_err(|_| Error::from(ErrorCode::InvalidScopedContext))?;
@@ -1343,13 +1372,13 @@ where
 							// Set the `language` mapping of definition to `language`.
 							definition.language = Some(match language_value.as_value_ref() {
 								ValueRef::Null => Nullable::Null,
-								ValueRef::String(_) => {
-									match LanguageTagBuf::parse_copy(
-										language_value.as_str().unwrap(),
-									) {
-										Ok(lang) => Nullable::Some(lang),
-										Err(_) => {
-											return Err(ErrorCode::InvalidLanguageMapping.into())
+								ValueRef::String(lang_str) => {
+									let lang_str: &str = lang_str.as_ref();
+									match LanguageTagBuf::parse_copy(lang_str) {
+										Ok(lang) => Nullable::Some(lang.into()),
+										Err(err) => {
+											warnings.push(Meta::new(Warning::MalformedLanguageTag(lang_str.to_string().clone(), err), language_value.metadata().clone()));
+											Nullable::Some(lang_str.to_string().into())
 										}
 									}
 								}
@@ -1476,8 +1505,14 @@ where
 	.boxed()
 }
 
+/// Build an invalid reference and emit a warning.
+fn invalid_iri<T: Id, M: Clone>(value: String, metadata: &M, warnings: &mut Vec<Meta<Warning, M>>) -> Term<T> {
+	warnings.push(Meta::new(Warning::MalformedIri(value.clone()), metadata.clone()));
+	Reference::Invalid(value).into()
+}
+
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri<
+fn expand_iri<
 	'a,
 	J: JsonContext,
 	T: Id + Send + Sync,
@@ -1486,6 +1521,7 @@ pub fn expand_iri<
 >(
 	active_context: &'a mut C,
 	value: &str,
+	metadata: &'a J::MetaData,
 	document_relative: bool,
 	vocab: bool,
 	local_context: &'a LocalContextObject<'a, J::Object>,
@@ -1493,6 +1529,7 @@ pub fn expand_iri<
 	remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	options: ProcessingOptions,
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>
 ) -> impl 'a + Send + Future<Output = Result<Term<T>, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
@@ -1506,7 +1543,7 @@ where
 			// If value has the form of a keyword, a processor SHOULD generate a warning and return
 			// null.
 			if is_keyword_like(value.as_ref()) {
-				// TODO warning
+				warnings.push(Meta::new(Warning::KeywordLikeValue(value), metadata.clone()));
 				return Ok(Term::Null);
 			}
 
@@ -1519,12 +1556,14 @@ where
 				active_context,
 				local_context,
 				value.as_ref(),
+				metadata,
 				defined,
 				remote_contexts.clone(),
 				loader,
 				None,
 				false,
 				options.with_no_override(),
+				warnings
 			)
 			.await?;
 
@@ -1543,7 +1582,7 @@ where
 					if let Some(value) = &term_definition.value {
 						return Ok(value.clone());
 					} else {
-						return Ok(Reference::Invalid(value.to_string()).into());
+						return Ok(invalid_iri(value.to_string(), metadata, warnings));
 					}
 				}
 			}
@@ -1566,7 +1605,7 @@ where
 						if let Ok(iri) = Iri::new(value.as_ref() as &str) {
 							return Ok(Term::from(T::from_iri(iri)));
 						} else {
-							return Ok(Reference::Invalid(value.to_string()).into());
+							return Ok(invalid_iri(value.to_string(), metadata, warnings));
 						}
 					}
 
@@ -1579,12 +1618,14 @@ where
 						active_context,
 						local_context,
 						prefix,
+						metadata,
 						defined,
 						remote_contexts,
 						loader,
 						None,
 						false,
 						options.with_no_override(),
+						warnings
 					)
 					.await?;
 
@@ -1631,7 +1672,7 @@ where
 							return Ok(Reference::Invalid(result).into());
 						}
 					}
-					Some(_) => return Ok(Reference::Invalid(value.to_string()).into()),
+					Some(_) => return Ok(invalid_iri(value.to_string(), metadata, warnings)),
 					None => (),
 				}
 			}
@@ -1647,15 +1688,15 @@ where
 					if let Some(value) = resolve_iri(iri_ref, active_context.base_iri()) {
 						return Ok(Term::from(T::from_iri(value.as_iri())));
 					} else {
-						return Ok(Reference::Invalid(value.to_string()).into());
+						return Ok(invalid_iri(value.to_string(), metadata, warnings));
 					}
 				} else {
-					return Ok(Reference::Invalid(value.to_string()).into());
+					return Ok(invalid_iri(value.to_string(), metadata, warnings));
 				}
 			}
 
 			// Return value as is.
-			Ok(Reference::Invalid(value.to_string()).into())
+			Ok(invalid_iri(value.to_string(), metadata, warnings))
 		}
 	}
 }

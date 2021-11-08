@@ -2,9 +2,10 @@ use super::Context;
 use crate::{
 	syntax::{Container, Term, Type},
 	Direction, Id, Nullable,
+	lang::LenientLanguageTagBuf
 };
 use iref::{Iri, IriBuf};
-use langtag::LanguageTagBuf;
+// use langtag::LanguageTagBuf;
 
 // A term definition.
 #[derive(Clone)]
@@ -37,7 +38,7 @@ pub struct TermDefinition<T: Id, C: Context<T>> {
 	pub index: Option<String>,
 
 	// Optional language mapping.
-	pub language: Option<Nullable<LanguageTagBuf>>,
+	pub language: Option<Nullable<LenientLanguageTagBuf>>,
 
 	// Optional nest value.
 	pub nest: Option<String>,

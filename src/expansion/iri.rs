@@ -1,16 +1,19 @@
 use crate::{
 	syntax::{is_keyword_like, Keyword, Term},
 	BlankId, Context, Id, Reference,
+	Warning, Meta
 };
 use iref::{Iri, IriRef};
 use std::convert::TryFrom;
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
-pub fn expand_iri<T: Id, C: Context<T>>(
+pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 	active_context: &C,
 	value: &str,
+	metadata: &M,
 	document_relative: bool,
 	vocab: bool,
+	warnings: &mut Vec<Meta<Warning, M>>
 ) -> Term<T> {
 	if let Ok(keyword) = Keyword::try_from(value) {
 		Term::Keyword(keyword)
@@ -18,6 +21,7 @@ pub fn expand_iri<T: Id, C: Context<T>>(
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
 		if is_keyword_like(value) {
+			warnings.push(Meta::new(Warning::KeywordLikeValue(value.to_string()), metadata.clone()));
 			return Term::Null;
 		}
 
@@ -36,7 +40,7 @@ pub fn expand_iri<T: Id, C: Context<T>>(
 				if let Some(mapped_value) = &term_definition.value {
 					return mapped_value.clone();
 				} else {
-					return Reference::Invalid(value.to_string()).into();
+					return invalid(value.to_string(), metadata, warnings);
 				}
 			}
 		}
@@ -59,7 +63,7 @@ pub fn expand_iri<T: Id, C: Context<T>>(
 					if let Ok(iri) = Iri::new(value) {
 						return Term::from(T::from_iri(iri));
 					} else {
-						return Reference::Invalid(value.to_string()).into();
+						return invalid(value.to_string(), metadata, warnings);
 					}
 				}
 
@@ -106,7 +110,7 @@ pub fn expand_iri<T: Id, C: Context<T>>(
 						return Reference::Invalid(result).into();
 					}
 				}
-				Some(_) => return Reference::Invalid(value.to_string()).into(),
+				Some(_) => return invalid(value.to_string(), metadata, warnings),
 				None => (),
 			}
 		}
@@ -123,14 +127,20 @@ pub fn expand_iri<T: Id, C: Context<T>>(
 					let value = iri_ref.resolved(base_iri);
 					return Term::from(T::from_iri(value.as_iri()));
 				} else {
-					return Reference::Invalid(value.to_string()).into();
+					return invalid(value.to_string(), metadata, warnings);
 				}
 			} else {
-				return Reference::Invalid(value.to_string()).into();
+				return invalid(value.to_string(), metadata, warnings);
 			}
 		}
 
 		// Return value as is.
-		Reference::Invalid(value.to_string()).into()
+		invalid(value.to_string(), metadata, warnings)
 	}
+}
+
+/// Build an invalid reference and emit a warning.
+fn invalid<T: Id, M: Clone>(value: String, metadata: &M, warnings: &mut Vec<Meta<Warning, M>>) -> Term<T> {
+	warnings.push(Meta::new(Warning::MalformedIri(value.clone()), metadata.clone()));
+	Reference::Invalid(value).into()
 }

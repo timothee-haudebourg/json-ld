@@ -7,10 +7,10 @@ use crate::{
 	syntax::Keyword,
 	util::{AsJson, JsonFrom},
 	Id, Indexed, Reference,
+	lang::LenientLanguageTag
 };
 use generic_json::{JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
-use langtag::LanguageTag;
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
@@ -32,7 +32,7 @@ pub trait Any<J: JsonHash, T: Id> {
 	}
 
 	#[inline]
-	fn language<'a>(&'a self) -> Option<LanguageTag>
+	fn language<'a>(&'a self) -> Option<LenientLanguageTag>
 	where
 		J: 'a,
 		T: 'a,
@@ -233,7 +233,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	/// If the objat is a language-tagged value,
 	/// Return its associated language.
 	#[inline(always)]
-	pub fn language(&self) -> Option<LanguageTag> {
+	pub fn language(&self) -> Option<LenientLanguageTag> {
 		match self {
 			Object::Value(value) => value.language(),
 			_ => None,

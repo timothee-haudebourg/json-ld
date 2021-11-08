@@ -1,24 +1,31 @@
 use super::{expand_iri, node_id_of_term};
-use crate::{object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString};
+use crate::{object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString, Meta, Warning};
 use generic_json::{Json, JsonClone, JsonHash, ValueRef};
 
-pub enum LiteralValue<'a, J> {
+pub enum LiteralValue<'a, J: Json> {
 	Given(&'a J),
-	Inferred(String),
+	Inferred(String, J::MetaData),
 }
 
 impl<'a, J: Json> LiteralValue<'a, J> {
 	pub fn is_string(&self) -> bool {
 		match self {
 			Self::Given(v) => v.is_string(),
-			Self::Inferred(_) => true,
+			Self::Inferred(_, _) => true,
 		}
 	}
 
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
 			Self::Given(v) => v.as_str(),
-			Self::Inferred(s) => Some(s.as_str()),
+			Self::Inferred(s, _) => Some(s.as_str()),
+		}
+	}
+
+	pub fn metadata(&self) -> &J::MetaData {
+		match self {
+			Self::Given(v) => v.metadata(),
+			Self::Inferred(_, meta) => meta
 		}
 	}
 }
@@ -29,6 +36,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 	active_context: &C,
 	active_property: Option<&str>,
 	value: LiteralValue<J>,
+	warnings: &mut Vec<Meta<Warning, J::MetaData>>
 ) -> Result<Indexed<Object<J, T>>, Error> {
 	let active_property_definition = active_context.get_opt(active_property);
 
@@ -49,8 +57,10 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 			node.id = node_id_of_term(expand_iri(
 				active_context,
 				value.as_str().unwrap(),
+				value.metadata(),
 				true,
 				false,
+				warnings
 			));
 			Ok(Object::Node(node).into())
 		}
@@ -64,8 +74,10 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 			node.id = node_id_of_term(expand_iri(
 				active_context,
 				value.as_str().unwrap(),
+				value.metadata(),
 				true,
 				true,
+				warnings
 			));
 			Ok(Object::Node(node).into())
 		}
@@ -81,7 +93,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 					ValueRef::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
 					_ => panic!("expand_literal must be called with a literal JSON value"),
 				},
-				LiteralValue::Inferred(s) => Literal::String(LiteralString::Inferred(s)),
+				LiteralValue::Inferred(s, _) => Literal::String(LiteralString::Inferred(s)),
 			};
 
 			// If `active_property` has a type mapping in active context, other than `@id`,

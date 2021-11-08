@@ -2,6 +2,7 @@
 use crate::{
 	context::{Loader, ProcessingOptions},
 	ContextMut, Error, Id, Indexed, Object, ProcessingMode,
+	Meta, Warning
 };
 use cc_traits::{CollectionRef, KeyedRef};
 use derivative::Derivative;
@@ -210,6 +211,7 @@ pub async fn expand<'a, J: JsonExpand, T: Id, C: ContextMut<T>, L: Loader>(
 	base_url: Option<IriBuf>,
 	loader: &'a mut L,
 	options: Options,
+	warnings: &mut Vec<Meta<Warning, J::MetaData>>
 // ) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
 ) -> Result<HashSet<Indexed<Object<J, T>>>, Error>
 where
@@ -231,6 +233,7 @@ where
 			loader,
 			options,
 			false,
+			warnings
 		)
 		.await?;
 		if expanded.len() == 1 {

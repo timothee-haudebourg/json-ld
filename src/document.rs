@@ -4,7 +4,7 @@ use crate::{
 	expansion,
 	util::{AsJson, JsonFrom},
 	Context, ContextMut, ContextMutProxy, Error, Id, Indexed, Object,
-	Warning
+	Meta, Warning
 };
 use cc_traits::Len;
 use futures::future::{BoxFuture, FutureExt};
@@ -18,12 +18,12 @@ use std::ops::{Deref, DerefMut};
 /// It is just an alias for a set of (indexed) objects.
 pub struct ExpandedDocument<J: JsonHash, T: Id> {
 	objects: HashSet<Indexed<Object<J, T>>>,
-	warnings: Vec<Warning>
+	warnings: Vec<Meta<Warning, J::MetaData>>
 }
 
 impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	#[inline(always)]
-	pub fn new(objects: HashSet<Indexed<Object<J, T>>>, warnings: Vec<Warning>) -> Self {
+	pub fn new(objects: HashSet<Indexed<Object<J, T>>>, warnings: Vec<Meta<Warning, J::MetaData>>) -> Self {
 		Self {
 			objects,
 			warnings
@@ -38,6 +38,11 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	#[inline(always)]
 	pub fn is_empty(&self) -> bool {
 		self.objects.is_empty()
+	}
+
+	#[inline(always)]
+	pub fn warnings(&self) -> &[Meta<Warning, J::MetaData>] {
+		&self.warnings
 	}
 
 	#[inline(always)]
@@ -358,8 +363,8 @@ impl<J: Json, T: Id> Document<T> for J {
 		let base_url = base_url.map(IriBuf::from);
 
 		async move {
-			let mut warnings = Vec::new(); // TODO
-			let objects = expansion::expand(context, self, base_url, loader, options).await?;
+			let mut warnings = Vec::new();
+			let objects = expansion::expand(context, self, base_url, loader, options, &mut warnings).await?;
 			Ok(ExpandedDocument::new(objects, warnings))
 		}.boxed()
 	}

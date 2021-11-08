@@ -8,10 +8,11 @@ use crate::{
 	object::*,
 	syntax::{Keyword, Term},
 	Error, ErrorCode, Id, Indexed,
+	Meta, Warning, Reference
 };
 use cc_traits::{CollectionRef, Get, KeyedRef, Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::ValueRef;
+use generic_json::{Key, ValueRef};
 use iref::Iri;
 use mown::Mown;
 
@@ -33,6 +34,7 @@ pub fn expand_element<
 	loader: &'a mut L,
 	options: Options,
 	from_map: bool,
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>
 ) -> BoxFuture<'a, Result<Expanded<J, T>, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
@@ -71,6 +73,7 @@ where
 					loader,
 					options,
 					from_map,
+					warnings
 				)
 				.await
 			}
@@ -90,7 +93,7 @@ where
 				let mut id_entry = None;
 
 				for Entry(key, value) in entries.iter() {
-					match expand_iri(active_context, key.as_ref(), false, true) {
+					match expand_iri(active_context, key.as_ref(), key.metadata(), false, true, warnings) {
 						Term::Keyword(Keyword::Value) => value_entry1 = Some(value.clone()),
 						Term::Keyword(Keyword::Id) => id_entry = Some(value.clone()),
 						_ => (),
@@ -150,7 +153,7 @@ where
 				let mut type_entries: Vec<Entry<J>> = Vec::new();
 				for entry @ Entry(key, _) in entries.iter() {
 					let expanded_key =
-						expand_iri(active_context.as_ref(), key.as_ref(), false, true);
+						expand_iri(active_context.as_ref(), key.as_ref(), key.metadata(), false, true, warnings);
 					if let Term::Keyword(Keyword::Type) = expanded_key {
 						type_entries.push(entry.clone());
 					}
@@ -215,8 +218,8 @@ where
 				let input_type = if let Some(Entry(_, value)) = type_entries.first() {
 					let (value, _) = as_array(&**value);
 					if let Some(input_type) = value.last() {
-						input_type.as_str().map(|input_type| {
-							expand_iri(active_context.as_ref(), input_type, false, true)
+						input_type.as_str().map(|input_type_str| {
+							expand_iri(active_context.as_ref(), input_type_str, input_type.metadata(), false, true, warnings)
 						})
 					} else {
 						None
@@ -231,8 +234,12 @@ where
 				let mut set_entry = None;
 				let mut value_entry = None;
 				for Entry(key, value) in entries {
+					if key.is_empty() {
+						warnings.push(Meta::new(Warning::EmptyKey, key.metadata().clone()));
+					}
+
 					let expanded_key =
-						expand_iri(active_context.as_ref(), key.as_ref(), false, true);
+						expand_iri(active_context.as_ref(), key.as_ref(), key.metadata(), false, true, warnings);
 					match &expanded_key {
 						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
 						Term::Keyword(Keyword::List)
@@ -241,6 +248,9 @@ where
 							list_entry = Some(value.clone())
 						}
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
+						Term::Ref(Reference::Blank(id)) => {
+							warnings.push(Meta::new(Warning::BlankNodeIdProperty(id.clone()), key.metadata().clone()));
+						}
 						_ => (),
 					}
 
@@ -281,6 +291,7 @@ where
 								loader,
 								options,
 								false,
+								warnings
 							)
 							.await?,
 						)
@@ -311,6 +322,7 @@ where
 						loader,
 						options,
 						false,
+						warnings
 					)
 					.await
 				} else if let Some(value_entry) = value_entry {
@@ -320,6 +332,7 @@ where
 						type_scoped_context,
 						expanded_entries,
 						&*value_entry,
+						warnings
 					)? {
 						Ok(Expanded::Object(value))
 					} else {
@@ -335,6 +348,7 @@ where
 						base_url,
 						loader,
 						options,
+						warnings
 					)
 					.await?
 					{
@@ -387,6 +401,7 @@ where
 					active_context.as_ref(),
 					active_property,
 					LiteralValue::Given(element),
+					warnings
 				)?));
 			}
 		}
