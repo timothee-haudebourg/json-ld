@@ -185,6 +185,7 @@ mod id;
 mod indexed;
 mod lang;
 mod loader;
+mod meta;
 mod mode;
 mod null;
 pub mod object;
@@ -192,6 +193,7 @@ mod reference;
 pub mod syntax;
 pub mod util;
 mod vocab;
+mod warning;
 
 #[cfg(feature = "reqwest-loader")]
 pub mod reqwest;
@@ -205,10 +207,12 @@ pub use id::*;
 pub use indexed::*;
 pub use lang::*;
 pub use loader::*;
+pub use meta::Meta;
 pub use mode::*;
 pub use null::*;
 pub use reference::*;
 pub use vocab::*;
+pub use warning::*;
 
 pub use context::{Context, ContextMut, ContextMutProxy, JsonContext};
 pub use object::{Node, Nodes, Object, Objects, Value};

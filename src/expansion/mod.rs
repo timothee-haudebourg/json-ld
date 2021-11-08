@@ -1,13 +1,12 @@
 //! Expansion algorithm and related types.
 use crate::{
 	context::{Loader, ProcessingOptions},
-	ContextMut, Error, Id, Indexed, Object, ProcessingMode,
+	ContextMut, Error, Id, Indexed, Meta, Object, ProcessingMode, Warning,
 };
 use cc_traits::{CollectionRef, KeyedRef};
 use derivative::Derivative;
-use futures::Future;
 use generic_json::{Json, JsonClone, JsonHash, JsonLft, JsonSendSync};
-use iref::{Iri, IriBuf};
+use iref::IriBuf;
 use std::cmp::{Ord, Ordering};
 use std::collections::HashSet;
 
@@ -205,13 +204,14 @@ fn filter_top_level_item<J: JsonHash, T: Id>(item: &Indexed<Object<J, T>>) -> bo
 /// Note that you probably do not want to use this function directly,
 /// but instead use the [`Document::expand`](crate::Document::expand) method, implemented for
 /// every JSON type implementing the [`generic_json::Json`] trait.
-pub fn expand<'a, J: JsonExpand, T: Id, C: ContextMut<T>, L: Loader>(
+pub async fn expand<'a, J: JsonExpand, T: Id, C: ContextMut<T>, L: Loader>(
 	active_context: &'a C,
 	document: &'a J,
-	base_url: Option<Iri>,
+	base_url: Option<IriBuf>,
 	loader: &'a mut L,
 	options: Options,
-) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
+	warnings: &mut Vec<Meta<Warning, J::MetaData>>, // ) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
+) -> Result<HashSet<Indexed<Object<J, T>>>, Error>
 where
 	T: Send + Sync,
 	C: Send + Sync,
@@ -219,33 +219,34 @@ where
 	L: Send + Sync,
 	L::Output: Into<J>,
 {
-	let base_url = base_url.map(IriBuf::from);
+	// let base_url = base_url.map(IriBuf::from);
 
-	async move {
-		let base_url = base_url.as_ref().map(|url| url.as_iri());
-		let expanded = expand_element(
-			active_context,
-			None,
-			document,
-			base_url,
-			loader,
-			options,
-			false,
-		)
-		.await?;
-		if expanded.len() == 1 {
-			match expanded.into_iter().next().unwrap().into_unnamed_graph() {
-				Ok(graph) => Ok(graph),
-				Err(obj) => {
-					let mut set = HashSet::new();
-					if filter_top_level_item(&obj) {
-						set.insert(obj);
-					}
-					Ok(set)
+	// async move {
+	let base_url = base_url.as_ref().map(|url| url.as_iri());
+	let expanded = expand_element(
+		active_context,
+		None,
+		document,
+		base_url,
+		loader,
+		options,
+		false,
+		warnings,
+	)
+	.await?;
+	if expanded.len() == 1 {
+		match expanded.into_iter().next().unwrap().into_unnamed_graph() {
+			Ok(graph) => Ok(graph),
+			Err(obj) => {
+				let mut set = HashSet::new();
+				if filter_top_level_item(&obj) {
+					set.insert(obj);
 				}
+				Ok(set)
 			}
-		} else {
-			Ok(expanded.into_iter().filter(filter_top_level_item).collect())
 		}
+	} else {
+		Ok(expanded.into_iter().filter(filter_top_level_item).collect())
 	}
+	// }
 }

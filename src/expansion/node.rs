@@ -7,11 +7,11 @@ use crate::{
 	context::{ContextMut, Loader, Local, ProcessingOptions},
 	object::*,
 	syntax::{Container, ContainerType, Keyword, Term, Type},
-	Error, ErrorCode, Id, Indexed, LangString, ProcessingMode, Reference,
+	Error, ErrorCode, Id, Indexed, LangString, Meta, ProcessingMode, Reference, Warning,
 };
 use cc_traits::{Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::ValueRef;
+use generic_json::{Key, ValueRef};
 use iref::Iri;
 use langtag::LanguageTagBuf;
 use mown::Mown;
@@ -42,6 +42,7 @@ pub(crate) async fn expand_node<
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
 ) -> Result<Option<Indexed<Node<J, T>>>, Error>
 where
 	C::LocalContext: From<L::Output> + From<J>,
@@ -61,6 +62,7 @@ where
 		base_url,
 		loader,
 		options,
+		warnings,
 	)
 	.await?;
 
@@ -119,6 +121,7 @@ fn expand_node_entries<
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
+	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
 ) -> BoxFuture<'a, Result<ExpandedNode<J, T>, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
@@ -164,12 +167,18 @@ where
 						Keyword::Id => {
 							// If `value` is not a string, an invalid @id value error has
 							// been detected and processing is aborted.
-							if let Some(value) = value.as_str() {
+							if let Some(str_value) = value.as_str() {
 								// Otherwise, set `expanded_value` to the result of IRI
 								// expanding value using true for document relative and
 								// false for vocab.
-								result.id =
-									node_id_of_term(expand_iri(active_context, value, true, false))
+								result.id = node_id_of_term(expand_iri(
+									active_context,
+									str_value,
+									value.metadata(),
+									true,
+									false,
+									warnings,
+								))
 							} else {
 								return Err(ErrorCode::InvalidIdValue.into());
 							}
@@ -184,9 +193,16 @@ where
 							// of its values using `type_scoped_context` for active
 							// context, and true for document relative.
 							for ty in value {
-								if let Some(ty) = ty.as_str() {
-									if let Ok(ty) =
-										expand_iri(type_scoped_context, ty, true, true).try_into()
+								if let Some(str_ty) = ty.as_str() {
+									if let Ok(ty) = expand_iri(
+										type_scoped_context,
+										str_ty,
+										ty.metadata(),
+										true,
+										true,
+										warnings,
+									)
+									.try_into()
 									{
 										result.types.push(ty)
 									} else {
@@ -212,6 +228,7 @@ where
 								loader,
 								options,
 								false,
+								warnings,
 							)
 							.await?;
 							result.graph = Some(
@@ -241,6 +258,7 @@ where
 								loader,
 								options,
 								false,
+								warnings,
 							)
 							.await?;
 							let mut expanded_nodes = Vec::new();
@@ -290,8 +308,10 @@ where
 									match expand_iri(
 										active_context,
 										reverse_key.as_ref(),
+										reverse_key.metadata(),
 										false,
 										true,
+										warnings,
 									) {
 										Term::Keyword(_) => {
 											return Err(ErrorCode::InvalidReversePropertyMap.into())
@@ -313,6 +333,7 @@ where
 												loader,
 												options,
 												false,
+												warnings,
 											)
 											.await?;
 
@@ -419,8 +440,10 @@ where
 											let expanded_key = expand_iri(
 												active_context.as_ref(),
 												key.as_ref(),
+												key.metadata(),
 												false,
 												true,
+												warnings,
 											);
 											ExpandedEntry(key, expanded_key, value)
 										});
@@ -436,6 +459,7 @@ where
 											base_url,
 											loader,
 											options,
+											warnings,
 										)
 										.await?;
 
@@ -516,6 +540,7 @@ where
 								}
 
 								for Entry(language, language_value) in language_entries {
+									let language_metadata = language.metadata();
 									let language: &str = &*language;
 									// If language value is not an array set language value to
 									// an array containing only language value.
@@ -530,24 +555,31 @@ where
 											ValueRef::String(item) => {
 												// If language is @none, or expands to
 												// @none, remove @language from v.
-												let language =
-													if expand_iri(
-														active_context,
-														language,
-														false,
-														true,
-													) == Term::Keyword(Keyword::None)
-													{
-														None
-													} else {
-														match LanguageTagBuf::parse_copy(language) {
-															Ok(lang) => Some(lang),
-															Err(_) => return Err(
-																ErrorCode::InvalidLanguageMapValue
-																	.into(),
-															),
+												let language = if expand_iri(
+													active_context,
+													language,
+													language_metadata,
+													false,
+													true,
+													warnings,
+												) == Term::Keyword(Keyword::None)
+												{
+													None
+												} else {
+													match LanguageTagBuf::parse_copy(language) {
+														Ok(lang) => Some(lang.into()),
+														Err(err) => {
+															warnings.push(Meta::new(
+																Warning::MalformedLanguageTag(
+																	language.to_string().clone(),
+																	err,
+																),
+																language_metadata.clone(),
+															));
+															Some(language.to_string().into())
 														}
-													};
+													}
+												};
 
 												// initialize a new map v consisting of two
 												// key-value pairs: (@value-item) and
@@ -683,8 +715,10 @@ where
 									let expanded_index = match expand_iri(
 										active_context,
 										index.as_ref(),
+										index.metadata(),
 										false,
 										true,
+										warnings,
 									) {
 										Term::Null | Term::Keyword(Keyword::None) => None,
 										key => Some(key),
@@ -708,6 +742,7 @@ where
 										loader,
 										options,
 										true,
+										warnings,
 									)
 									.await?;
 									// For each item in index value:
@@ -742,7 +777,11 @@ where
 												let re_expanded_index = expand_literal(
 													active_context,
 													Some(index_key),
-													LiteralValue::Inferred((&**index).into()),
+													LiteralValue::Inferred(
+														(&**index).into(),
+														index.metadata().clone(),
+													),
+													warnings,
 												)?;
 
 												// Initialize expanded index key to the result
@@ -750,8 +789,10 @@ where
 												let expanded_index_key = match expand_iri(
 													active_context,
 													index_key,
+													index.metadata(),
 													false,
 													true,
+													warnings,
 												) {
 													Term::Ref(prop) => prop,
 													_ => continue,
@@ -797,8 +838,10 @@ where
 													node.id = node_id_of_term(expand_iri(
 														active_context,
 														index.as_ref(),
+														index.metadata(),
 														true,
 														false,
+														warnings,
 													));
 												}
 											} else if container_mapping
@@ -841,6 +884,7 @@ where
 									loader,
 									options,
 									false,
+									warnings,
 								)
 								.await?
 							}

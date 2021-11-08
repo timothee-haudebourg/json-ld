@@ -2,7 +2,7 @@ use super::{expand_iri, ExpandedEntry};
 use crate::{
 	object::*,
 	syntax::{Keyword, Term},
-	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Reference,
+	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Meta, Reference, Warning,
 };
 use generic_json::{JsonClone, JsonHash, ValueRef};
 use langtag::LanguageTagBuf;
@@ -13,6 +13,7 @@ pub(crate) fn expand_value<'e, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>>
 	type_scoped_context: &C,
 	expanded_entries: Vec<ExpandedEntry<'e, J, Term<T>>>,
 	value_entry: &J,
+	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
 ) -> Result<Option<Indexed<Object<J, T>>>, Error>
 where
 	J::Object: 'e,
@@ -29,6 +30,7 @@ where
 			Term::Keyword(Keyword::Language) => {
 				// If value is not a string, an invalid language-tagged string
 				// error has been detected and processing is aborted.
+				let value_metadata = value.metadata();
 				if let Some(value) = value.as_str() {
 					// Otherwise, set expanded value to value. If value is not
 					// well-formed according to section 2.2.9 of [BCP47],
@@ -36,7 +38,7 @@ where
 					// TODO warning.
 
 					if value != "@none" {
-						language = Some(value.to_string());
+						language = Some(Meta::new(value.to_string(), value_metadata.clone()));
 					}
 				} else {
 					return Err(ErrorCode::InvalidLanguageTaggedString.into());
@@ -73,7 +75,14 @@ where
 			// If expanded ...
 			Term::Keyword(Keyword::Type) => {
 				if let Some(ty_value) = value.as_str() {
-					let expanded_ty = expand_iri(type_scoped_context, ty_value, true, true);
+					let expanded_ty = expand_iri(
+						type_scoped_context,
+						ty_value,
+						value.metadata(),
+						true,
+						true,
+						warnings,
+					);
 
 					match expanded_ty {
 						Term::Keyword(Keyword::Json) => {
@@ -142,10 +151,19 @@ where
 
 		if let Literal::String(str) = result {
 			let lang = match language {
-				Some(language) => match LanguageTagBuf::new(language.into_bytes()) {
-					Ok(lang) => Some(lang),
-					Err(_) => return Ok(None),
-				},
+				Some(language) => {
+					let (language, language_metadata) = language.into_parts();
+					match LanguageTagBuf::parse_copy(language.as_str()) {
+						Ok(lang) => Some(lang.into()),
+						Err(err) => {
+							warnings.push(Meta::new(
+								Warning::MalformedLanguageTag(language.to_string(), err),
+								language_metadata,
+							));
+							Some(language.to_string().into())
+						}
+					}
+				}
 				None => None,
 			};
 

@@ -1,4 +1,5 @@
 use crate::{
+	lang::LenientLanguageTag,
 	object,
 	syntax::{Keyword, Type},
 	util::{self, AsAnyJson},
@@ -8,7 +9,6 @@ use cc_traits::MapInsert;
 use derivative::Derivative;
 use generic_json::{Json, JsonClone, JsonHash};
 use iref::IriBuf;
-use langtag::LanguageTag;
 use std::{
 	fmt,
 	hash::{Hash, Hasher},
@@ -221,7 +221,7 @@ impl<J: Json, T: Id> Value<J, T> {
 	///
 	/// Returns `None` if the value is not a language tagged string.
 	#[inline(always)]
-	pub fn language(&self) -> Option<LanguageTag> {
+	pub fn language(&self) -> Option<LenientLanguageTag> {
 		match self {
 			Value::LangString(tag) => tag.language(),
 			_ => None,

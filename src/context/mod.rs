@@ -6,14 +6,15 @@ mod loader;
 mod processing;
 
 use crate::{
+	lang::{LenientLanguageTag, LenientLanguageTagBuf},
 	syntax::Term,
 	util::{AsJson, JsonFrom},
-	Direction, Error, Id, ProcessingMode,
+	Direction, Error, Id, Meta, ProcessingMode, Warning,
 };
 use futures::{future::BoxFuture, FutureExt};
 use generic_json::{JsonClone, JsonSendSync};
 use iref::{Iri, IriBuf};
-use langtag::{LanguageTag, LanguageTagBuf};
+// use langtag::{LanguageTag, LanguageTagBuf};
 use std::collections::HashMap;
 
 pub use definition::*;
@@ -108,7 +109,7 @@ pub trait Context<T: Id = IriBuf>: Clone {
 	fn vocabulary(&self) -> Option<&Term<T>>;
 
 	/// Optional default language.
-	fn default_language(&self) -> Option<LanguageTag>;
+	fn default_language(&self) -> Option<LenientLanguageTag>;
 
 	/// Optional default base direction.
 	fn default_base_direction(&self) -> Option<Direction>;
@@ -137,7 +138,7 @@ pub trait ContextMut<T: Id = IriBuf>: Context<T> {
 	fn set_vocabulary(&mut self, vocab: Option<Term<T>>);
 
 	/// Sets the default language.
-	fn set_default_language(&mut self, lang: Option<LanguageTagBuf>);
+	fn set_default_language(&mut self, lang: Option<LenientLanguageTagBuf>);
 
 	/// Sets de default language base direction.
 	fn set_default_base_direction(&mut self, dir: Option<Direction>);
@@ -230,18 +231,39 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 /// This is usefull for instance to attach a processed context to its original JSON form,
 /// which is then used by the compaction algorithm to put the context in the compacted document.
 #[derive(Clone)]
-pub struct ProcessedOwned<L, C> {
+pub struct ProcessedOwned<L: generic_json::Json, C> {
 	/// Original unprocessed context.
 	local: L,
 
 	/// Processed context.
 	processed: C,
+
+	/// Warnings collected during processing.
+	warnings: Vec<Meta<Warning, L::MetaData>>,
 }
 
-impl<L, C> ProcessedOwned<L, C> {
+impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 	/// Wraps a processed context along with its original local representation.
 	pub fn new(local: L, processed: C) -> ProcessedOwned<L, C> {
-		ProcessedOwned { local, processed }
+		Self::with_warnings(local, processed, Vec::new())
+	}
+
+	/// Wraps a processed context along with its original local representation and warnings emitted during processing.
+	pub fn with_warnings(
+		local: L,
+		processed: C,
+		warnings: Vec<Meta<Warning, L::MetaData>>,
+	) -> Self {
+		ProcessedOwned {
+			local,
+			processed,
+			warnings,
+		}
+	}
+
+	/// Returns a reference to the warnings emitted during processing.
+	pub fn warnings(&self) -> &[Meta<Warning, L::MetaData>] {
+		&self.warnings
 	}
 
 	/// Consumes the wrapper and returns the processed context.
@@ -250,7 +272,7 @@ impl<L, C> ProcessedOwned<L, C> {
 	}
 }
 
-impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
+impl<T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -258,7 +280,7 @@ impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
 	}
 }
 
-impl<L, C> std::ops::Deref for ProcessedOwned<L, C> {
+impl<L: generic_json::Json, C> std::ops::Deref for ProcessedOwned<L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -266,13 +288,15 @@ impl<L, C> std::ops::Deref for ProcessedOwned<L, C> {
 	}
 }
 
-impl<L, C> std::convert::AsRef<C> for ProcessedOwned<L, C> {
+impl<L: generic_json::Json, C> std::convert::AsRef<C> for ProcessedOwned<L, C> {
 	fn as_ref(&self) -> &C {
 		&self.processed
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for ProcessedOwned<L, C> {
+impl<J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K>
+	for ProcessedOwned<L, C>
+{
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		self.local.as_json_with(meta)
 	}
@@ -283,18 +307,40 @@ impl<J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for Processe
 /// This is usefull for instance to attach a processed context to its original JSON form,
 /// which is then used by the compaction algorithm to put the context in the compacted document.
 #[derive(Clone)]
-pub struct Processed<'a, L, C> {
+pub struct Processed<'a, L: generic_json::Json, C> {
 	/// Original unprocessed context.
 	local: &'a L,
 
 	/// Processed context.
 	processed: C,
+
+	/// Warnings collected during processing.
+	warnings: Vec<Meta<Warning, L::MetaData>>,
 }
 
-impl<'a, L, C> Processed<'a, L, C> {
+impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 	/// Wraps a processed context along with a reference to its original local representation.
 	pub fn new(local: &'a L, processed: C) -> Self {
-		Self { local, processed }
+		Self::with_warnings(local, processed, Vec::new())
+	}
+
+	/// Wraps a processed context along with a reference to its original local representation
+	/// and warnings emitted during processing.
+	pub fn with_warnings(
+		local: &'a L,
+		processed: C,
+		warnings: Vec<Meta<Warning, L::MetaData>>,
+	) -> Self {
+		Processed {
+			local,
+			processed,
+			warnings,
+		}
+	}
+
+	/// Returns a reference to the warnings emitted during processing.
+	pub fn warnings(&self) -> &[Meta<Warning, L::MetaData>] {
+		&self.warnings
 	}
 
 	/// Consumes the wrapper and returns the processed context.
@@ -311,11 +357,14 @@ impl<'a, L, C> Processed<'a, L, C> {
 		ProcessedOwned {
 			local: L::clone(self.local),
 			processed: self.processed,
+			warnings: self.warnings,
 		}
 	}
 }
 
-impl<'a, T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<'a, L, C> {
+impl<'a, T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T>
+	for Processed<'a, L, C>
+{
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -323,7 +372,7 @@ impl<'a, T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for Processed<'a, L, C> 
 	}
 }
 
-impl<'a, L, C> std::ops::Deref for Processed<'a, L, C> {
+impl<'a, L: generic_json::Json, C> std::ops::Deref for Processed<'a, L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -331,13 +380,15 @@ impl<'a, L, C> std::ops::Deref for Processed<'a, L, C> {
 	}
 }
 
-impl<'a, L, C> std::convert::AsRef<C> for Processed<'a, L, C> {
+impl<'a, L: generic_json::Json, C> std::convert::AsRef<C> for Processed<'a, L, C> {
 	fn as_ref(&self) -> &C {
 		&self.processed
 	}
 }
 
-impl<'a, J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for Processed<'a, L, C> {
+impl<'a, J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K>
+	for Processed<'a, L, C>
+{
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		self.local.as_json_with(meta)
 	}
@@ -348,7 +399,7 @@ pub struct Json<J: JsonContext, T: Id = IriBuf> {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term<T>>,
-	default_language: Option<LanguageTagBuf>,
+	default_language: Option<LenientLanguageTagBuf>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
 	definitions: HashMap<String, TermDefinition<T, Self>>,
@@ -416,7 +467,7 @@ impl<J: JsonContext, T: Id> Context<T> for Json<J, T> {
 		}
 	}
 
-	fn default_language(&self) -> Option<LanguageTag> {
+	fn default_language(&self) -> Option<LenientLanguageTag> {
 		self.default_language.as_ref().map(|tag| tag.as_ref())
 	}
 
@@ -464,7 +515,7 @@ impl<J: JsonContext, T: Id> ContextMut<T> for Json<J, T> {
 		self.vocabulary = vocab;
 	}
 
-	fn set_default_language(&mut self, lang: Option<LanguageTagBuf>) {
+	fn set_default_language(&mut self, lang: Option<LenientLanguageTagBuf>) {
 		self.default_language = lang;
 	}
 

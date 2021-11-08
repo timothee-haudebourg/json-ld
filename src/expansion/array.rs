@@ -3,7 +3,7 @@ use crate::{
 	context::{Loader, TermDefinition},
 	object::*,
 	syntax::ContainerType,
-	ContextMut, Error, Id,
+	ContextMut, Error, Id, Meta, Warning,
 };
 use cc_traits::Iter;
 use iref::Iri;
@@ -22,6 +22,7 @@ pub async fn expand_array<
 	loader: &mut L,
 	options: Options,
 	from_map: bool,
+	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
 ) -> Result<Expanded<J, T>, Error>
 where
 	C::LocalContext: From<L::Output> + From<J>,
@@ -52,6 +53,7 @@ where
 				loader,
 				options,
 				from_map,
+				warnings,
 			)
 			.await?,
 		);
