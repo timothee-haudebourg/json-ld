@@ -230,7 +230,7 @@ impl<J: JsonContext, T: Id> Local<T> for J {
 		async move {
 			let mut warnings = Vec::new();
 			let processed = process_context(active_context, self, stack, loader, base_url, options, &mut warnings).await?;
-			Ok(Processed::new(
+			Ok(Processed::with_warnings(
 				self,
 				processed,
 				warnings

@@ -232,18 +232,31 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 /// This is usefull for instance to attach a processed context to its original JSON form,
 /// which is then used by the compaction algorithm to put the context in the compacted document.
 #[derive(Clone)]
-pub struct ProcessedOwned<L, C> {
+pub struct ProcessedOwned<L: generic_json::Json, C> {
 	/// Original unprocessed context.
 	local: L,
 
 	/// Processed context.
 	processed: C,
+
+	/// Warnings collected during processing.
+	warnings: Vec<Meta<Warning, L::MetaData>>
 }
 
-impl<L, C> ProcessedOwned<L, C> {
+impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 	/// Wraps a processed context along with its original local representation.
 	pub fn new(local: L, processed: C) -> ProcessedOwned<L, C> {
-		ProcessedOwned { local, processed }
+		Self::with_warnings(local, processed, Vec::new())
+	}
+
+	/// Wraps a processed context along with its original local representation and warnings emitted during processing.
+	pub fn with_warnings(local: L, processed: C, warnings: Vec<Meta<Warning, L::MetaData>>) -> Self {
+		ProcessedOwned { local, processed, warnings }
+	}
+
+	/// Returns a reference to the warnings emitted during processing.
+	pub fn warnings(&self) -> &[Meta<Warning, L::MetaData>] {
+		&self.warnings
 	}
 
 	/// Consumes the wrapper and returns the processed context.
@@ -252,7 +265,7 @@ impl<L, C> ProcessedOwned<L, C> {
 	}
 }
 
-impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
+impl<T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -260,7 +273,7 @@ impl<T: Id, L, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
 	}
 }
 
-impl<L, C> std::ops::Deref for ProcessedOwned<L, C> {
+impl<L: generic_json::Json, C> std::ops::Deref for ProcessedOwned<L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -268,13 +281,13 @@ impl<L, C> std::ops::Deref for ProcessedOwned<L, C> {
 	}
 }
 
-impl<L, C> std::convert::AsRef<C> for ProcessedOwned<L, C> {
+impl<L: generic_json::Json, C> std::convert::AsRef<C> for ProcessedOwned<L, C> {
 	fn as_ref(&self) -> &C {
 		&self.processed
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>, L: AsJson<J, K>, C> AsJson<J, K> for ProcessedOwned<L, C> {
+impl<J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K> for ProcessedOwned<L, C> {
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
 		self.local.as_json_with(meta)
 	}
@@ -298,8 +311,14 @@ pub struct Processed<'a, L: generic_json::Json, C> {
 
 impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 	/// Wraps a processed context along with a reference to its original local representation.
-	pub fn new(local: &'a L, processed: C, warnings: Vec<Meta<Warning, L::MetaData>>) -> Self {
-		Self { local, processed, warnings }
+	pub fn new(local: &'a L, processed: C) -> Self {
+		Self::with_warnings(local, processed, Vec::new())
+	}
+
+	/// Wraps a processed context along with a reference to its original local representation
+	/// and warnings emitted during processing.
+	pub fn with_warnings(local: &'a L, processed: C, warnings: Vec<Meta<Warning, L::MetaData>>) -> Self {
+		Processed { local, processed, warnings }
 	}
 
 	/// Returns a reference to the warnings emitted during processing.
@@ -321,6 +340,7 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 		ProcessedOwned {
 			local: L::clone(self.local),
 			processed: self.processed,
+			warnings: self.warnings
 		}
 	}
 }
