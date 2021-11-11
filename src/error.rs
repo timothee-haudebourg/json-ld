@@ -1,5 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
+use iref::{Iri, IriBuf};
+use crate::Meta;
 
 /// Error type.
 ///
@@ -8,6 +10,9 @@ use std::fmt;
 /// See [`ErrorCode`] for more informations about all the different possible errors.
 #[derive(Debug)]
 pub struct Error {
+	/// Path to the origin of the error, if any.
+	path: Option<IriBuf>,
+
 	/// Error code.
 	code: ErrorCode,
 
@@ -16,13 +21,30 @@ pub struct Error {
 }
 
 impl Error {
+	/// Create a new error.
+	#[inline(always)]
+	pub fn new(path: Option<IriBuf>, code: ErrorCode) -> Error {
+		Error {
+			path,
+			code,
+			source: None,
+		}
+	}
+
 	/// Create a new error with a given error source.
 	#[inline(always)]
-	pub fn new<S: std::error::Error + 'static>(code: ErrorCode, source: S) -> Error {
+	pub fn with_source<S: std::error::Error + 'static>(path: Option<IriBuf>, code: ErrorCode, source: S) -> Error {
 		Error {
+			path,
 			code,
 			source: Some(Box::new(source)),
 		}
+	}
+
+	/// Returns the path to the origin of the error, if any.
+	#[inline(always)]
+	pub fn path(&self) -> Option<Iri> {
+		self.path.as_ref().map(IriBuf::as_iri)
 	}
 
 	/// Get the error code associated to the error.
@@ -46,13 +68,6 @@ impl fmt::Display for Error {
 	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.code.as_str())
-	}
-}
-
-impl From<ErrorCode> for Error {
-	#[inline(always)]
-	fn from(code: ErrorCode) -> Error {
-		Error { code, source: None }
 	}
 }
 
@@ -282,6 +297,11 @@ impl ErrorCode {
 			ProcessingModeConflict => "processing mode conflict",
 			ProtectedTermRedefinition => "protected term redefinition",
 		}
+	}
+
+	/// Turns this error code into an actual error attached with the given `metadata`.
+	pub fn into_error<M>(self, path: Option<IriBuf>, metadata: M) -> Meta<Error, M> {
+		Meta::new(Error::new(path, self.into()), metadata)
 	}
 }
 
