@@ -1,7 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
 /// Value `T` attached to some metadata `M`.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Meta<T, M> {
 	value: T,
 	metadata: M,
@@ -20,6 +20,14 @@ impl<T, M> Meta<T, M> {
 
 	pub fn into_parts(self) -> (T, M) {
 		(self.value, self.metadata)
+	}
+
+	pub fn cast_metadata<N>(self) -> Meta<T, N> where N: From<M> {
+		Meta::new(self.value, self.metadata.into())
+	}
+
+	pub fn with_metadata<N>(self, metadata: N) -> Meta<T, N> {
+		Meta::new(self.value, metadata)
 	}
 }
 

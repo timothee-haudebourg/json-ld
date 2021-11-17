@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
-use iref::{Iri, IriBuf};
-use crate::Meta;
+use iref::{Iri, IriBuf, IriRefBuf};
+use crate::{Loc, Meta};
 
 /// Error type.
 ///
@@ -10,9 +10,6 @@ use crate::Meta;
 /// See [`ErrorCode`] for more informations about all the different possible errors.
 #[derive(Debug)]
 pub struct Error {
-	/// Path to the origin of the error, if any.
-	path: Option<IriBuf>,
-
 	/// Error code.
 	code: ErrorCode,
 
@@ -20,12 +17,14 @@ pub struct Error {
 	source: Option<Box<dyn std::error::Error + 'static>>,
 }
 
+/// Located error.
+pub type LocError<M> = Loc<Meta<Error, M>>;
+
 impl Error {
 	/// Create a new error.
 	#[inline(always)]
-	pub fn new(path: Option<IriBuf>, code: ErrorCode) -> Error {
+	pub fn new(code: ErrorCode) -> Error {
 		Error {
-			path,
 			code,
 			source: None,
 		}
@@ -33,24 +32,28 @@ impl Error {
 
 	/// Create a new error with a given error source.
 	#[inline(always)]
-	pub fn with_source<S: std::error::Error + 'static>(path: Option<IriBuf>, code: ErrorCode, source: S) -> Error {
+	pub fn with_source<S: std::error::Error + 'static>(code: ErrorCode, source: S) -> Error {
 		Error {
-			path,
 			code,
 			source: Some(Box::new(source)),
 		}
-	}
-
-	/// Returns the path to the origin of the error, if any.
-	#[inline(always)]
-	pub fn path(&self) -> Option<Iri> {
-		self.path.as_ref().map(IriBuf::as_iri)
 	}
 
 	/// Get the error code associated to the error.
 	#[inline(always)]
 	pub fn code(&self) -> ErrorCode {
 		self.code
+	}
+
+	/// Turns this error into a located error attached with the given `metadata`.
+	pub fn located<M>(self, path: Option<IriBuf>, metadata: M) -> LocError<M> {
+		Loc::new(
+			Meta::new(
+				self,
+				metadata
+			),
+			path.map(IriRefBuf::from).unwrap_or_default()
+		)
 	}
 }
 
@@ -68,6 +71,12 @@ impl fmt::Display for Error {
 	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.code.as_str())
+	}
+}
+
+impl From<ErrorCode> for Error {
+	fn from(c: ErrorCode) -> Self {
+		Self::new(c)
 	}
 }
 
@@ -299,9 +308,15 @@ impl ErrorCode {
 		}
 	}
 
-	/// Turns this error code into an actual error attached with the given `metadata`.
-	pub fn into_error<M>(self, path: Option<IriBuf>, metadata: M) -> Meta<Error, M> {
-		Meta::new(Error::new(path, self.into()), metadata)
+	/// Turns this error code into an actual located error attached with the given `metadata`.
+	pub fn located<M>(self, path: Option<IriBuf>, metadata: M) -> LocError<M> {
+		Loc::new(
+			Meta::new(
+				self.into(),
+				metadata
+			),
+			path.map(IriRefBuf::from).unwrap_or_default()
+		)
 	}
 }
 

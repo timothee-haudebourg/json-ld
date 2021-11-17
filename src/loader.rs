@@ -1,6 +1,7 @@
 use crate::{
-	context::{self, RemoteContext},
-	Error, ErrorCode, RemoteDocument,
+	RemoteDocument,
+	Error,
+	ErrorCode
 };
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::Json;
@@ -9,7 +10,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
-use std::{marker::PhantomData, str::FromStr};
+use std::{fmt, marker::PhantomData, str::FromStr};
 
 /// JSON document loader.
 pub trait Loader {
@@ -21,38 +22,6 @@ pub trait Loader {
 		&'a mut self,
 		url: Iri<'_>,
 	) -> BoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>>;
-}
-
-impl<L: Send + Sync + Loader> context::Loader for L
-where
-	<L::Document as Json>::Object: IntoIterator,
-{
-	type Output = L::Document;
-
-	fn load_context<'a>(
-		&'a mut self,
-		url: Iri,
-	) -> BoxFuture<'a, Result<RemoteContext<L::Document>, Error>> {
-		let url = IriBuf::from(url);
-		async move {
-			match self.load(url.as_iri()).await {
-				Ok(remote_doc) => {
-					let (doc, url) = remote_doc.into_parts();
-					if let generic_json::Value::Object(obj) = doc.into() {
-						for (key, value) in obj {
-							if &*key == "@context" {
-								return Ok(RemoteContext::from_parts(url, value));
-							}
-						}
-					}
-
-					Err(ErrorCode::InvalidRemoteContext.into())
-				}
-				Err(_) => Err(ErrorCode::LoadingRemoteContextFailed.into()),
-			}
-		}
-		.boxed()
-	}
 }
 
 /// Dummy loader.
@@ -107,7 +76,7 @@ impl<J> FsLoader<J> {
 			cache: HashMap::new(),
 			mount_points: HashMap::new(),
 			parser: Box::new(move |s| {
-				parser(s).map_err(|e| Error::new(ErrorCode::LoadingDocumentFailed, e))
+				parser(s).map_err(|e| Error::with_source(ErrorCode::LoadingDocumentFailed, e))
 			}),
 		}
 	}

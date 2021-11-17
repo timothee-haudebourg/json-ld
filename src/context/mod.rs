@@ -9,7 +9,7 @@ use crate::{
 	lang::{LenientLanguageTag, LenientLanguageTagBuf},
 	syntax::Term,
 	util::{AsJson, JsonFrom},
-	Direction, Error, Id, Meta, ProcessingMode, Warning,
+	Direction, LocError, Id, Meta, ProcessingMode, Warning,
 };
 use futures::{future::BoxFuture, FutureExt};
 use generic_json::{JsonClone, JsonSendSync};
@@ -171,7 +171,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, LocError<Self::MetaData>>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -184,7 +184,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, LocError<Self::MetaData>>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -205,7 +205,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		&'s self,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
-	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
+	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, LocError<Self::MetaData>>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,

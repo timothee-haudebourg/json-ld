@@ -1,7 +1,7 @@
 //! Expansion algorithm and related types.
 use crate::{
 	context::{Loader, ProcessingOptions},
-	ContextMut, Error, Id, Indexed, Meta, Object, ProcessingMode, Warning,
+	ContextMut, LocError, Id, Indexed, Meta, Object, ProcessingMode, Warning,
 };
 use cc_traits::{CollectionRef, KeyedRef};
 use derivative::Derivative;
@@ -211,7 +211,7 @@ pub async fn expand<'a, J: JsonExpand, T: Id, C: ContextMut<T>, L: Loader>(
 	loader: &'a mut L,
 	options: Options,
 	warnings: &mut Vec<Meta<Warning, J::MetaData>>, // ) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
-) -> Result<HashSet<Indexed<Object<J, T>>>, Error>
+) -> Result<HashSet<Indexed<Object<J, T>>>, LocError<J::MetaData>>
 where
 	T: Send + Sync,
 	C: Send + Sync,
@@ -219,9 +219,6 @@ where
 	L: Send + Sync,
 	L::Output: Into<J>,
 {
-	// let base_url = base_url.map(IriBuf::from);
-
-	// async move {
 	let base_url = base_url.as_ref().map(|url| url.as_iri());
 	let expanded = expand_element(
 		active_context,
@@ -248,5 +245,4 @@ where
 	} else {
 		Ok(expanded.into_iter().filter(filter_top_level_item).collect())
 	}
-	// }
 }

@@ -3,7 +3,7 @@ use crate::{
 	context::{Loader, TermDefinition},
 	object::*,
 	syntax::ContainerType,
-	ContextMut, Error, Id, Meta, Warning,
+	ContextMut, LocError, Id, Meta, Warning,
 };
 use cc_traits::Iter;
 use iref::Iri;
@@ -15,7 +15,7 @@ pub async fn expand_array<
 	L: Loader + Send + Sync,
 >(
 	active_context: &C,
-	active_property: Option<&str>,
+	active_property: Option<Meta<&str, &J::MetaData>>,
 	active_property_definition: Option<&TermDefinition<T, C>>,
 	element: &J::Array,
 	base_url: Option<Iri<'_>>,
@@ -23,7 +23,7 @@ pub async fn expand_array<
 	options: Options,
 	from_map: bool,
 	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
-) -> Result<Expanded<J, T>, Error>
+) -> Result<Expanded<J, T>, LocError<J::MetaData>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
 	L::Output: Into<J>,

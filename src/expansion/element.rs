@@ -7,12 +7,12 @@ use crate::{
 	context::{ContextMut, Loader, Local, ProcessingOptions},
 	object::*,
 	syntax::{Keyword, Term},
-	Error, ErrorCode, Id, Indexed, Meta, Reference, Warning,
+	LocError, ErrorCode, Id, Indexed, Meta, Reference, Warning,
 };
 use cc_traits::{CollectionRef, Get, KeyedRef, Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::{Key, ValueRef};
-use iref::Iri;
+use iref::{Iri, IriBuf};
 use mown::Mown;
 
 /// Expand an element.
@@ -27,14 +27,14 @@ pub fn expand_element<
 	L: Loader + Send + Sync,
 >(
 	active_context: &'a C,
-	active_property: Option<&'a str>,
+	active_property: Option<Meta<&'a str, &'a J::MetaData>>,
 	element: &'a J,
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
 	from_map: bool,
 	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
-) -> BoxFuture<'a, Result<Expanded<J, T>, Error>>
+) -> BoxFuture<'a, Result<Expanded<J, T>, LocError<J::MetaData>>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
@@ -45,7 +45,7 @@ where
 			return Ok(Expanded::Null);
 		}
 
-		let active_property_definition = active_context.get_opt(active_property);
+		let active_property_definition = active_context.get_opt(active_property.map(|p| *p));
 
 		// If `active_property` has a term definition in `active_context` with a local context,
 		// initialize property-scoped context to that local context.
@@ -139,7 +139,9 @@ where
 								property_scoped_base_url,
 								options.with_override(),
 							)
-							.await?
+							.await.map_err(|e| e.with_metadata(
+								(*active_property.unwrap().metadata()).clone()
+							))?
 							.into_inner(),
 					);
 				}
@@ -197,8 +199,8 @@ where
 					// if `term` is a string, and `term`'s term definition in `type_scoped_context`
 					// has a `local_context`,
 					for term in sorted_value {
-						let term = term.as_str().unwrap();
-						if let Some(term_definition) = type_scoped_context.get(term) {
+						let term_str = term.as_str().unwrap();
+						if let Some(term_definition) = type_scoped_context.get(term_str) {
 							if let Some(local_context) = &term_definition.context {
 								// set `active_context` to the result of
 								// Context Processing algorithm, passing `active_context`, the value of the
@@ -215,7 +217,9 @@ where
 											base_url,
 											options.without_propagation(),
 										)
-										.await?
+										.await.map_err(|e| e.with_metadata(
+											term.metadata().clone()
+										))?
 										.into_inner(),
 								);
 							}
@@ -268,7 +272,7 @@ where
 					match &expanded_key {
 						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
 						Term::Keyword(Keyword::List)
-							if active_property.is_some() && active_property != Some("@graph") =>
+							if active_property.is_some() && active_property.map(|p| *p != "@graph").unwrap_or(true) =>
 						{
 							list_entry = Some(value.clone())
 						}
@@ -292,14 +296,20 @@ where
 				if let Some(list_entry) = list_entry {
 					// List objects.
 					let mut index = None;
-					for ExpandedEntry(_, expanded_key, value) in expanded_entries {
+					for ExpandedEntry(key, expanded_key, value) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_str() {
 								Some(value) => index = Some(value.to_string()),
-								None => return Err(ErrorCode::InvalidIndexValue.into()),
+								None => return Err(ErrorCode::InvalidIndexValue.located(
+									base_url.map(IriBuf::from),
+									value.metadata().clone()
+								)),
 							},
 							Term::Keyword(Keyword::List) => (),
-							_ => return Err(ErrorCode::InvalidSetOrListObject.into()),
+							_ => return Err(ErrorCode::InvalidSetOrListObject.located(
+								base_url.map(IriBuf::from),
+								key.metadata().clone()
+							)),
 						}
 					}
 
@@ -328,14 +338,17 @@ where
 					Ok(Expanded::Object(Indexed::new(Object::List(result), index)))
 				} else if let Some(set_entry) = set_entry {
 					// Set objects.
-					for ExpandedEntry(_, expanded_key, _) in expanded_entries {
+					for ExpandedEntry(key, expanded_key, _) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
 								// having an `@index` here is tolerated,
 								// but is ignored.
 							}
 							Term::Keyword(Keyword::Set) => (),
-							_ => return Err(ErrorCode::InvalidSetOrListObject.into()),
+							_ => return Err(ErrorCode::InvalidSetOrListObject.located(
+								base_url.map(IriBuf::from),
+								key.metadata().clone()
+							)),
 						}
 					}
 
@@ -361,7 +374,10 @@ where
 						expanded_entries,
 						&*value_entry,
 						warnings,
-					)? {
+					).map_err(|e| e.located(
+						base_url.map(IriBuf::from),
+						value_entry.metadata().clone()
+					))? {
 						Ok(Expanded::Object(value))
 					} else {
 						Ok(Expanded::Null)
@@ -393,7 +409,7 @@ where
 				// If element is a scalar (bool, int, string, null),
 				// If `active_property` is `null` or `@graph`, drop the free-floating scalar by
 				// returning null.
-				if active_property.is_none() || active_property == Some("@graph") {
+				if active_property.is_none() || active_property.map(|p| *p == "@graph").unwrap_or(false) {
 					return Ok(Expanded::Null);
 				}
 
@@ -405,7 +421,7 @@ where
 				{
 					// FIXME it is unclear what we should use as `base_url` if there is no term definition for `active_context`.
 					let base_url = active_context
-						.get_opt(active_property)
+						.get_opt(active_property.map(|p| *p))
 						.map(|definition| {
 							definition
 								.base_url
@@ -416,7 +432,7 @@ where
 
 					let result = property_scoped_context
 						.process_with(active_context, loader, base_url, options.into())
-						.await?
+						.await.map_err(|e| e.with_metadata((*active_property.unwrap().metadata()).clone()))?
 						.into_inner();
 					Mown::Owned(result)
 				} else {
@@ -430,7 +446,10 @@ where
 					active_property,
 					LiteralValue::Given(element),
 					warnings,
-				)?));
+				).map_err(|e| e.located(
+					base_url.map(IriBuf::from),
+					element.metadata().clone()
+				))?));
 			}
 		}
 	}

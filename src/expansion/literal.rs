@@ -36,11 +36,11 @@ impl<'a, J: Json> LiteralValue<'a, J> {
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 	active_context: &C,
-	active_property: Option<&str>,
+	active_property: Option<Meta<&str, &J::MetaData>>,
 	value: LiteralValue<J>,
 	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
 ) -> Result<Indexed<Object<J, T>>, Error> {
-	let active_property_definition = active_context.get_opt(active_property);
+	let active_property_definition = active_context.get_opt(active_property.map(|p| *p));
 
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
 	{
