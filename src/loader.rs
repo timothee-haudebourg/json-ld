@@ -106,7 +106,7 @@ impl<J: Json> Loader for NoLoader<J> {
 /// attaching a directory to specific URLs.
 pub struct FsLoader<J> {
 	namespace: HashMap<IriBuf, Id>,
-	cache: Vec<J>,
+	cache: Vec<(J, IriBuf)>,
 	mount_points: HashMap<PathBuf, IriBuf>,
 	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>,
 }
@@ -133,8 +133,8 @@ impl<J> FsLoader<J> {
 	/// Allocate a identifier to the given IRI.
 	fn allocate(&mut self, iri: IriBuf, doc: J) -> Id {
 		let id = Id::new(self.cache.len());
-		self.namespace.insert(iri, id);
-		self.cache.push(doc);
+		self.namespace.insert(iri.clone(), id);
+		self.cache.push((doc, iri));
 		id
 	}
 }
@@ -153,13 +153,13 @@ impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 	type Document = J;
 
 	#[inline(always)]
-	fn id(&self, _iri: Iri<'_>) -> Option<Id> {
-		None
+	fn id(&self, iri: Iri<'_>) -> Option<Id> {
+		self.namespace.get(&IriBuf::from(iri)).cloned()
 	}
 
 	#[inline(always)]
-	fn iri(&self, _id: Id) -> Option<Iri<'_>> {
-		None
+	fn iri(&self, id: Id) -> Option<Iri<'_>> {
+		self.cache.get(id.unwrap()).map(|(_, iri)| iri.as_iri())
 	}
 
 	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
@@ -167,7 +167,7 @@ impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 		async move {
 			match self.namespace.get(&url) {
 				Some(id) => Ok(RemoteDocument::new(
-					self.cache[id.unwrap()].clone(),
+					self.cache[id.unwrap()].0.clone(),
 					url,
 					*id,
 				)),
