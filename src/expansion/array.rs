@@ -1,9 +1,9 @@
-use super::{expand_element, Expanded, JsonExpand, Options};
+use super::{expand_element, ActiveProperty, Expanded, JsonExpand, Options};
 use crate::{
 	context::{Loader, TermDefinition},
 	object::*,
 	syntax::ContainerType,
-	ContextMut, Error, Id, Meta, Warning,
+	ContextMut, Error, Id, Loc, Warning,
 };
 use cc_traits::Iter;
 use iref::Iri;
@@ -15,15 +15,15 @@ pub async fn expand_array<
 	L: Loader + Send + Sync,
 >(
 	active_context: &C,
-	active_property: Option<&str>,
+	active_property: ActiveProperty<'_, J>,
 	active_property_definition: Option<&TermDefinition<T, C>>,
 	element: &J::Array,
 	base_url: Option<Iri<'_>>,
 	loader: &mut L,
 	options: Options,
 	from_map: bool,
-	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
-) -> Result<Expanded<J, T>, Error>
+	warnings: &mut Vec<Loc<Warning, J::MetaData>>,
+) -> Result<Expanded<J, T>, Loc<Error, J::MetaData>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
 	L::Output: Into<J>,

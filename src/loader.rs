@@ -1,7 +1,4 @@
-use crate::{
-	context::{self, RemoteContext},
-	Error, ErrorCode, RemoteDocument,
-};
+use crate::{Error, ErrorCode, RemoteDocument};
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::Json;
 use iref::{Iri, IriBuf};
@@ -11,48 +8,52 @@ use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::{marker::PhantomData, str::FromStr};
 
+/// Identifier reference.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub struct Id(usize);
+
+impl Id {
+	pub fn new(index: usize) -> Self {
+		Self(index)
+	}
+
+	pub fn unwrap(self) -> usize {
+		self.0
+	}
+}
+
+impl From<Id> for usize {
+	fn from(id: Id) -> Self {
+		id.0
+	}
+}
+
 /// JSON document loader.
+///
+/// Each document is uniquely identified by the loader by a `u32`.
 pub trait Loader {
 	/// The type of documents that can be loaded.
 	type Document: Json;
 
-	/// Load the document behind the given URL.
+	/// Returns the unique identifier associated to the given IRI, if any.
+	fn id(&self, iri: Iri<'_>) -> Option<Id>;
+
+	/// Returns the unique identifier associated to the given IRI, if any.
+	///
+	/// Returns `None` if the input `iri` is `None`.
+	#[inline(always)]
+	fn id_opt(&self, iri: Option<Iri<'_>>) -> Option<Id> {
+		iri.map(|iri| self.id(iri)).flatten()
+	}
+
+	/// Returns the IRI with the given identifier, if any.
+	fn iri(&self, id: Id) -> Option<Iri<'_>>;
+
+	/// Loads the document behind the given IRI.
 	fn load<'a>(
 		&'a mut self,
 		url: Iri<'_>,
 	) -> BoxFuture<'a, Result<RemoteDocument<Self::Document>, Error>>;
-}
-
-impl<L: Send + Sync + Loader> context::Loader for L
-where
-	<L::Document as Json>::Object: IntoIterator,
-{
-	type Output = L::Document;
-
-	fn load_context<'a>(
-		&'a mut self,
-		url: Iri,
-	) -> BoxFuture<'a, Result<RemoteContext<L::Document>, Error>> {
-		let url = IriBuf::from(url);
-		async move {
-			match self.load(url.as_iri()).await {
-				Ok(remote_doc) => {
-					let (doc, url) = remote_doc.into_parts();
-					if let generic_json::Value::Object(obj) = doc.into() {
-						for (key, value) in obj {
-							if &*key == "@context" {
-								return Ok(RemoteContext::from_parts(url, value));
-							}
-						}
-					}
-
-					Err(ErrorCode::InvalidRemoteContext.into())
-				}
-				Err(_) => Err(ErrorCode::LoadingRemoteContextFailed.into()),
-			}
-		}
-		.boxed()
-	}
 }
 
 /// Dummy loader.
@@ -81,6 +82,16 @@ impl<J: Json> Loader for NoLoader<J> {
 	type Document = J;
 
 	#[inline(always)]
+	fn id(&self, _iri: Iri<'_>) -> Option<Id> {
+		None
+	}
+
+	#[inline(always)]
+	fn iri(&self, _id: Id) -> Option<Iri<'_>> {
+		None
+	}
+
+	#[inline(always)]
 	fn load<'a>(
 		&'a mut self,
 		_url: Iri<'_>,
@@ -94,7 +105,8 @@ impl<J: Json> Loader for NoLoader<J> {
 /// This is a special JSON-LD document loader that can load document from the file system by
 /// attaching a directory to specific URLs.
 pub struct FsLoader<J> {
-	cache: HashMap<IriBuf, RemoteDocument<J>>,
+	namespace: HashMap<IriBuf, Id>,
+	cache: Vec<J>,
 	mount_points: HashMap<PathBuf, IriBuf>,
 	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>,
 }
@@ -104,10 +116,11 @@ impl<J> FsLoader<J> {
 		mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>,
 	) -> Self {
 		Self {
-			cache: HashMap::new(),
+			namespace: HashMap::new(),
+			cache: Vec::new(),
 			mount_points: HashMap::new(),
 			parser: Box::new(move |s| {
-				parser(s).map_err(|e| Error::new(ErrorCode::LoadingDocumentFailed, e))
+				parser(s).map_err(|e| Error::with_source(ErrorCode::LoadingDocumentFailed, e))
 			}),
 		}
 	}
@@ -115,6 +128,14 @@ impl<J> FsLoader<J> {
 	#[inline(always)]
 	pub fn mount<P: AsRef<Path>>(&mut self, url: Iri, path: P) {
 		self.mount_points.insert(path.as_ref().into(), url.into());
+	}
+
+	/// Allocate a identifier to the given IRI.
+	fn allocate(&mut self, iri: IriBuf, doc: J) -> Id {
+		let id = Id::new(self.cache.len());
+		self.namespace.insert(iri, id);
+		self.cache.push(doc);
+		id
 	}
 }
 
@@ -131,11 +152,25 @@ where
 impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 	type Document = J;
 
+	#[inline(always)]
+	fn id(&self, _iri: Iri<'_>) -> Option<Id> {
+		None
+	}
+
+	#[inline(always)]
+	fn iri(&self, _id: Id) -> Option<Iri<'_>> {
+		None
+	}
+
 	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
 		let url: IriBuf = url.into();
 		async move {
-			match self.cache.get(&url) {
-				Some(doc) => Ok(doc.clone()),
+			match self.namespace.get(&url) {
+				Some(id) => Ok(RemoteDocument::new(
+					self.cache[id.unwrap()].clone(),
+					url,
+					*id,
+				)),
 				None => {
 					for (path, target_url) in &self.mount_points {
 						let url_ref = url.as_iri_ref();
@@ -150,9 +185,8 @@ impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 								let mut contents = String::new();
 								if buf_reader.read_to_string(&mut contents).is_ok() {
 									let doc = (*self.parser)(contents.as_str())?;
-									let remote_doc = RemoteDocument::new(doc, url.as_iri());
-									self.cache.insert(url.clone(), remote_doc.clone());
-									return Ok(remote_doc);
+									let id = self.allocate(url.clone(), doc.clone());
+									return Ok(RemoteDocument::new(doc, url, id));
 								} else {
 									return Err(ErrorCode::LoadingDocumentFailed.into());
 								}

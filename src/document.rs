@@ -1,9 +1,9 @@
 use crate::{
 	compaction,
 	context::{self, Loader},
-	expansion,
+	expansion, loader,
 	util::{AsJson, JsonFrom},
-	Context, ContextMut, ContextMutProxy, Error, Id, Indexed, Meta, Object, Warning,
+	Context, ContextMut, ContextMutProxy, Error, Id, Indexed, Loc, Object, Warning,
 };
 use cc_traits::Len;
 use futures::future::{BoxFuture, FutureExt};
@@ -17,14 +17,14 @@ use std::ops::{Deref, DerefMut};
 /// It is just an alias for a set of (indexed) objects.
 pub struct ExpandedDocument<J: JsonHash, T: Id> {
 	objects: HashSet<Indexed<Object<J, T>>>,
-	warnings: Vec<Meta<Warning, J::MetaData>>,
+	warnings: Vec<Loc<Warning, J::MetaData>>,
 }
 
 impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	#[inline(always)]
 	pub fn new(
 		objects: HashSet<Indexed<Object<J, T>>>,
-		warnings: Vec<Meta<Warning, J::MetaData>>,
+		warnings: Vec<Loc<Warning, J::MetaData>>,
 	) -> Self {
 		Self { objects, warnings }
 	}
@@ -40,7 +40,7 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	}
 
 	#[inline(always)]
-	pub fn warnings(&self) -> &[Meta<Warning, J::MetaData>] {
+	pub fn warnings(&self) -> &[Loc<Warning, J::MetaData>] {
 		&self.warnings
 	}
 
@@ -106,6 +106,11 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDo
 	}
 }
 
+/// Document expansion error.
+pub type ExpansionError<J> = Loc<Error, <J as Json>::MetaData>;
+
+pub type ExpansionResult<T, J> = Result<ExpandedDocument<J, T>, ExpansionError<J>>;
+
 /// JSON-LD document.
 ///
 /// This trait represent a JSON-LD document that can be expanded into an [`ExpandedDocument`]
@@ -131,7 +136,7 @@ pub trait Document<T: Id> {
 		context: &'a C,
 		loader: &'a mut L,
 		options: expansion::Options,
-	) -> BoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
+	) -> BoxFuture<'a, ExpansionResult<T, Self::Json>>
 	where
 		Self::Json: expansion::JsonExpand,
 		T: 'a + Send + Sync,
@@ -152,7 +157,7 @@ pub trait Document<T: Id> {
 	///
 	/// # Example
 	/// ```
-	/// # fn main() -> Result<(), json_ld::Error> {
+	/// # fn main() -> Result<(), json_ld::Loc<json_ld::Error, ()>> {
 	/// use async_std::task;
 	/// use json_ld::{Document, context, NoLoader};
 	/// use ijson::IValue;
@@ -179,7 +184,7 @@ pub trait Document<T: Id> {
 	fn expand<'a, C: 'a + ContextMut<T>, L: Loader>(
 		&'a self,
 		loader: &'a mut L,
-	) -> BoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
+	) -> BoxFuture<'a, ExpansionResult<T, Self::Json>>
 	where
 		Self: Send + Sync,
 		Self::Json: expansion::JsonExpand,
@@ -241,7 +246,8 @@ pub trait Document<T: Id> {
 			let context = context::Inversible::new(context.deref());
 			let expanded = self
 				.expand_with(base_url, &C::Target::new(base_url), loader, options.into())
-				.await?;
+				.await
+				.map_err(Loc::unwrap)?;
 
 			let compacted: K = if expanded.len() == 1 && options.compact_arrays {
 				expanded
@@ -359,7 +365,7 @@ impl<J: Json, T: Id> Document<T> for J {
 		context: &'a C,
 		loader: &'a mut L,
 		options: expansion::Options,
-	) -> BoxFuture<'a, Result<ExpandedDocument<Self, T>, Error>>
+	) -> BoxFuture<'a, ExpansionResult<T, Self>>
 	where
 		Self: expansion::JsonExpand,
 		C: Send + Sync,
@@ -409,21 +415,29 @@ impl<J: Json, T: Id> Document<T> for J {
 /// ```
 #[derive(Clone)]
 pub struct RemoteDocument<D> {
-	/// The base URL of the document.
+	/// Base URL of the document.
 	base_url: IriBuf,
 
-	/// The document contents.
+	/// Document id.
+	source: loader::Id,
+
+	/// Document contents.
 	doc: D,
 }
 
 impl<D> RemoteDocument<D> {
 	/// Create a new remote document from the document contents and base URL.
 	#[inline(always)]
-	pub fn new(doc: D, base_url: Iri) -> RemoteDocument<D> {
+	pub fn new(doc: D, base_url: IriBuf, source: loader::Id) -> RemoteDocument<D> {
 		RemoteDocument {
-			base_url: base_url.into(),
+			base_url,
+			source,
 			doc,
 		}
+	}
+
+	pub fn source(&self) -> loader::Id {
+		self.source
 	}
 
 	/// Consume the remote document and return the inner document.
@@ -434,8 +448,8 @@ impl<D> RemoteDocument<D> {
 
 	/// Consume the remote document and return the inner document along with its base URL.
 	#[inline(always)]
-	pub fn into_parts(self) -> (D, IriBuf) {
-		(self.doc, self.base_url)
+	pub fn into_parts(self) -> (D, loader::Id, IriBuf) {
+		(self.doc, self.source, self.base_url)
 	}
 }
 
@@ -455,7 +469,7 @@ impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 		context: &'a C,
 		loader: &'a mut L,
 		options: expansion::Options,
-	) -> BoxFuture<'a, Result<ExpandedDocument<Self::Json, T>, Error>>
+	) -> BoxFuture<'a, ExpansionResult<T, Self::Json>>
 	where
 		D::Json: expansion::JsonExpand,
 		C::LocalContext: From<L::Output> + From<Self::Json>,

@@ -1,3 +1,4 @@
+use crate::{loader, Loc};
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -16,9 +17,15 @@ pub struct Error {
 }
 
 impl Error {
+	/// Create a new error.
+	#[inline(always)]
+	pub fn new(code: ErrorCode) -> Error {
+		Error { code, source: None }
+	}
+
 	/// Create a new error with a given error source.
 	#[inline(always)]
-	pub fn new<S: std::error::Error + 'static>(code: ErrorCode, source: S) -> Error {
+	pub fn with_source<S: std::error::Error + 'static>(code: ErrorCode, source: S) -> Error {
 		Error {
 			code,
 			source: Some(Box::new(source)),
@@ -29,6 +36,11 @@ impl Error {
 	#[inline(always)]
 	pub fn code(&self) -> ErrorCode {
 		self.code
+	}
+
+	/// Turns this error into a located error attached with the given `metadata`.
+	pub fn located<M>(self, source: Option<loader::Id>, metadata: M) -> Loc<Error, M> {
+		Loc::new(self, source, metadata)
 	}
 }
 
@@ -50,9 +62,8 @@ impl fmt::Display for Error {
 }
 
 impl From<ErrorCode> for Error {
-	#[inline(always)]
-	fn from(code: ErrorCode) -> Error {
-		Error { code, source: None }
+	fn from(c: ErrorCode) -> Self {
+		Self::new(c)
 	}
 }
 
@@ -282,6 +293,11 @@ impl ErrorCode {
 			ProcessingModeConflict => "processing mode conflict",
 			ProtectedTermRedefinition => "protected term redefinition",
 		}
+	}
+
+	/// Turns this error code into an actual located error attached with the given `metadata`.
+	pub fn located<M>(self, source: Option<loader::Id>, metadata: M) -> Loc<Error, M> {
+		Error::from(self).located(source, metadata)
 	}
 }
 

@@ -8,7 +8,7 @@ use crate::{
 	object,
 	syntax::{ContainerType, Keyword, Term},
 	util::{AsAnyJson, AsJson, JsonFrom},
-	ContextMut, Error, Id, Indexed, Object, ProcessingMode, Value,
+	ContextMut, Error, Id, Indexed, Loc, Object, ProcessingMode, Value,
 };
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::{JsonBuild, JsonClone, JsonHash, JsonMut, JsonSendSync};
@@ -296,7 +296,8 @@ impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> Compac
 										active_property_definition.base_url(),
 										context::ProcessingOptions::from(options).with_override(),
 									)
-									.await?
+									.await
+									.map_err(Loc::unwrap)?
 									.into_inner(),
 							)
 							.into_owned()

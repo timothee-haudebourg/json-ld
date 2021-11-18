@@ -32,11 +32,11 @@
 //! ```
 //! use async_std::task;
 //! use iref::IriBuf;
-//! use json_ld::{context, NoLoader, Document, Object, Reference};
+//! use json_ld::{context, Loc, NoLoader, Document, Object, Reference};
 //! use ijson::IValue;
 //!
 //! #[async_std::main]
-//! async fn main() -> Result<(), json_ld::Error> {
+//! async fn main() -> Result<(), Loc<json_ld::Error, ()>> {
 //!   // The JSON-LD document to expand.
 //!   let doc: IValue = serde_json::from_str(r#"
 //!     {
@@ -88,10 +88,10 @@
 //! ```
 //! # use async_std::task;
 //! # use iref::IriBuf;
-//! # use json_ld::{context::{self, Local}, NoLoader, Document, Object, Reference};
+//! # use json_ld::{context::{self, Local}, Loc, NoLoader, Document, Object, Reference};
 //! # use ijson::IValue;
 //! #[async_std::main]
-//! async fn main() -> Result<(), json_ld::Error> {
+//! async fn main() -> Result<(), Loc<json_ld::Error, ()>> {
 //!   // Input JSON-LD document to compact.
 //!   let input: IValue = serde_json::from_str(r#"
 //!     [{
@@ -185,7 +185,7 @@ mod id;
 mod indexed;
 mod lang;
 mod loader;
-mod meta;
+mod loc;
 mod mode;
 mod null;
 pub mod object;
@@ -206,8 +206,8 @@ pub use error::*;
 pub use id::*;
 pub use indexed::*;
 pub use lang::*;
-pub use loader::*;
-pub use meta::Meta;
+pub use loader::{FsLoader, Loader, NoLoader};
+pub use loc::Loc;
 pub use mode::*;
 pub use null::*;
 pub use reference::*;

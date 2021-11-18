@@ -1,13 +1,14 @@
 use super::{
-	Context, ContextMut, JsonContext, Loader, Local, Processed, ProcessingOptions, TermDefinition,
+	Context, ContextMut, JsonContext, Loader, Local, Processed, ProcessingOptions,
+	ProcessingResult, TermDefinition,
 };
-use crate::util::as_array;
 use crate::{
-	expansion,
+	expansion, loader,
 	syntax::{is_keyword, is_keyword_like, ContainerType, Keyword, Term, Type},
-	BlankId, Direction, Error, ErrorCode, Id, Meta, Nullable, ProcessingMode, Reference, Warning,
+	util::as_array,
+	BlankId, Direction, Error, ErrorCode, Id, Loc, Nullable, ProcessingMode, Reference, Warning,
 };
-use cc_traits::{Get, Len, MapIter};
+use cc_traits::{Get, GetKeyValue, Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::{Json, Key, ValueRef};
 use iref::{Iri, IriBuf, IriRef};
@@ -44,6 +45,25 @@ impl<'o, O> LocalContextObject<'o, O> {
 		for object in self.objects.iter().rev() {
 			if let Some(value) = object.get(key) {
 				return Some(value);
+			}
+		}
+
+		None
+	}
+
+	pub fn get_key_value<'q, Q: ?Sized>(
+		&self,
+		key: &'q Q,
+	) -> Option<(
+		<O as cc_traits::KeyedRef>::KeyRef<'_>,
+		<O as cc_traits::CollectionRef>::ItemRef<'_>,
+	)>
+	where
+		O: cc_traits::GetKeyValue<&'q Q>,
+	{
+		for object in self.objects.iter().rev() {
+			if let Some(entry) = object.get_key_value(key) {
+				return Some(entry);
 			}
 		}
 
@@ -112,7 +132,7 @@ pub enum WrappedValue<'a, J: Json> {
 	WrappedNull,
 
 	/// Value wrapped inside a map `{ "@id": value }`.
-	Wrapped(Meta<&'a J::String, J::MetaData>),
+	Wrapped(&'a J::String, &'a J::MetaData),
 
 	/// Unwrapped value.
 	Unwrapped(&'a J::Object),
@@ -122,7 +142,7 @@ impl<'a, J: Json> WrappedValue<'a, J> {
 	pub fn id(&self) -> Option<IdValue<'a, J>> {
 		match self {
 			Self::WrappedNull => Some(IdValue::Null),
-			Self::Wrapped(value) => Some(IdValue::Unwrapped(value.clone())),
+			Self::Wrapped(value, metadata) => Some(IdValue::Unwrapped(*value, *metadata)),
 			Self::Unwrapped(object) => object.get("@id").map(IdValue::Ref),
 		}
 	}
@@ -135,7 +155,7 @@ impl<'a, J: Json> WrappedValue<'a, J> {
 		debug_assert_ne!(key, "@id");
 		match self {
 			Self::WrappedNull => None,
-			Self::Wrapped(_) => None,
+			Self::Wrapped(_, _) => None,
 			Self::Unwrapped(object) => object.get(key),
 		}
 	}
@@ -177,7 +197,7 @@ where
 	J::Object: 'a,
 {
 	Null,
-	Unwrapped(Meta<&'a J::String, J::MetaData>),
+	Unwrapped(&'a J::String, &'a J::MetaData),
 	Ref(<J::Object as cc_traits::CollectionRef>::ItemRef<'a>),
 }
 
@@ -189,7 +209,7 @@ where
 	fn as_value_ref(&self) -> ValueRef<'_, J> {
 		match self {
 			Self::Null => ValueRef::Null,
-			Self::Unwrapped(value) => ValueRef::String(*value.as_ref()),
+			Self::Unwrapped(value, _) => ValueRef::String(*value),
 			Self::Ref(value) => value.as_value_ref(),
 		}
 	}
@@ -205,7 +225,7 @@ where
 	fn metadata(&self) -> Option<&J::MetaData> {
 		match self {
 			Self::Null => None,
-			Self::Unwrapped(value) => Some(value.metadata()),
+			Self::Unwrapped(_, metadata) => Some(*metadata),
 			Self::Ref(r) => Some(r.metadata()),
 		}
 	}
@@ -220,7 +240,7 @@ impl<J: JsonContext, T: Id> Local<T> for J {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, Error>>
+	) -> BoxFuture<'a, ProcessingResult<'s, J, C>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -363,16 +383,17 @@ fn process_context<
 	loader: &'a mut L,
 	base_url: Option<Iri>,
 	mut options: ProcessingOptions,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
-) -> BoxFuture<'a, Result<C, Error>>
+	warnings: &'a mut Vec<Loc<Warning, J::MetaData>>,
+) -> BoxFuture<'a, Result<C, Loc<Error, J::MetaData>>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
 	L::Output: Into<J>,
 {
-	let base_url = base_url.map(IriBuf::from);
+	let source = loader.id_opt(base_url);
+	let base_url_buf = base_url.map(IriBuf::from);
 
 	async move {
-		let base_url = base_url.as_ref().map(|base_url| base_url.as_iri());
+		let base_url = base_url_buf.as_ref().map(|base_url| base_url.as_iri());
 
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = active_context.clone();
@@ -382,13 +403,15 @@ where
 		if let ValueRef::Object(obj) = local_context.as_value_ref() {
 			if let Some(propagate_value) = obj.get(Keyword::Propagate.into()) {
 				if options.processing_mode == ProcessingMode::JsonLd1_0 {
-					return Err(ErrorCode::InvalidContextEntry.into());
+					return Err(ErrorCode::InvalidContextEntry
+						.located(source, propagate_value.metadata().clone()));
 				}
 
 				if let ValueRef::Boolean(b) = propagate_value.as_value_ref() {
 					options.propagate = b;
 				} else {
-					return Err(ErrorCode::InvalidPropagateValue.into());
+					return Err(ErrorCode::InvalidPropagateValue
+						.located(source, propagate_value.metadata().clone()));
 				}
 			}
 		}
@@ -411,7 +434,8 @@ where
 					// definitions, an invalid context nullification has been detected and processing
 					// is aborted.
 					if !options.override_protected && has_protected_items(&result) {
-						return Err(ErrorCode::InvalidContextNullification.into());
+						return Err(ErrorCode::InvalidContextNullification
+							.located(source, context.metadata().clone()));
 					} else {
 						// Otherwise, initialize result as a newly-initialized active context, setting
 						// previous_context in result to the previous value of result if propagate is
@@ -432,15 +456,19 @@ where
 				}
 
 				// 5.2) If context is a string,
-				ValueRef::String(_) => {
+				ValueRef::String(context_str) => {
+					let context_str: &str = context_str.as_ref();
 					// Initialize `context` to the result of resolving context against base URL.
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
-					let context = if let Ok(iri_ref) = IriRef::new(context.as_str().unwrap()) {
-						resolve_iri(iri_ref, base_url)
-							.ok_or_else(|| Error::from(ErrorCode::LoadingRemoteContextFailed))?
+					let context_iri = if let Ok(iri_ref) = IriRef::new(context_str) {
+						resolve_iri(iri_ref, base_url).ok_or_else(|| {
+							ErrorCode::LoadingDocumentFailed
+								.located(source, context.metadata().clone())
+						})?
 					} else {
-						return Err(ErrorCode::LoadingDocumentFailed.into());
+						return Err(ErrorCode::LoadingDocumentFailed
+							.located(source, context.metadata().clone()));
 					};
 
 					// If the number of entries in the `remote_contexts` array exceeds a processor
@@ -463,9 +491,12 @@ where
 					// If the document has no top-level map with an @context entry, an invalid remote
 					// context has been detected and processing is aborted.
 					// Set loaded context to the value of that entry.
-					if remote_contexts.push(context.as_iri()) {
-						let context_document =
-							loader.load_context(context.as_iri()).await?.cast::<J>();
+					if remote_contexts.push(context_iri.as_iri()) {
+						let context_document = loader
+							.load_context(context_iri.as_iri())
+							.await
+							.map_err(|e| e.located(source, context.metadata().clone()))?
+							.cast::<J>();
 						let loaded_context = context_document.context();
 
 						// Set result to the result of recursively calling this algorithm, passing result
@@ -500,78 +531,92 @@ where
 						if version_value.as_f32() != Some(1.1)
 							&& version_value.as_f64() != Some(1.1)
 						{
-							return Err(ErrorCode::InvalidVersionValue.into());
+							return Err(ErrorCode::InvalidVersionValue
+								.located(source, version_value.metadata().clone()));
 						}
 
 						// 5.5.2) If processing mode is set to json-ld-1.0, a processing mode conflict
 						// error has been detected.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
-							return Err(ErrorCode::ProcessingModeConflict.into());
+							return Err(ErrorCode::ProcessingModeConflict
+								.located(source, version_value.metadata().clone()));
 						}
 					}
 
 					// 5.6) If context has an @import entry:
-					let context: LocalContextObject<'_, J::Object> =
-						if let Some(import_value) = context.get(Keyword::Import.into()) {
-							// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
-							// has been detected.
-							if options.processing_mode == ProcessingMode::JsonLd1_0 {
-								return Err(ErrorCode::InvalidContextEntry.into());
-							}
+					let context: LocalContextObject<'_, J::Object> = if let Some(import_value) =
+						context.get(Keyword::Import.into())
+					{
+						// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
+						// has been detected.
+						if options.processing_mode == ProcessingMode::JsonLd1_0 {
+							return Err(ErrorCode::InvalidContextEntry
+								.located(source, import_value.metadata().clone()));
+						}
 
-							if let Some(import_value) = import_value.as_str() {
-								// 5.6.3) Initialize import to the result of resolving the value of
-								// @import.
-								let import = if let Ok(iri_ref) = IriRef::new(import_value) {
-									resolve_iri(iri_ref, base_url)
-										.ok_or_else(|| Error::from(ErrorCode::InvalidImportValue))?
-								} else {
-									return Err(ErrorCode::InvalidImportValue.into());
-								};
-
-								// 5.6.4) Dereference import.
-								let context_document =
-									loader.load_context(import.as_iri()).await?.cast::<J>();
-								let import_context = context_document.into_context();
-
-								// If the dereferenced document has no top-level map with an @context
-								// entry, or if the value of @context is not a context definition
-								// (i.e., it is not an map), an invalid remote context has been
-								// detected and processing is aborted; otherwise, set import context
-								// to the value of that entry.
-								if let generic_json::Value::Object(import_context) =
-									import_context.into()
-								{
-									// If `import_context` has a @import entry, an invalid context entry
-									// error has been detected and processing is aborted.
-									if import_context.get(Keyword::Import.into()).is_some() {
-										return Err(ErrorCode::InvalidContextEntry.into());
-									}
-
-									// Set `context` to the result of merging context into
-									// `import_context`, replacing common entries with those from
-									// `context`.
-									let mut merged_context =
-										LocalContextObject::new(Mown::Owned(import_context));
-									merged_context.merge_with(Mown::Borrowed(context));
-									// for (key, value) in import_context.iter() {
-									// 	if context.get(key.as_ref()).is_none() {
-									// 		context.insert(key.deref().clone(), value.deref().clone());
-									// 	}
-									// }
-
-									merged_context
-								} else {
-									return Err(ErrorCode::InvalidRemoteContext.into());
-								}
+						if let Some(import_value_str) = import_value.as_str() {
+							// 5.6.3) Initialize import to the result of resolving the value of
+							// @import.
+							let import = if let Ok(iri_ref) = IriRef::new(import_value_str) {
+								resolve_iri(iri_ref, base_url).ok_or_else(|| {
+									ErrorCode::InvalidImportValue
+										.located(source, import_value.metadata().clone())
+								})?
 							} else {
-								// 5.6.2) If the value of @import is not a string, an invalid
-								// @import value error has been detected.
-								return Err(ErrorCode::InvalidImportValue.into());
+								return Err(ErrorCode::InvalidImportValue
+									.located(source, import_value.metadata().clone()));
+							};
+
+							// 5.6.4) Dereference import.
+							let import_context_document = loader
+								.load_context(import.as_iri())
+								.await
+								.map_err(|e| e.located(source, import_value.metadata().clone()))?
+								.cast::<J>();
+							let import_source = import_context_document.source();
+							let import_context = import_context_document.into_context();
+							let import_context_metadata = import_context.metadata().clone();
+
+							// If the dereferenced document has no top-level map with an @context
+							// entry, or if the value of @context is not a context definition
+							// (i.e., it is not an map), an invalid remote context has been
+							// detected and processing is aborted; otherwise, set import context
+							// to the value of that entry.
+							if let generic_json::Value::Object(import_context_obj) =
+								import_context.into()
+							{
+								// If `import_context` has a @import entry, an invalid context entry
+								// error has been detected and processing is aborted.
+								if let Some((import_key, _)) =
+									import_context_obj.get_key_value(Keyword::Import.into())
+								{
+									return Err(ErrorCode::InvalidContextEntry.located(
+										Some(import_source),
+										import_key.metadata().clone(),
+									));
+								}
+
+								// Set `context` to the result of merging context into
+								// `import_context`, replacing common entries with those from
+								// `context`.
+								let mut merged_context =
+									LocalContextObject::new(Mown::Owned(import_context_obj));
+								merged_context.merge_with(Mown::Borrowed(context));
+
+								merged_context
+							} else {
+								return Err(ErrorCode::InvalidRemoteContext
+									.located(Some(import_source), import_context_metadata));
 							}
 						} else {
-							LocalContextObject::new(Mown::Borrowed(context))
-						};
+							// 5.6.2) If the value of @import is not a string, an invalid
+							// @import value error has been detected.
+							return Err(ErrorCode::InvalidImportValue
+								.located(source, import_value.metadata().clone()));
+						}
+					} else {
+						LocalContextObject::new(Mown::Borrowed(context))
+					};
 
 					// 5.7) If context has a @base entry and remote contexts is empty, i.e.,
 					// the currently being processed context is not a remote context:
@@ -583,24 +628,32 @@ where
 									// If value is null, remove the base IRI of result.
 									result.set_base_iri(None);
 								}
-								ValueRef::String(_) => {
-									if let Ok(value) = IriRef::new(value.as_str().unwrap()) {
-										match value.into_iri() {
-											Ok(value) => result.set_base_iri(Some(value)),
-											Err(value) => {
+								ValueRef::String(value_str) => {
+									let value_str: &str = value_str.as_ref();
+									if let Ok(value_iri_ref) = IriRef::new(value_str) {
+										match value_iri_ref.into_iri() {
+											Ok(value_iri) => result.set_base_iri(Some(value_iri)),
+											Err(value_not_iri) => {
 												let resolved =
-													resolve_iri(value, result.base_iri())
+													resolve_iri(value_not_iri, result.base_iri())
 														.ok_or_else(|| {
-															Error::from(ErrorCode::InvalidBaseIri)
-														})?;
+														ErrorCode::InvalidBaseIri.located(
+															source,
+															value.metadata().clone(),
+														)
+													})?;
 												result.set_base_iri(Some(resolved.as_iri()))
 											}
 										}
 									} else {
-										return Err(ErrorCode::InvalidBaseIri.into());
+										return Err(ErrorCode::InvalidBaseIri
+											.located(source, value.metadata().clone()));
 									}
 								}
-								_ => return Err(ErrorCode::InvalidBaseIri.into()),
+								_ => {
+									return Err(ErrorCode::InvalidBaseIri
+										.located(source, value.metadata().clone()))
+								}
 							}
 						}
 					}
@@ -623,6 +676,7 @@ where
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
 								match expansion::expand_iri(
+									source,
 									&result,
 									string_value,
 									value.metadata(),
@@ -633,10 +687,16 @@ where
 									Term::Ref(vocab) => {
 										result.set_vocabulary(Some(Term::Ref(vocab)))
 									}
-									_ => return Err(ErrorCode::InvalidVocabMapping.into()),
+									_ => {
+										return Err(ErrorCode::InvalidVocabMapping
+											.located(source, value.metadata().clone()))
+									}
 								}
 							}
-							_ => return Err(ErrorCode::InvalidVocabMapping.into()),
+							_ => {
+								return Err(ErrorCode::InvalidVocabMapping
+									.located(source, value.metadata().clone()))
+							}
 						}
 					}
 
@@ -653,24 +713,29 @@ where
 								Err(err) => {
 									// If value is not well-formed according to section 2.2.9 of [BCP47],
 									// processors SHOULD issue a warning.
-									warnings.push(Meta::new(
+									warnings.push(Loc::new(
 										Warning::MalformedLanguageTag(str_value.to_string(), err),
+										source,
 										value.metadata().clone(),
 									));
 									result.set_default_language(Some(str_value.to_string().into()));
 								}
 							}
 						} else {
-							return Err(ErrorCode::InvalidDefaultLanguage.into());
+							return Err(ErrorCode::InvalidDefaultLanguage
+								.located(source, value.metadata().clone()));
 						}
 					}
 
 					// 5.10) If context has a @direction entry:
-					if let Some(value) = context.get(Keyword::Direction.into()) {
+					if let Some((direction_key, value)) =
+						context.get_key_value(Keyword::Direction.into())
+					{
 						// 5.10.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected and processing is aborted.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
-							return Err(ErrorCode::InvalidContextEntry.into());
+							return Err(ErrorCode::InvalidContextEntry
+								.located(source, direction_key.metadata().clone()));
 						}
 
 						if value.is_null() {
@@ -680,11 +745,15 @@ where
 							let dir = match str {
 								"ltr" => Direction::Ltr,
 								"rtl" => Direction::Rtl,
-								_ => return Err(ErrorCode::InvalidBaseDirection.into()),
+								_ => {
+									return Err(ErrorCode::InvalidBaseDirection
+										.located(source, value.metadata().clone()))
+								}
 							};
 							result.set_default_base_direction(Some(dir));
 						} else {
-							return Err(ErrorCode::InvalidBaseDirection.into());
+							return Err(ErrorCode::InvalidBaseDirection
+								.located(source, value.metadata().clone()));
 						}
 					}
 
@@ -710,27 +779,30 @@ where
 						match key {
 							"@base" | "@direction" | "@import" | "@language" | "@propagate"
 							| "@protected" | "@version" | "@vocab" => (),
-							_ => {
-								define(
-									&mut result,
-									&context,
-									key,
-									key_metadata,
-									&mut defined,
-									remote_contexts.clone(),
-									loader,
-									base_url,
-									protected,
-									options,
-									warnings,
-								)
-								.await?
-							}
+							_ => define(
+								&mut result,
+								&context,
+								key,
+								key_metadata,
+								&mut defined,
+								remote_contexts.clone(),
+								loader,
+								base_url,
+								protected,
+								options,
+								warnings,
+							)
+							.await
+							.map_err(|e| e.located(source, key_metadata.clone()))?,
 						}
 					}
 				}
 				// 5.3) An invalid local context error has been detected.
-				_ => return Err(ErrorCode::InvalidLocalContext.into()),
+				_ => {
+					return Err(
+						ErrorCode::InvalidLocalContext.located(source, context.metadata().clone())
+					)
+				}
 			}
 		}
 
@@ -798,12 +870,13 @@ pub fn define<
 	base_url: Option<Iri<'a>>,
 	protected: bool,
 	options: ProcessingOptions,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
+	warnings: &'a mut Vec<Loc<Warning, J::MetaData>>,
 ) -> BoxFuture<'a, Result<(), Error>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
 {
+	let source = loader.id_opt(base_url);
 	async move {
 		match defined.get(term) {
 			// If defined contains the entry term and the associated value is true (indicating
@@ -862,8 +935,9 @@ where
 							// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
 							// from [RFC5234]), return; processors SHOULD generate a warning.
 							if is_keyword_like(term) {
-								warnings.push(Meta::new(
+								warnings.push(Loc::new(
 									Warning::KeywordLikeTerm(term.to_string()),
+									source,
 									term_metadata.clone(),
 								));
 								return Ok(());
@@ -886,7 +960,7 @@ where
 							// Otherwise, if value is a string, convert it to a map consisting of a
 							// single entry whose key is @id and whose value is value. Set simple
 							// term to true (it already is).
-							WrappedValue::Wrapped(Meta::new(str_value, value.metadata().clone()))
+							WrappedValue::Wrapped(str_value, value.metadata())
 						}
 						ValueRef::Object(value) => {
 							simple_term = false;
@@ -931,6 +1005,7 @@ where
 							let typ = expand_iri(
 								active_context,
 								typ,
+								source,
 								type_value.metadata(),
 								false,
 								true,
@@ -976,7 +1051,11 @@ where
 							// If the value associated with the @reverse entry is a string having
 							// the form of a keyword, return; processors SHOULD generate a warning.
 							if is_keyword_like(reverse_value) {
-								// TODO warning
+								warnings.push(Loc::new(
+									Warning::KeywordLikeValue(reverse_value.into()),
+									source,
+									reverse_value_metadata.clone(),
+								));
 								return Ok(());
 							}
 
@@ -989,6 +1068,7 @@ where
 							match expand_iri(
 								active_context,
 								reverse_value,
+								source,
 								reverse_value_metadata,
 								false,
 								true,
@@ -1068,7 +1148,11 @@ where
 									// keyword, but has the form of a keyword, return;
 									// processors SHOULD generate a warning.
 									if is_keyword_like(id_value) && !is_keyword(id_value) {
-										// TODO warning
+										warnings.push(Loc::new(
+											Warning::KeywordLikeValue(id_value.into()),
+											source,
+											id_value_metadata.clone(),
+										));
 										return Ok(());
 									}
 
@@ -1078,6 +1162,7 @@ where
 									definition.value = match expand_iri(
 										active_context,
 										id_value,
+										source,
 										id_value_metadata,
 										false,
 										true,
@@ -1121,6 +1206,7 @@ where
 										let expanded_term = expand_iri(
 											active_context,
 											term,
+											source,
 											term_metadata,
 											false,
 											true,
@@ -1219,6 +1305,7 @@ where
 								// Set the IRI mapping of definition to the result of IRI expanding
 								// term.
 								match expansion::expand_iri(
+									source,
 									active_context,
 									term,
 									term_metadata,
@@ -1339,6 +1426,7 @@ where
 						// is aborted.
 						if let Some(index) = index_value.as_str() {
 							match expansion::expand_iri(
+								source,
 								active_context,
 								index,
 								index_value.metadata(),
@@ -1408,11 +1496,12 @@ where
 									match LanguageTagBuf::parse_copy(lang_str) {
 										Ok(lang) => Nullable::Some(lang.into()),
 										Err(err) => {
-											warnings.push(Meta::new(
+											warnings.push(Loc::new(
 												Warning::MalformedLanguageTag(
 													lang_str.to_string(),
 													err,
 												),
+												source,
 												language_value.metadata().clone(),
 											));
 											Nullable::Some(lang_str.to_string().into())
@@ -1545,11 +1634,13 @@ where
 /// Build an invalid reference and emit a warning.
 fn invalid_iri<T: Id, M: Clone>(
 	value: String,
+	source: Option<loader::Id>,
 	metadata: &M,
-	warnings: &mut Vec<Meta<Warning, M>>,
+	warnings: &mut Vec<Loc<Warning, M>>,
 ) -> Term<T> {
-	warnings.push(Meta::new(
+	warnings.push(Loc::new(
 		Warning::MalformedIri(value.clone()),
+		source,
 		metadata.clone(),
 	));
 	Reference::Invalid(value).into()
@@ -1565,6 +1656,7 @@ fn expand_iri<
 >(
 	active_context: &'a mut C,
 	value: &str,
+	source: Option<loader::Id>,
 	metadata: &'a J::MetaData,
 	document_relative: bool,
 	vocab: bool,
@@ -1573,7 +1665,7 @@ fn expand_iri<
 	remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	options: ProcessingOptions,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
+	warnings: &'a mut Vec<Loc<Warning, J::MetaData>>,
 ) -> impl 'a + Send + Future<Output = Result<Term<T>, Error>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
@@ -1587,8 +1679,9 @@ where
 			// If value has the form of a keyword, a processor SHOULD generate a warning and return
 			// null.
 			if is_keyword_like(value.as_ref()) {
-				warnings.push(Meta::new(
+				warnings.push(Loc::new(
 					Warning::KeywordLikeValue(value),
+					source,
 					metadata.clone(),
 				));
 				return Ok(Term::Null);
@@ -1629,7 +1722,7 @@ where
 					if let Some(value) = &term_definition.value {
 						return Ok(value.clone());
 					} else {
-						return Ok(invalid_iri(value.to_string(), metadata, warnings));
+						return Ok(invalid_iri(value.to_string(), source, metadata, warnings));
 					}
 				}
 			}
@@ -1652,7 +1745,7 @@ where
 						if let Ok(iri) = Iri::new(value.as_ref() as &str) {
 							return Ok(Term::from(T::from_iri(iri)));
 						} else {
-							return Ok(invalid_iri(value.to_string(), metadata, warnings));
+							return Ok(invalid_iri(value.to_string(), source, metadata, warnings));
 						}
 					}
 
@@ -1719,7 +1812,9 @@ where
 							return Ok(Reference::Invalid(result).into());
 						}
 					}
-					Some(_) => return Ok(invalid_iri(value.to_string(), metadata, warnings)),
+					Some(_) => {
+						return Ok(invalid_iri(value.to_string(), source, metadata, warnings))
+					}
 					None => (),
 				}
 			}
@@ -1735,15 +1830,15 @@ where
 					if let Some(value) = resolve_iri(iri_ref, active_context.base_iri()) {
 						return Ok(Term::from(T::from_iri(value.as_iri())));
 					} else {
-						return Ok(invalid_iri(value.to_string(), metadata, warnings));
+						return Ok(invalid_iri(value.to_string(), source, metadata, warnings));
 					}
 				} else {
-					return Ok(invalid_iri(value.to_string(), metadata, warnings));
+					return Ok(invalid_iri(value.to_string(), source, metadata, warnings));
 				}
 			}
 
 			// Return value as is.
-			Ok(invalid_iri(value.to_string(), metadata, warnings))
+			Ok(invalid_iri(value.to_string(), source, metadata, warnings))
 		}
 	}
 }

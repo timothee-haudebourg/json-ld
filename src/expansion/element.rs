@@ -1,19 +1,21 @@
 use super::{
-	expand_array, expand_iri, expand_literal, expand_node, expand_value, Entry, Expanded,
-	ExpandedEntry, JsonExpand, LiteralValue, Options,
+	expand_array, expand_iri, expand_literal, expand_node, expand_value, ActiveProperty, Entry,
+	Expanded, ExpandedEntry, JsonExpand, LiteralValue, Options,
 };
 use crate::util::as_array;
 use crate::{
 	context::{ContextMut, Loader, Local, ProcessingOptions},
 	object::*,
 	syntax::{Keyword, Term},
-	Error, ErrorCode, Id, Indexed, Meta, Reference, Warning,
+	Error, ErrorCode, Id, Indexed, Loc, Reference, Warning,
 };
 use cc_traits::{CollectionRef, Get, KeyedRef, Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::{Key, ValueRef};
+use generic_json::{Json, Key, ValueRef};
 use iref::Iri;
 use mown::Mown;
+
+pub type ElementExpansionResult<T, J> = Result<Expanded<J, T>, Loc<Error, <J as Json>::MetaData>>;
 
 /// Expand an element.
 ///
@@ -27,25 +29,26 @@ pub fn expand_element<
 	L: Loader + Send + Sync,
 >(
 	active_context: &'a C,
-	active_property: Option<&'a str>,
+	active_property: ActiveProperty<'a, J>,
 	element: &'a J,
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
 	from_map: bool,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
-) -> BoxFuture<'a, Result<Expanded<J, T>, Error>>
+	warnings: &'a mut Vec<Loc<Warning, J::MetaData>>,
+) -> BoxFuture<'a, ElementExpansionResult<T, J>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
 {
+	let source = loader.id_opt(base_url);
 	async move {
 		// If `element` is null, return null.
 		if element.is_null() {
 			return Ok(Expanded::Null);
 		}
 
-		let active_property_definition = active_context.get_opt(active_property);
+		let active_property_definition = active_context.get_opt(active_property.id());
 
 		// If `active_property` has a term definition in `active_context` with a local context,
 		// initialize property-scoped context to that local context.
@@ -93,6 +96,7 @@ where
 
 				for Entry(key, value) in entries.iter() {
 					match expand_iri(
+						source,
 						active_context,
 						key.as_ref(),
 						key.metadata(),
@@ -139,7 +143,10 @@ where
 								property_scoped_base_url,
 								options.with_override(),
 							)
-							.await?
+							.await
+							.map_err(|e| {
+								e.with_metadata(active_property.metadata().unwrap().clone())
+							})?
 							.into_inner(),
 					);
 				}
@@ -159,6 +166,7 @@ where
 				let mut type_entries: Vec<Entry<J>> = Vec::new();
 				for entry @ Entry(key, _) in entries.iter() {
 					let expanded_key = expand_iri(
+						source,
 						active_context.as_ref(),
 						key.as_ref(),
 						key.metadata(),
@@ -197,8 +205,8 @@ where
 					// if `term` is a string, and `term`'s term definition in `type_scoped_context`
 					// has a `local_context`,
 					for term in sorted_value {
-						let term = term.as_str().unwrap();
-						if let Some(term_definition) = type_scoped_context.get(term) {
+						let term_str = term.as_str().unwrap();
+						if let Some(term_definition) = type_scoped_context.get(term_str) {
 							if let Some(local_context) = &term_definition.context {
 								// set `active_context` to the result of
 								// Context Processing algorithm, passing `active_context`, the value of the
@@ -215,7 +223,8 @@ where
 											base_url,
 											options.without_propagation(),
 										)
-										.await?
+										.await
+										.map_err(|e| e.with_metadata(term.metadata().clone()))?
 										.into_inner(),
 								);
 							}
@@ -232,6 +241,7 @@ where
 					if let Some(input_type) = value.last() {
 						input_type.as_str().map(|input_type_str| {
 							expand_iri(
+								source,
 								active_context.as_ref(),
 								input_type_str,
 								input_type.metadata(),
@@ -254,10 +264,11 @@ where
 				let mut value_entry = None;
 				for Entry(key, value) in entries {
 					if key.is_empty() {
-						warnings.push(Meta::new(Warning::EmptyTerm, key.metadata().clone()));
+						warnings.push(Loc::new(Warning::EmptyTerm, source, key.metadata().clone()));
 					}
 
 					let expanded_key = expand_iri(
+						source,
 						active_context.as_ref(),
 						key.as_ref(),
 						key.metadata(),
@@ -274,8 +285,9 @@ where
 						}
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
 						Term::Ref(Reference::Blank(id)) => {
-							warnings.push(Meta::new(
+							warnings.push(Loc::new(
 								Warning::BlankNodeIdProperty(id.clone()),
+								source,
 								key.metadata().clone(),
 							));
 						}
@@ -292,14 +304,20 @@ where
 				if let Some(list_entry) = list_entry {
 					// List objects.
 					let mut index = None;
-					for ExpandedEntry(_, expanded_key, value) in expanded_entries {
+					for ExpandedEntry(key, expanded_key, value) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_str() {
 								Some(value) => index = Some(value.to_string()),
-								None => return Err(ErrorCode::InvalidIndexValue.into()),
+								None => {
+									return Err(ErrorCode::InvalidIndexValue
+										.located(source, value.metadata().clone()))
+								}
 							},
 							Term::Keyword(Keyword::List) => (),
-							_ => return Err(ErrorCode::InvalidSetOrListObject.into()),
+							_ => {
+								return Err(ErrorCode::InvalidSetOrListObject
+									.located(source, key.metadata().clone()))
+							}
 						}
 					}
 
@@ -328,14 +346,17 @@ where
 					Ok(Expanded::Object(Indexed::new(Object::List(result), index)))
 				} else if let Some(set_entry) = set_entry {
 					// Set objects.
-					for ExpandedEntry(_, expanded_key, _) in expanded_entries {
+					for ExpandedEntry(key, expanded_key, _) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
 								// having an `@index` here is tolerated,
 								// but is ignored.
 							}
 							Term::Keyword(Keyword::Set) => (),
-							_ => return Err(ErrorCode::InvalidSetOrListObject.into()),
+							_ => {
+								return Err(ErrorCode::InvalidSetOrListObject
+									.located(source, key.metadata().clone()))
+							}
 						}
 					}
 
@@ -356,12 +377,15 @@ where
 				} else if let Some(value_entry) = value_entry {
 					// Value objects.
 					if let Some(value) = expand_value(
+						source,
 						input_type,
 						type_scoped_context,
 						expanded_entries,
 						&*value_entry,
 						warnings,
-					)? {
+					)
+					.map_err(|e| e.located(source, value_entry.metadata().clone()))?
+					{
 						Ok(Expanded::Object(value))
 					} else {
 						Ok(Expanded::Null)
@@ -405,7 +429,7 @@ where
 				{
 					// FIXME it is unclear what we should use as `base_url` if there is no term definition for `active_context`.
 					let base_url = active_context
-						.get_opt(active_property)
+						.get_opt(active_property.id())
 						.map(|definition| {
 							definition
 								.base_url
@@ -416,7 +440,8 @@ where
 
 					let result = property_scoped_context
 						.process_with(active_context, loader, base_url, options.into())
-						.await?
+						.await
+						.map_err(|e| e.with_metadata(active_property.metadata().unwrap().clone()))?
 						.into_inner();
 					Mown::Owned(result)
 				} else {
@@ -425,12 +450,16 @@ where
 
 				// Return the result of the Value Expansion algorithm, passing the `active_context`,
 				// `active_property`, and `element` as value.
-				return Ok(Expanded::Object(expand_literal(
-					active_context.as_ref(),
-					active_property,
-					LiteralValue::Given(element),
-					warnings,
-				)?));
+				return Ok(Expanded::Object(
+					expand_literal(
+						source,
+						active_context.as_ref(),
+						active_property,
+						LiteralValue::Given(element),
+						warnings,
+					)
+					.map_err(|e| e.located(source, element.metadata().clone()))?,
+				));
 			}
 		}
 	}

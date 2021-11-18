@@ -3,7 +3,7 @@ use crate::{
 	context::{self, Inversible, Loader, Local},
 	syntax::{Container, ContainerType, Keyword, Term, Type},
 	util::{AsAnyJson, JsonFrom},
-	ContextMut, Error, Id, Node, ProcessingMode, Reference,
+	ContextMut, Error, Id, Loc, Node, ProcessingMode, Reference,
 };
 use cc_traits::Len;
 
@@ -57,7 +57,8 @@ where
 							active_property_definition.base_url(),
 							context::ProcessingOptions::from(options).with_override(),
 						)
-						.await?
+						.await
+						.map_err(Loc::unwrap)?
 						.into_inner(),
 				)
 				.into_owned()
@@ -101,7 +102,8 @@ where
 								term_definition.base_url(),
 								processing_options,
 							)
-							.await?
+							.await
+							.map_err(Loc::unwrap)?
 							.into_inner(),
 					)
 					.into_owned()
@@ -209,7 +211,8 @@ where
 							active_property_definition.base_url(),
 							context::ProcessingOptions::from(options).with_override(),
 						)
-						.await?
+						.await
+						.map_err(Loc::unwrap)?
 						.into_inner(),
 				)
 				.into_owned()

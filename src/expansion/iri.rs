@@ -1,18 +1,20 @@
 use crate::{
+	loader,
 	syntax::{is_keyword_like, Keyword, Term},
-	BlankId, Context, Id, Meta, Reference, Warning,
+	BlankId, Context, Id, Loc, Reference, Warning,
 };
 use iref::{Iri, IriRef};
 use std::convert::TryFrom;
 
 // Default value for `document_relative` is `false` and for `vocab` is `true`.
 pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
+	source: Option<loader::Id>,
 	active_context: &C,
 	value: &str,
 	metadata: &M,
 	document_relative: bool,
 	vocab: bool,
-	warnings: &mut Vec<Meta<Warning, M>>,
+	warnings: &mut Vec<Loc<Warning, M>>,
 ) -> Term<T> {
 	if let Ok(keyword) = Keyword::try_from(value) {
 		Term::Keyword(keyword)
@@ -20,8 +22,9 @@ pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 		// If value has the form of a keyword, a processor SHOULD generate a warning and return
 		// null.
 		if is_keyword_like(value) {
-			warnings.push(Meta::new(
+			warnings.push(Loc::new(
 				Warning::KeywordLikeValue(value.to_string()),
+				source,
 				metadata.clone(),
 			));
 			return Term::Null;
@@ -42,7 +45,7 @@ pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 				if let Some(mapped_value) = &term_definition.value {
 					return mapped_value.clone();
 				} else {
-					return invalid(value.to_string(), metadata, warnings);
+					return invalid(value.to_string(), source, metadata, warnings);
 				}
 			}
 		}
@@ -65,7 +68,7 @@ pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 					if let Ok(iri) = Iri::new(value) {
 						return Term::from(T::from_iri(iri));
 					} else {
-						return invalid(value.to_string(), metadata, warnings);
+						return invalid(value.to_string(), source, metadata, warnings);
 					}
 				}
 
@@ -112,7 +115,7 @@ pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 						return Reference::Invalid(result).into();
 					}
 				}
-				Some(_) => return invalid(value.to_string(), metadata, warnings),
+				Some(_) => return invalid(value.to_string(), source, metadata, warnings),
 				None => (),
 			}
 		}
@@ -129,26 +132,28 @@ pub fn expand_iri<T: Id, C: Context<T>, M: Clone>(
 					let value = iri_ref.resolved(base_iri);
 					return Term::from(T::from_iri(value.as_iri()));
 				} else {
-					return invalid(value.to_string(), metadata, warnings);
+					return invalid(value.to_string(), source, metadata, warnings);
 				}
 			} else {
-				return invalid(value.to_string(), metadata, warnings);
+				return invalid(value.to_string(), source, metadata, warnings);
 			}
 		}
 
 		// Return value as is.
-		invalid(value.to_string(), metadata, warnings)
+		invalid(value.to_string(), source, metadata, warnings)
 	}
 }
 
 /// Build an invalid reference and emit a warning.
 fn invalid<T: Id, M: Clone>(
 	value: String,
+	source: Option<loader::Id>,
 	metadata: &M,
-	warnings: &mut Vec<Meta<Warning, M>>,
+	warnings: &mut Vec<Loc<Warning, M>>,
 ) -> Term<T> {
-	warnings.push(Meta::new(
+	warnings.push(Loc::new(
 		Warning::MalformedIri(value.clone()),
+		source,
 		metadata.clone(),
 	));
 	Reference::Invalid(value).into()

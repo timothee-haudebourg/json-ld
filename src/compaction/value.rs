@@ -3,7 +3,7 @@ use crate::{
 	context::{self, Inversible, Loader, Local},
 	syntax::{Container, ContainerType, Keyword, Term, Type},
 	util::{AsAnyJson, AsJson, JsonFrom},
-	ContextMut, Error, Id, Reference, Value,
+	ContextMut, Error, Id, Loc, Reference, Value,
 };
 
 /// Compact the given indexed value.
@@ -42,7 +42,8 @@ where
 							active_property_definition.base_url(),
 							context::ProcessingOptions::from(options).with_override(),
 						)
-						.await?
+						.await
+						.map_err(Loc::unwrap)?
 						.into_inner(),
 				)
 				.into_owned()
