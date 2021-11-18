@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Associate a unique identifier to each loaded document through the `Loader` trait.
 - Locate errors using its source (a `loader::Id`) and its metadata.
 - Locate warnings using its source (a `loader::Id`) and its metadata.
+- The `request::Loader` not longer panic.
 
 ### Added
 - `Warning` type to enumerate possible warnings.
