@@ -1,7 +1,7 @@
 //! Expansion algorithm and related types.
 use crate::{
 	context::{Loader, ProcessingOptions},
-	ContextMut, LocError, Id, Indexed, Meta, Object, ProcessingMode, Warning,
+	ContextMut, Error, Id, Indexed, Loc, Object, ProcessingMode, Warning,
 };
 use cc_traits::{CollectionRef, KeyedRef};
 use derivative::Derivative;
@@ -199,6 +199,56 @@ fn filter_top_level_item<J: JsonHash, T: Id>(item: &Indexed<Object<J, T>>) -> bo
 	!matches!(item.inner(), Object::Value(_))
 }
 
+pub enum ActiveProperty<'a, J: Json> {
+	None,
+	Some(&'a str, &'a J::MetaData),
+}
+
+impl<'a, J: Json> ActiveProperty<'a, J> {
+	pub fn is_none(&self) -> bool {
+		matches!(self, Self::None)
+	}
+
+	pub fn is_some(&self) -> bool {
+		matches!(self, Self::Some(_, _))
+	}
+
+	pub fn id(&self) -> Option<&'a str> {
+		match self {
+			Self::Some(id, _) => Some(*id),
+			Self::None => None,
+		}
+	}
+
+	pub fn metadata(&self) -> Option<&'a J::MetaData> {
+		match self {
+			Self::Some(_, metadata) => Some(*metadata),
+			Self::None => None,
+		}
+	}
+}
+
+impl<'a, J: Json> Clone for ActiveProperty<'a, J> {
+	fn clone(&self) -> Self {
+		match self {
+			Self::Some(id, metadata) => Self::Some(*id, *metadata),
+			Self::None => Self::None,
+		}
+	}
+}
+
+impl<'a, J: Json> Copy for ActiveProperty<'a, J> {}
+
+impl<'a, 's, J: Json> PartialEq<Option<&'s str>> for ActiveProperty<'a, J> {
+	fn eq(&self, s_opt: &Option<&'s str>) -> bool {
+		match (self, s_opt) {
+			(Self::Some(a, _), Some(b)) => a == b,
+			(Self::None, None) => true,
+			_ => false,
+		}
+	}
+}
+
 /// Expand the given JSON-LD document.
 ///
 /// Note that you probably do not want to use this function directly,
@@ -210,8 +260,8 @@ pub async fn expand<'a, J: JsonExpand, T: Id, C: ContextMut<T>, L: Loader>(
 	base_url: Option<IriBuf>,
 	loader: &'a mut L,
 	options: Options,
-	warnings: &mut Vec<Meta<Warning, J::MetaData>>, // ) -> impl 'a + Send + Future<Output = Result<HashSet<Indexed<Object<J, T>>>, Error>>
-) -> Result<HashSet<Indexed<Object<J, T>>>, LocError<J::MetaData>>
+	warnings: &mut Vec<Loc<Warning, J::MetaData>>,
+) -> Result<HashSet<Indexed<Object<J, T>>>, Loc<Error, J::MetaData>>
 where
 	T: Send + Sync,
 	C: Send + Sync,
@@ -222,7 +272,7 @@ where
 	let base_url = base_url.as_ref().map(|url| url.as_iri());
 	let expanded = expand_element(
 		active_context,
-		None,
+		ActiveProperty::None,
 		document,
 		base_url,
 		loader,

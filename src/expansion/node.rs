@@ -1,18 +1,18 @@
 use super::{
-	expand_element, expand_iri, expand_literal, filter_top_level_item, Entry, Expanded,
-	ExpandedEntry, JsonExpand, LiteralValue, Options, Policy,
+	expand_element, expand_iri, expand_literal, filter_top_level_item, ActiveProperty, Entry,
+	Expanded, ExpandedEntry, JsonExpand, LiteralValue, Options, Policy,
 };
 use crate::util::as_array;
 use crate::{
 	context::{ContextMut, Loader, Local, ProcessingOptions},
 	object::*,
 	syntax::{Container, ContainerType, Keyword, Term, Type},
-	LocError, ErrorCode, Id, Indexed, LangString, Meta, ProcessingMode, Reference, Warning,
+	Error, ErrorCode, Id, Indexed, LangString, Loc, ProcessingMode, Reference, Warning,
 };
 use cc_traits::{Len, MapIter};
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::{Key, ValueRef};
-use iref::{Iri, IriBuf};
+use generic_json::{Json, Key, ValueRef};
+use iref::Iri;
 use langtag::LanguageTagBuf;
 use mown::Mown;
 use std::{collections::HashSet, convert::TryInto};
@@ -37,13 +37,13 @@ pub(crate) async fn expand_node<
 >(
 	active_context: &'a C,
 	type_scoped_context: &'a C,
-	active_property: Option<Meta<&'a str, &'a J::MetaData>>,
+	active_property: ActiveProperty<'a, J>,
 	expanded_entries: Vec<ExpandedEntry<'a, J, Term<T>>>,
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
-) -> Result<Option<Indexed<Node<J, T>>>, LocError<J::MetaData>>
+	warnings: &'a mut Vec<Loc<Warning, J::MetaData>>,
+) -> Result<Option<Indexed<Node<J, T>>>, Loc<Error, J::MetaData>>
 where
 	C::LocalContext: From<L::Output> + From<J>,
 	L::Output: Into<J>,
@@ -84,7 +84,7 @@ where
 
 	// If active property is null or @graph, drop free-floating
 	// values as follows:
-	if active_property.is_none() || active_property.map(|p| *p == "@graph").unwrap_or(false) {
+	if active_property.is_none() || active_property == Some("@graph") {
 		// If `result` is a map which is empty,
 		// [or contains only the entries `@value` or `@list` (does not apply here)]
 		// set `result` to null.
@@ -105,6 +105,10 @@ where
 /// value object entries (in practice, if it has a `@language` entry).
 type ExpandedNode<J, T> = (Indexed<Node<J, T>>, bool);
 
+/// Result of the `expand_node_entries` function.
+type NodeEntriesExpensionResult<J, T> =
+	Result<ExpandedNode<J, T>, Loc<Error, <J as Json>::MetaData>>;
+
 fn expand_node_entries<
 	'a,
 	J: JsonExpand,
@@ -116,17 +120,18 @@ fn expand_node_entries<
 	mut has_value_object_entries: bool,
 	active_context: &'a C,
 	type_scoped_context: &'a C,
-	active_property: Option<Meta<&'a str, &'a J::MetaData>>,
+	active_property: ActiveProperty<'a, J>,
 	expanded_entries: Vec<ExpandedEntry<'a, J, Term<T>>>,
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
-	warnings: &'a mut Vec<Meta<Warning, J::MetaData>>,
-) -> BoxFuture<'a, Result<ExpandedNode<J, T>, LocError<J::MetaData>>>
+	warnings: &'a mut Vec<Loc<Warning, J::MetaData>>,
+) -> BoxFuture<'a, NodeEntriesExpensionResult<J, T>>
 where
 	C::LocalContext: From<L::Output> + From<J> + Send + Sync,
 	L::Output: Into<J>,
 {
+	let source = loader.id_opt(base_url);
 	async move {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:
@@ -146,11 +151,9 @@ where
 				Term::Keyword(expanded_property) => {
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
-					if active_property.map(|p| *p == "@reverse").unwrap_or(false) {
-						return Err(ErrorCode::InvalidReversePropertyMap.located(
-							base_url.map(IriBuf::from),
-							key.metadata().clone()
-						));
+					if active_property == Some("@reverse") {
+						return Err(ErrorCode::InvalidReversePropertyMap
+							.located(source, key.metadata().clone()));
 					}
 
 					// If `result` already has an `expanded_property` entry, other than
@@ -162,10 +165,9 @@ where
 							&& expanded_property != Keyword::Type))
 						&& result.has_key(&Term::Keyword(expanded_property))
 					{
-						return Err(ErrorCode::CollidingKeywords.located(
-							base_url.map(IriBuf::from),
-							key.metadata().clone()
-						));
+						return Err(
+							ErrorCode::CollidingKeywords.located(source, key.metadata().clone())
+						);
 					}
 
 					match expanded_property {
@@ -178,6 +180,7 @@ where
 								// expanding value using true for document relative and
 								// false for vocab.
 								result.id = node_id_of_term(expand_iri(
+									source,
 									active_context,
 									str_value,
 									value.metadata(),
@@ -186,10 +189,8 @@ where
 									warnings,
 								))
 							} else {
-								return Err(ErrorCode::InvalidIdValue.located(
-									base_url.map(IriBuf::from),
-									value.metadata().clone()
-								));
+								return Err(ErrorCode::InvalidIdValue
+									.located(source, value.metadata().clone()));
 							}
 						}
 						// If expanded property is @type:
@@ -204,6 +205,7 @@ where
 							for ty in value {
 								if let Some(str_ty) = ty.as_str() {
 									if let Ok(ty) = expand_iri(
+										source,
 										type_scoped_context,
 										str_ty,
 										ty.metadata(),
@@ -215,16 +217,12 @@ where
 									{
 										result.types.push(ty)
 									} else {
-										return Err(ErrorCode::InvalidTypeValue.located(
-											base_url.map(IriBuf::from),
-											ty.metadata().clone()
-										));
+										return Err(ErrorCode::InvalidTypeValue
+											.located(source, ty.metadata().clone()));
 									}
 								} else {
-									return Err(ErrorCode::InvalidTypeValue.located(
-										base_url.map(IriBuf::from),
-										ty.metadata().clone()
-									));
+									return Err(ErrorCode::InvalidTypeValue
+										.located(source, ty.metadata().clone()));
 								}
 							}
 						}
@@ -237,7 +235,7 @@ where
 							// `expanded_value` is an array of one or more maps.
 							let expanded_value = expand_element(
 								active_context,
-								Some(Meta::new("@graph", key.metadata())),
+								ActiveProperty::Some("@graph", key.metadata()),
 								&*value,
 								base_url,
 								loader,
@@ -267,7 +265,7 @@ where
 							// and `ordered` flags, ensuring that the result is an array.
 							let expanded_value = expand_element(
 								active_context,
-								Some(Meta::new("@included", key.metadata())),
+								ActiveProperty::Some("@included", key.metadata()),
 								&*value,
 								base_url,
 								loader,
@@ -280,10 +278,12 @@ where
 							for obj in expanded_value.into_iter() {
 								match obj.try_cast::<Node<J, T>>() {
 									Ok(node) => expanded_nodes.push(node),
-									Err(_) => return Err(ErrorCode::InvalidIncludedValue.located(
-										base_url.map(IriBuf::from),
-										value.metadata().clone() // TODO take the metadata of the expanded value `obj`.
-									)),
+									Err(_) => {
+										return Err(ErrorCode::InvalidIncludedValue.located(
+											source,
+											value.metadata().clone(), // TODO take the metadata of the expanded value `obj`.
+										));
+									}
 								}
 							}
 
@@ -304,10 +304,8 @@ where
 							} else {
 								// If value is not a string, an invalid @index value
 								// error has been detected and processing is aborted.
-								return Err(ErrorCode::InvalidIndexValue.located(
-									base_url.map(IriBuf::from),
-									value.metadata().clone()
-								));
+								return Err(ErrorCode::InvalidIndexValue
+									.located(source, value.metadata().clone()));
 							}
 						}
 						// If expanded property is @reverse:
@@ -327,6 +325,7 @@ where
 
 								for Entry(reverse_key, reverse_value) in reverse_entries {
 									match expand_iri(
+										source,
 										active_context,
 										reverse_key.as_ref(),
 										reverse_key.metadata(),
@@ -335,18 +334,14 @@ where
 										warnings,
 									) {
 										Term::Keyword(_) => {
-											return Err(ErrorCode::InvalidReversePropertyMap.located(
-												base_url.map(IriBuf::from),
-												reverse_key.metadata().clone()
-											))
+											return Err(ErrorCode::InvalidReversePropertyMap
+												.located(source, reverse_key.metadata().clone()))
 										}
 										Term::Ref(Reference::Invalid(_))
 											if options.policy == Policy::Strictest =>
 										{
-											return Err(ErrorCode::KeyExpansionFailed.located(
-												base_url.map(IriBuf::from),
-												reverse_key.metadata().clone()
-											))
+											return Err(ErrorCode::KeyExpansionFailed
+												.located(source, reverse_key.metadata().clone()))
 										}
 										Term::Ref(reverse_prop)
 											if reverse_prop.as_str().contains(':')
@@ -354,7 +349,10 @@ where
 										{
 											let reverse_expanded_value = expand_element(
 												active_context,
-												Some(Meta::new(reverse_key.as_ref(), reverse_key.metadata())),
+												ActiveProperty::Some(
+													reverse_key.as_ref(),
+													reverse_key.metadata(),
+												),
 												&*reverse_value,
 												base_url,
 												loader,
@@ -388,8 +386,10 @@ where
 														Err(_) => return Err(
 															ErrorCode::InvalidReversePropertyValue
 																.located(
-																	base_url.map(IriBuf::from),
-																	reverse_value.metadata().clone()
+																	source,
+																	reverse_value
+																		.metadata()
+																		.clone(),
 																),
 														),
 													}
@@ -404,8 +404,8 @@ where
 										_ => {
 											if options.policy.is_strict() {
 												return Err(ErrorCode::KeyExpansionFailed.located(
-													base_url.map(IriBuf::from),
-													reverse_key.metadata().clone()
+													source,
+													reverse_key.metadata().clone(),
 												));
 											}
 											// otherwise the key is just dropped.
@@ -413,10 +413,8 @@ where
 									}
 								}
 							} else {
-								return Err(ErrorCode::InvalidReverseValue.located(
-									base_url.map(IriBuf::from),
-									value.metadata().clone()
-								));
+								return Err(ErrorCode::InvalidReverseValue
+									.located(source, value.metadata().clone()));
 							}
 						}
 						// If expanded property is @nest
@@ -452,7 +450,10 @@ where
 													property_scoped_base_url,
 													options.with_override(),
 												)
-												.await.map_err(|e| e.with_metadata(nesting_key.metadata().clone()))?
+												.await
+												.map_err(|e| {
+													e.with_metadata(nesting_key.metadata().clone())
+												})?
 												.into_inner(),
 										)
 									}
@@ -474,6 +475,7 @@ where
 									let nested_expanded_entries =
 										nested_entries.into_iter().map(|Entry(key, value)| {
 											let expanded_key = expand_iri(
+												source,
 												active_context.as_ref(),
 												key.as_ref(),
 												key.metadata(),
@@ -502,26 +504,24 @@ where
 									result = new_result;
 									has_value_object_entries = new_has_value_object_entries;
 								} else {
-									return Err(ErrorCode::InvalidNestValue.located(
-										base_url.map(IriBuf::from),
-										nested_value.metadata().clone()
-									));
+									return Err(ErrorCode::InvalidNestValue
+										.located(source, nested_value.metadata().clone()));
 								}
 							}
 						}
-						Keyword::Value => return Err(ErrorCode::InvalidNestValue.located(
-							base_url.map(IriBuf::from),
-							key.metadata().clone()
-						)),
+						Keyword::Value => {
+							return Err(
+								ErrorCode::InvalidNestValue.located(source, key.metadata().clone())
+							)
+						}
 						_ => (),
 					}
 				}
 
 				Term::Ref(Reference::Invalid(_)) if options.policy == Policy::Strictest => {
-					return Err(ErrorCode::KeyExpansionFailed.located(
-						base_url.map(IriBuf::from),
-						key.metadata().clone()
-					))
+					return Err(
+						ErrorCode::KeyExpansionFailed.located(source, key.metadata().clone())
+					)
 				}
 
 				Term::Ref(prop)
@@ -597,6 +597,7 @@ where
 												// If language is @none, or expands to
 												// @none, remove @language from v.
 												let language = if expand_iri(
+													source,
 													active_context,
 													language,
 													language_metadata,
@@ -610,11 +611,12 @@ where
 													match LanguageTagBuf::parse_copy(language) {
 														Ok(lang) => Some(lang.into()),
 														Err(err) => {
-															warnings.push(Meta::new(
+															warnings.push(Loc::new(
 																Warning::MalformedLanguageTag(
 																	language.to_string().clone(),
 																	err,
 																),
+																source,
 																language_metadata.clone(),
 															));
 															Some(language.to_string().into())
@@ -657,12 +659,8 @@ where
 												// item must be a string, otherwise an
 												// invalid language map value error has
 												// been detected and processing is aborted.
-												return Err(
-													ErrorCode::InvalidLanguageMapValue.located(
-														base_url.map(IriBuf::from),
-														item.metadata().clone()
-													)
-												);
+												return Err(ErrorCode::InvalidLanguageMapValue
+													.located(source, item.metadata().clone()));
 											}
 										}
 									}
@@ -744,7 +742,12 @@ where
 															base_url,
 															options.into(),
 														)
-														.await.map_err(|e| e.with_metadata(index.metadata().clone()))?
+														.await
+														.map_err(|e| {
+															e.with_metadata(
+																index.metadata().clone(),
+															)
+														})?
 														.into_inner(),
 												)
 											}
@@ -757,6 +760,7 @@ where
 									// Initialize `expanded_index` to the result of IRI
 									// expanding index.
 									let expanded_index = match expand_iri(
+										source,
 										active_context,
 										index.as_ref(),
 										index.metadata(),
@@ -780,7 +784,7 @@ where
 									// And `true` for `from_map`.
 									let expanded_index_value = expand_element(
 										map_context.as_ref(),
-										Some(Meta::new(key.as_ref(), key.metadata())),
+										ActiveProperty::Some(key.as_ref(), key.metadata()),
 										&*index_value,
 										base_url,
 										loader,
@@ -819,21 +823,26 @@ where
 												// passing the active context, index key as
 												// active property, and index as value.
 												let re_expanded_index = expand_literal(
+													source,
 													active_context,
-													Some(Meta::new(index_key, index.metadata())),
+													ActiveProperty::Some(
+														index_key,
+														index.metadata(),
+													),
 													LiteralValue::Inferred(
 														(&**index).into(),
 														index.metadata().clone(),
 													),
 													warnings,
-												).map_err(|e| e.located(
-													base_url.map(IriBuf::from),
-													index.metadata().clone()
-												))?;
+												)
+												.map_err(|e| {
+													e.located(source, index.metadata().clone())
+												})?;
 
 												// Initialize expanded index key to the result
 												// of IRI expanding index key.
 												let expanded_index_key = match expand_iri(
+													source,
 													active_context,
 													index_key,
 													index.metadata(),
@@ -857,12 +866,11 @@ where
 													// contain any extra properties; an invalid
 													// value object error has been detected and
 													// processing is aborted.
-													return Err(
-														ErrorCode::InvalidValueObject.located(
-															base_url.map(IriBuf::from),
-															index_value.metadata().clone()
-														)
-													);
+													return Err(ErrorCode::InvalidValueObject
+														.located(
+															source,
+															index_value.metadata().clone(),
+														));
 												}
 											} else if container_mapping
 												.contains(ContainerType::Index) && item
@@ -886,6 +894,7 @@ where
 												// document relative and false for vocab.
 												if let Object::Node(ref mut node) = *item {
 													node.id = node_id_of_term(expand_iri(
+														source,
 														active_context,
 														index.as_ref(),
 														index.metadata(),
@@ -910,10 +919,11 @@ where
 														node.types.insert(0, typ);
 													}
 												} else {
-													return Err(ErrorCode::InvalidTypeValue.located(
-														base_url.map(IriBuf::from),
-														index_value.metadata().clone()
-													));
+													return Err(ErrorCode::InvalidTypeValue
+														.located(
+															source,
+															index_value.metadata().clone(),
+														));
 												}
 											}
 										}
@@ -931,7 +941,7 @@ where
 								// value for element, base URL, and the frameExpansion and ordered flags.
 								expand_element(
 									active_context,
-									Some(Meta::new(key.as_ref(), key.metadata())),
+									ActiveProperty::Some(key.as_ref(), key.metadata()),
 									&*value,
 									base_url,
 									loader,
@@ -989,10 +999,8 @@ where
 								match object.try_cast::<Node<J, T>>() {
 									Ok(node) => reverse_expanded_nodes.push(node),
 									Err(_) => {
-										return Err(ErrorCode::InvalidReversePropertyValue.located(
-											base_url.map(IriBuf::from),
-											value.metadata().clone()
-										))
+										return Err(ErrorCode::InvalidReversePropertyValue
+											.located(source, value.metadata().clone()))
 									}
 								}
 							}
@@ -1009,10 +1017,9 @@ where
 
 				Term::Ref(_) => {
 					if options.policy.is_strict() {
-						return Err(ErrorCode::KeyExpansionFailed.located(
-							base_url.map(IriBuf::from),
-							key.metadata().clone()
-						));
+						return Err(
+							ErrorCode::KeyExpansionFailed.located(source, key.metadata().clone())
+						);
 					}
 					// non-keyword properties that does not include a ':' are skipped.
 				}

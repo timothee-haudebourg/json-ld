@@ -1,6 +1,7 @@
-use super::{expand_iri, node_id_of_term};
+use super::{expand_iri, node_id_of_term, ActiveProperty};
 use crate::{
-	object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString, Meta, Warning,
+	loader, object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString, Loc,
+	Warning,
 };
 use generic_json::{Json, JsonClone, JsonHash, ValueRef};
 
@@ -35,12 +36,13 @@ impl<'a, J: Json> LiteralValue<'a, J> {
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
+	source: Option<loader::Id>,
 	active_context: &C,
-	active_property: Option<Meta<&str, &J::MetaData>>,
+	active_property: ActiveProperty<J>,
 	value: LiteralValue<J>,
-	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
+	warnings: &mut Vec<Loc<Warning, J::MetaData>>,
 ) -> Result<Indexed<Object<J, T>>, Error> {
-	let active_property_definition = active_context.get_opt(active_property.map(|p| *p));
+	let active_property_definition = active_context.get_opt(active_property.id());
 
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
 	{
@@ -57,6 +59,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 		Some(Type::Id) if value.is_string() => {
 			let mut node = Node::new();
 			node.id = node_id_of_term(expand_iri(
+				source,
 				active_context,
 				value.as_str().unwrap(),
 				value.metadata(),
@@ -74,6 +77,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 		Some(Type::Vocab) if value.is_string() => {
 			let mut node = Node::new();
 			node.id = node_id_of_term(expand_iri(
+				source,
 				active_context,
 				value.as_str().unwrap(),
 				value.metadata(),

@@ -9,7 +9,7 @@ use crate::{
 	lang::{LenientLanguageTag, LenientLanguageTagBuf},
 	syntax::Term,
 	util::{AsJson, JsonFrom},
-	Direction, LocError, Id, Meta, ProcessingMode, Warning,
+	Direction, Error, Id, Loc, ProcessingMode, Warning,
 };
 use futures::{future::BoxFuture, FutureExt};
 use generic_json::{JsonClone, JsonSendSync};
@@ -158,6 +158,10 @@ pub trait ContextMutProxy<T: Id = IriBuf> {
 	fn deref(&self) -> &Self::Target;
 }
 
+/// Context processing result.
+pub type ProcessingResult<'s, J, C> =
+	Result<Processed<'s, J, C>, Loc<Error, <J as generic_json::Json>::MetaData>>;
+
 /// Local context used for context expansion.
 ///
 /// Local contexts can be seen as "abstract contexts" that can be processed to enrich an
@@ -171,7 +175,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, LocError<Self::MetaData>>>
+	) -> BoxFuture<'a, ProcessingResult<'s, Self, C>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -184,7 +188,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, LocError<Self::MetaData>>>
+	) -> BoxFuture<'a, ProcessingResult<'s, Self, C>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -205,7 +209,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 		&'s self,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
-	) -> BoxFuture<'a, Result<Processed<'s, Self, C>, LocError<Self::MetaData>>>
+	) -> BoxFuture<'a, ProcessingResult<'s, Self, C>>
 	where
 		C::LocalContext: From<L::Output> + From<Self>,
 		L::Output: Into<Self>,
@@ -239,7 +243,7 @@ pub struct ProcessedOwned<L: generic_json::Json, C> {
 	processed: C,
 
 	/// Warnings collected during processing.
-	warnings: Vec<Meta<Warning, L::MetaData>>,
+	warnings: Vec<Loc<Warning, L::MetaData>>,
 }
 
 impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
@@ -249,11 +253,7 @@ impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 	}
 
 	/// Wraps a processed context along with its original local representation and warnings emitted during processing.
-	pub fn with_warnings(
-		local: L,
-		processed: C,
-		warnings: Vec<Meta<Warning, L::MetaData>>,
-	) -> Self {
+	pub fn with_warnings(local: L, processed: C, warnings: Vec<Loc<Warning, L::MetaData>>) -> Self {
 		ProcessedOwned {
 			local,
 			processed,
@@ -262,7 +262,7 @@ impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 	}
 
 	/// Returns a reference to the warnings emitted during processing.
-	pub fn warnings(&self) -> &[Meta<Warning, L::MetaData>] {
+	pub fn warnings(&self) -> &[Loc<Warning, L::MetaData>] {
 		&self.warnings
 	}
 
@@ -315,7 +315,7 @@ pub struct Processed<'a, L: generic_json::Json, C> {
 	processed: C,
 
 	/// Warnings collected during processing.
-	warnings: Vec<Meta<Warning, L::MetaData>>,
+	warnings: Vec<Loc<Warning, L::MetaData>>,
 }
 
 impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
@@ -329,7 +329,7 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 	pub fn with_warnings(
 		local: &'a L,
 		processed: C,
-		warnings: Vec<Meta<Warning, L::MetaData>>,
+		warnings: Vec<Loc<Warning, L::MetaData>>,
 	) -> Self {
 		Processed {
 			local,
@@ -339,7 +339,7 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 	}
 
 	/// Returns a reference to the warnings emitted during processing.
-	pub fn warnings(&self) -> &[Meta<Warning, L::MetaData>] {
+	pub fn warnings(&self) -> &[Loc<Warning, L::MetaData>] {
 		&self.warnings
 	}
 

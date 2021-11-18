@@ -2,11 +2,11 @@
 use ijson::IValue;
 use json_ld::{
 	context::{self, Local},
-	Document, NoLoader,
+	Document, Error, Loc, NoLoader,
 };
 
 #[async_std::main]
-async fn main() -> Result<(), json_ld::Error> {
+async fn main() -> Result<(), Loc<Error, ()>> {
 	// Input JSON-LD document to compact.
 	let input: IValue = serde_json::from_str(r#"
 		[{

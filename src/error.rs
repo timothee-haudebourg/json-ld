@@ -1,7 +1,6 @@
+use crate::{loader, Loc};
 use std::convert::TryFrom;
 use std::fmt;
-use iref::{Iri, IriBuf, IriRefBuf};
-use crate::{Loc, Meta};
 
 /// Error type.
 ///
@@ -17,17 +16,11 @@ pub struct Error {
 	source: Option<Box<dyn std::error::Error + 'static>>,
 }
 
-/// Located error.
-pub type LocError<M> = Loc<Meta<Error, M>>;
-
 impl Error {
 	/// Create a new error.
 	#[inline(always)]
 	pub fn new(code: ErrorCode) -> Error {
-		Error {
-			code,
-			source: None,
-		}
+		Error { code, source: None }
 	}
 
 	/// Create a new error with a given error source.
@@ -46,14 +39,8 @@ impl Error {
 	}
 
 	/// Turns this error into a located error attached with the given `metadata`.
-	pub fn located<M>(self, path: Option<IriBuf>, metadata: M) -> LocError<M> {
-		Loc::new(
-			Meta::new(
-				self,
-				metadata
-			),
-			path.map(IriRefBuf::from).unwrap_or_default()
-		)
+	pub fn located<M>(self, source: Option<loader::Id>, metadata: M) -> Loc<Error, M> {
+		Loc::new(self, source, metadata)
 	}
 }
 
@@ -309,14 +296,8 @@ impl ErrorCode {
 	}
 
 	/// Turns this error code into an actual located error attached with the given `metadata`.
-	pub fn located<M>(self, path: Option<IriBuf>, metadata: M) -> LocError<M> {
-		Loc::new(
-			Meta::new(
-				self.into(),
-				metadata
-			),
-			path.map(IriRefBuf::from).unwrap_or_default()
-		)
+	pub fn located<M>(self, source: Option<loader::Id>, metadata: M) -> Loc<Error, M> {
+		Error::from(self).located(source, metadata)
 	}
 }
 

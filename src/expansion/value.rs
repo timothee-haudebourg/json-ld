@@ -1,19 +1,21 @@
 use super::{expand_iri, ExpandedEntry};
 use crate::{
+	loader,
 	object::*,
 	syntax::{Keyword, Term},
-	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Meta, Reference, Warning,
+	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Loc, Reference, Warning,
 };
 use generic_json::{JsonClone, JsonHash, ValueRef};
 use langtag::LanguageTagBuf;
 use std::convert::TryFrom;
 
 pub(crate) fn expand_value<'e, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>>(
+	source: Option<loader::Id>,
 	input_type: Option<Term<T>>,
 	type_scoped_context: &C,
 	expanded_entries: Vec<ExpandedEntry<'e, J, Term<T>>>,
 	value_entry: &J,
-	warnings: &mut Vec<Meta<Warning, J::MetaData>>,
+	warnings: &mut Vec<Loc<Warning, J::MetaData>>,
 ) -> Result<Option<Indexed<Object<J, T>>>, Error>
 where
 	J::Object: 'e,
@@ -38,7 +40,7 @@ where
 					// TODO warning.
 
 					if value != "@none" {
-						language = Some(Meta::new(value.to_string(), value_metadata.clone()));
+						language = Some((value.to_string(), value_metadata.clone()));
 					}
 				} else {
 					return Err(ErrorCode::InvalidLanguageTaggedString.into());
@@ -76,6 +78,7 @@ where
 			Term::Keyword(Keyword::Type) => {
 				if let Some(ty_value) = value.as_str() {
 					let expanded_ty = expand_iri(
+						source,
 						type_scoped_context,
 						ty_value,
 						value.metadata(),
@@ -152,12 +155,13 @@ where
 		if let Literal::String(str) = result {
 			let lang = match language {
 				Some(language) => {
-					let (language, language_metadata) = language.into_parts();
+					let (language, language_metadata) = language;
 					match LanguageTagBuf::parse_copy(language.as_str()) {
 						Ok(lang) => Some(lang.into()),
 						Err(err) => {
-							warnings.push(Meta::new(
+							warnings.push(Loc::new(
 								Warning::MalformedLanguageTag(language.to_string(), err),
+								source,
 								language_metadata,
 							));
 							Some(language.to_string().into())
