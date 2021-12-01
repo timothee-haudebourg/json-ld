@@ -194,6 +194,7 @@ pub mod syntax;
 pub mod util;
 mod vocab;
 mod warning;
+pub mod flattening;
 
 #[cfg(feature = "reqwest-loader")]
 pub mod reqwest;

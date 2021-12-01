@@ -1,0 +1,1 @@
+//! Flattening algorithm and related types.
