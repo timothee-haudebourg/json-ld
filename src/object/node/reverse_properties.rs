@@ -74,7 +74,7 @@ impl<J: JsonHash, T: Id> ReverseProperties<J, T> {
 
 	/// Associate all the given nodes to the given reverse property.
 	#[inline(always)]
-	pub fn insert_all<Objects: Iterator<Item = Indexed<Node<J, T>>>>(
+	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Node<J, T>>>>(
 		&mut self,
 		prop: Reference<T>,
 		values: Objects,
@@ -82,7 +82,7 @@ impl<J: JsonHash, T: Id> ReverseProperties<J, T> {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.extend(values);
 		} else {
-			self.0.insert(prop, values.collect());
+			self.0.insert(prop, values.into_iter().collect());
 		}
 	}
 

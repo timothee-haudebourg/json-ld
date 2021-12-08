@@ -34,7 +34,7 @@ impl<T> Type<T> {
 }
 
 impl<'a, T: Clone> Type<&'a T> {
-	pub fn owned(self) -> Type<T> {
+	pub fn cloned(self) -> Type<T> {
 		match self {
 			Type::Id => Type::Id,
 			Type::Json => Type::Json,
@@ -137,19 +137,19 @@ impl<T: fmt::Display> fmt::Display for Type<T> {
 	}
 }
 
-pub type NodeType<T> = Type<Reference<T>>;
+// pub type NodeType<T> = Type<Reference<T>>;
 
-impl<T: Id> TryFrom<Term<T>> for NodeType<T> {
-	type Error = Term<T>;
+// impl<T: Id> TryFrom<Term<T>> for NodeType<T> {
+// 	type Error = Term<T>;
 
-	fn try_from(term: Term<T>) -> Result<NodeType<T>, Term<T>> {
-		match term {
-			Term::Keyword(Keyword::Id) => Ok(Type::Id),
-			Term::Keyword(Keyword::Json) => Ok(Type::Json),
-			Term::Keyword(Keyword::None) => Ok(Type::None),
-			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			Term::Ref(prop) => Ok(Type::Ref(prop)),
-			term => Err(term),
-		}
-	}
-}
+// 	fn try_from(term: Term<T>) -> Result<NodeType<T>, Term<T>> {
+// 		match term {
+// 			Term::Keyword(Keyword::Id) => Ok(Type::Id),
+// 			Term::Keyword(Keyword::Json) => Ok(Type::Json),
+// 			Term::Keyword(Keyword::None) => Ok(Type::None),
+// 			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
+// 			Term::Ref(prop) => Ok(Type::Ref(prop)),
+// 			term => Err(term),
+// 		}
+// 	}
+// }

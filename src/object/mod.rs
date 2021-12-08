@@ -1,5 +1,6 @@
 //! Nodes, lists and values.
 
+mod typ;
 pub mod node;
 pub mod value;
 
@@ -7,13 +8,14 @@ use crate::{
 	lang::LenientLanguageTag,
 	syntax::Keyword,
 	util::{AsJson, JsonFrom},
-	Id, Indexed, Reference,
+	Id, Indexed, Reference
 };
 use generic_json::{JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
+pub use typ::{Type, TypeRef};
 pub use node::{Node, Nodes};
 pub use value::{Literal, LiteralString, Value};
 
@@ -102,6 +104,14 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
 			_ => None,
+		}
+	}
+
+	pub fn types(&self) -> Types<T> {
+		match self {
+			Self::Value(value) => Types::Value(value.typ()),
+			Self::Node(node) => Types::Node(node.types().iter()),
+			Self::List(_) => Types::List
 		}
 	}
 
@@ -339,6 +349,25 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
 			.map(|value| value.as_json_with(meta.clone()))
 			.collect();
 		K::array(array, meta(None))
+	}
+}
+
+/// Iterator through the types of an object.
+pub enum Types<'a, T> {
+	Value(Option<value::TypeRef<'a, T>>),
+	Node(std::slice::Iter<'a, Reference<T>>),
+	List
+}
+
+impl<'a, T> Iterator for Types<'a, T> {
+	type Item = TypeRef<'a, T>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::Value(ty) => ty.take().map(TypeRef::from_value_type),
+			Self::Node(tys) => tys.next().map(TypeRef::from_reference),
+			Self::List => None
+		}
 	}
 }
 

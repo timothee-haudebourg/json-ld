@@ -17,6 +17,10 @@ exclude = [
 
 [features]
 reqwest-loader = ["reqwest"]
+uuid-generator-v3 = ["uuid", "uuid/v3"]
+uuid-generator-v4 = ["uuid", "uuid/v4"]
+uuid-generator-v5 = ["uuid", "uuid/v5"]
+default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
 
 [dependencies]
 log = "^0.4"
@@ -24,11 +28,12 @@ derivative = "^2.2"
 mown = "^0.2"
 cc-traits = "^0.7.1"
 generic-json = { version = "^0.5", features = ["nightly"] }
-iref = "^2.0.3"
+iref = "^2.1"
 futures = "^0.3"
 once_cell = "^1.4"
 reqwest = { version = "^0.11", optional = true }
 langtag = "^0.2"
+uuid = { version = "0.8", optional = true }
 
 [dev-dependencies]
 async-std = { version = "^1.5", features = ["attributes"] }

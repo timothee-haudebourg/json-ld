@@ -1,7 +1,7 @@
 use crate::{
 	lang::LenientLanguageTag,
 	object,
-	syntax::{Keyword, Type},
+	syntax::{self, Keyword},
 	util::{self, AsAnyJson},
 	Direction, Id, LangString,
 };
@@ -13,6 +13,27 @@ use std::{
 	fmt,
 	hash::{Hash, Hasher},
 };
+
+/// Value type.
+pub enum Type<T> {
+	Json,
+	Id(T)
+}
+
+/// Value type reference.
+pub enum TypeRef<'a, T> {
+	Json,
+	Id(&'a T)
+}
+
+impl<'a, T> TypeRef<'a, T> {
+	pub fn as_syntax_type(&self) -> syntax::Type<&'a T> {
+		match self {
+			Self::Json => syntax::Type::Json,
+			Self::Id(id) => syntax::Type::Ref(id)
+		}
+	}
+}
 
 #[derive(Derivative)]
 #[derivative(Clone(bound = "J::String: Clone"))]
@@ -191,6 +212,46 @@ impl<J: Json, T: Id> Value<J, T> {
 	}
 
 	#[inline(always)]
+	pub fn as_literal(&self) -> Option<(&Literal<J>, Option<&T>)> {
+		match self {
+			Self::Literal(lit, ty) => Some((lit, ty.as_ref())),
+			_ => None
+		}
+	}
+
+	pub fn literal_type(&self) -> Option<&T> {
+		match self {
+			Self::Literal(_, ty) => ty.as_ref(),
+			_ => None
+		}
+	}
+
+	/// Set the literal value type, and returns the old type.
+	/// 
+	/// Has no effect and return `None` if the value is not a literal value.
+	pub fn set_literal_type(&mut self, mut ty: Option<T>) -> Option<T> {
+		match self {
+			Self::Literal(_, old_ty) => {
+				std::mem::swap(old_ty, &mut ty);
+				ty
+			},
+			_ => None
+		}
+	}
+
+	/// Maps the literal value type.
+	/// 
+	/// Has no effect if the value is not a literal value.
+	pub fn map_literal_type<F: FnOnce(Option<T>) -> Option<T>>(&mut self, f: F) {
+		match self {
+			Self::Literal(_, ty) => {
+				*ty = f(ty.take())
+			},
+			_ => ()
+		}
+	}
+
+	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
 			Value::Literal(lit, _) => lit.as_bool(),
@@ -209,10 +270,10 @@ impl<J: Json, T: Id> Value<J, T> {
 	/// Return the type of the value if any.
 	///
 	/// This will return `Some(Type::Json)` for JSON literal values.
-	pub fn typ(&self) -> Option<Type<&T>> {
+	pub fn typ(&self) -> Option<TypeRef<T>> {
 		match self {
-			Value::Literal(_, Some(ty)) => Some(Type::Ref(ty)),
-			Value::Json(_) => Some(Type::Json),
+			Value::Literal(_, Some(ty)) => Some(TypeRef::Id(ty)),
+			Value::Json(_) => Some(TypeRef::Json),
 			_ => None,
 		}
 	}

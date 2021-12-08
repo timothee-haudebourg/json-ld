@@ -18,16 +18,35 @@ use std::fmt;
 /// ```
 /// This type represent a blank node identifier of the form `_:name`.
 /// It is used by the `Reference` type to reference blank and non-blank nodes.
+/// 
+/// ## Generators
+/// 
+/// It is sometimes useful to generate a family of unique blank node identifiers,
+/// for example to flatten a JSON-LD document a give a unique name to each
+/// blank node.
+/// The [`Generator`] trait defines an abstract way to describe such operation,
+/// and the [`generator`] module provides multiple built-in generator implementations.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct BlankId(String);
 
 impl BlankId {
-	/// Create a new blank identifier from a given `name`.
+	/// Create a new blank identifier with the given `name`.
 	///
 	/// The created blank node will be of the form `_:name`.
 	#[inline(always)]
-	pub fn new(name: &str) -> BlankId {
-		BlankId("_:".to_string() + name)
+	pub fn new(name: &str) -> Self {
+		Self("_:".to_string() + name)
+	}
+	
+	/// Converts the given string into a blank node identifier.
+	/// 
+	/// ## Safety
+	/// 
+	/// The string must be a well formed blank nod identifier,
+	/// prefixed by `_:`.
+	#[inline(always)]
+	pub unsafe fn from_raw(string: String) -> Self {
+		Self(string)
 	}
 
 	/// Get the blank identifier as a string.

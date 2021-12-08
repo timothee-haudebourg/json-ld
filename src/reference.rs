@@ -15,7 +15,7 @@ use std::fmt;
 /// It can be an identifier (IRI), a blank node identifier for local blank nodes
 /// or an invalid reference (a string that is neither an IRI nor blank node identifier).
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Reference<T: AsIri = IriBuf> {
+pub enum Reference<T = IriBuf> {
 	/// Node identifier, essentially an IRI.
 	Id(T),
 
@@ -162,6 +162,17 @@ impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Reference
 			Reference::Id(id) => id.as_json(meta(None)),
 			Reference::Blank(b) => b.as_json_with(meta(None)),
 			Reference::Invalid(id) => id.as_json_with(meta(None)),
+		}
+	}
+}
+
+impl<K: generic_json::JsonBuild, T: Id> util::AsAnyJson<K> for Reference<T> {
+	#[inline]
+	fn as_json_with(&self, meta: K::MetaData) -> K {
+		match self {
+			Reference::Id(id) => id.as_json(meta),
+			Reference::Blank(b) => b.as_json_with(meta),
+			Reference::Invalid(id) => id.as_json_with(meta),
 		}
 	}
 }

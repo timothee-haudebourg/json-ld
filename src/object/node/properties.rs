@@ -108,7 +108,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	/// Associate all the given objects to the node through the given property.
 	#[inline(always)]
-	pub fn insert_all<Objects: Iterator<Item = Indexed<Object<J, T>>>>(
+	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Object<J, T>>>>(
 		&mut self,
 		prop: Reference<T>,
 		values: Objects,
@@ -116,7 +116,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.extend(values);
 		} else {
-			self.0.insert(prop, values.collect());
+			self.0.insert(prop, values.into_iter().collect());
 		}
 	}
 

@@ -124,6 +124,12 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		self.id.as_ref()
 	}
 
+	/// Sets the idntifier of this node.
+	#[inline(always)]
+	pub fn set_id(&mut self, id: Option<Reference<T>>) {
+		self.id = id
+	}
+
 	/// Get the node's as an IRI if possible.
 	///
 	/// Returns the node's IRI id if any. Returns `None` otherwise.
@@ -151,6 +157,18 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	#[inline(always)]
 	pub fn types(&self) -> &[Reference<T>] {
 		self.types.as_ref()
+	}
+
+	/// Returns a mutable reference to the node's types.
+	#[inline(always)]
+	pub fn types_mut(&mut self) -> &mut Vec<Reference<T>> {
+		&mut self.types
+	}
+
+	/// Sets the types of this node.
+	#[inline(always)]
+	pub fn set_types(&mut self, types: Vec<Reference<T>>) {
+		self.types = types
 	}
 
 	/// Checks if the node has the given type.
@@ -244,10 +262,22 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		&self.properties
 	}
 
+	/// Returns a mutable reference to the properties of the node.
+	#[inline(always)]
+	pub fn properties_mut(&mut self) -> &mut Properties<J, T> {
+		&mut self.properties
+	}
+
 	/// Returns a reference to the reverse properties of the node.
 	#[inline(always)]
 	pub fn reverse_properties(&self) -> &ReverseProperties<J, T> {
 		&self.reverse_properties
+	}
+
+	/// Returns a mutable reference to the reverse properties of the node.
+	#[inline(always)]
+	pub fn reverse_properties_mut(&mut self) -> &mut ReverseProperties<J, T> {
+		&mut self.reverse_properties
 	}
 
 	/// Get all the objects associated to the node with the given property.

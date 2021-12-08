@@ -208,7 +208,7 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 							containers.push(Container::LanguageSet)
 						} else if let Some(ty) = v.typ() {
 							type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(
-								ty.map(|ty| (*ty).clone()),
+								ty.as_syntax_type().cloned()
 							)))
 						} else {
 							is_simple_value =

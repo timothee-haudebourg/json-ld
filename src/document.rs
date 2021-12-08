@@ -45,6 +45,11 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	}
 
 	#[inline(always)]
+	pub fn objects(&self) -> &HashSet<Indexed<Object<J, T>>> {
+		&self.objects
+	}
+
+	#[inline(always)]
 	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Indexed<Object<J, T>>> {
 		self.objects.iter()
 	}
