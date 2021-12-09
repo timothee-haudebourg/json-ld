@@ -100,6 +100,12 @@ pub trait Generator<T: Id> {
 	fn next(&mut self) -> Reference<T>;
 }
 
+impl<'a, T: Id, G: Generator<T>> Generator<T> for &'a mut G {
+	fn next(&mut self) -> Reference<T> {
+		(*self).next()
+	}
+}
+
 /// Blank node identifiers built-in generators.
 pub mod generator {
 	use super::Generator;
