@@ -1,17 +1,21 @@
+use super::Namespace;
 use crate::{id, ExpandedDocument, Id, Indexed, Node, Object, Reference};
 use derivative::Derivative;
 use generic_json::{JsonClone, JsonHash};
 use std::collections::{HashMap, HashSet};
-use super::Namespace;
 
-#[derive(Clone)]
-#[derive(Derivative)]
+#[derive(Clone, Derivative)]
 #[derivative(Debug(bound = ""))]
 pub struct ConflictingIndexes<T: Id> {
 	pub node_id: Reference<T>,
 	pub defined_index: String,
-	pub conflicting_index: String
+	pub conflicting_index: String,
 }
+
+pub type Parts<J, T> = (
+	NodeMapGraph<J, T>,
+	HashMap<Reference<T>, NodeMapGraph<J, T>>,
+);
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
@@ -28,7 +32,7 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 		}
 	}
 
-	pub fn into_parts(self) -> (NodeMapGraph<J, T>, HashMap<Reference<T>, NodeMapGraph<J, T>>) {
+	pub fn into_parts(self) -> Parts<J, T> {
 		(self.default_graph, self.graphs)
 	}
 
@@ -62,7 +66,7 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 	pub fn iter(&self) -> Iter<J, T> {
 		Iter {
 			default_graph: Some(&self.default_graph),
-			graphs: self.graphs.iter()
+			graphs: self.graphs.iter(),
 		}
 	}
 
@@ -73,7 +77,7 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 
 pub struct Iter<'a, J: JsonHash, T: Id> {
 	default_graph: Option<&'a NodeMapGraph<J, T>>,
-	graphs: std::collections::hash_map::Iter<'a, Reference<T>, NodeMapGraph<J, T>>
+	graphs: std::collections::hash_map::Iter<'a, Reference<T>, NodeMapGraph<J, T>>,
 }
 
 impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
@@ -82,14 +86,14 @@ impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
 			Some(default_graph) => Some((None, default_graph)),
-			None => self.graphs.next().map(|(id, graph)| (Some(id), graph))
+			None => self.graphs.next().map(|(id, graph)| (Some(id), graph)),
 		}
 	}
 }
 
 pub struct IntoIter<J: JsonHash, T: Id> {
 	default_graph: Option<NodeMapGraph<J, T>>,
-	graphs: std::collections::hash_map::IntoIter<Reference<T>, NodeMapGraph<J, T>>
+	graphs: std::collections::hash_map::IntoIter<Reference<T>, NodeMapGraph<J, T>>,
 }
 
 impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
@@ -98,7 +102,7 @@ impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
 			Some(default_graph) => Some((None, default_graph)),
-			None => self.graphs.next().map(|(id, graph)| (Some(id), graph))
+			None => self.graphs.next().map(|(id, graph)| (Some(id), graph)),
 		}
 	}
 }
@@ -110,7 +114,7 @@ impl<J: JsonHash, T: Id> IntoIterator for NodeMap<J, T> {
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIter {
 			default_graph: Some(self.default_graph),
-			graphs: self.graphs.into_iter()
+			graphs: self.graphs.into_iter(),
 		}
 	}
 }
@@ -152,7 +156,7 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 						return Err(ConflictingIndexes {
 							node_id: id,
 							defined_index: entry_index.to_string(),
-							conflicting_index: index.to_string()
+							conflicting_index: index.to_string(),
 						});
 					}
 				}
@@ -211,11 +215,11 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 		}
 	}
 
-	pub fn nodes(&self) -> impl Iterator<Item=&Indexed<Node<J, T>>> {
+	pub fn nodes(&self) -> impl Iterator<Item = &Indexed<Node<J, T>>> {
 		self.nodes.values()
 	}
 
-	pub fn into_nodes(self) -> impl Iterator<Item=Indexed<Node<J, T>>> {
+	pub fn into_nodes(self) -> impl Iterator<Item = Indexed<Node<J, T>>> {
 		self.nodes.into_values()
 	}
 }
