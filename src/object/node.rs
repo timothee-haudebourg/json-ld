@@ -16,6 +16,39 @@ pub mod reverse_properties;
 pub use properties::Properties;
 pub use reverse_properties::ReverseProperties;
 
+/// Node parts.
+pub struct Parts<J: JsonHash, T: Id = IriBuf> {
+	/// Identifier.
+	///
+	/// This is the `@id` field.
+	pub id: Option<Reference<T>>,
+
+	/// Types.
+	///
+	/// This is the `@type` field.
+	pub types: Vec<Reference<T>>,
+
+	/// Associated graph.
+	///
+	/// This is the `@graph` field.
+	pub graph: Option<HashSet<Indexed<Object<J, T>>>>,
+
+	/// Included nodes.
+	///
+	/// This is the `@included` field.
+	pub included: Option<HashSet<Indexed<Node<J, T>>>>,
+
+	/// Properties.
+	///
+	/// Any non-keyword field.
+	pub properties: Properties<J, T>,
+
+	/// Reverse properties.
+	///
+	/// This is the `@reverse` field.
+	pub reverse_properties: ReverseProperties<J, T>,
+}
+
 /// Node object.
 ///
 /// A node object represents zero or more properties of a node in the graph serialized by a JSON-LD document.
@@ -91,6 +124,28 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		}
 	}
 
+	pub fn from_parts(parts: Parts<J, T>) -> Self {
+		Self {
+			id: parts.id,
+			types: parts.types,
+			graph: parts.graph,
+			included: parts.included,
+			properties: parts.properties,
+			reverse_properties: parts.reverse_properties
+		}
+	}
+
+	pub fn into_parts(self) -> Parts<J, T> {
+		Parts {
+			id: self.id,
+			types: self.types,
+			graph: self.graph,
+			included: self.included,
+			properties: self.properties,
+			reverse_properties: self.reverse_properties
+		}
+	}
+
 	/// Checks if the node object has the given term as key.
 	///
 	/// # Example
@@ -163,6 +218,12 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	#[inline(always)]
 	pub fn types_mut(&mut self) -> &mut Vec<Reference<T>> {
 		&mut self.types
+	}
+
+	/// Adds the given type `ty` to the end of the list of types of this node.
+	#[inline(always)]
+	pub fn add_type(&mut self, ty: Reference<T>) {
+		self.types.push(ty)
 	}
 
 	/// Sets the types of this node.

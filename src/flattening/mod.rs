@@ -55,11 +55,31 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 		}
 	}
 
+	pub fn graph(&self, id: Option<&Reference<T>>) -> Option<&NodeMapGraph<J, T>> {
+		match id {
+			Some(id) => self.graphs.get(id),
+			None => Some(&self.default_graph)
+		}
+	}
+
 	pub fn graph_mut(&mut self, id: Option<&Reference<T>>) -> Option<&mut NodeMapGraph<J, T>> {
 		match id {
 			Some(id) => self.graphs.get_mut(id),
 			None => Some(&mut self.default_graph)
 		}
+	}
+
+	/// Merge all the graphs into a single `NodeMapGraph`.
+	/// 
+	/// The order in which graphs are merged is not defined.
+	pub fn merge(self) -> NodeMapGraph<J, T> {
+		let mut result = self.default_graph;
+
+		for (_, graph) in self.graphs {
+			result.merge_with(graph)
+		}
+
+		result
 	}
 }
 
@@ -72,6 +92,14 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 		Self {
 			nodes: HashMap::new()
 		}
+	}
+	
+	pub fn contains(&self, id: &Reference<T>) -> bool {
+		self.nodes.contains_key(id)
+	}
+
+	pub fn get(&self, id: &Reference<T>) -> Option<&Indexed<Node<J, T>>> {
+		self.nodes.get(id)
 	}
 
 	pub fn get_mut(&mut self, id: &Reference<T>) -> Option<&mut Indexed<Node<J, T>>> {
@@ -94,6 +122,63 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 		}
 		
 		Ok(self.nodes.get_mut(&id).unwrap())
+	}
+
+	/// Merge this graph with `other`.
+	/// 
+	/// This calls [`merge_node`](Self::merge_node) with every node of `other`.
+	pub fn merge_with(&mut self, other: Self) {
+		for (_, node) in other {
+			self.merge_node(node)
+		}
+	}
+
+	/// Merge the given `node` into the graph.
+	/// 
+	/// The `node` must has an identifier, or this function will have no effect.
+	/// If there is already a node with the same identifier:
+	/// - The index of `node`, if any, overrides the previously existing index.
+	/// - The list of `node` types is concatenated after the preexisting types.
+	/// - The graph and imported values are overridden.
+	/// - Properties and reverse properties are merged.
+	pub fn merge_node(&mut self, node: Indexed<Node<J, T>>) {
+		let (node, index) = node.into_parts();
+		let node = node.into_parts();
+
+		if let Some(id) = &node.id {
+			if let Some(entry) = self.nodes.get_mut(id) {
+				if let Some(index) = index {
+					entry.set_index(Some(index))
+				}
+			} else {
+				self.nodes.insert(id.clone(), Indexed::new(Node::with_id(id.clone()), index));
+			}
+
+			let flat_node = self.nodes.get_mut(id).unwrap();
+			flat_node.types_mut().extend(node.types.iter().cloned());
+			flat_node.set_graph(node.graph);
+			flat_node.set_included(node.included);
+			flat_node.properties_mut().extend(node.properties);
+			flat_node.reverse_properties_mut().extend(node.reverse_properties);
+		}
+	}
+}
+
+impl<J: JsonHash, T: Id> IntoIterator for NodeMapGraph<J, T> {
+	type Item = (Reference<T>, Indexed<Node<J, T>>);
+	type IntoIter = std::collections::hash_map::IntoIter<Reference<T>, Indexed<Node<J, T>>>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.nodes.into_iter()
+	}
+}
+
+impl<'a, J: JsonHash, T: Id> IntoIterator for &'a NodeMapGraph<J, T> {
+	type Item = (&'a Reference<T>, &'a Indexed<Node<J, T>>);
+	type IntoIter = std::collections::hash_map::Iter<'a, Reference<T>, Indexed<Node<J, T>>>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.nodes.iter()
 	}
 }
 

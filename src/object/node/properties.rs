@@ -144,6 +144,21 @@ impl<J: JsonHash, T: Id> Hash for Properties<J, T> {
 	}
 }
 
+impl<J: JsonHash, T: Id> Extend<(Reference<T>, Vec<Indexed<Object<J, T>>>)> for Properties<J, T> {
+	fn extend<I>(&mut self, iter: I)
+    where
+		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Object<J, T>>>)>
+	{
+		for (prop, values) in iter {
+			self.insert_all(prop, values)
+		}
+	}
+}
+
+/// Tuple type representing a binding in a node object,
+/// associating a property to some objects.
+pub type Binding<J, T> = (Reference<T>, Vec<Indexed<Object<J, T>>>);
+
 /// Tuple type representing a reference to a binding in a node object,
 /// associating a property to some objects.
 pub type BindingRef<'a, J, T> = (&'a Reference<T>, &'a [Indexed<Object<J, T>>]);
@@ -151,6 +166,18 @@ pub type BindingRef<'a, J, T> = (&'a Reference<T>, &'a [Indexed<Object<J, T>>]);
 /// Tuple type representing a mutable reference to a binding in a node object,
 /// associating a property to some objects, with a mutable access to the objects.
 pub type BindingMut<'a, J, T> = (&'a Reference<T>, &'a mut Vec<Indexed<Object<J, T>>>);
+
+impl<J: JsonHash, T: Id> IntoIterator for Properties<J, T> {
+	type Item = Binding<J, T>;
+	type IntoIter = IntoIter<J, T>;
+
+	#[inline(always)]
+	fn into_iter(self) -> Self::IntoIter {
+		IntoIter {
+			inner: self.0.into_iter()
+		}
+	}
+}
 
 impl<'a, J: JsonHash, T: Id> IntoIterator for &'a Properties<J, T> {
 	type Item = BindingRef<'a, J, T>;
@@ -171,6 +198,31 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a mut Properties<J, T> {
 		self.iter_mut()
 	}
 }
+
+/// Iterator over the properties of a node.
+///
+/// It is created by the [`Properties::into_iter`] function.
+pub struct IntoIter<J: JsonHash, T: Id> {
+	inner: std::collections::hash_map::IntoIter<Reference<T>, Vec<Indexed<Object<J, T>>>>,
+}
+
+impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
+	type Item = Binding<J, T>;
+
+	#[inline(always)]
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.inner.size_hint()
+	}
+
+	#[inline(always)]
+	fn next(&mut self) -> Option<Self::Item> {
+		self.inner.next()
+	}
+}
+
+impl<J: JsonHash, T: Id> ExactSizeIterator for IntoIter<J, T> {}
+
+impl<J: JsonHash, T: Id> std::iter::FusedIterator for IntoIter<J, T> {}
 
 /// Iterator over the properties of a node.
 ///

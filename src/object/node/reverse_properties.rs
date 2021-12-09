@@ -110,6 +110,21 @@ impl<J: JsonHash, T: Id> Hash for ReverseProperties<J, T> {
 	}
 }
 
+impl<J: JsonHash, T: Id> Extend<(Reference<T>, Vec<Indexed<Node<J, T>>>)> for ReverseProperties<J, T> {
+	fn extend<I>(&mut self, iter: I)
+    where
+		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Node<J, T>>>)>
+	{
+		for (prop, values) in iter {
+			self.insert_all(prop, values)
+		}
+	}
+}
+
+/// Tuple type representing a reverse binding in a node object,
+/// associating a reverse property to some nodes.
+pub type ReverseBinding<J, T> = (Reference<T>, Vec<Indexed<Node<J, T>>>);
+
 /// Tuple type representing a reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes.
 pub type ReverseBindingRef<'a, J, T> = (&'a Reference<T>, &'a [Indexed<Node<J, T>>]);
@@ -117,6 +132,18 @@ pub type ReverseBindingRef<'a, J, T> = (&'a Reference<T>, &'a [Indexed<Node<J, T
 /// Tuple type representing a mutable reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes, with a mutable access to the nodes.
 pub type ReverseBindingMut<'a, J, T> = (&'a Reference<T>, &'a mut Vec<Indexed<Node<J, T>>>);
+
+impl<J: JsonHash, T: Id> IntoIterator for ReverseProperties<J, T> {
+	type Item = ReverseBinding<J, T>;
+	type IntoIter = IntoIter<J, T>;
+
+	#[inline(always)]
+	fn into_iter(self) -> Self::IntoIter {
+		IntoIter {
+			inner: self.0.into_iter()
+		}
+	}
+}
 
 impl<'a, J: JsonHash, T: Id> IntoIterator for &'a ReverseProperties<J, T> {
 	type Item = ReverseBindingRef<'a, J, T>;
@@ -137,6 +164,31 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a mut ReverseProperties<J, T> {
 		self.iter_mut()
 	}
 }
+
+/// Iterator over the reverse properties of a node.
+///
+/// It is created by the [`ReverseProperties::into_iter`] function.
+pub struct IntoIter<J: JsonHash, T: Id> {
+	inner: std::collections::hash_map::IntoIter<Reference<T>, Vec<Indexed<Node<J, T>>>>,
+}
+
+impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
+	type Item = ReverseBinding<J, T>;
+
+	#[inline(always)]
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		self.inner.size_hint()
+	}
+
+	#[inline(always)]
+	fn next(&mut self) -> Option<Self::Item> {
+		self.inner.next()
+	}
+}
+
+impl<J: JsonHash, T: Id> ExactSizeIterator for IntoIter<J, T> {}
+
+impl<J: JsonHash, T: Id> std::iter::FusedIterator for IntoIter<J, T> {}
 
 /// Iterator over the reverse properties of a node.
 ///
