@@ -26,7 +26,7 @@ default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
 log = "^0.4"
 derivative = "^2.2"
 mown = "^0.2"
-cc-traits = "^0.7.1"
+cc-traits = "^0.7.3"
 generic-json = { version = "^0.5", features = ["nightly"] }
 iref = "^2.1"
 futures = "^0.3"
