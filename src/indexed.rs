@@ -63,7 +63,10 @@ impl<T> Indexed<T> {
 
 	/// Cast the inner value.
 	#[inline(always)]
-	pub fn map_inner<U, F>(self, f: F) -> Indexed<U> where F: FnOnce(T) -> U {
+	pub fn map_inner<U, F>(self, f: F) -> Indexed<U>
+	where
+		F: FnOnce(T) -> U,
+	{
 		Indexed::new(f(self.value), self.index)
 	}
 

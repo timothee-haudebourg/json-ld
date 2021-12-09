@@ -1,13 +1,14 @@
 //! Flattening algorithm and related types.
-use std::marker::PhantomData;
+use crate::{id, BlankId, ExpandedDocument, Id, Indexed, Node, Object, Reference};
+use derivative::Derivative;
+use generic_json::{JsonClone, JsonHash};
 use std::collections::{HashMap, HashSet};
-use generic_json::{JsonHash, JsonClone};
-use crate::{Id, BlankId, id, Reference, ExpandedDocument, Indexed, Object, Node};
+use std::marker::PhantomData;
 
 pub struct Namespace<T, G> {
 	id: PhantomData<T>,
 	generator: G,
-	map: HashMap<BlankId, Reference<T>>
+	map: HashMap<BlankId, Reference<T>>,
 }
 
 impl<T, G> Namespace<T, G> {
@@ -15,7 +16,7 @@ impl<T, G> Namespace<T, G> {
 		Self {
 			id: PhantomData,
 			generator,
-			map: HashMap::new()
+			map: HashMap::new(),
 		}
 	}
 }
@@ -37,40 +38,42 @@ impl<T: Id, G: id::Generator<T>> Namespace<T, G> {
 		match r {
 			Some(Reference::Blank(id)) => self.assign(id.clone()),
 			Some(r) => r.clone(),
-			None => self.generator.next()
+			None => self.generator.next(),
 		}
 	}
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct NodeMap<J: JsonHash, T: Id> {
 	graphs: HashMap<Reference<T>, NodeMapGraph<J, T>>,
-	default_graph: NodeMapGraph<J, T>
+	default_graph: NodeMapGraph<J, T>,
 }
 
 impl<J: JsonHash, T: Id> NodeMap<J, T> {
 	pub fn new() -> Self {
 		Self {
 			graphs: HashMap::new(),
-			default_graph: NodeMapGraph::new()
+			default_graph: NodeMapGraph::new(),
 		}
 	}
 
 	pub fn graph(&self, id: Option<&Reference<T>>) -> Option<&NodeMapGraph<J, T>> {
 		match id {
 			Some(id) => self.graphs.get(id),
-			None => Some(&self.default_graph)
+			None => Some(&self.default_graph),
 		}
 	}
 
 	pub fn graph_mut(&mut self, id: Option<&Reference<T>>) -> Option<&mut NodeMapGraph<J, T>> {
 		match id {
 			Some(id) => self.graphs.get_mut(id),
-			None => Some(&mut self.default_graph)
+			None => Some(&mut self.default_graph),
 		}
 	}
 
 	/// Merge all the graphs into a single `NodeMapGraph`.
-	/// 
+	///
 	/// The order in which graphs are merged is not defined.
 	pub fn merge(self) -> NodeMapGraph<J, T> {
 		let mut result = self.default_graph;
@@ -83,17 +86,19 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 	}
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct NodeMapGraph<J: JsonHash, T: Id> {
-	nodes: HashMap<Reference<T>, Indexed<Node<J, T>>>
+	nodes: HashMap<Reference<T>, Indexed<Node<J, T>>>,
 }
 
 impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 	pub fn new() -> Self {
 		Self {
-			nodes: HashMap::new()
+			nodes: HashMap::new(),
 		}
 	}
-	
+
 	pub fn contains(&self, id: &Reference<T>) -> bool {
 		self.nodes.contains_key(id)
 	}
@@ -106,26 +111,33 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 		self.nodes.get_mut(id)
 	}
 
-	pub fn declare_node(&mut self, id: Reference<T>, index: Option<&str>) -> Result<&mut Indexed<Node<J, T>>, ConflictingIndexes> {
+	pub fn declare_node(
+		&mut self,
+		id: Reference<T>,
+		index: Option<&str>,
+	) -> Result<&mut Indexed<Node<J, T>>, ConflictingIndexes> {
 		if let Some(entry) = self.nodes.get_mut(&id) {
 			match (entry.index(), index) {
 				(Some(entry_index), Some(index)) => {
 					if entry_index != index {
-						return Err(ConflictingIndexes)
+						return Err(ConflictingIndexes);
 					}
-				},
+				}
 				(None, Some(index)) => entry.set_index(Some(index.to_string())),
-				_ => ()
+				_ => (),
 			}
 		} else {
-			self.nodes.insert(id.clone(), Indexed::new(Node::with_id(id.clone()), index.map(|s| s.to_string())));
+			self.nodes.insert(
+				id.clone(),
+				Indexed::new(Node::with_id(id.clone()), index.map(|s| s.to_string())),
+			);
 		}
-		
+
 		Ok(self.nodes.get_mut(&id).unwrap())
 	}
 
 	/// Merge this graph with `other`.
-	/// 
+	///
 	/// This calls [`merge_node`](Self::merge_node) with every node of `other`.
 	pub fn merge_with(&mut self, other: Self) {
 		for (_, node) in other {
@@ -134,7 +146,7 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 	}
 
 	/// Merge the given `node` into the graph.
-	/// 
+	///
 	/// The `node` must has an identifier, or this function will have no effect.
 	/// If there is already a node with the same identifier:
 	/// - The index of `node`, if any, overrides the previously existing index.
@@ -151,7 +163,8 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 					entry.set_index(Some(index))
 				}
 			} else {
-				self.nodes.insert(id.clone(), Indexed::new(Node::with_id(id.clone()), index));
+				self.nodes
+					.insert(id.clone(), Indexed::new(Node::with_id(id.clone()), index));
 			}
 
 			let flat_node = self.nodes.get_mut(id).unwrap();
@@ -159,7 +172,9 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 			flat_node.set_graph(node.graph);
 			flat_node.set_included(node.included);
 			flat_node.properties_mut().extend(node.properties);
-			flat_node.reverse_properties_mut().extend(node.reverse_properties);
+			flat_node
+				.reverse_properties_mut()
+				.extend(node.reverse_properties);
 		}
 	}
 }
@@ -185,7 +200,10 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a NodeMapGraph<J, T> {
 pub struct ConflictingIndexes;
 
 impl<J: JsonHash + JsonClone, T: Id> ExpandedDocument<J, T> {
-	pub fn generate_node_map<G: id::Generator<T>>(&self, generator: G) -> Result<NodeMap<J, T>, ConflictingIndexes> {
+	pub fn generate_node_map<G: id::Generator<T>>(
+		&self,
+		generator: G,
+	) -> Result<NodeMap<J, T>, ConflictingIndexes> {
 		let mut node_map = NodeMap::new();
 		let mut namespace: Namespace<T, G> = Namespace::new(generator);
 		for object in self {
@@ -200,24 +218,36 @@ pub fn extend_node_map<J: JsonHash + JsonClone, T: Id, G: id::Generator<T>>(
 	namespace: &mut Namespace<T, G>,
 	node_map: &mut NodeMap<J, T>,
 	element: &Indexed<Object<J, T>>,
-	active_graph: Option<&Reference<T>>
+	active_graph: Option<&Reference<T>>,
 ) -> Result<Indexed<Object<J, T>>, ConflictingIndexes> {
 	match element.inner() {
 		Object::Value(value) => {
 			let flat_value = value.clone();
-			Ok(Indexed::new(Object::Value(flat_value), element.index().map(|s| s.to_string())))
-		},
+			Ok(Indexed::new(
+				Object::Value(flat_value),
+				element.index().map(|s| s.to_string()),
+			))
+		}
 		Object::List(list) => {
 			let mut flat_list = Vec::new();
-			
+
 			for item in list {
 				flat_list.push(extend_node_map(namespace, node_map, item, active_graph)?);
 			}
 
-			Ok(Indexed::new(Object::List(flat_list), element.index().map(|s| s.to_string())))
-		},
+			Ok(Indexed::new(
+				Object::List(flat_list),
+				element.index().map(|s| s.to_string()),
+			))
+		}
 		Object::Node(node) => {
-			let flat_node = extend_node_map_from_node(namespace, node_map, node, element.index(), active_graph)?;
+			let flat_node = extend_node_map_from_node(
+				namespace,
+				node_map,
+				node,
+				element.index(),
+				active_graph,
+			)?;
 			Ok(flat_node.map_inner(Object::Node))
 		}
 	}
@@ -228,13 +258,21 @@ pub fn extend_node_map_from_node<J: JsonHash + JsonClone, T: Id, G: id::Generato
 	node_map: &mut NodeMap<J, T>,
 	node: &Node<J, T>,
 	index: Option<&str>,
-	active_graph: Option<&Reference<T>>
+	active_graph: Option<&Reference<T>>,
 ) -> Result<Indexed<Node<J, T>>, ConflictingIndexes> {
 	let id = namespace.assign_node_id(node.id());
 
 	{
-		let flat_node = node_map.graph_mut(active_graph).unwrap().declare_node(id.clone(), index)?;
-		flat_node.set_types(node.types().iter().map(|ty| namespace.assign_node_id(Some(ty))).collect());
+		let flat_node = node_map
+			.graph_mut(active_graph)
+			.unwrap()
+			.declare_node(id.clone(), index)?;
+		flat_node.set_types(
+			node.types()
+				.iter()
+				.map(|ty| namespace.assign_node_id(Some(ty)))
+				.collect(),
+		);
 	}
 
 	if let Some(graph) = node.graph() {
@@ -243,25 +281,39 @@ pub fn extend_node_map_from_node<J: JsonHash + JsonClone, T: Id, G: id::Generato
 			let flat_object = extend_node_map(namespace, node_map, object, Some(&id))?;
 			flat_graph.insert(flat_object);
 		}
-		
-		let flat_node = node_map.graph_mut(active_graph).unwrap().get_mut(&id).unwrap();
+
+		let flat_node = node_map
+			.graph_mut(active_graph)
+			.unwrap()
+			.get_mut(&id)
+			.unwrap();
 		match flat_node.graph_mut() {
 			Some(graph) => graph.extend(flat_graph),
-			None => flat_node.set_graph(Some(flat_graph))
+			None => flat_node.set_graph(Some(flat_graph)),
 		}
 	}
 
 	if let Some(included) = node.included() {
 		let mut flat_included = HashSet::new();
 		for inode in included {
-			let flat_inode = extend_node_map_from_node(namespace, node_map, inode.inner(), inode.index(), Some(&id))?;
+			let flat_inode = extend_node_map_from_node(
+				namespace,
+				node_map,
+				inode.inner(),
+				inode.index(),
+				Some(&id),
+			)?;
 			flat_included.insert(flat_inode);
 		}
-		
-		let flat_node = node_map.graph_mut(active_graph).unwrap().get_mut(&id).unwrap();
+
+		let flat_node = node_map
+			.graph_mut(active_graph)
+			.unwrap()
+			.get_mut(&id)
+			.unwrap();
 		match flat_node.included_mut() {
 			Some(nodes) => nodes.extend(flat_included),
-			None => flat_node.set_included(Some(flat_included))
+			None => flat_node.set_included(Some(flat_included)),
 		}
 	}
 
@@ -271,16 +323,34 @@ pub fn extend_node_map_from_node<J: JsonHash + JsonClone, T: Id, G: id::Generato
 			let flat_object = extend_node_map(namespace, node_map, object, active_graph)?;
 			flat_objects.push(flat_object);
 		}
-		node_map.graph_mut(active_graph).unwrap().get_mut(&id).unwrap().properties_mut().insert_all(property.clone(), flat_objects)
+		node_map
+			.graph_mut(active_graph)
+			.unwrap()
+			.get_mut(&id)
+			.unwrap()
+			.properties_mut()
+			.insert_all(property.clone(), flat_objects)
 	}
 
 	for (property, nodes) in node.reverse_properties() {
 		let mut flat_nodes = Vec::new();
 		for node in nodes {
-			let flat_node = extend_node_map_from_node(namespace, node_map, node.inner(), node.index(), active_graph)?;
+			let flat_node = extend_node_map_from_node(
+				namespace,
+				node_map,
+				node.inner(),
+				node.index(),
+				active_graph,
+			)?;
 			flat_nodes.push(flat_node);
 		}
-		node_map.graph_mut(active_graph).unwrap().get_mut(&id).unwrap().reverse_properties_mut().insert_all(property.clone(), flat_nodes)
+		node_map
+			.graph_mut(active_graph)
+			.unwrap()
+			.get_mut(&id)
+			.unwrap()
+			.reverse_properties_mut()
+			.insert_all(property.clone(), flat_nodes)
 	}
 
 	Ok(Indexed::new(Node::with_id(id), None))

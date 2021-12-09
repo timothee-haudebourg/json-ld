@@ -146,8 +146,8 @@ impl<J: JsonHash, T: Id> Hash for Properties<J, T> {
 
 impl<J: JsonHash, T: Id> Extend<(Reference<T>, Vec<Indexed<Object<J, T>>>)> for Properties<J, T> {
 	fn extend<I>(&mut self, iter: I)
-    where
-		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Object<J, T>>>)>
+	where
+		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Object<J, T>>>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -174,7 +174,7 @@ impl<J: JsonHash, T: Id> IntoIterator for Properties<J, T> {
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIter {
-			inner: self.0.into_iter()
+			inner: self.0.into_iter(),
 		}
 	}
 }

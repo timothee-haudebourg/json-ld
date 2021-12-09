@@ -18,9 +18,9 @@ use std::fmt;
 /// ```
 /// This type represent a blank node identifier of the form `_:name`.
 /// It is used by the `Reference` type to reference blank and non-blank nodes.
-/// 
+///
 /// ## Generators
-/// 
+///
 /// It is sometimes useful to generate a family of unique blank node identifiers,
 /// for example to flatten a JSON-LD document a give a unique name to each
 /// blank node.
@@ -37,11 +37,11 @@ impl BlankId {
 	pub fn new(name: &str) -> Self {
 		Self("_:".to_string() + name)
 	}
-	
+
 	/// Converts the given string into a blank node identifier.
-	/// 
+	///
 	/// ## Safety
-	/// 
+	///
 	/// The string must be a well formed blank nod identifier,
 	/// prefixed by `_:`.
 	#[inline(always)]

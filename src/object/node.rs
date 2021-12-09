@@ -131,7 +131,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 			graph: parts.graph,
 			included: parts.included,
 			properties: parts.properties,
-			reverse_properties: parts.reverse_properties
+			reverse_properties: parts.reverse_properties,
 		}
 	}
 
@@ -142,7 +142,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 			graph: self.graph,
 			included: self.included,
 			properties: self.properties,
-			reverse_properties: self.reverse_properties
+			reverse_properties: self.reverse_properties,
 		}
 	}
 

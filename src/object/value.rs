@@ -17,20 +17,20 @@ use std::{
 /// Value type.
 pub enum Type<T> {
 	Json,
-	Id(T)
+	Id(T),
 }
 
 /// Value type reference.
 pub enum TypeRef<'a, T> {
 	Json,
-	Id(&'a T)
+	Id(&'a T),
 }
 
 impl<'a, T> TypeRef<'a, T> {
 	pub fn as_syntax_type(&self) -> syntax::Type<&'a T> {
 		match self {
 			Self::Json => syntax::Type::Json,
-			Self::Id(id) => syntax::Type::Ref(id)
+			Self::Id(id) => syntax::Type::Ref(id),
 		}
 	}
 }
@@ -215,39 +215,36 @@ impl<J: Json, T: Id> Value<J, T> {
 	pub fn as_literal(&self) -> Option<(&Literal<J>, Option<&T>)> {
 		match self {
 			Self::Literal(lit, ty) => Some((lit, ty.as_ref())),
-			_ => None
+			_ => None,
 		}
 	}
 
 	pub fn literal_type(&self) -> Option<&T> {
 		match self {
 			Self::Literal(_, ty) => ty.as_ref(),
-			_ => None
+			_ => None,
 		}
 	}
 
 	/// Set the literal value type, and returns the old type.
-	/// 
+	///
 	/// Has no effect and return `None` if the value is not a literal value.
 	pub fn set_literal_type(&mut self, mut ty: Option<T>) -> Option<T> {
 		match self {
 			Self::Literal(_, old_ty) => {
 				std::mem::swap(old_ty, &mut ty);
 				ty
-			},
-			_ => None
+			}
+			_ => None,
 		}
 	}
 
 	/// Maps the literal value type.
-	/// 
+	///
 	/// Has no effect if the value is not a literal value.
 	pub fn map_literal_type<F: FnOnce(Option<T>) -> Option<T>>(&mut self, f: F) {
-		match self {
-			Self::Literal(_, ty) => {
-				*ty = f(ty.take())
-			},
-			_ => ()
+		if let Self::Literal(_, ty) = self {
+			*ty = f(ty.take())
 		}
 	}
 
