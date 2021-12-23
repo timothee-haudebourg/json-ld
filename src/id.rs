@@ -1,4 +1,4 @@
-use crate::{syntax::TermLike, Reference};
+use crate::{syntax::TermLike, ValidReference};
 use generic_json::JsonBuild;
 use iref::{AsIri, Iri, IriBuf};
 use std::hash::Hash;
@@ -97,11 +97,11 @@ impl<T: Id> TermLike for T {
 /// fresh identifiers are generated.
 pub trait Generator<T: Id> {
 	/// Generates a new unique blank node identifier.
-	fn next(&mut self) -> Reference<T>;
+	fn next(&mut self) -> ValidReference<T>;
 }
 
 impl<'a, T: Id, G: Generator<T>> Generator<T> for &'a mut G {
-	fn next(&mut self) -> Reference<T> {
+	fn next(&mut self) -> ValidReference<T> {
 		(*self).next()
 	}
 }
@@ -109,7 +109,7 @@ impl<'a, T: Id, G: Generator<T>> Generator<T> for &'a mut G {
 /// Blank node identifiers built-in generators.
 pub mod generator {
 	use super::Generator;
-	use crate::{BlankId, Id, Reference};
+	use crate::{BlankId, Id, ValidReference};
 
 	/// Generates numbered blank node identifiers,
 	/// with an optional prefix.
@@ -173,8 +173,8 @@ pub mod generator {
 	}
 
 	impl<T: Id> Generator<T> for Blank {
-		fn next(&mut self) -> Reference<T> {
-			Reference::Blank(self.next_blank_id())
+		fn next(&mut self) -> ValidReference<T> {
+			ValidReference::Blank(self.next_blank_id())
 		}
 	}
 
@@ -235,7 +235,7 @@ pub mod generator {
 		feature = "uuid-generator-v5"
 	))]
 	impl<T: Id> Generator<T> for Uuid {
-		fn next(&mut self) -> Reference<T> {
+		fn next(&mut self) -> ValidReference<T> {
 			unsafe {
 				let mut buffer = Vec::with_capacity(uuid::adapter::Urn::LENGTH);
 				let ptr = buffer.as_mut_ptr();
@@ -252,7 +252,7 @@ pub mod generator {
 				let buffer = Vec::from_raw_parts(ptr, len, capacity);
 				let p = iref::parsing::ParsedIriRef::new(&buffer).unwrap();
 				let iri = iref::IriBuf::from_raw_parts(buffer, p);
-				Reference::Id(T::from_iri_buf(iri))
+				ValidReference::Id(T::from_iri_buf(iri))
 			}
 		}
 	}
@@ -274,7 +274,7 @@ pub mod generator {
 				"test".to_string(),
 			);
 			for _ in 0..100 {
-				let reference: Reference = uuid_gen.next();
+				let reference: ValidReference = uuid_gen.next();
 				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
 			}
 		}
@@ -284,7 +284,7 @@ pub mod generator {
 		fn uuidv4_iri() {
 			let mut uuid_gen = Uuid::V4;
 			for _ in 0..100 {
-				let reference: Reference = uuid_gen.next();
+				let reference: ValidReference = uuid_gen.next();
 				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
 			}
 		}
@@ -297,7 +297,7 @@ pub mod generator {
 				"test".to_string(),
 			);
 			for _ in 0..100 {
-				let reference: Reference = uuid_gen.next();
+				let reference: ValidReference = uuid_gen.next();
 				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
 			}
 		}

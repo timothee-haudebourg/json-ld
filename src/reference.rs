@@ -15,6 +15,7 @@ use std::fmt;
 /// It can be an identifier (IRI), a blank node identifier for local blank nodes
 /// or an invalid reference (a string that is neither an IRI nor blank node identifier).
 #[derive(Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
 pub enum Reference<T = IriBuf> {
 	/// Node identifier, essentially an IRI.
 	Id(T),
@@ -23,7 +24,7 @@ pub enum Reference<T = IriBuf> {
 	Blank(BlankId),
 
 	/// Invalid reference.
-	Invalid(String),
+	Invalid(String)
 }
 
 impl<T: AsIri> Reference<T> {
@@ -229,5 +230,173 @@ impl<'a, T: Id> ToReference<T> for &'a Reference<T> {
 	#[inline(always)]
 	fn to_ref(&self) -> Self::Reference {
 		self
+	}
+}
+
+/// Valid node reference.
+#[derive(Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum ValidReference<T = IriBuf> {
+	Id(T),
+	Blank(BlankId)
+}
+
+impl<T: AsIri> ValidReference<T> {
+	/// Get a string representation of the reference.
+	///
+	/// This will either return a string slice of an IRI, or a blank node identifier.
+	#[inline(always)]
+	pub fn as_str(&self) -> &str {
+		match self {
+			Self::Id(id) => id.as_iri().into_str(),
+			Self::Blank(id) => id.as_str()
+		}
+	}
+
+	/// If the renference is a node identifier, returns the node IRI.
+	///
+	/// Returns `None` if it is a blank node reference.
+	#[inline(always)]
+	pub fn as_iri(&self) -> Option<Iri> {
+		match self {
+			Self::Id(k) => Some(k.as_iri()),
+			_ => None,
+		}
+	}
+
+	#[inline(always)]
+	pub fn into_term(self) -> Term<T> {
+		Term::Ref(self.into())
+	}
+}
+
+impl<T> From<ValidReference<T>> for Reference<T> {
+	fn from(r: ValidReference<T>) -> Self {
+		// This is safe because both types have the same internal representation over common variants.
+		unsafe {
+			let u = std::mem::transmute_copy(&r);
+			std::mem::forget(r);
+			u
+		}
+	}
+}
+
+impl<T> TryFrom<Reference<T>> for ValidReference<T> {
+	type Error = String;
+	
+	fn try_from(r: Reference<T>) -> Result<Self, Self::Error> {
+		match r {
+			Reference::Id(id) => Ok(Self::Id(id)),
+			Reference::Blank(id) => Ok(Self::Blank(id)),
+			Reference::Invalid(id) => Err(id)
+		}
+	}
+}
+
+impl<'a, T> From<&'a ValidReference<T>> for &'a Reference<T> {
+	fn from(r: &'a ValidReference<T>) -> Self {
+		// This is safe because both types have the same internal representation over common variants.
+		unsafe {
+			std::mem::transmute(r)
+		}
+	}
+}
+
+impl<'a, T> TryFrom<&'a Reference<T>> for &'a ValidReference<T> {
+	type Error = &'a String;
+	
+	fn try_from(r: &'a Reference<T>) -> Result<Self, Self::Error> {
+		match r {
+			Reference::Invalid(id) => Err(id),
+			r => Ok({
+				// This is safe because both types have the same internal representation over common variants.
+				unsafe {
+					std::mem::transmute(r)
+				}
+			})
+		}
+	}
+}
+
+impl<'a, T> From<&'a mut ValidReference<T>> for &'a mut Reference<T> {
+	fn from(r: &'a mut ValidReference<T>) -> Self {
+		// This is safe because both types have the same internal representation over common variants.
+		unsafe {
+			std::mem::transmute(r)
+		}
+	}
+}
+
+impl<'a, T> TryFrom<&'a mut Reference<T>> for &'a mut ValidReference<T> {
+	type Error = &'a mut String;
+	
+	fn try_from(r: &'a mut Reference<T>) -> Result<Self, Self::Error> {
+		match r {
+			Reference::Invalid(id) => Err(id),
+			r => Ok({
+				// This is safe because both types have the same internal representation over common variants.
+				unsafe {
+					std::mem::transmute(r)
+				}
+			})
+		}
+	}
+}
+
+impl<T: AsIri> From<BlankId> for ValidReference<T> {
+	#[inline(always)]
+	fn from(blank: BlankId) -> Self {
+		Self::Blank(blank)
+	}
+}
+
+impl<T: AsIri> fmt::Display for ValidReference<T> {
+	#[inline]
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Id(id) => id.as_iri().fmt(f),
+			Self::Blank(b) => b.fmt(f)
+		}
+	}
+}
+
+impl<T: AsIri> fmt::Debug for ValidReference<T> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Id(id) => write!(f, "ValidReference::Id({})", id.as_iri()),
+			Self::Blank(b) => write!(f, "ValidReference::Blank({})", b)
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use static_iref::iri;
+
+	#[test]
+	fn valid_reference_into_reference() {
+		let tests = [
+			(Reference::Id(iri!("https://example.com/a")), ValidReference::Id(iri!("https://example.com/a"))),
+			(Reference::Blank(BlankId::new("a")), ValidReference::Blank(BlankId::new("a")))
+		];
+
+		for (r, valid_r) in tests {
+			let result: Reference<_> = valid_r.into();
+			assert_eq!(r, result)
+		}
+	}
+
+	#[test]
+	fn borrowed_valid_reference_into_reference() {
+		let tests = [
+			(&Reference::Id(iri!("https://example.com/a")), &ValidReference::Id(iri!("https://example.com/a"))),
+			(&Reference::Blank(BlankId::new("a")), &ValidReference::Blank(BlankId::new("a")))
+		];
+
+		for (r, valid_r) in tests {
+			let result: &Reference<_> = valid_r.into();
+			assert_eq!(r, result)
+		}
 	}
 }

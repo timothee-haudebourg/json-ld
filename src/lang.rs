@@ -147,6 +147,14 @@ impl<J: Json> LangString<J> {
 		}
 	}
 
+	pub fn into_parts(self) -> (LiteralString<J>, Option<LenientLanguageTagBuf>, Option<Direction>) {
+		(self.data, self.language, self.direction)
+	}
+
+	pub fn parts(&self) -> (&LiteralString<J>, Option<&LenientLanguageTagBuf>, Option<&Direction>) {
+		(&self.data, self.language.as_ref(), self.direction.as_ref())
+	}
+
 	/// Reference to the underlying `str`.
 	#[inline(always)]
 	pub fn as_string(&self) -> &LiteralString<J> {
