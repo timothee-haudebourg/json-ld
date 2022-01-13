@@ -184,7 +184,7 @@ pub mod expansion;
 mod id;
 mod indexed;
 mod lang;
-mod loader;
+pub mod loader;
 mod loc;
 mod mode;
 mod null;
