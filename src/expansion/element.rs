@@ -428,14 +428,15 @@ where
 				let active_context = if let Some(property_scoped_context) = property_scoped_context
 				{
 					// FIXME it is unclear what we should use as `base_url` if there is no term definition for `active_context`.
-					let base_url = active_context
-						.get_opt(active_property.id())
-						.and_then(|definition| {
-							definition
-								.base_url
-								.as_ref()
-								.map(|base_url| base_url.as_iri())
-						});
+					let base_url =
+						active_context
+							.get_opt(active_property.id())
+							.and_then(|definition| {
+								definition
+									.base_url
+									.as_ref()
+									.map(|base_url| base_url.as_iri())
+							});
 
 					let result = property_scoped_context
 						.process_with(active_context, loader, base_url, options.into())

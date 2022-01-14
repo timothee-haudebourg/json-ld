@@ -677,7 +677,8 @@ where
 							// `compacted_item` and remove `container_key` from
 							// `compacted_item`.
 							compacted_item
-								.as_object_mut().and_then(|map| {
+								.as_object_mut()
+								.and_then(|map| {
 									map.remove(container_key.unwrap().as_str())
 										.map(|value| value.as_str().map(|s| s.to_string()))
 								})
