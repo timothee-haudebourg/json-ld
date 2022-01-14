@@ -8,8 +8,8 @@ extern crate iref;
 extern crate iref_enum;
 extern crate json_ld;
 
-use ijson::IValue;
 use json_ld::{context, Document, Lexicon, NoLoader, Object};
+use serde_json::Value;
 
 // Parts of the FOAF vocabulary will need.
 #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,7 +26,7 @@ type Id = Lexicon<Foaf>;
 #[async_std::main]
 async fn main() {
 	// The JSON-LD document to expand.
-	let doc: IValue = serde_json::from_str(
+	let doc: Value = serde_json::from_str(
 		r#"
 		{
 			"@context": {
@@ -42,11 +42,11 @@ async fn main() {
 	.unwrap();
 
 	// JSON document loader.
-	let mut loader = NoLoader::<IValue>::new();
+	let mut loader = NoLoader::<Value>::new();
 
 	// Expansion.
 	let expanded_doc = doc
-		.expand::<context::Json<IValue, Id>, _>(&mut loader)
+		.expand::<context::Json<Value, Id>, _>(&mut loader)
 		.await
 		.unwrap();
 

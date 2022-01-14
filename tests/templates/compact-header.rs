@@ -7,7 +7,6 @@ extern crate static_iref;
 extern crate json_ld;
 
 use async_std::task;
-use ijson::IValue;
 use iref::{{Iri, IriBuf}};
 use json_ld::{{
 	compaction,
@@ -15,12 +14,13 @@ use json_ld::{{
 	util::json_ld_eq,
 	Document, ErrorCode, FsLoader, Loader, ProcessingMode,
 }};
+use serde_json::Value;
 
 #[derive(Clone, Copy)]
 struct Options<'a> {{
 	processing_mode: ProcessingMode,
 	compact_arrays: bool,
-	context: Option<Iri<'a>>
+	context: Option<Iri<'a>>,
 }}
 
 impl<'a> From<Options<'a>> for compaction::Options {{
@@ -43,9 +43,9 @@ impl<'a> From<Options<'a>> for ProcessingOptions {{
 	}}
 }}
 
-fn base_json_context(base_url: Iri) -> IValue {{
-	let mut object = ijson::IObject::new();
-	object.insert("@base", IValue::from(base_url.as_str()));
+fn base_json_context(base_url: Iri) -> Value {{
+	let mut object = serde_json::Map::new();
+	object.insert("@base".to_string(), Value::from(base_url.as_str()));
 	object.into()
 }}
 
@@ -54,13 +54,13 @@ fn no_metadata<M>(_: Option<&M>) -> () {{
 }}
 
 fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {{
-	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
+	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
 	let expected_output = task::block_on(loader.load(output_url)).unwrap();
 	let base_json_context = base_json_context(base_url);
-	let mut input_context: ProcessedOwned<IValue, context::Json<IValue, IriBuf>> =
+	let mut input_context: ProcessedOwned<Value, context::Json<Value, IriBuf>> =
 		ProcessedOwned::new(base_json_context, context::Json::new(Some(base_url)));
 
 	if let Some(context_url) = options.context {{
@@ -77,7 +77,7 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 		.owned();
 	}}
 
-	let output: IValue = task::block_on(input.compact_with(
+	let output: Value = task::block_on(input.compact_with(
 		Some(base_url),
 		&input_context,
 		&mut loader,
@@ -103,26 +103,33 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 }}
 
 fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {{
-	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
+	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
 	let base_json_context = base_json_context(base_url);
-	let mut input_context: ProcessedOwned<IValue, context::Json<IValue, IriBuf>> =
+	let mut input_context: ProcessedOwned<Value, context::Json<Value, IriBuf>> =
 		ProcessedOwned::new(base_json_context, context::Json::new(Some(base_url)));
 
 	if let Some(context_url) = options.context {{
-		let local_context = task::block_on(loader.load_context(context_url)).unwrap().into_context();
-		input_context = match task::block_on(local_context.process_with(input_context.as_ref(), &mut loader, Some(base_url), options.into())) {{
+		let local_context = task::block_on(loader.load_context(context_url))
+			.unwrap()
+			.into_context();
+		input_context = match task::block_on(local_context.process_with(
+			input_context.as_ref(),
+			&mut loader,
+			Some(base_url),
+			options.into(),
+		)) {{
 			Ok(context) => context.owned(),
 			Err(e) => {{
 				assert_eq!(e.code(), error_code);
-				return
+				return;
 			}}
 		}};
 	}}
 
-	let result: Result<IValue, _> = task::block_on(input.compact_with(
+	let result: Result<Value, _> = task::block_on(input.compact_with(
 		Some(base_url),
 		&input_context,
 		&mut loader,
@@ -133,9 +140,15 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 
 	match result {{
 		Ok(output) => {{
-			println!("output=\n{{}}", serde_json::to_string_pretty(&output).unwrap());
-			panic!("compaction succeeded where it should have failed with code: {{}}", error_code)
-		}},
+			println!(
+				"output=\n{{}}",
+				serde_json::to_string_pretty(&output).unwrap()
+			);
+			panic!(
+				"compaction succeeded where it should have failed with code: {{}}",
+				error_code
+			)
+		}}
 		Err(e) => {{
 			assert_eq!(e.code(), error_code)
 		}}

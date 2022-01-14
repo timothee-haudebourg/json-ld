@@ -4,14 +4,14 @@ extern crate async_std;
 extern crate iref;
 extern crate json_ld;
 
-use ijson::IValue;
 use iref::IriBuf;
 use json_ld::{context, Document, NoLoader, Object, Reference};
+use serde_json::Value;
 
 #[async_std::main]
 async fn main() {
 	// The JSON-LD document to expand.
-	let doc: IValue = serde_json::from_str(
+	let doc: Value = serde_json::from_str(
 		r#"
 		{
 			"@context": {
@@ -25,11 +25,11 @@ async fn main() {
 	.unwrap();
 
 	// JSON document loader.
-	let mut loader = NoLoader::<IValue>::new();
+	let mut loader = NoLoader::<Value>::new();
 
 	// Expansion.
 	let expanded_doc = doc
-		.expand::<context::Json<IValue>, _>(&mut loader)
+		.expand::<context::Json<Value>, _>(&mut loader)
 		.await
 		.unwrap();
 

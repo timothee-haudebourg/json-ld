@@ -1,14 +1,14 @@
 //! This simple example shows how to compact a document using the `Document::compact` method.
-use ijson::IValue;
 use json_ld::{
 	context::{self, Local},
 	Document, Error, Loc, NoLoader,
 };
+use serde_json::Value;
 
 #[async_std::main]
 async fn main() -> Result<(), Loc<Error, ()>> {
 	// Input JSON-LD document to compact.
-	let input: IValue = serde_json::from_str(r#"
+	let input: Value = serde_json::from_str(r#"
 		[{
 			"http://xmlns.com/foaf/0.1/name": ["Manu Sporny"],
 			"http://xmlns.com/foaf/0.1/homepage": [{"@id": "https://manu.sporny.org/"}],
@@ -17,7 +17,7 @@ async fn main() -> Result<(), Loc<Error, ()>> {
 	"#).unwrap();
 
 	// Context
-	let context: IValue = serde_json::from_str(
+	let context: Value = serde_json::from_str(
 		r#"
 		{
 			"name": "http://xmlns.com/foaf/0.1/name",
@@ -32,14 +32,14 @@ async fn main() -> Result<(), Loc<Error, ()>> {
 	//
 	// We won't be loading any external document here,
 	// so we use the `NoLoader` type.
-	let mut loader = NoLoader::<IValue>::new();
+	let mut loader = NoLoader::<Value>::new();
 
 	let processed_context = context
-		.process::<context::Json<IValue>, _>(&mut loader, None)
+		.process::<context::Json<Value>, _>(&mut loader, None)
 		.await?;
 
 	// Compaction.
-	let output: IValue = input
+	let output: Value = input
 		.compact(&processed_context, &mut loader)
 		.await
 		.unwrap();

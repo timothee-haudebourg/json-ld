@@ -1,9 +1,6 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
 
-use crate::{
-	Error, ErrorCode, RemoteDocument,
-	loader
-};
+use crate::{loader, Error, ErrorCode, RemoteDocument};
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::Json;
 use iref::{Iri, IriBuf};
@@ -13,10 +10,7 @@ pub fn is_json_media_type(ty: &str) -> bool {
 	ty == "application/json" || ty == "application/ld+json"
 }
 
-pub async fn load_remote_json_ld_document<J, P>(
-	url: Iri<'_>,
-	parser: &mut P,
-) -> Result<J, Error>
+pub async fn load_remote_json_ld_document<J, P>(url: Iri<'_>, parser: &mut P) -> Result<J, Error>
 where
 	P: Send + Sync + FnMut(&str) -> Result<J, Error>,
 {
@@ -39,8 +33,7 @@ where
 			} else {
 				false
 			}
-		})
-	{
+		}) {
 		let body = response.text().await?;
 		let doc = (*parser)(body.as_str())?;
 		Ok(doc)
