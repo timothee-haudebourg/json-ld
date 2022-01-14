@@ -240,7 +240,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 		}
 	}
 
-	/// If the objat is a language-tagged value,
+	/// If the object is a language-tagged value,
 	/// Return its associated language.
 	#[inline(always)]
 	pub fn language(&self) -> Option<LenientLanguageTag> {
@@ -248,6 +248,35 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 			Object::Value(value) => value.language(),
 			_ => None,
 		}
+	}
+
+	// pub fn blank_node_substitution(&self, other: &Self, initial_substitution: HashMap<BlankId, BlankId>) -> Option<HashMap<BlankId, BlankId>> {
+	// 	match (self, other) {
+	// 		(Self::Value(a), Self::Value(b)) if a == b => Some(initial_substitution),
+	// 		(Self::Node(a), Self::Node(b)) => a.blank_node_substitution(b, initial_substitution),
+	// 		(Self::List(a), Self::List(b)) => {
+	// 			panic!("TODO")
+	// 		},
+	// 		_ => None
+	// 	}
+	// }
+
+	/// Equivalence operator.
+	///
+	/// Equivalence is different from equality for anonymous objects:
+	/// List objects and anonymous node objects have an implicit unlabeled blank nodes and thus never equivalent.
+	pub fn equivalent(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Self::Value(a), Self::Value(b)) => a == b,
+			(Self::Node(a), Self::Node(b)) => a == b,
+			_ => false,
+		}
+	}
+}
+
+impl<J: JsonHash, T: Id> Indexed<Object<J, T>> {
+	pub fn equivalent(&self, other: &Self) -> bool {
+		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
 }
 

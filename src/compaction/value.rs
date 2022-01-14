@@ -5,6 +5,7 @@ use crate::{
 	util::{AsAnyJson, AsJson, JsonFrom},
 	ContextMut, Error, Id, Loc, Reference, Value,
 };
+use mown::Mown;
 
 /// Compact the given indexed value.
 pub async fn compact_indexed_value_with<
@@ -17,7 +18,7 @@ pub async fn compact_indexed_value_with<
 >(
 	value: &Value<J, T>,
 	index: Option<&str>,
-	active_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
 	active_property: Option<&str>,
 	loader: &mut L,
 	options: Options,
@@ -30,14 +31,14 @@ where
 	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 {
 	// If the term definition for active property in active context has a local context:
-	let mut active_context = active_context.into_borrowed();
+	let mut active_context = Mown::Borrowed(active_context);
 	if let Some(active_property) = active_property {
 		if let Some(active_property_definition) = active_context.get(active_property) {
 			if let Some(local_context) = &active_property_definition.context {
-				active_context = Inversible::new(
+				active_context = Mown::Owned(Inversible::new(
 					local_context
 						.process_with(
-							*active_context.as_ref(),
+							active_context.as_ref().as_ref(),
 							loader,
 							active_property_definition.base_url(),
 							context::ProcessingOptions::from(options).with_override(),
@@ -45,8 +46,7 @@ where
 						.await
 						.map_err(Loc::unwrap)?
 						.into_inner(),
-				)
-				.into_owned()
+				))
 			}
 		}
 	}

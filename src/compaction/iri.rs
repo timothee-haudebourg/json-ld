@@ -11,7 +11,7 @@ use generic_json::{JsonClone, JsonHash};
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
 pub(crate) fn compact_iri<'a, J: JsonHash, T: 'a + Id, C: Context<T>>(
-	active_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
 	var: &Term<T>,
 	vocab: bool,
 	reverse: bool,
@@ -24,7 +24,7 @@ pub(crate) fn compact_iri<'a, J: JsonHash, T: 'a + Id, C: Context<T>>(
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
 pub(crate) fn compact_iri_with<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: object::Any<J, T>>(
-	active_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
 	var: &Term<T>,
 	value: &Indexed<N>,
 	vocab: bool,
@@ -38,7 +38,7 @@ pub(crate) fn compact_iri_with<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
 pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: object::Any<J, T>>(
-	active_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
 	var: &Term<T>,
 	value: Option<&Indexed<N>>,
 	vocab: bool,
@@ -273,7 +273,7 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 									has_id_type = true;
 									let mut vocab = false;
 									let compacted_iri = compact_iri::<J, _, _>(
-										active_context.clone(),
+										active_context,
 										&id.clone().into_term(),
 										true,
 										false,

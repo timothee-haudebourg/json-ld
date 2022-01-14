@@ -1,120 +1,58 @@
 use crate::{
 	compaction,
 	context::{self, Loader},
-	expansion, loader,
-	util::{AsJson, JsonFrom},
-	Context, ContextMut, ContextMutProxy, Error, Id, Indexed, Loc, Object, Warning,
+	expansion, flattening, id, loader,
+	util::JsonFrom,
+	Context, ContextMut, Error, ErrorCode, Id, Loc,
 };
 use cc_traits::Len;
+use derivative::Derivative;
 use futures::future::{BoxFuture, FutureExt};
-use generic_json::{Json, JsonClone, JsonHash};
+use generic_json::{Json, JsonMut, JsonNew};
 use iref::{Iri, IriBuf};
-use std::collections::HashSet;
 use std::ops::{Deref, DerefMut};
 
-/// Result of the document expansion algorithm.
-///
-/// It is just an alias for a set of (indexed) objects.
-pub struct ExpandedDocument<J: JsonHash, T: Id> {
-	objects: HashSet<Indexed<Object<J, T>>>,
-	warnings: Vec<Loc<Warning, J::MetaData>>,
-}
+pub mod expanded;
+pub mod flattened;
 
-impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
-	#[inline(always)]
-	pub fn new(
-		objects: HashSet<Indexed<Object<J, T>>>,
-		warnings: Vec<Loc<Warning, J::MetaData>>,
-	) -> Self {
-		Self { objects, warnings }
-	}
-
-	#[inline(always)]
-	pub fn len(&self) -> usize {
-		self.objects.len()
-	}
-
-	#[inline(always)]
-	pub fn is_empty(&self) -> bool {
-		self.objects.is_empty()
-	}
-
-	#[inline(always)]
-	pub fn warnings(&self) -> &[Loc<Warning, J::MetaData>] {
-		&self.warnings
-	}
-
-	#[inline(always)]
-	pub fn objects(&self) -> &HashSet<Indexed<Object<J, T>>> {
-		&self.objects
-	}
-
-	#[inline(always)]
-	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Indexed<Object<J, T>>> {
-		self.objects.iter()
-	}
-}
-
-impl<J: compaction::JsonSrc, T: Sync + Send + Id> compaction::Compact<J, T>
-	for ExpandedDocument<J, T>
-{
-	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
-		&'a self,
-		active_context: context::Inversible<T, &'a C>,
-		type_scoped_context: context::Inversible<T, &'a C>,
-		active_property: Option<&'a str>,
-		loader: &'a mut L,
-		options: compaction::Options,
-		meta: M,
-	) -> BoxFuture<'a, Result<K, Error>>
-	where
-		T: 'a,
-		C: Sync + Send,
-		C::LocalContext: Send + Sync + From<L::Output>,
-		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
-	{
-		self.objects.compact_full(
-			active_context,
-			type_scoped_context,
-			active_property,
-			loader,
-			options,
-			meta,
-		)
-	}
-}
-
-impl<J: JsonHash, T: Id> IntoIterator for ExpandedDocument<J, T> {
-	type IntoIter = std::collections::hash_set::IntoIter<Indexed<Object<J, T>>>;
-	type Item = Indexed<Object<J, T>>;
-
-	#[inline(always)]
-	fn into_iter(self) -> Self::IntoIter {
-		self.objects.into_iter()
-	}
-}
-
-impl<'a, J: JsonHash, T: Id> IntoIterator for &'a ExpandedDocument<J, T> {
-	type IntoIter = std::collections::hash_set::Iter<'a, Indexed<Object<J, T>>>;
-	type Item = &'a Indexed<Object<J, T>>;
-
-	#[inline(always)]
-	fn into_iter(self) -> Self::IntoIter {
-		self.iter()
-	}
-}
-
-impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<J, T> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		self.objects.as_json_with(meta)
-	}
-}
+pub use expanded::ExpandedDocument;
+pub use flattened::FlattenedDocument;
 
 /// Document expansion error.
 pub type ExpansionError<J> = Loc<Error, <J as Json>::MetaData>;
 
 pub type ExpansionResult<T, J> = Result<ExpandedDocument<J, T>, ExpansionError<J>>;
+
+/// Document flattening error.
+#[derive(Derivative)]
+#[derivative(Debug(bound = "J::MetaData: std::fmt::Debug"))]
+pub enum FlatteningError<T: Id, J: Json> {
+	Expansion(ExpansionError<J>),
+	ConflictingIndexes(flattening::ConflictingIndexes<T>),
+}
+
+impl<T: Id, J: Json> FlatteningError<T, J> {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::Expansion(e) => e.code(),
+			Self::ConflictingIndexes(_) => ErrorCode::ConflictingIndexes,
+		}
+	}
+}
+
+impl<T: Id, J: Json> From<ExpansionError<J>> for FlatteningError<T, J> {
+	fn from(e: ExpansionError<J>) -> Self {
+		Self::Expansion(e)
+	}
+}
+
+impl<T: Id, J: Json> From<flattening::ConflictingIndexes<T>> for FlatteningError<T, J> {
+	fn from(e: flattening::ConflictingIndexes<T>) -> Self {
+		Self::ConflictingIndexes(e)
+	}
+}
+
+pub type FlatteningResult<T, J> = Result<FlattenedDocument<J, T>, FlatteningError<T, J>>;
 
 /// JSON-LD document.
 ///
@@ -126,6 +64,31 @@ pub trait Document<T: Id> {
 
 	/// Document location, if any.
 	fn base_url(&self) -> Option<Iri>;
+
+	fn compare_with<'a, C: 'a + ContextMut<T>, L: 'a + Loader>(
+		&'a self,
+		other: &'a Self,
+		base_url: Option<Iri<'a>>,
+		context: &'a C,
+		loader: &'a mut L,
+		options: expansion::Options,
+	) -> BoxFuture<'a, Result<bool, ExpansionError<Self::Json>>>
+	where
+		Self: Sync,
+		Self::Json: expansion::JsonExpand,
+		T: 'a + Send + Sync,
+		C: Send + Sync,
+		C::LocalContext: From<L::Output> + From<Self::Json>,
+		L: Send + Sync,
+		L::Output: Into<Self::Json>
+	{
+		async move {
+			let expanded_self = self.expand_with(base_url, context, loader, options).await?;
+			let expanded_other = other.expand_with(base_url, context, loader, options).await?;
+
+			Ok(expanded_self == expanded_other)
+		}.boxed()
+	}
 
 	/// Expand the document with a custom base URL, initial context, document loader and
 	/// expansion options.
@@ -218,137 +181,135 @@ pub trait Document<T: Id> {
 	/// associated to the input context (JSON representation) to `K::MetaData`.
 	/// The `meta_document` parameter is another conversion function for the
 	/// metadata attached to the document.
-	fn compact_with<'a, K: JsonFrom<Self::Json>, C: ContextMutProxy<T>, L: Loader, M1, M2>(
+	fn compact_with<'a, K: JsonFrom<Self::Json>, E: ContextMut<T>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		base_url: Option<Iri<'a>>,
-		context: &'a C,
+		expansion_context: &'a E,
+		compaction_context: &'a context::ProcessedOwned<K, context::Inversible<T, C>>,
 		loader: &'a mut L,
 		options: compaction::Options,
-		meta_context: M1,
-		meta_document: M2,
+		meta: M,
 	) -> BoxFuture<'a, Result<K, Error>>
 	where
 		Self: Sync,
 		Self::Json: expansion::JsonExpand + compaction::JsonSrc,
 		T: 'a + Send + Sync,
-		K: JsonFrom<<C::Target as Context<T>>::LocalContext>,
-		C: AsJson<<C::Target as Context<T>>::LocalContext, K> + Send + Sync,
-		<C::Target as Context<T>>::LocalContext:
-			compaction::JsonSrc + From<L::Output> + From<Self::Json>,
-		C::Target: Send + Sync,
+		K: Clone + JsonFrom<C::LocalContext>,
+		E: Send + Sync,
+		E::LocalContext: From<L::Output> + From<Self::Json>,
+		C: Send + Sync,
+		C::LocalContext:
+			compaction::JsonSrc + From<L::Output>,
 		L: 'a + Send + Sync,
-		M1: 'a
-			+ Clone
-			+ Send
-			+ Sync
-			+ Fn(Option<&<<C::Target as Context<T>>::LocalContext as Json>::MetaData>) -> K::MetaData,
-		M2: 'a + Clone + Send + Sync + Fn(Option<&<Self::Json as Json>::MetaData>) -> K::MetaData,
+		M: 'a + Clone + Send + Sync + Fn(Option<&<Self::Json as Json>::MetaData>) -> K::MetaData,
 		L::Output: Into<Self::Json>,
 	{
-		use compaction::Compact;
 		async move {
-			let json_context = context.as_json_with(meta_context);
-			let context = context::Inversible::new(context.deref());
-			let expanded = self
-				.expand_with(base_url, &C::Target::new(base_url), loader, options.into())
+			// let json_compaction_context: K = compaction_context.as_json_with(meta_context);
+			// let compaction_context = context::Inversible::new(compaction_context.deref());
+
+			let expanded: ExpandedDocument<Self::Json, T> = self
+				.expand_with(base_url, expansion_context, loader, options.into())
 				.await
 				.map_err(Loc::unwrap)?;
 
-			let compacted: K = if expanded.len() == 1 && options.compact_arrays {
-				expanded
-					.into_iter()
-					.next()
-					.unwrap()
-					.compact_full(
-						context.clone(),
-						context.clone(),
-						None,
-						loader,
-						options,
-						meta_document.clone(),
-					)
-					.await?
-			} else {
-				expanded
-					.compact_full(
-						context.clone(),
-						context.clone(),
-						None,
-						loader,
-						options,
-						meta_document.clone(),
-					)
-					.await?
-			};
-
-			let (mut map, metadata) = match compacted.into_parts() {
-				(generic_json::Value::Array(items), metadata) => {
-					let mut map = K::Object::default();
-					if !items.is_empty() {
-						use crate::syntax::{Keyword, Term};
-						let key = crate::compaction::compact_iri::<Self::Json, _, _>(
-							context.clone(),
-							&Term::Keyword(Keyword::Graph),
-							true,
-							false,
-							options,
-						)?;
-						map.insert(
-							K::new_key(&key.unwrap(), meta_document(None)),
-							K::array(items, metadata),
-						);
-					}
-
-					(map, meta_document(None))
-				}
-				(generic_json::Value::Object(map), metadata) => (map, metadata),
-				_ => {
-					// This should never be triggered unless some user
-					// uses a custom faulty `Compact` implementation.
-					panic!("invalid compact document")
-				}
-			};
-
-			if !map.is_empty()
-				&& !json_context.is_null()
-				&& !json_context.is_empty_array_or_object()
-			{
-				map.insert(K::new_key("@context", meta_document(None)), json_context);
-			}
-
-			Ok(K::object(map, metadata))
+			expanded.compact(
+				compaction_context,
+				loader,
+				options,
+				meta,
+			)
+			.await
 		}
 		.boxed()
 	}
 
 	/// Compact the document.
 	#[inline(always)]
-	fn compact<'a, C: ContextMutProxy<T> + AsJson<Self::Json, Self::Json>, L: Loader>(
+	fn compact<'a, C: ContextMut<T>, L: Loader>(
 		&'a self,
-		context: &'a C,
+		context: &'a context::ProcessedOwned<Self::Json, context::Inversible<T, C>>,
 		loader: &'a mut L,
 	) -> BoxFuture<'a, Result<Self::Json, Error>>
 	where
 		Self: Sync,
-		Self::Json:
-			JsonFrom<Self::Json> + expansion::JsonExpand + compaction::JsonSrc + From<L::Output>,
+		Self::Json: Clone + JsonFrom<C::LocalContext> + expansion::JsonExpand + compaction::JsonSrc,
 		<Self::Json as Json>::MetaData: Default,
 		T: 'a + Send + Sync,
-		C::Target: Context<T, LocalContext = Self::Json>,
 		C: Send + Sync,
-		C::Target: Send + Sync,
+		C::LocalContext:
+			compaction::JsonSrc + From<L::Output> + From<Self::Json>,
 		L: 'a + Send + Sync,
 		L::Output: Into<Self::Json>,
 	{
 		self.compact_with(
 			self.base_url(),
+			context.as_ref().as_ref(),
 			context,
 			loader,
 			compaction::Options::default(),
-			|m| m.cloned().unwrap_or_default(),
-			|m| m.cloned().unwrap_or_default(),
+			|m| m.cloned().unwrap_or_default()
 		)
 	}
+
+	fn flatten_with<'a, G: 'a + id::Generator<T>, C: 'a + ContextMut<T>, L: 'a + Loader>(
+		&'a self,
+		generator: G,
+		base_url: Option<Iri>,
+		context: &'a C,
+		loader: &'a mut L,
+		options: expansion::Options,
+	) -> BoxFuture<'a, FlatteningResult<T, Self::Json>>
+	where
+		Self::Json: expansion::JsonExpand,
+		G: Send,
+		T: 'a + Send + Sync,
+		C: Send + Sync,
+		C::LocalContext: From<L::Output> + From<Self::Json>,
+		L: Send + Sync,
+		L::Output: Into<Self::Json>, // TODO get rid of this bound?
+	{
+		let expand = self.expand_with(base_url, context, loader, options.unordered());
+		async move {
+			let expanded = expand.await?;
+			Ok(expanded.flatten(generator, options.ordered)?)
+		}
+		.boxed()
+	}
+
+	fn flatten<'a, G: 'a + id::Generator<T>, C: 'a + ContextMut<T>, L: 'a + Loader>(
+		&'a self,
+		generator: G,
+		context: &'a C,
+		loader: &'a mut L,
+	) -> BoxFuture<'a, FlatteningResult<T, Self::Json>>
+	where
+		Self::Json: expansion::JsonExpand,
+		G: Send,
+		T: 'a + Send + Sync,
+		C: Send + Sync,
+		C::LocalContext: From<L::Output> + From<Self::Json>,
+		L: Send + Sync,
+		L::Output: Into<Self::Json>, // TODO get rid of this bound?
+	{
+		self.flatten_with(
+			generator,
+			self.base_url(),
+			context,
+			loader,
+			expansion::Options::default(),
+		)
+	}
+
+	fn embed_context<C: Context<T>, M>(
+		&mut self,
+		context: &context::ProcessedOwned<Self::Json, context::Inversible<T, C>>,
+		options: compaction::Options,
+		meta: M
+	) -> Result<(), Error> where
+		Self::Json: Clone + JsonMut + JsonNew,
+		<Self::Json as Json>::Object: Default,
+		M: Fn() -> <Self::Json as Json>::MetaData;
 }
 
 /// Default JSON document implementation.
@@ -388,6 +349,62 @@ impl<J: Json, T: Id> Document<T> for J {
 			Ok(ExpandedDocument::new(objects, warnings))
 		}
 		.boxed()
+	}
+
+	fn embed_context<C: Context<T>, M>(
+		&mut self,
+		context: &context::ProcessedOwned<Self::Json, context::Inversible<T, C>>,
+		options: compaction::Options,
+		meta: M,
+	) -> Result<(), Error> where
+		Self::Json: Clone + JsonMut + JsonNew,
+		<Self::Json as Json>::Object: Default,
+		M: Fn() -> <Self::Json as Json>::MetaData
+	{
+		if !self.is_object() {
+			let mut value = Self::empty_object(meta());
+			std::mem::swap(self, &mut value);
+
+			if let (generic_json::Value::Array(items), metadata) = value.into_parts() {
+				if !items.is_empty() {
+					use crate::syntax::{Keyword, Term};
+					let key = crate::compaction::compact_iri::<generic_json::Null, _, _>(
+						context,
+						&Term::Keyword(Keyword::Graph),
+						true,
+						false,
+						options,
+					);
+
+					let mut value = Self::array(items, metadata);
+
+					match key {
+						Ok(key) => {
+							self.as_object_mut().unwrap().insert(
+								Self::new_key(&key.unwrap(), meta()),
+								value,
+							);
+						},
+						Err(e) => {
+							std::mem::swap(self, &mut value);
+							return Err(e)
+						}
+					}
+				}
+			}
+		}
+
+		let map = self.as_object_mut().unwrap();
+		let json_context = context.json().clone();
+
+		if !map.is_empty()
+			&& !json_context.is_null()
+			&& !json_context.is_empty_array_or_object()
+		{
+			map.insert(Self::new_key("@context", meta()), json_context);
+		}
+
+		Ok(())
 	}
 }
 
@@ -482,6 +499,31 @@ impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 		T: 'a + Send + Sync,
 	{
 		self.doc.expand_with(base_url, context, loader, options)
+	}
+
+	fn embed_context<C: Context<T>, M>(
+		&mut self,
+		context: &context::ProcessedOwned<Self::Json, context::Inversible<T, C>>,
+		options: compaction::Options,
+		meta: M,
+	) -> Result<(), Error> where
+		Self::Json: Clone + JsonMut + JsonNew,
+		<Self::Json as Json>::Object: Default,
+		M: Fn() -> <Self::Json as Json>::MetaData
+	{
+		self.doc.embed_context(context, options, meta)
+	}
+}
+
+impl<D> AsRef<D> for RemoteDocument<D> {
+	fn as_ref(&self) -> &D {
+		&self.doc
+	}
+}
+
+impl<D> AsMut<D> for RemoteDocument<D> {
+	fn as_mut(&mut self) -> &mut D {
+		&mut self.doc
 	}
 }
 

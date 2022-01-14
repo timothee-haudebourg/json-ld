@@ -89,7 +89,7 @@ where
 		// [or contains only the entries `@value` or `@list` (does not apply here)]
 		// set `result` to null.
 		// Otherwise, if result is a map whose only entry is @id, set result to null.
-		if result.is_empty() {
+		if result.is_empty() && result.index().is_none() {
 			// both cases are covered by checking `is_empty`.
 			return Ok(None);
 		}

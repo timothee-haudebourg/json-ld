@@ -182,8 +182,7 @@ mod document;
 mod error;
 pub mod expansion;
 pub mod flattening;
-pub mod rdf;
-mod id;
+pub mod id;
 mod indexed;
 mod lang;
 mod loader;
@@ -191,12 +190,13 @@ mod loc;
 mod mode;
 mod null;
 pub mod object;
+pub mod quad;
+pub mod rdf;
 mod reference;
 pub mod syntax;
 pub mod util;
 mod vocab;
 mod warning;
-pub mod quad;
 
 #[cfg(feature = "reqwest-loader")]
 pub mod reqwest;

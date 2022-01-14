@@ -6,6 +6,7 @@ use crate::{
 	ContextMut, Error, Id, Loc, Node, ProcessingMode, Reference,
 };
 use cc_traits::Len;
+use mown::Mown;
 
 /// Compact the given indexed node.
 pub async fn compact_indexed_node_with<
@@ -18,8 +19,8 @@ pub async fn compact_indexed_node_with<
 >(
 	node: &Node<J, T>,
 	index: Option<&str>,
-	mut active_context: Inversible<T, &C>,
-	type_scoped_context: Inversible<T, &C>,
+	mut active_context: &Inversible<T, C>,
+	type_scoped_context: &Inversible<T, C>,
 	active_property: Option<&str>,
 	loader: &mut L,
 	options: Options,
@@ -38,21 +39,21 @@ where
 	if !(node.is_empty() && node.id().is_some()) {
 		// does not consist of a single @id entry
 		if let Some(previous_context) = active_context.previous_context() {
-			active_context = Inversible::new(previous_context)
+			active_context = previous_context
 		}
 	}
 
 	// If the term definition for active property in active context has a local context:
 	// FIXME https://github.com/w3c/json-ld-api/issues/502
 	//       Seems that the term definition should be looked up in `type_scoped_context`.
-	let mut active_context = active_context.into_borrowed();
+	let mut active_context = Mown::Borrowed(active_context);
 	if let Some(active_property) = active_property {
 		if let Some(active_property_definition) = type_scoped_context.get(active_property) {
 			if let Some(local_context) = &active_property_definition.context {
-				active_context = Inversible::new(
+				active_context = Mown::Owned(Inversible::new(
 					local_context
 						.process_with(
-							*active_context.as_ref(),
+							active_context.as_ref().as_ref(),
 							loader,
 							active_property_definition.base_url(),
 							context::ProcessingOptions::from(options).with_override(),
@@ -60,8 +61,7 @@ where
 						.await
 						.map_err(Loc::unwrap)?
 						.into_inner(),
-				)
-				.into_owned()
+				))
 			}
 		}
 	}
@@ -77,7 +77,7 @@ where
 		let mut compacted_types = Vec::new();
 		for ty in node.types() {
 			let compacted_ty = compact_iri::<J, _, _>(
-				type_scoped_context.clone(),
+				type_scoped_context,
 				&ty.clone().into_term(),
 				true,
 				false,
@@ -94,10 +94,10 @@ where
 				if let Some(local_context) = &term_definition.context {
 					let processing_options =
 						context::ProcessingOptions::from(options).without_propagation();
-					active_context = Inversible::new(
+					active_context = Mown::Owned(Inversible::new(
 						local_context
 							.process_with(
-								*active_context.as_ref(),
+								active_context.as_ref().as_ref(),
 								loader,
 								term_definition.base_url(),
 								processing_options,
@@ -105,8 +105,7 @@ where
 							.await
 							.map_err(Loc::unwrap)?
 							.into_inner(),
-					)
-					.into_owned()
+					))
 				}
 			}
 		}
@@ -190,7 +189,7 @@ where
 		&mut result,
 		&node.types,
 		active_context.as_ref(),
-		type_scoped_context.clone(),
+		type_scoped_context,
 		options,
 		meta.clone(),
 	)?;
@@ -203,10 +202,10 @@ where
 		let active_property = "@reverse";
 		if let Some(active_property_definition) = active_context.get(active_property) {
 			if let Some(local_context) = &active_property_definition.context {
-				active_context = Inversible::new(
+				active_context = Mown::Owned(Inversible::new(
 					local_context
 						.process_with(
-							*active_context.as_ref(),
+							active_context.as_ref().as_ref(),
 							loader,
 							active_property_definition.base_url(),
 							context::ProcessingOptions::from(options).with_override(),
@@ -214,8 +213,7 @@ where
 						.await
 						.map_err(Loc::unwrap)?
 						.into_inner(),
-				)
-				.into_owned()
+				))
 			}
 		}
 
@@ -368,8 +366,8 @@ fn compact_types<
 >(
 	result: &mut K::Object,
 	types: &[Reference<T>],
-	active_context: Inversible<T, &C>,
-	type_scoped_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
+	type_scoped_context: &Inversible<T, C>,
 	options: Options,
 	meta: M,
 ) -> Result<(), Error> {
@@ -381,7 +379,7 @@ fn compact_types<
 		let compacted_value = if types.len() == 1 {
 			optional_string(
 				compact_iri::<J, _, _>(
-					type_scoped_context.clone(),
+					type_scoped_context,
 					&types[0].clone().into_term(),
 					true,
 					false,
@@ -400,7 +398,7 @@ fn compact_types<
 
 				// Set term by IRI compacting expanded type using type-scoped context for active context.
 				let compacted_ty =
-					compact_iri::<J, _, _>(type_scoped_context.clone(), &ty, true, false, options)?;
+					compact_iri::<J, _, _>(type_scoped_context, &ty, true, false, options)?;
 
 				// Append term, to compacted value.
 				compacted_value.push(optional_string(compacted_ty, meta(None)))
@@ -411,7 +409,7 @@ fn compact_types<
 
 		// Initialize alias by IRI compacting expanded property.
 		let alias = compact_iri::<J, _, _>(
-			active_context.clone(),
+			active_context,
 			&Term::Keyword(Keyword::Type),
 			true,
 			false,

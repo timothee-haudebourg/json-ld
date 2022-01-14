@@ -26,7 +26,7 @@ async fn compact_property_list<
 	container: Container,
 	as_array: bool,
 	item_active_property: &str,
-	active_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
 	loader: &mut L,
 	options: Options,
 	meta: M,
@@ -41,8 +41,8 @@ where
 	// If expanded item is a list object:
 	let mut compacted_item: K = compact_collection_with(
 		list.iter(),
-		active_context.clone(),
-		active_context.clone(),
+		active_context,
+		active_context,
 		Some(item_active_property),
 		loader,
 		options,
@@ -65,7 +65,7 @@ where
 		// IRI compacting @list and the value is the original
 		// compacted item.
 		let key = compact_iri::<J, T, C>(
-			active_context.clone(),
+			active_context,
 			&Term::Keyword(Keyword::List),
 			true,
 			false,
@@ -82,7 +82,7 @@ where
 		// the result of IRI compacting @index and value is value.
 		if let Some(index) = expanded_index {
 			let key = compact_iri::<J, T, C>(
-				active_context.clone(),
+				active_context,
 				&Term::Keyword(Keyword::Index),
 				true,
 				false,
@@ -127,7 +127,7 @@ async fn compact_property_graph<
 	container: Container,
 	as_array: bool,
 	item_active_property: &str,
-	active_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
 	loader: &mut L,
 	options: Options,
 	meta: M,
@@ -144,8 +144,8 @@ where
 		.as_ref()
 		.unwrap()
 		.compact_full(
-			active_context.clone(),
-			active_context.clone(),
+			active_context,
+			active_context,
 			Some(item_active_property),
 			loader,
 			options,
@@ -260,7 +260,7 @@ where
 		// Set `compacted_item` to a new map containing the key from
 		// IRI compacting @graph using the original `compacted_item` as a value.
 		let key = compact_iri::<J, _, _>(
-			active_context.clone(),
+			active_context,
 			&Term::Keyword(Keyword::Graph),
 			true,
 			false,
@@ -277,7 +277,7 @@ where
 		// false for vocab.
 		if let Some(id) = node.id() {
 			let key = compact_iri::<J, _, _>(
-				active_context.clone(),
+				active_context,
 				&Term::Keyword(Keyword::Id),
 				false,
 				false,
@@ -285,7 +285,7 @@ where
 			)?
 			.unwrap();
 			let value = compact_iri::<J, _, _>(
-				active_context.clone(),
+				active_context,
 				&id.clone().into_term(),
 				false,
 				false,
@@ -305,7 +305,7 @@ where
 		// IRI compacting @index and the value of @index in `expanded_item`.
 		if let Some(index) = expanded_index {
 			let key = compact_iri::<J, _, _>(
-				active_context.clone(),
+				active_context,
 				&Term::Keyword(Keyword::Index),
 				true,
 				false,
@@ -360,7 +360,7 @@ where
 
 fn select_nest_result<'a, K: 'a + JsonBuild + JsonMut + JsonIntoMut, T: Id, C: ContextMut<T>, M>(
 	result: &'a mut K::Object,
-	active_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
 	item_active_property: &str,
 	compact_arrays: bool,
 	meta: M,
@@ -445,7 +445,7 @@ pub async fn compact_property<
 	result: &mut K::Object,
 	expanded_property: Term<T>,
 	expanded_value: O,
-	active_context: Inversible<T, &C>,
+	active_context: &Inversible<T, C>,
 	loader: &mut L,
 	inside_reverse: bool,
 	options: Options,
@@ -464,7 +464,7 @@ where
 		// Initialize `item_active_property` by IRI compacting `expanded_property`
 		// using `expanded_item` for value and `inside_reverse` for `reverse`.
 		let item_active_property = compact_iri_with(
-			active_context.clone(),
+			active_context,
 			&expanded_property,
 			expanded_item,
 			true,
@@ -478,7 +478,7 @@ where
 			let (nest_result, container, as_array): (&'_ mut K::Object, _, _) =
 				select_nest_result::<K, _, _, _>(
 					result,
-					active_context.clone(),
+					active_context,
 					item_active_property.as_str(),
 					options.compact_arrays,
 					|| meta(None),
@@ -500,7 +500,7 @@ where
 						container,
 						as_array,
 						item_active_property.as_str(),
-						active_context.clone(),
+						active_context,
 						loader,
 						options,
 						meta.clone(),
@@ -515,7 +515,7 @@ where
 						container,
 						as_array,
 						item_active_property.as_str(),
-						active_context.clone(),
+						active_context,
 						loader,
 						options,
 						meta.clone(),
@@ -525,8 +525,8 @@ where
 				_ => {
 					let mut compacted_item: K = expanded_item
 						.compact_full(
-							active_context.clone(),
-							active_context.clone(),
+							active_context,
+							active_context,
 							Some(item_active_property.as_str()),
 							loader,
 							options,
@@ -569,7 +569,7 @@ where
 						};
 
 						let mut container_key = compact_iri::<J, _, _>(
-							active_context.clone(),
+							active_context,
 							&Term::Keyword(container_type.into()),
 							true,
 							false,
@@ -610,7 +610,7 @@ where
 								// Reinitialize `container_key` by
 								// IRI compacting `index_key`.
 								container_key = compact_iri::<J, _, _>(
-									active_context.clone(),
+									active_context,
 									&Term::Ref(Reference::Invalid(index_key.to_string())),
 									true,
 									false,
@@ -749,8 +749,8 @@ where
 									compacted_item = obj
 										.compact_indexed(
 											None,
-											active_context.clone(),
-											active_context.clone(),
+											active_context,
+											active_context,
 											Some(item_active_property.as_str()),
 											loader,
 											options,
@@ -769,7 +769,7 @@ where
 							Some(key) => key,
 							None => {
 								let key = compact_iri::<J, _, _>(
-									active_context.clone(),
+									active_context,
 									&Term::Keyword(Keyword::None),
 									true,
 									false,
@@ -806,7 +806,7 @@ where
 		// `expanded_property` using `expanded_value` for `value` and
 		// `inside_reverse` for `reverse`.
 		let item_active_property = compact_iri_with::<J, _, _, _>(
-			active_context.clone(),
+			active_context,
 			&expanded_property,
 			&Indexed::new(Object::Node(Node::new()), None),
 			true,
@@ -819,7 +819,7 @@ where
 		if let Some(item_active_property) = item_active_property {
 			let (nest_result, _, _) = select_nest_result::<K, _, _, _>(
 				result,
-				active_context.clone(),
+				active_context,
 				item_active_property.as_str(),
 				options.compact_arrays,
 				|| meta(None),

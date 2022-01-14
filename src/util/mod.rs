@@ -2,7 +2,10 @@
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 
+mod pairings;
 mod json;
+
+pub use pairings::Pairings;
 pub use self::json::*;
 
 /// Hash a [`HashSet`].

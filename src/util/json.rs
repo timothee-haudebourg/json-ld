@@ -1,5 +1,5 @@
 use generic_json::{Json, JsonHash, ValueRef};
-use std::{collections::hash_map::DefaultHasher, hash::Hasher, ops::Deref};
+use std::{collections::hash_map::DefaultHasher, hash::{Hash, Hasher}, ops::Deref};
 
 mod build;
 

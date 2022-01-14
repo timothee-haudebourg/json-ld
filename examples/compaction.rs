@@ -40,7 +40,7 @@ async fn main() -> Result<(), Loc<Error, ()>> {
 
 	// Compaction.
 	let output: IValue = input
-		.compact(&processed_context, &mut loader)
+		.compact(&processed_context.owned().inversible(), &mut loader)
 		.await
 		.unwrap();
 

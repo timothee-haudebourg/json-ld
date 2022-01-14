@@ -115,7 +115,7 @@ pub trait Context<T: Id = IriBuf>: Clone {
 	fn default_base_direction(&self) -> Option<Direction>;
 
 	/// Get the previous context.
-	fn previous_context(&self) -> Option<&Self>;
+	fn previous_context(&self) -> Option<&Inversible<T, Self>>;
 
 	fn definitions<'a>(
 		&'a self,
@@ -261,6 +261,16 @@ impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 		}
 	}
 
+	/// Returns a reference to the original JSON representation of the processed context.
+	pub fn json(&self) -> &L {
+		&self.local
+	}
+
+	/// Returns the original JSON representation of the processed context.
+	pub fn into_json(self) -> L {
+		self.local
+	}
+
 	/// Returns a reference to the warnings emitted during processing.
 	pub fn warnings(&self) -> &[Loc<Warning, L::MetaData>] {
 		&self.warnings
@@ -269,6 +279,19 @@ impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 	/// Consumes the wrapper and returns the processed context.
 	pub fn into_inner(self) -> C {
 		self.processed
+	}
+
+	/// Consumes the wrapper and returns both the original JSON representation and the processed context.
+	pub fn into_parts(self) -> (L, C) {
+		(self.local, self.processed)
+	}
+
+	pub fn inversible<T: Id>(self) -> ProcessedOwned<L, Inversible<T, C>> where C: Context<T> {
+		ProcessedOwned {
+			local: self.local,
+			processed: Inversible::new(self.processed),
+			warnings: self.warnings,
+		}
 	}
 }
 
@@ -338,6 +361,11 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 		}
 	}
 
+	/// Returns a reference to the original JSON representation of the processed context.
+	pub fn json(&self) -> &'a L {
+		self.local
+	}
+
 	/// Returns a reference to the warnings emitted during processing.
 	pub fn warnings(&self) -> &[Loc<Warning, L::MetaData>] {
 		&self.warnings
@@ -357,6 +385,19 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 		ProcessedOwned {
 			local: L::clone(self.local),
 			processed: self.processed,
+			warnings: self.warnings,
+		}
+	}
+
+	/// Consumes the wrapper and returns both the reference to the original JSON representation and the processed context.
+	pub fn into_parts(self) -> (&'a L, C) {
+		(self.local, self.processed)
+	}
+
+	pub fn inversible<T: Id>(self) -> Processed<'a, L, Inversible<T, C>> where C: Context<T> {
+		Processed {
+			local: self.local,
+			processed: Inversible::new(self.processed),
 			warnings: self.warnings,
 		}
 	}
@@ -401,7 +442,7 @@ pub struct Json<J: JsonContext, T: Id = IriBuf> {
 	vocabulary: Option<Term<T>>,
 	default_language: Option<LenientLanguageTagBuf>,
 	default_base_direction: Option<Direction>,
-	previous_context: Option<Box<Self>>,
+	previous_context: Option<Box<Inversible<T, Self>>>,
 	definitions: HashMap<String, TermDefinition<T, Self>>,
 }
 
@@ -475,7 +516,7 @@ impl<J: JsonContext, T: Id> Context<T> for Json<J, T> {
 		self.default_base_direction
 	}
 
-	fn previous_context(&self) -> Option<&Self> {
+	fn previous_context(&self) -> Option<&Inversible<T, Self>> {
 		match &self.previous_context {
 			Some(c) => Some(c),
 			None => None,
@@ -524,6 +565,6 @@ impl<J: JsonContext, T: Id> ContextMut<T> for Json<J, T> {
 	}
 
 	fn set_previous_context(&mut self, previous: Self) {
-		self.previous_context = Some(Box::new(previous))
+		self.previous_context = Some(Box::new(Inversible::new(previous)))
 	}
 }

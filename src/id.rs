@@ -168,7 +168,9 @@ pub mod generator {
 		}
 
 		pub fn next_blank_id(&mut self) -> BlankId {
-			unsafe { BlankId::from_raw(format!("_:{}{}", self.prefix, self.count)) }
+			let id = unsafe { BlankId::from_raw(format!("_:{}{}", self.prefix, self.count)) };
+			self.count += 1;
+			id
 		}
 	}
 

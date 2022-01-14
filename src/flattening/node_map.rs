@@ -50,6 +50,12 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 		}
 	}
 
+	pub fn declare_graph(&mut self, id: Reference<T>) {
+		if let std::collections::hash_map::Entry::Vacant(entry) = self.graphs.entry(id) {
+			entry.insert(NodeMapGraph::new());
+		}
+	}
+
 	/// Merge all the graphs into a single `NodeMapGraph`.
 	///
 	/// The order in which graphs are merged is not defined.
@@ -208,10 +214,10 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 			flat_node.types_mut().extend(node.types.iter().cloned());
 			flat_node.set_graph(node.graph);
 			flat_node.set_included(node.included);
-			flat_node.properties_mut().extend(node.properties);
+			flat_node.properties_mut().extend_unique(node.properties);
 			flat_node
 				.reverse_properties_mut()
-				.extend(node.reverse_properties);
+				.extend_unique(node.reverse_properties);
 		}
 	}
 
@@ -319,6 +325,8 @@ fn extend_node_map_from_node<J: JsonHash + JsonClone, T: Id, G: id::Generator<T>
 	}
 
 	if let Some(graph) = node.graph() {
+		node_map.declare_graph(id.clone());
+
 		let mut flat_graph = HashSet::new();
 		for object in graph {
 			let flat_object = extend_node_map(namespace, node_map, object, Some(&id))?;
@@ -337,26 +345,14 @@ fn extend_node_map_from_node<J: JsonHash + JsonClone, T: Id, G: id::Generator<T>
 	}
 
 	if let Some(included) = node.included() {
-		let mut flat_included = HashSet::new();
 		for inode in included {
-			let flat_inode = extend_node_map_from_node(
+			extend_node_map_from_node(
 				namespace,
 				node_map,
 				inode.inner(),
 				inode.index(),
-				Some(&id),
+				active_graph,
 			)?;
-			flat_included.insert(flat_inode);
-		}
-
-		let flat_node = node_map
-			.graph_mut(active_graph)
-			.unwrap()
-			.get_mut(&id)
-			.unwrap();
-		match flat_node.included_mut() {
-			Some(nodes) => nodes.extend(flat_included),
-			None => flat_node.set_included(Some(flat_included)),
 		}
 	}
 
@@ -372,28 +368,52 @@ fn extend_node_map_from_node<J: JsonHash + JsonClone, T: Id, G: id::Generator<T>
 			.get_mut(&id)
 			.unwrap()
 			.properties_mut()
-			.insert_all(property.clone(), flat_objects)
+			.insert_all_unique(property.clone(), flat_objects)
 	}
 
 	for (property, nodes) in node.reverse_properties() {
-		let mut flat_nodes = Vec::new();
-		for node in nodes {
-			let flat_node = extend_node_map_from_node(
+		for subject in nodes {
+			let flat_subject = extend_node_map_from_node(
 				namespace,
 				node_map,
-				node.inner(),
-				node.index(),
+				subject.inner(),
+				subject.index(),
 				active_graph,
 			)?;
-			flat_nodes.push(flat_node);
+
+			let subject_id = flat_subject.id().unwrap();
+
+			let flat_subject = node_map
+				.graph_mut(active_graph)
+				.unwrap()
+				.get_mut(subject_id)
+				.unwrap();
+
+			flat_subject.properties_mut().insert_unique(
+				property.clone(),
+				Indexed::new(Object::Node(Node::with_id(id.clone())), None),
+			)
 		}
-		node_map
-			.graph_mut(active_graph)
-			.unwrap()
-			.get_mut(&id)
-			.unwrap()
-			.reverse_properties_mut()
-			.insert_all(property.clone(), flat_nodes)
+
+		// let mut flat_nodes = Vec::new();
+		// for node in nodes {
+		// 	let flat_node = extend_node_map_from_node(
+		// 		namespace,
+		// 		node_map,
+		// 		node.inner(),
+		// 		node.index(),
+		// 		active_graph,
+		// 	)?;
+		// 	flat_nodes.push(flat_node);
+		// }
+
+		// node_map
+		// 	.graph_mut(active_graph)
+		// 	.unwrap()
+		// 	.get_mut(&id)
+		// 	.unwrap()
+		// 	.reverse_properties_mut()
+		// 	.insert_all_unique(property.clone(), flat_nodes)
 	}
 
 	Ok(Indexed::new(Node::with_id(id), None))

@@ -8,8 +8,9 @@ use crate::{
 	object,
 	syntax::{ContainerType, Keyword, Term},
 	util::{AsAnyJson, AsJson, JsonFrom},
-	ContextMut, Error, Id, Indexed, Loc, Object, ProcessingMode, Value,
+	ContextMut, Error, Id, Indexed, Loc, Node, Object, ProcessingMode, Value,
 };
+use mown::Mown;
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::{JsonBuild, JsonClone, JsonHash, JsonMut, JsonSendSync};
 use std::collections::HashSet;
@@ -91,8 +92,8 @@ pub trait Compact<J: JsonSrc, T: Id> {
 	/// to use the [`compact`](Compact::compact) and [`compact_with`](Compact::compact_with) functions.
 	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
-		active_context: Inversible<T, &'a C>,
-		type_scoped_context: Inversible<T, &'a C>,
+		active_context: &'a Inversible<T, C>,
+		type_scoped_context: &'a Inversible<T, C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
@@ -113,7 +114,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 	#[inline(always)]
 	fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
-		active_context: Inversible<T, &'a C>,
+		active_context: &'a Inversible<T, C>,
 		loader: &'a mut L,
 		options: Options,
 		meta: M,
@@ -128,7 +129,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 	{
 		async move {
 			self.compact_full(
-				active_context.clone(),
+				active_context,
 				active_context,
 				None,
 				loader,
@@ -144,7 +145,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 	#[inline(always)]
 	fn compact<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
-		active_context: Inversible<T, &'a C>,
+		active_context: &'a Inversible<T, C>,
 		loader: &'a mut L,
 		meta: M,
 	) -> BoxFuture<'a, Result<K, Error>>
@@ -171,8 +172,8 @@ pub trait CompactIndexed<J: JsonSrc, T: Id> {
 	fn compact_indexed<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		index: Option<&'a str>,
-		active_context: Inversible<T, &'a C>,
-		type_scoped_context: Inversible<T, &'a C>,
+		active_context: &'a Inversible<T, C>,
+		type_scoped_context: &'a Inversible<T, C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
@@ -192,8 +193,8 @@ impl<J: JsonSrc, T: Sync + Send + Id, V: Sync + Send + CompactIndexed<J, T>> Com
 {
 	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
-		active_context: Inversible<T, &'a C>,
-		type_scoped_context: Inversible<T, &'a C>,
+		active_context: &'a Inversible<T, C>,
+		type_scoped_context: &'a Inversible<T, C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
@@ -225,8 +226,8 @@ impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> Compac
 	fn compact_indexed<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
 		index: Option<&'a str>,
-		active_context: Inversible<T, &'a C>,
-		type_scoped_context: Inversible<T, &'a C>,
+		active_context: &'a Inversible<T, C>,
+		type_scoped_context: &'a Inversible<T, C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
@@ -275,23 +276,23 @@ impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> Compac
 				// a single @id entry, set active context to previous context from active context,
 				// as the scope of a term-scoped context does not apply when processing new node objects.
 				if let Some(previous_context) = active_context.previous_context() {
-					active_context = Inversible::new(previous_context)
+					active_context = previous_context
 				}
 
 				// If the term definition for active property in active context has a local context:
 				// FIXME https://github.com/w3c/json-ld-api/issues/502
 				//       Seems that the term definition should be looked up in `type_scoped_context`.
-				let mut active_context = active_context.into_borrowed();
+				let mut active_context = Mown::Borrowed(active_context);
 				let mut list_container = false;
 				if let Some(active_property) = active_property {
 					if let Some(active_property_definition) =
 						type_scoped_context.get(active_property)
 					{
 						if let Some(local_context) = &active_property_definition.context {
-							active_context = Inversible::new(
+							active_context = Mown::Owned(Inversible::new(
 								local_context
 									.process_with(
-										*active_context.as_ref(),
+										active_context.as_ref().as_ref(),
 										loader,
 										active_property_definition.base_url(),
 										context::ProcessingOptions::from(options).with_override(),
@@ -299,8 +300,7 @@ impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> Compac
 									.await
 									.map_err(Loc::unwrap)?
 									.into_inner(),
-							)
-							.into_owned()
+							))
 						}
 
 						list_container = active_property_definition
@@ -444,20 +444,22 @@ fn compact_collection_with<
 	J: 'a + JsonSrc,
 	K: JsonFrom<J>,
 	T: 'a + Sync + Send + Id,
-	O: 'a + Send + Iterator<Item = &'a Indexed<Object<J, T>>>,
+	I: 'a + Compact<J, T>,
+	O: 'a + Send + Iterator<Item = &'a I>,
 	C: ContextMut<T>,
 	L: Loader,
 	M: 'a,
 >(
 	items: O,
-	active_context: Inversible<T, &'a C>,
-	type_scoped_context: Inversible<T, &'a C>,
+	active_context: &'a Inversible<T, C>,
+	type_scoped_context: &'a Inversible<T, C>,
 	active_property: Option<&'a str>,
 	loader: &'a mut L,
 	options: Options,
 	meta: M,
 ) -> BoxFuture<'a, Result<K, Error>>
 where
+	I: Sync + Send,
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
@@ -469,8 +471,8 @@ where
 		for item in items {
 			let compacted_item: K = item
 				.compact_full(
-					active_context.clone(),
-					type_scoped_context.clone(),
+					active_context,
+					type_scoped_context,
 					active_property,
 					loader,
 					options,
@@ -513,8 +515,66 @@ where
 impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for HashSet<Indexed<Object<J, T>>> {
 	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
 		&'a self,
-		active_context: Inversible<T, &'a C>,
-		type_scoped_context: Inversible<T, &'a C>,
+		active_context: &'a Inversible<T, C>,
+		type_scoped_context: &'a Inversible<T, C>,
+		active_property: Option<&'a str>,
+		loader: &'a mut L,
+		options: Options,
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
+	where
+		T: 'a,
+		C: Sync + Send,
+		C::LocalContext: Send + Sync + From<L::Output>,
+		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	{
+		compact_collection_with(
+			self.iter(),
+			active_context,
+			type_scoped_context,
+			active_property,
+			loader,
+			options,
+			meta,
+		)
+	}
+}
+
+impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for Vec<Indexed<Object<J, T>>> {
+	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+		&'a self,
+		active_context: &'a Inversible<T, C>,
+		type_scoped_context: &'a Inversible<T, C>,
+		active_property: Option<&'a str>,
+		loader: &'a mut L,
+		options: Options,
+		meta: M,
+	) -> BoxFuture<'a, Result<K, Error>>
+	where
+		T: 'a,
+		C: Sync + Send,
+		C::LocalContext: Send + Sync + From<L::Output>,
+		L: Sync + Send,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	{
+		compact_collection_with(
+			self.iter(),
+			active_context,
+			type_scoped_context,
+			active_property,
+			loader,
+			options,
+			meta,
+		)
+	}
+}
+
+impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for Vec<Indexed<Node<J, T>>> {
+	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
+		&'a self,
+		active_context: &'a Inversible<T, C>,
+		type_scoped_context: &'a Inversible<T, C>,
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,

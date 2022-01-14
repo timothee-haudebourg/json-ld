@@ -72,6 +72,19 @@ impl<J: JsonHash, T: Id> ReverseProperties<J, T> {
 		}
 	}
 
+	/// Associate the given node to the given reverse property, unless it is already.
+	#[inline(always)]
+	pub fn insert_unique(&mut self, prop: Reference<T>, value: Indexed<Node<J, T>>) {
+		if let Some(node_values) = self.0.get_mut(&prop) {
+			if node_values.iter().all(|v| !v.equivalent(&value)) {
+				node_values.push(value)
+			}
+		} else {
+			let node_values = vec![value];
+			self.0.insert(prop, node_values);
+		}
+	}
+
 	/// Associate all the given nodes to the given reverse property.
 	#[inline(always)]
 	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Node<J, T>>>>(
@@ -83,6 +96,42 @@ impl<J: JsonHash, T: Id> ReverseProperties<J, T> {
 			node_values.extend(values);
 		} else {
 			self.0.insert(prop, values.into_iter().collect());
+		}
+	}
+
+	/// Associate all the given nodes to the given reverse property, unless it is already.
+	#[inline(always)]
+	pub fn insert_all_unique<Objects: IntoIterator<Item = Indexed<Node<J, T>>>>(
+		&mut self,
+		prop: Reference<T>,
+		values: Objects,
+	) {
+		if let Some(node_values) = self.0.get_mut(&prop) {
+			for value in values {
+				if node_values.iter().all(|v| !v.equivalent(&value)) {
+					node_values.push(value)
+				}
+			}
+		} else {
+			let values = values.into_iter();
+			let mut node_values: Vec<Indexed<Node<J, T>>> =
+				Vec::with_capacity(values.size_hint().0);
+			for value in values {
+				if node_values.iter().all(|v| !v.equivalent(&value)) {
+					node_values.push(value)
+				}
+			}
+
+			self.0.insert(prop, node_values);
+		}
+	}
+
+	pub fn extend_unique<I>(&mut self, iter: I)
+	where
+		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Node<J, T>>>)>,
+	{
+		for (prop, values) in iter {
+			self.insert_all_unique(prop, values)
 		}
 	}
 
@@ -100,6 +149,18 @@ impl<J: JsonHash, T: Id> ReverseProperties<J, T> {
 		IterMut {
 			inner: self.0.iter_mut(),
 		}
+	}
+
+	/// Removes and returns all the values associated to the given reverse property.
+	#[inline(always)]
+	pub fn remove(&mut self, prop: &Reference<T>) -> Option<Vec<Indexed<Node<J, T>>>> {
+		self.0.remove(prop)
+	}
+
+	/// Removes all reverse properties.
+	#[inline(always)]
+	pub fn clear(&mut self) {
+		self.0.clear()
 	}
 }
 

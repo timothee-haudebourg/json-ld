@@ -4,7 +4,7 @@ use crate::{
 	syntax::{Container, Term, Type},
 	Direction, Id, Nullable,
 };
-use mown::Mown;
+// use mown::Mown;
 use once_cell::sync::OnceCell;
 use std::sync::Arc;
 use std::{cmp::Ordering, collections::HashMap, fmt};
@@ -31,6 +31,19 @@ impl<T: Id, C: Clone> Clone for Inversible<T, C> {
 	}
 }
 
+impl<T: Id, C> AsRef<C> for Inversible<T, C> {
+	fn as_ref(&self) -> &C {
+		&self.context
+	}
+}
+
+impl<T: Id, C> AsMut<C> for Inversible<T, C> {
+	fn as_mut(&mut self) -> &mut C {
+		self.inverse = Arc::new(OnceCell::new());
+		&mut self.context
+	}
+}
+
 impl<T: Id, C> std::ops::Deref for Inversible<T, C> {
 	type Target = C;
 
@@ -48,6 +61,14 @@ impl<T: Id, C> std::ops::DerefMut for Inversible<T, C> {
 	}
 }
 
+impl<T: Id, C: PartialEq> PartialEq for Inversible<T, C> {
+	fn eq(&self, other: &Self) -> bool {
+		self.context.eq(other)
+	}
+}
+
+impl<T: Id, C: Eq> Eq for Inversible<T, C> {}
+
 impl<T: Id, C> Inversible<T, C> {
 	pub fn new(context: C) -> Inversible<T, C> {
 		Inversible {
@@ -58,38 +79,63 @@ impl<T: Id, C> Inversible<T, C> {
 
 	pub fn inverse(&self) -> &InverseContext<T>
 	where
-		C: std::ops::Deref,
-		C::Target: Context<T>,
+		C: Context<T>
+	// where
+	// 	C: std::ops::Deref,
+	// 	C::Target: Context<T>,
 	{
 		self.inverse
-			.get_or_init(|| InverseContext::from(&*self.context))
+			.get_or_init(|| InverseContext::from(&self.context))
 	}
 
-	pub fn into_owned<'a>(self) -> Inversible<T, Mown<'a, C>> {
-		Inversible {
-			context: Mown::Owned(self.context),
-			inverse: self.inverse,
-		}
-	}
+	// pub fn borrowed(&self) -> Inversible<T, Mown<C>> {
+	// 	Inversible {
+	// 		context: Mown::Borrowed(&self.context),
+	// 		inverse: self.inverse.clone(),
+	// 	}
+	// }
+
+	// pub fn into_owned<'a>(self) -> Inversible<T, Mown<'a, C>> {
+	// 	Inversible {
+	// 		context: Mown::Owned(self.context),
+	// 		inverse: self.inverse,
+	// 	}
+	// }
 }
 
-impl<'a, T: Id, C> Inversible<T, &'a C> {
-	pub fn into_borrowed(self) -> Inversible<T, Mown<'a, C>> {
-		Inversible {
-			context: Mown::Borrowed(self.context),
-			inverse: self.inverse,
-		}
-	}
-}
+// impl<'a, T: Id, C> Inversible<T, &'a C> {
+// 	pub fn into_borrowed(self) -> Inversible<T, Mown<'a, C>> {
+// 		Inversible {
+// 			context: Mown::Borrowed(self.context),
+// 			inverse: self.inverse,
+// 		}
+// 	}
+// }
 
-impl<'a, T: Id, C> Inversible<T, Mown<'a, C>> {
-	pub fn as_ref(&self) -> Inversible<T, &C> {
-		Inversible {
-			context: self.context.as_ref(),
-			inverse: self.inverse.clone(),
-		}
-	}
-}
+// impl<'a, T: Id, C> Inversible<T, Mown<'a, C>> {
+// 	pub fn as_ref(&self) -> Inversible<T, &C> {
+// 		Inversible {
+// 			context: self.context.as_ref(),
+// 			inverse: self.inverse.clone(),
+// 		}
+// 	}impl<'a, T: Id, C> Inversible<T, &'a C> {
+// 	pub fn into_borrowed(self) -> Inversible<T, Mown<'a, C>> {
+// 		Inversible {
+// 			context: Mown::Borrowed(self.context),
+// 			inverse: self.inverse,
+// 		}
+// 	}
+// }
+
+// impl<'a, T: Id, C> Inversible<T, Mown<'a, C>> {
+// 	pub fn as_ref(&self) -> Inversible<T, &C> {
+// 		Inversible {
+// 			context: self.context.as_ref(),
+// 			inverse: self.inverse.clone(),
+// 		}
+// 	}
+// }
+// }
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum TypeSelection<T: Id> {

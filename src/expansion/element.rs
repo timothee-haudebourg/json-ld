@@ -124,7 +124,7 @@ where
 						&& value_entry1.is_none()
 						&& !(element.len() == 1 && id_entry.is_some())
 					{
-						active_context = Mown::Owned(previous_context.clone())
+						active_context = Mown::Owned(previous_context.as_ref().clone())
 					}
 				}
 

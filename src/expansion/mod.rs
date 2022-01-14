@@ -45,6 +45,15 @@ pub struct Options {
 	pub ordered: bool,
 }
 
+impl Options {
+	pub fn unordered(self) -> Self {
+		Self {
+			ordered: false,
+			..self
+		}
+	}
+}
+
 /// Key expansion policy.
 ///
 /// The default behavior of the expansion algorithm

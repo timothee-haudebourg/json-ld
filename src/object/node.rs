@@ -427,6 +427,24 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 			Err(self)
 		}
 	}
+
+	/// Equivalence operator.
+	///
+	/// Equivalence is different from equality for anonymous objects.
+	/// Anonymous node objects have an implicit unlabeled blank nodes and thus never equivalent.
+	pub fn equivalent(&self, other: &Self) -> bool {
+		if self.id().is_some() && other.id().is_some() {
+			self == other
+		} else {
+			false
+		}
+	}
+}
+
+impl<J: JsonHash, T: Id> Indexed<Node<J, T>> {
+	pub fn equivalent(&self, other: &Self) -> bool {
+		self.index() == other.index() && self.inner().equivalent(other.inner())
+	}
 }
 
 impl<J: JsonHash, T: Id> object::Any<J, T> for Node<J, T> {
