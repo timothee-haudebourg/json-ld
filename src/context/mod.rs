@@ -39,6 +39,7 @@ pub struct ProcessingOptions {
 
 impl ProcessingOptions {
 	/// Return the same set of options, but with `override_protected` set to `true`.
+	#[must_use]
 	pub fn with_override(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.override_protected = true;
@@ -46,6 +47,7 @@ impl ProcessingOptions {
 	}
 
 	/// Return the same set of options, but with `override_protected` set to `false`.
+	#[must_use]
 	pub fn with_no_override(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.override_protected = false;
@@ -53,6 +55,7 @@ impl ProcessingOptions {
 	}
 
 	/// Return the same set of options, but with `propagate` set to `false`.
+	#[must_use]
 	pub fn without_propagation(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.propagate = false;
