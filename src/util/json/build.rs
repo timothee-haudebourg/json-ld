@@ -10,7 +10,7 @@ where <Self as Json>::Number: From<<J as Json>::Number>;
 
 /// Type composed of `J` JSON values that can be converted
 /// into a `K` JSON value.
-pub trait AsJson<J: JsonClone, K: JsonFrom<J>> {
+pub trait AsJson<J: JsonClone, K: Json> {
 	/// Converts this value into a `K` JSON value using the given
 	/// `meta` function to convert `J::MetaData` into `K::MetaData`.
 	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K;
