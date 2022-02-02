@@ -1,7 +1,7 @@
 use crate::{Error, ErrorCode, RemoteDocument};
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::Json;
-use iref::{Iri, IriBuf};
+use iref::{Iri, IriRef, IriBuf};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -130,6 +130,21 @@ impl<J> FsLoader<J> {
 		self.mount_points.insert(path.as_ref().into(), url.into());
 	}
 
+	pub fn filepath(&self, url: IriRef) -> Option<PathBuf> {
+		for (path, target_url) in &self.mount_points {
+			if let Some((suffix, _, _)) = url.suffix(target_url.as_iri_ref()) {
+				let mut filepath = path.clone();
+				for seg in suffix.as_path().segments() {
+					filepath.push(seg.as_str())
+				}
+
+				return Some(filepath)
+			}
+		}
+
+		None
+	}
+
 	/// Allocate a identifier to the given IRI.
 	fn allocate(&mut self, iri: IriBuf, doc: J) -> Id {
 		let id = Id::new(self.cache.len());
@@ -172,14 +187,8 @@ impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 					*id,
 				)),
 				None => {
-					for (path, target_url) in &self.mount_points {
-						let url_ref = url.as_iri_ref();
-						if let Some((suffix, _, _)) = url_ref.suffix(target_url.as_iri_ref()) {
-							let mut filepath = path.clone();
-							for seg in suffix.as_path().segments() {
-								filepath.push(seg.as_str())
-							}
-
+					match self.filepath(url.as_iri_ref()) {
+						Some(filepath) => {
 							if let Ok(file) = File::open(filepath) {
 								let mut buf_reader = BufReader::new(file);
 								let mut contents = String::new();
@@ -194,9 +203,10 @@ impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 								return Err(ErrorCode::LoadingDocumentFailed.into());
 							}
 						}
+						None => {
+							Err(ErrorCode::LoadingDocumentFailed.into())
+						}
 					}
-
-					Err(ErrorCode::LoadingDocumentFailed.into())
 				}
 			}
 		}

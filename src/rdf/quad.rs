@@ -1,4 +1,4 @@
-use super::{Property, PropertyRef, RdfDirection, Triple, ValidReference, Value};
+use super::{Property, PropertyRef, RdfDirection, RdfSyntax, Triple, ValidReference, Value};
 use crate::{id, ExpandedDocument, Id};
 use generic_json::JsonHash;
 use std::borrow::Cow;
@@ -24,6 +24,7 @@ struct Compound<'a, J: JsonHash, T: Id> {
 	triples: super::CompoundValueTriples<'a, J, T>,
 }
 
+/// Iterator over the RDF Quads of a JSON-LD document.
 pub struct Quads<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> {
 	generator: G,
 	rdf_direction: RdfDirection,
@@ -68,7 +69,7 @@ impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator for Quads<
 					};
 
 					let rdf_property = match property {
-						crate::quad::PropertyRef::Type => PropertyRef::Type,
+						crate::quad::PropertyRef::Type => PropertyRef::Rdf(RdfSyntax::Type),
 						crate::quad::PropertyRef::Ref(r) => match r.try_into() {
 							Ok(r) => PropertyRef::Other(r),
 							Err(_) => continue,

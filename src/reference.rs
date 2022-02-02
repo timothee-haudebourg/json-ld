@@ -360,6 +360,16 @@ impl<T: AsIri> fmt::Display for ValidReference<T> {
 	}
 }
 
+impl<T: AsIri> crate::rdf::Display for ValidReference<T> {
+	#[inline]
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Id(id) => write!(f, "<{}>", id.as_iri()),
+			Self::Blank(b) => write!(f, "{}", b),
+		}
+	}
+}
+
 impl<T: AsIri> fmt::Debug for ValidReference<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {

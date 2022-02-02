@@ -63,7 +63,6 @@ enum QuadsFrame<'a, J: JsonHash, T: Id> {
 		Option<&'a Reference<T>>,
 		std::slice::Iter<'a, Indexed<Object<J, T>>>,
 	),
-
 	NodeTypes(
 		Option<&'a Reference<T>>,
 		&'a Reference<T>,
