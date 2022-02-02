@@ -49,7 +49,7 @@ impl<T: AsIri> Reference<T> {
 		}
 	}
 
-	/// If the renference is a node identifier, returns the node IRI.
+	/// If the reference is a node identifier, returns the node IRI.
 	///
 	/// Returns `None` if it is a blank node reference.
 	#[inline(always)]
@@ -63,6 +63,14 @@ impl<T: AsIri> Reference<T> {
 	#[inline(always)]
 	pub fn into_term(self) -> Term<T> {
 		Term::Ref(self)
+	}
+
+	pub fn as_ref(&self) -> Ref<T> {
+		match self {
+			Self::Id(t) => Ref::Id(t),
+			Self::Blank(id) => Ref::Blank(id),
+			Self::Invalid(id) => Ref::Invalid(id.as_str()),
+		}
 	}
 }
 
@@ -403,4 +411,18 @@ mod tests {
 			assert_eq!(r, result)
 		}
 	}
+}
+
+/// Reference to a reference.
+#[derive(Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum Ref<'a, T = IriBuf> {
+	/// Node identifier, essentially an IRI.
+	Id(&'a T),
+
+	/// Blank node identifier.
+	Blank(&'a BlankId),
+
+	/// Invalid reference.
+	Invalid(&'a str),
 }

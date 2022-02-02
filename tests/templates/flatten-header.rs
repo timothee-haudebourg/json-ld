@@ -1,11 +1,3 @@
-extern crate async_std;
-extern crate iref;
-#[macro_use]
-extern crate static_iref;
-extern crate json_ld;
-
-use async_std::task;
-use ijson::IValue;
 use iref::{{Iri, IriBuf}};
 use json_ld::{{
 	compaction,
@@ -14,6 +6,8 @@ use json_ld::{{
 	util::{{json_ld_eq, AsJson}},
 	Document, ErrorCode, FsLoader, Loader, ProcessingMode,
 }};
+use serde_json::Value;
+use static_iref::iri;
 
 #[derive(Clone, Copy)]
 struct Options<'a> {{
@@ -56,52 +50,69 @@ fn no_metadata<M>(_: Option<&M>) -> () {{
 	()
 }}
 
-fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {{
-	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
+async fn positive_test(
+	options: Options<'_>,
+	input_url: Iri<'_>,
+	base_url: Iri<'_>,
+	output_url: Iri<'_>,
+) {{
+	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let input = task::block_on(loader.load(input_url)).unwrap();
-	let expected_output = task::block_on(loader.load(output_url)).unwrap();
-	let mut input_context: context::Json<IValue, IriBuf> = context::Json::new(Some(base_url));
+	let input = loader.load(input_url).await.unwrap();
+	let expected_output = loader.load(output_url).await.unwrap();
 
-	if let Some(context_url) = options.context {{
-		let local_context = task::block_on(loader.load_context(context_url))
-			.unwrap()
-			.into_context();
-		input_context = task::block_on(local_context.process_with(
-			&input_context,
-			&mut loader,
-			Some(base_url),
-			options.into(),
-		))
-		.unwrap()
-		.into_inner();
-	}}
+	let expand_context: context::Json<Value, IriBuf> = context::Json::new(Some(base_url));
+	let compact_context: Option<context::ProcessedOwned<Value, context::Json<Value, IriBuf>>> =
+		match options.context {{
+			Some(context_url) => {{
+				let local_context = loader
+					.load_context(context_url)
+					.await
+					.unwrap()
+					.into_context();
+				Some(
+					local_context
+						.process_with(
+							&context::Json::new(Some(base_url)),
+							&mut loader,
+							Some(base_url),
+							options.into(),
+						)
+						.await
+						.unwrap()
+						.owned(),
+				)
+			}}
+			None => None,
+		}};
 
 	let mut id_generator = json_ld::id::generator::Blank::new_with_prefix("b".to_string());
-	let output = task::block_on(input.flatten_with(
-		&mut id_generator,
-		Some(base_url),
-		&input_context,
-		&mut loader,
-		options.into(),
-	))
-	.unwrap();
-	let json_output: IValue = match options.context {{
-		Some(_) => {{
-			use compaction::Compact;
-			task::block_on(output.compact_with(
-				context::Inversible::new(&input_context),
+	let output = input
+		.flatten_with(
+			&mut id_generator,
+			Some(base_url),
+			&expand_context,
+			&mut loader,
+			options.into(),
+		)
+		.await
+		.unwrap();
+
+	let json_output: Value = match compact_context {{
+		Some(compact_context) => output
+			.compact(
+				&compact_context.inversible(),
 				&mut loader,
 				options.into(),
 				no_metadata,
-			))
-			.unwrap()
-		}}
+			)
+			.await
+			.unwrap(),
 		None => output.as_json(),
 	}};
 
-	let success = json_ld_eq(&json_output, &*expected_output);
+	let success = json_ld_eq(&json_output, &*expected_output).await.unwrap();
 
 	if !success {{
 		println!(
@@ -117,39 +128,45 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 	assert!(success)
 }}
 
-fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {{
-	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
+async fn negative_test(
+	options: Options<'_>,
+	input_url: Iri<'_>,
+	base_url: Iri<'_>,
+	error_code: ErrorCode,
+) {{
+	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let input = task::block_on(loader.load(input_url)).unwrap();
-	let mut input_context: context::Json<IValue, IriBuf> = context::Json::new(Some(base_url));
+	let input = loader.load(input_url).await.unwrap();
+	let mut input_context: context::Json<Value, IriBuf> = context::Json::new(Some(base_url));
 
 	if let Some(context_url) = options.context {{
-		let local_context = task::block_on(loader.load_context(context_url))
+		let local_context = loader
+			.load_context(context_url)
+			.await
 			.unwrap()
 			.into_context();
-		input_context = task::block_on(local_context.process_with(
-			&input_context,
-			&mut loader,
-			Some(base_url),
-			options.into(),
-		))
-		.unwrap()
-		.into_inner();
+		input_context = local_context
+			.process_with(&input_context, &mut loader, Some(base_url), options.into())
+			.await
+			.unwrap()
+			.into_inner();
 	}}
 
 	let mut id_generator = json_ld::id::generator::Blank::new();
-	let result = task::block_on(input.flatten_with(
-		&mut id_generator,
-		Some(base_url),
-		&input_context,
-		&mut loader,
-		options.into(),
-	));
+	let result = input
+		.flatten_with(
+			&mut id_generator,
+			Some(base_url),
+			&input_context,
+			&mut loader,
+			options.into(),
+		)
+		.await;
 
 	match result {{
 		Ok(output) => {{
-			let output_json: IValue = output.as_json();
+			let output_json: Value = output.as_json();
 			println!(
 				"output=\n{{}}",
 				serde_json::to_string_pretty(&output_json).unwrap()

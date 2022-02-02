@@ -182,7 +182,7 @@ impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
 
 impl<J: JsonHash, T: Id> Node<J, T> {
 	fn rdf_value(&self) -> Option<Value<T>> {
-		self.id().map(Reference::rdf_value).flatten()
+		self.id().and_then(Reference::rdf_value)
 	}
 }
 

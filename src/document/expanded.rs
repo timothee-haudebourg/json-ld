@@ -2,10 +2,10 @@ use crate::{
 	compaction,
 	context::{self, Loader},
 	util::{AsJson, JsonFrom},
-	BlankId, ContextMut, Error, Id, Indexed, Loc, Object, Warning,
+	ContextMut, Error, Id, Indexed, Loc, Object, Warning,
 };
 use generic_json::{JsonClone, JsonHash};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 /// Result of the document expansion algorithm.
 ///
@@ -34,23 +34,6 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 		self.objects.is_empty()
 	}
 
-	/// Find a blank node identifiers substitution that maps `self` to `other`.
-	///
-	/// If such substitution exists, then the two documents are structurally and semantically equivalents.
-	pub fn blank_node_substitution(&self, other: &Self) -> Option<HashMap<BlankId, BlankId>> {
-		if self.objects.len() == other.objects.len() {
-			crate::util::Pairings::new(
-				self.objects.iter(),
-				other.objects.iter(),
-				HashMap::<BlankId, BlankId>::new(),
-				|substitution, a, b| panic!("TODO"),
-			)
-			.next()
-		} else {
-			None
-		}
-	}
-
 	#[inline(always)]
 	pub fn warnings(&self) -> &[Loc<Warning, J::MetaData>] {
 		&self.warnings
@@ -77,6 +60,7 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	}
 
 	#[inline(always)]
+	#[allow(clippy::type_complexity)]
 	pub fn into_parts(
 		self,
 	) -> (

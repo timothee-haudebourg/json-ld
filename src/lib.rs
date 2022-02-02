@@ -115,7 +115,7 @@
 //!   let processed_context = context.process::<context::Json<Value>, _>(&mut loader, None).await?;
 //!
 //!   // Compact the input document.
-//!   let output = input.compact(&processed_context, &mut loader).await.unwrap();
+//!   let output = input.compact(&processed_context.owned().inversible(), &mut loader).await.unwrap();
 //!   println!("{}", serde_json::to_string_pretty(&output).unwrap());
 //!
 //!   Ok(())

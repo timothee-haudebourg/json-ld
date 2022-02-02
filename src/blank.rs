@@ -26,7 +26,7 @@ use std::fmt;
 /// blank node.
 /// The [`Generator`] trait defines an abstract way to describe such operation,
 /// and the [`generator`] module provides multiple built-in generator implementations.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct BlankId(String);
 
 impl BlankId {

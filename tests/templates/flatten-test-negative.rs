@@ -1,5 +1,5 @@
-#[test]
-fn {}() {{
+#[async_std::test]
+async fn {}() {{
 	let input_url = iri!("{}");
 	let base_url = iri!("{}");
 	println!("{}");{}
@@ -13,5 +13,5 @@ fn {}() {{
 		input_url,
 		base_url,
 		ErrorCode::{:?}
-	)
+	).await
 }}

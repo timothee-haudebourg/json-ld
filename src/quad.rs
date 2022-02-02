@@ -12,11 +12,11 @@ use smallvec::SmallVec;
 /// ```
 /// # #[async_std::main]
 /// # async fn main() {
-/// # use ijson::IValue;
+/// # use serde_json::Value;
 /// # use json_ld::{context, Document, NoLoader};
-/// # let doc: IValue = serde_json::from_str(r#"{"@context": {"name": "http://xmlns.com/foaf/0.1/name"},"@id": "https://www.rust-lang.org","name": "Rust Programming Language"}"#,).unwrap();
-/// # let mut loader = NoLoader::<IValue>::new();
-/// # let expanded_doc = doc.expand::<context::Json<IValue>, _>(&mut loader).await.unwrap();
+/// # let doc: Value = serde_json::from_str(r#"{"@context": {"name": "http://xmlns.com/foaf/0.1/name"},"@id": "https://www.rust-lang.org","name": "Rust Programming Language"}"#,).unwrap();
+/// # let mut loader = NoLoader::<Value>::new();
+/// # let expanded_doc = doc.expand::<context::Json<Value>, _>(&mut loader).await.unwrap();
 /// for json_ld::quad::QuadRef(graph, subject, property, object) in expanded_doc.quads() {
 ///   // ...
 /// }

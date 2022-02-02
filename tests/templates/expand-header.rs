@@ -1,4 +1,3 @@
-use async_std::task;
 use iref::{{Iri, IriBuf}};
 use json_ld::{{
 	context::{{self, Loader as ContextLoader, Local, ProcessingOptions}},
@@ -34,38 +33,39 @@ impl<'a> From<Options<'a>> for ProcessingOptions {{
 	}}
 }}
 
-fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {{
+async fn positive_test(
+	options: Options<'_>,
+	input_url: Iri<'_>,
+	base_url: Iri<'_>,
+	output_url: Iri<'_>,
+) {{
 	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let input = task::block_on(loader.load(input_url)).unwrap();
-	let expected_output = task::block_on(loader.load(output_url)).unwrap();
+	let input = loader.load(input_url).await.unwrap();
+	let expected_output = loader.load(output_url).await.unwrap();
 	let mut input_context: context::Json<Value, IriBuf> = context::Json::new(Some(base_url));
 
 	if let Some(context_url) = options.context {{
-		let local_context = task::block_on(loader.load_context(context_url))
+		let local_context = loader
+			.load_context(context_url)
+			.await
 			.unwrap()
 			.into_context();
-		input_context = task::block_on(local_context.process_with(
-			&input_context,
-			&mut loader,
-			Some(base_url),
-			options.into(),
-		))
-		.unwrap()
-		.into_inner();
+		input_context = local_context
+			.process_with(&input_context, &mut loader, Some(base_url), options.into())
+			.await
+			.unwrap()
+			.into_inner();
 	}}
 
-	let output = task::block_on(input.expand_with(
-		Some(base_url),
-		&input_context,
-		&mut loader,
-		options.into(),
-	))
-	.unwrap();
+	let output = input
+		.expand_with(Some(base_url), &input_context, &mut loader, options.into())
+		.await
+		.unwrap();
 	let output_json: Value = output.as_json();
 
-	let success = json_ld_eq(&output_json, &*expected_output);
+	let success = json_ld_eq(&output_json, &*expected_output).await.unwrap();
 
 	if !success {{
 		println!(
@@ -81,33 +81,34 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 	assert!(success)
 }}
 
-fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {{
+async fn negative_test(
+	options: Options<'_>,
+	input_url: Iri<'_>,
+	base_url: Iri<'_>,
+	error_code: ErrorCode,
+) {{
 	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let input = task::block_on(loader.load(input_url)).unwrap();
+	let input = loader.load(input_url).await.unwrap();
 	let mut input_context: context::Json<Value, IriBuf> = context::Json::new(Some(base_url));
 
 	if let Some(context_url) = options.context {{
-		let local_context = task::block_on(loader.load_context(context_url))
+		let local_context = loader
+			.load_context(context_url)
+			.await
 			.unwrap()
 			.into_context();
-		input_context = task::block_on(local_context.process_with(
-			&input_context,
-			&mut loader,
-			Some(base_url),
-			options.into(),
-		))
-		.unwrap()
-		.into_inner();
+		input_context = local_context
+			.process_with(&input_context, &mut loader, Some(base_url), options.into())
+			.await
+			.unwrap()
+			.into_inner();
 	}}
 
-	let result = task::block_on(input.expand_with(
-		Some(base_url),
-		&input_context,
-		&mut loader,
-		options.into(),
-	));
+	let result = input
+		.expand_with(Some(base_url), &input_context, &mut loader, options.into())
+		.await;
 
 	match result {{
 		Ok(output) => {{

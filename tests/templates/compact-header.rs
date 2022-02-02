@@ -1,4 +1,3 @@
-use async_std::task;
 use iref::{{Iri, IriBuf}};
 use json_ld::{{
 	compaction,
@@ -46,28 +45,37 @@ fn no_metadata<M>(_: Option<&M>) -> () {{
 	()
 }}
 
-fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {{
+async fn positive_test(
+	options: Options<'_>,
+	input_url: Iri<'_>,
+	base_url: Iri<'_>,
+	output_url: Iri<'_>,
+) {{
 	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let input = task::block_on(loader.load(input_url)).unwrap();
-	let expected_output = task::block_on(loader.load(output_url)).unwrap();
+	let input = loader.load(input_url).await.unwrap();
+	let expected_output = loader.load(output_url).await.unwrap();
 
 	let expand_context: context::Json<Value, IriBuf> = context::Json::new(Some(base_url));
 	let compact_context: context::ProcessedOwned<Value, context::Json<Value, IriBuf>> =
 		match options.context {{
 			Some(context_url) => {{
-				let local_context = task::block_on(loader.load_context(context_url))
+				let local_context = loader
+					.load_context(context_url)
+					.await
 					.unwrap()
 					.into_context();
-				task::block_on(local_context.process_with(
-					&context::Json::new(Some(base_url)),
-					&mut loader,
-					Some(base_url),
-					options.into(),
-				))
-				.unwrap()
-				.owned()
+				local_context
+					.process_with(
+						&context::Json::new(Some(base_url)),
+						&mut loader,
+						Some(base_url),
+						options.into(),
+					)
+					.await
+					.unwrap()
+					.owned()
 			}}
 			None => {{
 				let base_json_context = base_json_context(base_url);
@@ -75,16 +83,18 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 			}}
 		}};
 
-	let output: Value = task::block_on(input.compact_with(
-		Some(base_url),
-		&expand_context,
-		&compact_context.inversible(),
-		&mut loader,
-		options.into(),
-		no_metadata,
-	))
-	.unwrap();
-	let success = json_ld_eq(&output, &*expected_output);
+	let output: Value = input
+		.compact_with(
+			Some(base_url),
+			&expand_context,
+			&compact_context.inversible(),
+			&mut loader,
+			options.into(),
+			no_metadata,
+		)
+		.await
+		.unwrap();
+	let success = json_ld_eq(&output, &*expected_output).await.unwrap();
 
 	if !success {{
 		println!(
@@ -100,25 +110,34 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 	assert!(success)
 }}
 
-fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {{
+async fn negative_test(
+	options: Options<'_>,
+	input_url: Iri<'_>,
+	base_url: Iri<'_>,
+	error_code: ErrorCode,
+) {{
 	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
-	let input = task::block_on(loader.load(input_url)).unwrap();
+	let input = loader.load(input_url).await.unwrap();
 
 	let expand_context: context::Json<Value, IriBuf> = context::Json::new(Some(base_url));
 	let compact_context: context::ProcessedOwned<Value, context::Json<Value, IriBuf>> =
 		match options.context {{
 			Some(context_url) => {{
-				let local_context = task::block_on(loader.load_context(context_url))
+				let local_context = loader
+					.load_context(context_url)
+					.await
 					.unwrap()
 					.into_context();
-				let context = task::block_on(local_context.process_with(
-					&context::Json::new(Some(base_url)),
-					&mut loader,
-					Some(base_url),
-					options.into(),
-				));
+				let context = local_context
+					.process_with(
+						&context::Json::new(Some(base_url)),
+						&mut loader,
+						Some(base_url),
+						options.into(),
+					)
+					.await;
 				match context {{
 					Ok(context) => context.owned(),
 					Err(e) => {{
@@ -133,14 +152,16 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 			}}
 		}};
 
-	let result: Result<Value, _> = task::block_on(input.compact_with(
-		Some(base_url),
-		&expand_context,
-		&compact_context.inversible(),
-		&mut loader,
-		options.into(),
-		no_metadata,
-	));
+	let result: Result<Value, _> = input
+		.compact_with(
+			Some(base_url),
+			&expand_context,
+			&compact_context.inversible(),
+			&mut loader,
+			options.into(),
+			no_metadata,
+		)
+		.await;
 
 	match result {{
 		Ok(output) => {{

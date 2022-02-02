@@ -198,6 +198,15 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	pub fn clear(&mut self) {
 		self.0.clear()
 	}
+
+	#[inline(always)]
+	pub fn traverse(&self) -> Traverse<J, T> {
+		Traverse {
+			current_object: None,
+			current_property: None,
+			iter: self.0.iter(),
+		}
+	}
 }
 
 impl<J: JsonHash, T: Id> Hash for Properties<J, T> {
@@ -339,3 +348,34 @@ impl<'a, J: JsonHash, T: Id> Iterator for IterMut<'a, J, T> {
 impl<'a, J: JsonHash, T: Id> ExactSizeIterator for IterMut<'a, J, T> {}
 
 impl<'a, J: JsonHash, T: Id> std::iter::FusedIterator for IterMut<'a, J, T> {}
+
+pub struct Traverse<'a, J: JsonHash, T: Id> {
+	current_object: Option<Box<crate::object::Traverse<'a, J, T>>>,
+	current_property: Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>,
+	iter: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Object<J, T>>>>,
+}
+
+impl<'a, J: JsonHash, T: Id> Iterator for Traverse<'a, J, T> {
+	type Item = crate::object::Ref<'a, J, T>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		loop {
+			match &mut self.current_object {
+				Some(current_object) => match current_object.next() {
+					Some(next) => break Some(next),
+					None => self.current_object = None,
+				},
+				None => match &mut self.current_property {
+					Some(current_property) => match current_property.next() {
+						Some(object) => self.current_object = Some(Box::new(object.traverse())),
+						None => self.current_property = None,
+					},
+					None => match self.iter.next() {
+						Some((_, property)) => self.current_property = Some(property.iter()),
+						None => break None,
+					},
+				},
+			}
+		}
+	}
+}

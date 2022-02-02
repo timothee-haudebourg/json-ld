@@ -41,7 +41,12 @@ impl<'a> From<Options<'a>> for ProcessingOptions {
 	}
 }
 
-fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {
+async fn positive_test(
+	options: Options<'_>,
+	input_url: Iri<'_>,
+	base_url: Iri<'_>,
+	output_url: Iri<'_>,
+) {
 	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("file://crate/tests"), "tests");
 
@@ -72,7 +77,7 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 	.unwrap();
 
 	let result_json: Value = result.as_json();
-	let success = json_ld_eq(&result_json, &*output);
+	let success = json_ld_eq(&result_json, &*output).await.unwrap();
 
 	if success {
 		println!(
@@ -94,8 +99,8 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 }
 
 // See See w3c/json-ld-api#533
-// #[test]
-// fn custom_li12() {
+// #[async_std::test]
+// async fn custom_li12() {
 // 	let input_url = iri!("file://crate/tests/custom/li12-in.jsonld");
 // 	let base_url = iri!("file://crate/tests/custom/li12-in.jsonld");
 // 	let output_url = iri!("file://crate/tests/custom/li12-out.jsonld");
@@ -110,8 +115,8 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 // 	)
 // }
 
-#[test]
-fn custom_e111() {
+#[async_std::test]
+async fn custom_e111() {
 	let input_url = iri!("file://crate/tests/custom/e111-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/e111-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/e111-out.jsonld");
@@ -124,10 +129,11 @@ fn custom_e111() {
 		base_url,
 		output_url,
 	)
+	.await
 }
 
-#[test]
-fn custom_e112() {
+#[async_std::test]
+async fn custom_e112() {
 	let input_url = iri!("file://crate/tests/custom/e112-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/e112-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/e112-out.jsonld");
@@ -140,11 +146,12 @@ fn custom_e112() {
 		base_url,
 		output_url,
 	)
+	.await
 }
 
 // See w3c/json-ld-api#480
-// #[test]
-// fn custom_e122() {
+// #[async_std::test]
+// async fn custom_e122() {
 // 	let input_url = iri!("file://crate/tests/custom/e122-in.jsonld");
 // 	let base_url = iri!("file://crate/tests/custom/e122-in.jsonld");
 // 	let output_url = iri!("file://crate/tests/custom/e122-out.jsonld");
@@ -156,11 +163,11 @@ fn custom_e112() {
 // 		input_url,
 // 		base_url,
 // 		output_url
-// 	)
+// 	).await
 // }
 
-#[test]
-fn custom_c037() {
+#[async_std::test]
+async fn custom_c037() {
 	let input_url = iri!("file://crate/tests/custom/c037-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/c037-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/c037-out.jsonld");
@@ -173,10 +180,11 @@ fn custom_c037() {
 		base_url,
 		output_url,
 	)
+	.await
 }
 
-#[test]
-fn custom_c038() {
+#[async_std::test]
+async fn custom_c038() {
 	let input_url = iri!("file://crate/tests/custom/c038-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/c038-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/c038-out.jsonld");
@@ -189,10 +197,11 @@ fn custom_c038() {
 		base_url,
 		output_url,
 	)
+	.await
 }
 
-#[test]
-fn custom_0120() {
+#[async_std::test]
+async fn custom_0120() {
 	let input_url = iri!("file://crate/tests/custom/0120-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/0120-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/0120-out.jsonld");
@@ -205,10 +214,11 @@ fn custom_0120() {
 		base_url,
 		output_url,
 	)
+	.await
 }
 
-#[test]
-fn custom_0122() {
+#[async_std::test]
+async fn custom_0122() {
 	let input_url = iri!("file://crate/tests/custom/0122-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/0122-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/0122-out.jsonld");
@@ -221,10 +231,11 @@ fn custom_0122() {
 		base_url,
 		output_url,
 	)
+	.await
 }
 
-#[test]
-fn custom_0123() {
+#[async_std::test]
+async fn custom_0123() {
 	let input_url = iri!("file://crate/tests/custom/0123-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/0123-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/0123-out.jsonld");
@@ -237,10 +248,11 @@ fn custom_0123() {
 		base_url,
 		output_url,
 	)
+	.await
 }
 
-#[test]
-fn custom_0124() {
+#[async_std::test]
+async fn custom_0124() {
 	let input_url = iri!("file://crate/tests/custom/0124-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/0124-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/0124-out.jsonld");
@@ -253,10 +265,11 @@ fn custom_0124() {
 		base_url,
 		output_url,
 	)
+	.await
 }
 
-#[test]
-fn custom_0125() {
+#[async_std::test]
+async fn custom_0125() {
 	let input_url = iri!("file://crate/tests/custom/0125-in.jsonld");
 	let base_url = iri!("file://crate/tests/custom/0125-in.jsonld");
 	let output_url = iri!("file://crate/tests/custom/0125-out.jsonld");
@@ -269,4 +282,5 @@ fn custom_0125() {
 		base_url,
 		output_url,
 	)
+	.await
 }

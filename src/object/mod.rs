@@ -1,5 +1,6 @@
 //! Nodes, lists and values.
 
+mod mapped_eq;
 pub mod node;
 mod typ;
 pub mod value;
@@ -15,6 +16,7 @@ use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
+pub use mapped_eq::MappedEq;
 pub use node::{Node, Nodes};
 pub use typ::{Type, TypeRef};
 pub use value::{Literal, LiteralString, Value};
@@ -250,16 +252,16 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 		}
 	}
 
-	// pub fn blank_node_substitution(&self, other: &Self, initial_substitution: HashMap<BlankId, BlankId>) -> Option<HashMap<BlankId, BlankId>> {
-	// 	match (self, other) {
-	// 		(Self::Value(a), Self::Value(b)) if a == b => Some(initial_substitution),
-	// 		(Self::Node(a), Self::Node(b)) => a.blank_node_substitution(b, initial_substitution),
-	// 		(Self::List(a), Self::List(b)) => {
-	// 			panic!("TODO")
-	// 		},
-	// 		_ => None
-	// 	}
-	// }
+	pub fn traverse(&self) -> Traverse<J, T> {
+		match self {
+			Self::List(list) => Traverse::List {
+				current: None,
+				list: list.iter(),
+			},
+			Self::Value(value) => Traverse::Value(Some(value)),
+			Self::Node(node) => Traverse::Node(Box::new(node.traverse())),
+		}
+	}
 
 	/// Equivalence operator.
 	///
@@ -418,6 +420,38 @@ impl<'a, J: JsonHash, T: Id> Iterator for Objects<'a, J, T> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next(),
+		}
+	}
+}
+
+pub enum Traverse<'a, J: JsonHash, T: Id> {
+	List {
+		current: Option<Box<Traverse<'a, J, T>>>,
+		list: std::slice::Iter<'a, Indexed<Object<J, T>>>,
+	},
+	Value(Option<&'a Value<J, T>>),
+	Node(Box<node::Traverse<'a, J, T>>),
+}
+
+impl<'a, J: JsonHash, T: Id> Iterator for Traverse<'a, J, T> {
+	type Item = Ref<'a, J, T>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::List { current, list } => loop {
+				match current {
+					Some(object) => match object.next() {
+						Some(next) => break Some(next),
+						None => *current = None,
+					},
+					None => match list.next() {
+						Some(object) => *current = Some(Box::new(object.traverse())),
+						None => break None,
+					},
+				}
+			},
+			Self::Value(value) => value.take().map(Ref::Value),
+			Self::Node(node) => node.next(),
 		}
 	}
 }

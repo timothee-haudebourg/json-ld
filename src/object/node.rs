@@ -428,6 +428,18 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 		}
 	}
 
+	pub fn traverse(&self) -> Traverse<J, T> {
+		Traverse {
+			itself: Some(self),
+			current_object: None,
+			graph: self.graph.as_ref().map(HashSet::iter),
+			current_node: None,
+			included: self.included.as_ref().map(HashSet::iter),
+			properties: self.properties.traverse(),
+			reverse_properties: self.reverse_properties.traverse(),
+		}
+	}
+
 	/// Equivalence operator.
 	///
 	/// Equivalence is different from equality for anonymous objects.
@@ -567,6 +579,63 @@ impl<'a, J: JsonHash, T: Id> Iterator for Nodes<'a, J, T> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next(),
+		}
+	}
+}
+
+pub struct Traverse<'a, J: JsonHash, T: Id> {
+	itself: Option<&'a Node<J, T>>,
+	current_object: Option<Box<super::Traverse<'a, J, T>>>,
+	graph: Option<std::collections::hash_set::Iter<'a, Indexed<Object<J, T>>>>,
+	current_node: Option<Box<Self>>,
+	included: Option<std::collections::hash_set::Iter<'a, Indexed<Node<J, T>>>>,
+	properties: properties::Traverse<'a, J, T>,
+	reverse_properties: reverse_properties::Traverse<'a, J, T>,
+}
+
+impl<'a, J: JsonHash, T: Id> Iterator for Traverse<'a, J, T> {
+	type Item = crate::object::Ref<'a, J, T>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self.itself.take() {
+			Some(node) => Some(crate::object::Ref::Node(node)),
+			None => match self.properties.next() {
+				Some(next) => Some(next),
+				None => match self.reverse_properties.next() {
+					Some(next) => Some(next),
+					None => loop {
+						match &mut self.current_object {
+							Some(object) => match object.next() {
+								Some(next) => break Some(next),
+								None => self.current_object = None,
+							},
+							None => match &mut self.graph {
+								Some(graph) => match graph.next() {
+									Some(object) => {
+										self.current_object = Some(Box::new(object.traverse()))
+									}
+									None => self.graph = None,
+								},
+								None => match &mut self.current_node {
+									Some(node) => match node.next() {
+										Some(next) => break Some(next),
+										None => self.current_node = None,
+									},
+									None => match &mut self.included {
+										Some(included) => match included.next() {
+											Some(node) => {
+												self.current_node = Some(Box::new(node.traverse()))
+											}
+											None => self.included = None,
+										},
+										None => break None,
+									},
+								},
+							},
+						}
+					},
+				},
+			},
 		}
 	}
 }

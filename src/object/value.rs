@@ -20,6 +20,15 @@ pub enum Type<T> {
 	Id(T),
 }
 
+impl<T> Type<T> {
+	pub fn as_reference(&self) -> Option<crate::reference::Ref<T>> {
+		match self {
+			Self::Json => None,
+			Self::Id(t) => Some(crate::reference::Ref::Id(t)),
+		}
+	}
+}
+
 /// Value type reference.
 pub enum TypeRef<'a, T> {
 	Json,
@@ -31,6 +40,13 @@ impl<'a, T> TypeRef<'a, T> {
 		match self {
 			Self::Json => syntax::Type::Json,
 			Self::Id(id) => syntax::Type::Ref(id),
+		}
+	}
+
+	pub fn into_reference(self) -> Option<crate::reference::Ref<'a, T>> {
+		match self {
+			Self::Json => None,
+			Self::Id(t) => Some(crate::reference::Ref::Id(t)),
 		}
 	}
 }

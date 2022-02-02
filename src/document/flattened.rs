@@ -56,6 +56,7 @@ impl<J: JsonHash, T: Id> FlattenedDocument<J, T> {
 	}
 
 	#[inline(always)]
+	#[allow(clippy::type_complexity)]
 	pub fn into_parts(self) -> (Vec<Indexed<Node<J, T>>>, Vec<Loc<Warning, J::MetaData>>) {
 		(self.nodes, self.warnings)
 	}

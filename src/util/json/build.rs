@@ -1,4 +1,4 @@
-use cc_traits::{Get, Iter, Len, MapIter};
+use cc_traits::{Iter, MapIter};
 use generic_json::{
 	Json, JsonBuild, JsonClone, JsonIntoMut, JsonMutSendSync, Key, Value, ValueRef,
 };
@@ -137,67 +137,3 @@ impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for [T] {
 // 		Value::<K>::Array(array).with(meta(None))
 // 	}
 // }
-
-pub fn json_ld_eq<J: Json, K: Json>(a: &J, b: &K) -> bool
-where
-	J::Number: PartialEq<K::Number>,
-{
-	match (a.as_value_ref(), b.as_value_ref()) {
-		(ValueRef::Array(a), ValueRef::Array(b)) if a.len() == b.len() => {
-			let mut selected = Vec::with_capacity(a.len());
-			selected.resize(a.len(), false);
-
-			'a_items: for item in a.iter() {
-				for (i, sel) in selected.iter_mut().enumerate() {
-					if !*sel && json_ld_eq(&*item, &*b.get(i).unwrap()) {
-						*sel = true;
-						continue 'a_items;
-					}
-				}
-
-				return false;
-			}
-
-			true
-		}
-		(ValueRef::Object(a), ValueRef::Object(b)) if a.len() == b.len() => {
-			for (key, value_a) in a.iter() {
-				let key = key.as_ref();
-				if let Some(value_b) = b.get(key) {
-					if key == "@list" {
-						match (value_a.as_value_ref(), value_b.as_value_ref()) {
-							(ValueRef::Array(item_a), ValueRef::Array(item_b))
-								if item_a.len() == item_b.len() =>
-							{
-								for i in 0..item_a.len() {
-									if !json_ld_eq(
-										&*item_a.get(i).unwrap(),
-										&*item_b.get(i).unwrap(),
-									) {
-										return false;
-									}
-								}
-							}
-							_ => {
-								if !json_ld_eq(&*value_a, &*value_b) {
-									return false;
-								}
-							}
-						}
-					} else if !json_ld_eq(&*value_a, &*value_b) {
-						return false;
-					}
-				} else {
-					return false;
-				}
-			}
-
-			true
-		}
-		(ValueRef::Null, ValueRef::Null) => true,
-		(ValueRef::Boolean(a), ValueRef::Boolean(b)) => a == b,
-		(ValueRef::Number(a), ValueRef::Number(b)) => a == b,
-		(ValueRef::String(a), ValueRef::String(b)) => (**a) == (**b),
-		_ => false,
-	}
-}
