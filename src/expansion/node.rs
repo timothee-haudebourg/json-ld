@@ -830,7 +830,7 @@ where
 														index.metadata(),
 													),
 													LiteralValue::Inferred(
-														(&**index).into(),
+														(**index).into(),
 														index.metadata().clone(),
 													),
 													warnings,

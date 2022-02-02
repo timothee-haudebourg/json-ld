@@ -52,7 +52,7 @@ fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 		ValueRef::Null => K::null(meta),
 		ValueRef::Boolean(b) => K::boolean(b, meta),
 		ValueRef::Number(n) => K::number(n.clone().into(), meta),
-		ValueRef::String(s) => K::string((&**s).into(), meta),
+		ValueRef::String(s) => K::string((**s).into(), meta),
 		ValueRef::Array(a) => K::array(
 			a.iter()
 				.map(|value| json_to_json(&*value, m.clone()))
