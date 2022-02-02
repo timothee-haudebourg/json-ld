@@ -151,7 +151,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	/// # Example
 	/// ```
 	/// # use json_ld::syntax::{Term, Keyword};
-	/// # let node: json_ld::Node<ijson::IValue> = json_ld::Node::new();
+	/// # let node: json_ld::Node<serde_json::Value> = json_ld::Node::new();
 	///
 	/// // Checks if the JSON object representation of the node has an `@id` key.
 	/// if node.has_key(&Term::Keyword(Keyword::Id)) {

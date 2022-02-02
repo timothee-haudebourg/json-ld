@@ -10,9 +10,9 @@ use crate::{
 	util::{AsAnyJson, AsJson, JsonFrom},
 	ContextMut, Error, Id, Indexed, Loc, Node, Object, ProcessingMode, Value,
 };
-use mown::Mown;
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::{JsonBuild, JsonClone, JsonHash, JsonMut, JsonSendSync};
+use mown::Mown;
 use std::collections::HashSet;
 
 /// JSON type that can be used by the compaction algorithm.
@@ -128,15 +128,8 @@ pub trait Compact<J: JsonSrc, T: Id> {
 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
 		async move {
-			self.compact_full(
-				active_context,
-				active_context,
-				None,
-				loader,
-				options,
-				meta,
-			)
-			.await
+			self.compact_full(active_context, active_context, None, loader, options, meta)
+				.await
 		}
 		.boxed()
 	}

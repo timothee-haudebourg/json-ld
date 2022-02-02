@@ -678,11 +678,10 @@ where
 							// `compacted_item`.
 							compacted_item
 								.as_object_mut()
-								.map(|map| {
+								.and_then(|map| {
 									map.remove(container_key.unwrap().as_str())
 										.map(|value| value.as_str().map(|s| s.to_string()))
 								})
-								.flatten()
 								.flatten()
 						} else {
 							// Otherwise, if container includes @type:

@@ -39,6 +39,7 @@ pub struct ProcessingOptions {
 
 impl ProcessingOptions {
 	/// Return the same set of options, but with `override_protected` set to `true`.
+	#[must_use]
 	pub fn with_override(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.override_protected = true;
@@ -46,6 +47,7 @@ impl ProcessingOptions {
 	}
 
 	/// Return the same set of options, but with `override_protected` set to `false`.
+	#[must_use]
 	pub fn with_no_override(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.override_protected = false;
@@ -53,6 +55,7 @@ impl ProcessingOptions {
 	}
 
 	/// Return the same set of options, but with `propagate` set to `false`.
+	#[must_use]
 	pub fn without_propagation(&self) -> ProcessingOptions {
 		let mut opt = *self;
 		opt.propagate = false;
@@ -147,16 +150,16 @@ pub trait ContextMut<T: Id = IriBuf>: Context<T> {
 	fn set_previous_context(&mut self, previous: Self);
 }
 
-/// Trait for types that are or wrap a mutable context.
-///
-/// This trait is used by the [`Document::compact`](crate::Document::compact)
-/// function to accept either a context or a wrapper to a context.
-pub trait ContextMutProxy<T: Id = IriBuf> {
-	type Target: ContextMut<T>;
+// /// Trait for types that are or wrap a mutable context.
+// ///
+// /// This trait is used by the [`Document::compact`](crate::Document::compact)
+// /// function to accept either a context or a wrapper to a context.
+// pub trait ContextMutProxy<T: Id = IriBuf> {
+// 	type Target: ContextMut<T>;
 
-	/// Returns a reference to the mutable context.
-	fn deref(&self) -> &Self::Target;
-}
+// 	/// Returns a reference to the mutable context.
+// 	fn deref(&self) -> &Self::Target;
+// }
 
 /// Context processing result.
 pub type ProcessingResult<'s, J, C> =
@@ -232,7 +235,7 @@ pub trait Local<T: Id = IriBuf>: JsonSendSync {
 
 /// Processed context attached to its original unprocessed local context.
 ///
-/// This is usefull for instance to attach a processed context to its original JSON form,
+/// This is useful for instance to attach a processed context to its original JSON form,
 /// which is then used by the compaction algorithm to put the context in the compacted document.
 #[derive(Clone)]
 pub struct ProcessedOwned<L: generic_json::Json, C> {
@@ -276,6 +279,11 @@ impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 		&self.warnings
 	}
 
+	/// Returns a reference to the inner processed context.
+	pub fn inner(&self) -> &C {
+		&self.processed
+	}
+
 	/// Consumes the wrapper and returns the processed context.
 	pub fn into_inner(self) -> C {
 		self.processed
@@ -286,7 +294,10 @@ impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 		(self.local, self.processed)
 	}
 
-	pub fn inversible<T: Id>(self) -> ProcessedOwned<L, Inversible<T, C>> where C: Context<T> {
+	pub fn inversible<T: Id>(self) -> ProcessedOwned<L, Inversible<T, C>>
+	where
+		C: Context<T>,
+	{
 		ProcessedOwned {
 			local: self.local,
 			processed: Inversible::new(self.processed),
@@ -295,7 +306,7 @@ impl<L: generic_json::Json, C> ProcessedOwned<L, C> {
 	}
 }
 
-impl<T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T> for ProcessedOwned<L, C> {
+impl<L: generic_json::Json, C> std::ops::Deref for ProcessedOwned<L, C> {
 	type Target = C;
 
 	fn deref(&self) -> &C {
@@ -303,10 +314,8 @@ impl<T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T> for Proc
 	}
 }
 
-impl<L: generic_json::Json, C> std::ops::Deref for ProcessedOwned<L, C> {
-	type Target = C;
-
-	fn deref(&self) -> &C {
+impl<L: generic_json::Json, C> std::borrow::Borrow<C> for ProcessedOwned<L, C> {
+	fn borrow(&self) -> &C {
 		&self.processed
 	}
 }
@@ -394,7 +403,10 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 		(self.local, self.processed)
 	}
 
-	pub fn inversible<T: Id>(self) -> Processed<'a, L, Inversible<T, C>> where C: Context<T> {
+	pub fn inversible<T: Id>(self) -> Processed<'a, L, Inversible<T, C>>
+	where
+		C: Context<T>,
+	{
 		Processed {
 			local: self.local,
 			processed: Inversible::new(self.processed),
@@ -403,15 +415,15 @@ impl<'a, L: generic_json::Json, C> Processed<'a, L, C> {
 	}
 }
 
-impl<'a, T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T>
-	for Processed<'a, L, C>
-{
-	type Target = C;
+// impl<'a, T: Id, L: generic_json::Json, C: ContextMut<T>> ContextMutProxy<T>
+// 	for Processed<'a, L, C>
+// {
+// 	type Target = C;
 
-	fn deref(&self) -> &C {
-		&self.processed
-	}
-}
+// 	fn deref(&self) -> &C {
+// 		&self.processed
+// 	}
+// }
 
 impl<'a, L: generic_json::Json, C> std::ops::Deref for Processed<'a, L, C> {
 	type Target = C;
@@ -460,13 +472,13 @@ impl<J: JsonContext, T: Id> Json<J, T> {
 	}
 }
 
-impl<J: JsonContext, T: Id> ContextMutProxy<T> for Json<J, T> {
-	type Target = Self;
+// impl<J: JsonContext, T: Id> ContextMutProxy<T> for Json<J, T> {
+// 	type Target = Self;
 
-	fn deref(&self) -> &Self {
-		self
-	}
-}
+// 	fn deref(&self) -> &Self {
+// 		self
+// 	}
+// }
 
 impl<J: JsonContext, T: Id> Default for Json<J, T> {
 	fn default() -> Self {

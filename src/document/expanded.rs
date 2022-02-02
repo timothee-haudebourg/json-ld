@@ -2,10 +2,10 @@ use crate::{
 	compaction,
 	context::{self, Loader},
 	util::{AsJson, JsonFrom},
-	ContextMut, Error, Id, BlankId, Indexed, Loc, Object, Warning,
+	BlankId, ContextMut, Error, Id, Indexed, Loc, Object, Warning,
 };
 use generic_json::{JsonClone, JsonHash};
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 /// Result of the document expansion algorithm.
 ///
@@ -35,7 +35,7 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	}
 
 	/// Find a blank node identifiers substitution that maps `self` to `other`.
-	/// 
+	///
 	/// If such substitution exists, then the two documents are structurally and semantically equivalents.
 	pub fn blank_node_substitution(&self, other: &Self) -> Option<HashMap<BlankId, BlankId>> {
 		if self.objects.len() == other.objects.len() {
@@ -43,10 +43,9 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 				self.objects.iter(),
 				other.objects.iter(),
 				HashMap::<BlankId, BlankId>::new(),
-				|substitution, a, b| {
-					panic!("TODO")
-				}
-			).next()
+				|substitution, a, b| panic!("TODO"),
+			)
+			.next()
 		} else {
 			None
 		}
@@ -92,7 +91,7 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 		context: &'a context::ProcessedOwned<K, context::Inversible<T, C>>,
 		loader: &'a mut L,
 		options: compaction::Options,
-		meta: M
+		meta: M,
 	) -> Result<K, Error>
 	where
 		K: Clone + JsonFrom<C::LocalContext>,
@@ -104,21 +103,20 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 		M: 'a + Clone + Send + Sync + Fn(Option<&J::MetaData>) -> K::MetaData,
 	{
 		use compaction::Compact;
-		let mut compacted: K = self.objects.compact_full(
-			context.as_ref(),
-			context.as_ref(),
-			None,
-			loader,
-			options,
-			meta.clone(),
-		).await?;
+		let mut compacted: K = self
+			.objects
+			.compact_full(
+				context.as_ref(),
+				context.as_ref(),
+				None,
+				loader,
+				options,
+				meta.clone(),
+			)
+			.await?;
 
 		use crate::Document;
-		compacted.embed_context(
-			context,
-			options,
-			|| meta(None)
-		)?;
+		compacted.embed_context(context, options, || meta(None))?;
 
 		Ok(compacted)
 	}
@@ -126,7 +124,7 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 
 impl<J: JsonHash + PartialEq, T: Id + PartialEq> PartialEq for ExpandedDocument<J, T> {
 	/// Comparison between two expanded documents.
-	/// 
+	///
 	/// Warnings are not compared.
 	fn eq(&self, other: &Self) -> bool {
 		self.objects.eq(&other.objects)

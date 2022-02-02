@@ -13,8 +13,8 @@ use std::{
 ///
 /// ```rust
 /// use json_ld::{context, Document, NoLoader};
-/// use ijson::IValue;
-/// let doc: IValue = serde_json::from_str(
+/// use serde_json::Value;
+/// let doc: Value = serde_json::from_str(
 ///   r#"
 ///   {
 ///      "@context": {
@@ -27,11 +27,11 @@ use std::{
 /// )
 /// .unwrap();
 ///
-/// let mut loader = NoLoader::<IValue>::new();
+/// let mut loader = NoLoader::<Value>::new();
 ///
 /// let rt  = tokio::runtime::Runtime::new().unwrap();
 /// let expanded_doc = rt.block_on(doc
-///   .expand::<context::Json<IValue>, _>(&mut loader)).unwrap();
+///   .expand::<context::Json<Value>, _>(&mut loader)).unwrap();
 ///
 /// let node = expanded_doc.into_iter().next().unwrap().into_indexed_node().unwrap();
 ///

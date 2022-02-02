@@ -78,7 +78,7 @@ impl<V: Vocab> PartialEq<V> for Lexicon<V> {
 /// ```
 /// use iref_enum::*;
 /// use json_ld::Lexicon;
-/// use ijson::IValue;
+/// use serde_json::Value;
 ///
 /// /// Vocabulary used in the implementation.
 /// #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
@@ -105,7 +105,7 @@ impl<V: Vocab> PartialEq<V> for Lexicon<V> {
 /// /// A fully functional identifier type.
 /// pub type Id = Lexicon<Vocab>;
 ///
-/// fn handle_node(node: &json_ld::Node<IValue, Id>) {
+/// fn handle_node(node: &json_ld::Node<Value, Id>) {
 ///   for name in node.get(Vocab::Name) { // <- note that we can directly use `Vocab` here.
 ///     println!("node name: {}", name.as_str().unwrap());
 ///   }

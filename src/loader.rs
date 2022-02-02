@@ -43,7 +43,7 @@ pub trait Loader {
 	/// Returns `None` if the input `iri` is `None`.
 	#[inline(always)]
 	fn id_opt(&self, iri: Option<Iri<'_>>) -> Option<Id> {
-		iri.map(|iri| self.id(iri)).flatten()
+		iri.and_then(|iri| self.id(iri))
 	}
 
 	/// Returns the IRI with the given identifier, if any.

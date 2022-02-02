@@ -762,8 +762,7 @@ where
 					let mut defined = HashMap::new();
 					let protected = context
 						.get(Keyword::Protected.into())
-						.map(|p| p.as_bool())
-						.flatten()
+						.and_then(|p| p.as_bool())
 						.unwrap_or(false);
 
 					// 5.13) For each key-value pair in context where key is not

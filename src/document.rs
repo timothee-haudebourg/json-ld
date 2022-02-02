@@ -80,14 +80,17 @@ pub trait Document<T: Id> {
 		C: Send + Sync,
 		C::LocalContext: From<L::Output> + From<Self::Json>,
 		L: Send + Sync,
-		L::Output: Into<Self::Json>
+		L::Output: Into<Self::Json>,
 	{
 		async move {
 			let expanded_self = self.expand_with(base_url, context, loader, options).await?;
-			let expanded_other = other.expand_with(base_url, context, loader, options).await?;
+			let expanded_other = other
+				.expand_with(base_url, context, loader, options)
+				.await?;
 
 			Ok(expanded_self == expanded_other)
-		}.boxed()
+		}
+		.boxed()
 	}
 
 	/// Expand the document with a custom base URL, initial context, document loader and
@@ -128,9 +131,9 @@ pub trait Document<T: Id> {
 	/// # fn main() -> Result<(), json_ld::Loc<json_ld::Error, ()>> {
 	/// use async_std::task;
 	/// use json_ld::{Document, context, NoLoader};
-	/// use ijson::IValue;
+	/// use serde_json::Value;
 	///
-	/// let doc: IValue = serde_json::from_str("{
+	/// let doc: Value = serde_json::from_str("{
 	///   \"@context\": {
 	///     \"name\": \"http://xmlns.com/foaf/0.1/name\",
 	///     \"knows\": \"http://xmlns.com/foaf/0.1/knows\"
@@ -143,8 +146,8 @@ pub trait Document<T: Id> {
 	///     }
 	///   ]
 	/// }").unwrap();
-	/// let mut loader = NoLoader::<IValue>::new();
-	/// let expanded_doc = task::block_on(doc.expand::<context::Json<IValue>, _>(&mut loader))?;
+	/// let mut loader = NoLoader::<Value>::new();
+	/// let expanded_doc = task::block_on(doc.expand::<context::Json<Value>, _>(&mut loader))?;
 	/// # Ok(())
 	/// # }
 	/// ```
@@ -198,8 +201,7 @@ pub trait Document<T: Id> {
 		E: Send + Sync,
 		E::LocalContext: From<L::Output> + From<Self::Json>,
 		C: Send + Sync,
-		C::LocalContext:
-			compaction::JsonSrc + From<L::Output>,
+		C::LocalContext: compaction::JsonSrc + From<L::Output>,
 		L: 'a + Send + Sync,
 		M: 'a + Clone + Send + Sync + Fn(Option<&<Self::Json as Json>::MetaData>) -> K::MetaData,
 		L::Output: Into<Self::Json>,
@@ -213,13 +215,9 @@ pub trait Document<T: Id> {
 				.await
 				.map_err(Loc::unwrap)?;
 
-			expanded.compact(
-				compaction_context,
-				loader,
-				options,
-				meta,
-			)
-			.await
+			expanded
+				.compact(compaction_context, loader, options, meta)
+				.await
 		}
 		.boxed()
 	}
@@ -237,8 +235,7 @@ pub trait Document<T: Id> {
 		<Self::Json as Json>::MetaData: Default,
 		T: 'a + Send + Sync,
 		C: Send + Sync,
-		C::LocalContext:
-			compaction::JsonSrc + From<L::Output> + From<Self::Json>,
+		C::LocalContext: compaction::JsonSrc + From<L::Output> + From<Self::Json>,
 		L: 'a + Send + Sync,
 		L::Output: Into<Self::Json>,
 	{
@@ -248,7 +245,7 @@ pub trait Document<T: Id> {
 			context,
 			loader,
 			compaction::Options::default(),
-			|m| m.cloned().unwrap_or_default()
+			|m| m.cloned().unwrap_or_default(),
 		)
 	}
 
@@ -305,8 +302,9 @@ pub trait Document<T: Id> {
 		&mut self,
 		context: &context::ProcessedOwned<Self::Json, context::Inversible<T, C>>,
 		options: compaction::Options,
-		meta: M
-	) -> Result<(), Error> where
+		meta: M,
+	) -> Result<(), Error>
+	where
 		Self::Json: Clone + JsonMut + JsonNew,
 		<Self::Json as Json>::Object: Default,
 		M: Fn() -> <Self::Json as Json>::MetaData;
@@ -356,10 +354,11 @@ impl<J: Json, T: Id> Document<T> for J {
 		context: &context::ProcessedOwned<Self::Json, context::Inversible<T, C>>,
 		options: compaction::Options,
 		meta: M,
-	) -> Result<(), Error> where
+	) -> Result<(), Error>
+	where
 		Self::Json: Clone + JsonMut + JsonNew,
 		<Self::Json as Json>::Object: Default,
-		M: Fn() -> <Self::Json as Json>::MetaData
+		M: Fn() -> <Self::Json as Json>::MetaData,
 	{
 		if !self.is_object() {
 			let mut value = Self::empty_object(meta());
@@ -380,14 +379,13 @@ impl<J: Json, T: Id> Document<T> for J {
 
 					match key {
 						Ok(key) => {
-							self.as_object_mut().unwrap().insert(
-								Self::new_key(&key.unwrap(), meta()),
-								value,
-							);
-						},
+							self.as_object_mut()
+								.unwrap()
+								.insert(Self::new_key(&key.unwrap(), meta()), value);
+						}
 						Err(e) => {
 							std::mem::swap(self, &mut value);
-							return Err(e)
+							return Err(e);
 						}
 					}
 				}
@@ -397,10 +395,7 @@ impl<J: Json, T: Id> Document<T> for J {
 		let map = self.as_object_mut().unwrap();
 		let json_context = context.json().clone();
 
-		if !map.is_empty()
-			&& !json_context.is_null()
-			&& !json_context.is_empty_array_or_object()
-		{
+		if !map.is_empty() && !json_context.is_null() && !json_context.is_empty_array_or_object() {
 			map.insert(Self::new_key("@context", meta()), json_context);
 		}
 
@@ -420,7 +415,7 @@ impl<J: Json, T: Id> Document<T> for J {
 /// use static_iref::*;
 ///
 /// use async_std::task;
-/// use ijson::IValue;
+/// use serde_json::Value;
 /// use json_ld::{
 ///   Loader,
 ///   FsLoader,
@@ -428,12 +423,12 @@ impl<J: Json, T: Id> Document<T> for J {
 /// };
 ///
 /// // Prepare the loader.
-/// let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
+/// let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 /// loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 ///
 /// // Load the remote document.
 /// let url = iri!("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld");
-/// let doc: RemoteDocument<IValue> = task::block_on(loader.load(url)).unwrap();
+/// let doc: RemoteDocument<Value> = task::block_on(loader.load(url)).unwrap();
 /// ```
 #[derive(Clone)]
 pub struct RemoteDocument<D> {
@@ -506,10 +501,11 @@ impl<T: Id, D: Document<T>> Document<T> for RemoteDocument<D> {
 		context: &context::ProcessedOwned<Self::Json, context::Inversible<T, C>>,
 		options: compaction::Options,
 		meta: M,
-	) -> Result<(), Error> where
+	) -> Result<(), Error>
+	where
 		Self::Json: Clone + JsonMut + JsonNew,
 		<Self::Json as Json>::Object: Default,
-		M: Fn() -> <Self::Json as Json>::MetaData
+		M: Fn() -> <Self::Json as Json>::MetaData,
 	{
 		self.doc.embed_context(context, options, meta)
 	}

@@ -1,6 +1,6 @@
 [package]
 name = "json-ld"
-version = "0.5.0"
+version = "0.6.1"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2018"
 categories = ["web-programming", "database", "data-structures"]
@@ -27,8 +27,7 @@ log = "^0.4"
 derivative = "^2.2"
 mown = "^0.2"
 cc-traits = "^0.7.3"
-# generic-json = { version = "^0.6", features = ["nightly"] }
-generic-json = { path = "../../json/generic", features = ["nightly"] }
+generic-json = { version = "^0.7", features = ["nightly"] }
 iref = "^2.1"
 futures = "^0.3"
 once_cell = "^1.4"
@@ -44,9 +43,7 @@ iref-enum = "^1.2"
 stderrlog = "^0.5"
 tokio = { version = "^1.0", features = ["macros", "rt-multi-thread"] }
 serde_json = "1.0"
-ijson = "^0.1"
-# generic-json = { version = "^0.6", features = ["ijson-impl"] }
-generic-json = { path = "../../json/generic", features = ["ijson-impl"] }
+generic-json = { version = "^0.7", features = ["serde_json-impl"] }
 
 [[example]]
 name = "reqwest-loader"

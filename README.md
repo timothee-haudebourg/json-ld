@@ -41,12 +41,12 @@ and document loader
 use async_std::task;
 use iref::IriBuf;
 use json_ld::{context, NoLoader, Document, Object, Reference};
-use ijson::IValue;
+use serde_json::Value;
 
 #[async_std::main]
 async fn main() -> Result<(), json_ld::Error> {
   // The JSON-LD document to expand.
-  let doc: IValue = serde_json::from_str(r#"
+  let doc: Value = serde_json::from_str(r#"
     {
       "@context": {
         "name": "http://xmlns.com/foaf/0.1/name"
@@ -57,10 +57,10 @@ async fn main() -> Result<(), json_ld::Error> {
   "#).unwrap();
 
   // JSON document loader.
-  let mut loader = NoLoader::<IValue>::new();
+  let mut loader = NoLoader::<Value>::new();
 
   // Expansion.
-  let expanded_doc = doc.expand::<context::Json<IValue>, _>(&mut loader).await?;
+  let expanded_doc = doc.expand::<context::Json<Value>, _>(&mut loader).await?;
 
   // Reference to the `name` property.
   let name_property = Reference::Id(IriBuf::new("http://xmlns.com/foaf/0.1/name").unwrap());
@@ -97,7 +97,7 @@ The `Document` trait also provides a `Document::compact` function to compact a d
 #[async_std::main]
 async fn main() -> Result<(), json_ld::Error> {
   // Input JSON-LD document to compact.
-  let input: IValue = serde_json::from_str(r#"
+  let input: Value = serde_json::from_str(r#"
     [{
       "http://xmlns.com/foaf/0.1/name": ["Timothée Haudebourg"],
       "http://xmlns.com/foaf/0.1/homepage": [{"@id": "https://haudebourg.net/"}]
@@ -105,7 +105,7 @@ async fn main() -> Result<(), json_ld::Error> {
   "#).unwrap();
 
   // JSON-LD context.
-  let context: IValue = serde_json::from_str(r#"
+  let context: Value = serde_json::from_str(r#"
     {
       "name": "http://xmlns.com/foaf/0.1/name",
       "homepage": {"@id": "http://xmlns.com/foaf/0.1/homepage", "@type": "@id"}
@@ -113,10 +113,10 @@ async fn main() -> Result<(), json_ld::Error> {
   "#).unwrap();
 
   // JSON document loader.
-  let mut loader = NoLoader::<IValue>::new();
+  let mut loader = NoLoader::<Value>::new();
 
   // Process the context.
-  let processed_context = context.process::<context::Json<IValue>, _>(&mut loader, None).await?;
+  let processed_context = context.process::<context::Json<Value>, _>(&mut loader, None).await?;
 
   // Compact the input document.
   let output = input.compact(&processed_context, &mut loader).await.unwrap();
@@ -156,7 +156,7 @@ pub enum MyVocab {
 // A fully functional identifier type.
 pub type Id = Lexicon<MyVocab>;
 
-fn handle_node(node: &json_ld::Node<IValue, Id>) {
+fn handle_node(node: &json_ld::Node<Value, Id>) {
   for name in node.get(MyVocab::Name) { // <- NOTE: we can directly use `MyVocab` here.
     println!("node name: {}", name.as_str().unwrap());
   }

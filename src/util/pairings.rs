@@ -1,6 +1,6 @@
 use std::{
+	collections::{HashMap, HashSet},
 	iter::Enumerate,
-	collections::{HashMap, HashSet}
 };
 
 // pub struct HashSubstitutions<T, U, I: Iterator, TF, UF> {
@@ -15,18 +15,22 @@ use std::{
 // 			Some(item) => {
 // 				// ...
 // 			},
-// 			None => 
+// 			None =>
 // 		}
 // 	}
 // }
 
 pub struct Pairings<Q, I: Iterator, F> {
 	stack: Vec<Frame<Q, I>>,
-	next_state: F
+	next_state: F,
 }
 
 impl<Q, I: Iterator, F> Pairings<Q, I, F> {
-	pub fn new(a: I, b: I, initial_state: Q, next_state: F) -> Self where I: Clone, F: Fn(&Q, I::Item, I::Item) -> Option<Q> {
+	pub fn new(a: I, b: I, initial_state: Q, next_state: F) -> Self
+	where
+		I: Clone,
+		F: Fn(&Q, I::Item, I::Item) -> Option<Q>,
+	{
 		let b = b.enumerate();
 		Self {
 			stack: vec![Frame {
@@ -35,9 +39,9 @@ impl<Q, I: Iterator, F> Pairings<Q, I, F> {
 				a_candidate: None,
 				b: b.clone(),
 				b_candidates: b,
-				b_selected: HashSet::new()
+				b_selected: HashSet::new(),
 			}],
-			next_state
+			next_state,
 		}
 	}
 }
@@ -48,14 +52,14 @@ pub struct Frame<Q, I: Iterator> {
 	a_candidate: Option<I::Item>,
 	b: Enumerate<I>,
 	b_candidates: Enumerate<I>,
-	b_selected: HashSet<usize>
+	b_selected: HashSet<usize>,
 }
 
 impl<Q, I, F> Iterator for Pairings<Q, I, F>
 where
 	I: Clone + Iterator,
 	I::Item: Clone + PartialEq,
-	F: Fn(&Q, I::Item, I::Item) -> Option<Q>
+	F: Fn(&Q, I::Item, I::Item) -> Option<Q>,
 {
 	type Item = Q;
 
@@ -68,16 +72,16 @@ where
 							let mut b_selected = frame.b_selected.clone();
 							b_selected.insert(i);
 
-							let next_frame = (self.next_state)(&frame.state, item, other_item).map(|next_state| {
-								Frame {
+							let next_frame = (self.next_state)(&frame.state, item, other_item).map(
+								|next_state| Frame {
 									state: next_state,
 									a: frame.a.clone(),
 									a_candidate: None,
 									b: frame.b.clone(),
 									b_candidates: frame.b.clone(),
-									b_selected
-								}
-							});
+									b_selected,
+								},
+							);
 
 							self.stack.push(frame);
 
@@ -85,24 +89,25 @@ where
 								self.stack.push(next_frame)
 							}
 
-							break
-						}
-					}
-				},
-				None => {
-					match frame.a.next() {
-						None => {
-							let b_selected = &frame.b_selected;
-							if frame.b_candidates.all(move |(i, _)| b_selected.contains(&i)) {
-								return Some(frame.state)
-							}
-						},
-						Some(item) => {
-							frame.a_candidate = Some(item);
-							self.stack.push(frame)
+							break;
 						}
 					}
 				}
+				None => match frame.a.next() {
+					None => {
+						let b_selected = &frame.b_selected;
+						if frame
+							.b_candidates
+							.all(move |(i, _)| b_selected.contains(&i))
+						{
+							return Some(frame.state);
+						}
+					}
+					Some(item) => {
+						frame.a_candidate = Some(item);
+						self.stack.push(frame)
+					}
+				},
 			}
 		}
 
@@ -139,23 +144,29 @@ mod tests {
 	}
 
 	fn test(a: Vec<u32>, b: Vec<u32>, expected_substitutions: BTreeSet<BTreeMap<u32, u32>>) {
-		let substitutions: BTreeSet<_> = super::Pairings::new(a.iter(), b.iter(), BTreeMap::<u32, u32>::new(), |substitution, a, b| {
-			let mut new_substitution = substitution.clone();
+		let substitutions: BTreeSet<_> = super::Pairings::new(
+			a.iter(),
+			b.iter(),
+			BTreeMap::<u32, u32>::new(),
+			|substitution, a, b| {
+				let mut new_substitution = substitution.clone();
 
-			use std::collections::btree_map::Entry;
-			match new_substitution.entry(*a) {
-				Entry::Occupied(entry) => {
-					if entry.get() != b {
-						return None
+				use std::collections::btree_map::Entry;
+				match new_substitution.entry(*a) {
+					Entry::Occupied(entry) => {
+						if entry.get() != b {
+							return None;
+						}
+					}
+					Entry::Vacant(entry) => {
+						entry.insert(*b);
 					}
 				}
-				Entry::Vacant(entry) => {
-					entry.insert(*b);
-				}
-			}
 
-			Some(new_substitution)
-		}).collect();
+				Some(new_substitution)
+			},
+		)
+		.collect();
 
 		assert_eq!(substitutions, expected_substitutions)
 	}
@@ -165,10 +176,7 @@ mod tests {
 		test(
 			vec![0, 1],
 			vec![1, 0],
-			set![
-				map! {0 => 1, 1 => 0},
-				map! {0 => 0, 1 => 1}
-			]
+			set![map! {0 => 1, 1 => 0}, map! {0 => 0, 1 => 1}],
 		)
 	}
 
@@ -177,10 +185,7 @@ mod tests {
 		test(
 			vec![0, 1, 1, 2],
 			vec![2, 0, 0, 1],
-			set![
-				map! {1 => 0, 0 => 2, 2 => 1},
-				map! {1 => 0, 0 => 1, 2 => 2}
-			]
+			set![map! {1 => 0, 0 => 2, 2 => 1}, map! {1 => 0, 0 => 1, 2 => 2}],
 		)
 	}
 
@@ -194,7 +199,7 @@ mod tests {
 				map! {0 => 4, 1 => 0, 2 => 3, 3 => 1, 4 => 2},
 				map! {0 => 2, 1 => 1, 2 => 3, 3 => 0, 4 => 4},
 				map! {0 => 4, 1 => 1, 2 => 3, 3 => 0, 4 => 2}
-			]
+			],
 		)
 	}
 }

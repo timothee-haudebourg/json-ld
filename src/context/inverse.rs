@@ -79,10 +79,9 @@ impl<T: Id, C> Inversible<T, C> {
 
 	pub fn inverse(&self) -> &InverseContext<T>
 	where
-		C: Context<T>
-	// where
-	// 	C: std::ops::Deref,
-	// 	C::Target: Context<T>,
+		C: Context<T>, // where
+		               // 	C: std::ops::Deref,
+		               // 	C::Target: Context<T>
 	{
 		self.inverse
 			.get_or_init(|| InverseContext::from(&self.context))

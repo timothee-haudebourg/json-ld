@@ -10,8 +10,8 @@ extern crate iref_enum;
 extern crate static_iref;
 extern crate json_ld;
 
-use ijson::IValue;
 use json_ld::{context, reqwest::Loader, Document, Lexicon, Object};
+use serde_json::Value;
 
 /// Vocabulary of the test manifest
 #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
@@ -34,7 +34,7 @@ type Id = Lexicon<Vocab>;
 
 #[tokio::main]
 async fn main() {
-	let mut loader = Loader::<IValue>::new(|s| serde_json::from_str(s));
+	let mut loader = Loader::<Value>::new(|s| serde_json::from_str(s));
 
 	// The JSON-LD document to expand.
 	let doc = loader
@@ -46,7 +46,7 @@ async fn main() {
 
 	// Expansion.
 	let expanded_doc = doc
-		.expand::<context::Json<IValue, Id>, _>(&mut loader)
+		.expand::<context::Json<Value, Id>, _>(&mut loader)
 		.await
 		.unwrap();
 

@@ -1,6 +1,7 @@
 //! Flattening algorithm and related types.
 use crate::{
-	expansion, compaction, id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object, ProcessingMode,
+	compaction, expansion, id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object,
+	ProcessingMode,
 };
 use generic_json::{JsonClone, JsonHash};
 use std::collections::HashSet;
@@ -39,7 +40,7 @@ impl From<Options> for expansion::Options {
 		Self {
 			processing_mode: o.processing_mode,
 			policy: o.policy,
-			ordered: false
+			ordered: false,
 		}
 	}
 }
@@ -50,7 +51,7 @@ impl From<Options> for compaction::Options {
 			processing_mode: o.processing_mode,
 			compact_to_relative: o.compact_to_relative,
 			compact_arrays: o.compact_arrays,
-			ordered: false
+			ordered: false,
 		}
 	}
 }

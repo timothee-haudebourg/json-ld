@@ -1,11 +1,5 @@
-extern crate async_std;
-extern crate iref;
-#[macro_use]
-extern crate static_iref;
-extern crate json_ld;
-
+use static_iref::iri;
 use async_std::task;
-use ijson::IValue;
 use iref::{Iri, IriBuf};
 use json_ld::{
 	compaction,
@@ -14,6 +8,7 @@ use json_ld::{
 	util::{json_ld_eq, AsJson},
 	Document, ErrorCode, FsLoader, Loader, ProcessingMode,
 };
+use serde_json::Value;
 
 #[derive(Clone, Copy)]
 struct Options<'a> {
@@ -57,25 +52,27 @@ fn no_metadata<M>(_: Option<&M>) -> () {
 }
 
 fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Iri) {
-	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
+	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
 	let expected_output = task::block_on(loader.load(output_url)).unwrap();
 
-	let expand_context: context::Json<IValue, IriBuf> = context::Json::new(Some(base_url));
-	let compact_context: Option<context::ProcessedOwned<IValue, context::Json<IValue, IriBuf>>> = options.context.map(|context_url| {
-		let local_context = task::block_on(loader.load_context(context_url))
+	let expand_context: context::Json<Value, IriBuf> = context::Json::new(Some(base_url));
+	let compact_context: Option<context::ProcessedOwned<Value, context::Json<Value, IriBuf>>> =
+		options.context.map(|context_url| {
+			let local_context = task::block_on(loader.load_context(context_url))
+				.unwrap()
+				.into_context();
+			task::block_on(local_context.process_with(
+				&context::Json::new(Some(base_url)),
+				&mut loader,
+				Some(base_url),
+				options.into(),
+			))
 			.unwrap()
-			.into_context();
-		task::block_on(local_context.process_with(
-			&context::Json::new(Some(base_url)),
-			&mut loader,
-			Some(base_url),
-			options.into(),
-		))
-		.unwrap().owned()
-	});
+			.owned()
+		});
 
 	let mut id_generator = json_ld::id::generator::Blank::new_with_prefix("b".to_string());
 	let output = task::block_on(input.flatten_with(
@@ -83,26 +80,32 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 		Some(base_url),
 		&expand_context,
 		&mut loader,
-		options.into()
+		options.into(),
 	))
 	.unwrap();
-	
-	let json_output: IValue = match compact_context {
-		Some(compact_context) => {
-			task::block_on(output.compact(
-				&compact_context.inversible(),
-				&mut loader,
-				options.into(),
-				no_metadata,
-			))
-			.unwrap()
-		}
+
+	let json_output: Value = match compact_context {
+		Some(compact_context) => task::block_on(output.compact(
+			&compact_context.inversible(),
+			&mut loader,
+			options.into(),
+			no_metadata,
+		))
+		.unwrap(),
 		None => output.as_json(),
 	};
 
 	let success = json_ld_eq(&json_output, &*expected_output);
 
 	if !success {
+		// let expected_ld_output = task::block_on(expected_output.expand_with(
+		// 	Some(base_url),
+		// 	&expand_context,
+		// 	&mut loader,
+		// 	options.into(),
+		// ))
+		// .unwrap();
+
 		println!(
 			"output=\n{}",
 			serde_json::to_string_pretty(&json_output).unwrap()
@@ -117,11 +120,11 @@ fn positive_test(options: Options, input_url: Iri, base_url: Iri, output_url: Ir
 }
 
 fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: ErrorCode) {
-	let mut loader = FsLoader::<IValue>::new(|s| serde_json::from_str(s));
+	let mut loader = FsLoader::<Value>::new(|s| serde_json::from_str(s));
 	loader.mount(iri!("https://w3c.github.io/json-ld-api"), "json-ld-api");
 
 	let input = task::block_on(loader.load(input_url)).unwrap();
-	let mut input_context: context::Json<IValue, IriBuf> = context::Json::new(Some(base_url));
+	let mut input_context: context::Json<Value, IriBuf> = context::Json::new(Some(base_url));
 
 	if let Some(context_url) = options.context {
 		let local_context = task::block_on(loader.load_context(context_url))
@@ -148,7 +151,7 @@ fn negative_test(options: Options, input_url: Iri, base_url: Iri, error_code: Er
 
 	match result {
 		Ok(output) => {
-			let output_json: IValue = output.as_json();
+			let output_json: Value = output.as_json();
 			println!(
 				"output=\n{}",
 				serde_json::to_string_pretty(&output_json).unwrap()
@@ -175,11 +178,11 @@ fn flatten_0001() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -195,11 +198,11 @@ fn flatten_0002() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -215,11 +218,11 @@ fn flatten_0003() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -235,11 +238,11 @@ fn flatten_0004() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -255,11 +258,11 @@ fn flatten_0005() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -275,11 +278,11 @@ fn flatten_0006() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -295,11 +298,11 @@ fn flatten_0007() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -315,11 +318,11 @@ fn flatten_0008() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -335,11 +338,11 @@ fn flatten_0009() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -355,11 +358,11 @@ fn flatten_0010() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -375,11 +378,11 @@ fn flatten_0011() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -395,11 +398,11 @@ fn flatten_0012() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -415,11 +418,11 @@ fn flatten_0013() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -435,11 +438,11 @@ fn flatten_0015() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -449,17 +452,19 @@ fn flatten_0016() {
 	let base_url = iri!("https://w3c.github.io/json-ld-api/tests/flatten/0016-in.jsonld");
 	let output_url = iri!("https://w3c.github.io/json-ld-api/tests/flatten/0016-out.jsonld");
 	println!("context reset");
-	println!("Setting @context to null within an embedded object resets back to initial context state");
+	println!(
+		"Setting @context to null within an embedded object resets back to initial context state"
+	);
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -475,11 +480,11 @@ fn flatten_0017() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -495,11 +500,11 @@ fn flatten_0018() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -515,11 +520,11 @@ fn flatten_0019() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -535,11 +540,11 @@ fn flatten_0020() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -555,11 +560,11 @@ fn flatten_0021() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -575,11 +580,11 @@ fn flatten_0022() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -595,11 +600,11 @@ fn flatten_0023() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -615,11 +620,11 @@ fn flatten_0024() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -635,11 +640,11 @@ fn flatten_0025() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -655,11 +660,11 @@ fn flatten_0027() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -675,11 +680,11 @@ fn flatten_0028() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -695,11 +700,11 @@ fn flatten_0030() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -715,11 +720,11 @@ fn flatten_0031() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -735,11 +740,11 @@ fn flatten_0032() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -755,11 +760,11 @@ fn flatten_0033() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -775,11 +780,11 @@ fn flatten_0034() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -795,11 +800,11 @@ fn flatten_0035() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -815,11 +820,11 @@ fn flatten_0036() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -835,11 +840,11 @@ fn flatten_0037() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -855,11 +860,11 @@ fn flatten_0039() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -875,11 +880,11 @@ fn flatten_0040() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -889,17 +894,19 @@ fn flatten_0041() {
 	let base_url = iri!("https://w3c.github.io/json-ld-api/tests/flatten/0041-in.jsonld");
 	let output_url = iri!("https://w3c.github.io/json-ld-api/tests/flatten/0041-out.jsonld");
 	println!("Free-floating sets and lists");
-	println!("Free-floating values in sets are removed, free-floating lists are removed completely");
+	println!(
+		"Free-floating values in sets are removed, free-floating lists are removed completely"
+	);
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -915,11 +922,11 @@ fn flatten_0042() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -935,11 +942,11 @@ fn flatten_0043() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -955,11 +962,13 @@ fn flatten_0044() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: Some(iri!("https://w3c.github.io/json-ld-api/tests/flatten/0044-context.jsonld"))
+			context: Some(iri!(
+				"https://w3c.github.io/json-ld-api/tests/flatten/0044-context.jsonld"
+			)),
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -975,11 +984,11 @@ fn flatten_0045() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -989,17 +998,19 @@ fn flatten_0046() {
 	let base_url = iri!("https://w3c.github.io/json-ld-api/tests/flatten/0046-in.jsonld");
 	let output_url = iri!("https://w3c.github.io/json-ld-api/tests/flatten/0046-out.jsonld");
 	println!("Empty string as identifier");
-	println!("Usage of empty strings in identifiers needs special care when constructing the node map.");
+	println!(
+		"Usage of empty strings in identifiers needs special care when constructing the node map."
+	);
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1015,11 +1026,11 @@ fn flatten_0047() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1035,11 +1046,11 @@ fn flatten_0048() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1055,11 +1066,11 @@ fn flatten_0049() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1068,17 +1079,19 @@ fn flatten_e001() {
 	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/flatten/e001-in.jsonld");
 	let base_url = iri!("https://w3c.github.io/json-ld-api/tests/flatten/e001-in.jsonld");
 	println!("Conflicting indexes");
-	println!("Verifies that an exception is raised in Flattening when conflicting indexes are found");
+	println!(
+		"Verifies that an exception is raised in Flattening when conflicting indexes are found"
+	);
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		ErrorCode::ConflictingIndexes
+		ErrorCode::ConflictingIndexes,
 	)
 }
 
@@ -1094,11 +1107,11 @@ fn flatten_in01() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1114,11 +1127,11 @@ fn flatten_in02() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1134,11 +1147,11 @@ fn flatten_in03() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1154,11 +1167,11 @@ fn flatten_in04() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1174,11 +1187,11 @@ fn flatten_in05() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1194,11 +1207,11 @@ fn flatten_in06() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1214,11 +1227,11 @@ fn flatten_li01() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1234,11 +1247,11 @@ fn flatten_li02() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
 
@@ -1254,11 +1267,10 @@ fn flatten_li03() {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			ordered: true,
 			compact_arrays: false,
-			context: None
+			context: None,
 		},
 		input_url,
 		base_url,
-		output_url
+		output_url,
 	)
 }
-
