@@ -1,5 +1,5 @@
 use crate::{
-	object,
+	id, object,
 	syntax::{Keyword, Term},
 	util, Id, Indexed, Object, Objects, Reference, ToReference,
 };
@@ -183,6 +183,25 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 	#[inline(always)]
 	pub fn set_id(&mut self, id: Option<Reference<T>>) {
 		self.id = id
+	}
+
+	/// Assigns an identifier to this node and every other node included in this one using the given `generator`.
+	pub fn identify_all<G: id::Generator<T>>(&mut self, generator: &mut G) {
+		if self.id.is_none() {
+			self.id = Some(generator.next().into())
+		}
+
+		for (_, objects) in self.properties_mut() {
+			for object in objects {
+				object.identify_all(generator);
+			}
+		}
+
+		for (_, nodes) in self.reverse_properties_mut() {
+			for node in nodes {
+				node.identify_all(generator);
+			}
+		}
 	}
 
 	/// Get the node's as an IRI if possible.

@@ -54,7 +54,7 @@ impl fmt::Display for LenientLanguageTagBuf {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::WellFormed(tag) => tag.fmt(f),
-			Self::Malformed(tag) => tag.fmt(f)
+			Self::Malformed(tag) => tag.fmt(f),
 		}
 	}
 }

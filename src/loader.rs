@@ -1,7 +1,7 @@
 use crate::{Error, ErrorCode, RemoteDocument};
 use futures::future::{BoxFuture, FutureExt};
 use generic_json::Json;
-use iref::{Iri, IriRef, IriBuf};
+use iref::{Iri, IriBuf, IriRef};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};
@@ -138,7 +138,7 @@ impl<J> FsLoader<J> {
 					filepath.push(seg.as_str())
 				}
 
-				return Some(filepath)
+				return Some(filepath);
 			}
 		}
 
@@ -186,28 +186,24 @@ impl<J: Json + Clone + Send> Loader for FsLoader<J> {
 					url,
 					*id,
 				)),
-				None => {
-					match self.filepath(url.as_iri_ref()) {
-						Some(filepath) => {
-							if let Ok(file) = File::open(filepath) {
-								let mut buf_reader = BufReader::new(file);
-								let mut contents = String::new();
-								if buf_reader.read_to_string(&mut contents).is_ok() {
-									let doc = (*self.parser)(contents.as_str())?;
-									let id = self.allocate(url.clone(), doc.clone());
-									return Ok(RemoteDocument::new(doc, url, id));
-								} else {
-									return Err(ErrorCode::LoadingDocumentFailed.into());
-								}
+				None => match self.filepath(url.as_iri_ref()) {
+					Some(filepath) => {
+						if let Ok(file) = File::open(filepath) {
+							let mut buf_reader = BufReader::new(file);
+							let mut contents = String::new();
+							if buf_reader.read_to_string(&mut contents).is_ok() {
+								let doc = (*self.parser)(contents.as_str())?;
+								let id = self.allocate(url.clone(), doc.clone());
+								Ok(RemoteDocument::new(doc, url, id))
 							} else {
-								return Err(ErrorCode::LoadingDocumentFailed.into());
+								Err(ErrorCode::LoadingDocumentFailed.into())
 							}
-						}
-						None => {
+						} else {
 							Err(ErrorCode::LoadingDocumentFailed.into())
 						}
 					}
-				}
+					None => Err(ErrorCode::LoadingDocumentFailed.into()),
+				},
 			}
 		}
 		.boxed()

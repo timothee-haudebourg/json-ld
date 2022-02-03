@@ -1,4 +1,4 @@
-use crate::{object, ExpandedDocument, Id, Indexed, Node, Object, Reference};
+use crate::{object, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object, Reference};
 use generic_json::JsonHash;
 use smallvec::SmallVec;
 
@@ -48,6 +48,14 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	}
 }
 
+impl<J: JsonHash, T: Id> FlattenedDocument<J, T> {
+	pub fn quads(&self) -> Quads<J, T> {
+		let mut stack = SmallVec::new();
+		stack.push(QuadsFrame::IndexedNodeSlice(None, self.iter()));
+		Quads { stack }
+	}
+}
+
 const STACK_LEN: usize = 6;
 
 pub struct Quads<'a, J: JsonHash, T: Id> {
@@ -59,9 +67,17 @@ enum QuadsFrame<'a, J: JsonHash, T: Id> {
 		Option<&'a Reference<T>>,
 		std::collections::hash_set::Iter<'a, Indexed<Object<J, T>>>,
 	),
+	IndexedNodeSet(
+		Option<&'a Reference<T>>,
+		std::collections::hash_set::Iter<'a, Indexed<Node<J, T>>>,
+	),
 	IndexedObjectSlice(
 		Option<&'a Reference<T>>,
 		std::slice::Iter<'a, Indexed<Object<J, T>>>,
+	),
+	IndexedNodeSlice(
+		Option<&'a Reference<T>>,
+		std::slice::Iter<'a, Indexed<Node<J, T>>>,
 	),
 	NodeTypes(
 		Option<&'a Reference<T>>,
@@ -78,7 +94,6 @@ enum QuadsFrame<'a, J: JsonHash, T: Id> {
 		&'a Node<J, T>,
 		object::node::reverse_properties::Iter<'a, J, T>,
 	),
-
 	NodePropertyObjects(
 		Option<&'a Reference<T>>,
 		&'a Reference<T>,
@@ -106,6 +121,20 @@ impl<'a, J: JsonHash, T: Id> Quads<'a, J, T> {
 
 	fn push_node(&mut self, graph: Option<&'a Reference<T>>, node: &'a Node<J, T>) {
 		if let Some(id) = node.id() {
+			if let Some(graph) = node.graph() {
+				self.stack.push(QuadsFrame::IndexedObjectSet(
+					Some(id),
+					graph.iter()
+				))
+			}
+
+			if let Some(included) = node.included() {
+				self.stack.push(QuadsFrame::IndexedNodeSet(
+					graph,
+					included.iter()
+				))
+			}
+
 			self.stack.push(QuadsFrame::NodeReverseProperties(
 				graph,
 				node,
@@ -137,10 +166,28 @@ impl<'a, J: JsonHash, T: Id> Iterator for Quads<'a, J, T> {
 						}
 					}
 				}
+				QuadsFrame::IndexedNodeSet(graph, nodes) => {
+					let graph = *graph;
+					match nodes.next() {
+						Some(node) => self.push_node(graph, node),
+						None => {
+							self.stack.pop();
+						}
+					}
+				}
 				QuadsFrame::IndexedObjectSlice(graph, objects) => {
 					let graph = *graph;
 					match objects.next() {
 						Some(object) => self.push_object(graph, object),
+						None => {
+							self.stack.pop();
+						}
+					}
+				}
+				QuadsFrame::IndexedNodeSlice(graph, nodes) => {
+					let graph = *graph;
+					match nodes.next() {
+						Some(node) => self.push_node(graph, node),
 						None => {
 							self.stack.pop();
 						}

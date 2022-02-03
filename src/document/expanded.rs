@@ -1,6 +1,7 @@
 use crate::{
 	compaction,
 	context::{self, Loader},
+	id,
 	util::{AsJson, JsonFrom},
 	ContextMut, Error, Id, Indexed, Loc, Object, Warning,
 };
@@ -57,6 +58,17 @@ impl<J: JsonHash, T: Id> ExpandedDocument<J, T> {
 	#[inline(always)]
 	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Indexed<Object<J, T>>> {
 		self.objects.iter()
+	}
+
+	#[inline(always)]
+	pub fn identify_all<G: id::Generator<T>>(&mut self, generator: &mut G) {
+		let mut objects = HashSet::new();
+		std::mem::swap(&mut self.objects, &mut objects);
+
+		for mut object in objects {
+			object.identify_all(generator);
+			self.objects.insert(object);
+		}
 	}
 
 	#[inline(always)]

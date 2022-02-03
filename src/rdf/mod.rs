@@ -2,10 +2,10 @@ use crate::{
 	id, lang::LenientLanguageTagBuf, object::value, Direction, Id, Indexed, Node, Object,
 	Reference, ValidReference,
 };
-use iref::{Iri, IriBuf};
-use static_iref::iri;
 use generic_json::{Json, JsonHash};
+use iref::{Iri, IriBuf};
 use smallvec::SmallVec;
+use static_iref::iri;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -41,7 +41,7 @@ impl Display for String {
 				'\t' => write!(f, "\\t")?,
 				'\r' => write!(f, "\\r")?,
 				'\n' => write!(f, "\\n")?,
-				c => std::fmt::Display::fmt(&c, f)?
+				c => std::fmt::Display::fmt(&c, f)?,
 			}
 		}
 
@@ -66,7 +66,7 @@ impl RdfSyntax {
 			Self::First => iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#first"),
 			Self::Rest => iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#rest"),
 			Self::Value => iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#value"),
-			Self::Direction => iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#direction")
+			Self::Direction => iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#direction"),
 		}
 	}
 }
@@ -87,7 +87,7 @@ impl<'a, T: Id> PropertyRef<'a, T> {
 	pub fn as_iri(&self) -> Option<Iri<'a>> {
 		match self {
 			Self::Rdf(s) => Some(s.as_iri()),
-			Self::Other(r) => r.as_iri()
+			Self::Other(r) => r.as_iri(),
 		}
 	}
 }
@@ -96,7 +96,7 @@ impl<'a, T: Id> fmt::Display for PropertyRef<'a, T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Rdf(s) => s.fmt(f),
-			Self::Other(r) => r.rdf_display().fmt(f)
+			Self::Other(r) => r.rdf_display().fmt(f),
 		}
 	}
 }
@@ -111,7 +111,7 @@ impl<T: Id> Property<T> {
 	pub fn as_iri(&self) -> Option<Iri> {
 		match self {
 			Self::Rdf(s) => Some(s.as_iri()),
-			Self::Other(r) => r.as_iri()
+			Self::Other(r) => r.as_iri(),
 		}
 	}
 }
@@ -131,7 +131,7 @@ impl<T: Id> fmt::Display for Property<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Rdf(s) => s.fmt(f),
-			Self::Other(r) => r.rdf_display().fmt(f)
+			Self::Other(r) => r.rdf_display().fmt(f),
 		}
 	}
 }
@@ -165,11 +165,19 @@ impl<T: Id> Iterator for CompoundLiteralTriples<T> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		if let Some(value) = self.value.take() {
-			return Some(Triple(self.id.clone(), Property::Rdf(RdfSyntax::Value), value));
+			return Some(Triple(
+				self.id.clone(),
+				Property::Rdf(RdfSyntax::Value),
+				value,
+			));
 		}
 
 		if let Some(direction) = self.direction.take() {
-			return Some(Triple(self.id.clone(), Property::Rdf(RdfSyntax::Direction), direction));
+			return Some(Triple(
+				self.id.clone(),
+				Property::Rdf(RdfSyntax::Direction),
+				direction,
+			));
 		}
 
 		None
@@ -184,7 +192,7 @@ pub struct CompoundLiteral<T: Id> {
 impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
 	fn rdf_value<G: id::Generator<T>>(
 		&self,
-		mut generator: G,
+		generator: &mut G,
 		rdf_direction: RdfDirection,
 	) -> Option<CompoundLiteral<T>> {
 		match self {
@@ -200,7 +208,10 @@ impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
 						RdfDirection::I18nDatatype => Some(CompoundLiteral {
 							value: Value::Literal(
 								Literal::String(string.to_string()),
-								Some(LiteralType::I18n(I18nType::new(language.cloned(), *direction))),
+								Some(LiteralType::I18n(Box::new(I18nType::new(
+									language.cloned(),
+									*direction,
+								)))),
 							),
 							triples: None,
 						}),
@@ -223,8 +234,8 @@ impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
 								Some(LiteralType::String),
 							),
 							triples: None,
-						})
-					}
+						}),
+					},
 				}
 
 				// match language {
@@ -284,7 +295,7 @@ impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
 				};
 
 				let rdf_ty = match ty {
-					Some(id) => Some(LiteralType::Other(id.clone())),
+					Some(id) => Some(LiteralType::from(id.clone())),
 					None => prefered_rdf_ty,
 				};
 
@@ -313,7 +324,7 @@ impl<J: JsonHash, T: Id> Node<J, T> {
 impl<J: JsonHash + ToString, T: Id> Object<J, T> {
 	fn rdf_value<G: id::Generator<T>>(
 		&self,
-		mut generator: G,
+		generator: &mut G,
 		rdf_direction: RdfDirection,
 	) -> Option<CompoundValue<J, T>> {
 		match self {
@@ -353,7 +364,7 @@ pub struct CompoundValue<'a, J: JsonHash, T: Id> {
 impl<'a, J: JsonHash + ToString, T: Id> crate::quad::ObjectRef<'a, J, T> {
 	pub fn rdf_value<G: id::Generator<T>>(
 		&self,
-		generator: G,
+		generator: &mut G,
 		rdf_direction: RdfDirection,
 	) -> Option<CompoundValue<'a, J, T>> {
 		match self {
@@ -440,7 +451,7 @@ impl<'a, J: JsonHash + ToString, T: Id> CompoundValueTriples<'a, J, T> {
 
 	pub fn next<G: id::Generator<T>>(
 		&mut self,
-		generator: G,
+		generator: &mut G,
 		rdf_direction: RdfDirection,
 	) -> Option<Triple<T>> {
 		match self {
@@ -501,7 +512,7 @@ impl<'a, J: JsonHash + ToString, T: Id> ListTriples<'a, J, T> {
 
 	pub fn next<G: id::Generator<T>>(
 		&mut self,
-		mut generator: G,
+		generator: &mut G,
 		rdf_direction: RdfDirection,
 	) -> Option<Triple<T>> {
 		loop {
@@ -518,10 +529,10 @@ impl<'a, J: JsonHash + ToString, T: Id> ListTriples<'a, J, T> {
 				},
 				Some(ListItemTriples::NestedList(list)) => {
 					let previous = list.previous().cloned();
-					match list.next(&mut generator) {
+					match list.next(generator) {
 						Some(node) => {
 							if let Some(compound_value) =
-								node.object.rdf_value(&mut generator, rdf_direction)
+								node.object.rdf_value(generator, rdf_direction)
 							{
 								let id = node.id.clone();
 
@@ -536,8 +547,11 @@ impl<'a, J: JsonHash + ToString, T: Id> ListTriples<'a, J, T> {
 									}
 								}
 
-								self.pending =
-									Some(Triple(id.clone(), Property::Rdf(RdfSyntax::First), compound_value.value));
+								self.pending = Some(Triple(
+									id.clone(),
+									Property::Rdf(RdfSyntax::First),
+									compound_value.value,
+								));
 
 								if let Some(previous_id) = previous {
 									break Some(Triple(
@@ -549,11 +563,14 @@ impl<'a, J: JsonHash + ToString, T: Id> ListTriples<'a, J, T> {
 							}
 						}
 						None => {
-							if let Some(previous_id) = previous {
-								break Some(Triple(previous_id, Property::Rdf(RdfSyntax::Rest), Value::Nil));
-							}
-
 							self.stack.pop();
+							if let Some(previous_id) = previous {
+								break Some(Triple(
+									previous_id,
+									Property::Rdf(RdfSyntax::Rest),
+									Value::Nil,
+								));
+							}
 						}
 					}
 				}
@@ -584,11 +601,25 @@ pub enum Number {
 	Double(f64),
 }
 
+static XSD_DOUBLE_CONFIG: pretty_dtoa::FmtFloatConfig = pretty_dtoa::FmtFloatConfig::default().force_e_notation().add_point_zero(true).capitalize_e(true);
+
 impl fmt::Display for Number {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Integer(n) => n.fmt(f),
-			Self::Double(d) => d.fmt(f)
+			Self::Double(d) => {
+				if d.is_nan() {
+					write!(f, "NaN")
+				} else if d.is_infinite() {
+					if d.is_sign_positive() {
+						write!(f, "INF")
+					} else {
+						write!(f, "-INF")
+					}
+				} else {
+					fmt::Display::fmt(&pretty_dtoa::dtoa(*d, XSD_DOUBLE_CONFIG), f)
+				}
+			},
 		}
 	}
 }
@@ -606,7 +637,7 @@ impl fmt::Display for Literal {
 			Self::Null => "\"null\"".fmt(f),
 			Self::Bool(b) => write!(f, "\"{}\"", b),
 			Self::Number(n) => write!(f, "\"{}\"", n),
-			Self::String(s) => s.rdf_display().fmt(f)
+			Self::String(s) => s.rdf_display().fmt(f),
 		}
 	}
 }
@@ -614,20 +645,20 @@ impl fmt::Display for Literal {
 pub struct I18nType {
 	language: Option<LenientLanguageTagBuf>,
 	direction: Direction,
-	iri: IriBuf
+	iri: IriBuf,
 }
 
 impl I18nType {
 	pub fn new(language: Option<LenientLanguageTagBuf>, direction: Direction) -> Self {
 		let iri = match &language {
 			Some(language) => format!("https://www.w3.org/ns/i18n#{}_{}", language, direction),
-			None => format!("https://www.w3.org/ns/i18n#{}", direction)
+			None => format!("https://www.w3.org/ns/i18n#{}", direction),
 		};
-		
+
 		Self {
 			language,
 			direction,
-			iri: IriBuf::from_string(iri).unwrap()
+			iri: IriBuf::from_string(iri).unwrap(),
 		}
 	}
 
@@ -650,8 +681,26 @@ pub enum LiteralType<T> {
 	Double,
 	String,
 	Json,
-	I18n(I18nType),
+	I18n(Box<I18nType>),
 	Other(T),
+}
+
+impl<T: Id> From<T> for LiteralType<T> {
+	fn from(id: T) -> Self {
+		if id.as_iri() == "http://www.w3.org/2001/XMLSchema#boolean" {
+			Self::Bool
+		} else if id.as_iri() == "http://www.w3.org/2001/XMLSchema#integer" {
+			Self::Integer
+		} else if id.as_iri() == "http://www.w3.org/2001/XMLSchema#double" {
+			Self::Double
+		} else if id.as_iri() == "http://www.w3.org/2001/XMLSchema#string" {
+			Self::String
+		} else if id.as_iri() == "https://www.w3.org/1999/02/22-rdf-syntax-ns#JSON" {
+			Self::Json
+		} else {
+			Self::Other(id)
+		}
+	}
 }
 
 impl<T: Id> LiteralType<T> {
@@ -663,7 +712,7 @@ impl<T: Id> LiteralType<T> {
 			Self::String => iri!("http://www.w3.org/2001/XMLSchema#string"),
 			Self::Json => iri!("https://www.w3.org/1999/02/22-rdf-syntax-ns#JSON"),
 			Self::I18n(ty) => ty.as_iri(),
-			Self::Other(t) => t.as_iri()
+			Self::Other(t) => t.as_iri(),
 		}
 	}
 }
@@ -685,11 +734,11 @@ pub enum Value<T: Id> {
 impl<T: Id> fmt::Display for Value<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Self::Nil => "https://www.w3.org/1999/02/22-rdf-syntax-ns#nil".fmt(f),
+			Self::Nil => "<http://www.w3.org/1999/02/22-rdf-syntax-ns#nil>".fmt(f),
 			Self::Literal(lit, None) => lit.fmt(f),
-			Self::Literal(lit, Some(ty)) => write!(f, "{} ^^ {}", lit, ty),
-			Self::LangString(s, language) => write!(f, "{} @ {}", s.rdf_display(), language),
-			Self::Reference(r) => r.rdf_display().fmt(f)
+			Self::Literal(lit, Some(ty)) => write!(f, "{}^^<{}>", lit, ty.as_iri()),
+			Self::LangString(s, language) => write!(f, "{}@{}", s.rdf_display(), language),
+			Self::Reference(r) => r.rdf_display().fmt(f),
 		}
 	}
 }

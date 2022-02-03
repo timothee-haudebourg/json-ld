@@ -1,6 +1,7 @@
 use crate::{
 	compaction,
 	context::{self, Loader},
+	id,
 	util::{AsJson, JsonFrom},
 	ContextMut, Error, Id, Indexed, Loc, Node, Warning,
 };
@@ -56,9 +57,21 @@ impl<J: JsonHash, T: Id> FlattenedDocument<J, T> {
 	}
 
 	#[inline(always)]
+	pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Indexed<Node<J, T>>> {
+		self.nodes.iter_mut()
+	}
+
+	#[inline(always)]
 	#[allow(clippy::type_complexity)]
 	pub fn into_parts(self) -> (Vec<Indexed<Node<J, T>>>, Vec<Loc<Warning, J::MetaData>>) {
 		(self.nodes, self.warnings)
+	}
+
+	#[inline(always)]
+	pub fn identify_all<G: id::Generator<T>>(&mut self, mut generator: G) {
+		for node in &mut self.nodes {
+			node.identify_all(&mut generator)
+		}
 	}
 
 	pub async fn compact<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
@@ -114,6 +127,16 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a FlattenedDocument<J, T> {
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
+	}
+}
+
+impl<'a, J: JsonHash, T: Id> IntoIterator for &'a mut FlattenedDocument<J, T> {
+	type IntoIter = std::slice::IterMut<'a, Indexed<Node<J, T>>>;
+	type Item = &'a mut Indexed<Node<J, T>>;
+
+	#[inline(always)]
+	fn into_iter(self) -> Self::IntoIter {
+		self.iter_mut()
 	}
 }
 

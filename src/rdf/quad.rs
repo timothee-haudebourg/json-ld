@@ -1,5 +1,5 @@
 use super::{Property, PropertyRef, RdfDirection, RdfSyntax, Triple, ValidReference, Value};
-use crate::{id, ExpandedDocument, Id};
+use crate::{id, ExpandedDocument, FlattenedDocument, Id};
 use generic_json::JsonHash;
 use std::borrow::Cow;
 use std::convert::TryInto;
@@ -25,14 +25,16 @@ struct Compound<'a, J: JsonHash, T: Id> {
 }
 
 /// Iterator over the RDF Quads of a JSON-LD document.
-pub struct Quads<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> {
-	generator: G,
+pub struct Quads<'a, 'g, J: JsonHash + ToString, T: Id, G: id::Generator<T>> {
+	generator: &'g mut G,
 	rdf_direction: RdfDirection,
 	compound_value: Option<Compound<'a, J, T>>,
 	quads: crate::quad::Quads<'a, J, T>,
 }
 
-impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator for Quads<'a, J, T, G> {
+impl<'a, 'g, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator
+	for Quads<'a, 'g, J, T, G>
+{
 	type Item = QuadRef<'a, T>;
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -40,7 +42,7 @@ impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator for Quads<
 			if let Some(compound_value) = &mut self.compound_value {
 				match compound_value
 					.triples
-					.next(&mut self.generator, self.rdf_direction)
+					.next(self.generator, self.rdf_direction)
 				{
 					Some(Triple(subject, property, object)) => {
 						break Some(QuadRef(
@@ -77,7 +79,7 @@ impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator for Quads<
 					};
 
 					if let Some(compound_value) =
-						object.rdf_value(&mut self.generator, self.rdf_direction)
+						object.rdf_value(self.generator, self.rdf_direction)
 					{
 						if let Some(rdf_value_triples) = compound_value.triples {
 							self.compound_value = Some(Compound {
@@ -101,11 +103,26 @@ impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator for Quads<
 }
 
 impl<J: JsonHash + ToString, T: Id> ExpandedDocument<J, T> {
-	pub fn rdf_quads<G: id::Generator<T>>(
+	pub fn rdf_quads<'g, G: id::Generator<T>>(
 		&self,
-		generator: G,
+		generator: &'g mut G,
 		rdf_direction: RdfDirection,
-	) -> Quads<J, T, G> {
+	) -> Quads<'_, 'g, J, T, G> {
+		Quads {
+			generator,
+			rdf_direction,
+			compound_value: None,
+			quads: self.quads(),
+		}
+	}
+}
+
+impl<J: JsonHash + ToString, T: Id> FlattenedDocument<J, T> {
+	pub fn rdf_quads<'g, G: id::Generator<T>>(
+		&self,
+		generator: &'g mut G,
+		rdf_direction: RdfDirection,
+	) -> Quads<'_, 'g, J, T, G> {
 		Quads {
 			generator,
 			rdf_direction,

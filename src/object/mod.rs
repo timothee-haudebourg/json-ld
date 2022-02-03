@@ -6,6 +6,7 @@ mod typ;
 pub mod value;
 
 use crate::{
+	id,
 	lang::LenientLanguageTag,
 	syntax::Keyword,
 	util::{AsJson, JsonFrom},
@@ -106,6 +107,19 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
 			_ => None,
+		}
+	}
+
+	/// Assigns an identifier to every node included in this object using the given `generator`.
+	pub fn identify_all<G: id::Generator<T>>(&mut self, generator: &mut G) {
+		match self {
+			Object::Node(n) => n.identify_all(generator),
+			Object::List(l) => {
+				for object in l {
+					object.identify_all(generator)
+				}
+			}
+			_ => (),
 		}
 	}
 
