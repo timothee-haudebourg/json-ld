@@ -97,6 +97,15 @@ impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
 	}
 }
 
+impl<'a, J: JsonHash, T: Id> IntoIterator for &'a NodeMap<J, T> {
+	type Item = (Option<&'a Reference<T>>, &'a NodeMapGraph<J, T>);
+	type IntoIter = Iter<'a, J, T>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.iter()
+	}
+}
+
 pub struct IntoIter<J: JsonHash, T: Id> {
 	default_graph: Option<NodeMapGraph<J, T>>,
 	graphs: std::collections::hash_map::IntoIter<Reference<T>, NodeMapGraph<J, T>>,
@@ -221,14 +230,19 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 		}
 	}
 
-	pub fn nodes(&self) -> impl Iterator<Item = &Indexed<Node<J, T>>> {
+	pub fn nodes(&self) -> NodeMapGraphNodes<J, T> {
 		self.nodes.values()
 	}
 
-	pub fn into_nodes(self) -> impl Iterator<Item = Indexed<Node<J, T>>> {
+	pub fn into_nodes(self) -> IntoNodeMapGraphNodes<J, T> {
 		self.nodes.into_values()
 	}
 }
+
+pub type NodeMapGraphNodes<'a, J, T> =
+	std::collections::hash_map::Values<'a, Reference<T>, Indexed<Node<J, T>>>;
+pub type IntoNodeMapGraphNodes<J, T> =
+	std::collections::hash_map::IntoValues<Reference<T>, Indexed<Node<J, T>>>;
 
 impl<J: JsonHash, T: Id> IntoIterator for NodeMapGraph<J, T> {
 	type Item = (Reference<T>, Indexed<Node<J, T>>);

@@ -36,7 +36,12 @@ impl<T: Id, G: id::Generator<T>> Namespace<T, G> {
 		match r {
 			Some(Reference::Blank(id)) => self.assign(id.clone()).into(),
 			Some(r) => r.clone(),
-			None => self.generator.next().into(),
+			None => self.next().into(),
 		}
+	}
+
+	#[allow(clippy::should_implement_trait)]
+	pub fn next(&mut self) -> ValidReference<T> {
+		self.generator.next()
 	}
 }

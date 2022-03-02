@@ -261,7 +261,7 @@ impl<T: AsIri> ValidReference<T> {
 		}
 	}
 
-	/// If the renference is a node identifier, returns the node IRI.
+	/// If the reference is a node identifier, returns the node IRI.
 	///
 	/// Returns `None` if it is a blank node reference.
 	#[inline(always)]

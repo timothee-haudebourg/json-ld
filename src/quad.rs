@@ -1,4 +1,7 @@
-use crate::{object, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object, Reference};
+use crate::{
+	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object,
+	Reference,
+};
 use generic_json::JsonHash;
 use smallvec::SmallVec;
 
@@ -56,6 +59,18 @@ impl<J: JsonHash, T: Id> FlattenedDocument<J, T> {
 	}
 }
 
+impl<J: JsonHash, T: Id> NodeMap<J, T> {
+	pub fn quads(&self) -> Quads<J, T> {
+		let mut stack = SmallVec::new();
+
+		for (id, graph) in self {
+			stack.push(QuadsFrame::NodeMapGraph(id, graph.nodes()));
+		}
+
+		Quads { stack }
+	}
+}
+
 const STACK_LEN: usize = 6;
 
 pub struct Quads<'a, J: JsonHash, T: Id> {
@@ -63,6 +78,10 @@ pub struct Quads<'a, J: JsonHash, T: Id> {
 }
 
 enum QuadsFrame<'a, J: JsonHash, T: Id> {
+	NodeMapGraph(
+		Option<&'a Reference<T>>,
+		crate::flattening::NodeMapGraphNodes<'a, J, T>,
+	),
 	IndexedObjectSet(
 		Option<&'a Reference<T>>,
 		std::collections::hash_set::Iter<'a, Indexed<Object<J, T>>>,
@@ -122,17 +141,13 @@ impl<'a, J: JsonHash, T: Id> Quads<'a, J, T> {
 	fn push_node(&mut self, graph: Option<&'a Reference<T>>, node: &'a Node<J, T>) {
 		if let Some(id) = node.id() {
 			if let Some(graph) = node.graph() {
-				self.stack.push(QuadsFrame::IndexedObjectSet(
-					Some(id),
-					graph.iter()
-				))
+				self.stack
+					.push(QuadsFrame::IndexedObjectSet(Some(id), graph.iter()))
 			}
 
 			if let Some(included) = node.included() {
-				self.stack.push(QuadsFrame::IndexedNodeSet(
-					graph,
-					included.iter()
-				))
+				self.stack
+					.push(QuadsFrame::IndexedNodeSet(graph, included.iter()))
 			}
 
 			self.stack.push(QuadsFrame::NodeReverseProperties(
@@ -157,6 +172,15 @@ impl<'a, J: JsonHash, T: Id> Iterator for Quads<'a, J, T> {
 	fn next(&mut self) -> Option<Self::Item> {
 		while let Some(last) = self.stack.last_mut() {
 			match last {
+				QuadsFrame::NodeMapGraph(graph, nodes) => {
+					let graph = *graph;
+					match nodes.next() {
+						Some(node) => self.push_node(graph, node),
+						None => {
+							self.stack.pop();
+						}
+					}
+				}
 				QuadsFrame::IndexedObjectSet(graph, objects) => {
 					let graph = *graph;
 					match objects.next() {

@@ -6,6 +6,7 @@ use json_ld::{{
 	util::AsJson,
 	Document, ErrorCode, FsLoader, Loader, ProcessingMode,
 }};
+use locspan::Loc;
 use serde_json::Value;
 use static_iref::iri;
 use std::collections::BTreeSet;
@@ -14,6 +15,8 @@ use std::collections::BTreeSet;
 struct Options<'a> {{
 	processing_mode: ProcessingMode,
 	context: Option<Iri<'a>>,
+	rdf_direction: Option<rdf::RdfDirection>,
+	produce_generalized_rdf: bool,
 }}
 
 impl<'a> From<Options<'a>> for expansion::Options {{
@@ -33,6 +36,10 @@ impl<'a> From<Options<'a>> for ProcessingOptions {{
 			..ProcessingOptions::default()
 		}}
 	}}
+}}
+
+fn infallible<T>(t: T) -> Result<T, std::convert::Infallible> {{
+	Ok(t)
 }}
 
 async fn positive_test(
@@ -65,50 +72,77 @@ async fn positive_test(
 			.await
 			.expect("unable to read file");
 
-	let mut doc = input
+	let doc = input
 		.expand_with(Some(base_url), &input_context, &mut loader, options.into())
 		.await
 		.unwrap();
 
 	let mut generator = json_ld::id::generator::Blank::new_with_prefix("b".to_string());
-	doc.identify_all(&mut generator);
+	let node_map = doc
+		.generate_node_map(&mut generator)
+		.expect("unable to generate node map");
 
 	let mut lines = BTreeSet::new();
 	for rdf::QuadRef(graph, subject, property, object) in
-		doc.rdf_quads(&mut generator, rdf::RdfDirection::I18nDatatype)
+		node_map.rdf_quads(&mut generator, options.rdf_direction)
 	{{
-		match graph {{
-			Some(graph) => lines.insert(format!(
-				"{{}} {{}} {{}} {{}} .\n",
-				subject.rdf_display(),
-				property,
-				object,
-				graph
-			)),
-			None => lines.insert(format!(
-				"{{}} {{}} {{}} .\n",
-				subject.rdf_display(),
-				property,
-				object
-			)),
-		}};
+		if options.produce_generalized_rdf || property.as_iri().is_some() {{
+			match graph {{
+				Some(graph) => lines.insert(format!(
+					"{{}} {{}} {{}} {{}} .\n",
+					subject.rdf_display(),
+					property,
+					object,
+					graph.rdf_display()
+				)),
+				None => lines.insert(format!(
+					"{{}} {{}} {{}} .\n",
+					subject.rdf_display(),
+					property,
+					object
+				)),
+			}};
+		}}
 	}}
 
 	let output = itertools::join(lines, "");
 
-	let success = output == expected_output;
+	let mut success = output == expected_output;
 
 	if !success {{
-		let json: Value = doc.as_json();
-		eprintln!(
-			"expanded:\n{{}}",
-			serde_json::to_string_pretty(&json).unwrap()
-		);
-		eprintln!("expected:\n{{}}", expected_output);
-		eprintln!("found:\n{{}}", output);
+		let parsed_output = parse_nquads(&output);
+		let parsed_expected_output = parse_nquads(&expected_output);
+		success = parsed_output.is_isomorphic_to(&parsed_expected_output);
+		if !success {{
+			let json: Value = doc.as_json();
+			eprintln!(
+				"expanded:\n{{}}",
+				serde_json::to_string_pretty(&json).unwrap()
+			);
+			eprintln!("expected:\n{{}}", expected_output);
+			eprintln!("found:\n{{}}", output);
+		}}
 	}}
 
 	assert!(success)
+}}
+
+fn parse_nquads(buffer: &str) -> grdf::BTreeDataset {{
+	eprintln!("parse:\n{{}}", buffer);
+
+	use locspan::Strip;
+	use nquads_syntax::Parse;
+	let mut lexer = nquads_syntax::Lexer::new(
+		(),
+		nquads_syntax::lexing::Utf8Decoded::new(buffer.chars().map(infallible)).peekable(),
+	);
+
+	match nquads_syntax::GrdfDocument::parse(&mut lexer) {{
+		Ok(Loc(nquads, _)) => nquads.into_iter().map(Strip::strip).collect(),
+		Err(Loc(e, _)) => {{
+			panic!("parse error: {{:?}}", e)
+		}}
+	}}
 }}
 
 async fn negative_test(

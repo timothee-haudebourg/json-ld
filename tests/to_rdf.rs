@@ -6,6 +6,7 @@ use json_ld::{
 	util::AsJson,
 	Document, ErrorCode, FsLoader, Loader, ProcessingMode,
 };
+use locspan::Loc;
 use serde_json::Value;
 use static_iref::iri;
 use std::collections::BTreeSet;
@@ -14,6 +15,8 @@ use std::collections::BTreeSet;
 struct Options<'a> {
 	processing_mode: ProcessingMode,
 	context: Option<Iri<'a>>,
+	rdf_direction: Option<rdf::RdfDirection>,
+	produce_generalized_rdf: bool,
 }
 
 impl<'a> From<Options<'a>> for expansion::Options {
@@ -33,6 +36,10 @@ impl<'a> From<Options<'a>> for ProcessingOptions {
 			..ProcessingOptions::default()
 		}
 	}
+}
+
+fn infallible<T>(t: T) -> Result<T, std::convert::Infallible> {
+	Ok(t)
 }
 
 async fn positive_test(
@@ -65,50 +72,77 @@ async fn positive_test(
 			.await
 			.expect("unable to read file");
 
-	let mut doc = input
+	let doc = input
 		.expand_with(Some(base_url), &input_context, &mut loader, options.into())
 		.await
 		.unwrap();
 
 	let mut generator = json_ld::id::generator::Blank::new_with_prefix("b".to_string());
-	doc.identify_all(&mut generator);
+	let node_map = doc
+		.generate_node_map(&mut generator)
+		.expect("unable to generate node map");
 
 	let mut lines = BTreeSet::new();
 	for rdf::QuadRef(graph, subject, property, object) in
-		doc.rdf_quads(&mut generator, rdf::RdfDirection::I18nDatatype)
+		node_map.rdf_quads(&mut generator, options.rdf_direction)
 	{
-		match graph {
-			Some(graph) => lines.insert(format!(
-				"{} {} {} {} .\n",
-				subject.rdf_display(),
-				property,
-				object,
-				graph.rdf_display()
-			)),
-			None => lines.insert(format!(
-				"{} {} {} .\n",
-				subject.rdf_display(),
-				property,
-				object
-			)),
-		};
+		if options.produce_generalized_rdf || property.as_iri().is_some() {
+			match graph {
+				Some(graph) => lines.insert(format!(
+					"{} {} {} {} .\n",
+					subject.rdf_display(),
+					property,
+					object,
+					graph.rdf_display()
+				)),
+				None => lines.insert(format!(
+					"{} {} {} .\n",
+					subject.rdf_display(),
+					property,
+					object
+				)),
+			};
+		}
 	}
 
 	let output = itertools::join(lines, "");
 
-	let success = output == expected_output;
+	let mut success = output == expected_output;
 
 	if !success {
-		let json: Value = doc.as_json();
-		eprintln!(
-			"expanded:\n{}",
-			serde_json::to_string_pretty(&json).unwrap()
-		);
-		eprintln!("expected:\n{}", expected_output);
-		eprintln!("found:\n{}", output);
+		let parsed_output = parse_nquads(&output);
+		let parsed_expected_output = parse_nquads(&expected_output);
+		success = parsed_output.is_isomorphic_to(&parsed_expected_output);
+		if !success {
+			let json: Value = doc.as_json();
+			eprintln!(
+				"expanded:\n{}",
+				serde_json::to_string_pretty(&json).unwrap()
+			);
+			eprintln!("expected:\n{}", expected_output);
+			eprintln!("found:\n{}", output);
+		}
 	}
 
 	assert!(success)
+}
+
+fn parse_nquads(buffer: &str) -> grdf::BTreeDataset {
+	eprintln!("parse:\n{}", buffer);
+
+	use locspan::Strip;
+	use nquads_syntax::Parse;
+	let mut lexer = nquads_syntax::Lexer::new(
+		(),
+		nquads_syntax::lexing::Utf8Decoded::new(buffer.chars().map(infallible)).peekable(),
+	);
+
+	match nquads_syntax::GrdfDocument::parse(&mut lexer) {
+		Ok(Loc(nquads, _)) => nquads.into_iter().map(Strip::strip).collect(),
+		Err(Loc(e, _)) => {
+			panic!("parse error: {:?}", e)
+		}
+	}
 }
 
 async fn negative_test(
@@ -168,7 +202,9 @@ async fn to_rdf_0001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -186,7 +222,9 @@ async fn to_rdf_0002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -204,7 +242,9 @@ async fn to_rdf_0003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -222,7 +262,9 @@ async fn to_rdf_0004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -240,7 +282,9 @@ async fn to_rdf_0005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -258,7 +302,9 @@ async fn to_rdf_0006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -276,7 +322,9 @@ async fn to_rdf_0007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -294,7 +342,9 @@ async fn to_rdf_0008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -312,7 +362,9 @@ async fn to_rdf_0009() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -330,7 +382,9 @@ async fn to_rdf_0010() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -348,7 +402,9 @@ async fn to_rdf_0011() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -366,7 +422,9 @@ async fn to_rdf_0012() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -384,7 +442,9 @@ async fn to_rdf_0013() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -402,7 +462,9 @@ async fn to_rdf_0014() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -420,7 +482,9 @@ async fn to_rdf_0015() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -438,7 +502,9 @@ async fn to_rdf_0016() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -456,7 +522,9 @@ async fn to_rdf_0017() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -474,7 +542,9 @@ async fn to_rdf_0018() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -492,7 +562,9 @@ async fn to_rdf_0019() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -510,7 +582,9 @@ async fn to_rdf_0020() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -528,7 +602,9 @@ async fn to_rdf_0022() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -546,7 +622,9 @@ async fn to_rdf_0023() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -564,7 +642,9 @@ async fn to_rdf_0024() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -582,7 +662,9 @@ async fn to_rdf_0025() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -600,7 +682,9 @@ async fn to_rdf_0026() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -618,7 +702,9 @@ async fn to_rdf_0027() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -636,7 +722,9 @@ async fn to_rdf_0028() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -654,7 +742,9 @@ async fn to_rdf_0029() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -672,7 +762,9 @@ async fn to_rdf_0030() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -690,7 +782,9 @@ async fn to_rdf_0031() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -708,7 +802,9 @@ async fn to_rdf_0032() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -726,7 +822,9 @@ async fn to_rdf_0033() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -744,7 +842,9 @@ async fn to_rdf_0034() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -762,7 +862,9 @@ async fn to_rdf_0035() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -780,7 +882,9 @@ async fn to_rdf_0036() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -798,7 +902,9 @@ async fn to_rdf_0113() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -816,7 +922,9 @@ async fn to_rdf_0114() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -834,7 +942,9 @@ async fn to_rdf_0115() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -852,7 +962,9 @@ async fn to_rdf_0116() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -870,7 +982,9 @@ async fn to_rdf_0117() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -888,7 +1002,9 @@ async fn to_rdf_0119() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -906,7 +1022,9 @@ async fn to_rdf_0120() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -924,7 +1042,9 @@ async fn to_rdf_0121() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -942,7 +1062,9 @@ async fn to_rdf_0122() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -960,7 +1082,9 @@ async fn to_rdf_0123() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -978,7 +1102,9 @@ async fn to_rdf_0124() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -996,7 +1122,9 @@ async fn to_rdf_0125() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1014,7 +1142,9 @@ async fn to_rdf_0126() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1032,7 +1162,9 @@ async fn to_rdf_0127() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1050,7 +1182,9 @@ async fn to_rdf_0128() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1068,7 +1202,9 @@ async fn to_rdf_0129() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1086,7 +1222,9 @@ async fn to_rdf_0130() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1104,7 +1242,9 @@ async fn to_rdf_0131() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1122,7 +1262,9 @@ async fn to_rdf_0132() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1140,7 +1282,9 @@ async fn to_rdf_c001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1158,7 +1302,9 @@ async fn to_rdf_c002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1176,7 +1322,9 @@ async fn to_rdf_c003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1194,7 +1342,9 @@ async fn to_rdf_c004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1212,7 +1362,9 @@ async fn to_rdf_c005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1230,7 +1382,9 @@ async fn to_rdf_c006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1248,7 +1402,9 @@ async fn to_rdf_c007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1266,7 +1422,9 @@ async fn to_rdf_c008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1284,7 +1442,9 @@ async fn to_rdf_c009() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1302,7 +1462,9 @@ async fn to_rdf_c010() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1320,7 +1482,9 @@ async fn to_rdf_c011() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1338,7 +1502,9 @@ async fn to_rdf_c012() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1356,7 +1522,9 @@ async fn to_rdf_c013() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1374,7 +1542,9 @@ async fn to_rdf_c014() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1392,7 +1562,9 @@ async fn to_rdf_c015() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1410,7 +1582,9 @@ async fn to_rdf_c016() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1428,7 +1602,9 @@ async fn to_rdf_c017() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1446,7 +1622,9 @@ async fn to_rdf_c018() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1464,7 +1642,9 @@ async fn to_rdf_c019() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1482,7 +1662,9 @@ async fn to_rdf_c020() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1500,7 +1682,9 @@ async fn to_rdf_c021() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1518,7 +1702,9 @@ async fn to_rdf_c022() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1536,7 +1722,9 @@ async fn to_rdf_c023() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1554,7 +1742,9 @@ async fn to_rdf_c024() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1572,7 +1762,9 @@ async fn to_rdf_c025() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1590,7 +1782,9 @@ async fn to_rdf_c026() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1608,7 +1802,9 @@ async fn to_rdf_c027() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1626,7 +1822,9 @@ async fn to_rdf_c028() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1643,7 +1841,9 @@ async fn to_rdf_c029() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_0,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1660,7 +1860,9 @@ async fn to_rdf_c030() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1678,7 +1880,9 @@ async fn to_rdf_c031() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1695,7 +1899,9 @@ async fn to_rdf_c032() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1712,7 +1918,9 @@ async fn to_rdf_c033() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1730,7 +1938,9 @@ async fn to_rdf_c034() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1748,7 +1958,9 @@ async fn to_rdf_c035() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1766,7 +1978,9 @@ async fn to_rdf_c036() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1784,7 +1998,9 @@ async fn to_rdf_di01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1802,7 +2018,9 @@ async fn to_rdf_di02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1820,7 +2038,9 @@ async fn to_rdf_di03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1838,7 +2058,9 @@ async fn to_rdf_di04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1856,7 +2078,9 @@ async fn to_rdf_di05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1874,7 +2098,9 @@ async fn to_rdf_di06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1892,7 +2118,9 @@ async fn to_rdf_di07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1909,7 +2137,9 @@ async fn to_rdf_di08() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1927,7 +2157,9 @@ async fn to_rdf_e001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1945,7 +2177,9 @@ async fn to_rdf_e002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1963,7 +2197,9 @@ async fn to_rdf_e003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1981,7 +2217,9 @@ async fn to_rdf_e004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -1999,7 +2237,9 @@ async fn to_rdf_e005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2017,7 +2257,9 @@ async fn to_rdf_e006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2035,7 +2277,9 @@ async fn to_rdf_e007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2053,7 +2297,9 @@ async fn to_rdf_e008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2071,7 +2317,9 @@ async fn to_rdf_e009() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2089,7 +2337,9 @@ async fn to_rdf_e010() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2107,7 +2357,9 @@ async fn to_rdf_e011() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2125,7 +2377,9 @@ async fn to_rdf_e012() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2143,7 +2397,9 @@ async fn to_rdf_e013() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2161,7 +2417,9 @@ async fn to_rdf_e015() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2179,7 +2437,9 @@ async fn to_rdf_e016() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2197,7 +2457,9 @@ async fn to_rdf_e017() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2215,7 +2477,9 @@ async fn to_rdf_e018() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2233,7 +2497,9 @@ async fn to_rdf_e019() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2251,7 +2517,9 @@ async fn to_rdf_e020() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2269,7 +2537,9 @@ async fn to_rdf_e021() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2287,7 +2557,9 @@ async fn to_rdf_e022() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2305,7 +2577,9 @@ async fn to_rdf_e023() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2323,7 +2597,9 @@ async fn to_rdf_e024() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2341,7 +2617,9 @@ async fn to_rdf_e025() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2359,7 +2637,9 @@ async fn to_rdf_e027() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2377,7 +2657,9 @@ async fn to_rdf_e028() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2395,7 +2677,9 @@ async fn to_rdf_e029() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2413,7 +2697,9 @@ async fn to_rdf_e030() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2431,7 +2717,9 @@ async fn to_rdf_e031() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2449,7 +2737,9 @@ async fn to_rdf_e032() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2467,7 +2757,9 @@ async fn to_rdf_e033() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2485,7 +2777,9 @@ async fn to_rdf_e034() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2503,7 +2797,9 @@ async fn to_rdf_e035() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2521,7 +2817,9 @@ async fn to_rdf_e036() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2539,7 +2837,9 @@ async fn to_rdf_e037() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2557,7 +2857,9 @@ async fn to_rdf_e039() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2575,7 +2877,9 @@ async fn to_rdf_e040() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2593,7 +2897,9 @@ async fn to_rdf_e041() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2611,7 +2917,9 @@ async fn to_rdf_e042() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2629,7 +2937,9 @@ async fn to_rdf_e043() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2647,7 +2957,9 @@ async fn to_rdf_e044() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2665,7 +2977,9 @@ async fn to_rdf_e045() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2683,7 +2997,9 @@ async fn to_rdf_e046() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2701,7 +3017,9 @@ async fn to_rdf_e047() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2719,7 +3037,9 @@ async fn to_rdf_e048() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2737,7 +3057,9 @@ async fn to_rdf_e049() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2755,7 +3077,9 @@ async fn to_rdf_e050() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2773,7 +3097,9 @@ async fn to_rdf_e051() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2791,7 +3117,9 @@ async fn to_rdf_e052() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2809,7 +3137,9 @@ async fn to_rdf_e053() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2827,7 +3157,9 @@ async fn to_rdf_e054() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2845,7 +3177,9 @@ async fn to_rdf_e055() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2863,7 +3197,9 @@ async fn to_rdf_e056() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2881,7 +3217,9 @@ async fn to_rdf_e057() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2899,7 +3237,9 @@ async fn to_rdf_e058() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2917,7 +3257,9 @@ async fn to_rdf_e059() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2935,7 +3277,9 @@ async fn to_rdf_e060() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2953,7 +3297,9 @@ async fn to_rdf_e061() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2971,7 +3317,9 @@ async fn to_rdf_e062() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -2989,7 +3337,9 @@ async fn to_rdf_e063() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3007,7 +3357,9 @@ async fn to_rdf_e064() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3025,7 +3377,9 @@ async fn to_rdf_e065() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3043,7 +3397,9 @@ async fn to_rdf_e066() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3061,7 +3417,9 @@ async fn to_rdf_e067() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3079,7 +3437,9 @@ async fn to_rdf_e068() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3097,7 +3457,9 @@ async fn to_rdf_e069() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3115,7 +3477,9 @@ async fn to_rdf_e070() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3133,7 +3497,9 @@ async fn to_rdf_e072() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3151,7 +3517,9 @@ async fn to_rdf_e073() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3169,7 +3537,9 @@ async fn to_rdf_e074() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3187,7 +3557,9 @@ async fn to_rdf_e075() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_0,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: true
 		},
 		input_url,
 		base_url,
@@ -3205,7 +3577,9 @@ async fn to_rdf_e076() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3223,7 +3597,9 @@ async fn to_rdf_e077() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: Some(iri!("https://w3c.github.io/json-ld-api/tests/toRdf/e077-context.jsonld"))
+			context: Some(iri!("https://w3c.github.io/json-ld-api/tests/toRdf/e077-context.jsonld")),
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3241,7 +3617,9 @@ async fn to_rdf_e078() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3259,7 +3637,9 @@ async fn to_rdf_e079() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3277,7 +3657,9 @@ async fn to_rdf_e080() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3295,7 +3677,9 @@ async fn to_rdf_e081() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3313,7 +3697,9 @@ async fn to_rdf_e082() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3331,7 +3717,9 @@ async fn to_rdf_e083() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3349,7 +3737,9 @@ async fn to_rdf_e084() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3367,7 +3757,9 @@ async fn to_rdf_e085() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3385,7 +3777,9 @@ async fn to_rdf_e086() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3403,7 +3797,9 @@ async fn to_rdf_e087() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3421,7 +3817,9 @@ async fn to_rdf_e088() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3439,7 +3837,9 @@ async fn to_rdf_e089() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3457,7 +3857,9 @@ async fn to_rdf_e090() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3475,7 +3877,9 @@ async fn to_rdf_e091() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3493,7 +3897,9 @@ async fn to_rdf_e092() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3511,7 +3917,9 @@ async fn to_rdf_e093() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3529,7 +3937,9 @@ async fn to_rdf_e094() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3547,7 +3957,9 @@ async fn to_rdf_e095() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3565,7 +3977,9 @@ async fn to_rdf_e096() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3583,7 +3997,9 @@ async fn to_rdf_e097() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3601,7 +4017,9 @@ async fn to_rdf_e098() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3619,7 +4037,9 @@ async fn to_rdf_e099() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3637,7 +4057,9 @@ async fn to_rdf_e100() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3655,7 +4077,9 @@ async fn to_rdf_e101() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3673,7 +4097,9 @@ async fn to_rdf_e102() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3691,7 +4117,9 @@ async fn to_rdf_e103() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3709,7 +4137,9 @@ async fn to_rdf_e104() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3727,7 +4157,9 @@ async fn to_rdf_e105() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3745,7 +4177,9 @@ async fn to_rdf_e106() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3763,7 +4197,9 @@ async fn to_rdf_e107() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3781,7 +4217,9 @@ async fn to_rdf_e108() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3799,7 +4237,9 @@ async fn to_rdf_e109() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3817,7 +4257,9 @@ async fn to_rdf_e110() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3835,7 +4277,9 @@ async fn to_rdf_e111() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3853,7 +4297,9 @@ async fn to_rdf_e112() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3871,7 +4317,9 @@ async fn to_rdf_e113() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3889,7 +4337,9 @@ async fn to_rdf_e114() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3907,7 +4357,9 @@ async fn to_rdf_e117() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3925,7 +4377,9 @@ async fn to_rdf_e118() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3943,7 +4397,9 @@ async fn to_rdf_e119() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3961,7 +4417,9 @@ async fn to_rdf_e120() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -3979,25 +4437,9 @@ async fn to_rdf_e121() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
-		},
-		input_url,
-		base_url,
-		output_url
-	).await
-}
-
-#[async_std::test]
-async fn to_rdf_e122() {
-	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/toRdf/e122-in.jsonld");
-	let base_url = iri!("https://w3c.github.io/json-ld-api/tests/toRdf/e122-in.jsonld");
-	let output_url = iri!("https://w3c.github.io/json-ld-api/tests/toRdf/e122-out.nq");
-	println!("Ignore some IRIs when that start with @ when expanding.");
-	println!("Processors SHOULD generate a warning and MUST ignore IRIs having the form of a keyword.");
-	positive_test(
-		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4014,7 +4456,9 @@ async fn to_rdf_e123() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4032,7 +4476,9 @@ async fn to_rdf_e124() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4050,7 +4496,9 @@ async fn to_rdf_e125() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4068,7 +4516,9 @@ async fn to_rdf_e126() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4086,7 +4536,9 @@ async fn to_rdf_e127() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4104,7 +4556,9 @@ async fn to_rdf_e128() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4122,7 +4576,9 @@ async fn to_rdf_e129() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4140,7 +4596,9 @@ async fn to_rdf_e130() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4157,7 +4615,9 @@ async fn to_rdf_ec01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4174,7 +4634,9 @@ async fn to_rdf_ec02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4191,7 +4653,9 @@ async fn to_rdf_em01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4208,7 +4672,9 @@ async fn to_rdf_en01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4225,7 +4691,9 @@ async fn to_rdf_en02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4242,7 +4710,9 @@ async fn to_rdf_en03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4259,7 +4729,9 @@ async fn to_rdf_en04() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4276,7 +4748,9 @@ async fn to_rdf_en05() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4293,7 +4767,9 @@ async fn to_rdf_en06() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4310,7 +4786,9 @@ async fn to_rdf_ep02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_0,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4327,7 +4805,9 @@ async fn to_rdf_ep03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4344,7 +4824,9 @@ async fn to_rdf_er01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4361,7 +4843,9 @@ async fn to_rdf_er04() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4378,7 +4862,9 @@ async fn to_rdf_er05() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4395,7 +4881,9 @@ async fn to_rdf_er06() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4412,7 +4900,9 @@ async fn to_rdf_er07() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4429,7 +4919,9 @@ async fn to_rdf_er08() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4446,7 +4938,9 @@ async fn to_rdf_er09() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4463,7 +4957,9 @@ async fn to_rdf_er10() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4480,7 +4976,9 @@ async fn to_rdf_er11() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4497,7 +4995,9 @@ async fn to_rdf_er12() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4514,7 +5014,9 @@ async fn to_rdf_er13() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4531,7 +5033,9 @@ async fn to_rdf_er14() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4548,7 +5052,9 @@ async fn to_rdf_er15() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4565,7 +5071,9 @@ async fn to_rdf_er17() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4582,7 +5090,9 @@ async fn to_rdf_er18() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4599,7 +5109,9 @@ async fn to_rdf_er19() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4616,7 +5128,9 @@ async fn to_rdf_er20() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4633,7 +5147,9 @@ async fn to_rdf_er21() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_0,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4650,7 +5166,9 @@ async fn to_rdf_er22() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4667,7 +5185,9 @@ async fn to_rdf_er23() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4684,7 +5204,9 @@ async fn to_rdf_er25() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4701,7 +5223,9 @@ async fn to_rdf_er26() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4718,7 +5242,9 @@ async fn to_rdf_er27() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4735,7 +5261,9 @@ async fn to_rdf_er28() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4752,7 +5280,9 @@ async fn to_rdf_er29() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4769,7 +5299,9 @@ async fn to_rdf_er30() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4786,7 +5318,9 @@ async fn to_rdf_er31() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4803,7 +5337,9 @@ async fn to_rdf_er33() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4820,7 +5356,9 @@ async fn to_rdf_er34() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4837,7 +5375,9 @@ async fn to_rdf_er35() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4854,7 +5394,9 @@ async fn to_rdf_er36() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4871,7 +5413,9 @@ async fn to_rdf_er37() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4888,7 +5432,9 @@ async fn to_rdf_er38() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4905,7 +5451,9 @@ async fn to_rdf_er39() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4922,7 +5470,9 @@ async fn to_rdf_er40() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4939,7 +5489,9 @@ async fn to_rdf_er41() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4956,7 +5508,9 @@ async fn to_rdf_er42() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_0,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4973,7 +5527,9 @@ async fn to_rdf_er43() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -4990,7 +5546,9 @@ async fn to_rdf_er44() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5007,7 +5565,9 @@ async fn to_rdf_er48() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5024,7 +5584,9 @@ async fn to_rdf_er49() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5041,7 +5603,9 @@ async fn to_rdf_er50() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5058,7 +5622,9 @@ async fn to_rdf_er51() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5075,7 +5641,9 @@ async fn to_rdf_er52() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5092,7 +5660,9 @@ async fn to_rdf_er53() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5109,7 +5679,9 @@ async fn to_rdf_er54() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5126,7 +5698,9 @@ async fn to_rdf_er55() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5144,7 +5718,9 @@ async fn to_rdf_in01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5162,7 +5738,9 @@ async fn to_rdf_in02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5180,7 +5758,9 @@ async fn to_rdf_in03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5198,7 +5778,9 @@ async fn to_rdf_in04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5216,7 +5798,9 @@ async fn to_rdf_in05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5234,7 +5818,9 @@ async fn to_rdf_in06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5251,7 +5837,9 @@ async fn to_rdf_in07() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5268,7 +5856,9 @@ async fn to_rdf_in08() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5285,7 +5875,9 @@ async fn to_rdf_in09() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5303,7 +5895,9 @@ async fn to_rdf_js01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5321,7 +5915,9 @@ async fn to_rdf_js02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5339,7 +5935,9 @@ async fn to_rdf_js03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5357,7 +5955,9 @@ async fn to_rdf_js04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5375,7 +5975,9 @@ async fn to_rdf_js05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5393,7 +5995,9 @@ async fn to_rdf_js06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5411,7 +6015,9 @@ async fn to_rdf_js07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5429,7 +6035,9 @@ async fn to_rdf_js08() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5447,7 +6055,9 @@ async fn to_rdf_js09() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5465,7 +6075,9 @@ async fn to_rdf_js10() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5483,7 +6095,9 @@ async fn to_rdf_js11() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5501,7 +6115,9 @@ async fn to_rdf_js12() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5519,7 +6135,9 @@ async fn to_rdf_js13() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5537,7 +6155,9 @@ async fn to_rdf_js14() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5555,7 +6175,9 @@ async fn to_rdf_js15() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5573,7 +6195,9 @@ async fn to_rdf_js16() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5591,7 +6215,9 @@ async fn to_rdf_js17() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5609,7 +6235,9 @@ async fn to_rdf_js18() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5627,7 +6255,9 @@ async fn to_rdf_js19() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5645,7 +6275,9 @@ async fn to_rdf_js20() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5663,7 +6295,9 @@ async fn to_rdf_js21() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5681,7 +6315,9 @@ async fn to_rdf_js22() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5699,7 +6335,9 @@ async fn to_rdf_js23() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5717,7 +6355,9 @@ async fn to_rdf_li01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5735,7 +6375,9 @@ async fn to_rdf_li02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5753,7 +6395,9 @@ async fn to_rdf_li03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5771,7 +6415,9 @@ async fn to_rdf_li04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5789,7 +6435,9 @@ async fn to_rdf_li05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5807,7 +6455,9 @@ async fn to_rdf_li06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5825,7 +6475,9 @@ async fn to_rdf_li07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5843,7 +6495,9 @@ async fn to_rdf_li08() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5861,7 +6515,9 @@ async fn to_rdf_li09() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5879,7 +6535,9 @@ async fn to_rdf_li10() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5897,25 +6555,9 @@ async fn to_rdf_li11() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
-		},
-		input_url,
-		base_url,
-		output_url
-	).await
-}
-
-#[async_std::test]
-async fn to_rdf_li12() {
-	let input_url = iri!("https://w3c.github.io/json-ld-api/tests/toRdf/li12-in.jsonld");
-	let base_url = iri!("https://w3c.github.io/json-ld-api/tests/toRdf/li12-in.jsonld");
-	let output_url = iri!("https://w3c.github.io/json-ld-api/tests/toRdf/li12-out.nq");
-	println!("List with bad @base.");
-	println!("Tests list elements expanded to IRIs with a bad @base.");
-	positive_test(
-		Options {
-			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5933,7 +6575,9 @@ async fn to_rdf_li13() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5951,7 +6595,9 @@ async fn to_rdf_li14() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5969,7 +6615,9 @@ async fn to_rdf_m001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -5987,7 +6635,9 @@ async fn to_rdf_m002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6005,7 +6655,9 @@ async fn to_rdf_m003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6023,7 +6675,9 @@ async fn to_rdf_m004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6041,7 +6695,9 @@ async fn to_rdf_m005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6059,7 +6715,9 @@ async fn to_rdf_m006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6077,7 +6735,9 @@ async fn to_rdf_m007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6095,7 +6755,9 @@ async fn to_rdf_m008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6113,7 +6775,9 @@ async fn to_rdf_m009() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6131,7 +6795,9 @@ async fn to_rdf_m010() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6149,7 +6815,9 @@ async fn to_rdf_m011() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6167,7 +6835,9 @@ async fn to_rdf_m012() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6185,7 +6855,9 @@ async fn to_rdf_m013() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6203,7 +6875,9 @@ async fn to_rdf_m014() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6221,7 +6895,9 @@ async fn to_rdf_m015() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6239,7 +6915,9 @@ async fn to_rdf_m016() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6257,7 +6935,9 @@ async fn to_rdf_m017() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6275,7 +6955,9 @@ async fn to_rdf_m018() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6293,7 +6975,9 @@ async fn to_rdf_m019() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6310,7 +6994,9 @@ async fn to_rdf_m020() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6328,7 +7014,9 @@ async fn to_rdf_n001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6346,7 +7034,9 @@ async fn to_rdf_n002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6364,7 +7054,9 @@ async fn to_rdf_n003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6382,7 +7074,9 @@ async fn to_rdf_n004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6400,7 +7094,9 @@ async fn to_rdf_n005() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6418,7 +7114,9 @@ async fn to_rdf_n006() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6436,7 +7134,9 @@ async fn to_rdf_n007() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6454,7 +7154,9 @@ async fn to_rdf_n008() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6552,7 +7254,9 @@ async fn to_rdf_p001() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6570,7 +7274,9 @@ async fn to_rdf_p002() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6588,7 +7294,9 @@ async fn to_rdf_p003() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6606,7 +7314,9 @@ async fn to_rdf_p004() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6623,7 +7333,9 @@ async fn to_rdf_pi01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_0,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6640,7 +7352,9 @@ async fn to_rdf_pi02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6657,7 +7371,9 @@ async fn to_rdf_pi03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6674,7 +7390,9 @@ async fn to_rdf_pi04() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6691,7 +7409,9 @@ async fn to_rdf_pi05() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6709,7 +7429,9 @@ async fn to_rdf_pi06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6727,7 +7449,9 @@ async fn to_rdf_pi07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6745,7 +7469,9 @@ async fn to_rdf_pi08() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6763,7 +7489,9 @@ async fn to_rdf_pi09() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6781,7 +7509,9 @@ async fn to_rdf_pi10() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6799,7 +7529,9 @@ async fn to_rdf_pi11() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6816,7 +7548,9 @@ async fn to_rdf_pr01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6834,7 +7568,9 @@ async fn to_rdf_pr02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6851,7 +7587,9 @@ async fn to_rdf_pr03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6868,7 +7606,9 @@ async fn to_rdf_pr04() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6885,7 +7625,9 @@ async fn to_rdf_pr05() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6903,7 +7645,9 @@ async fn to_rdf_pr06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6920,7 +7664,9 @@ async fn to_rdf_pr08() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6937,7 +7683,9 @@ async fn to_rdf_pr09() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6955,7 +7703,9 @@ async fn to_rdf_pr10() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6972,7 +7722,9 @@ async fn to_rdf_pr11() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -6989,7 +7741,9 @@ async fn to_rdf_pr12() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7007,7 +7761,9 @@ async fn to_rdf_pr13() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7025,7 +7781,9 @@ async fn to_rdf_pr14() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7043,7 +7801,9 @@ async fn to_rdf_pr15() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7061,7 +7821,9 @@ async fn to_rdf_pr16() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7078,7 +7840,9 @@ async fn to_rdf_pr17() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7095,7 +7859,9 @@ async fn to_rdf_pr18() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7113,7 +7879,9 @@ async fn to_rdf_pr19() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7130,7 +7898,9 @@ async fn to_rdf_pr20() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7147,7 +7917,9 @@ async fn to_rdf_pr21() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7165,7 +7937,9 @@ async fn to_rdf_pr22() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7183,7 +7957,9 @@ async fn to_rdf_pr23() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7201,7 +7977,9 @@ async fn to_rdf_pr24() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7219,7 +7997,9 @@ async fn to_rdf_pr25() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7236,7 +8016,9 @@ async fn to_rdf_pr26() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7254,7 +8036,9 @@ async fn to_rdf_pr27() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7271,7 +8055,9 @@ async fn to_rdf_pr28() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7289,7 +8075,9 @@ async fn to_rdf_pr29() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7307,7 +8095,9 @@ async fn to_rdf_pr30() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7324,7 +8114,9 @@ async fn to_rdf_pr31() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7341,7 +8133,9 @@ async fn to_rdf_pr32() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7358,7 +8152,9 @@ async fn to_rdf_pr33() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7376,7 +8172,9 @@ async fn to_rdf_pr34() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7394,7 +8192,9 @@ async fn to_rdf_pr35() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7412,7 +8212,9 @@ async fn to_rdf_pr36() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7430,7 +8232,9 @@ async fn to_rdf_pr37() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7448,7 +8252,9 @@ async fn to_rdf_pr38() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7466,7 +8272,9 @@ async fn to_rdf_pr39() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7484,7 +8292,9 @@ async fn to_rdf_pr40() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7502,7 +8312,9 @@ async fn to_rdf_rt01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7519,7 +8331,9 @@ async fn to_rdf_so01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_0,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7536,7 +8350,9 @@ async fn to_rdf_so02() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7553,7 +8369,9 @@ async fn to_rdf_so03() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7571,7 +8389,9 @@ async fn to_rdf_so05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7589,7 +8409,9 @@ async fn to_rdf_so06() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7606,7 +8428,9 @@ async fn to_rdf_so07() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7624,7 +8448,9 @@ async fn to_rdf_so08() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7642,7 +8468,9 @@ async fn to_rdf_so09() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7659,7 +8487,9 @@ async fn to_rdf_so10() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7677,7 +8507,9 @@ async fn to_rdf_so11() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7694,7 +8526,9 @@ async fn to_rdf_so12() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7711,7 +8545,9 @@ async fn to_rdf_so13() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7728,7 +8564,9 @@ async fn to_rdf_tn01() {
 	negative_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_0,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7746,7 +8584,9 @@ async fn to_rdf_tn02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7764,7 +8604,9 @@ async fn to_rdf_wf01() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7782,7 +8624,9 @@ async fn to_rdf_wf02() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7800,7 +8644,9 @@ async fn to_rdf_wf03() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7818,7 +8664,9 @@ async fn to_rdf_wf04() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7836,7 +8684,9 @@ async fn to_rdf_wf05() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,
@@ -7854,7 +8704,9 @@ async fn to_rdf_wf07() {
 	positive_test(
 		Options {
 			processing_mode: ProcessingMode::JsonLd1_1,
-			context: None
+			context: None,
+			rdf_direction: None,
+			produce_generalized_rdf: false
 		},
 		input_url,
 		base_url,

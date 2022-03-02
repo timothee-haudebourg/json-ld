@@ -1,5 +1,5 @@
 use super::{Property, PropertyRef, RdfDirection, RdfSyntax, Triple, ValidReference, Value};
-use crate::{id, ExpandedDocument, FlattenedDocument, Id};
+use crate::{flattening::NodeMap, id, ExpandedDocument, FlattenedDocument, Id};
 use generic_json::JsonHash;
 use std::borrow::Cow;
 use std::convert::TryInto;
@@ -27,7 +27,7 @@ struct Compound<'a, J: JsonHash, T: Id> {
 /// Iterator over the RDF Quads of a JSON-LD document.
 pub struct Quads<'a, 'g, J: JsonHash + ToString, T: Id, G: id::Generator<T>> {
 	generator: &'g mut G,
-	rdf_direction: RdfDirection,
+	rdf_direction: Option<RdfDirection>,
 	compound_value: Option<Compound<'a, J, T>>,
 	quads: crate::quad::Quads<'a, J, T>,
 }
@@ -106,7 +106,7 @@ impl<J: JsonHash + ToString, T: Id> ExpandedDocument<J, T> {
 	pub fn rdf_quads<'g, G: id::Generator<T>>(
 		&self,
 		generator: &'g mut G,
-		rdf_direction: RdfDirection,
+		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'g, J, T, G> {
 		Quads {
 			generator,
@@ -121,7 +121,22 @@ impl<J: JsonHash + ToString, T: Id> FlattenedDocument<J, T> {
 	pub fn rdf_quads<'g, G: id::Generator<T>>(
 		&self,
 		generator: &'g mut G,
-		rdf_direction: RdfDirection,
+		rdf_direction: Option<RdfDirection>,
+	) -> Quads<'_, 'g, J, T, G> {
+		Quads {
+			generator,
+			rdf_direction,
+			compound_value: None,
+			quads: self.quads(),
+		}
+	}
+}
+
+impl<J: JsonHash + ToString, T: Id> NodeMap<J, T> {
+	pub fn rdf_quads<'g, G: id::Generator<T>>(
+		&self,
+		generator: &'g mut G,
+		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'g, J, T, G> {
 		Quads {
 			generator,

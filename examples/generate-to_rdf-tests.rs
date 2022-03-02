@@ -54,6 +54,10 @@ pub enum Vocab {
 	ExpandContext,
 	#[iri("vocab:base")]
 	Base,
+	#[iri("vocab:rdfDirection")]
+	RdfDirection,
+	#[iri("vocab:produceGeneralizedRdf")]
+	ProduceGeneralizedRdf,
 }
 
 pub type Id = Lexicon<Vocab>;
@@ -111,10 +115,29 @@ fn generate_test(entry: &Node<Value, Id>) {
 	let name = entry.get(Vocab::Name).next().unwrap().as_str().unwrap();
 	let url = entry.get(Vocab::Action).next().unwrap().as_iri().unwrap();
 	let mut base_url = url;
+
+	if url == "https://w3c.github.io/json-ld-api/tests/toRdf/e122-in.jsonld" {
+		warn!(
+			"skipping invalid test {} (https://github.com/w3c/json-ld-api/issues/480#issuecomment-911718610)",
+			url
+		);
+		return;
+	}
+
+	if url == "https://w3c.github.io/json-ld-api/tests/toRdf/li12-in.jsonld" {
+		warn!(
+			"skipping invalid test {} (https://github.com/w3c/json-ld-api/issues/533)",
+			url
+		);
+		return;
+	}
+
 	let func_name = func_name(url.path().file_name().unwrap());
 
 	let mut processing_mode = ProcessingMode::JsonLd1_1;
 	let mut context_url = "None".to_string();
+	let mut rdf_direction = "None".to_string();
+	let mut produce_generalized_rdf = false;
 
 	for option in entry.get(Vocab::Option) {
 		if let Object::Node(option) = option.as_ref() {
@@ -152,6 +175,24 @@ fn generate_test(entry: &Node<Value, Id>) {
 					base_url = url
 				}
 			}
+
+			for direction in option.get(Vocab::RdfDirection) {
+				match direction.inner().as_str() {
+					Some("i18n-datatype") => {
+						rdf_direction = "Some(RdfDirection::I18nDatatype)".to_string()
+					}
+					Some("compound-literal") => {
+						rdf_direction = "Some(RdfDirection::CompoundLiteral)".to_string()
+					}
+					_ => warn!("invalid `rdfDirection` option"),
+				}
+			}
+
+			for b in option.get(Vocab::ProduceGeneralizedRdf) {
+				if let Some(b) = b.inner().as_bool() {
+					produce_generalized_rdf = b
+				}
+			}
 		}
 	}
 
@@ -165,7 +206,16 @@ fn generate_test(entry: &Node<Value, Id>) {
 
 		println!(
 			include_str!("../tests/templates/to_rdf-test-positive.rs"),
-			func_name, url, base_url, output_url, name, comments, processing_mode, context_url
+			func_name,
+			url,
+			base_url,
+			output_url,
+			name,
+			comments,
+			processing_mode,
+			context_url,
+			rdf_direction,
+			produce_generalized_rdf
 		);
 	} else if entry.has_type(&Vocab::NegativeEvalTest) {
 		let error_code: ErrorCode = entry
@@ -179,7 +229,16 @@ fn generate_test(entry: &Node<Value, Id>) {
 
 		println!(
 			include_str!("../tests/templates/to_rdf-test-negative.rs"),
-			func_name, url, base_url, name, comments, processing_mode, context_url, error_code
+			func_name,
+			url,
+			base_url,
+			name,
+			comments,
+			processing_mode,
+			context_url,
+			rdf_direction,
+			produce_generalized_rdf,
+			error_code
 		);
 	} else if entry.has_type(&Vocab::PositiveSyntaxTest) {
 		println!(

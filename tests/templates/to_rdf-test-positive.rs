@@ -7,7 +7,9 @@ async fn {}() {{
 	positive_test(
 		Options {{
 			processing_mode: ProcessingMode::{:?},
-			context: {}
+			context: {},
+			rdf_direction: {},
+			produce_generalized_rdf: {:?}
 		}},
 		input_url,
 		base_url,
