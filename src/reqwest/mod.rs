@@ -7,7 +7,8 @@ use iref::{Iri, IriBuf};
 use std::collections::HashMap;
 
 pub fn is_json_media_type(ty: &str) -> bool {
-	ty == "application/json" || ty == "application/ld+json"
+	// server can respond with `application/json; charset=UTF-8` that's why we don't compare strings directly
+	ty.starts_with("application/json") || ty.starts_with("application/ld+json")
 }
 
 pub async fn load_remote_json_ld_document<J, P>(url: Iri<'_>, parser: &mut P) -> Result<J, Error>
