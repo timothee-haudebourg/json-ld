@@ -1,0 +1,18 @@
+[package]
+name = "json-ld-syntax"
+version = "0.1.0"
+authors = ["Timothée Haudebourg <author@haudebourg.net>"]
+edition = "2018"
+categories = ["web-programming", "database", "data-structures"]
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+description = "A JSON-LD context processing implementation"
+repository = "https://github.com/timothee-haudebourg/json-ld"
+documentation = "https://docs.rs/json-ld-context-processing"
+license = "MIT/Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+iref = "2.1.3"
+langtag = "0.2.0"
+rdf-types = "0.4.1"
+locspan = "0.4.0"
