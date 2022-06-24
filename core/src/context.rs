@@ -3,15 +3,21 @@ mod definition;
 pub mod inverse;
 
 use crate::{
-	lang::{LenientLanguageTag, LenientLanguageTagBuf},
-	syntax::Term,
-	Direction,
+	LenientLanguageTag,
+	LenientLanguageTagBuf,
+	Term,
+	Direction
 };
 use generic_json::{JsonClone, JsonSendSync};
 use iref::{Iri, IriBuf};
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 use std::hash::Hash;
+
+pub use json_ld_syntax::context::{
+	Key,
+	Nest
+};
 
 pub use definition::*;
 pub use inverse::InverseContext;
@@ -26,7 +32,7 @@ pub struct Context<T, L> {
 	default_language: Option<LenientLanguageTagBuf>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
-	definitions: HashMap<String, TermDefinition<T, L>>,
+	definitions: HashMap<Key, TermDefinition<T, L>>,
 	inverse: OnceCell<InverseContext<T>>,
 }
 
@@ -59,7 +65,7 @@ impl<T, L> Context<T, L> {
 		}
 	}
 
-	pub fn get(&self, term: &str) -> Option<&TermDefinition<T, L>> {
+	pub fn get(&self, term: &Key) -> Option<&TermDefinition<T, L>> {
 		self.definitions.get(term)
 	}
 
@@ -95,7 +101,7 @@ impl<T, L> Context<T, L> {
 
 	pub fn definitions<'a>(
 		&'a self,
-	) -> Box<dyn 'a + Iterator<Item = (&'a String, &'a TermDefinition<T, L>)>> {
+	) -> Box<dyn 'a + Iterator<Item = (&'a Key, &'a TermDefinition<T, L>)>> {
 		Box::new(self.definitions.iter())
 	}
 
@@ -119,13 +125,13 @@ impl<T, L> Context<T, L> {
 
 	pub fn set(
 		&mut self,
-		term: &str,
+		key: Key,
 		definition: Option<TermDefinition<T, L>>,
 	) -> Option<TermDefinition<T, L>> {
 		self.inverse.take();
 		match definition {
-			Some(def) => self.definitions.insert(term.to_string(), def),
-			None => self.definitions.remove(term),
+			Some(def) => self.definitions.insert(key, def),
+			None => self.definitions.remove(&key),
 		}
 	}
 

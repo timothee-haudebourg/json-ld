@@ -1,8 +1,9 @@
 use crate::{
 	id, object,
-	syntax::{Keyword, Term},
 	utils, Id, Indexed, Object, Objects, Reference, ToReference,
+	Term
 };
+use json_ld_syntax::Keyword;
 use cc_traits::MapInsert;
 use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
@@ -509,82 +510,82 @@ impl<J: JsonHash, T: Id> Hash for Node<J, T> {
 	}
 }
 
-impl<J: JsonHash + JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K> for Node<J, T> {
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		let mut obj = <K as Json>::Object::default();
+// impl<J: JsonHash + JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K> for Node<J, T> {
+// 	fn as_json_with(
+// 		&self,
+// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
+// 	) -> K {
+// 		let mut obj = <K as Json>::Object::default();
 
-		if let Some(id) = &self.id {
-			obj.insert(
-				K::new_key(Keyword::Id.into_str(), meta(None)),
-				id.as_json_with(meta.clone()),
-			);
-		}
+// 		if let Some(id) = &self.id {
+// 			obj.insert(
+// 				K::new_key(Keyword::Id.into_str(), meta(None)),
+// 				id.as_json_with(meta.clone()),
+// 			);
+// 		}
 
-		if !self.types.is_empty() {
-			obj.insert(
-				K::new_key(Keyword::Type.into_str(), meta(None)),
-				self.types.as_json_with(meta.clone()),
-			);
-		}
+// 		if !self.types.is_empty() {
+// 			obj.insert(
+// 				K::new_key(Keyword::Type.into_str(), meta(None)),
+// 				self.types.as_json_with(meta.clone()),
+// 			);
+// 		}
 
-		if let Some(graph) = &self.graph {
-			obj.insert(
-				K::new_key(Keyword::Graph.into_str(), meta(None)),
-				graph.as_json_with(meta.clone()),
-			);
-		}
+// 		if let Some(graph) = &self.graph {
+// 			obj.insert(
+// 				K::new_key(Keyword::Graph.into_str(), meta(None)),
+// 				graph.as_json_with(meta.clone()),
+// 			);
+// 		}
 
-		if let Some(included) = &self.included {
-			obj.insert(
-				K::new_key(Keyword::Included.into_str(), meta(None)),
-				included.as_json_with(meta.clone()),
-			);
-		}
+// 		if let Some(included) = &self.included {
+// 			obj.insert(
+// 				K::new_key(Keyword::Included.into_str(), meta(None)),
+// 				included.as_json_with(meta.clone()),
+// 			);
+// 		}
 
-		if !self.reverse_properties.is_empty() {
-			let mut reverse = <K as Json>::Object::default();
-			for (key, value) in &self.reverse_properties {
-				reverse.insert(
-					K::new_key(key.as_str(), meta(None)),
-					value.as_json_with(meta.clone()),
-				);
-			}
+// 		if !self.reverse_properties.is_empty() {
+// 			let mut reverse = <K as Json>::Object::default();
+// 			for (key, value) in &self.reverse_properties {
+// 				reverse.insert(
+// 					K::new_key(key.as_str(), meta(None)),
+// 					value.as_json_with(meta.clone()),
+// 				);
+// 			}
 
-			obj.insert(
-				K::new_key(Keyword::Reverse.into_str(), meta(None)),
-				K::object(reverse, meta(None)),
-			);
-		}
+// 			obj.insert(
+// 				K::new_key(Keyword::Reverse.into_str(), meta(None)),
+// 				K::object(reverse, meta(None)),
+// 			);
+// 		}
 
-		for (key, value) in &self.properties {
-			obj.insert(
-				K::new_key(key.as_str(), meta(None)),
-				value.as_json_with(meta.clone()),
-			);
-		}
+// 		for (key, value) in &self.properties {
+// 			obj.insert(
+// 				K::new_key(key.as_str(), meta(None)),
+// 				value.as_json_with(meta.clone()),
+// 			);
+// 		}
 
-		K::object(obj, meta(None))
-	}
-}
+// 		K::object(obj, meta(None))
+// 	}
+// }
 
-impl<J: JsonHash + JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K>
-	for HashSet<Indexed<Node<J, T>>>
-{
-	#[inline(always)]
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		let array = self
-			.iter()
-			.map(|value| value.as_json_with(meta.clone()))
-			.collect();
-		K::array(array, meta(None))
-	}
-}
+// impl<J: JsonHash + JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K>
+// 	for HashSet<Indexed<Node<J, T>>>
+// {
+// 	#[inline(always)]
+// 	fn as_json_with(
+// 		&self,
+// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
+// 	) -> K {
+// 		let array = self
+// 			.iter()
+// 			.map(|value| value.as_json_with(meta.clone()))
+// 			.collect();
+// 		K::array(array, meta(None))
+// 	}
+// }
 
 /// Iterator through indexed nodes.
 pub struct Nodes<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Node<J, T>>>>);

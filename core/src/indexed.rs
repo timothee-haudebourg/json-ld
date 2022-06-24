@@ -1,7 +1,5 @@
-use crate::{
-	syntax::Keyword,
-	utils::{AsAnyJson, AsJson, JsonFrom},
-};
+use crate::utils::{AsAnyJson, AsJson, JsonFrom};
+use json_ld_syntax::Keyword;
 use generic_json::{Json, JsonClone};
 use std::convert::{TryFrom, TryInto};
 use std::hash::{Hash, Hasher};

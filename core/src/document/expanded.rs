@@ -1,9 +1,9 @@
 use crate::{
 	id,
-	utils::{AsJson, JsonFrom},
+	utils::JsonFrom,
 	Id, Indexed, Loc, Object, Warning,
 };
-use generic_json::{Json, JsonClone, JsonHash};
+use generic_json::{JsonClone, JsonHash};
 use rdf_types::BlankId;
 use std::collections::{BTreeSet, HashSet};
 
@@ -157,11 +157,11 @@ impl<'a, F, J: JsonHash, T: Id> IntoIterator for &'a ExpandedDocument<F, J, T> {
 	}
 }
 
-impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<F, J, T> {
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		self.objects.as_json_with(meta)
-	}
-}
+// impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<F, J, T> {
+// 	fn as_json_with(
+// 		&self,
+// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
+// 	) -> K {
+// 		self.objects.as_json_with(meta)
+// 	}
+// }

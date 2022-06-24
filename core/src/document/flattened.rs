@@ -106,13 +106,13 @@ impl<'a, F, J: JsonHash, T: Id> IntoIterator for &'a mut FlattenedDocument<F, J,
 	}
 }
 
-impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
-	for FlattenedDocument<F, J, T>
-{
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		self.nodes.as_json_with(meta)
-	}
-}
+// impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
+// 	for FlattenedDocument<F, J, T>
+// {
+// 	fn as_json_with(
+// 		&self,
+// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
+// 	) -> K {
+// 		self.nodes.as_json_with(meta)
+// 	}
+// }

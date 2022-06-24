@@ -1,6 +1,3 @@
-use crate::utils::{AsJson, JsonFrom};
-use generic_json::{Json, JsonClone};
-
 /// Value that can be null.
 ///
 /// The `Option` type is used in this crate to indicate values that
@@ -50,6 +47,13 @@ impl<T> Nullable<T> {
 		}
 	}
 
+	pub fn as_deref(&self) -> Nullable<&T::Target> where T: std::ops::Deref {
+		match self {
+			Self::Null => Nullable::Null,
+			Self::Some(t) => Nullable::Some(t)
+		}
+	}
+
 	/// Transform into an `Option` value.
 	#[inline(always)]
 	pub fn option(self) -> Option<T> {
@@ -70,6 +74,27 @@ impl<T> Nullable<T> {
 			Nullable::Some(t) => Nullable::Some(f(t)),
 		}
 	}
+
+	pub fn cast<U>(self) -> Nullable<U> where T: Into<U> {
+		match self {
+			Self::Null => Nullable::Null,
+			Self::Some(t) => Nullable::Some(t.into())
+		}
+	}
+
+	pub fn unwrap_or(self, default: T) -> T {
+		match self {
+			Self::Null => default,
+			Self::Some(t) => t
+		}
+	}
+
+	pub fn unwrap_or_default(self) -> T where T: Default {
+		match self {
+			Self::Null => T::default(),
+			Self::Some(t) => t
+		}
+	}
 }
 
 impl<'a, T: Clone> Nullable<&'a T> {
@@ -79,28 +104,6 @@ impl<'a, T: Clone> Nullable<&'a T> {
 		match self {
 			Nullable::Null => Nullable::Null,
 			Nullable::Some(t) => Nullable::Some((*t).clone()),
-		}
-	}
-}
-
-impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Nullable<T> {
-	#[inline(always)]
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		match self {
-			Nullable::Null => K::null(meta(None)),
-			Nullable::Some(t) => t.as_json_with(meta),
-		}
-	}
-}
-
-impl<T: PartialEq> PartialEq<T> for Nullable<T> {
-	fn eq(&self, other: &T) -> bool {
-		match self {
-			Nullable::Null => false,
-			Nullable::Some(t) => t == other,
 		}
 	}
 }

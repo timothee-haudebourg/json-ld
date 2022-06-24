@@ -1,6 +1,6 @@
-use super::{Keyword, Term, TermLike};
-use crate::{utils, Id, Reference};
-use generic_json::JsonBuild;
+use super::{Term, TermLike};
+use crate::{Id, Reference};
+use json_ld_syntax::Keyword;
 use iref::Iri;
 use std::convert::TryFrom;
 use std::fmt;
@@ -113,17 +113,17 @@ impl<T: Id> TryFrom<Term<T>> for Type<T> {
 	}
 }
 
-impl<K: JsonBuild, T: utils::AsAnyJson<K>> utils::AsAnyJson<K> for Type<T> {
-	fn as_json_with(&self, meta: K::MetaData) -> K {
-		match self {
-			Type::Id => "@id".as_json_with(meta),
-			Type::Json => "@json".as_json_with(meta),
-			Type::None => "@none".as_json_with(meta),
-			Type::Vocab => "@vocab".as_json_with(meta),
-			Type::Ref(id) => id.as_json_with(meta),
-		}
-	}
-}
+// impl<K: JsonBuild, T: utils::AsAnyJson<K>> utils::AsAnyJson<K> for Type<T> {
+// 	fn as_json_with(&self, meta: K::MetaData) -> K {
+// 		match self {
+// 			Type::Id => "@id".as_json_with(meta),
+// 			Type::Json => "@json".as_json_with(meta),
+// 			Type::None => "@none".as_json_with(meta),
+// 			Type::Vocab => "@vocab".as_json_with(meta),
+// 			Type::Ref(id) => id.as_json_with(meta),
+// 		}
+// 	}
+// }
 
 impl<T: fmt::Display> fmt::Display for Type<T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

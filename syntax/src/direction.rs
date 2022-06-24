@@ -1,6 +1,3 @@
-use crate::utils::AsAnyJson;
-use generic_json::JsonBuild;
-use std::convert::TryFrom;
 use std::fmt;
 
 /// Internationalized string direction.
@@ -36,18 +33,6 @@ impl fmt::Display for Direction {
 		match self {
 			Direction::Ltr => write!(f, "ltr"),
 			Direction::Rtl => write!(f, "rtl"),
-		}
-	}
-}
-
-impl<K: JsonBuild> AsAnyJson<K> for Direction {
-	/// Convert the direction into a JSON string.
-	/// Either `"rtl"` or `"ltr"`.
-	#[inline(always)]
-	fn as_json_with(&self, meta: K::MetaData) -> K {
-		match self {
-			Direction::Ltr => "ltr".as_json_with(meta),
-			Direction::Rtl => "rtl".as_json_with(meta),
 		}
 	}
 }

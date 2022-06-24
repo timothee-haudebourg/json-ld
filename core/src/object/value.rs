@@ -1,11 +1,8 @@
 use crate::{
-	lang::LenientLanguageTag,
+	LenientLanguageTag,
 	object,
-	syntax::{self, Keyword},
-	utils::{self, AsAnyJson},
 	Direction, Id, LangString,
 };
-use cc_traits::MapInsert;
 use derivative::Derivative;
 use generic_json::{Json, JsonClone, JsonHash};
 use iref::IriBuf;
@@ -36,10 +33,10 @@ pub enum TypeRef<'a, T> {
 }
 
 impl<'a, T> TypeRef<'a, T> {
-	pub fn as_syntax_type(&self) -> syntax::Type<&'a T> {
+	pub fn as_syntax_type(&self) -> crate::Type<&'a T> {
 		match self {
-			Self::Json => syntax::Type::Json,
-			Self::Id(id) => syntax::Type::Ref(id),
+			Self::Json => crate::Type::Json,
+			Self::Id(id) => crate::Type::Ref(id),
 		}
 	}
 
@@ -200,7 +197,7 @@ pub enum Value<J: Json, T: Id = IriBuf> {
 	Literal(Literal<J>, Option<T>),
 
 	/// Language tagged string.
-	LangString(LangString<J>),
+	LangString(LangString),
 
 	/// JSON literal value.
 	Json(J),
@@ -335,73 +332,73 @@ impl<J: JsonHash, T: Id> Hash for Value<J, T> {
 	}
 }
 
-impl<J: JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K> for Value<J, T> {
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		let mut obj = <K as Json>::Object::default();
+// impl<J: JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K> for Value<J, T> {
+// 	fn as_json_with(
+// 		&self,
+// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
+// 	) -> K {
+// 		let mut obj = <K as Json>::Object::default();
 
-		match self {
-			Value::Literal(lit, ty) => {
-				match lit {
-					Literal::Null => obj.insert(
-						K::new_key(Keyword::Value.into_str(), meta(None)),
-						K::null(meta(None)),
-					),
-					Literal::Boolean(b) => obj.insert(
-						K::new_key(Keyword::Value.into_str(), meta(None)),
-						b.as_json_with(meta(None)),
-					),
-					Literal::Number(n) => obj.insert(
-						K::new_key(Keyword::Value.into_str(), meta(None)),
-						K::number(n.clone().into(), meta(None)),
-					),
-					Literal::String(s) => obj.insert(
-						K::new_key(Keyword::Value.into_str(), meta(None)),
-						s.as_json_with(meta(None)),
-					),
-				};
+// 		match self {
+// 			Value::Literal(lit, ty) => {
+// 				match lit {
+// 					Literal::Null => obj.insert(
+// 						K::new_key(Keyword::Value.into_str(), meta(None)),
+// 						K::null(meta(None)),
+// 					),
+// 					Literal::Boolean(b) => obj.insert(
+// 						K::new_key(Keyword::Value.into_str(), meta(None)),
+// 						b.as_json_with(meta(None)),
+// 					),
+// 					Literal::Number(n) => obj.insert(
+// 						K::new_key(Keyword::Value.into_str(), meta(None)),
+// 						K::number(n.clone().into(), meta(None)),
+// 					),
+// 					Literal::String(s) => obj.insert(
+// 						K::new_key(Keyword::Value.into_str(), meta(None)),
+// 						s.as_json_with(meta(None)),
+// 					),
+// 				};
 
-				if let Some(ty) = ty {
-					obj.insert(
-						K::new_key(Keyword::Type.into_str(), meta(None)),
-						ty.as_json(meta(None)),
-					);
-				}
-			}
-			Value::LangString(str) => {
-				obj.insert(
-					K::new_key(Keyword::Value.into_str(), meta(None)),
-					str.as_str().as_json_with(meta(None)),
-				);
+// 				if let Some(ty) = ty {
+// 					obj.insert(
+// 						K::new_key(Keyword::Type.into_str(), meta(None)),
+// 						ty.as_json(meta(None)),
+// 					);
+// 				}
+// 			}
+// 			Value::LangString(str) => {
+// 				obj.insert(
+// 					K::new_key(Keyword::Value.into_str(), meta(None)),
+// 					str.as_str().as_json_with(meta(None)),
+// 				);
 
-				if let Some(language) = str.language() {
-					obj.insert(
-						K::new_key(Keyword::Language.into_str(), meta(None)),
-						language.as_json_with(meta(None)),
-					);
-				}
+// 				if let Some(language) = str.language() {
+// 					obj.insert(
+// 						K::new_key(Keyword::Language.into_str(), meta(None)),
+// 						language.as_json_with(meta(None)),
+// 					);
+// 				}
 
-				if let Some(direction) = str.direction() {
-					obj.insert(
-						K::new_key(Keyword::Direction.into_str(), meta(None)),
-						direction.as_json_with(meta(None)),
-					);
-				}
-			}
-			Value::Json(json) => {
-				obj.insert(
-					K::new_key(Keyword::Value.into_str(), meta(None)),
-					json.as_json_with(meta.clone()),
-				);
-				obj.insert(
-					K::new_key(Keyword::Type.into_str(), meta(None)),
-					Keyword::Json.as_json_with(meta(None)),
-				);
-			}
-		}
+// 				if let Some(direction) = str.direction() {
+// 					obj.insert(
+// 						K::new_key(Keyword::Direction.into_str(), meta(None)),
+// 						direction.as_json_with(meta(None)),
+// 					);
+// 				}
+// 			}
+// 			Value::Json(json) => {
+// 				obj.insert(
+// 					K::new_key(Keyword::Value.into_str(), meta(None)),
+// 					json.as_json_with(meta.clone()),
+// 				);
+// 				obj.insert(
+// 					K::new_key(Keyword::Type.into_str(), meta(None)),
+// 					Keyword::Json.as_json_with(meta(None)),
+// 				);
+// 			}
+// 		}
 
-		K::object(obj, meta(None))
-	}
-}
+// 		K::object(obj, meta(None))
+// 	}
+// }

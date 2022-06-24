@@ -7,9 +7,7 @@ pub mod value;
 
 use crate::{
 	id,
-	lang::LenientLanguageTag,
-	syntax::Keyword,
-	utils::{AsJson, JsonFrom},
+	LenientLanguageTag,
 	Id, Indexed, Reference,
 };
 use generic_json::{Json, JsonClone, JsonHash};
@@ -367,41 +365,41 @@ impl<J: JsonHash, T: Id> From<Node<J, T>> for Object<J, T> {
 	}
 }
 
-impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, T> {
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		match self {
-			Object::Value(v) => v.as_json_with(meta),
-			Object::Node(n) => n.as_json_with(meta),
-			Object::List(items) => {
-				let mut obj = <K as Json>::Object::default();
-				obj.insert(
-					K::new_key(Keyword::List.into_str(), meta(None)),
-					items.as_json_with(meta.clone()),
-				);
-				K::object(obj, meta(None))
-			}
-		}
-	}
-}
+// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, T> {
+// 	fn as_json_with(
+// 		&self,
+// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
+// 	) -> K {
+// 		match self {
+// 			Object::Value(v) => v.as_json_with(meta),
+// 			Object::Node(n) => n.as_json_with(meta),
+// 			Object::List(items) => {
+// 				let mut obj = <K as Json>::Object::default();
+// 				obj.insert(
+// 					K::new_key(Keyword::List.into_str(), meta(None)),
+// 					items.as_json_with(meta.clone()),
+// 				);
+// 				K::object(obj, meta(None))
+// 			}
+// 		}
+// 	}
+// }
 
-impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
-	for HashSet<Indexed<Object<J, T>>>
-{
-	#[inline(always)]
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		let array = self
-			.iter()
-			.map(|value| value.as_json_with(meta.clone()))
-			.collect();
-		K::array(array, meta(None))
-	}
-}
+// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
+// 	for HashSet<Indexed<Object<J, T>>>
+// {
+// 	#[inline(always)]
+// 	fn as_json_with(
+// 		&self,
+// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
+// 	) -> K {
+// 		let array = self
+// 			.iter()
+// 			.map(|value| value.as_json_with(meta.clone()))
+// 			.collect();
+// 		K::array(array, meta(None))
+// 	}
+// }
 
 /// Iterator through the types of an object.
 pub enum Types<'a, T> {

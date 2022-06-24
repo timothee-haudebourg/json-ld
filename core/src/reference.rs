@@ -1,6 +1,7 @@
 use crate::{
-	syntax::{Term, TermLike},
 	utils::{self, AsAnyJson},
+	Term,
+	TermLike,
 	Id,
 };
 use generic_json::{Json, JsonClone};

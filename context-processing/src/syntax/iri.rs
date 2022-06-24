@@ -2,9 +2,17 @@ use std::collections::HashMap;
 use json_ld_core::{
 	Id,
 	Context,
-	syntax::Term
+	Term
 };
-use json_ld_syntax as syntax;
+use json_ld_syntax::{
+	self as syntax,
+	context::{
+		Key,
+		KeyRef,
+		KeyOrKeywordRef
+	}
+};
+use locspan::Loc;
 use std::future::Future;
 use crate::{
 	ProcessingOptions,
@@ -13,7 +21,10 @@ use crate::{
 	LocWarning,
 	Error
 };
-use super::Merged;
+use super::{
+	Merged,
+	DefinedTerms
+};
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
 pub fn expand_iri<
@@ -23,11 +34,11 @@ pub fn expand_iri<
 	L: Loader + Send + Sync,
 >(
 	active_context: &'a mut Context<T, C>,
-	value: &str,
+	Loc(value, loc): Loc<syntax::Nullable<KeyOrKeywordRef<'a>>, C::Source, C::Span>,
 	document_relative: bool,
 	vocab: bool,
-	local_context: &'a Merged<C::Definition>,
-	defined: &'a mut HashMap<String, bool>,
+	local_context: &'a Merged<C>,
+	defined: &'a mut DefinedTerms<C>,
 	remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	options: ProcessingOptions,

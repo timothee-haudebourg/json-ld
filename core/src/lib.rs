@@ -171,40 +171,42 @@
 #![feature(generic_associated_types)]
 #![feature(trait_alias)]
 
-extern crate iref;
-extern crate log;
+pub use json_ld_syntax::{
+	Nullable,
+	Direction,
+	LenientLanguageTag,
+	LenientLanguageTagBuf,
+	LangString
+};
 
 pub mod context;
-mod direction;
 mod document;
 mod error;
 pub mod flattening;
 pub mod id;
 mod indexed;
-mod lang;
 mod loc;
 mod mode;
-mod null;
 pub mod object;
 pub mod quad;
 pub mod rdf;
 mod reference;
-pub mod syntax;
+mod term;
+mod ty;
 pub mod utils;
 mod vocab;
 mod warning;
 
 pub use context::Context;
-pub use direction::*;
 pub use document::*;
 pub use error::*;
 pub use id::*;
 pub use indexed::*;
-pub use lang::*;
 pub use loc::{Loc, Location};
 pub use mode::*;
-pub use null::*;
 pub use object::{Node, Nodes, Object, Objects, Value};
 pub use reference::*;
+pub use term::*;
+pub use ty::*;
 pub use vocab::*;
 pub use warning::*;

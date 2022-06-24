@@ -1,6 +1,4 @@
-use crate::{object::LiteralString, utils::AsAnyJson, Direction};
-use derivative::Derivative;
-use generic_json::{Json, JsonBuild};
+use crate::Direction;
 use langtag::{LanguageTag, LanguageTagBuf};
 use std::fmt;
 
@@ -85,7 +83,7 @@ impl<'a> LenientLanguageTag<'a> {
 		}
 	}
 
-	pub fn cloned(&self) -> LenientLanguageTagBuf {
+	pub fn to_owned(self) -> LenientLanguageTagBuf {
 		match self {
 			Self::WellFormed(tag) => LenientLanguageTagBuf::WellFormed(tag.cloned()),
 			Self::Malformed(tag) => LenientLanguageTagBuf::Malformed(tag.to_string()),
@@ -102,34 +100,15 @@ impl<'a> fmt::Display for LenientLanguageTag<'a> {
 	}
 }
 
-impl<'a, K: JsonBuild> AsAnyJson<K> for LenientLanguageTag<'a> {
-	fn as_json_with(&self, meta: K::MetaData) -> K {
-		AsAnyJson::<K>::as_json_with(self.as_str(), meta)
-	}
-}
-
-impl<K: JsonBuild> AsAnyJson<K> for LenientLanguageTagBuf {
-	fn as_json_with(&self, meta: K::MetaData) -> K {
-		AsAnyJson::<K>::as_json_with(self.as_str(), meta)
-	}
-}
-
 /// Language string.
 ///
 /// A language string is a string tagged with language and reading direction information.
 ///
 /// A valid language string is associated to either a language tag or a direction, or both.
-#[derive(Derivative)]
-#[derivative(
-	Clone(bound = "J::String: Clone"),
-	PartialEq(bound = ""),
-	Eq(bound = ""),
-	Hash(bound = ""),
-	Debug(bound = "")
-)]
-pub struct LangString<J: Json> {
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct LangString {
 	/// Actual content of the string.
-	data: LiteralString<J>,
+	data: String,
 	language: Option<LenientLanguageTagBuf>,
 	direction: Option<Direction>,
 }
@@ -138,28 +117,28 @@ pub struct LangString<J: Json> {
 #[derive(Clone, Copy, Debug)]
 pub struct InvalidLangString;
 
-impl<J: Json> LangString<J> {
+impl LangString {
 	/// Create a new language string.
 	pub fn new(
-		str: LiteralString<J>,
+		data: String,
 		language: Option<LenientLanguageTagBuf>,
 		direction: Option<Direction>,
-	) -> Result<Self, LiteralString<J>> {
+	) -> Result<Self, String> {
 		if language.is_some() || direction.is_some() {
 			Ok(Self {
-				data: str,
+				data,
 				language,
 				direction,
 			})
 		} else {
-			Err(str)
+			Err(data)
 		}
 	}
 
 	pub fn into_parts(
 		self,
 	) -> (
-		LiteralString<J>,
+		String,
 		Option<LenientLanguageTagBuf>,
 		Option<Direction>,
 	) {
@@ -169,17 +148,11 @@ impl<J: Json> LangString<J> {
 	pub fn parts(
 		&self,
 	) -> (
-		&LiteralString<J>,
+		&str,
 		Option<&LenientLanguageTagBuf>,
 		Option<&Direction>,
 	) {
 		(&self.data, self.language.as_ref(), self.direction.as_ref())
-	}
-
-	/// Reference to the underlying `str`.
-	#[inline(always)]
-	pub fn as_string(&self) -> &LiteralString<J> {
-		&self.data
 	}
 
 	/// Reference to the underlying `str`.

@@ -1,13 +1,16 @@
 use super::Context;
 use crate::{
-	lang::{LenientLanguageTag, LenientLanguageTagBuf},
-	syntax::{Container, Term, Type},
+	LenientLanguageTag,
+	LenientLanguageTagBuf,
+	Term, Type,
 	Direction, Nullable,
 };
+use json_ld_syntax::Container;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
+use super::Key;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum TypeSelection<T> {
@@ -27,13 +30,13 @@ impl<T: fmt::Debug> fmt::Debug for TypeSelection<T> {
 }
 
 struct InverseType<T> {
-	reverse: Option<String>,
-	any: Option<String>,
-	map: HashMap<Type<T>, String>,
+	reverse: Option<Key>,
+	any: Option<Key>,
+	map: HashMap<Type<T>, Key>,
 }
 
 impl<T> InverseType<T> {
-	fn select(&self, selection: TypeSelection<T>) -> Option<&str>
+	fn select(&self, selection: TypeSelection<T>) -> Option<&Key>
 	where
 		T: Hash + Eq,
 	{
@@ -42,28 +45,27 @@ impl<T> InverseType<T> {
 			TypeSelection::Any => self.any.as_ref(),
 			TypeSelection::Type(ty) => self.map.get(&ty),
 		}
-		.map(|v| v.as_str())
 	}
 
-	fn set_any(&mut self, term: &str) {
+	fn set_any(&mut self, term: &Key) {
 		if self.any.is_none() {
-			self.any = Some(term.to_string())
+			self.any = Some(term.clone())
 		}
 	}
 
-	fn set_none(&mut self, term: &str)
+	fn set_none(&mut self, term: &Key)
 	where
 		T: Clone + Hash + Eq,
 	{
 		self.set(&Type::None, term)
 	}
 
-	fn set(&mut self, ty: &Type<T>, term: &str)
+	fn set(&mut self, ty: &Type<T>, term: &Key)
 	where
 		T: Clone + Hash + Eq,
 	{
 		if !self.map.contains_key(ty) {
-			self.map.insert(ty.clone(), term.to_string());
+			self.map.insert(ty.clone(), term.clone());
 		}
 	}
 }
@@ -71,8 +73,8 @@ impl<T> InverseType<T> {
 type LangDir = Nullable<(Option<LenientLanguageTagBuf>, Option<Direction>)>;
 
 struct InverseLang {
-	any: Option<String>,
-	map: HashMap<LangDir, String>,
+	any: Option<Key>,
+	map: HashMap<LangDir, Key>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -82,34 +84,33 @@ pub enum LangSelection<'a> {
 }
 
 impl InverseLang {
-	fn select(&self, selection: LangSelection) -> Option<&str> {
+	fn select(&self, selection: LangSelection) -> Option<&Key> {
 		match selection {
 			LangSelection::Any => self.any.as_ref(),
 			LangSelection::Lang(lang_dir) => {
-				let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.cloned()), d));
+				let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
 				self.map.get(&lang_dir)
 			}
 		}
-		.map(|v| v.as_str())
 	}
 
-	fn set_any(&mut self, term: &str) {
+	fn set_any(&mut self, term: &Key) {
 		if self.any.is_none() {
-			self.any = Some(term.to_string())
+			self.any = Some(term.clone())
 		}
 	}
 
-	fn set_none(&mut self, term: &str) {
+	fn set_none(&mut self, term: &Key) {
 		self.set(Nullable::Some((None, None)), term)
 	}
 
 	fn set(
 		&mut self,
 		lang_dir: Nullable<(Option<LenientLanguageTag>, Option<Direction>)>,
-		term: &str,
+		term: &Key,
 	) {
-		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.cloned()), d));
-		self.map.entry(lang_dir).or_insert_with(|| term.to_string());
+		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
+		self.map.entry(lang_dir).or_insert_with(|| term.clone());
 	}
 }
 
@@ -120,11 +121,11 @@ struct InverseContainer<T> {
 }
 
 struct Any {
-	none: String,
+	none: Key,
 }
 
 impl<T> InverseContainer<T> {
-	pub fn new(term: &str) -> InverseContainer<T> {
+	pub fn new(term: &Key) -> InverseContainer<T> {
 		InverseContainer {
 			language: InverseLang {
 				any: None,
@@ -136,7 +137,7 @@ impl<T> InverseContainer<T> {
 				map: HashMap::new(),
 			},
 			any: Any {
-				none: term.to_string(),
+				none: term.clone(),
 			},
 		}
 	}
@@ -172,14 +173,14 @@ impl<T> InverseDefinition<T> {
 		self.map.get_mut(container).unwrap()
 	}
 
-	pub fn select(&self, containers: &[Container], selection: &Selection<T>) -> Option<&str>
+	pub fn select(&self, containers: &[Container], selection: &Selection<T>) -> Option<&Key>
 	where
 		T: Clone + Hash + Eq,
 	{
 		for container in containers {
 			if let Some(type_lang_map) = self.get(container) {
 				match selection {
-					Selection::Any => return Some(type_lang_map.any.none.as_str()),
+					Selection::Any => return Some(&type_lang_map.any.none),
 					Selection::Type(preferred_values) => {
 						for item in preferred_values {
 							if let Some(term) = type_lang_map.typ.select(item.clone()) {
@@ -266,7 +267,7 @@ impl<T: Hash + Eq> InverseContext<T> {
 		var: &Term<T>,
 		containers: &[Container],
 		selection: &Selection<T>,
-	) -> Option<&str>
+	) -> Option<&Key>
 	where
 		T: Clone,
 	{
@@ -310,7 +311,7 @@ impl<'a, T: Clone + Hash + Eq, L> From<&'a Context<T, L>> for InverseContext<T> 
 				if term_definition.reverse_property {
 					// If the term definition indicates that the term represents a reverse property:
 					if type_map.reverse.is_none() {
-						type_map.reverse = Some(term.to_string())
+						type_map.reverse = Some(term.clone())
 					}
 				} else {
 					match &term_definition.typ {

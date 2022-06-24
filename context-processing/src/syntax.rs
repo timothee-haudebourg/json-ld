@@ -6,7 +6,7 @@ use json_ld_core::{
 use json_ld_syntax as syntax;
 use iref::{Iri, IriBuf, IriRef};
 use futures::future::BoxFuture;
-use locspan::Loc;
+use locspan::{Loc, At};
 use crate::{
 	Process,
 	ProcessingStack,
@@ -20,9 +20,11 @@ use crate::{
 };
 
 mod iri;
+mod define;
 mod merged;
 
 use iri::*;
+use define::*;
 use merged::*;
 
 impl<C: syntax::AnyContextEntry + Send + Sync, T: Id> Process<T> for C {
@@ -75,7 +77,8 @@ where
 	<C as Process<T>>::Source: Clone,
 	<C as Process<T>>::Span: Clone,
 	C: Clone + syntax::AnyContextEntry + Process<T, Source=<C as syntax::AnyContextEntry>::Source, Span=<C as syntax::AnyContextEntry>::Span>,
-	L: Loader<Output=C> + Send + Sync
+	L: Send + Sync + Loader,
+	L::Output: Into<C>
 {
 	use syntax::AnyContextDefinition;
 	let base_url_buf = base_url.map(IriBuf::from);
@@ -112,7 +115,7 @@ where
 					// is aborted.
 					if !options.override_protected && result.has_protected_items() {
 						let e: LocError<T, C> = Error::InvalidContextNullification
-							.located(context_loc);
+							.at(context_loc);
 						return Err(e);
 					} else {
 						// Otherwise, initialize result as a newly-initialized active context, setting
@@ -140,7 +143,7 @@ where
 					// a loading document failed error has been detected and processing is aborted.
 					let context_iri = resolve_iri(iri_ref, base_url).ok_or_else(|| {
 						Error::LoadingDocumentFailed
-							.located(context_loc)
+							.at(context_loc)
 					})?;
 
 					// If the number of entries in the `remote_contexts` array exceeds a processor
@@ -167,7 +170,7 @@ where
 						let loaded_context = loader
 							.load_context(context_iri.as_iri())
 							.await
-							.map_err(|e| e.located(context_loc))?;
+							.map_err(|e| e.at(context_loc))?;
 
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
@@ -202,7 +205,7 @@ where
 						// error has been detected.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
 							return Err(Error::ProcessingModeConflict
-								.located(version_value.location().clone().cast()));
+								.at(version_value.location().clone().cast()));
 						}
 					}
 
@@ -212,21 +215,21 @@ where
 						// has been detected.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
 							return Err(Error::InvalidContextEntry
-								.located(import_loc));
+								.at(import_loc));
 						}
 
 						// 5.6.3) Initialize import to the result of resolving the value of
 						// @import.
 						let import = resolve_iri(import_value, base_url).ok_or_else(|| {
 							Error::InvalidImportValue
-								.located(import_loc)
+								.at(import_loc)
 						})?;
 
 						// 5.6.4) Dereference import.
 						let import_context = loader
 							.load_context(import.as_iri())
 							.await
-							.map_err(|e| e.located(import_loc))?;
+							.map_err(|e| e.at(import_loc))?;
 
 						// If the dereferenced document has no top-level map with an @context
 						// entry, or if the value of @context is not a context definition
@@ -238,7 +241,7 @@ where
 								// If `import_context` has a @import entry, an invalid context entry
 								// error has been detected and processing is aborted.
 								if let Some(Loc(_, loc)) = import_context.import() {
-									return Err(Error::InvalidContextEntry.located(loc));
+									return Err(Error::InvalidContextEntry.at(loc));
 								}
 
 								// Set `context` to the result of merging context into
@@ -248,7 +251,7 @@ where
 							}
 							_ => {
 								return Err(Error::InvalidRemoteContext
-									.located(import_loc));
+									.at(import_loc));
 							}
 						}
 					} else {
@@ -272,7 +275,7 @@ where
 											let resolved =
 												resolve_iri(not_iri, result.base_iri())
 													.ok_or_else(|| {
-													Error::InvalidBaseIri.located(base_loc)
+													Error::InvalidBaseIri.at(base_loc)
 												})?;
 											result.set_base_iri(Some(resolved.as_iri()))
 										}
@@ -311,13 +314,13 @@ where
 									}
 									_ => {
 										return Err(Error::InvalidVocabMapping
-											.located(vocab_loc))
+											.at(vocab_loc))
 									}
 								}
 							}
 							_ => {
 								return Err(Error::InvalidVocabMapping
-									.located(vocab_loc))
+									.at(vocab_loc))
 							}
 						}
 					}
@@ -345,7 +348,7 @@ where
 							}
 						} else {
 							return Err(ErrorCode::InvalidDefaultLanguage
-								.located(source, value.metadata().clone()));
+								.at(source, value.metadata().clone()));
 						}
 					}
 
@@ -357,7 +360,7 @@ where
 						// has been detected and processing is aborted.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
 							return Err(ErrorCode::InvalidContextEntry
-								.located(source, direction_key.metadata().clone()));
+								.at(source, direction_key.metadata().clone()));
 						}
 
 						if value.is_null() {
@@ -369,13 +372,13 @@ where
 								"rtl" => Direction::Rtl,
 								_ => {
 									return Err(ErrorCode::InvalidBaseDirection
-										.located(source, value.metadata().clone()))
+										.at(source, value.metadata().clone()))
 								}
 							};
 							result.set_default_base_direction(Some(dir));
 						} else {
 							return Err(ErrorCode::InvalidBaseDirection
-								.located(source, value.metadata().clone()));
+								.at(source, value.metadata().clone()));
 						}
 					}
 
@@ -414,7 +417,7 @@ where
 								warnings,
 							)
 							.await
-							.map_err(|e| e.located(source, key_metadata.clone()))?,
+							.map_err(|e| e.at(source, key_metadata.clone()))?,
 						}
 					}
 				}

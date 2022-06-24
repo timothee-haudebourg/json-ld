@@ -1,16 +1,17 @@
+use std::fmt;
 use iref::{Iri, IriRef};
-use langtag::LanguageTag;
 use rdf_types::BlankId;
 use locspan::Loc;
-use crate::Keyword;
+use derivative::Derivative;
+use crate::{Keyword, Container, CompactIri, LenientLanguageTag};
 
 use super::*;
 
-pub trait AnyContextEntry {
-	type Source;
-	type Span;
+pub trait AnyContextEntry: Sized {
+	type Source: Clone;
+	type Span: Clone;
 
-	type Definition: AnyContextDefinition<Self::Source, Self::Span>;
+	type Definition: AnyContextDefinition<Self>;
 	type Definitions<'a>: Iterator<Item=Loc<ContextRef<'a, Self::Definition>, Self::Source, Self::Span>> where Self: 'a;
 
 	fn as_entry_ref(&self) -> ContextEntryRef<Self::Source, Self::Span, Self::Definition, Self::Definitions<'_>>;
@@ -98,22 +99,54 @@ impl<'a, S, P> From<&'a Context<S, P>> for ContextRef<'a, ContextDefinition<S, P
 	}
 }
 
-pub trait AnyContextDefinition<S, P>: Sized {
-	type Bindings<'a>: Iterator<Item=TermBindingRef<'a, S, P, Self>> where Self: 'a, S: 'a, P: 'a;
+pub trait AnyContextDefinition<C: AnyContextEntry>: Sized {
+	type Bindings<'a>: Iterator<Item=(KeyRef<'a>, TermBindingRef<'a, C>)> where Self: 'a, C: 'a, C::Source: 'a, C::Span: 'a;
 
-	fn base(&self) -> Option<Loc<Nullable<IriRef>, S, P>>;
-	fn import(&self) -> Option<Loc<IriRef, S, P>>;
-	fn language(&self) -> Option<Loc<Nullable<LanguageTag>, S, P>>;
-	fn direction(&self) -> Option<Loc<Direction, S, P>>;
-	fn propagate(&self) -> Option<Loc<bool, S, P>>;
-	fn protected(&self) -> Option<Loc<bool, S, P>>;
-	fn type_(&self) -> Option<Loc<ContextType<S, P>, S, P>>;
-	fn version(&self) -> Option<Loc<Version, S, P>>;
-	fn vocab(&self) -> Option<Loc<Nullable<VocabRef<S, P>>, S, P>>;
+	fn base(&self) -> Option<Loc<Nullable<IriRef>, C::Source, C::Span>>;
+	fn import(&self) -> Option<Loc<IriRef, C::Source, C::Span>>;
+	fn language(&self) -> Option<Loc<Nullable<LenientLanguageTag>, C::Source, C::Span>>;
+	fn direction(&self) -> Option<Loc<Nullable<Direction>, C::Source, C::Span>>;
+	fn propagate(&self) -> Option<Loc<bool, C::Source, C::Span>>;
+	fn protected(&self) -> Option<Loc<bool, C::Source, C::Span>>;
+	fn type_(&self) -> Option<Loc<ContextType<C::Source, C::Span>, C::Source, C::Span>>;
+	fn version(&self) -> Option<Loc<Version, C::Source, C::Span>>;
+	fn vocab(&self) -> Option<Loc<Nullable<VocabRef>, C::Source, C::Span>>;
 	fn bindings(&self) -> Self::Bindings<'_>;
+	fn get_binding(&self, key: &Key) -> Option<TermBindingRef<C>>;
+
+	fn get(&self, key: &KeyOrKeyword) -> Option<EntryRef<C>> {
+		match key {
+			KeyOrKeyword::Keyword(k) => match k {
+				Keyword::Base => self.base().map(EntryRef::Base),
+				Keyword::Import => self.import().map(EntryRef::Import),
+				Keyword::Language => self.language().map(EntryRef::Language),
+				Keyword::Direction => self.direction().map(EntryRef::Direction),
+				Keyword::Propagate => self.propagate().map(EntryRef::Propagate),
+				Keyword::Protected => self.protected().map(EntryRef::Protected),
+				Keyword::Type => self.type_().map(EntryRef::Type),
+				Keyword::Version => self.version().map(EntryRef::Version),
+				Keyword::Vocab => self.vocab().map(EntryRef::Vocab),
+				_ => None
+			}
+			KeyOrKeyword::Key(k) => self.get_binding(k).map(EntryRef::Definition)
+		}
+	}
 }
 
-impl<S: Clone, P: Clone> AnyContextDefinition<S, P> for ContextDefinition<S, P> {
+pub enum EntryRef<'a, C: AnyContextEntry> {
+	Base(Loc<Nullable<IriRef<'a>>, C::Source, C::Span>),
+	Import(Loc<IriRef<'a>, C::Source, C::Span>),
+	Language(Loc<Nullable<LenientLanguageTag<'a>>, C::Source, C::Span>),
+	Direction(Loc<Nullable<Direction>, C::Source, C::Span>),
+	Propagate(Loc<bool, C::Source, C::Span>),
+	Protected(Loc<bool, C::Source, C::Span>),
+	Type(Loc<ContextType<C::Source, C::Span>, C::Source, C::Span>),
+	Version(Loc<Version, C::Source, C::Span>),
+	Vocab(Loc<Nullable<VocabRef<'a>>, C::Source, C::Span>),
+	Definition(TermBindingRef<'a, C>)
+}
+
+impl<S: Clone, P: Clone> AnyContextDefinition<ContextEntry<S, P>> for ContextDefinition<S, P> {
 	type Bindings<'a> = Bindings<'a, S, P> where S: 'a, P: 'a;
 
 	fn base(&self) -> Option<Loc<Nullable<IriRef>, S, P>> {
@@ -124,11 +157,11 @@ impl<S: Clone, P: Clone> AnyContextDefinition<S, P> for ContextDefinition<S, P> 
 		self.import.as_ref().map(|v| v.borrow_value().cast())
 	}
 
-	fn language(&self) -> Option<Loc<Nullable<LanguageTag>, S, P>> {
+	fn language(&self) -> Option<Loc<Nullable<LenientLanguageTag>, S, P>> {
 		self.language.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_ref())))
 	}
 
-	fn direction(&self) -> Option<Loc<Direction, S, P>> {
+	fn direction(&self) -> Option<Loc<Nullable<Direction>, S, P>> {
 		self.direction.clone()
 	}
 
@@ -148,52 +181,62 @@ impl<S: Clone, P: Clone> AnyContextDefinition<S, P> for ContextDefinition<S, P> 
 		self.version.clone()
 	}
 
-	fn vocab(&self) -> Option<Loc<Nullable<VocabRef<S, P>>, S, P>> {
+	fn vocab(&self) -> Option<Loc<Nullable<VocabRef>, S, P>> {
 		self.vocab.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().cast()))
 	}
 
 	fn bindings(&self) -> Self::Bindings<'_> {
 		Bindings(self.bindings.iter())
 	}
-}
 
-pub struct Bindings<'a, S, P>(std::slice::Iter<'a, TermBinding<S, P>>);
-
-impl<'a, S: Clone, P: Clone> Iterator for Bindings<'a, S, P> {
-	type Item = TermBindingRef<'a, S, P>;
-
-	fn next(&mut self) -> Option<Self::Item> {
-		self.0.next().map(Into::into)
+	fn get_binding(&self, key: &Key) -> Option<TermBindingRef<ContextEntry<S, P>>> {
+		self.bindings.get(key).map(Into::into)
 	}
 }
 
-pub struct TermBindingRef<'a, S, P, C=ContextDefinition<S, P>> {
-	pub term: Loc<&'a str, S, P>,
-	pub definition: Nullable<TermDefinitionRef<'a, S, P, C>>
+pub struct Bindings<'a, S, P>(indexmap::map::Iter<'a, Key, TermBinding<S, P>>);
+
+impl<'a, S: Clone, P: Clone> Iterator for Bindings<'a, S, P> {
+	type Item = (KeyRef<'a>, TermBindingRef<'a, ContextEntry<S, P>>);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.0.next().map(|(key, def)| (key.into(), def.into()))
+	}
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a TermBinding<S, P>> for TermBindingRef<'a, S, P> {
+pub struct TermBindingRef<'a, C: AnyContextEntry> {
+	pub key_location: Location<C::Source, C::Span>,
+	pub definition: Loc<Nullable<TermDefinitionRef<'a, C>>, C::Source, C::Span>
+}
+
+impl<'a, S: Clone, P: Clone> From<&'a TermBinding<S, P>> for TermBindingRef<'a, ContextEntry<S, P>> {
 	fn from(b: &'a TermBinding<S, P>) -> Self {
 		Self {
-			term: b.term.borrow_value().map(String::as_str),
-			definition: b.definition.as_ref().cast()
+			key_location: b.key_location.clone(),
+			definition: b.definition.borrow_value().map(|b| b.as_ref().cast())
 		}
 	}
 }
 
 /// Term definition.
-pub enum TermDefinitionRef<'a, S, P, C=ContextDefinition<S, P>> {
+pub enum TermDefinitionRef<'a, C: AnyContextEntry> {
 	Iri(Iri<'a>),
-	CompactIri(CompactIriRef<'a, S, P>),
+	CompactIri(&'a CompactIri),
 	Blank(&'a BlankId),
-	Expanded(ExpandedTermDefinitionRef<'a, S, P, C>)
+	Expanded(ExpandedTermDefinitionRef<'a, C>)
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a TermDefinition<S, P>> for TermDefinitionRef<'a, S, P> {
+impl<'a, C: AnyContextEntry> TermDefinitionRef<'a, C> {
+	pub fn is_expanded(&self) -> bool {
+		matches!(self, Self::Expanded(_))
+	}
+}
+
+impl<'a, S: Clone, P: Clone> From<&'a TermDefinition<S, P>> for TermDefinitionRef<'a, ContextEntry<S, P>> {
 	fn from(d: &'a TermDefinition<S, P>) -> Self {
 		match d {
 			TermDefinition::Iri(i) => Self::Iri(i.as_iri()),
-			TermDefinition::CompactIri(c) => Self::CompactIri(c.into()),
+			TermDefinition::CompactIri(c) => Self::CompactIri(c),
 			TermDefinition::Blank(b) => Self::Blank(b),
 			TermDefinition::Expanded(e) => Self::Expanded(e.into())
 		}
@@ -201,21 +244,48 @@ impl<'a, S: Clone, P: Clone> From<&'a TermDefinition<S, P>> for TermDefinitionRe
 }
 
 /// Expanded term definition.
-pub struct ExpandedTermDefinitionRef<'a, S, P, C=ContextDefinition<S, P>> {
-	pub id: Option<Loc<Nullable<IdRef<'a, S, P>>, S, P>>,
-	pub type_: Option<Loc<Nullable<TermDefinitionTypeRef<'a, S, P>>, S, P>>,
-	pub context: Option<Loc<&'a C, S, P>>,
-	pub reverse: Option<Loc<ReverseRef<'a, S, P>, S, P>>,
-	pub index: Option<Loc<IndexRef<'a, S, P>, S, P>>,
-	pub language: Option<Loc<Nullable<LanguageTag<'a>>, S, P>>,
-	pub container: Option<Loc<Nullable<Container>, S, P>>,
-	pub nest: Option<Loc<NestRef<'a>, S, P>>,
-	pub prefix: Option<Loc<bool, S, P>>,
-	pub propagate: Option<Loc<bool, S, P>>,
-	pub protected: Option<Loc<bool, S, P>>
+#[derive(Derivative)]
+#[derivative(Default(bound=""))]
+pub struct ExpandedTermDefinitionRef<'a, C: AnyContextEntry> {
+	pub id: Option<Loc<Nullable<IdRef<'a>>, C::Source, C::Span>>,
+	pub type_: Option<Loc<Nullable<TermDefinitionTypeRef<'a>>, C::Source, C::Span>>,
+	pub context: Option<Loc<&'a C, C::Source, C::Span>>,
+	pub reverse: Option<Loc<KeyRef<'a>, C::Source, C::Span>>,
+	pub index: Option<Loc<IndexRef<'a>, C::Source, C::Span>>,
+	pub language: Option<Loc<Nullable<LenientLanguageTag<'a>>, C::Source, C::Span>>,
+	pub direction: Option<Loc<Nullable<Direction>, C::Source, C::Span>>,
+	pub container: Option<Loc<Nullable<Container>, C::Source, C::Span>>,
+	pub nest: Option<Loc<NestRef<'a>, C::Source, C::Span>>,
+	pub prefix: Option<Loc<bool, C::Source, C::Span>>,
+	pub propagate: Option<Loc<bool, C::Source, C::Span>>,
+	pub protected: Option<Loc<bool, C::Source, C::Span>>
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a ExpandedTermDefinition<S, P>> for ExpandedTermDefinitionRef<'a, S, P> {
+impl<'a, C: AnyContextEntry> From<Loc<Nullable<TermDefinitionRef<'a, C>>, C::Source, C::Span>> for ExpandedTermDefinitionRef<'a, C> {
+	fn from(Loc(d, loc): Loc<Nullable<TermDefinitionRef<'a, C>>, C::Source, C::Span>) -> Self {
+		match d {
+			Nullable::Null => {
+				// If `value` is null, convert it to a map consisting of a single entry
+				// whose key is @id and whose value is null.
+				Self { id: Some(Loc(Nullable::Null, loc)), ..Default::default() }
+			},
+			Nullable::Some(TermDefinitionRef::Iri(i)) => {
+				Self { id: Some(Loc(Nullable::Some(IdRef::Iri(i)), loc)), ..Default::default() }
+			}
+			Nullable::Some(TermDefinitionRef::CompactIri(i)) => {
+				Self { id: Some(Loc(Nullable::Some(IdRef::CompactIri(i)), loc)), ..Default::default() }
+			}
+			Nullable::Some(TermDefinitionRef::Blank(i)) => {
+				Self { id: Some(Loc(Nullable::Some(IdRef::Blank(i)), loc)), ..Default::default() }
+			}
+			Nullable::Some(TermDefinitionRef::Expanded(e)) => {
+				e
+			}
+		}
+	}
+}
+
+impl<'a, S: Clone, P: Clone> From<&'a ExpandedTermDefinition<S, P>> for ExpandedTermDefinitionRef<'a, ContextEntry<S, P>> {
 	fn from(d: &'a ExpandedTermDefinition<S, P>) -> Self {
 		Self {
 			id: d.id.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().cast())),
@@ -224,6 +294,7 @@ impl<'a, S: Clone, P: Clone> From<&'a ExpandedTermDefinition<S, P>> for Expanded
 			reverse: d.reverse.as_ref().map(|v| v.borrow_value().cast()),
 			index: d.index.as_ref().map(|v| v.borrow_value().cast()),
 			language: d.language.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_ref()))),
+			direction: d.direction.clone(),
 			container: d.container.clone(),
 			nest: d.nest.as_ref().map(|v| v.borrow_value().cast()),
 			prefix: d.prefix.clone(),
@@ -238,6 +309,15 @@ pub enum NestRef<'a> {
 	Term(&'a str)
 }
 
+impl<'a> NestRef<'a> {
+	pub fn to_owned(self) -> Nest {
+		match self {
+			Self::Nest => Nest::Nest,
+			Self::Term(t) => Nest::Term(t.to_owned())
+		}
+	}
+}
+
 impl<'a> From<&'a Nest> for NestRef<'a> {
 	fn from(n: &'a Nest) -> Self {
 		match n {
@@ -247,115 +327,173 @@ impl<'a> From<&'a Nest> for NestRef<'a> {
 	}
 }
 
-pub enum IndexRef<'a, S, P> {
+pub enum IndexRef<'a> {
 	Iri(Iri<'a>),
-	CompactIri(CompactIriRef<'a, S, P>),
+	CompactIri(&'a CompactIri),
 	Term(&'a str),
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a Index<S, P>> for IndexRef<'a, S, P> {
-	fn from(i: &'a Index<S, P>) -> Self {
+impl<'a> IndexRef<'a> {
+	pub fn to_owned(self) -> Index {
+		match self {
+			Self::Iri(i) => Index::Iri(i.to_owned()),
+			Self::CompactIri(i) => Index::CompactIri(i.to_owned()),
+			Self::Term(t) => Index::Term(t.to_owned())
+		}
+	}
+}
+
+impl<'a> From<&'a Index> for IndexRef<'a> {
+	fn from(i: &'a Index) -> Self {
 		match i {
 			Index::Iri(i) => Self::Iri(i.as_iri()),
-			Index::CompactIri(c) => Self::CompactIri(c.into()),
+			Index::CompactIri(c) => Self::CompactIri(c),
 			Index::Term(t) => Self::Term(t)
 		}
 	}
 }
 
-pub enum IdRef<'a, S, P> {
+impl<'a> From<IndexRef<'a>> for KeyRef<'a> {
+	fn from(i: IndexRef<'a>) -> Self {
+		match i {
+			IndexRef::Iri(i) => KeyRef::Iri(i),
+			IndexRef::CompactIri(i) => KeyRef::CompactIri(i),
+			IndexRef::Term(t) => KeyRef::Term(t)
+		}
+	}
+}
+
+pub enum IdRef<'a> {
 	Iri(Iri<'a>),
 	Blank(&'a BlankId),
-	CompactIri(CompactIriRef<'a, S, P>),
+	CompactIri(&'a CompactIri),
 	Term(&'a str),
 	Keyword(Keyword)
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a Id<S, P>> for IdRef<'a, S, P> {
-	fn from(i: &'a Id<S, P>) -> Self {
+impl<'a> IdRef<'a> {
+	pub fn as_str(&self) -> &str {
+		match self {
+			Self::Iri(i) => i.as_str(),
+			Self::Blank(i) => i.as_str(),
+			Self::CompactIri(i) => i.as_str(),
+			Self::Term(t) => t,
+			Self::Keyword(k) => k.into_str()
+		}
+	}
+
+	pub fn is_keyword(&self) -> bool {
+		matches!(self, Self::Keyword(_))
+	}
+
+	pub fn is_keyword_like(&self) -> bool {
+		crate::is_keyword_like(self.as_str())
+	}
+}
+
+impl<'a> From<IdRef<'a>> for KeyOrKeywordRef<'a> {
+	fn from(i: IdRef<'a>) -> Self {
+		match i {
+			IdRef::Iri(i) => Self::Key(KeyRef::Iri(i)),
+			IdRef::Blank(i) => Self::Key(KeyRef::Blank(i)),
+			IdRef::CompactIri(i) => Self::Key(KeyRef::CompactIri(i)),
+			IdRef::Term(t) => Self::Key(KeyRef::Term(t)),
+			IdRef::Keyword(k) => Self::Keyword(k)
+		}
+	}
+}
+
+impl<'a> fmt::Display for IdRef<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Iri(i) => i.fmt(f),
+			Self::Blank(i) => i.fmt(f),
+			Self::CompactIri(i) => i.fmt(f),
+			Self::Term(t) => t.fmt(f),
+			Self::Keyword(k) => k.fmt(f)
+		}
+	}
+}
+
+impl<'a> From<&'a Id> for IdRef<'a> {
+	fn from(i: &'a Id) -> Self {
 		match i {
 			Id::Iri(i) => Self::Iri(i.as_iri()),
 			Id::Blank(b) => Self::Blank(b),
-			Id::CompactIri(c) => Self::CompactIri(c.into()),
+			Id::CompactIri(c) => Self::CompactIri(c),
 			Id::Term(t) => Self::Term(t),
 			Id::Keyword(k) => Self::Keyword(*k)
 		}
 	}
 }
 
-pub enum ReverseRef<'a, S, P> {
+pub enum TermDefinitionTypeRef<'a> {
 	Iri(Iri<'a>),
-	Blank(&'a BlankId),
-	CompactIri(CompactIriRef<'a, S, P>),
-	Term(&'a str)
-}
-
-impl<'a, S: Clone, P: Clone> From<&'a Reverse<S, P>> for ReverseRef<'a, S, P> {
-	fn from(r: &'a Reverse<S, P>) -> Self {
-		match r {
-			Reverse::Iri(i) => Self::Iri(i.as_iri()),
-			Reverse::Blank(b) => Self::Blank(b),
-			Reverse::CompactIri(c) => Self::CompactIri(c.into()),
-			Reverse::Term(t) => Self::Term(t)
-		}
-	}
-}
-
-pub enum TermDefinitionTypeRef<'a, S, P> {
-	Iri(Iri<'a>),
-	CompactIri(CompactIriRef<'a, S, P>),
+	CompactIri(&'a CompactIri),
 	Term(&'a str),
 	Keyword(TypeKeyword)
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a TermDefinitionType<S, P>> for TermDefinitionTypeRef<'a, S, P> {
-	fn from(t: &'a TermDefinitionType<S, P>) -> Self {
+impl<'a> From<&'a TermDefinitionType> for TermDefinitionTypeRef<'a> {
+	fn from(t: &'a TermDefinitionType) -> Self {
 		match t {
 			TermDefinitionType::Iri(i) => Self::Iri(i.as_iri()),
-			TermDefinitionType::CompactIri(c) => Self::CompactIri(c.into()),
+			TermDefinitionType::CompactIri(c) => Self::CompactIri(c),
 			TermDefinitionType::Term(t) => Self::Term(t),
 			TermDefinitionType::Keyword(k) => Self::Keyword(*k)
 		}
 	}
 }
 
-pub enum Expandable<'a, S, P> {
-	IriRef(IriRef<'a>),
-	CompactIri(CompactIriRef<'a, S, P>),
-	Blank(&'a BlankId),
-	Keyword(Keyword),
-	KeywordLike(&'a str),
-	Term(&'a str)
-}
-
-pub enum VocabRef<'a, S, P> {
-	IriRef(IriRef<'a>),
-	CompactIri(CompactIriRef<'a, S, P>),
-	Blank(&'a BlankId),
-	Term(&'a str)
-}
-
-impl<'a, S: Clone, P: Clone> From<&'a Vocab<S, P>> for VocabRef<'a, S, P> {
-	fn from(v: &'a Vocab<S, P>) -> Self {
-		match v {
-			Vocab::IriRef(i) => Self::IriRef(i.as_iri_ref()),
-			Vocab::Blank(b) => Self::Blank(b),
-			Vocab::CompactIri(c) => Self::CompactIri(c.into()),
-			Vocab::Term(t) => Self::Term(t)
+impl<'a> From<TermDefinitionTypeRef<'a>> for KeyOrKeywordRef<'a> {
+	fn from(d: TermDefinitionTypeRef<'a>) -> Self {
+		match d {
+			TermDefinitionTypeRef::Iri(i) => Self::Key(KeyRef::Iri(i)),
+			TermDefinitionTypeRef::CompactIri(i) => Self::Key(KeyRef::CompactIri(i)),
+			TermDefinitionTypeRef::Term(t) => Self::Key(KeyRef::Term(t)),
+			TermDefinitionTypeRef::Keyword(k) => Self::Keyword(k.into())
 		}
 	}
 }
 
-pub struct CompactIriRef<'a, S, P> {
-	pub prefix: Option<Loc<&'a str, S, P>>,
-	pub suffix: Loc<&'a str, S, P>
+#[derive(Clone, Copy)]
+pub enum KeyOrKeywordRef<'a> {
+	Keyword(Keyword),
+	Key(KeyRef<'a>)
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a CompactIri<S, P>> for CompactIriRef<'a, S, P> {
-	fn from(i: &'a CompactIri<S, P>) -> Self {
-		Self {
-			prefix: i.prefix.as_ref().map(|v| v.borrow_value().map(String::as_str)),
-			suffix: i.suffix.borrow_value().map(String::as_str)
+impl<'a> KeyOrKeywordRef<'a> {
+	pub fn to_owned(self) -> KeyOrKeyword {
+		match self {
+			Self::Keyword(k) => KeyOrKeyword::Keyword(k),
+			Self::Key(k) => KeyOrKeyword::Key(k.to_owned())
+		}
+	}
+}
+
+impl<'a> From<&'a KeyOrKeyword> for KeyOrKeywordRef<'a> {
+	fn from(k: &'a KeyOrKeyword) -> Self {
+		match k {
+			KeyOrKeyword::Keyword(k) => Self::Keyword(*k),
+			KeyOrKeyword::Key(k) => Self::Key(k.into())
+		}
+	}
+}
+
+pub enum VocabRef<'a> {
+	IriRef(IriRef<'a>),
+	CompactIri(&'a CompactIri),
+	Blank(&'a BlankId),
+	Term(&'a str)
+}
+
+impl<'a> From<&'a Vocab> for VocabRef<'a> {
+	fn from(v: &'a Vocab) -> Self {
+		match v {
+			Vocab::IriRef(i) => Self::IriRef(i.as_iri_ref()),
+			Vocab::Blank(b) => Self::Blank(b),
+			Vocab::CompactIri(c) => Self::CompactIri(c),
+			Vocab::Term(t) => Self::Term(t)
 		}
 	}
 }

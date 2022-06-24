@@ -2,7 +2,7 @@
 name = "json-ld-context-processing"
 version = "0.1.0"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
-edition = "2018"
+edition = "2021"
 categories = ["web-programming", "database", "data-structures"]
 keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 description = "A JSON-LD context processing implementation"
@@ -20,4 +20,4 @@ rdf-types = "0.4.1"
 futures = "^0.3"
 mown = "0.2.1"
 cc-traits = "0.8.0"
-locspan = "0.4.2"
+locspan = "0.4.3"

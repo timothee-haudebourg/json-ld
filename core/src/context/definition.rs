@@ -1,9 +1,13 @@
 use crate::{
-	lang::LenientLanguageTagBuf,
-	syntax::{Container, Term, Type},
-	Direction, Nullable,
+	LenientLanguageTagBuf,
+	Direction,
+	Nullable,
+	Term,
+	Type
 };
+use json_ld_syntax::{Container, context::Index};
 use iref::{Iri, IriBuf};
+use super::Nest;
 
 // A term definition.
 #[derive(Clone)]
@@ -33,13 +37,13 @@ pub struct TermDefinition<T, C> {
 	pub direction: Option<Nullable<Direction>>,
 
 	// Optional index mapping.
-	pub index: Option<String>,
+	pub index: Option<Index>,
 
 	// Optional language mapping.
 	pub language: Option<Nullable<LenientLanguageTagBuf>>,
 
 	// Optional nest value.
-	pub nest: Option<String>,
+	pub nest: Option<Nest>,
 
 	// Optional type mapping.
 	pub typ: Option<Type<T>>,

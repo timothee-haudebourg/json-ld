@@ -32,12 +32,6 @@ pub enum Warning {
 /// Located warning.
 pub type LocWarning<T, C> = Loc<Warning, <C as Process<T>>::Source, <C as Process<T>>::Span>;
 
-impl Warning {
-	pub fn located<S, M>(self, loc: Location<S, M>) -> Loc<Warning, S, M> {
-		Loc::new(self, loc)
-	}
-}
-
 /// Errors that can happen during context processing.
 pub enum Error {
 	InvalidContextNullification,
@@ -47,13 +41,17 @@ pub enum Error {
 	InvalidImportValue,
 	InvalidRemoteContext,
 	InvalidBaseIri,
-	InvalidVocabMapping
-}
-
-impl Error {
-	pub fn located<S, M>(self, loc: Location<S, M>) -> Loc<Error, S, M> {
-		Loc::new(self, loc)
-	}
+	InvalidVocabMapping,
+	CyclicIriMapping,
+	InvalidTermDefinition,
+	KeywordRedefinition,
+	InvalidProtectedValue,
+	InvalidTypeMapping,
+	InvalidReverseProperty,
+	InvalidIriMapping,
+	InvalidKeywordAlias,
+	InvalidContainerMapping,
+	InvalidScopedContext
 }
 
 /// Located error.
@@ -105,8 +103,8 @@ pub type ProcessingResult<T, C> = Result<ProcessedContext<T, C>, LocError<T, C>>
 
 /// Context processing functions.
 pub trait Process<T>: Sized + Send + Sync {
-	type Source;
-	type Span;
+	type Source: Clone;
+	type Span: Clone;
 
 	/// Process the local context with specific options.
 	fn process_full<'a, L: Loader + Send + Sync>(
