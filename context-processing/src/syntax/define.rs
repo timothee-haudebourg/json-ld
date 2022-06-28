@@ -643,12 +643,12 @@ where
 						}
 
 						// If value contains the entry @prefix:
-						if let Some(prefix_value) = value.prefix {
+						if let Some(Loc(prefix_value, prefix_loc)) = value.prefix {
 							// If processing mode is json-ld-1.0, or if `term` contains a colon (:) or
 							// slash (/), an invalid term definition has been detected and processing
 							// is aborted.
-							if term.contains(':')
-								|| term.contains('/') || options.processing_mode
+							if key.as_str().contains(':')
+								|| key.as_str().contains('/') || options.processing_mode
 								== ProcessingMode::JsonLd1_0
 							{
 								return Err(Error::InvalidTermDefinition.into());
@@ -658,11 +658,7 @@ where
 							// which MUST be a boolean.
 							// Otherwise, an invalid @prefix value error has been detected and
 							// processing is aborted.
-							if let Some(prefix) = prefix_value.as_bool() {
-								definition.prefix = prefix
-							} else {
-								return Err(Error::InvalidPrefixValue.into());
-							}
+							definition.prefix = prefix_value;
 
 							// If the `prefix` flag of `definition` is set to `true`, and its IRI
 							// mapping is a keyword, an invalid term definition has been detected and

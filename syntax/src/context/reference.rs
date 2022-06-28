@@ -1,13 +1,13 @@
 use std::fmt;
 use iref::{Iri, IriRef};
 use rdf_types::BlankId;
-use locspan::Loc;
+use locspan::{Loc, StrippedPartialEq};
 use derivative::Derivative;
 use crate::{Keyword, Container, CompactIri, LenientLanguageTag};
 
 use super::*;
 
-pub trait AnyContextEntry: Sized {
+pub trait AnyContextEntry: Sized + StrippedPartialEq {
 	type Source: Clone;
 	type Span: Clone;
 
@@ -22,7 +22,7 @@ impl<S: Clone, P: Clone> AnyContextEntry for ContextEntry<S, P> {
 	type Span = P;
 
 	type Definition = ContextDefinition<S, P>;
-	type Definitions<'a> = ManyContexts<'a, S, P> where S: 'a, P: 'a;
+	type Definitions<'a> where S: 'a, P: 'a = ManyContexts<'a, S, P>;
 
 	fn as_entry_ref(&self) -> ContextEntryRef<S, P> {
 		self.into()
@@ -147,7 +147,7 @@ pub enum EntryRef<'a, C: AnyContextEntry> {
 }
 
 impl<S: Clone, P: Clone> AnyContextDefinition<ContextEntry<S, P>> for ContextDefinition<S, P> {
-	type Bindings<'a> = Bindings<'a, S, P> where S: 'a, P: 'a;
+	type Bindings<'a> where S: 'a, P: 'a = Bindings<'a, S, P>;
 
 	fn base(&self) -> Option<Loc<Nullable<IriRef>, S, P>> {
 		self.base.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_iri_ref())))

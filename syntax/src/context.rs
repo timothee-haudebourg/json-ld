@@ -18,6 +18,7 @@ pub use key::*;
 pub use reference::*;
 
 /// Context entry.
+#[derive(PartialEq, Eq, Clone)]
 pub enum ContextEntry<S, P> {
 	One(Loc<Context<S, P>, S, P>),
 	Many(Vec<Loc<Context<S, P>, S, P>>)
@@ -33,6 +34,7 @@ impl<S, P> ContextEntry<S, P> {
 }
 
 /// Context.
+#[derive(PartialEq, Eq, Clone)]
 pub enum Context<S, P> {
 	Null,
 	IriRef(IriRefBuf),
@@ -40,6 +42,7 @@ pub enum Context<S, P> {
 }
 
 /// Context definition.
+#[derive(PartialEq, Eq, Clone)]
 pub struct ContextDefinition<S, P> {
 	pub base: Option<Loc<Nullable<IriRefBuf>, S, P>>,
 	pub import: Option<Loc<IriRefBuf, S, P>>,
@@ -54,12 +57,14 @@ pub struct ContextDefinition<S, P> {
 }
 
 /// Term binding.
+#[derive(PartialEq, Eq, Clone)]
 pub struct TermBinding<S, P> {
 	key_location: Location<S, P>,
 	definition: Loc<Nullable<TermDefinition<S, P>>, S, P>
 }
 
 /// Term definition.
+#[derive(PartialEq, Eq, Clone)]
 pub enum TermDefinition<S, P> {
 	Iri(IriBuf),
 	CompactIri(CompactIriBuf),
@@ -68,6 +73,7 @@ pub enum TermDefinition<S, P> {
 }
 
 /// Expanded term definition.
+#[derive(PartialEq, Eq, Clone)]
 pub struct ExpandedTermDefinition<S, P> {
 	pub id: Option<Loc<Nullable<Id>, S, P>>,
 	pub type_: Option<Loc<Nullable<TermDefinitionType>, S, P>>,
@@ -96,6 +102,7 @@ pub enum Index {
 	Term(String),
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Id {
 	Iri(IriBuf),
 	Blank(BlankIdBuf),
@@ -104,6 +111,7 @@ pub enum Id {
 	Keyword(Keyword)
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TermDefinitionType {
 	Iri(IriBuf),
 	CompactIri(CompactIriBuf),
@@ -113,7 +121,7 @@ pub enum TermDefinitionType {
 
 /// Subset of keyword acceptable for as value for the `@type` entry
 /// of an expanded term definition.
-#[derive(Clone, Copy)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeKeyword {
 	Id,
 	Json,
@@ -135,24 +143,26 @@ impl From<TypeKeyword> for Keyword {
 /// Version number.
 /// 
 /// The only allowed value is a number with the value `1.1`.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Version {
 	V1_1
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Import;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ContextType<S, P> {
 	pub container: Loc<TypeContainer, S, P>,
 	pub protected: Option<Loc<bool, S, P>>
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeContainer {
 	Set
 }
 
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Vocab {
 	IriRef(IriRefBuf),
 	CompactIri(CompactIriBuf),
