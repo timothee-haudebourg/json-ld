@@ -1,8 +1,6 @@
 use crate::{
 	utils::{self, AsAnyJson},
-	Term,
-	TermLike,
-	Id,
+	Id, Term, TermLike,
 };
 use generic_json::{Json, JsonClone};
 use iref::{AsIri, Iri, IriBuf};
@@ -27,6 +25,18 @@ pub enum Reference<T = IriBuf> {
 
 	/// Invalid reference.
 	Invalid(String),
+}
+
+impl<T: Id> Reference<T> {
+	pub fn from_string(s: String) -> Self {
+		match Iri::new(&s) {
+			Ok(iri) => Self::Id(T::from_iri(iri)),
+			Err(_) => match BlankIdBuf::new(s) {
+				Ok(blank) => Self::Blank(blank),
+				Err(rdf_types::InvalidBlankId(s)) => Self::Invalid(s),
+			},
+		}
+	}
 }
 
 impl<T: AsIri> Reference<T> {

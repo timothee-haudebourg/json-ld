@@ -1,8 +1,9 @@
+use locspan_derive::StrippedPartialEq;
 use std::convert::TryFrom;
 use std::fmt;
 
 /// JSON-LD keywords.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Keyword {
 	/// `@base`.
 	/// Used to set the base IRI against which to resolve those relative IRI references

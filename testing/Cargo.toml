@@ -1,0 +1,16 @@
+[package]
+name = "json-ld-testing"
+version = "0.1.0"
+edition = "2021"
+authors = ["Timothée Haudebourg <author@haudebourg.net>"]
+description = "Testing library for the `json-ld` library"
+categories = ["web-programming", "database", "data-structures"]
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+repository = "https://github.com/timothee-haudebourg/json-ld"
+license = "MIT/Apache-2.0"
+readme = "README.md"
+
+[lib]
+proc-macro = true
+
+[dependencies]

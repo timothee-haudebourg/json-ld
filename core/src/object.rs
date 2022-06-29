@@ -5,11 +5,7 @@ pub mod node;
 mod typ;
 pub mod value;
 
-use crate::{
-	id,
-	LenientLanguageTag,
-	Id, Indexed, Reference,
-};
+use crate::{id, Id, Indexed, LenientLanguageTag, Reference};
 use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;

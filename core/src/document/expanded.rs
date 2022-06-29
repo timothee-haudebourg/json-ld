@@ -1,8 +1,4 @@
-use crate::{
-	id,
-	utils::JsonFrom,
-	Id, Indexed, Loc, Object, Warning,
-};
+use crate::{id, utils::JsonFrom, Id, Indexed, Loc, Object, Warning};
 use generic_json::{JsonClone, JsonHash};
 use rdf_types::BlankId;
 use std::collections::{BTreeSet, HashSet};

@@ -2,7 +2,7 @@ pub use json_ld_core::{
 	ProcessingMode,
 	Context
 };
-use locspan::{Loc, Location};
+use locspan::Loc;
 use iref::Iri;
 use futures::future::{BoxFuture, FutureExt};
 
@@ -26,7 +26,8 @@ pub trait Loader {
 /// Warnings that can be raised during context processing.
 pub enum Warning {
 	KeywordLikeTerm(String),
-	KeywordLikeValue(String)
+	KeywordLikeValue(String),
+	MalformedIri(String)
 }
 
 /// Located warning.
@@ -51,7 +52,8 @@ pub enum Error {
 	InvalidIriMapping,
 	InvalidKeywordAlias,
 	InvalidContainerMapping,
-	InvalidScopedContext
+	InvalidScopedContext,
+	ProtectedTermRedefinition
 }
 
 /// Located error.
@@ -103,8 +105,8 @@ pub type ProcessingResult<T, C> = Result<ProcessedContext<T, C>, LocError<T, C>>
 
 /// Context processing functions.
 pub trait Process<T>: Sized + Send + Sync {
-	type Source: Clone;
-	type Span: Clone;
+	type Source: Clone + Send + Sync;
+	type Span: Clone + Send + Sync;
 
 	/// Process the local context with specific options.
 	fn process_full<'a, L: Loader + Send + Sync>(

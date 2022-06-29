@@ -1,6 +1,6 @@
-use super::{expand_iri, Merged};
+use super::{expand_iri_with, expand_iri_simple, Merged};
 use crate::{Error, Loader, LocWarning, Process, ProcessingOptions, ProcessingStack, Warning};
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, FutureExt};
 use iref::Iri;
 use json_ld_core::{context::TermDefinition, Context, Id, ProcessingMode, Reference, Term, Type};
 use json_ld_syntax::{
@@ -14,10 +14,11 @@ use json_ld_syntax::{
 		KeyRef,
 		Key
 	},
-	is_keyword, is_keyword_like, Container, ContainerType, Keyword, Nullable,
+	ExpandableRef,
+	Container, ContainerType, Keyword, Nullable,
 	LenientLanguageTag,
 };
-use locspan::{At, Loc, Location};
+use locspan::{At, Loc, Location, BorrowStripped};
 use std::collections::HashMap;
 
 fn is_gen_delim(c: char) -> bool {
@@ -39,15 +40,6 @@ fn is_gen_delim_or_blank<T: Id>(t: &Term<T>) -> bool {
 	}
 }
 
-/// Checks if the the given character is included in the given string anywhere but at the first position.
-fn contains_after_first(id: &str, c: char) -> bool {
-	if let Some(i) = id.find(c) {
-		i > 0
-	} else {
-		false
-	}
-}
-
 /// Checks if the the given character is included in the given string anywhere but at the first or last position.
 fn contains_between_boundaries(id: &str, c: char) -> bool {
 	if let Some(i) = id.find(c) {
@@ -58,10 +50,19 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
 	}
 }
 
-#[derive(Default)]
 pub struct DefinedTerms<C: AnyContextEntry>(HashMap<KeyOrKeyword, DefinedTerm<C::Source, C::Span>>);
 
+impl<C: AnyContextEntry> Default for DefinedTerms<C> {
+	fn default() -> Self {
+		Self(HashMap::new())
+	}
+}
+
 impl<C: AnyContextEntry> DefinedTerms<C> {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
 	pub fn begin(
 		&mut self,
 		key: &KeyOrKeyword,
@@ -108,12 +109,12 @@ pub struct DefinedTerm<S, P> {
 pub fn define<
 	'a,
 	T: Id + Send + Sync,
-	C: Clone + Process<T>
+	C: Process<T>
 		+ AnyContextEntry<Source = <C as Process<T>>::Source, Span = <C as Process<T>>::Span>,
 	L: Loader + Send + Sync,
 >(
 	active_context: &'a mut Context<T, C>,
-	local_context: &Merged<'a, C>,
+	local_context: &'a Merged<'a, C>,
 	Loc(term, loc): Loc<KeyOrKeywordRef, <C as Process<T>>::Source, <C as Process<T>>::Span>,
 	defined: &'a mut DefinedTerms<C>,
 	remote_contexts: ProcessingStack,
@@ -124,13 +125,10 @@ pub fn define<
 	warnings: &'a mut Vec<LocWarning<T, C>>,
 ) -> BoxFuture<'a, Result<(), Error>>
 where
-	L::Output: Into<C>,
+	L::Output: Into<C>
 {
 	let term = term.to_owned();
 	async move {
-		// If defined contains the entry term and the associated value is true (indicating
-		// that the term definition has already been created), return.
-		// Otherwise, if the value is false, a cyclic IRI mapping error has been detected and processing is aborted.
 		if defined.begin(&term, &loc)? {
 			if term.is_empty() {
 				return Err(Error::InvalidTermDefinition);
@@ -169,6 +167,7 @@ where
 						let simple_term = !d
 							.definition
 							.value()
+							.as_ref()
 							.map(|d| d.is_expanded())
 							.unwrap_or(false);
 						let value: ExpandedTermDefinitionRef<C> = d.definition.into();
@@ -193,12 +192,12 @@ where
 						}
 
 						// If value contains the entry @type:
-						if let Some(Loc(type_, type_loc)) = value.type_ {
+						if let Some(Loc(type_, type_loc)) = &value.type_ {
 							// Set `typ` to the result of IRI expanding type, using local context,
 							// and defined.
-							let typ = expand_iri(
+							let typ = expand_iri_with(
 								active_context,
-								Loc(type_.cast(), type_loc),
+								Loc(type_.cast(), type_loc.clone()),
 								false,
 								true,
 								local_context,
@@ -251,10 +250,10 @@ where
 							// If the result does not have the form of an IRI or a blank node
 							// identifier, an invalid IRI mapping error has been detected and
 							// processing is aborted.
-							match expand_iri(
+							match expand_iri_with(
 								active_context,
 								Loc(
-									Nullable::Some(KeyOrKeywordRef::Key(reverse_value)),
+									Nullable::Some(ExpandableRef::Key(reverse_value)),
 									reverse_loc,
 								),
 								false,
@@ -279,7 +278,7 @@ where
 							// if its value is neither `@set`, nor `@index`, nor null, an
 							// invalid reverse property error has been detected (reverse properties
 							// only support set- and index-containers) and processing is aborted.
-							if let Some(Loc(container_value, container_loc)) = value.container {
+							if let Some(Loc(container_value, _container_loc)) = value.container {
 								match container_value {
 									Nullable::Null => (),
 									Nullable::Some(container_value) => {
@@ -309,7 +308,7 @@ where
 						// If `value` contains the entry `@id` and its value does not equal `term`:
 						match value.id {
 							Some(Loc(id_value, id_loc))
-								if id_value.cast() != Nullable::Some(key.into()) =>
+								if id_value.cast::<KeyOrKeywordRef>() != Nullable::Some(key.into()) =>
 							{
 								match id_value {
 									// If the `@id` entry of value is `null`, the term is not used for IRI
@@ -332,7 +331,7 @@ where
 										// Otherwise, set the IRI mapping of `definition` to the result
 										// of IRI expanding the value associated with the `@id` entry,
 										// using `local_context`, and `defined`.
-										definition.value = match expand_iri(
+										definition.value = match expand_iri_with(
 											active_context,
 											Loc(Nullable::Some(id_value.into()), id_loc),
 											false,
@@ -375,7 +374,7 @@ where
 											// `local_context`, and `defined`, is not the same as the
 											// IRI mapping of definition, an invalid IRI mapping error
 											// has been detected and processing is aborted.
-											let expanded_term = expand_iri(
+											let expanded_term = expand_iri_with(
 												active_context,
 												Loc(Nullable::Some((&term).into()), loc.clone()),
 												false,
@@ -456,13 +455,13 @@ where
 									return Err(Error::InvalidIriMapping.into());
 								}
 							}
-							Some(Loc(Nullable::Some(IdRef::Blank(id)), id_loc)) => {
+							Some(Loc(Nullable::Some(IdRef::Blank(id)), _id_loc)) => {
 								definition.value = Some(Term::Ref(Reference::Blank(id.to_owned())))
 							}
-							Some(Loc(Nullable::Some(IdRef::Iri(iri)), id_loc)) => {
+							Some(Loc(Nullable::Some(IdRef::Iri(iri)), _id_loc)) => {
 								definition.value = Some(Term::Ref(Reference::Id(T::from_iri(iri))))
 							}
-							Some(Loc(Nullable::Some(IdRef::Keyword(Keyword::Type)), id_loc)) => {
+							Some(Loc(Nullable::Some(IdRef::Keyword(Keyword::Type)), _id_loc)) => {
 								// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
 								// `@type`.
 								definition.value = Some(Term::Keyword(Keyword::Type))
@@ -495,7 +494,7 @@ where
 						}
 
 						// If value contains the entry @container:
-						if let Some(Loc(container_value, container_loc)) = value.container {
+						if let Some(Loc(container_value, _container_loc)) = value.container {
 							// If the container value is @graph, @id, or @type, or is otherwise not a
 							// string, generate an invalid container mapping error and abort processing
 							// if processing mode is json-ld-1.0.
@@ -555,18 +554,13 @@ where
 							// which MUST be a string expanding to an IRI.
 							// Otherwise, an invalid term definition has been detected and processing
 							// is aborted.
-							match expand_iri(
+							match expand_iri_simple(
 								active_context,
-								Loc(Nullable::Some(KeyOrKeywordRef::Key(index_value.into())), index_loc),
+								Loc(Nullable::Some(ExpandableRef::Key(index_value.into())), index_loc),
 								false,
 								true,
-								local_context,
-								defined,
-								remote_contexts,
-								loader,
-								options,
 								warnings,
-							).await? {
+							) {
 								Term::Ref(Reference::Id(_)) => (),
 								_ => return Err(Error::InvalidTermDefinition.into()),
 							}
@@ -575,7 +569,7 @@ where
 						}
 
 						// If `value` contains the entry `@context`:
-						if let Some(Loc(context, context_loc)) = value.context {
+						if let Some(Loc(context, _context_loc)) = value.context {
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
 							if options.processing_mode == ProcessingMode::JsonLd1_0 {
@@ -611,7 +605,7 @@ where
 						// If `value` contains the entry `@language` and does not contain the entry
 						// `@type`:
 						if value.type_.is_none() {
-							if let Some(Loc(language_value, language_loc)) = value.language {
+							if let Some(Loc(language_value, _language_loc)) = value.language {
 								// Initialize `language` to the value associated with the `@language`
 								// entry, which MUST be either null or a string.
 								// If `language` is not well-formed according to section 2.2.9 of
@@ -624,7 +618,7 @@ where
 
 							// If `value` contains the entry `@direction` and does not contain the
 							// entry `@type`:
-							if let Some(Loc(direction_value, direction_loc)) = value.direction {
+							if let Some(Loc(direction_value, _direction_loc)) = value.direction {
 								// Initialize `direction` to the value associated with the `@direction`
 								// entry, which MUST be either null, "ltr", or "rtl".
 								definition.direction = Some(direction_value);
@@ -632,7 +626,7 @@ where
 						}
 
 						// If value contains the entry @nest:
-						if let Some(Loc(nest_value, nest_loc)) = value.nest {
+						if let Some(Loc(nest_value, _nest_loc)) = value.nest {
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
 							if options.processing_mode == ProcessingMode::JsonLd1_0 {
@@ -643,7 +637,7 @@ where
 						}
 
 						// If value contains the entry @prefix:
-						if let Some(Loc(prefix_value, prefix_loc)) = value.prefix {
+						if let Some(Loc(prefix_value, _prefix_loc)) = value.prefix {
 							// If processing mode is json-ld-1.0, or if `term` contains a colon (:) or
 							// slash (/), an invalid term definition has been detected and processing
 							// is aborted.
@@ -683,8 +677,8 @@ where
 									// If `definition` is not the same as `previous_definition`
 									// (other than the value of protected), a protected term
 									// redefinition error has been detected, and processing is aborted.
-									if definition != previous_definition {
-										return Err(Error::ProtectedTermRedefinition.into());
+									if definition.stripped() != previous_definition.stripped() {
+										return Err(Error::ProtectedTermRedefinition);
 									}
 
 									// Set `definition` to `previous definition` to retain the value of
@@ -696,33 +690,20 @@ where
 
 						// Set the term definition of `term` in `active_context` to `definition` and
 						// set the value associated with `defined`'s entry term to true.
-						active_context.set(term, Some(definition));
+						active_context.set(key.to_owned(), Some(definition));
 					}
 					_ => {
 						// Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and
 						// a keyword redefinition error has been detected and processing is aborted.
-						if is_keyword(term) {
-							return Err(Error::KeywordRedefinition);
-						} else {
-							// If term has the form of a keyword (i.e., it matches the ABNF rule "@"1*ALPHA
-							// from [RFC5234]), return; processors SHOULD generate a warning.
-							if is_keyword_like(term) {
-								warnings.push(
-									Warning::KeywordLikeTerm(term.to_string())
-										.located(source, term_metadata.clone()),
-								);
-								return Ok(());
-							}
-						}
+						return Err(Error::KeywordRedefinition);
 					}
 				}
 			}
 
-			defined.end(&key);
-
-			// if the term is not in `local_context`.
-			Ok(())
+			defined.end(&term);
 		}
+
+		Ok(())
 	}
 	.boxed()
 }

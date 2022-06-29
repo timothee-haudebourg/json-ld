@@ -1,4 +1,5 @@
 use super::Keyword;
+use locspan_derive::StrippedPartialEq;
 use std::convert::TryFrom;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
@@ -78,7 +79,7 @@ impl From<ContainerType> for Container {
 	}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, Hash, Debug)]
 pub enum Container {
 	// Empty container
 	None,

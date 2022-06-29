@@ -1,7 +1,9 @@
 use iref::{IriBuf, IriRefBuf};
 use rdf_types::BlankIdBuf;
 use locspan::{Loc, Location};
+use locspan_derive::StrippedPartialEq;
 use indexmap::IndexMap;
+use derivative::Derivative;
 use crate::{
 	Keyword,
 	Container,
@@ -18,7 +20,8 @@ pub use key::*;
 pub use reference::*;
 
 /// Context entry.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[stripped_ignore(S, P)]
 pub enum ContextEntry<S, P> {
 	One(Loc<Context<S, P>, S, P>),
 	Many(Vec<Loc<Context<S, P>, S, P>>)
@@ -34,17 +37,21 @@ impl<S, P> ContextEntry<S, P> {
 }
 
 /// Context.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[stripped_ignore(S, P)]
 pub enum Context<S, P> {
 	Null,
-	IriRef(IriRefBuf),
+	IriRef(#[stripped] IriRefBuf),
 	Definition(ContextDefinition<S, P>)
 }
 
 /// Context definition.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[stripped_ignore(S, P)]
 pub struct ContextDefinition<S, P> {
+	#[stripped_option_deref]
 	pub base: Option<Loc<Nullable<IriRefBuf>, S, P>>,
+	#[stripped_option_deref]
 	pub import: Option<Loc<IriRefBuf, S, P>>,
 	pub language: Option<Loc<Nullable<LenientLanguageTagBuf>, S, P>>,
 	pub direction: Option<Loc<Nullable<Direction>, S, P>>,
@@ -53,27 +60,66 @@ pub struct ContextDefinition<S, P> {
 	pub type_: Option<Loc<ContextType<S, P>, S, P>>,
 	pub version: Option<Loc<Version, S, P>>,
 	pub vocab: Option<Loc<Nullable<Vocab>, S, P>>,
-	pub bindings: IndexMap<Key, TermBinding<S, P>>
+	pub bindings: Bindings<S, P>
+}
+
+/// Context bindings.
+#[derive(PartialEq, Eq, Clone, Derivative)]
+#[derivative(Default(bound=""))]
+pub struct Bindings<S, P>(IndexMap<Key, TermBinding<S, P>>);
+
+impl<S, P> Bindings<S, P> {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	pub fn len(&self) -> usize {
+		self.0.len()
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
+
+	pub fn get(&self, key: &Key) -> Option<&TermBinding<S, P>> {
+		self.0.get(key)
+	}
+
+	pub fn iter(&self) -> indexmap::map::Iter<Key, TermBinding<S, P>> {
+		self.0.iter()
+	}
+}
+
+impl<S, P> locspan::StrippedPartialEq for Bindings<S, P> {
+	fn stripped_eq(&self, other: &Self) -> bool {
+		self.len() == other.len() && self.iter().all(|(key, a)| {
+			other.get(key).map(|b| a.stripped_eq(b)).unwrap_or(false)
+		})
+	}
 }
 
 /// Term binding.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[stripped_ignore(S, P)]
 pub struct TermBinding<S, P> {
+	#[stripped_ignore]
 	key_location: Location<S, P>,
 	definition: Loc<Nullable<TermDefinition<S, P>>, S, P>
 }
 
 /// Term definition.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[stripped_ignore(S, P)]
 pub enum TermDefinition<S, P> {
-	Iri(IriBuf),
-	CompactIri(CompactIriBuf),
-	Blank(BlankIdBuf),
+	Iri(#[stripped] IriBuf),
+	CompactIri(#[stripped] CompactIriBuf),
+	Blank(#[stripped] BlankIdBuf),
 	Expanded(ExpandedTermDefinition<S, P>)
 }
 
 /// Expanded term definition.
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[stripped_ignore(S, P)]
 pub struct ExpandedTermDefinition<S, P> {
 	pub id: Option<Loc<Nullable<Id>, S, P>>,
 	pub type_: Option<Loc<Nullable<TermDefinitionType>, S, P>>,
@@ -89,39 +135,39 @@ pub struct ExpandedTermDefinition<S, P> {
 	pub protected: Option<Loc<bool, S, P>>
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Nest {
 	Nest,
-	Term(String)
+	Term(#[stripped] String)
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Index {
-	Iri(IriBuf),
-	CompactIri(CompactIriBuf),
-	Term(String),
+	Iri(#[stripped] IriBuf),
+	CompactIri(#[stripped] CompactIriBuf),
+	Term(#[stripped] String),
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Id {
-	Iri(IriBuf),
-	Blank(BlankIdBuf),
-	CompactIri(CompactIriBuf),
-	Term(String),
+	Iri(#[stripped] IriBuf),
+	Blank(#[stripped] BlankIdBuf),
+	CompactIri(#[stripped] CompactIriBuf),
+	Term(#[stripped] String),
 	Keyword(Keyword)
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TermDefinitionType {
-	Iri(IriBuf),
-	CompactIri(CompactIriBuf),
-	Term(String),
+	Iri(#[stripped] IriBuf),
+	CompactIri(#[stripped] CompactIriBuf),
+	Term(#[stripped] String),
 	Keyword(TypeKeyword)
 }
 
 /// Subset of keyword acceptable for as value for the `@type` entry
 /// of an expanded term definition.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeKeyword {
 	Id,
 	Json,
@@ -143,29 +189,30 @@ impl From<TypeKeyword> for Keyword {
 /// Version number.
 /// 
 /// The only allowed value is a number with the value `1.1`.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Version {
 	V1_1
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Import;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[stripped_ignore(S, P)]
 pub struct ContextType<S, P> {
 	pub container: Loc<TypeContainer, S, P>,
 	pub protected: Option<Loc<bool, S, P>>
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TypeContainer {
 	Set
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Vocab {
-	IriRef(IriRefBuf),
-	CompactIri(CompactIriBuf),
-	Blank(BlankIdBuf),
-	Term(String)
+	IriRef(#[stripped] IriRefBuf),
+	CompactIri(#[stripped] CompactIriBuf),
+	Blank(#[stripped] BlankIdBuf),
+	Term(#[stripped] String)
 }

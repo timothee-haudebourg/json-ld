@@ -1,19 +1,23 @@
 use json_ld_core::{
 	Id,
 	Context,
-	ProcessingMode
+	ProcessingMode,
+	Term
 };
-use json_ld_syntax as syntax;
+use json_ld_syntax::{
+	self as syntax,
+	Nullable
+};
 use iref::{Iri, IriBuf, IriRef};
-use futures::future::BoxFuture;
+use futures::future::{BoxFuture, FutureExt};
 use locspan::{Loc, At};
 use crate::{
 	Process,
 	ProcessingStack,
 	ProcessingOptions,
 	ProcessingResult,
+	ProcessedContext,
 	Loader,
-	Warning,
 	LocWarning,
 	Error,
 	LocError
@@ -27,7 +31,7 @@ use iri::*;
 use define::*;
 use merged::*;
 
-impl<C: syntax::AnyContextEntry + Send + Sync, T: Id> Process<T> for C {
+impl<C: syntax::AnyContextEntry, T: Id> Process<T> for C {
 	type Source = C::Source;
 	type Span = C::Span;
 	
@@ -43,7 +47,20 @@ impl<C: syntax::AnyContextEntry + Send + Sync, T: Id> Process<T> for C {
 		L::Output: Into<C>,
 		T: Send + Sync
 	{
-		todo!()
+		async move {
+			let mut warnings = Vec::new();
+			let processed = process_context(
+				active_context,
+				self,
+				stack,
+				loader,
+				base_url,
+				options,
+				&mut warnings
+			).await?;
+
+			Ok(ProcessedContext::with_warnings(processed, warnings))
+		}.boxed()
 	}
 }
 
@@ -71,13 +88,11 @@ fn process_context<'a, T, C, L>(
 	base_url: Option<Iri>,
 	mut options: ProcessingOptions,
 	warnings: &'a mut Vec<LocWarning<T, C>>,
-) -> BoxFuture<'a, Result<C, LocError<T, C>>>
+) -> BoxFuture<'a, Result<Context<T, C>, LocError<T, C>>>
 where
 	T: Id + Send + Sync,
-	<C as Process<T>>::Source: Clone,
-	<C as Process<T>>::Span: Clone,
 	C: Clone + syntax::AnyContextEntry + Process<T, Source=<C as syntax::AnyContextEntry>::Source, Span=<C as syntax::AnyContextEntry>::Span>,
-	L: Send + Sync + Loader,
+	L: Loader + Send + Sync,
 	L::Output: Into<C>
 {
 	use syntax::AnyContextDefinition;
@@ -143,7 +158,7 @@ where
 					// a loading document failed error has been detected and processing is aborted.
 					let context_iri = resolve_iri(iri_ref, base_url).ok_or_else(|| {
 						Error::LoadingDocumentFailed
-							.at(context_loc)
+							.at(context_loc.clone())
 					})?;
 
 					// If the number of entries in the `remote_contexts` array exceeds a processor
@@ -170,7 +185,7 @@ where
 						let loaded_context = loader
 							.load_context(context_iri.as_iri())
 							.await
-							.map_err(|e| e.at(context_loc))?;
+							.map_err(|e| e.at(context_loc))?.into();
 
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
@@ -210,7 +225,7 @@ where
 					}
 
 					// 5.6) If context has an @import entry:
-					let context: Merged<'a, C::Definition> = if let Some(Loc(import_value, import_loc)) = context.import() {
+					let context: Merged<'a, C> = if let Some(Loc(import_value, import_loc)) = context.import() {
 						// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
@@ -222,14 +237,14 @@ where
 						// @import.
 						let import = resolve_iri(import_value, base_url).ok_or_else(|| {
 							Error::InvalidImportValue
-								.at(import_loc)
+								.at(import_loc.clone())
 						})?;
 
 						// 5.6.4) Dereference import.
-						let import_context = loader
+						let import_context: C = loader
 							.load_context(import.as_iri())
 							.await
-							.map_err(|e| e.at(import_loc))?;
+							.map_err(|e| e.at(import_loc.clone()))?.into();
 
 						// If the dereferenced document has no top-level map with an @context
 						// entry, or if the value of @context is not a context definition
@@ -237,23 +252,23 @@ where
 						// detected and processing is aborted; otherwise, set import context
 						// to the value of that entry.
 						match import_context.as_entry_ref() {
-							syntax::ContextEntryRef::One(Loc(syntax::ContextRef::Definition(import_context), _)) => {
+							syntax::ContextEntryRef::One(Loc(syntax::ContextRef::Definition(import_context_def), _)) => {
 								// If `import_context` has a @import entry, an invalid context entry
 								// error has been detected and processing is aborted.
-								if let Some(Loc(_, loc)) = import_context.import() {
+								if let Some(Loc(_, loc)) = import_context_def.import() {
 									return Err(Error::InvalidContextEntry.at(loc));
 								}
-
-								// Set `context` to the result of merging context into
-								// `import_context`, replacing common entries with those from
-								// `context`.
-								Merged::new(context, Some(import_context))
 							}
 							_ => {
 								return Err(Error::InvalidRemoteContext
 									.at(import_loc));
 							}
 						}
+
+						// Set `context` to the result of merging context into
+						// `import_context`, replacing common entries with those from
+						// `context`.
+						Merged::new(context, Some(import_context))
 					} else {
 						Merged::new(context, None)
 					};
@@ -294,7 +309,6 @@ where
 								result.set_vocabulary(None);
 							}
 							syntax::Nullable::Some(value) => {
-								let string_value = value.as_ref();
 								// Otherwise, if value is an IRI or blank node identifier, the
 								// vocabulary mapping of result is set to the result of IRI
 								// expanding value using true for document relative. If it is not
@@ -302,9 +316,9 @@ where
 								// error has been detected and processing is aborted.
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
-								match expand_iri(
+								match expand_iri_simple(
 									&result,
-									string_value,
+									Loc(Nullable::Some(value.into()), vocab_loc.clone()),
 									true,
 									true,
 									warnings,
@@ -318,77 +332,46 @@ where
 									}
 								}
 							}
-							_ => {
-								return Err(Error::InvalidVocabMapping
-									.at(vocab_loc))
-							}
 						}
 					}
 
 					// 5.9) If context has a @language entry:
-					if let Some(value) = context.get(Keyword::Language.into()) {
-						if value.is_null() {
-							// 5.9.2) If value is null, remove any default language from result.
-							result.set_default_language(None);
-						} else if let Some(str_value) = value.as_str() {
-							// 5.9.3) Otherwise, if value is string, the default language of result is
-							// set to value.
-							match LanguageTagBuf::parse_copy(str_value) {
-								Ok(lang) => result.set_default_language(Some(lang.into())),
-								Err(err) => {
-									// If value is not well-formed according to section 2.2.9 of [BCP47],
-									// processors SHOULD issue a warning.
-									warnings.push(Loc::new(
-										Warning::MalformedLanguageTag(str_value.to_string(), err),
-										source,
-										value.metadata().clone(),
-									));
-									result.set_default_language(Some(str_value.to_string().into()));
-								}
+					if let Some(Loc(value, _language_loc)) = context.language() {
+						match value {
+							Nullable::Null => {
+								// 5.9.2) If value is null, remove any default language from result.
+								result.set_default_language(None);
 							}
-						} else {
-							return Err(ErrorCode::InvalidDefaultLanguage
-								.at(source, value.metadata().clone()));
+							Nullable::Some(tag) => {
+								result.set_default_language(Some(tag.to_owned()));
+							}
 						}
 					}
 
 					// 5.10) If context has a @direction entry:
-					if let Some((direction_key, value)) =
-						context.get_key_value(Keyword::Direction.into())
-					{
+					if let Some(Loc(value, direction_loc)) = context.direction() {
 						// 5.10.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected and processing is aborted.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
-							return Err(ErrorCode::InvalidContextEntry
-								.at(source, direction_key.metadata().clone()));
+							return Err(Error::InvalidContextEntry
+								.at(direction_loc));
 						}
 
-						if value.is_null() {
-							// 5.10.3) If value is null, remove any base direction from result.
-							result.set_default_base_direction(None);
-						} else if let Some(str) = value.as_str() {
-							let dir = match str {
-								"ltr" => Direction::Ltr,
-								"rtl" => Direction::Rtl,
-								_ => {
-									return Err(ErrorCode::InvalidBaseDirection
-										.at(source, value.metadata().clone()))
-								}
-							};
-							result.set_default_base_direction(Some(dir));
-						} else {
-							return Err(ErrorCode::InvalidBaseDirection
-								.at(source, value.metadata().clone()));
+						match value {
+							Nullable::Null => {
+								// 5.10.3) If value is null, remove any base direction from result.
+								result.set_default_base_direction(None);
+							}
+							Nullable::Some(dir) => {
+								result.set_default_base_direction(Some(dir));
+							}
 						}
 					}
 
 					// 5.12) Create a map `defined` to keep track of whether or not a term
 					// has already been defined or is currently being defined during recursion.
-					let mut defined = HashMap::new();
-					let protected = context
-						.get(Keyword::Protected.into())
-						.and_then(|p| p.as_bool())
-						.unwrap_or(false);
+					let mut defined = DefinedTerms::new();
+					let protected = context.protected().map(Loc::into_value).unwrap_or(false);
 
 					// 5.13) For each key-value pair in context where key is not
 					// @base, @direction, @import, @language, @propagate, @protected, @version,
@@ -397,28 +380,21 @@ where
 					// active context, context for local context, key, defined, base URL,
 					// and the value of the @protected entry from context, if any, for protected.
 					// (and the value of override protected)
-					for (key, _) in context.iter() {
-						let key_metadata = key.metadata();
-						let key: &str = &**key;
-						match key {
-							"@base" | "@direction" | "@import" | "@language" | "@propagate"
-							| "@protected" | "@version" | "@vocab" => (),
-							_ => define(
-								&mut result,
-								&context,
-								key,
-								key_metadata,
-								&mut defined,
-								remote_contexts.clone(),
-								loader,
-								base_url,
-								protected,
-								options,
-								warnings,
-							)
-							.await
-							.map_err(|e| e.at(source, key_metadata.clone()))?,
-						}
+					for (key, binding) in context.bindings() {
+						define(
+							&mut result,
+							&context,
+							Loc(key.into(), binding.key_location().clone()),
+							&mut defined,
+							remote_contexts.clone(),
+							loader,
+							base_url,
+							protected,
+							options,
+							warnings,
+						)
+						.await
+						.map_err(|e| e.at(binding.key_location().clone()))?
 					}
 				}
 			}

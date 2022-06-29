@@ -3,7 +3,8 @@ members = [
 	"core",
 	"syntax",
 	"context-processing",
-	# "expansion",
+	"expansion",
+	"testing"
 	# "compaction",
 	# "json-ld"
 ]

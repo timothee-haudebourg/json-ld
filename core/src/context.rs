@@ -2,22 +2,14 @@
 mod definition;
 pub mod inverse;
 
-use crate::{
-	LenientLanguageTag,
-	LenientLanguageTagBuf,
-	Term,
-	Direction
-};
+use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Term};
 use generic_json::{JsonClone, JsonSendSync};
 use iref::{Iri, IriBuf};
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-pub use json_ld_syntax::context::{
-	Key,
-	Nest
-};
+pub use json_ld_syntax::context::{Key, Nest};
 
 pub use definition::*;
 pub use inverse::InverseContext;
@@ -109,7 +101,7 @@ impl<T, L> Context<T, L> {
 	pub fn has_protected_items(&self) -> bool {
 		for (_, definition) in self.definitions() {
 			if definition.protected {
-				return true
+				return true;
 			}
 		}
 

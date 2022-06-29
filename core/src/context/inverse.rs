@@ -1,16 +1,11 @@
 use super::Context;
-use crate::{
-	LenientLanguageTag,
-	LenientLanguageTagBuf,
-	Term, Type,
-	Direction, Nullable,
-};
+use super::Key;
+use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable, Term, Type};
 use json_ld_syntax::Container;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
-use super::Key;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum TypeSelection<T> {
@@ -136,9 +131,7 @@ impl<T> InverseContainer<T> {
 				any: None,
 				map: HashMap::new(),
 			},
-			any: Any {
-				none: term.clone(),
-			},
+			any: Any { none: term.clone() },
 		}
 	}
 }

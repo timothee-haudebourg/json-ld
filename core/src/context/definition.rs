@@ -1,51 +1,58 @@
-use crate::{
-	LenientLanguageTagBuf,
-	Direction,
-	Nullable,
-	Term,
-	Type
-};
-use json_ld_syntax::{Container, context::Index};
-use iref::{Iri, IriBuf};
 use super::Nest;
+use crate::{Direction, LenientLanguageTagBuf, Nullable, Term, Type};
+use iref::{Iri, IriBuf};
+use json_ld_syntax::{context::Index, Container};
+use locspan_derive::StrippedPartialEq;
 
 // A term definition.
-#[derive(Clone)]
+#[derive(StrippedPartialEq, Clone)]
+#[stripped(T)]
 pub struct TermDefinition<T, C> {
 	// IRI mapping.
+	#[stripped]
 	pub value: Option<Term<T>>,
 
 	// Prefix flag.
+	#[stripped]
 	pub prefix: bool,
 
 	// Protected flag.
+	#[stripped]
 	pub protected: bool,
 
 	// Reverse property flag.
+	#[stripped]
 	pub reverse_property: bool,
 
 	// Optional base URL.
+	#[stripped]
 	pub base_url: Option<IriBuf>,
 
 	// Optional context.
 	pub context: Option<C>,
 
 	// Container mapping.
+	#[stripped]
 	pub container: Container,
 
 	// Optional direction mapping.
+	#[stripped]
 	pub direction: Option<Nullable<Direction>>,
 
 	// Optional index mapping.
+	#[stripped]
 	pub index: Option<Index>,
 
 	// Optional language mapping.
+	#[stripped]
 	pub language: Option<Nullable<LenientLanguageTagBuf>>,
 
 	// Optional nest value.
+	#[stripped]
 	pub nest: Option<Nest>,
 
 	// Optional type mapping.
+	#[stripped]
 	pub typ: Option<Type<T>>,
 }
 

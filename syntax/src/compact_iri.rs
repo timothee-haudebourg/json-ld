@@ -1,3 +1,5 @@
+use iref::IriRefBuf;
+
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CompactIri(str);
 
@@ -51,6 +53,10 @@ pub struct CompactIriBuf(String);
 impl CompactIriBuf {
 	pub fn as_compact_iri(&self) -> &CompactIri {
 		unsafe { CompactIri::new_unchecked(&self.0) }
+	}
+
+	pub fn into_iri_ref(self) -> IriRefBuf {
+		IriRefBuf::from_string(self.0).unwrap()
 	}
 }
 

@@ -172,11 +172,7 @@
 #![feature(trait_alias)]
 
 pub use json_ld_syntax::{
-	Nullable,
-	Direction,
-	LenientLanguageTag,
-	LenientLanguageTagBuf,
-	LangString
+	Direction, LangString, LenientLanguageTag, LenientLanguageTagBuf, Nullable,
 };
 
 pub mod context;

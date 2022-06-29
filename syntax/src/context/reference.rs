@@ -3,26 +3,26 @@ use iref::{Iri, IriRef};
 use rdf_types::BlankId;
 use locspan::{Loc, StrippedPartialEq};
 use derivative::Derivative;
-use crate::{Keyword, Container, CompactIri, LenientLanguageTag};
+use crate::{Keyword, Container, CompactIri, LenientLanguageTag, ExpandableRef};
 
 use super::*;
 
-pub trait AnyContextEntry: Sized + StrippedPartialEq {
-	type Source: Clone;
-	type Span: Clone;
+pub trait AnyContextEntry: Sized + StrippedPartialEq + Clone + Send + Sync {
+	type Source: Clone + Send + Sync;
+	type Span: Clone + Send + Sync;
 
-	type Definition: AnyContextDefinition<Self>;
-	type Definitions<'a>: Iterator<Item=Loc<ContextRef<'a, Self::Definition>, Self::Source, Self::Span>> where Self: 'a;
+	type Definition: AnyContextDefinition<Self> + Send + Sync;
+	type Definitions<'a>: Iterator<Item=Loc<ContextRef<'a, Self::Definition>, Self::Source, Self::Span>> + Send + Sync where Self: 'a;
 
 	fn as_entry_ref(&self) -> ContextEntryRef<Self::Source, Self::Span, Self::Definition, Self::Definitions<'_>>;
 }
 
-impl<S: Clone, P: Clone> AnyContextEntry for ContextEntry<S, P> {
+impl<S: Clone + Send + Sync, P: Clone + Send + Sync> AnyContextEntry for ContextEntry<S, P> {
 	type Source = S;
 	type Span = P;
 
 	type Definition = ContextDefinition<S, P>;
-	type Definitions<'a> where S: 'a, P: 'a = ManyContexts<'a, S, P>;
+	type Definitions<'a> = ManyContexts<'a, S, P> where S: 'a, P: 'a;
 
 	fn as_entry_ref(&self) -> ContextEntryRef<S, P> {
 		self.into()
@@ -100,7 +100,7 @@ impl<'a, S, P> From<&'a Context<S, P>> for ContextRef<'a, ContextDefinition<S, P
 }
 
 pub trait AnyContextDefinition<C: AnyContextEntry>: Sized {
-	type Bindings<'a>: Iterator<Item=(KeyRef<'a>, TermBindingRef<'a, C>)> where Self: 'a, C: 'a, C::Source: 'a, C::Span: 'a;
+	type Bindings<'a>: Iterator<Item=(KeyRef<'a>, TermBindingRef<'a, C>)> + Send + Sync where Self: 'a, C: 'a, C::Source: 'a, C::Span: 'a;
 
 	fn base(&self) -> Option<Loc<Nullable<IriRef>, C::Source, C::Span>>;
 	fn import(&self) -> Option<Loc<IriRef, C::Source, C::Span>>;
@@ -146,8 +146,8 @@ pub enum EntryRef<'a, C: AnyContextEntry> {
 	Definition(TermBindingRef<'a, C>)
 }
 
-impl<S: Clone, P: Clone> AnyContextDefinition<ContextEntry<S, P>> for ContextDefinition<S, P> {
-	type Bindings<'a> where S: 'a, P: 'a = Bindings<'a, S, P>;
+impl<S: Clone + Send + Sync, P: Clone + Send + Sync> AnyContextDefinition<ContextEntry<S, P>> for ContextDefinition<S, P> {
+	type Bindings<'a> = Bindings<'a, S, P> where S: 'a, P: 'a;
 
 	fn base(&self) -> Option<Loc<Nullable<IriRef>, S, P>> {
 		self.base.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_iri_ref())))
@@ -196,7 +196,7 @@ impl<S: Clone, P: Clone> AnyContextDefinition<ContextEntry<S, P>> for ContextDef
 
 pub struct Bindings<'a, S, P>(indexmap::map::Iter<'a, Key, TermBinding<S, P>>);
 
-impl<'a, S: Clone, P: Clone> Iterator for Bindings<'a, S, P> {
+impl<'a, S: Clone + Send + Sync, P: Clone + Send + Sync> Iterator for Bindings<'a, S, P> {
 	type Item = (KeyRef<'a>, TermBindingRef<'a, ContextEntry<S, P>>);
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -209,7 +209,13 @@ pub struct TermBindingRef<'a, C: AnyContextEntry> {
 	pub definition: Loc<Nullable<TermDefinitionRef<'a, C>>, C::Source, C::Span>
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a TermBinding<S, P>> for TermBindingRef<'a, ContextEntry<S, P>> {
+impl<'a, C: AnyContextEntry> TermBindingRef<'a, C> {
+	pub fn key_location(&self) -> &Location<C::Source, C::Span> {
+		&self.key_location
+	}
+}
+
+impl<'a, S: Clone + Send + Sync, P: Clone + Send + Sync> From<&'a TermBinding<S, P>> for TermBindingRef<'a, ContextEntry<S, P>> {
 	fn from(b: &'a TermBinding<S, P>) -> Self {
 		Self {
 			key_location: b.key_location.clone(),
@@ -232,7 +238,7 @@ impl<'a, C: AnyContextEntry> TermDefinitionRef<'a, C> {
 	}
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a TermDefinition<S, P>> for TermDefinitionRef<'a, ContextEntry<S, P>> {
+impl<'a, S: Clone + Send + Sync, P: Clone + Send + Sync> From<&'a TermDefinition<S, P>> for TermDefinitionRef<'a, ContextEntry<S, P>> {
 	fn from(d: &'a TermDefinition<S, P>) -> Self {
 		match d {
 			TermDefinition::Iri(i) => Self::Iri(i.as_iri()),
@@ -285,7 +291,7 @@ impl<'a, C: AnyContextEntry> From<Loc<Nullable<TermDefinitionRef<'a, C>>, C::Sou
 	}
 }
 
-impl<'a, S: Clone, P: Clone> From<&'a ExpandedTermDefinition<S, P>> for ExpandedTermDefinitionRef<'a, ContextEntry<S, P>> {
+impl<'a, S: Clone + Send + Sync, P: Clone + Send + Sync> From<&'a ExpandedTermDefinition<S, P>> for ExpandedTermDefinitionRef<'a, ContextEntry<S, P>> {
 	fn from(d: &'a ExpandedTermDefinition<S, P>) -> Self {
 		Self {
 			id: d.id.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().cast())),
@@ -327,6 +333,7 @@ impl<'a> From<&'a Nest> for NestRef<'a> {
 	}
 }
 
+#[derive(Clone, Copy)]
 pub enum IndexRef<'a> {
 	Iri(Iri<'a>),
 	CompactIri(&'a CompactIri),
@@ -363,6 +370,7 @@ impl<'a> From<IndexRef<'a>> for KeyRef<'a> {
 	}
 }
 
+#[derive(Clone, Copy)]
 pub enum IdRef<'a> {
 	Iri(Iri<'a>),
 	Blank(&'a BlankId),
@@ -403,6 +411,18 @@ impl<'a> From<IdRef<'a>> for KeyOrKeywordRef<'a> {
 	}
 }
 
+impl<'a> From<IdRef<'a>> for ExpandableRef<'a> {
+	fn from(i: IdRef<'a>) -> Self {
+		match i {
+			IdRef::Iri(i) => Self::Key(KeyRef::Iri(i)),
+			IdRef::Blank(i) => Self::Key(KeyRef::Blank(i)),
+			IdRef::CompactIri(i) => Self::Key(KeyRef::CompactIri(i)),
+			IdRef::Term(t) => Self::Key(KeyRef::Term(t)),
+			IdRef::Keyword(k) => Self::Keyword(k)
+		}
+	}
+}
+
 impl<'a> fmt::Display for IdRef<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
@@ -427,6 +447,7 @@ impl<'a> From<&'a Id> for IdRef<'a> {
 	}
 }
 
+#[derive(Clone, Copy)]
 pub enum TermDefinitionTypeRef<'a> {
 	Iri(Iri<'a>),
 	CompactIri(&'a CompactIri),
@@ -456,7 +477,18 @@ impl<'a> From<TermDefinitionTypeRef<'a>> for KeyOrKeywordRef<'a> {
 	}
 }
 
-#[derive(Clone, Copy)]
+impl<'a> From<TermDefinitionTypeRef<'a>> for ExpandableRef<'a> {
+	fn from(d: TermDefinitionTypeRef<'a>) -> Self {
+		match d {
+			TermDefinitionTypeRef::Iri(i) => Self::Key(KeyRef::Iri(i)),
+			TermDefinitionTypeRef::CompactIri(i) => Self::Key(KeyRef::CompactIri(i)),
+			TermDefinitionTypeRef::Term(t) => Self::Key(KeyRef::Term(t)),
+			TermDefinitionTypeRef::Keyword(k) => Self::Keyword(k.into())
+		}
+	}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum KeyOrKeywordRef<'a> {
 	Keyword(Keyword),
 	Key(KeyRef<'a>)
@@ -480,6 +512,19 @@ impl<'a> From<&'a KeyOrKeyword> for KeyOrKeywordRef<'a> {
 	}
 }
 
+impl<'a> From<KeyRef<'a>> for KeyOrKeywordRef<'a> {
+	fn from(k: KeyRef<'a>) -> Self {
+		Self::Key(k)
+	}
+}
+
+impl<'a> From<&'a Key> for KeyOrKeywordRef<'a> {
+	fn from(k: &'a Key) -> Self {
+		Self::Key(k.into())
+	}
+}
+
+#[derive(Clone, Copy)]
 pub enum VocabRef<'a> {
 	IriRef(IriRef<'a>),
 	CompactIri(&'a CompactIri),
@@ -494,6 +539,17 @@ impl<'a> From<&'a Vocab> for VocabRef<'a> {
 			Vocab::Blank(b) => Self::Blank(b),
 			Vocab::CompactIri(c) => Self::CompactIri(c),
 			Vocab::Term(t) => Self::Term(t)
+		}
+	}
+}
+
+impl<'a> From<VocabRef<'a>> for ExpandableRef<'a> {
+	fn from(v: VocabRef<'a>) -> Self {
+		match v {
+			VocabRef::IriRef(i) => ExpandableRef::IriRef(i),
+			VocabRef::Blank(i) => ExpandableRef::Key(KeyRef::Blank(i)),
+			VocabRef::CompactIri(i) => ExpandableRef::Key(KeyRef::CompactIri(i)),
+			VocabRef::Term(t) => ExpandableRef::Key(KeyRef::Term(t))
 		}
 	}
 }

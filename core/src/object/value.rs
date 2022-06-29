@@ -1,8 +1,4 @@
-use crate::{
-	LenientLanguageTag,
-	object,
-	Direction, Id, LangString,
-};
+use crate::{object, Direction, Id, LangString, LenientLanguageTag};
 use derivative::Derivative;
 use generic_json::{Json, JsonClone, JsonHash};
 use iref::IriBuf;

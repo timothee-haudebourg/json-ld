@@ -1,7 +1,7 @@
 use super::{Term, TermLike};
 use crate::{Id, Reference};
-use json_ld_syntax::Keyword;
 use iref::Iri;
+use json_ld_syntax::Keyword;
 use std::convert::TryFrom;
 use std::fmt;
 

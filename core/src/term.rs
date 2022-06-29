@@ -1,6 +1,6 @@
-use json_ld_syntax::Keyword;
 use crate::Reference;
 use iref::{AsIri, Iri};
+use json_ld_syntax::Keyword;
 use std::fmt;
 
 pub trait TermLike {

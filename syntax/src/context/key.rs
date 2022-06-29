@@ -1,15 +1,16 @@
 use iref::{Iri, IriBuf};
 use rdf_types::{BlankId, BlankIdBuf};
+use locspan_derive::StrippedPartialEq;
 use std::fmt;
 use crate::{CompactIri, CompactIriBuf, Keyword};
 
 /// Context key.
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Key {
-	Iri(IriBuf),
-	CompactIri(CompactIriBuf),
-	Blank(BlankIdBuf),
-	Term(String)
+	Iri(#[stripped] IriBuf),
+	CompactIri(#[stripped] CompactIriBuf),
+	Blank(#[stripped] BlankIdBuf),
+	Term(#[stripped] String)
 }
 
 impl Key {
@@ -39,7 +40,18 @@ impl Key {
 	}
 }
 
-#[derive(Clone, Copy)]
+impl fmt::Display for Key {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Iri(i) => i.fmt(f),
+			Self::CompactIri(i) => i.fmt(f),
+			Self::Blank(i) => i.fmt(f),
+			Self::Term(t) => t.fmt(f)
+		}
+	}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum KeyRef<'a> {
 	Iri(Iri<'a>),
 	CompactIri(&'a CompactIri),

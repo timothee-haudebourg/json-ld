@@ -1,10 +1,11 @@
 use std::fmt;
+use locspan_derive::StrippedPartialEq;
 
 /// Internationalized string direction.
 ///
 /// Specifies the direction used to read a string.
 /// This can be either left-to-right (`"ltr"`) or right-to-left (`"rtl"`).
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Direction {
 	/// Left-to-right direction.
 	Ltr,

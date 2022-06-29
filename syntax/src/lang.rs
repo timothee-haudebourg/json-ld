@@ -1,12 +1,13 @@
 use crate::Direction;
 use langtag::{LanguageTag, LanguageTagBuf};
+use locspan_derive::StrippedPartialEq;
 use std::fmt;
 
 /// Language tag buffer that may not be well-formed.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, Hash, Debug)]
 pub enum LenientLanguageTagBuf {
-	WellFormed(LanguageTagBuf),
-	Malformed(String),
+	WellFormed(#[stripped] LanguageTagBuf),
+	Malformed(#[stripped] String),
 }
 
 impl LenientLanguageTagBuf {
@@ -58,10 +59,10 @@ impl fmt::Display for LenientLanguageTagBuf {
 }
 
 /// Language tag that may not be well-formed.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, Hash, Debug)]
 pub enum LenientLanguageTag<'a> {
-	WellFormed(LanguageTag<'a>),
-	Malformed(&'a str),
+	WellFormed(#[stripped] LanguageTag<'a>),
+	Malformed(#[stripped] &'a str),
 }
 
 impl<'a> LenientLanguageTag<'a> {

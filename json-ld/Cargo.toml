@@ -38,7 +38,7 @@ uuid = { version = "0.8", optional = true }
 smallvec = "*"
 permutohedron = { version = "0.2" }
 pretty_dtoa = "0.3"
-rdf-types = "0.2.9"
+rdf-types = "0.5.1"
 
 [dev-dependencies]
 async-std = { version = "^1.5", features = ["attributes"] }

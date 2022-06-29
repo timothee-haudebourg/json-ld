@@ -1,12 +1,8 @@
-use crate::{
-	id, object,
-	utils, Id, Indexed, Object, Objects, Reference, ToReference,
-	Term
-};
-use json_ld_syntax::Keyword;
+use crate::{id, object, utils, Id, Indexed, Object, Objects, Reference, Term, ToReference};
 use cc_traits::MapInsert;
 use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
+use json_ld_syntax::Keyword;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
