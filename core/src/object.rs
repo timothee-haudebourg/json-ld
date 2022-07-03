@@ -6,24 +6,21 @@ mod typ;
 pub mod value;
 
 use crate::{id, Id, Indexed, LenientLanguageTag, Reference};
-use generic_json::{Json, JsonClone, JsonHash};
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
+use json_number::Number;
 
 pub use mapped_eq::MappedEq;
 pub use node::{Node, Nodes};
 pub use typ::{Type, TypeRef};
 pub use value::{Literal, LiteralString, Value};
 
-pub trait Any<J: JsonHash, T: Id> {
-	fn as_ref(&self) -> Ref<J, T>;
+pub trait Any<T: Id> {
+	fn as_ref(&self) -> Ref<T>;
 
 	#[inline]
-	fn id<'a>(&'a self) -> Option<&Reference<T>>
-	where
-		J: 'a,
-	{
+	fn id(&self) -> Option<&Reference<T>> {
 		match self.as_ref() {
 			Ref::Node(n) => n.id.as_ref(),
 			_ => None,
@@ -33,7 +30,6 @@ pub trait Any<J: JsonHash, T: Id> {
 	#[inline]
 	fn language<'a>(&'a self) -> Option<LenientLanguageTag>
 	where
-		J: 'a,
 		T: 'a,
 	{
 		match self.as_ref() {
@@ -67,15 +63,15 @@ pub trait Any<J: JsonHash, T: Id> {
 }
 
 /// Object reference.
-pub enum Ref<'a, J: JsonHash, T: Id> {
+pub enum Ref<'a, T: Id> {
 	/// Value object.
-	Value(&'a Value<J, T>),
+	Value(&'a Value<T>),
 
 	/// Node object.
-	Node(&'a Node<J, T>),
+	Node(&'a Node<T>),
 
 	/// List object.
-	List(&'a [Indexed<Object<J, T>>]),
+	List(&'a [Indexed<Object<T>>]),
 }
 
 /// Object.
@@ -83,18 +79,18 @@ pub enum Ref<'a, J: JsonHash, T: Id> {
 /// JSON-LD connects together multiple kinds of data objects.
 /// Objects may be nodes, values or lists of objects.
 #[derive(PartialEq, Eq)]
-pub enum Object<J: JsonHash, T: Id = IriBuf> {
+pub enum Object<T: Id = IriBuf> {
 	/// Value object.
-	Value(Value<J, T>),
+	Value(Value<T>),
 
 	/// Node object.
-	Node(Node<J, T>),
+	Node(Node<T>),
 
 	/// List object.
 	List(Vec<Indexed<Self>>),
 }
 
-impl<J: JsonHash, T: Id> Object<J, T> {
+impl<T: Id> Object<T> {
 	/// Identifier of the object, if it is a node object.
 	#[inline(always)]
 	pub fn id(&self) -> Option<&Reference<T>> {
@@ -145,7 +141,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 
 	/// Returns this object as a value, if it is one.
 	#[inline(always)]
-	pub fn as_value(&self) -> Option<&Value<J, T>> {
+	pub fn as_value(&self) -> Option<&Value<T>> {
 		match self {
 			Self::Value(v) => Some(v),
 			_ => None,
@@ -154,7 +150,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 
 	/// Converts this object as a value, if it is one.
 	#[inline(always)]
-	pub fn into_value(self) -> Option<Value<J, T>> {
+	pub fn into_value(self) -> Option<Value<T>> {
 		match self {
 			Self::Value(v) => Some(v),
 			_ => None,
@@ -169,7 +165,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 
 	/// Returns this object as a node, if it is one.
 	#[inline(always)]
-	pub fn as_node(&self) -> Option<&Node<J, T>> {
+	pub fn as_node(&self) -> Option<&Node<T>> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -178,7 +174,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 
 	/// Converts this object into a node, if it is one.
 	#[inline(always)]
-	pub fn into_node(self) -> Option<Node<J, T>> {
+	pub fn into_node(self) -> Option<Node<T>> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -243,7 +239,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 
 	/// Get the value as a number, if it is.
 	#[inline(always)]
-	pub fn as_number(&self) -> Option<&J::Number> {
+	pub fn as_number(&self) -> Option<&Number> {
 		match self {
 			Object::Value(value) => value.as_number(),
 			_ => None,
@@ -260,7 +256,7 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 		}
 	}
 
-	pub fn traverse(&self) -> Traverse<J, T> {
+	pub fn traverse(&self) -> Traverse<T> {
 		match self {
 			Self::List(list) => Traverse::List {
 				current: None,
@@ -284,13 +280,13 @@ impl<J: JsonHash, T: Id> Object<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> Indexed<Object<J, T>> {
+impl<T: Id> Indexed<Object<T>> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
 }
 
-impl<J: JsonHash, T: Id> Hash for Object<J, T> {
+impl<T: Id> Hash for Object<T> {
 	#[inline]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
@@ -301,17 +297,17 @@ impl<J: JsonHash, T: Id> Hash for Object<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> Indexed<Object<J, T>> {
+impl<T: Id> Indexed<Object<T>> {
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_node(self) -> Option<Indexed<Node<J, T>>> {
+	pub fn into_indexed_node(self) -> Option<Indexed<Node<T>>> {
 		let (object, index) = self.into_parts();
 		object.into_node().map(|node| Indexed::new(node, index))
 	}
 
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_value(self) -> Option<Indexed<Value<J, T>>> {
+	pub fn into_indexed_value(self) -> Option<Indexed<Value<T>>> {
 		let (object, index) = self.into_parts();
 		object.into_value().map(|value| Indexed::new(value, index))
 	}
@@ -336,9 +332,9 @@ impl<J: JsonHash, T: Id> Indexed<Object<J, T>> {
 	}
 }
 
-impl<J: JsonHash, T: Id> Any<J, T> for Object<J, T> {
+impl<T: Id> Any<T> for Object<T> {
 	#[inline(always)]
-	fn as_ref(&self) -> Ref<J, T> {
+	fn as_ref(&self) -> Ref<T> {
 		match self {
 			Object::Value(value) => Ref::Value(value),
 			Object::Node(node) => Ref::Node(node),
@@ -347,21 +343,21 @@ impl<J: JsonHash, T: Id> Any<J, T> for Object<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> From<Value<J, T>> for Object<J, T> {
+impl<T: Id> From<Value<T>> for Object<T> {
 	#[inline(always)]
-	fn from(value: Value<J, T>) -> Self {
+	fn from(value: Value<T>) -> Self {
 		Self::Value(value)
 	}
 }
 
-impl<J: JsonHash, T: Id> From<Node<J, T>> for Object<J, T> {
+impl<T: Id> From<Node<T>> for Object<T> {
 	#[inline(always)]
-	fn from(node: Node<J, T>) -> Self {
+	fn from(node: Node<T>) -> Self {
 		Self::Node(node)
 	}
 }
 
-// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, T> {
+// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<T> {
 // 	fn as_json_with(
 // 		&self,
 // 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
@@ -382,7 +378,7 @@ impl<J: JsonHash, T: Id> From<Node<J, T>> for Object<J, T> {
 // }
 
 // impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
-// 	for HashSet<Indexed<Object<J, T>>>
+// 	for HashSet<Indexed<Object<T>>>
 // {
 // 	#[inline(always)]
 // 	fn as_json_with(
@@ -417,20 +413,20 @@ impl<'a, T> Iterator for Types<'a, T> {
 }
 
 /// Iterator through indexed objects.
-pub struct Objects<'a, J: JsonHash, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>);
+pub struct Objects<'a, T: Id>(Option<std::slice::Iter<'a, Indexed<Object<T>>>>);
 
-impl<'a, J: JsonHash, T: Id> Objects<'a, J, T> {
+impl<'a, T: Id> Objects<'a, T> {
 	#[inline(always)]
-	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>) -> Self {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Indexed<Object<T>>>>) -> Self {
 		Self(inner)
 	}
 }
 
-impl<'a, J: JsonHash, T: Id> Iterator for Objects<'a, J, T> {
-	type Item = &'a Indexed<Object<J, T>>;
+impl<'a, T: Id> Iterator for Objects<'a, T> {
+	type Item = &'a Indexed<Object<T>>;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a Indexed<Object<J, T>>> {
+	fn next(&mut self) -> Option<&'a Indexed<Object<T>>> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next(),
@@ -438,17 +434,17 @@ impl<'a, J: JsonHash, T: Id> Iterator for Objects<'a, J, T> {
 	}
 }
 
-pub enum Traverse<'a, J: JsonHash, T: Id> {
+pub enum Traverse<'a, T: Id> {
 	List {
-		current: Option<Box<Traverse<'a, J, T>>>,
-		list: std::slice::Iter<'a, Indexed<Object<J, T>>>,
+		current: Option<Box<Traverse<'a, T>>>,
+		list: std::slice::Iter<'a, Indexed<Object<T>>>,
 	},
-	Value(Option<&'a Value<J, T>>),
-	Node(Box<node::Traverse<'a, J, T>>),
+	Value(Option<&'a Value<T>>),
+	Node(Box<node::Traverse<'a, T>>),
 }
 
-impl<'a, J: JsonHash, T: Id> Iterator for Traverse<'a, J, T> {
-	type Item = Ref<'a, J, T>;
+impl<'a, T: Id> Iterator for Traverse<'a, T> {
+	type Item = Ref<'a, T>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {

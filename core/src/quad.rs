@@ -2,7 +2,6 @@ use crate::{
 	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object,
 	Reference,
 };
-use generic_json::JsonHash;
 use smallvec::SmallVec;
 
 /// JSON-LD Quad.
@@ -25,11 +24,11 @@ use smallvec::SmallVec;
 /// }
 /// # }
 /// ```
-pub struct QuadRef<'a, J: JsonHash, T: Id>(
+pub struct QuadRef<'a, T: Id>(
 	pub Option<&'a Reference<T>>,
 	pub &'a Reference<T>,
 	pub PropertyRef<'a, T>,
-	pub ObjectRef<'a, J, T>,
+	pub ObjectRef<'a, T>,
 );
 
 pub enum PropertyRef<'a, T: Id> {
@@ -37,30 +36,30 @@ pub enum PropertyRef<'a, T: Id> {
 	Ref(&'a Reference<T>),
 }
 
-pub enum ObjectRef<'a, J: JsonHash, T: Id> {
-	Object(&'a Object<J, T>),
-	Node(&'a Node<J, T>),
+pub enum ObjectRef<'a, T: Id> {
+	Object(&'a Object<T>),
+	Node(&'a Node<T>),
 	Ref(&'a Reference<T>),
 }
 
-impl<F, J: JsonHash, T: Id> ExpandedDocument<F, J, T> {
-	pub fn quads(&self) -> Quads<J, T> {
+impl<T: Id, S, P> ExpandedDocument<T, S, P> {
+	pub fn quads(&self) -> Quads<T> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedObjectSet(None, self.iter()));
 		Quads { stack }
 	}
 }
 
-impl<F, J: JsonHash, T: Id> FlattenedDocument<F, J, T> {
-	pub fn quads(&self) -> Quads<J, T> {
+impl<T: Id, S, P> FlattenedDocument<T, S, P> {
+	pub fn quads(&self) -> Quads<T> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedNodeSlice(None, self.iter()));
 		Quads { stack }
 	}
 }
 
-impl<J: JsonHash, T: Id> NodeMap<J, T> {
-	pub fn quads(&self) -> Quads<J, T> {
+impl<T: Id> NodeMap<T> {
+	pub fn quads(&self) -> Quads<T> {
 		let mut stack = SmallVec::new();
 
 		for (id, graph) in self {
@@ -73,30 +72,30 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 
 const STACK_LEN: usize = 6;
 
-pub struct Quads<'a, J: JsonHash, T: Id> {
-	stack: SmallVec<[QuadsFrame<'a, J, T>; STACK_LEN]>,
+pub struct Quads<'a, T: Id> {
+	stack: SmallVec<[QuadsFrame<'a, T>; STACK_LEN]>,
 }
 
-enum QuadsFrame<'a, J: JsonHash, T: Id> {
+enum QuadsFrame<'a, T: Id> {
 	NodeMapGraph(
 		Option<&'a Reference<T>>,
-		crate::flattening::NodeMapGraphNodes<'a, J, T>,
+		crate::flattening::NodeMapGraphNodes<'a, T>,
 	),
 	IndexedObjectSet(
 		Option<&'a Reference<T>>,
-		std::collections::hash_set::Iter<'a, Indexed<Object<J, T>>>,
+		std::collections::hash_set::Iter<'a, Indexed<Object<T>>>,
 	),
 	IndexedNodeSet(
 		Option<&'a Reference<T>>,
-		std::collections::hash_set::Iter<'a, Indexed<Node<J, T>>>,
+		std::collections::hash_set::Iter<'a, Indexed<Node<T>>>,
 	),
 	IndexedObjectSlice(
 		Option<&'a Reference<T>>,
-		std::slice::Iter<'a, Indexed<Object<J, T>>>,
+		std::slice::Iter<'a, Indexed<Object<T>>>,
 	),
 	IndexedNodeSlice(
 		Option<&'a Reference<T>>,
-		std::slice::Iter<'a, Indexed<Node<J, T>>>,
+		std::slice::Iter<'a, Indexed<Node<T>>>,
 	),
 	NodeTypes(
 		Option<&'a Reference<T>>,
@@ -106,29 +105,29 @@ enum QuadsFrame<'a, J: JsonHash, T: Id> {
 	NodeProperties(
 		Option<&'a Reference<T>>,
 		&'a Reference<T>,
-		object::node::properties::Iter<'a, J, T>,
+		object::node::properties::Iter<'a, T>,
 	),
 	NodeReverseProperties(
 		Option<&'a Reference<T>>,
-		&'a Node<J, T>,
-		object::node::reverse_properties::Iter<'a, J, T>,
+		&'a Node<T>,
+		object::node::reverse_properties::Iter<'a, T>,
 	),
 	NodePropertyObjects(
 		Option<&'a Reference<T>>,
 		&'a Reference<T>,
 		&'a Reference<T>,
-		std::slice::Iter<'a, Indexed<Object<J, T>>>,
+		std::slice::Iter<'a, Indexed<Object<T>>>,
 	),
 	NodeReversePropertySubjects(
 		Option<&'a Reference<T>>,
-		&'a Node<J, T>,
+		&'a Node<T>,
 		&'a Reference<T>,
-		std::slice::Iter<'a, Indexed<Node<J, T>>>,
+		std::slice::Iter<'a, Indexed<Node<T>>>,
 	),
 }
 
-impl<'a, J: JsonHash, T: Id> Quads<'a, J, T> {
-	fn push_object(&mut self, graph: Option<&'a Reference<T>>, object: &'a Indexed<Object<J, T>>) {
+impl<'a, T: Id> Quads<'a, T> {
+	fn push_object(&mut self, graph: Option<&'a Reference<T>>, object: &'a Indexed<Object<T>>) {
 		match object.inner() {
 			Object::Node(node) => self.push_node(graph, node),
 			Object::List(objects) => self
@@ -138,7 +137,7 @@ impl<'a, J: JsonHash, T: Id> Quads<'a, J, T> {
 		}
 	}
 
-	fn push_node(&mut self, graph: Option<&'a Reference<T>>, node: &'a Node<J, T>) {
+	fn push_node(&mut self, graph: Option<&'a Reference<T>>, node: &'a Node<T>) {
 		if let Some(id) = node.id() {
 			if let Some(graph) = node.graph() {
 				self.stack
@@ -166,8 +165,8 @@ impl<'a, J: JsonHash, T: Id> Quads<'a, J, T> {
 	}
 }
 
-impl<'a, J: JsonHash, T: Id> Iterator for Quads<'a, J, T> {
-	type Item = QuadRef<'a, J, T>;
+impl<'a, T: Id> Iterator for Quads<'a, T> {
+	type Item = QuadRef<'a, T>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		while let Some(last) = self.stack.last_mut() {

@@ -1,7 +1,7 @@
 use crate::{object, Direction, Id, LangString, LenientLanguageTag};
-use derivative::Derivative;
-use generic_json::{Json, JsonClone, JsonHash};
 use iref::IriBuf;
+use json_number::{NumberBuf, Number};
+use locspan::BorrowStripped;
 use std::{
 	fmt,
 	hash::{Hash, Hasher},
@@ -44,17 +44,16 @@ impl<'a, T> TypeRef<'a, T> {
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = "J::String: Clone"))]
-pub enum LiteralString<J: Json> {
+#[derive(Clone)]
+pub enum LiteralString {
 	/// Literal string expanded from a JSON-LD document.
-	Expanded(J::String),
+	Expanded(json_syntax::String),
 
 	/// Literal string inferred during expansion.
 	Inferred(String),
 }
 
-impl<J: Json> LiteralString<J> {
+impl LiteralString {
 	#[inline(always)]
 	pub fn as_str(&self) -> &str {
 		match self {
@@ -64,21 +63,21 @@ impl<J: Json> LiteralString<J> {
 	}
 }
 
-impl<J: Json> AsRef<str> for LiteralString<J> {
+impl AsRef<str> for LiteralString {
 	#[inline(always)]
 	fn as_ref(&self) -> &str {
 		self.as_str()
 	}
 }
 
-impl<J: Json> std::borrow::Borrow<str> for LiteralString<J> {
+impl std::borrow::Borrow<str> for LiteralString {
 	#[inline(always)]
 	fn borrow(&self) -> &str {
 		self.as_str()
 	}
 }
 
-impl<J: Json> std::ops::Deref for LiteralString<J> {
+impl std::ops::Deref for LiteralString {
 	type Target = str;
 
 	#[inline(always)]
@@ -87,23 +86,23 @@ impl<J: Json> std::ops::Deref for LiteralString<J> {
 	}
 }
 
-impl<J: Json, K: Json> PartialEq<LiteralString<K>> for LiteralString<J> {
+impl PartialEq for LiteralString {
 	#[inline(always)]
-	fn eq(&self, other: &LiteralString<K>) -> bool {
+	fn eq(&self, other: &LiteralString) -> bool {
 		self.as_str() == other.as_str()
 	}
 }
 
-impl<J: Json> Eq for LiteralString<J> {}
+impl Eq for LiteralString {}
 
-impl<J: Json> Hash for LiteralString<J> {
+impl Hash for LiteralString {
 	#[inline(always)]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		self.as_str().hash(h)
 	}
 }
 
-impl<J: Json> fmt::Debug for LiteralString<J> {
+impl fmt::Debug for LiteralString {
 	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.as_str().fmt(f)
@@ -111,9 +110,8 @@ impl<J: Json> fmt::Debug for LiteralString<J> {
 }
 
 /// Literal value.
-#[derive(Derivative)]
-#[derivative(Clone(bound = "J::Number: Clone, J::String: Clone"))]
-pub enum Literal<J: Json> {
+#[derive(Clone)]
+pub enum Literal {
 	/// The `null` value.
 	Null,
 
@@ -121,13 +119,13 @@ pub enum Literal<J: Json> {
 	Boolean(bool),
 
 	/// Number.
-	Number(J::Number),
+	Number(NumberBuf),
 
 	/// String.
-	String(LiteralString<J>),
+	String(LiteralString),
 }
 
-impl<J: Json> PartialEq for Literal<J> {
+impl PartialEq for Literal {
 	#[inline(always)]
 	fn eq(&self, other: &Self) -> bool {
 		use Literal::*;
@@ -141,9 +139,9 @@ impl<J: Json> PartialEq for Literal<J> {
 	}
 }
 
-impl<J: Json> Eq for Literal<J> {}
+impl Eq for Literal {}
 
-impl<J: JsonHash> Hash for Literal<J> {
+impl Hash for Literal {
 	#[inline(always)]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
@@ -155,7 +153,7 @@ impl<J: JsonHash> Hash for Literal<J> {
 	}
 }
 
-impl<J: Json> Literal<J> {
+impl Literal {
 	/// Returns this value as a string if it is one.
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
@@ -176,7 +174,7 @@ impl<J: Json> Literal<J> {
 
 	/// Returns this value as a number if it is one.
 	#[inline(always)]
-	pub fn as_number(&self) -> Option<&J::Number> {
+	pub fn as_number(&self) -> Option<&Number> {
 		match self {
 			Literal::Number(n) => Some(n),
 			_ => None,
@@ -188,18 +186,18 @@ impl<J: Json> Literal<J> {
 ///
 /// Either a typed literal value, or an internationalized language string.
 #[derive(PartialEq, Eq)]
-pub enum Value<J: Json, T: Id = IriBuf> {
+pub enum Value<T: Id = IriBuf> {
 	/// Typed literal value.
-	Literal(Literal<J>, Option<T>),
+	Literal(Literal, Option<T>),
 
 	/// Language tagged string.
 	LangString(LangString),
 
 	/// JSON literal value.
-	Json(J),
+	Json(json_syntax::Value<()>),
 }
 
-impl<J: JsonClone, T: Id> Clone for Value<J, T> {
+impl<T: Id> Clone for Value<T> {
 	#[inline(always)]
 	fn clone(&self) -> Self {
 		match self {
@@ -210,7 +208,7 @@ impl<J: JsonClone, T: Id> Clone for Value<J, T> {
 	}
 }
 
-impl<J: Json, T: Id> Value<J, T> {
+impl<T: Id> Value<T> {
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
@@ -221,7 +219,7 @@ impl<J: Json, T: Id> Value<J, T> {
 	}
 
 	#[inline(always)]
-	pub fn as_literal(&self) -> Option<(&Literal<J>, Option<&T>)> {
+	pub fn as_literal(&self) -> Option<(&Literal, Option<&T>)> {
 		match self {
 			Self::Literal(lit, ty) => Some((lit, ty.as_ref())),
 			_ => None,
@@ -266,7 +264,7 @@ impl<J: Json, T: Id> Value<J, T> {
 	}
 
 	#[inline(always)]
-	pub fn as_number(&self) -> Option<&J::Number> {
+	pub fn as_number(&self) -> Option<&Number> {
 		match self {
 			Value::Literal(lit, _) => lit.as_number(),
 			_ => None,
@@ -307,14 +305,14 @@ impl<J: Json, T: Id> Value<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> object::Any<J, T> for Value<J, T> {
+impl<T: Id> object::Any<T> for Value<T> {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref<J, T> {
+	fn as_ref(&self) -> object::Ref<T> {
 		object::Ref::Value(self)
 	}
 }
 
-impl<J: JsonHash, T: Id> Hash for Value<J, T> {
+impl<T: Id> Hash for Value<T> {
 	#[inline]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		match self {
@@ -323,12 +321,12 @@ impl<J: JsonHash, T: Id> Hash for Value<J, T> {
 				ty.hash(h);
 			}
 			Value::LangString(s) => s.hash(h),
-			Value::Json(json) => crate::utils::hash_json(json, h), // TODO replace by the hash function provided by J whenever possible.
+			Value::Json(json) => json.stripped().hash(h)
 		}
 	}
 }
 
-// impl<J: JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K> for Value<J, T> {
+// impl<J: JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K> for Value<T> {
 // 	fn as_json_with(
 // 		&self,
 // 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,

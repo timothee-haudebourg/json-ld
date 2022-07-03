@@ -20,11 +20,11 @@ default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
 
 [dependencies]
 json-ld-syntax = { path = "../syntax" }
+json-syntax = "0.4"
+json-number = "0.3"
 log = "^0.4"
 derivative = "^2.2"
 mown = "^0.2"
-cc-traits = "^0.7.3"
-generic-json = { version = "^0.7", features = ["nightly"] }
 iref = "^2.1"
 static-iref = "1.0"
 futures = "^0.3"
@@ -35,9 +35,10 @@ uuid = { version = "0.8", optional = true }
 smallvec = "*"
 permutohedron = { version = "0.2" }
 pretty_dtoa = "0.3"
-rdf-types = "0.5.1"
-locspan = "0.5.2"
-locspan-derive = "0.3.0"
+rdf-types = "0.7"
+locspan = "0.7.2"
+locspan-derive = "0.5.1"
+
 
 [dev-dependencies]
 async-std = { version = "^1.5", features = ["attributes"] }
@@ -45,8 +46,6 @@ static-iref = "^1.0"
 iref-enum = "^1.2"
 stderrlog = "^0.5"
 tokio = { version = "^1.0", features = ["macros", "rt-multi-thread"] }
-serde_json = "1.0"
-generic-json = { version = "^0.7", features = ["serde_json-impl"] }
 itertools = "0.10"
 grdf = "0.4.2"
 nquads-syntax = "0.1.6"

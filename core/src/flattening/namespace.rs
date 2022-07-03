@@ -1,5 +1,4 @@
 use crate::{id, Id, Reference, ValidReference};
-use generic_json::JsonClone;
 use rdf_types::BlankIdBuf;
 use std::collections::HashMap;
 use std::marker::PhantomData;

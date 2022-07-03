@@ -1,7 +1,7 @@
 use std::fmt;
 use iref::{Iri, IriRef};
 use rdf_types::BlankId;
-use locspan::{Loc, StrippedPartialEq};
+use locspan::{Meta, StrippedPartialEq};
 use derivative::Derivative;
 use crate::{Keyword, Container, CompactIri, LenientLanguageTag, ExpandableRef};
 
@@ -268,7 +268,7 @@ pub struct ExpandedTermDefinitionRef<'a, C: AnyContextEntry> {
 }
 
 impl<'a, C: AnyContextEntry> From<Loc<Nullable<TermDefinitionRef<'a, C>>, C::Source, C::Span>> for ExpandedTermDefinitionRef<'a, C> {
-	fn from(Loc(d, loc): Loc<Nullable<TermDefinitionRef<'a, C>>, C::Source, C::Span>) -> Self {
+	fn from(Meta(d, loc): Loc<Nullable<TermDefinitionRef<'a, C>>, C::Source, C::Span>) -> Self {
 		match d {
 			Nullable::Null => {
 				// If `value` is null, convert it to a map consisting of a single entry

@@ -1,9 +1,9 @@
 use crate::{id, object::value, Direction, Id, Indexed, Node, Object, Reference, ValidReference};
-use generic_json::{Json, JsonHash};
 use iref::{Iri, IriBuf};
 use langtag::LanguageTagBuf;
 use smallvec::SmallVec;
 use static_iref::iri;
+use json_syntax::Print;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -186,7 +186,7 @@ pub struct CompoundLiteral<T: Id> {
 	triples: Option<CompoundLiteralTriples<T>>,
 }
 
-impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
+impl<T: Id> crate::object::Value<T> {
 	fn rdf_value<G: id::Generator<T>>(
 		&self,
 		generator: &mut G,
@@ -195,7 +195,7 @@ impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
 		match self {
 			Self::Json(json) => Some(CompoundLiteral {
 				value: Value::Literal(Literal::Typed(
-					LiteralValue::String(json.to_string()),
+					LiteralValue::String(json.compact_print().to_string()),
 					LiteralType::Json,
 				)),
 				triples: None,
@@ -266,16 +266,10 @@ impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
 					value::Literal::Boolean(b) => (LiteralValue::Bool(*b), Some(LiteralType::Bool)),
 					value::Literal::Null => (LiteralValue::Null, None),
 					value::Literal::Number(n) => {
-						use generic_json::Number as JsonNumber;
-
 						let (rdf_number, rdf_ty) = if let Some(n) = n.as_i64() {
 							(Number::Integer(n), LiteralType::Integer)
 						} else if let Some(n) = n.as_i32() {
 							(Number::Integer(n as i64), LiteralType::Integer)
-						} else if let Some(f) = n.as_f64() {
-							(Number::Double(f), LiteralType::Double)
-						} else if let Some(f) = n.as_f32() {
-							(Number::Double(f as f64), LiteralType::Double)
 						} else {
 							(Number::Double(n.as_f64_lossy()), LiteralType::Double)
 						};
@@ -309,18 +303,18 @@ impl<J: Json + ToString, T: Id> crate::object::Value<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> Node<J, T> {
+impl<T: Id> Node<T> {
 	fn rdf_value(&self) -> Option<Value<T>> {
 		self.id().and_then(Reference::rdf_value)
 	}
 }
 
-impl<J: JsonHash + ToString, T: Id> Object<J, T> {
+impl<T: Id> Object<T> {
 	fn rdf_value<G: id::Generator<T>>(
 		&self,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Option<CompoundValue<J, T>> {
+	) -> Option<CompoundValue<T>> {
 		match self {
 			Self::Value(value) => value
 				.rdf_value(generator, rdf_direction)
@@ -350,17 +344,17 @@ impl<J: JsonHash + ToString, T: Id> Object<J, T> {
 	}
 }
 
-pub struct CompoundValue<'a, J: JsonHash, T: Id> {
+pub struct CompoundValue<'a, T: Id> {
 	value: Value<T>,
-	triples: Option<CompoundValueTriples<'a, J, T>>,
+	triples: Option<CompoundValueTriples<'a, T>>,
 }
 
-impl<'a, J: JsonHash + ToString, T: Id> crate::quad::ObjectRef<'a, J, T> {
+impl<'a, T: Id> crate::quad::ObjectRef<'a, T> {
 	pub fn rdf_value<G: id::Generator<T>>(
 		&self,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Option<CompoundValue<'a, J, T>> {
+	) -> Option<CompoundValue<'a, T>> {
 		match self {
 			Self::Object(object) => object.rdf_value(generator, rdf_direction),
 			Self::Node(node) => node.rdf_value().map(|value| CompoundValue {
@@ -375,24 +369,24 @@ impl<'a, J: JsonHash + ToString, T: Id> crate::quad::ObjectRef<'a, J, T> {
 	}
 }
 
-enum ListItemTriples<'a, J: JsonHash, T: Id> {
-	NestedList(NestedListTriples<'a, J, T>),
+enum ListItemTriples<'a, T: Id> {
+	NestedList(NestedListTriples<'a, T>),
 	CompoundLiteral(CompoundLiteralTriples<T>),
 }
 
-struct NestedListTriples<'a, J: JsonHash, T: Id> {
+struct NestedListTriples<'a, T: Id> {
 	head_ref: Option<ValidReference<T>>,
 	previous: Option<ValidReference<T>>,
-	iter: std::slice::Iter<'a, Indexed<Object<J, T>>>,
+	iter: std::slice::Iter<'a, Indexed<Object<T>>>,
 }
 
-struct ListNode<'a, 'i, J: JsonHash, T: Id> {
+struct ListNode<'a, 'i, T: Id> {
 	id: &'i ValidReference<T>,
-	object: &'a Indexed<Object<J, T>>,
+	object: &'a Indexed<Object<T>>,
 }
 
-impl<'a, J: JsonHash, T: Id> NestedListTriples<'a, J, T> {
-	fn new(list: &'a [Indexed<Object<J, T>>], head_ref: ValidReference<T>) -> Self {
+impl<'a, T: Id> NestedListTriples<'a, T> {
+	fn new(list: &'a [Indexed<Object<T>>], head_ref: ValidReference<T>) -> Self {
 		Self {
 			head_ref: Some(head_ref),
 			previous: None,
@@ -407,7 +401,7 @@ impl<'a, J: JsonHash, T: Id> NestedListTriples<'a, J, T> {
 	/// Pull the next object of the list.
 	///
 	/// Uses the given generator to assign as id to the list element.
-	fn next<G: id::Generator<T>>(&mut self, generator: &mut G) -> Option<ListNode<'a, '_, J, T>> {
+	fn next<G: id::Generator<T>>(&mut self, generator: &mut G) -> Option<ListNode<'a, '_, T>> {
 		if let Some(next) = self.iter.next() {
 			let id = match self.head_ref.take() {
 				Some(id) => id,
@@ -425,17 +419,17 @@ impl<'a, J: JsonHash, T: Id> NestedListTriples<'a, J, T> {
 	}
 }
 
-pub enum CompoundValueTriples<'a, J: JsonHash, T: Id> {
+pub enum CompoundValueTriples<'a, T: Id> {
 	Literal(CompoundLiteralTriples<T>),
-	List(ListTriples<'a, J, T>),
+	List(ListTriples<'a, T>),
 }
 
-impl<'a, J: JsonHash + ToString, T: Id> CompoundValueTriples<'a, J, T> {
+impl<'a, T: Id> CompoundValueTriples<'a, T> {
 	pub fn with<G: id::Generator<T>>(
 		self,
 		generator: G,
 		rdf_direction: Option<RdfDirection>,
-	) -> CompoundValueTriplesWith<'a, J, T, G> {
+	) -> CompoundValueTriplesWith<'a, T, G> {
 		CompoundValueTriplesWith {
 			generator,
 			rdf_direction,
@@ -455,14 +449,14 @@ impl<'a, J: JsonHash + ToString, T: Id> CompoundValueTriples<'a, J, T> {
 	}
 }
 
-pub struct CompoundValueTriplesWith<'a, J: JsonHash, T: Id, G: id::Generator<T>> {
+pub struct CompoundValueTriplesWith<'a, T: Id, G: id::Generator<T>> {
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
-	inner: CompoundValueTriples<'a, J, T>,
+	inner: CompoundValueTriples<'a, T>,
 }
 
-impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator
-	for CompoundValueTriplesWith<'a, J, T, G>
+impl<'a, T: Id, G: id::Generator<T>> Iterator
+	for CompoundValueTriplesWith<'a, T, G>
 {
 	type Item = Triple<T>;
 
@@ -474,13 +468,13 @@ impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator
 /// Iterator over the RDF quads generated from a list of JSON-LD objects.
 ///
 /// If the list contains nested lists, the iterator will also emit quads for those nested lists.
-pub struct ListTriples<'a, J: JsonHash, T: Id> {
-	stack: SmallVec<[ListItemTriples<'a, J, T>; 2]>,
+pub struct ListTriples<'a, T: Id> {
+	stack: SmallVec<[ListItemTriples<'a, T>; 2]>,
 	pending: Option<Triple<T>>,
 }
 
-impl<'a, J: JsonHash + ToString, T: Id> ListTriples<'a, J, T> {
-	pub fn new(list: &'a [Indexed<Object<J, T>>], head_ref: ValidReference<T>) -> Self {
+impl<'a, T: Id> ListTriples<'a, T> {
+	pub fn new(list: &'a [Indexed<Object<T>>], head_ref: ValidReference<T>) -> Self {
 		let mut stack = SmallVec::new();
 		stack.push(ListItemTriples::NestedList(NestedListTriples::new(
 			list, head_ref,
@@ -496,7 +490,7 @@ impl<'a, J: JsonHash + ToString, T: Id> ListTriples<'a, J, T> {
 		self,
 		generator: G,
 		rdf_direction: Option<RdfDirection>,
-	) -> ListTriplesWith<'a, J, T, G> {
+	) -> ListTriplesWith<'a, T, G> {
 		ListTriplesWith {
 			generator,
 			rdf_direction,
@@ -574,14 +568,14 @@ impl<'a, J: JsonHash + ToString, T: Id> ListTriples<'a, J, T> {
 	}
 }
 
-pub struct ListTriplesWith<'a, J: JsonHash, T: Id, G: id::Generator<T>> {
+pub struct ListTriplesWith<'a, T: Id, G: id::Generator<T>> {
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
-	inner: ListTriples<'a, J, T>,
+	inner: ListTriples<'a, T>,
 }
 
-impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator
-	for ListTriplesWith<'a, J, T, G>
+impl<'a, T: Id, G: id::Generator<T>> Iterator
+	for ListTriplesWith<'a, T, G>
 {
 	type Item = Triple<T>;
 
@@ -592,7 +586,7 @@ impl<'a, J: JsonHash + ToString, T: Id, G: id::Generator<T>> Iterator
 
 pub enum Number {
 	Integer(i64),
-	Double(f64),
+	Double(f64)
 }
 
 static XSD_DOUBLE_CONFIG: pretty_dtoa::FmtFloatConfig = pretty_dtoa::FmtFloatConfig::default()

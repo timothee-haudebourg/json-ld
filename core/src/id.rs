@@ -1,5 +1,4 @@
 use crate::{TermLike, ValidReference};
-use generic_json::JsonBuild;
 use iref::{AsIri, Iri, IriBuf};
 use std::hash::Hash;
 
@@ -62,11 +61,6 @@ pub trait Id: AsIri + Clone + PartialEq + Eq + Hash {
 
 	fn from_iri_buf(iri_buf: IriBuf) -> Self {
 		Self::from_iri(iri_buf.as_iri())
-	}
-
-	#[inline(always)]
-	fn as_json<K: JsonBuild>(&self, meta: K::MetaData) -> K {
-		K::string(self.as_iri().as_str().into(), meta)
 	}
 }
 

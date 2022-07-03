@@ -1,6 +1,5 @@
 //! Flattening algorithm and related types.
 use crate::{id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object};
-use generic_json::{JsonClone, JsonHash};
 use std::collections::HashSet;
 
 mod namespace;
@@ -9,12 +8,12 @@ mod node_map;
 pub use namespace::Namespace;
 pub use node_map::*;
 
-impl<F, J: JsonHash + JsonClone, T: Id> ExpandedDocument<F, J, T> {
+impl<T: Id, S, P> ExpandedDocument<T, S, P> {
 	pub fn flatten<G: id::Generator<T>>(
 		self,
 		generator: G,
 		ordered: bool,
-	) -> Result<FlattenedDocument<F, J, T>, ConflictingIndexes<T>> {
+	) -> Result<FlattenedDocument<T, S, P>, ConflictingIndexes<T>> {
 		let nodes = self.generate_node_map(generator)?.flatten(ordered);
 		Ok(FlattenedDocument::new(nodes, self.into_warnings()))
 	}
@@ -22,12 +21,12 @@ impl<F, J: JsonHash + JsonClone, T: Id> ExpandedDocument<F, J, T> {
 	pub fn flatten_unordered<G: id::Generator<T>>(
 		self,
 		generator: G,
-	) -> Result<HashSet<Indexed<Node<J, T>>>, ConflictingIndexes<T>> {
+	) -> Result<HashSet<Indexed<Node<T>>>, ConflictingIndexes<T>> {
 		Ok(self.generate_node_map(generator)?.flatten_unordered())
 	}
 }
 
-fn filter_graph<J: JsonHash, T: Id>(node: Indexed<Node<J, T>>) -> Option<Indexed<Node<J, T>>> {
+fn filter_graph<T: Id>(node: Indexed<Node<T>>) -> Option<Indexed<Node<T>>> {
 	if node.index().is_none() && node.is_empty() {
 		None
 	} else {
@@ -35,9 +34,9 @@ fn filter_graph<J: JsonHash, T: Id>(node: Indexed<Node<J, T>>) -> Option<Indexed
 	}
 }
 
-fn filter_sub_graph<J: JsonHash, T: Id>(
-	mut node: Indexed<Node<J, T>>,
-) -> Option<Indexed<Object<J, T>>> {
+fn filter_sub_graph<T: Id>(
+	mut node: Indexed<Node<T>>,
+) -> Option<Indexed<Object<T>>> {
 	if node.index().is_none() && node.properties().is_empty() {
 		None
 	} else {
@@ -48,8 +47,8 @@ fn filter_sub_graph<J: JsonHash, T: Id>(
 	}
 }
 
-impl<J: JsonHash, T: Id> NodeMap<J, T> {
-	pub fn flatten(self, ordered: bool) -> Vec<Indexed<Node<J, T>>> {
+impl<T: Id> NodeMap<T> {
+	pub fn flatten(self, ordered: bool) -> Vec<Indexed<Node<T>>> {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		let mut named_graphs: Vec<_> = named_graphs.into_iter().collect();
@@ -80,7 +79,7 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 		nodes
 	}
 
-	pub fn flatten_unordered(self) -> HashSet<Indexed<Node<J, T>>> {
+	pub fn flatten_unordered(self) -> HashSet<Indexed<Node<T>>> {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		for (graph_id, graph) in named_graphs {

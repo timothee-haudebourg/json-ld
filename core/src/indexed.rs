@@ -1,6 +1,3 @@
-use crate::utils::{AsAnyJson, AsJson, JsonFrom};
-use generic_json::{Json, JsonClone};
-use json_ld_syntax::Keyword;
 use std::convert::{TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
@@ -145,22 +142,22 @@ impl<T> AsMut<T> for Indexed<T> {
 	}
 }
 
-impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Indexed<T> {
-	fn as_json_with(
-		&self,
-		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-	) -> K {
-		let mut json = self.value.as_json_with(meta.clone());
+// impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Indexed<T> {
+// 	fn as_json_with(
+// 		&self,
+// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
+// 	) -> K {
+// 		let mut json = self.value.as_json_with(meta.clone());
 
-		if let Some(obj) = json.as_object_mut() {
-			if let Some(index) = &self.index {
-				obj.insert(
-					K::new_key(Keyword::Index.into_str(), meta(None)),
-					index.as_json_with(meta(None)),
-				);
-			}
-		}
+// 		if let Some(obj) = json.as_object_mut() {
+// 			if let Some(index) = &self.index {
+// 				obj.insert(
+// 					K::new_key(Keyword::Index.into_str(), meta(None)),
+// 					index.as_json_with(meta(None)),
+// 				);
+// 			}
+// 		}
 
-		json
-	}
-}
+// 		json
+// 	}
+// }

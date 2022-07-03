@@ -1,6 +1,5 @@
 use super::Objects;
 use crate::{Id, Indexed, Object, Reference, ToReference};
-use generic_json::JsonHash;
 use std::{
 	borrow::Borrow,
 	collections::HashMap,
@@ -43,9 +42,9 @@ use std::{
 /// }
 /// ```
 #[derive(PartialEq, Eq)]
-pub struct Properties<J: JsonHash, T: Id>(HashMap<Reference<T>, Vec<Indexed<Object<J, T>>>>);
+pub struct Properties<T: Id>(HashMap<Reference<T>, Vec<Indexed<Object<T>>>>);
 
-impl<J: JsonHash, T: Id> Properties<J, T> {
+impl<T: Id> Properties<T> {
 	/// Creates an empty map.
 	pub(crate) fn new() -> Self {
 		Self(HashMap::new())
@@ -71,7 +70,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
-	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Objects<J, T>
+	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Objects<T>
 	where
 		T: 'a,
 	{
@@ -85,7 +84,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	///
 	/// If multiple objects are found, there are no guaranties on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Object<J, T>>>
+	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Object<T>>>
 	where
 		T: 'a,
 	{
@@ -97,7 +96,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	/// Associate the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Object<J, T>>) {
+	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Object<T>>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.push(value);
 		} else {
@@ -108,7 +107,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	/// Associate the given object to the node through the given property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(&mut self, prop: Reference<T>, value: Indexed<Object<J, T>>) {
+	pub fn insert_unique(&mut self, prop: Reference<T>, value: Indexed<Object<T>>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
 				node_values.push(value)
@@ -121,7 +120,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	/// Associate all the given objects to the node through the given property.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Object<J, T>>>>(
+	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Object<T>>>>(
 		&mut self,
 		prop: Reference<T>,
 		values: Objects,
@@ -137,7 +136,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	///
 	/// The [equivalence operator](Object::equivalent) is used to remove equivalent objects.
 	#[inline(always)]
-	pub fn insert_all_unique<Objects: IntoIterator<Item = Indexed<Object<J, T>>>>(
+	pub fn insert_all_unique<Objects: IntoIterator<Item = Indexed<Object<T>>>>(
 		&mut self,
 		prop: Reference<T>,
 		values: Objects,
@@ -150,7 +149,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 			}
 		} else {
 			let values = values.into_iter();
-			let mut node_values: Vec<Indexed<Object<J, T>>> =
+			let mut node_values: Vec<Indexed<Object<T>>> =
 				Vec::with_capacity(values.size_hint().0);
 			for value in values {
 				if node_values.iter().all(|v| !v.equivalent(&value)) {
@@ -164,7 +163,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	pub fn extend_unique<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Object<J, T>>>)>,
+		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Object<T>>>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all_unique(prop, values)
@@ -173,7 +172,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	/// Returns an iterator over the properties and their associated objects.
 	#[inline(always)]
-	pub fn iter(&self) -> Iter<'_, J, T> {
+	pub fn iter(&self) -> Iter<'_, T> {
 		Iter {
 			inner: self.0.iter(),
 		}
@@ -181,7 +180,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	/// Returns an iterator over the properties with a mutable reference to their associated objects.
 	#[inline(always)]
-	pub fn iter_mut(&mut self) -> IterMut<'_, J, T> {
+	pub fn iter_mut(&mut self) -> IterMut<'_, T> {
 		IterMut {
 			inner: self.0.iter_mut(),
 		}
@@ -189,7 +188,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 
 	/// Removes and returns all the values associated to the given property.
 	#[inline(always)]
-	pub fn remove(&mut self, prop: &Reference<T>) -> Option<Vec<Indexed<Object<J, T>>>> {
+	pub fn remove(&mut self, prop: &Reference<T>) -> Option<Vec<Indexed<Object<T>>>> {
 		self.0.remove(prop)
 	}
 
@@ -200,7 +199,7 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	}
 
 	#[inline(always)]
-	pub fn traverse(&self) -> Traverse<J, T> {
+	pub fn traverse(&self) -> Traverse<T> {
 		Traverse {
 			current_object: None,
 			current_property: None,
@@ -209,17 +208,17 @@ impl<J: JsonHash, T: Id> Properties<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> Hash for Properties<J, T> {
+impl<T: Id> Hash for Properties<T> {
 	#[inline(always)]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		crate::utils::hash_map(&self.0, h)
 	}
 }
 
-impl<J: JsonHash, T: Id> Extend<(Reference<T>, Vec<Indexed<Object<J, T>>>)> for Properties<J, T> {
+impl<T: Id> Extend<(Reference<T>, Vec<Indexed<Object<T>>>)> for Properties<T> {
 	fn extend<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Object<J, T>>>)>,
+		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Object<T>>>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -229,19 +228,19 @@ impl<J: JsonHash, T: Id> Extend<(Reference<T>, Vec<Indexed<Object<J, T>>>)> for 
 
 /// Tuple type representing a binding in a node object,
 /// associating a property to some objects.
-pub type Binding<J, T> = (Reference<T>, Vec<Indexed<Object<J, T>>>);
+pub type Binding<T> = (Reference<T>, Vec<Indexed<Object<T>>>);
 
 /// Tuple type representing a reference to a binding in a node object,
 /// associating a property to some objects.
-pub type BindingRef<'a, J, T> = (&'a Reference<T>, &'a [Indexed<Object<J, T>>]);
+pub type BindingRef<'a, T> = (&'a Reference<T>, &'a [Indexed<Object<T>>]);
 
 /// Tuple type representing a mutable reference to a binding in a node object,
 /// associating a property to some objects, with a mutable access to the objects.
-pub type BindingMut<'a, J, T> = (&'a Reference<T>, &'a mut Vec<Indexed<Object<J, T>>>);
+pub type BindingMut<'a, T> = (&'a Reference<T>, &'a mut Vec<Indexed<Object<T>>>);
 
-impl<J: JsonHash, T: Id> IntoIterator for Properties<J, T> {
-	type Item = Binding<J, T>;
-	type IntoIter = IntoIter<J, T>;
+impl<T: Id> IntoIterator for Properties<T> {
+	type Item = Binding<T>;
+	type IntoIter = IntoIter<T>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -251,9 +250,9 @@ impl<J: JsonHash, T: Id> IntoIterator for Properties<J, T> {
 	}
 }
 
-impl<'a, J: JsonHash, T: Id> IntoIterator for &'a Properties<J, T> {
-	type Item = BindingRef<'a, J, T>;
-	type IntoIter = Iter<'a, J, T>;
+impl<'a, T: Id> IntoIterator for &'a Properties<T> {
+	type Item = BindingRef<'a, T>;
+	type IntoIter = Iter<'a, T>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -261,9 +260,9 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a Properties<J, T> {
 	}
 }
 
-impl<'a, J: JsonHash, T: Id> IntoIterator for &'a mut Properties<J, T> {
-	type Item = BindingMut<'a, J, T>;
-	type IntoIter = IterMut<'a, J, T>;
+impl<'a, T: Id> IntoIterator for &'a mut Properties<T> {
+	type Item = BindingMut<'a, T>;
+	type IntoIter = IterMut<'a, T>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -274,12 +273,12 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a mut Properties<J, T> {
 /// Iterator over the properties of a node.
 ///
 /// It is created by the [`Properties::into_iter`] function.
-pub struct IntoIter<J: JsonHash, T: Id> {
-	inner: std::collections::hash_map::IntoIter<Reference<T>, Vec<Indexed<Object<J, T>>>>,
+pub struct IntoIter<T: Id> {
+	inner: std::collections::hash_map::IntoIter<Reference<T>, Vec<Indexed<Object<T>>>>,
 }
 
-impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
-	type Item = Binding<J, T>;
+impl<T: Id> Iterator for IntoIter<T> {
+	type Item = Binding<T>;
 
 	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
@@ -292,19 +291,19 @@ impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> ExactSizeIterator for IntoIter<J, T> {}
+impl<T: Id> ExactSizeIterator for IntoIter<T> {}
 
-impl<J: JsonHash, T: Id> std::iter::FusedIterator for IntoIter<J, T> {}
+impl<T: Id> std::iter::FusedIterator for IntoIter<T> {}
 
 /// Iterator over the properties of a node.
 ///
 /// It is created by the [`Properties::iter`] function.
-pub struct Iter<'a, J: JsonHash, T: Id> {
-	inner: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Object<J, T>>>>,
+pub struct Iter<'a, T: Id> {
+	inner: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Object<T>>>>,
 }
 
-impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
-	type Item = BindingRef<'a, J, T>;
+impl<'a, T: Id> Iterator for Iter<'a, T> {
+	type Item = BindingRef<'a, T>;
 
 	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
@@ -319,20 +318,20 @@ impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
 	}
 }
 
-impl<'a, J: JsonHash, T: Id> ExactSizeIterator for Iter<'a, J, T> {}
+impl<'a, T: Id> ExactSizeIterator for Iter<'a, T> {}
 
-impl<'a, J: JsonHash, T: Id> std::iter::FusedIterator for Iter<'a, J, T> {}
+impl<'a, T: Id> std::iter::FusedIterator for Iter<'a, T> {}
 
 /// Iterator over the properties of a node, giving a mutable reference
 /// to the associated objects.
 ///
 /// It is created by the [`Properties::iter_mut`] function.
-pub struct IterMut<'a, J: JsonHash, T: Id> {
-	inner: std::collections::hash_map::IterMut<'a, Reference<T>, Vec<Indexed<Object<J, T>>>>,
+pub struct IterMut<'a, T: Id> {
+	inner: std::collections::hash_map::IterMut<'a, Reference<T>, Vec<Indexed<Object<T>>>>,
 }
 
-impl<'a, J: JsonHash, T: Id> Iterator for IterMut<'a, J, T> {
-	type Item = BindingMut<'a, J, T>;
+impl<'a, T: Id> Iterator for IterMut<'a, T> {
+	type Item = BindingMut<'a, T>;
 
 	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
@@ -345,18 +344,18 @@ impl<'a, J: JsonHash, T: Id> Iterator for IterMut<'a, J, T> {
 	}
 }
 
-impl<'a, J: JsonHash, T: Id> ExactSizeIterator for IterMut<'a, J, T> {}
+impl<'a, T: Id> ExactSizeIterator for IterMut<'a, T> {}
 
-impl<'a, J: JsonHash, T: Id> std::iter::FusedIterator for IterMut<'a, J, T> {}
+impl<'a, T: Id> std::iter::FusedIterator for IterMut<'a, T> {}
 
-pub struct Traverse<'a, J: JsonHash, T: Id> {
-	current_object: Option<Box<crate::object::Traverse<'a, J, T>>>,
-	current_property: Option<std::slice::Iter<'a, Indexed<Object<J, T>>>>,
-	iter: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Object<J, T>>>>,
+pub struct Traverse<'a, T: Id> {
+	current_object: Option<Box<crate::object::Traverse<'a, T>>>,
+	current_property: Option<std::slice::Iter<'a, Indexed<Object<T>>>>,
+	iter: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Object<T>>>>,
 }
 
-impl<'a, J: JsonHash, T: Id> Iterator for Traverse<'a, J, T> {
-	type Item = crate::object::Ref<'a, J, T>;
+impl<'a, T: Id> Iterator for Traverse<'a, T> {
+	type Item = crate::object::Ref<'a, T>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {

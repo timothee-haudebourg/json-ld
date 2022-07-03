@@ -1,5 +1,4 @@
-use cc_traits::{Get, Iter, Len, MapIter};
-use generic_json::{Json, ValueRef};
+use json_syntax::Value;
 
 // pub async fn json_ld_eq<J: JsonContext + JsonExpand>(
 // 	a: &J,
@@ -70,12 +69,9 @@ use generic_json::{Json, ValueRef};
 // 	}
 // }
 
-pub fn simple_json_ld_eq<J: Json, K: Json>(a: &J, b: &K) -> bool
-where
-	J::Number: PartialEq<K::Number>,
-{
-	match (a.as_value_ref(), b.as_value_ref()) {
-		(ValueRef::Array(a), ValueRef::Array(b)) if a.len() == b.len() => {
+pub fn simple_json_ld_eq<M, N>(a: &Value<M>, b: &Value<N>) -> bool {
+	match (a, b) {
+		(Value::Array(a), Value::Array(b)) if a.len() == b.len() => {
 			let mut selected = Vec::with_capacity(a.len());
 			selected.resize(a.len(), false);
 
@@ -92,13 +88,12 @@ where
 
 			true
 		}
-		(ValueRef::Object(a), ValueRef::Object(b)) if a.len() == b.len() => {
-			for (key, value_a) in a.iter() {
-				let key = key.as_ref();
-				if let Some(value_b) = b.get(key) {
+		(Value::Object(a), Value::Object(b)) if a.len() == b.len() => {
+			for entry in a.iter() {
+				if let Some(value_b) = b.get(entry.key) {
 					if key == "@list" {
 						match (value_a.as_value_ref(), value_b.as_value_ref()) {
-							(ValueRef::Array(item_a), ValueRef::Array(item_b))
+							(Value::Array(item_a), Value::Array(item_b))
 								if item_a.len() == item_b.len() =>
 							{
 								for i in 0..item_a.len() {
@@ -126,10 +121,10 @@ where
 
 			true
 		}
-		(ValueRef::Null, ValueRef::Null) => true,
-		(ValueRef::Boolean(a), ValueRef::Boolean(b)) => a == b,
-		(ValueRef::Number(a), ValueRef::Number(b)) => a == b,
-		(ValueRef::String(a), ValueRef::String(b)) => (**a) == (**b),
+		(Value::Null, Value::Null) => true,
+		(Value::Boolean(a), Value::Boolean(b)) => a == b,
+		(Value::Number(a), Value::Number(b)) => a == b,
+		(Value::String(a), Value::String(b)) => (**a) == (**b),
 		_ => false,
 	}
 }

@@ -1,5 +1,4 @@
 use crate::{Id, Indexed, Reference};
-use generic_json::JsonHash;
 use rdf_types::BlankId;
 use std::collections::HashSet;
 
@@ -155,7 +154,7 @@ impl<T: PartialEq> MappedEq for Reference<T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> MappedEq for super::Object<J, T> {
+impl<T: Id> MappedEq for super::Object<T> {
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &Self,
@@ -182,7 +181,7 @@ fn opt_mapped_eq<'a, 'b, A: MappedEq, F: Clone + Fn(&'a BlankId) -> &'b BlankId>
 	}
 }
 
-impl<J: JsonHash, T: Id> MappedEq for super::Node<J, T> {
+impl<T: Id> MappedEq for super::Node<T> {
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &Self,
@@ -198,7 +197,7 @@ impl<J: JsonHash, T: Id> MappedEq for super::Node<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> MappedEq for super::node::Properties<J, T> {
+impl<T: Id> MappedEq for super::node::Properties<T> {
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &Self,
@@ -231,7 +230,7 @@ impl<J: JsonHash, T: Id> MappedEq for super::node::Properties<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> MappedEq for super::node::ReverseProperties<J, T> {
+impl<T: Id> MappedEq for super::node::ReverseProperties<T> {
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &Self,

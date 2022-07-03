@@ -1,7 +1,6 @@
 use super::Namespace;
 use crate::{id, ExpandedDocument, Id, Indexed, Node, Object, Reference};
 use derivative::Derivative;
-use generic_json::{JsonClone, JsonHash};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Derivative)]
@@ -12,19 +11,19 @@ pub struct ConflictingIndexes<T: Id> {
 	pub conflicting_index: String,
 }
 
-pub type Parts<J, T> = (
-	NodeMapGraph<J, T>,
-	HashMap<Reference<T>, NodeMapGraph<J, T>>,
+pub type Parts<T> = (
+	NodeMapGraph<T>,
+	HashMap<Reference<T>, NodeMapGraph<T>>,
 );
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
-pub struct NodeMap<J: JsonHash, T: Id> {
-	graphs: HashMap<Reference<T>, NodeMapGraph<J, T>>,
-	default_graph: NodeMapGraph<J, T>,
+pub struct NodeMap<T: Id> {
+	graphs: HashMap<Reference<T>, NodeMapGraph<T>>,
+	default_graph: NodeMapGraph<T>,
 }
 
-impl<J: JsonHash, T: Id> NodeMap<J, T> {
+impl<T: Id> NodeMap<T> {
 	pub fn new() -> Self {
 		Self {
 			graphs: HashMap::new(),
@@ -32,18 +31,18 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 		}
 	}
 
-	pub fn into_parts(self) -> Parts<J, T> {
+	pub fn into_parts(self) -> Parts<T> {
 		(self.default_graph, self.graphs)
 	}
 
-	pub fn graph(&self, id: Option<&Reference<T>>) -> Option<&NodeMapGraph<J, T>> {
+	pub fn graph(&self, id: Option<&Reference<T>>) -> Option<&NodeMapGraph<T>> {
 		match id {
 			Some(id) => self.graphs.get(id),
 			None => Some(&self.default_graph),
 		}
 	}
 
-	pub fn graph_mut(&mut self, id: Option<&Reference<T>>) -> Option<&mut NodeMapGraph<J, T>> {
+	pub fn graph_mut(&mut self, id: Option<&Reference<T>>) -> Option<&mut NodeMapGraph<T>> {
 		match id {
 			Some(id) => self.graphs.get_mut(id),
 			None => Some(&mut self.default_graph),
@@ -59,7 +58,7 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 	/// Merge all the graphs into a single `NodeMapGraph`.
 	///
 	/// The order in which graphs are merged is not defined.
-	pub fn merge(self) -> NodeMapGraph<J, T> {
+	pub fn merge(self) -> NodeMapGraph<T> {
 		let mut result = self.default_graph;
 
 		for (_, graph) in self.graphs {
@@ -69,25 +68,25 @@ impl<J: JsonHash, T: Id> NodeMap<J, T> {
 		result
 	}
 
-	pub fn iter(&self) -> Iter<J, T> {
+	pub fn iter(&self) -> Iter<T> {
 		Iter {
 			default_graph: Some(&self.default_graph),
 			graphs: self.graphs.iter(),
 		}
 	}
 
-	pub fn iter_named(&self) -> std::collections::hash_map::Iter<Reference<T>, NodeMapGraph<J, T>> {
+	pub fn iter_named(&self) -> std::collections::hash_map::Iter<Reference<T>, NodeMapGraph<T>> {
 		self.graphs.iter()
 	}
 }
 
-pub struct Iter<'a, J: JsonHash, T: Id> {
-	default_graph: Option<&'a NodeMapGraph<J, T>>,
-	graphs: std::collections::hash_map::Iter<'a, Reference<T>, NodeMapGraph<J, T>>,
+pub struct Iter<'a, T: Id> {
+	default_graph: Option<&'a NodeMapGraph<T>>,
+	graphs: std::collections::hash_map::Iter<'a, Reference<T>, NodeMapGraph<T>>,
 }
 
-impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
-	type Item = (Option<&'a Reference<T>>, &'a NodeMapGraph<J, T>);
+impl<'a, T: Id> Iterator for Iter<'a, T> {
+	type Item = (Option<&'a Reference<T>>, &'a NodeMapGraph<T>);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
@@ -97,22 +96,22 @@ impl<'a, J: JsonHash, T: Id> Iterator for Iter<'a, J, T> {
 	}
 }
 
-impl<'a, J: JsonHash, T: Id> IntoIterator for &'a NodeMap<J, T> {
-	type Item = (Option<&'a Reference<T>>, &'a NodeMapGraph<J, T>);
-	type IntoIter = Iter<'a, J, T>;
+impl<'a, T: Id> IntoIterator for &'a NodeMap<T> {
+	type Item = (Option<&'a Reference<T>>, &'a NodeMapGraph<T>);
+	type IntoIter = Iter<'a, T>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
 
-pub struct IntoIter<J: JsonHash, T: Id> {
-	default_graph: Option<NodeMapGraph<J, T>>,
-	graphs: std::collections::hash_map::IntoIter<Reference<T>, NodeMapGraph<J, T>>,
+pub struct IntoIter<T: Id> {
+	default_graph: Option<NodeMapGraph<T>>,
+	graphs: std::collections::hash_map::IntoIter<Reference<T>, NodeMapGraph<T>>,
 }
 
-impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
-	type Item = (Option<Reference<T>>, NodeMapGraph<J, T>);
+impl<T: Id> Iterator for IntoIter<T> {
+	type Item = (Option<Reference<T>>, NodeMapGraph<T>);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
@@ -122,9 +121,9 @@ impl<J: JsonHash, T: Id> Iterator for IntoIter<J, T> {
 	}
 }
 
-impl<J: JsonHash, T: Id> IntoIterator for NodeMap<J, T> {
-	type Item = (Option<Reference<T>>, NodeMapGraph<J, T>);
-	type IntoIter = IntoIter<J, T>;
+impl<T: Id> IntoIterator for NodeMap<T> {
+	type Item = (Option<Reference<T>>, NodeMapGraph<T>);
+	type IntoIter = IntoIter<T>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIter {
@@ -136,11 +135,11 @@ impl<J: JsonHash, T: Id> IntoIterator for NodeMap<J, T> {
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
-pub struct NodeMapGraph<J: JsonHash, T: Id> {
-	nodes: HashMap<Reference<T>, Indexed<Node<J, T>>>,
+pub struct NodeMapGraph<T: Id> {
+	nodes: HashMap<Reference<T>, Indexed<Node<T>>>,
 }
 
-impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
+impl<T: Id> NodeMapGraph<T> {
 	pub fn new() -> Self {
 		Self {
 			nodes: HashMap::new(),
@@ -151,11 +150,11 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 		self.nodes.contains_key(id)
 	}
 
-	pub fn get(&self, id: &Reference<T>) -> Option<&Indexed<Node<J, T>>> {
+	pub fn get(&self, id: &Reference<T>) -> Option<&Indexed<Node<T>>> {
 		self.nodes.get(id)
 	}
 
-	pub fn get_mut(&mut self, id: &Reference<T>) -> Option<&mut Indexed<Node<J, T>>> {
+	pub fn get_mut(&mut self, id: &Reference<T>) -> Option<&mut Indexed<Node<T>>> {
 		self.nodes.get_mut(id)
 	}
 
@@ -163,7 +162,7 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 		&mut self,
 		id: Reference<T>,
 		index: Option<&str>,
-	) -> Result<&mut Indexed<Node<J, T>>, ConflictingIndexes<T>> {
+	) -> Result<&mut Indexed<Node<T>>, ConflictingIndexes<T>> {
 		if let Some(entry) = self.nodes.get_mut(&id) {
 			match (entry.index(), index) {
 				(Some(entry_index), Some(index)) => {
@@ -205,7 +204,7 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 	/// - The list of `node` types is concatenated after the preexisting types.
 	/// - The graph and imported values are overridden.
 	/// - Properties and reverse properties are merged.
-	pub fn merge_node(&mut self, node: Indexed<Node<J, T>>) {
+	pub fn merge_node(&mut self, node: Indexed<Node<T>>) {
 		let (node, index) = node.into_parts();
 		let node = node.into_parts();
 
@@ -230,43 +229,43 @@ impl<J: JsonHash, T: Id> NodeMapGraph<J, T> {
 		}
 	}
 
-	pub fn nodes(&self) -> NodeMapGraphNodes<J, T> {
+	pub fn nodes(&self) -> NodeMapGraphNodes<T> {
 		self.nodes.values()
 	}
 
-	pub fn into_nodes(self) -> IntoNodeMapGraphNodes<J, T> {
+	pub fn into_nodes(self) -> IntoNodeMapGraphNodes<T> {
 		self.nodes.into_values()
 	}
 }
 
-pub type NodeMapGraphNodes<'a, J, T> =
-	std::collections::hash_map::Values<'a, Reference<T>, Indexed<Node<J, T>>>;
-pub type IntoNodeMapGraphNodes<J, T> =
-	std::collections::hash_map::IntoValues<Reference<T>, Indexed<Node<J, T>>>;
+pub type NodeMapGraphNodes<'a, T> =
+	std::collections::hash_map::Values<'a, Reference<T>, Indexed<Node<T>>>;
+pub type IntoNodeMapGraphNodes<T> =
+	std::collections::hash_map::IntoValues<Reference<T>, Indexed<Node<T>>>;
 
-impl<J: JsonHash, T: Id> IntoIterator for NodeMapGraph<J, T> {
-	type Item = (Reference<T>, Indexed<Node<J, T>>);
-	type IntoIter = std::collections::hash_map::IntoIter<Reference<T>, Indexed<Node<J, T>>>;
+impl<T: Id> IntoIterator for NodeMapGraph<T> {
+	type Item = (Reference<T>, Indexed<Node<T>>);
+	type IntoIter = std::collections::hash_map::IntoIter<Reference<T>, Indexed<Node<T>>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.into_iter()
 	}
 }
 
-impl<'a, J: JsonHash, T: Id> IntoIterator for &'a NodeMapGraph<J, T> {
-	type Item = (&'a Reference<T>, &'a Indexed<Node<J, T>>);
-	type IntoIter = std::collections::hash_map::Iter<'a, Reference<T>, Indexed<Node<J, T>>>;
+impl<'a, T: Id> IntoIterator for &'a NodeMapGraph<T> {
+	type Item = (&'a Reference<T>, &'a Indexed<Node<T>>);
+	type IntoIter = std::collections::hash_map::Iter<'a, Reference<T>, Indexed<Node<T>>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.iter()
 	}
 }
 
-impl<F, J: JsonHash + JsonClone, T: Id> ExpandedDocument<F, J, T> {
+impl<T: Id, S, P> ExpandedDocument<T, S, P> {
 	pub fn generate_node_map<G: id::Generator<T>>(
 		&self,
 		generator: G,
-	) -> Result<NodeMap<J, T>, ConflictingIndexes<T>> {
+	) -> Result<NodeMap<T>, ConflictingIndexes<T>> {
 		let mut node_map = NodeMap::new();
 		let mut namespace: Namespace<T, G> = Namespace::new(generator);
 		for object in self {
@@ -277,12 +276,12 @@ impl<F, J: JsonHash + JsonClone, T: Id> ExpandedDocument<F, J, T> {
 }
 
 /// Extends the `NodeMap` with the given `element` of an expanded JSON-LD document.
-fn extend_node_map<J: JsonHash + JsonClone, T: Id, G: id::Generator<T>>(
+fn extend_node_map<T: Id, G: id::Generator<T>>(
 	namespace: &mut Namespace<T, G>,
-	node_map: &mut NodeMap<J, T>,
-	element: &Indexed<Object<J, T>>,
+	node_map: &mut NodeMap<T>,
+	element: &Indexed<Object<T>>,
 	active_graph: Option<&Reference<T>>,
-) -> Result<Indexed<Object<J, T>>, ConflictingIndexes<T>> {
+) -> Result<Indexed<Object<T>>, ConflictingIndexes<T>> {
 	match element.inner() {
 		Object::Value(value) => {
 			let flat_value = value.clone();
@@ -316,13 +315,13 @@ fn extend_node_map<J: JsonHash + JsonClone, T: Id, G: id::Generator<T>>(
 	}
 }
 
-fn extend_node_map_from_node<J: JsonHash + JsonClone, T: Id, G: id::Generator<T>>(
+fn extend_node_map_from_node<T: Id, G: id::Generator<T>>(
 	namespace: &mut Namespace<T, G>,
-	node_map: &mut NodeMap<J, T>,
-	node: &Node<J, T>,
+	node_map: &mut NodeMap<T>,
+	node: &Node<T>,
 	index: Option<&str>,
 	active_graph: Option<&Reference<T>>,
-) -> Result<Indexed<Node<J, T>>, ConflictingIndexes<T>> {
+) -> Result<Indexed<Node<T>>, ConflictingIndexes<T>> {
 	let id = namespace.assign_node_id(node.id());
 
 	{

@@ -1,21 +1,21 @@
-use crate::{id, utils::JsonFrom, Id, Indexed, Loc, Object, Warning};
-use generic_json::{JsonClone, JsonHash};
+use crate::{id, Id, Indexed, Loc, Object, Warning};
 use rdf_types::BlankId;
 use std::collections::{BTreeSet, HashSet};
+use locspan::Span;
 
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
-pub struct ExpandedDocument<F, J: JsonHash, T: Id> {
-	objects: HashSet<Indexed<Object<J, T>>>,
-	warnings: Vec<Loc<Warning, F, J::MetaData>>,
+pub struct ExpandedDocument<T: Id, S, P=Span> {
+	objects: HashSet<Indexed<Object<T>>>,
+	warnings: Vec<Loc<Warning, S, P>>,
 }
 
-impl<F, J: JsonHash, T: Id> ExpandedDocument<F, J, T> {
+impl<T: Id, S, P> ExpandedDocument<T, S, P> {
 	#[inline(always)]
 	pub fn new(
-		objects: HashSet<Indexed<Object<J, T>>>,
-		warnings: Vec<Loc<Warning, F, J::MetaData>>,
+		objects: HashSet<Indexed<Object<T>>>,
+		warnings: Vec<Loc<Warning, S, P>>,
 	) -> Self {
 		Self { objects, warnings }
 	}
@@ -31,27 +31,27 @@ impl<F, J: JsonHash, T: Id> ExpandedDocument<F, J, T> {
 	}
 
 	#[inline(always)]
-	pub fn warnings(&self) -> &[Loc<Warning, F, J::MetaData>] {
+	pub fn warnings(&self) -> &[Loc<Warning, S, P>] {
 		&self.warnings
 	}
 
 	#[inline(always)]
-	pub fn into_warnings(self) -> Vec<Loc<Warning, F, J::MetaData>> {
+	pub fn into_warnings(self) -> Vec<Loc<Warning, S, P>> {
 		self.warnings
 	}
 
 	#[inline(always)]
-	pub fn objects(&self) -> &HashSet<Indexed<Object<J, T>>> {
+	pub fn objects(&self) -> &HashSet<Indexed<Object<T>>> {
 		&self.objects
 	}
 
 	#[inline(always)]
-	pub fn into_objects(self) -> HashSet<Indexed<Object<J, T>>> {
+	pub fn into_objects(self) -> HashSet<Indexed<Object<T>>> {
 		self.objects
 	}
 
 	#[inline(always)]
-	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Indexed<Object<J, T>>> {
+	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Indexed<Object<T>>> {
 		self.objects.iter()
 	}
 
@@ -71,8 +71,8 @@ impl<F, J: JsonHash, T: Id> ExpandedDocument<F, J, T> {
 	pub fn into_parts(
 		self,
 	) -> (
-		HashSet<Indexed<Object<J, T>>>,
-		Vec<Loc<Warning, F, J::MetaData>>,
+		HashSet<Indexed<Object<T>>>,
+		Vec<Loc<Warning, S, P>>,
 	) {
 		(self.objects, self.warnings)
 	}
@@ -122,7 +122,7 @@ impl<F, J: JsonHash, T: Id> ExpandedDocument<F, J, T> {
 	}
 }
 
-impl<F, J: JsonHash + PartialEq, T: Id + PartialEq> PartialEq for ExpandedDocument<F, J, T> {
+impl<T: Id + PartialEq, S, P> PartialEq for ExpandedDocument<T, S, P> {
 	/// Comparison between two expanded documents.
 	///
 	/// Warnings are not compared.
@@ -131,11 +131,11 @@ impl<F, J: JsonHash + PartialEq, T: Id + PartialEq> PartialEq for ExpandedDocume
 	}
 }
 
-impl<F, J: JsonHash + Eq, T: Id + Eq> Eq for ExpandedDocument<F, J, T> {}
+impl<T: Id + Eq, S, P> Eq for ExpandedDocument<T, S, P> {}
 
-impl<F, J: JsonHash, T: Id> IntoIterator for ExpandedDocument<F, J, T> {
-	type IntoIter = std::collections::hash_set::IntoIter<Indexed<Object<J, T>>>;
-	type Item = Indexed<Object<J, T>>;
+impl<T: Id, S, P> IntoIterator for ExpandedDocument<T, S, P> {
+	type IntoIter = std::collections::hash_set::IntoIter<Indexed<Object<T>>>;
+	type Item = Indexed<Object<T>>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -143,9 +143,9 @@ impl<F, J: JsonHash, T: Id> IntoIterator for ExpandedDocument<F, J, T> {
 	}
 }
 
-impl<'a, F, J: JsonHash, T: Id> IntoIterator for &'a ExpandedDocument<F, J, T> {
-	type IntoIter = std::collections::hash_set::Iter<'a, Indexed<Object<J, T>>>;
-	type Item = &'a Indexed<Object<J, T>>;
+impl<'a, T: Id, S, P> IntoIterator for &'a ExpandedDocument<T, S, P> {
+	type IntoIter = std::collections::hash_set::Iter<'a, Indexed<Object<T>>>;
+	type Item = &'a Indexed<Object<T>>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -153,7 +153,7 @@ impl<'a, F, J: JsonHash, T: Id> IntoIterator for &'a ExpandedDocument<F, J, T> {
 	}
 }
 
-// impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<F, J, T> {
+// impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<T, S, P> {
 // 	fn as_json_with(
 // 		&self,
 // 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
