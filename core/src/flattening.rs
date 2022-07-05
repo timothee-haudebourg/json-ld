@@ -8,12 +8,12 @@ mod node_map;
 pub use namespace::Namespace;
 pub use node_map::*;
 
-impl<T: Id, S, P> ExpandedDocument<T, S, P> {
+impl<T: Id, M> ExpandedDocument<T, M> {
 	pub fn flatten<G: id::Generator<T>>(
 		self,
 		generator: G,
 		ordered: bool,
-	) -> Result<FlattenedDocument<T, S, P>, ConflictingIndexes<T>> {
+	) -> Result<FlattenedDocument<T, M>, ConflictingIndexes<T>> {
 		let nodes = self.generate_node_map(generator)?.flatten(ordered);
 		Ok(FlattenedDocument::new(nodes, self.into_warnings()))
 	}
@@ -21,12 +21,12 @@ impl<T: Id, S, P> ExpandedDocument<T, S, P> {
 	pub fn flatten_unordered<G: id::Generator<T>>(
 		self,
 		generator: G,
-	) -> Result<HashSet<Indexed<Node<T>>>, ConflictingIndexes<T>> {
+	) -> Result<HashSet<Indexed<Node<T, M>>>, ConflictingIndexes<T>> {
 		Ok(self.generate_node_map(generator)?.flatten_unordered())
 	}
 }
 
-fn filter_graph<T: Id>(node: Indexed<Node<T>>) -> Option<Indexed<Node<T>>> {
+fn filter_graph<T: Id, M>(node: Indexed<Node<T, M>>) -> Option<Indexed<Node<T, M>>> {
 	if node.index().is_none() && node.is_empty() {
 		None
 	} else {
@@ -34,9 +34,9 @@ fn filter_graph<T: Id>(node: Indexed<Node<T>>) -> Option<Indexed<Node<T>>> {
 	}
 }
 
-fn filter_sub_graph<T: Id>(
-	mut node: Indexed<Node<T>>,
-) -> Option<Indexed<Object<T>>> {
+fn filter_sub_graph<T: Id, M>(
+	mut node: Indexed<Node<T, M>>,
+) -> Option<Indexed<Object<T, M>>> {
 	if node.index().is_none() && node.properties().is_empty() {
 		None
 	} else {
@@ -47,8 +47,8 @@ fn filter_sub_graph<T: Id>(
 	}
 }
 
-impl<T: Id> NodeMap<T> {
-	pub fn flatten(self, ordered: bool) -> Vec<Indexed<Node<T>>> {
+impl<T: Id, M> NodeMap<T, M> {
+	pub fn flatten(self, ordered: bool) -> Vec<Indexed<Node<T, M>>> {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		let mut named_graphs: Vec<_> = named_graphs.into_iter().collect();
@@ -79,7 +79,7 @@ impl<T: Id> NodeMap<T> {
 		nodes
 	}
 
-	pub fn flatten_unordered(self) -> HashSet<Indexed<Node<T>>> {
+	pub fn flatten_unordered(self) -> HashSet<Indexed<Node<T, M>>> {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		for (graph_id, graph) in named_graphs {

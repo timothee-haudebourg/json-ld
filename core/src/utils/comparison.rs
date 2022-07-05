@@ -1,3 +1,4 @@
+use locspan::Meta;
 use json_syntax::Value;
 
 // pub async fn json_ld_eq<J: JsonContext + JsonExpand>(
@@ -90,19 +91,16 @@ pub fn simple_json_ld_eq<M, N>(a: &Value<M>, b: &Value<N>) -> bool {
 		}
 		(Value::Object(a), Value::Object(b)) if a.len() == b.len() => {
 			for entry in a.iter() {
-				if let Some(value_b) = b.get(entry.key) {
+				let key = entry.key.value();
+				let value_a = entry.value.value();
+				if let Some(Meta(value_b, _)) = b.get(key).next() {
 					if key == "@list" {
-						match (value_a.as_value_ref(), value_b.as_value_ref()) {
+						match (value_a, value_b) {
 							(Value::Array(item_a), Value::Array(item_b))
 								if item_a.len() == item_b.len() =>
 							{
-								for i in 0..item_a.len() {
-									if !simple_json_ld_eq(
-										&*item_a.get(i).unwrap(),
-										&*item_b.get(i).unwrap(),
-									) {
-										return false;
-									}
+								if !item_a.iter().zip(item_b).all(|(a, b)| simple_json_ld_eq(a.value(), b.value())) {
+									return false
 								}
 							}
 							_ => {

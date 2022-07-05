@@ -24,11 +24,11 @@ use smallvec::SmallVec;
 /// }
 /// # }
 /// ```
-pub struct QuadRef<'a, T: Id>(
+pub struct QuadRef<'a, T: Id, M>(
 	pub Option<&'a Reference<T>>,
 	pub &'a Reference<T>,
 	pub PropertyRef<'a, T>,
-	pub ObjectRef<'a, T>,
+	pub ObjectRef<'a, T, M>,
 );
 
 pub enum PropertyRef<'a, T: Id> {
@@ -36,30 +36,30 @@ pub enum PropertyRef<'a, T: Id> {
 	Ref(&'a Reference<T>),
 }
 
-pub enum ObjectRef<'a, T: Id> {
-	Object(&'a Object<T>),
-	Node(&'a Node<T>),
+pub enum ObjectRef<'a, T: Id, M> {
+	Object(&'a Object<T, M>),
+	Node(&'a Node<T, M>),
 	Ref(&'a Reference<T>),
 }
 
-impl<T: Id, S, P> ExpandedDocument<T, S, P> {
-	pub fn quads(&self) -> Quads<T> {
+impl<T: Id, M> ExpandedDocument<T, M> {
+	pub fn quads(&self) -> Quads<T, M> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedObjectSet(None, self.iter()));
 		Quads { stack }
 	}
 }
 
-impl<T: Id, S, P> FlattenedDocument<T, S, P> {
-	pub fn quads(&self) -> Quads<T> {
+impl<T: Id, M> FlattenedDocument<T, M> {
+	pub fn quads(&self) -> Quads<T, M> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedNodeSlice(None, self.iter()));
 		Quads { stack }
 	}
 }
 
-impl<T: Id> NodeMap<T> {
-	pub fn quads(&self) -> Quads<T> {
+impl<T: Id, M> NodeMap<T, M> {
+	pub fn quads(&self) -> Quads<T, M> {
 		let mut stack = SmallVec::new();
 
 		for (id, graph) in self {
@@ -72,30 +72,30 @@ impl<T: Id> NodeMap<T> {
 
 const STACK_LEN: usize = 6;
 
-pub struct Quads<'a, T: Id> {
-	stack: SmallVec<[QuadsFrame<'a, T>; STACK_LEN]>,
+pub struct Quads<'a, T: Id, M> {
+	stack: SmallVec<[QuadsFrame<'a, T, M>; STACK_LEN]>,
 }
 
-enum QuadsFrame<'a, T: Id> {
+enum QuadsFrame<'a, T: Id, M> {
 	NodeMapGraph(
 		Option<&'a Reference<T>>,
-		crate::flattening::NodeMapGraphNodes<'a, T>,
+		crate::flattening::NodeMapGraphNodes<'a, T, M>,
 	),
 	IndexedObjectSet(
 		Option<&'a Reference<T>>,
-		std::collections::hash_set::Iter<'a, Indexed<Object<T>>>,
+		std::collections::hash_set::Iter<'a, Indexed<Object<T, M>>>,
 	),
 	IndexedNodeSet(
 		Option<&'a Reference<T>>,
-		std::collections::hash_set::Iter<'a, Indexed<Node<T>>>,
+		std::collections::hash_set::Iter<'a, Indexed<Node<T, M>>>,
 	),
 	IndexedObjectSlice(
 		Option<&'a Reference<T>>,
-		std::slice::Iter<'a, Indexed<Object<T>>>,
+		std::slice::Iter<'a, Indexed<Object<T, M>>>,
 	),
 	IndexedNodeSlice(
 		Option<&'a Reference<T>>,
-		std::slice::Iter<'a, Indexed<Node<T>>>,
+		std::slice::Iter<'a, Indexed<Node<T, M>>>,
 	),
 	NodeTypes(
 		Option<&'a Reference<T>>,
@@ -105,29 +105,29 @@ enum QuadsFrame<'a, T: Id> {
 	NodeProperties(
 		Option<&'a Reference<T>>,
 		&'a Reference<T>,
-		object::node::properties::Iter<'a, T>,
+		object::node::properties::Iter<'a, T, M>,
 	),
 	NodeReverseProperties(
 		Option<&'a Reference<T>>,
-		&'a Node<T>,
-		object::node::reverse_properties::Iter<'a, T>,
+		&'a Node<T, M>,
+		object::node::reverse_properties::Iter<'a, T, M>,
 	),
 	NodePropertyObjects(
 		Option<&'a Reference<T>>,
 		&'a Reference<T>,
 		&'a Reference<T>,
-		std::slice::Iter<'a, Indexed<Object<T>>>,
+		std::slice::Iter<'a, Indexed<Object<T, M>>>,
 	),
 	NodeReversePropertySubjects(
 		Option<&'a Reference<T>>,
-		&'a Node<T>,
+		&'a Node<T, M>,
 		&'a Reference<T>,
-		std::slice::Iter<'a, Indexed<Node<T>>>,
+		std::slice::Iter<'a, Indexed<Node<T, M>>>,
 	),
 }
 
-impl<'a, T: Id> Quads<'a, T> {
-	fn push_object(&mut self, graph: Option<&'a Reference<T>>, object: &'a Indexed<Object<T>>) {
+impl<'a, T: Id, M> Quads<'a, T, M> {
+	fn push_object(&mut self, graph: Option<&'a Reference<T>>, object: &'a Indexed<Object<T, M>>) {
 		match object.inner() {
 			Object::Node(node) => self.push_node(graph, node),
 			Object::List(objects) => self
@@ -137,7 +137,7 @@ impl<'a, T: Id> Quads<'a, T> {
 		}
 	}
 
-	fn push_node(&mut self, graph: Option<&'a Reference<T>>, node: &'a Node<T>) {
+	fn push_node(&mut self, graph: Option<&'a Reference<T>>, node: &'a Node<T, M>) {
 		if let Some(id) = node.id() {
 			if let Some(graph) = node.graph() {
 				self.stack
@@ -165,8 +165,8 @@ impl<'a, T: Id> Quads<'a, T> {
 	}
 }
 
-impl<'a, T: Id> Iterator for Quads<'a, T> {
-	type Item = QuadRef<'a, T>;
+impl<'a, T: Id, M> Iterator for Quads<'a, T, M> {
+	type Item = QuadRef<'a, T, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		while let Some(last) = self.stack.last_mut() {
@@ -224,7 +224,7 @@ impl<'a, T: Id> Iterator for Quads<'a, T> {
 								graph,
 								subject,
 								PropertyRef::Type,
-								ObjectRef::Ref(ty),
+								ObjectRef::<T, M>::Ref(ty),
 							))
 						}
 						None => {

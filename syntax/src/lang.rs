@@ -4,7 +4,7 @@ use locspan_derive::StrippedPartialEq;
 use std::fmt;
 
 /// Language tag buffer that may not be well-formed.
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum LenientLanguageTagBuf {
 	WellFormed(#[stripped] LanguageTagBuf),
 	Malformed(#[stripped] String),
@@ -106,7 +106,7 @@ impl<'a> fmt::Display for LenientLanguageTag<'a> {
 /// A language string is a string tagged with language and reading direction information.
 ///
 /// A valid language string is associated to either a language tag or a direction, or both.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct LangString {
 	/// Actual content of the string.
 	data: String,

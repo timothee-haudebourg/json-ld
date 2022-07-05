@@ -8,9 +8,9 @@ use std::{
 
 /// Reverse properties of a node object, and their associated nodes.
 #[derive(PartialEq, Eq)]
-pub struct ReverseProperties<T: Id>(HashMap<Reference<T>, Vec<Indexed<Node<T>>>>);
+pub struct ReverseProperties<T: Id, M>(HashMap<Reference<T>, Vec<Indexed<Node<T, M>>>>);
 
-impl<T: Id> ReverseProperties<T> {
+impl<T: Id, M> ReverseProperties<T, M> {
 	/// Creates an empty map.
 	pub(crate) fn new() -> Self {
 		Self(HashMap::new())
@@ -36,7 +36,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	/// Returns an iterator over all the nodes associated to the given reverse property.
 	#[inline(always)]
-	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Nodes<T>
+	pub fn get<'a, Q: ToReference<T>>(&self, prop: Q) -> Nodes<T, M>
 	where
 		T: 'a,
 	{
@@ -50,7 +50,7 @@ impl<T: Id> ReverseProperties<T> {
 	///
 	/// If multiple nodes are found, there are no guaranties on which node will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Node<T>>>
+	pub fn get_any<'a, Q: ToReference<T>>(&self, prop: Q) -> Option<&Indexed<Node<T, M>>>
 	where
 		T: 'a,
 	{
@@ -62,7 +62,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	/// Associate the given node to the given reverse property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Node<T>>) {
+	pub fn insert(&mut self, prop: Reference<T>, value: Indexed<Node<T, M>>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.push(value);
 		} else {
@@ -73,7 +73,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	/// Associate the given node to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(&mut self, prop: Reference<T>, value: Indexed<Node<T>>) {
+	pub fn insert_unique(&mut self, prop: Reference<T>, value: Indexed<Node<T, M>>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
 				node_values.push(value)
@@ -86,7 +86,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	/// Associate all the given nodes to the given reverse property.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Node<T>>>>(
+	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Node<T, M>>>>(
 		&mut self,
 		prop: Reference<T>,
 		values: Objects,
@@ -100,7 +100,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	/// Associate all the given nodes to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_all_unique<Objects: IntoIterator<Item = Indexed<Node<T>>>>(
+	pub fn insert_all_unique<Objects: IntoIterator<Item = Indexed<Node<T, M>>>>(
 		&mut self,
 		prop: Reference<T>,
 		values: Objects,
@@ -113,7 +113,7 @@ impl<T: Id> ReverseProperties<T> {
 			}
 		} else {
 			let values = values.into_iter();
-			let mut node_values: Vec<Indexed<Node<T>>> =
+			let mut node_values: Vec<Indexed<Node<T, M>>> =
 				Vec::with_capacity(values.size_hint().0);
 			for value in values {
 				if node_values.iter().all(|v| !v.equivalent(&value)) {
@@ -127,7 +127,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	pub fn extend_unique<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Node<T>>>)>,
+		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Node<T, M>>>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all_unique(prop, values)
@@ -136,7 +136,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	/// Returns an iterator over the reverse properties and their associated nodes.
 	#[inline(always)]
-	pub fn iter(&self) -> Iter<'_, T> {
+	pub fn iter(&self) -> Iter<'_, T, M> {
 		Iter {
 			inner: self.0.iter(),
 		}
@@ -144,7 +144,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	/// Returns an iterator over the reverse properties with a mutable reference to their associated nodes.
 	#[inline(always)]
-	pub fn iter_mut(&mut self) -> IterMut<'_, T> {
+	pub fn iter_mut(&mut self) -> IterMut<'_, T, M> {
 		IterMut {
 			inner: self.0.iter_mut(),
 		}
@@ -152,7 +152,7 @@ impl<T: Id> ReverseProperties<T> {
 
 	/// Removes and returns all the values associated to the given reverse property.
 	#[inline(always)]
-	pub fn remove(&mut self, prop: &Reference<T>) -> Option<Vec<Indexed<Node<T>>>> {
+	pub fn remove(&mut self, prop: &Reference<T>) -> Option<Vec<Indexed<Node<T, M>>>> {
 		self.0.remove(prop)
 	}
 
@@ -163,7 +163,7 @@ impl<T: Id> ReverseProperties<T> {
 	}
 
 	#[inline(always)]
-	pub fn traverse(&self) -> Traverse<T> {
+	pub fn traverse(&self) -> Traverse<T, M> {
 		Traverse {
 			current_node: None,
 			current_property: None,
@@ -172,19 +172,19 @@ impl<T: Id> ReverseProperties<T> {
 	}
 }
 
-impl<T: Id> Hash for ReverseProperties<T> {
+impl<T: Id, M> Hash for ReverseProperties<T, M> {
 	#[inline(always)]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		crate::utils::hash_map(&self.0, h)
 	}
 }
 
-impl<T: Id> Extend<(Reference<T>, Vec<Indexed<Node<T>>>)>
-	for ReverseProperties<T>
+impl<T: Id, M> Extend<(Reference<T>, Vec<Indexed<Node<T, M>>>)>
+	for ReverseProperties<T, M>
 {
 	fn extend<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Node<T>>>)>,
+		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Node<T, M>>>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -194,19 +194,19 @@ impl<T: Id> Extend<(Reference<T>, Vec<Indexed<Node<T>>>)>
 
 /// Tuple type representing a reverse binding in a node object,
 /// associating a reverse property to some nodes.
-pub type ReverseBinding<T> = (Reference<T>, Vec<Indexed<Node<T>>>);
+pub type ReverseBinding<T, M> = (Reference<T>, Vec<Indexed<Node<T, M>>>);
 
 /// Tuple type representing a reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes.
-pub type ReverseBindingRef<'a, T> = (&'a Reference<T>, &'a [Indexed<Node<T>>]);
+pub type ReverseBindingRef<'a, T, M> = (&'a Reference<T>, &'a [Indexed<Node<T, M>>]);
 
 /// Tuple type representing a mutable reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes, with a mutable access to the nodes.
-pub type ReverseBindingMut<'a, T> = (&'a Reference<T>, &'a mut Vec<Indexed<Node<T>>>);
+pub type ReverseBindingMut<'a, T, M> = (&'a Reference<T>, &'a mut Vec<Indexed<Node<T, M>>>);
 
-impl<T: Id> IntoIterator for ReverseProperties<T> {
-	type Item = ReverseBinding<T>;
-	type IntoIter = IntoIter<T>;
+impl<T: Id, M> IntoIterator for ReverseProperties<T, M> {
+	type Item = ReverseBinding<T, M>;
+	type IntoIter = IntoIter<T, M>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -216,9 +216,9 @@ impl<T: Id> IntoIterator for ReverseProperties<T> {
 	}
 }
 
-impl<'a, T: Id> IntoIterator for &'a ReverseProperties<T> {
-	type Item = ReverseBindingRef<'a, T>;
-	type IntoIter = Iter<'a, T>;
+impl<'a, T: Id, M> IntoIterator for &'a ReverseProperties<T, M> {
+	type Item = ReverseBindingRef<'a, T, M>;
+	type IntoIter = Iter<'a, T, M>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -226,9 +226,9 @@ impl<'a, T: Id> IntoIterator for &'a ReverseProperties<T> {
 	}
 }
 
-impl<'a, T: Id> IntoIterator for &'a mut ReverseProperties<T> {
-	type Item = ReverseBindingMut<'a, T>;
-	type IntoIter = IterMut<'a, T>;
+impl<'a, T: Id, M> IntoIterator for &'a mut ReverseProperties<T, M> {
+	type Item = ReverseBindingMut<'a, T, M>;
+	type IntoIter = IterMut<'a, T, M>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -239,12 +239,12 @@ impl<'a, T: Id> IntoIterator for &'a mut ReverseProperties<T> {
 /// Iterator over the reverse properties of a node.
 ///
 /// It is created by the [`ReverseProperties::into_iter`] function.
-pub struct IntoIter<T: Id> {
-	inner: std::collections::hash_map::IntoIter<Reference<T>, Vec<Indexed<Node<T>>>>,
+pub struct IntoIter<T: Id, M> {
+	inner: std::collections::hash_map::IntoIter<Reference<T>, Vec<Indexed<Node<T, M>>>>,
 }
 
-impl<T: Id> Iterator for IntoIter<T> {
-	type Item = ReverseBinding<T>;
+impl<T: Id, M> Iterator for IntoIter<T, M> {
+	type Item = ReverseBinding<T, M>;
 
 	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
@@ -257,19 +257,19 @@ impl<T: Id> Iterator for IntoIter<T> {
 	}
 }
 
-impl<T: Id> ExactSizeIterator for IntoIter<T> {}
+impl<T: Id, M> ExactSizeIterator for IntoIter<T, M> {}
 
-impl<T: Id> std::iter::FusedIterator for IntoIter<T> {}
+impl<T: Id, M> std::iter::FusedIterator for IntoIter<T, M> {}
 
 /// Iterator over the reverse properties of a node.
 ///
 /// It is created by the [`ReverseProperties::iter`] function.
-pub struct Iter<'a, T: Id> {
-	inner: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Node<T>>>>,
+pub struct Iter<'a, T: Id, M> {
+	inner: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Node<T, M>>>>,
 }
 
-impl<'a, T: Id> Iterator for Iter<'a, T> {
-	type Item = ReverseBindingRef<'a, T>;
+impl<'a, T: Id, M> Iterator for Iter<'a, T, M> {
+	type Item = ReverseBindingRef<'a, T, M>;
 
 	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
@@ -284,20 +284,20 @@ impl<'a, T: Id> Iterator for Iter<'a, T> {
 	}
 }
 
-impl<'a, T: Id> ExactSizeIterator for Iter<'a, T> {}
+impl<'a, T: Id, M> ExactSizeIterator for Iter<'a, T, M> {}
 
-impl<'a, T: Id> std::iter::FusedIterator for Iter<'a, T> {}
+impl<'a, T: Id, M> std::iter::FusedIterator for Iter<'a, T, M> {}
 
 /// Iterator over the reverse properties of a node, giving a mutable reference
 /// to the associated nodes.
 ///
 /// It is created by the [`ReverseProperties::iter_mut`] function.
-pub struct IterMut<'a, T: Id> {
-	inner: std::collections::hash_map::IterMut<'a, Reference<T>, Vec<Indexed<Node<T>>>>,
+pub struct IterMut<'a, T: Id, M> {
+	inner: std::collections::hash_map::IterMut<'a, Reference<T>, Vec<Indexed<Node<T, M>>>>,
 }
 
-impl<'a, T: Id> Iterator for IterMut<'a, T> {
-	type Item = ReverseBindingMut<'a, T>;
+impl<'a, T: Id, M> Iterator for IterMut<'a, T, M> {
+	type Item = ReverseBindingMut<'a, T, M>;
 
 	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
@@ -310,18 +310,18 @@ impl<'a, T: Id> Iterator for IterMut<'a, T> {
 	}
 }
 
-impl<'a, T: Id> ExactSizeIterator for IterMut<'a, T> {}
+impl<'a, T: Id, M> ExactSizeIterator for IterMut<'a, T, M> {}
 
-impl<'a, T: Id> std::iter::FusedIterator for IterMut<'a, T> {}
+impl<'a, T: Id, M> std::iter::FusedIterator for IterMut<'a, T, M> {}
 
-pub struct Traverse<'a, T: Id> {
-	current_node: Option<Box<super::Traverse<'a, T>>>,
-	current_property: Option<std::slice::Iter<'a, Indexed<Node<T>>>>,
-	iter: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Node<T>>>>,
+pub struct Traverse<'a, T: Id, M> {
+	current_node: Option<Box<super::Traverse<'a, T, M>>>,
+	current_property: Option<std::slice::Iter<'a, Indexed<Node<T, M>>>>,
+	iter: std::collections::hash_map::Iter<'a, Reference<T>, Vec<Indexed<Node<T, M>>>>,
 }
 
-impl<'a, T: Id> Iterator for Traverse<'a, T> {
-	type Item = crate::object::Ref<'a, T>;
+impl<'a, T: Id, M> Iterator for Traverse<'a, T, M> {
+	type Item = crate::object::Ref<'a, T, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {

@@ -1,9 +1,12 @@
 use crate::{Id, Indexed, Reference};
 use rdf_types::BlankId;
+use locspan::BorrowStripped;
 use std::collections::HashSet;
 
 pub trait MappedEq<T: ?Sized = Self> {
 	/// Structural equality with mapped blank identifiers.
+	/// 
+	/// Does not care for metadata.
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &T,
@@ -154,14 +157,14 @@ impl<T: PartialEq> MappedEq for Reference<T> {
 	}
 }
 
-impl<T: Id> MappedEq for super::Object<T> {
+impl<T: Id, M> MappedEq for super::Object<T, M> {
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &Self,
 		f: F,
 	) -> bool {
 		match (self, other) {
-			(Self::Value(a), Self::Value(b)) => a == b,
+			(Self::Value(a), Self::Value(b)) => a.stripped() == b.stripped(),
 			(Self::Node(a), Self::Node(b)) => a.mapped_eq(b, f),
 			(Self::List(a), Self::List(b)) => a.mapped_eq(b, f),
 			_ => false,
@@ -181,7 +184,7 @@ fn opt_mapped_eq<'a, 'b, A: MappedEq, F: Clone + Fn(&'a BlankId) -> &'b BlankId>
 	}
 }
 
-impl<T: Id> MappedEq for super::Node<T> {
+impl<T: Id, M> MappedEq for super::Node<T, M> {
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &Self,
@@ -197,7 +200,7 @@ impl<T: Id> MappedEq for super::Node<T> {
 	}
 }
 
-impl<T: Id> MappedEq for super::node::Properties<T> {
+impl<T: Id, M> MappedEq for super::node::Properties<T, M> {
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &Self,
@@ -230,7 +233,7 @@ impl<T: Id> MappedEq for super::node::Properties<T> {
 	}
 }
 
-impl<T: Id> MappedEq for super::node::ReverseProperties<T> {
+impl<T: Id, M> MappedEq for super::node::ReverseProperties<T, M> {
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,
 		other: &Self,

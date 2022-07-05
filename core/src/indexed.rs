@@ -1,6 +1,6 @@
 use std::convert::{TryFrom, TryInto};
-use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use locspan_derive::*;
 
 /// Indexed objects.
 ///
@@ -8,6 +8,8 @@ use std::ops::{Deref, DerefMut};
 /// This type is a wrapper around any kind of indexable data.
 ///
 /// It is a pointer type that `Deref` into the underlying value.
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[derive(StrippedPartialEq, StrippedEq, StrippedHash)]
 pub struct Indexed<T> {
 	/// Index.
 	index: Option<String>,
@@ -78,30 +80,6 @@ impl<T> Indexed<T> {
 			Ok(value) => Ok(Indexed::new(value, self.index)),
 			Err(e) => Err(Indexed::new(e, self.index)),
 		}
-	}
-}
-
-impl<T: Hash> Hash for Indexed<T> {
-	#[inline(always)]
-	fn hash<H: Hasher>(&self, h: &mut H) {
-		self.value.hash(h);
-		self.index.hash(h)
-	}
-}
-
-impl<T: PartialEq> PartialEq for Indexed<T> {
-	#[inline(always)]
-	fn eq(&self, other: &Self) -> bool {
-		self.index == other.index && self.value == other.value
-	}
-}
-
-impl<T: Eq> Eq for Indexed<T> {}
-
-impl<T: Clone> Clone for Indexed<T> {
-	#[inline(always)]
-	fn clone(&self) -> Self {
-		Indexed::new(self.value.clone(), self.index.clone())
 	}
 }
 

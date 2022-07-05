@@ -1,22 +1,22 @@
 use crate::{
 	id,
-	Id, Indexed, Loc, Node, Warning,
+	Id, Indexed, Node, Warning,
 };
-use locspan::Span;
+use locspan::Meta;
 
 /// Result of the document flattening algorithm.
 ///
 /// It is just an alias for a set of (indexed) nodes.
-pub struct FlattenedDocument<T: Id, S, P=Span> {
-	nodes: Vec<Indexed<Node<T>>>,
-	warnings: Vec<Loc<Warning, S, P>>,
+pub struct FlattenedDocument<T: Id, M> {
+	nodes: Vec<Indexed<Node<T, M>>>,
+	warnings: Vec<Meta<Warning, M>>,
 }
 
-impl<T: Id, S, P> FlattenedDocument<T, S, P> {
+impl<T: Id, M> FlattenedDocument<T, M> {
 	#[inline(always)]
 	pub fn new(
-		nodes: Vec<Indexed<Node<T>>>,
-		warnings: Vec<Loc<Warning, S, P>>,
+		nodes: Vec<Indexed<Node<T, M>>>,
+		warnings: Vec<Meta<Warning, M>>,
 	) -> Self {
 		Self { nodes, warnings }
 	}
@@ -32,38 +32,38 @@ impl<T: Id, S, P> FlattenedDocument<T, S, P> {
 	}
 
 	#[inline(always)]
-	pub fn warnings(&self) -> &[Loc<Warning, S, P>] {
+	pub fn warnings(&self) -> &[Meta<Warning, M>] {
 		&self.warnings
 	}
 
 	#[inline(always)]
-	pub fn into_warnings(self) -> Vec<Loc<Warning, S, P>> {
+	pub fn into_warnings(self) -> Vec<Meta<Warning, M>> {
 		self.warnings
 	}
 
 	#[inline(always)]
-	pub fn nodes(&self) -> &[Indexed<Node<T>>] {
+	pub fn nodes(&self) -> &[Indexed<Node<T, M>>] {
 		&self.nodes
 	}
 
 	#[inline(always)]
-	pub fn into_nodes(self) -> Vec<Indexed<Node<T>>> {
+	pub fn into_nodes(self) -> Vec<Indexed<Node<T, M>>> {
 		self.nodes
 	}
 
 	#[inline(always)]
-	pub fn iter(&self) -> std::slice::Iter<'_, Indexed<Node<T>>> {
+	pub fn iter(&self) -> std::slice::Iter<'_, Indexed<Node<T, M>>> {
 		self.nodes.iter()
 	}
 
 	#[inline(always)]
-	pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Indexed<Node<T>>> {
+	pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Indexed<Node<T, M>>> {
 		self.nodes.iter_mut()
 	}
 
 	#[inline(always)]
 	#[allow(clippy::type_complexity)]
-	pub fn into_parts(self) -> (Vec<Indexed<Node<T>>>, Vec<Loc<Warning, S, P>>) {
+	pub fn into_parts(self) -> (Vec<Indexed<Node<T, M>>>, Vec<Meta<Warning, M>>) {
 		(self.nodes, self.warnings)
 	}
 
@@ -75,9 +75,9 @@ impl<T: Id, S, P> FlattenedDocument<T, S, P> {
 	}
 }
 
-impl<T: Id, S, P> IntoIterator for FlattenedDocument<T, S, P> {
-	type IntoIter = std::vec::IntoIter<Indexed<Node<T>>>;
-	type Item = Indexed<Node<T>>;
+impl<T: Id, M> IntoIterator for FlattenedDocument<T, M> {
+	type IntoIter = std::vec::IntoIter<Indexed<Node<T, M>>>;
+	type Item = Indexed<Node<T, M>>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -85,9 +85,9 @@ impl<T: Id, S, P> IntoIterator for FlattenedDocument<T, S, P> {
 	}
 }
 
-impl<'a, T: Id, S, P> IntoIterator for &'a FlattenedDocument<T, S, P> {
-	type IntoIter = std::slice::Iter<'a, Indexed<Node<T>>>;
-	type Item = &'a Indexed<Node<T>>;
+impl<'a, T: Id, M> IntoIterator for &'a FlattenedDocument<T, M> {
+	type IntoIter = std::slice::Iter<'a, Indexed<Node<T, M>>>;
+	type Item = &'a Indexed<Node<T, M>>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -95,9 +95,9 @@ impl<'a, T: Id, S, P> IntoIterator for &'a FlattenedDocument<T, S, P> {
 	}
 }
 
-impl<'a, T: Id, S, P> IntoIterator for &'a mut FlattenedDocument<T, S, P> {
-	type IntoIter = std::slice::IterMut<'a, Indexed<Node<T>>>;
-	type Item = &'a mut Indexed<Node<T>>;
+impl<'a, T: Id, M> IntoIterator for &'a mut FlattenedDocument<T, M> {
+	type IntoIter = std::slice::IterMut<'a, Indexed<Node<T, M>>>;
+	type Item = &'a mut Indexed<Node<T, M>>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -106,7 +106,7 @@ impl<'a, T: Id, S, P> IntoIterator for &'a mut FlattenedDocument<T, S, P> {
 }
 
 // impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
-// 	for FlattenedDocument<S, P>
+// 	for FlattenedDocument<M>
 // {
 // 	fn as_json_with(
 // 		&self,

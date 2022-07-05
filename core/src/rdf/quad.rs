@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::convert::TryInto;
 
 /// RDF Quad.
-pub struct Quad<T: Id>(
+pub struct Quad<T: Id, M>(
 	pub Option<ValidReference<T>>,
 	pub ValidReference<T>,
 	pub Property<T>,
@@ -24,15 +24,15 @@ struct Compound<'a, T: Id> {
 }
 
 /// Iterator over the RDF Quads of a JSON-LD document.
-pub struct Quads<'a, 'g, T: Id, G: id::Generator<T>> {
+pub struct Quads<'a, 'g, T: Id, M, G: id::Generator<T>> {
 	generator: &'g mut G,
 	rdf_direction: Option<RdfDirection>,
 	compound_value: Option<Compound<'a, T>>,
-	quads: crate::quad::Quads<'a, T>,
+	quads: crate::quad::Quads<'a, T, M>,
 }
 
-impl<'a, 'g, T: Id, G: id::Generator<T>> Iterator
-	for Quads<'a, 'g, T, G>
+impl<'a, 'g, T: Id, M, G: id::Generator<T>> Iterator
+	for Quads<'a, 'g, T, M, G>
 {
 	type Item = QuadRef<'a, T>;
 
@@ -101,12 +101,12 @@ impl<'a, 'g, T: Id, G: id::Generator<T>> Iterator
 	}
 }
 
-impl<T: Id, S, P> ExpandedDocument<T, S, P> {
+impl<T: Id, M> ExpandedDocument<T, M> {
 	pub fn rdf_quads<'g, G: id::Generator<T>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'g, T, G> {
+	) -> Quads<'_, 'g, T, M, G> {
 		Quads {
 			generator,
 			rdf_direction,
@@ -116,12 +116,12 @@ impl<T: Id, S, P> ExpandedDocument<T, S, P> {
 	}
 }
 
-impl<T: Id, S, P> FlattenedDocument<T, S, P> {
+impl<T: Id, M> FlattenedDocument<T, M> {
 	pub fn rdf_quads<'g, G: id::Generator<T>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'g, T, G> {
+	) -> Quads<'_, 'g, T, M, G> {
 		Quads {
 			generator,
 			rdf_direction,
@@ -131,12 +131,12 @@ impl<T: Id, S, P> FlattenedDocument<T, S, P> {
 	}
 }
 
-impl<T: Id> NodeMap<T> {
+impl<T: Id, M> NodeMap<T, M> {
 	pub fn rdf_quads<'g, G: id::Generator<T>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'g, T, G> {
+	) -> Quads<'_, 'g, T, M, G> {
 		Quads {
 			generator,
 			rdf_direction,

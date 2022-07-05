@@ -1,21 +1,21 @@
-use crate::{id, Id, Indexed, Loc, Object, Warning};
+use crate::{id, Id, Indexed, Object, Warning};
 use rdf_types::BlankId;
 use std::collections::{BTreeSet, HashSet};
-use locspan::Span;
+use locspan::Meta;
 
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
-pub struct ExpandedDocument<T: Id, S, P=Span> {
-	objects: HashSet<Indexed<Object<T>>>,
-	warnings: Vec<Loc<Warning, S, P>>,
+pub struct ExpandedDocument<T: Id, M> {
+	objects: HashSet<Indexed<Object<T, M>>>,
+	warnings: Vec<Meta<Warning, M>>,
 }
 
-impl<T: Id, S, P> ExpandedDocument<T, S, P> {
+impl<T: Id, M> ExpandedDocument<T, M> {
 	#[inline(always)]
 	pub fn new(
-		objects: HashSet<Indexed<Object<T>>>,
-		warnings: Vec<Loc<Warning, S, P>>,
+		objects: HashSet<Indexed<Object<T, M>>>,
+		warnings: Vec<Meta<Warning, M>>,
 	) -> Self {
 		Self { objects, warnings }
 	}
@@ -31,27 +31,27 @@ impl<T: Id, S, P> ExpandedDocument<T, S, P> {
 	}
 
 	#[inline(always)]
-	pub fn warnings(&self) -> &[Loc<Warning, S, P>] {
+	pub fn warnings(&self) -> &[Meta<Warning, M>] {
 		&self.warnings
 	}
 
 	#[inline(always)]
-	pub fn into_warnings(self) -> Vec<Loc<Warning, S, P>> {
+	pub fn into_warnings(self) -> Vec<Meta<Warning, M>> {
 		self.warnings
 	}
 
 	#[inline(always)]
-	pub fn objects(&self) -> &HashSet<Indexed<Object<T>>> {
+	pub fn objects(&self) -> &HashSet<Indexed<Object<T, M>>> {
 		&self.objects
 	}
 
 	#[inline(always)]
-	pub fn into_objects(self) -> HashSet<Indexed<Object<T>>> {
+	pub fn into_objects(self) -> HashSet<Indexed<Object<T, M>>> {
 		self.objects
 	}
 
 	#[inline(always)]
-	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Indexed<Object<T>>> {
+	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Indexed<Object<T, M>>> {
 		self.objects.iter()
 	}
 
@@ -71,8 +71,8 @@ impl<T: Id, S, P> ExpandedDocument<T, S, P> {
 	pub fn into_parts(
 		self,
 	) -> (
-		HashSet<Indexed<Object<T>>>,
-		Vec<Loc<Warning, S, P>>,
+		HashSet<Indexed<Object<T, M>>>,
+		Vec<Meta<Warning, M>>,
 	) {
 		(self.objects, self.warnings)
 	}
@@ -122,7 +122,7 @@ impl<T: Id, S, P> ExpandedDocument<T, S, P> {
 	}
 }
 
-impl<T: Id + PartialEq, S, P> PartialEq for ExpandedDocument<T, S, P> {
+impl<T: Id + PartialEq, M> PartialEq for ExpandedDocument<T, M> {
 	/// Comparison between two expanded documents.
 	///
 	/// Warnings are not compared.
@@ -131,11 +131,11 @@ impl<T: Id + PartialEq, S, P> PartialEq for ExpandedDocument<T, S, P> {
 	}
 }
 
-impl<T: Id + Eq, S, P> Eq for ExpandedDocument<T, S, P> {}
+impl<T: Id + Eq, M> Eq for ExpandedDocument<T, M> {}
 
-impl<T: Id, S, P> IntoIterator for ExpandedDocument<T, S, P> {
-	type IntoIter = std::collections::hash_set::IntoIter<Indexed<Object<T>>>;
-	type Item = Indexed<Object<T>>;
+impl<T: Id, M> IntoIterator for ExpandedDocument<T, M> {
+	type IntoIter = std::collections::hash_set::IntoIter<Indexed<Object<T, M>>>;
+	type Item = Indexed<Object<T, M>>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -143,9 +143,9 @@ impl<T: Id, S, P> IntoIterator for ExpandedDocument<T, S, P> {
 	}
 }
 
-impl<'a, T: Id, S, P> IntoIterator for &'a ExpandedDocument<T, S, P> {
-	type IntoIter = std::collections::hash_set::Iter<'a, Indexed<Object<T>>>;
-	type Item = &'a Indexed<Object<T>>;
+impl<'a, T: Id, M> IntoIterator for &'a ExpandedDocument<T, M> {
+	type IntoIter = std::collections::hash_set::Iter<'a, Indexed<Object<T, M>>>;
+	type Item = &'a Indexed<Object<T, M>>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -153,7 +153,7 @@ impl<'a, T: Id, S, P> IntoIterator for &'a ExpandedDocument<T, S, P> {
 	}
 }
 
-// impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<T, S, P> {
+// impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<T, M> {
 // 	fn as_json_with(
 // 		&self,
 // 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,

@@ -3,6 +3,7 @@ use crate::{
 };
 use iref::{AsIri, Iri, IriBuf};
 use rdf_types::{BlankId, BlankIdBuf};
+use locspan_derive::*;
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
@@ -13,16 +14,18 @@ use std::fmt;
 /// It can be an identifier (IRI), a blank node identifier for local blank nodes
 /// or an invalid reference (a string that is neither an IRI nor blank node identifier).
 #[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(StrippedPartialEq, StrippedEq, StrippedHash)]
+#[stripped(T)]
 #[repr(u8)]
 pub enum Reference<T = IriBuf> {
 	/// Node identifier, essentially an IRI.
-	Id(T),
+	Id(#[stripped] T),
 
 	/// Blank node identifier.
-	Blank(BlankIdBuf),
+	Blank(#[stripped] BlankIdBuf),
 
 	/// Invalid reference.
-	Invalid(String),
+	Invalid(#[stripped] String),
 }
 
 impl<T: Id> Reference<T> {

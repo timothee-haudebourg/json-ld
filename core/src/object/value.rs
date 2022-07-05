@@ -1,10 +1,11 @@
 use crate::{object, Direction, Id, LangString, LenientLanguageTag};
 use iref::IriBuf;
 use json_number::{NumberBuf, Number};
-use locspan::BorrowStripped;
+use locspan_derive::*;
 use std::{
 	fmt,
 	hash::{Hash, Hasher},
+	cmp::Ordering
 };
 
 /// Value type.
@@ -102,6 +103,18 @@ impl Hash for LiteralString {
 	}
 }
 
+impl PartialOrd for LiteralString {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		self.as_str().partial_cmp(other.as_str())
+	}
+}
+
+impl Ord for LiteralString {
+	fn cmp(&self, other: &Self) -> Ordering {
+		self.as_str().cmp(other.as_str())
+	}
+}
+
 impl fmt::Debug for LiteralString {
 	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -110,7 +123,7 @@ impl fmt::Debug for LiteralString {
 }
 
 /// Literal value.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Literal {
 	/// The `null` value.
 	Null,
@@ -123,34 +136,6 @@ pub enum Literal {
 
 	/// String.
 	String(LiteralString),
-}
-
-impl PartialEq for Literal {
-	#[inline(always)]
-	fn eq(&self, other: &Self) -> bool {
-		use Literal::*;
-		match (self, other) {
-			(Null, Null) => true,
-			(Boolean(a), Boolean(b)) => a == b,
-			(Number(a), Number(b)) => a == b,
-			(String(a), String(b)) => a == b,
-			_ => false,
-		}
-	}
-}
-
-impl Eq for Literal {}
-
-impl Hash for Literal {
-	#[inline(always)]
-	fn hash<H: Hasher>(&self, h: &mut H) {
-		match self {
-			Literal::Null => (),
-			Literal::Boolean(b) => b.hash(h),
-			Literal::Number(n) => n.hash(h),
-			Literal::String(s) => s.hash(h),
-		}
-	}
 }
 
 impl Literal {
@@ -185,30 +170,22 @@ impl Literal {
 /// Value object.
 ///
 /// Either a typed literal value, or an internationalized language string.
-#[derive(PartialEq, Eq)]
-pub enum Value<T: Id = IriBuf> {
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedOrd, StrippedHash)]
+#[stripped_ignore(M)]
+#[stripped(T)]
+pub enum Value<T = IriBuf, M=()> {
 	/// Typed literal value.
-	Literal(Literal, Option<T>),
+	Literal(#[stripped] Literal, #[stripped] Option<T>),
 
 	/// Language tagged string.
-	LangString(LangString),
+	LangString(#[stripped] LangString),
 
 	/// JSON literal value.
-	Json(json_syntax::Value<()>),
+	Json(json_syntax::Value<M>),
 }
 
-impl<T: Id> Clone for Value<T> {
-	#[inline(always)]
-	fn clone(&self) -> Self {
-		match self {
-			Self::Literal(l, t) => Self::Literal(l.clone(), t.clone()),
-			Self::LangString(s) => Self::LangString(s.clone()),
-			Self::Json(j) => Self::Json(j.clone()),
-		}
-	}
-}
-
-impl<T: Id> Value<T> {
+impl<T: Id, M> Value<T, M> {
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
@@ -305,24 +282,10 @@ impl<T: Id> Value<T> {
 	}
 }
 
-impl<T: Id> object::Any<T> for Value<T> {
+impl<T: Id, M> object::Any<T, M> for Value<T, M> {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref<T> {
+	fn as_ref(&self) -> object::Ref<T, M> {
 		object::Ref::Value(self)
-	}
-}
-
-impl<T: Id> Hash for Value<T> {
-	#[inline]
-	fn hash<H: Hasher>(&self, h: &mut H) {
-		match self {
-			Value::Literal(lit, ty) => {
-				lit.hash(h);
-				ty.hash(h);
-			}
-			Value::LangString(s) => s.hash(h),
-			Value::Json(json) => json.stripped().hash(h)
-		}
 	}
 }
 

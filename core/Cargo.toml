@@ -20,7 +20,8 @@ default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
 
 [dependencies]
 json-ld-syntax = { path = "../syntax" }
-json-syntax = "0.4"
+# json-syntax = "0.4"
+json-syntax = { path = "../../../json/json-syntax" }
 json-number = "0.3"
 log = "^0.4"
 derivative = "^2.2"
