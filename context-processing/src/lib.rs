@@ -2,13 +2,13 @@ pub use json_ld_core::{
 	ProcessingMode,
 	Context
 };
-use locspan::Loc;
+use locspan::Meta;
 use iref::Iri;
 use futures::future::{BoxFuture, FutureExt};
 
 mod stack;
 // mod json;
-mod syntax;
+pub mod syntax;
 
 pub use stack::ProcessingStack;
 
@@ -31,7 +31,7 @@ pub enum Warning {
 }
 
 /// Located warning.
-pub type LocWarning<T, C> = Loc<Warning, <C as Process<T>>::Source, <C as Process<T>>::Span>;
+pub type MetaWarning<C> = Meta<Warning, <C as json_ld_syntax::AnyContextEntry>::Metadata>;
 
 /// Errors that can happen during context processing.
 pub enum Error {
@@ -57,57 +57,15 @@ pub enum Error {
 }
 
 /// Located error.
-pub type LocError<T, C> = Loc<Error, <C as Process<T>>::Source, <C as Process<T>>::Span>;
+pub type MetaError<C> = Meta<Error, <C as json_ld_syntax::AnyContextEntry>::Metadata>;
 
-pub struct ProcessedContext<T, C: Process<T>> {
-	context: Context<T, C>,
-	warnings: Vec<Loc<Warning, C::Source, C::Span>>
-}
-
-impl<T, C: Process<T>> ProcessedContext<T, C> {
-	pub fn new(context: Context<T, C>) -> Self {
-		Self {
-			context,
-			warnings: Vec::new()
-		}
-	}
-
-	pub fn with_warnings(context: Context<T, C>, warnings: Vec<Loc<Warning, C::Source, C::Span>>) -> Self {
-		Self {
-			context,
-			warnings
-		}
-	}
-
-	pub fn context(&self) -> &Context<T, C> {
-		&self.context
-	}
-
-	pub fn warnings(&self) -> &[Loc<Warning, C::Source, C::Span>] {
-		&self.warnings
-	}
-
-	pub fn into_context(self) -> Context<T, C> {
-		self.context
-	}
-
-	pub fn into_warnings(self) -> Vec<Loc<Warning, C::Source, C::Span>> {
-		self.warnings
-	}
-
-	pub fn into_parts(self) -> (Context<T, C>, Vec<Loc<Warning, C::Source, C::Span>>) {
-		(self.context, self.warnings)
-	}
-}
+pub fn ignore_warnings<M>(_warning: Meta<Warning, M>) {}
 
 /// Result of context processing functions.
-pub type ProcessingResult<T, C> = Result<ProcessedContext<T, C>, LocError<T, C>>;
+pub type ProcessingResult<T, C> = Result<Context<T, C>, MetaError<C>>;
 
 /// Context processing functions.
-pub trait Process<T>: Sized + Send + Sync {
-	type Source: Clone + Send + Sync;
-	type Span: Clone + Send + Sync;
-
+pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 	/// Process the local context with specific options.
 	fn process_full<'a, L: Loader + Send + Sync>(
 		&'a self,
@@ -116,6 +74,7 @@ pub trait Process<T>: Sized + Send + Sync {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
+		warnings: impl 'a + Send + FnMut(MetaWarning<Self>)
 	) -> BoxFuture<'a, ProcessingResult<T, Self>>
 	where
 		L::Output: Into<Self>,
@@ -139,6 +98,7 @@ pub trait Process<T>: Sized + Send + Sync {
 			loader,
 			base_url,
 			options,
+			ignore_warnings
 		)
 	}
 
@@ -161,6 +121,7 @@ pub trait Process<T>: Sized + Send + Sync {
 				loader,
 				base_url,
 				ProcessingOptions::default(),
+				ignore_warnings
 			)
 			.await
 		}

@@ -2,6 +2,7 @@ use iref::{Iri, IriBuf};
 use rdf_types::{BlankId, BlankIdBuf};
 use locspan_derive::StrippedPartialEq;
 use std::fmt;
+use std::borrow::Borrow;
 use crate::{CompactIri, CompactIriBuf, Keyword};
 
 /// Context key.
@@ -48,6 +49,12 @@ impl fmt::Display for Key {
 			Self::Blank(i) => i.fmt(f),
 			Self::Term(t) => t.fmt(f)
 		}
+	}
+}
+
+impl Borrow<str> for Key {
+	fn borrow(&self) -> &str {
+		self.as_str()
 	}
 }
 

@@ -74,6 +74,16 @@ impl<T: MappedEq> MappedEq for Option<T> {
 	}
 }
 
+impl<T: MappedEq> MappedEq for locspan::Stripped<T> {
+	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
+		&'a self,
+		other: &Self,
+		f: F,
+	) -> bool {
+		self.0.mapped_eq(&other.0, f)
+	}
+}
+
 impl<T: MappedEq> UnorderedMappedEq for Vec<T> {
 	type Item = T;
 

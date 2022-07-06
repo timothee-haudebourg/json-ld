@@ -12,7 +12,7 @@ mod direction;
 mod lang;
 mod expandable;
 pub mod context;
-// mod document;
+mod document;
 
 pub use compact_iri::*;
 pub use keyword::*;
@@ -30,6 +30,7 @@ pub use context::{
 	ContextEntryRef,
 	ContextRef
 };
+pub use document::*;
 // pub use document::*;
 
 // /// Entry of a map in a JSON-LD document.

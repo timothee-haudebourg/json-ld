@@ -5,9 +5,10 @@ use json_ld_core::{
 	Indexed,
 	Object
 };
+use json_ld_context_processing::Process;
 use json_syntax::Value;
 use iref::IriBuf;
-use locspan::Loc;
+use locspan::Meta;
 use crate::{
 	Options,
 	Loader,
@@ -21,19 +22,19 @@ use super::expand_element;
 /// Note that you probably do not want to use this function directly,
 /// but instead use the [`Document::expand`](crate::Document::expand) method on
 /// a `Value` instance.
-pub async fn expand<'a, T: Id, S, P, C, L: Loader>(
+pub async fn expand<'a, T: Id, M, C: Process<T>, L: Loader>(
 	active_context: &'a Context<T, C>,
-	document: &'a Value<S, P>,
+	document: &'a Value<M>,
 	base_url: Option<IriBuf>,
 	loader: &'a mut L,
 	options: Options,
-	warnings: &mut Vec<Loc<Warning, S, P>>,
-) -> Result<HashSet<Indexed<Object<T>>>, Loc<Error, S, P>>
+	warnings: &mut Vec<Meta<Warning, M>>,
+) -> Result<HashSet<Indexed<Object<T>>>, Meta<Error, M>>
 where
 	T: Send + Sync,
 	C: Send + Sync,
 	L: Send + Sync,
-	L::Output: Into<Value<S, P>>,
+	L::Output: Into<Value<M>>,
 {
 	let base_url = base_url.as_ref().map(|url| url.as_iri());
 	let expanded = expand_element(

@@ -3,6 +3,7 @@ use crate::{
 	Reference,
 };
 use smallvec::SmallVec;
+use locspan::Stripped;
 
 /// JSON-LD Quad.
 ///
@@ -83,11 +84,11 @@ enum QuadsFrame<'a, T: Id, M> {
 	),
 	IndexedObjectSet(
 		Option<&'a Reference<T>>,
-		std::collections::hash_set::Iter<'a, Indexed<Object<T, M>>>,
+		std::collections::hash_set::Iter<'a, Stripped<Indexed<Object<T, M>>>>,
 	),
 	IndexedNodeSet(
 		Option<&'a Reference<T>>,
-		std::collections::hash_set::Iter<'a, Indexed<Node<T, M>>>,
+		std::collections::hash_set::Iter<'a, Stripped<Indexed<Node<T, M>>>>,
 	),
 	IndexedObjectSlice(
 		Option<&'a Reference<T>>,

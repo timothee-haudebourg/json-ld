@@ -2,7 +2,7 @@ use json_ld_syntax::{
 	self as syntax,
 	context::{KeyRef, TermBindingRef}
 };
-use locspan::Loc;
+use locspan::Meta;
 use iref::IriRef;
 use syntax::AnyContextDefinition;
 
@@ -24,28 +24,28 @@ impl<'a, C: syntax::AnyContextEntry> Merged<'a, C> {
 
 	pub fn imported(&self) -> Option<&C::Definition> {
 		self.imported.as_ref().and_then(|imported| match imported.as_entry_ref() {
-			syntax::ContextEntryRef::One(Loc(syntax::ContextRef::Definition(import_context), _)) => Some(import_context),
+			syntax::ContextEntryRef::One(Meta(syntax::ContextRef::Definition(import_context), _)) => Some(import_context),
 			_ => None
 		})
 	}
 
-	pub fn base(&self) -> Option<Loc<syntax::Nullable<IriRef>, C::Source, C::Span>> {
+	pub fn base(&self) -> Option<Meta<syntax::Nullable<IriRef>, C::Metadata>> {
 		self.imported().and_then(|i| i.base()).or_else(|| self.base.base())
 	}
 
-	pub fn vocab(&self) -> Option<Loc<syntax::Nullable<syntax::context::VocabRef>, C::Source, C::Span>> {
+	pub fn vocab(&self) -> Option<Meta<syntax::Nullable<syntax::context::VocabRef>, C::Metadata>> {
 		self.imported().and_then(|i| i.vocab()).or_else(|| self.base.vocab())
 	}
 
-	pub fn language(&self) -> Option<Loc<syntax::Nullable<syntax::LenientLanguageTag>, C::Source, C::Span>> {
+	pub fn language(&self) -> Option<Meta<syntax::Nullable<syntax::LenientLanguageTag>, C::Metadata>> {
 		self.imported().and_then(|i| i.language()).or_else(|| self.base.language())
 	}
 
-	pub fn direction(&self) -> Option<Loc<syntax::Nullable<syntax::Direction>, C::Source, C::Span>> {
+	pub fn direction(&self) -> Option<Meta<syntax::Nullable<syntax::Direction>, C::Metadata>> {
 		self.imported().and_then(|i| i.direction()).or_else(|| self.base.direction())
 	}
 
-	pub fn protected(&self) -> Option<Loc<bool, C::Source, C::Span>> {
+	pub fn protected(&self) -> Option<Meta<bool, C::Metadata>> {
 		self.imported().and_then(|i| i.protected()).or_else(|| self.base.protected())
 	}
 

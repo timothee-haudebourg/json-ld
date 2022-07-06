@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::convert::TryInto;
 
 /// RDF Quad.
-pub struct Quad<T: Id, M>(
+pub struct Quad<T: Id>(
 	pub Option<ValidReference<T>>,
 	pub ValidReference<T>,
 	pub Property<T>,
@@ -18,16 +18,16 @@ pub struct QuadRef<'a, T: Id>(
 	pub Value<T>,
 );
 
-struct Compound<'a, T: Id> {
+struct Compound<'a, T: Id, M> {
 	graph: Option<&'a ValidReference<T>>,
-	triples: super::CompoundValueTriples<'a, T>,
+	triples: super::CompoundValueTriples<'a, T, M>,
 }
 
 /// Iterator over the RDF Quads of a JSON-LD document.
 pub struct Quads<'a, 'g, T: Id, M, G: id::Generator<T>> {
 	generator: &'g mut G,
 	rdf_direction: Option<RdfDirection>,
-	compound_value: Option<Compound<'a, T>>,
+	compound_value: Option<Compound<'a, T, M>>,
 	quads: crate::quad::Quads<'a, T, M>,
 }
 

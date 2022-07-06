@@ -1,9 +1,15 @@
-use iref::IriRefBuf;
+use iref::{IriRef, IriRefBuf};
+
+pub struct InvalidCompactIri<T>(T);
 
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CompactIri(str);
 
 impl CompactIri {
+	pub fn new(s: &str) -> Result<&Self, InvalidCompactIri<&str>> {
+		todo!()
+	}
+
 	pub unsafe fn new_unchecked(s: &str) -> &Self {
 		std::mem::transmute(s)
 	}
@@ -24,6 +30,10 @@ impl CompactIri {
 	pub fn suffix(&self) -> &str {
 		let i = self.find(':').unwrap();
 		&self[i+1..]
+	}
+
+	pub fn as_iri_ref(&self) -> IriRef {
+		IriRef::new(self.as_str()).unwrap()
 	}
 }
 

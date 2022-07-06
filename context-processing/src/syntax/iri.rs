@@ -14,7 +14,7 @@ use json_ld_syntax::{
 		KeyOrKeywordRef
 	}
 };
-use locspan::Loc;
+use locspan::Meta;
 use iref::IriRefBuf;
 use std::future::Future;
 use crate::{
@@ -22,7 +22,7 @@ use crate::{
 	ProcessingStack,
 	Loader,
 	Warning,
-	LocWarning,
+	MetaWarning,
 	Error
 };
 use super::{
@@ -30,15 +30,23 @@ use super::{
 	DefinedTerms
 };
 
+pub struct MalformedIri(pub String);
+
+impl From<MalformedIri> for Warning {
+	fn from(MalformedIri(s): MalformedIri) -> Self {
+		Self::MalformedIri(s)
+	}
+}
+
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
 pub fn expand_iri_with<
 	'a,
 	T: Id + Send + Sync,
 	C: syntax::AnyContextEntry + Send + Sync,
-	L: Loader + Send + Sync,
+	L: Loader + Send + Sync
 >(
 	active_context: &'a mut Context<T, C>,
-	Loc(value, loc): Loc<Nullable<ExpandableRef<'a>>, C::Source, C::Span>,
+	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, C::Metadata>,
 	document_relative: bool,
 	vocab: bool,
 	local_context: &'a Merged<C>,
@@ -46,7 +54,7 @@ pub fn expand_iri_with<
 	remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	options: ProcessingOptions,
-	warnings: &'a mut Vec<LocWarning<T, C>>,
+	mut warnings: impl 'a + Send + FnMut(MetaWarning<C>),
 ) -> impl 'a + Send + Future<Output = Result<Term<T>, Error>>
 where
 	L::Output: Into<C>,
@@ -65,14 +73,14 @@ where
 				super::define(
 					active_context,
 					local_context,
-					Loc(key.into(), loc.clone()),
+					Meta(key.into(), loc.clone()),
 					defined,
 					remote_contexts.clone(),
 					loader,
 					None,
 					false,
 					options.with_no_override(),
-					warnings,
+					&mut warnings,
 				)
 				.await?;
 
@@ -109,14 +117,14 @@ where
 						super::define(
 							active_context,
 							local_context,
-							Loc(KeyOrKeywordRef::Key(KeyRef::Term(compact_iri.prefix())), loc.clone()),
+							Meta(KeyOrKeywordRef::Key(KeyRef::Term(compact_iri.prefix())), loc.clone()),
 							defined,
 							remote_contexts,
 							loader,
 							None,
 							false,
 							options.with_no_override(),
-							warnings,
+							&mut warnings,
 						)
 						.await?;
 
@@ -166,7 +174,7 @@ where
 					return Ok(Term::Ref(Reference::from_string(result)))
 				}
 				Some(_) => {
-					return Ok(invalid_iri(Loc(iri_ref.to_string(), loc), warnings))
+					return Ok(invalid_iri(Meta(iri_ref.to_string(), loc), warnings))
 				}
 				None => (),
 			}
@@ -182,12 +190,12 @@ where
 			if let Some(value) = super::resolve_iri(iri_ref.as_iri_ref(), active_context.base_iri()) {
 				return Ok(Term::from(T::from_iri(value.as_iri())));
 			} else {
-				return Ok(invalid_iri(Loc(iri_ref.to_string(), loc), warnings));
+				return Ok(invalid_iri(Meta(iri_ref.to_string(), loc), warnings));
 			}
 		}
 
 		// Return value as is.
-		Ok(invalid_iri(Loc(iri_ref.to_string(), loc), warnings))
+		Ok(invalid_iri(Meta(iri_ref.to_string(), loc), warnings))
 	}
 }
 
@@ -195,13 +203,14 @@ where
 pub fn expand_iri_simple<
 	'a,
 	T: Id,
-	C: syntax::AnyContextEntry
+	C: syntax::AnyContextEntry,
+	W: From<MalformedIri>
 >(
 	active_context: &'a Context<T, C>,
-	Loc(value, loc): Loc<Nullable<ExpandableRef<'a>>, C::Source, C::Span>,
+	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, C::Metadata>,
 	document_relative: bool,
 	vocab: bool,
-	warnings: &'a mut Vec<LocWarning<T, C>>,
+	warnings: impl FnMut(Meta<W, C::Metadata>),
 ) -> Term<T> {
 	let iri_ref = match value {
 		Nullable::Null => return Term::Null,
@@ -279,7 +288,7 @@ pub fn expand_iri_simple<
 				return Term::Ref(Reference::from_string(result))
 			}
 			Some(_) => {
-				return invalid_iri(Loc(iri_ref.to_string(), loc), warnings)
+				return invalid_iri(Meta(iri_ref.to_string(), loc), warnings)
 			}
 			None => (),
 		}
@@ -295,20 +304,20 @@ pub fn expand_iri_simple<
 		if let Some(value) = super::resolve_iri(iri_ref.as_iri_ref(), active_context.base_iri()) {
 			return Term::from(T::from_iri(value.as_iri()))
 		} else {
-			return invalid_iri(Loc(iri_ref.to_string(), loc), warnings)
+			return invalid_iri(Meta(iri_ref.to_string(), loc), warnings)
 		}
 	}
 
 	// Return value as is.
-	invalid_iri(Loc(iri_ref.to_string(), loc), warnings)
+	invalid_iri(Meta(iri_ref.to_string(), loc), warnings)
 }
 
-fn invalid_iri<T, S, P>(
-	Loc(value, loc): Loc<String, S, P>,
-	warnings: &mut Vec<Loc<Warning, S, P>>
+fn invalid_iri<T, M, W: From<MalformedIri>>(
+	Meta(value, loc): Meta<String, M>,
+	mut warnings: impl FnMut(Meta<W, M>)
 ) -> Term<T> {
-	warnings.push(Loc(
-		Warning::MalformedIri(value.clone()),
+	warnings(Meta(
+		MalformedIri(value.clone()).into(),
 		loc
 	));
 

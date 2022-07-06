@@ -1,4 +1,3 @@
-use crate::{Loc, Location};
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -36,11 +35,6 @@ impl Error {
 	#[inline(always)]
 	pub fn code(&self) -> ErrorCode {
 		self.code
-	}
-
-	/// Turns this error into a located error attached with the given `metadata`.
-	pub fn located<F, M>(self, loc: Location<F, M>) -> Loc<Error, F, M> {
-		Loc::new(self, loc)
 	}
 }
 
@@ -293,11 +287,6 @@ impl ErrorCode {
 			ProcessingModeConflict => "processing mode conflict",
 			ProtectedTermRedefinition => "protected term redefinition",
 		}
-	}
-
-	/// Turns this error code into an actual located error attached to the given `metadata`.
-	pub fn located<F, M>(self, loc: Location<F, M>) -> Loc<Error, F, M> {
-		Error::from(self).located(loc)
 	}
 }
 

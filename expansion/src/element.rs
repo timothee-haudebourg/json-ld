@@ -1,36 +1,48 @@
 use futures::future::{BoxFuture, FutureExt};
+use std::borrow::Cow;
 use iref::Iri;
 use mown::Mown;
-use locspan::{Loc, Span};
-use json_ld_core::{Id, Context};
-use json_syntax::Value;
+use locspan::{Meta, At};
+use json_ld_core::{Id, Context, Term, Reference, Indexed, Object};
+use json_ld_syntax::{Nullable, Keyword, Value, object::Entry};
+use json_ld_context_processing::{ProcessingOptions, Process, Loader as ContextLoader};
 use crate::{
 	Expanded,
 	Warning,
 	Error,
 	Loader,
-	Options
+	Options,
+	expand_array,
+	expand_iri,
+	expand_value,
+	expand_literal,
+	expand_node
 };
 
+pub struct ExpandedEntry<'a, T, C, M>(pub Meta<&'a str, &'a M>, pub Term<T>, pub &'a Meta<Value<C, M>, M>);
+
 /// Result of the expansion of a single element in a JSON-LD document.
-pub type ElementExpansionResult<T, S, P=Span> = Result<Expanded<T>, Loc<Error, S, P>>;
+pub type ElementExpansionResult<T, M> = Result<Expanded<T>, Meta<Error, M>>;
 
 /// Expand an element.
 ///
 /// See <https://www.w3.org/TR/json-ld11-api/#expansion-algorithm>.
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, T: Id, S, P, C, L: Loader>(
+pub fn expand_element<'a, T: Id, C: Process<T>, L: Loader + ContextLoader>(
 	active_context: &'a Context<T, C>,
-	active_property: Option<Loc<&str, S, P>>,
-	element: &'a Value<S, P>,
+	active_property: Option<Meta<&str, C::Metadata>>,
+	element: &'a Value<C, C::Metadata>,
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
 	from_map: bool,
-	warnings: &'a mut Vec<Loc<Warning, S, P>>,
-) -> BoxFuture<'a, ElementExpansionResult<T, S, P>>
+	warnings: impl 'a + Send + FnMut(Meta<Warning, C::Metadata>),
+) -> BoxFuture<'a, ElementExpansionResult<T, C::Metadata>>
 where
-	L::Output: Into<Value<S, P>>,
+	T: Sync + Send,
+	L: Sync + Send,
+	<L as Loader>::Output: Into<Value<C, C::Metadata>>,
+	<L as ContextLoader>::Output: Into<C>
 {
 	async move {
 		// If `element` is null, return null.
@@ -38,7 +50,7 @@ where
 			return Ok(Expanded::Null);
 		}
 
-		let active_property_definition = active_context.get_opt(active_property.id());
+		let active_property_definition = active_property.as_ref().and_then(|key| active_context.get(**key));
 
 		// If `active_property` has a term definition in `active_context` with a local context,
 		// initialize property-scoped context to that local context.
@@ -53,9 +65,9 @@ where
 			None
 		};
 
-		match element.as_value_ref() {
-			ValueRef::Null => unreachable!(),
-			ValueRef::Array(element) => {
+		match element {
+			Value::Null => unreachable!(),
+			Value::Array(element) => {
 				expand_array(
 					active_context,
 					active_property,
@@ -70,26 +82,20 @@ where
 				.await
 			}
 
-			ValueRef::Object(element) => {
-				// We will need to consider expanded keys, and maybe ordered keys.
-				let mut entries: Vec<Entry<J>> = Vec::with_capacity(element.len());
-				for (key, value) in element.iter() {
-					entries.push(Entry(key, value));
-				}
-
-				if options.ordered {
-					entries.sort()
-				}
+			Value::Object(element) => {
+				let mut entries: Cow<[Entry<C, _>]> = if options.ordered {
+					Cow::Owned(element.entries().iter().cloned().collect())
+				} else {
+					Cow::Borrowed(element.entries().as_slice())
+				};
 
 				let mut value_entry1 = None;
 				let mut id_entry = None;
 
-				for Entry(key, value) in entries.iter() {
+				for Entry { key: Meta(key, key_metadata), value } in entries.iter() {
 					match expand_iri(
-						source,
 						active_context,
-						key.as_ref(),
-						key.metadata(),
+						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
 						true,
 						warnings,
@@ -114,7 +120,7 @@ where
 						&& value_entry1.is_none()
 						&& !(element.len() == 1 && id_entry.is_some())
 					{
-						active_context = Mown::Owned(previous_context.as_ref().clone())
+						active_context = Mown::Owned(previous_context.clone())
 					}
 				}
 
@@ -133,43 +139,39 @@ where
 								property_scoped_base_url,
 								options.with_override(),
 							)
-							.await
-							.map_err(|e| {
-								e.with_metadata(active_property.metadata().unwrap().clone())
-							})?
-							.into_inner(),
+							.await.map_err(Meta::cast)?
+							// .err_at(|| active_property.as_ref().map(Meta::metadata).cloned().unwrap_or_default())?
+							// .into_inner(),
 					);
 				}
 
 				// If `element` contains the entry `@context`, set `active_context` to the result
 				// of the Context Processing algorithm, passing `active_context`, the value of the
 				// `@context` entry as `local_context` and `base_url`.
-				if let Some(local_context) = element.get("@context") {
+				if let Some(Meta(local_context, _)) = element.context() {
 					active_context = Mown::Owned(
 						local_context
 							.process_with(active_context.as_ref(), loader, base_url, options.into())
-							.await?
-							.into_inner(),
+							.await.map_err(Meta::cast)?
 					);
 				}
 
-				let mut type_entries: Vec<Entry<J>> = Vec::new();
-				for entry @ Entry(key, _) in entries.iter() {
+				let mut type_entries: Vec<Entry<C, _>> = Vec::new();
+				for entry @ Entry { key: Meta(key, key_metadata), .. } in entries.iter() {
 					let expanded_key = expand_iri(
-						source,
 						active_context.as_ref(),
-						key.as_ref(),
-						key.metadata(),
+						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
 						true,
 						warnings,
 					);
+					
 					if let Term::Keyword(Keyword::Type) = expanded_key {
 						type_entries.push(entry.clone());
 					}
 				}
 
-				type_entries.sort();
+				type_entries.sort_unstable_by_key(|Entry { key: Meta(key, _), .. }| key);
 
 				// Initialize `type_scoped_context` to `active_context`.
 				// This is used for expanding values that may be relevant to any previous
@@ -179,24 +181,23 @@ where
 
 				// For each `key` and `value` in `element` ordered lexicographically by key where
 				// key IRI expands to @type:
-				for Entry(_, value) in &type_entries {
+				for Entry { value, .. } in &type_entries {
 					// Convert `value` into an array, if necessary.
-					let (value, len) = as_array(&**value);
+					let value = Value::force_as_array(value);
 
 					// For each `term` which is a value of `value` ordered lexicographically,
-					let mut sorted_value = Vec::with_capacity(len);
-					for term in value {
-						if term.is_string() {
-							sorted_value.push(term);
+					let mut sorted_value = Vec::with_capacity(value.len());
+					for Meta(term, meta) in value {
+						if let Some(s) = term.as_string() {
+							sorted_value.push(Meta(s, meta));
 						}
 					}
-					sorted_value.sort_unstable_by(|a, b| a.as_str().cmp(&b.as_str()));
+					sorted_value.sort_unstable_by_key(Meta::value);
 
 					// if `term` is a string, and `term`'s term definition in `type_scoped_context`
 					// has a `local_context`,
-					for term in sorted_value {
-						let term_str = term.as_str().unwrap();
-						if let Some(term_definition) = type_scoped_context.get(term_str) {
+					for Meta(term, meta) in sorted_value {
+						if let Some(term_definition) = type_scoped_context.get(term) {
 							if let Some(local_context) = &term_definition.context {
 								// set `active_context` to the result of
 								// Context Processing algorithm, passing `active_context`, the value of the
@@ -214,8 +215,7 @@ where
 											options.without_propagation(),
 										)
 										.await
-										.map_err(|e| e.with_metadata(term.metadata().clone()))?
-										.into_inner(),
+										.map_err(Meta::cast)?
 								);
 							}
 						}
@@ -226,15 +226,13 @@ where
 				// `element` expanding to `@type` (if any), ordering entries lexicographically by
 				// key.
 				// Both the key and value of the matched entry are IRI expanded.
-				let input_type = if let Some(Entry(_, value)) = type_entries.first() {
-					let (value, _) = as_array(&**value);
-					if let Some(input_type) = value.last() {
-						input_type.as_str().map(|input_type_str| {
+				let input_type = if let Some(Entry { value, .. }) = type_entries.first() {
+					let value = Value::force_as_array(value);
+					if let Some(Meta(input_type, input_metadata)) = value.last() {
+						input_type.as_string().map(|input_type_str| {
 							expand_iri(
-								source,
 								active_context.as_ref(),
-								input_type_str,
-								input_type.metadata(),
+								Meta(Nullable::Some(input_type_str.into()), input_metadata.clone()),
 								false,
 								true,
 								warnings,
@@ -247,66 +245,65 @@ where
 					None
 				};
 
-				let mut expanded_entries: Vec<ExpandedEntry<J, Term<T>>> =
+				let mut expanded_entries: Vec<ExpandedEntry<T, C, C::Metadata>> =
 					Vec::with_capacity(element.len());
 				let mut list_entry = None;
 				let mut set_entry = None;
 				let mut value_entry = None;
-				for Entry(key, value) in entries {
+				for Entry { key: Meta(key, key_metadata), value } in entries.iter() {
 					if key.is_empty() {
-						warnings.push(Loc::new(Warning::EmptyTerm, source, key.metadata().clone()));
+						warnings(Meta::new(Warning::EmptyTerm, key_metadata.clone()));
 					}
 
 					let expanded_key = expand_iri(
-						source,
 						active_context.as_ref(),
-						key.as_ref(),
-						key.metadata(),
+						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
 						true,
 						warnings,
 					);
 					match &expanded_key {
 						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
-						Term::Keyword(Keyword::List)
-							if active_property.is_some() && active_property != Some("@graph") =>
-						{
-							list_entry = Some(value.clone())
+						Term::Keyword(Keyword::List) => {
+							if let Some(Meta(active_property, _)) = active_property.as_ref() {
+								if *active_property != "@graph" {
+									list_entry = Some(value.clone())
+								}
+							}
 						}
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
 						Term::Ref(Reference::Blank(id)) => {
-							warnings.push(Loc::new(
+							warnings(Meta::new(
 								Warning::BlankNodeIdProperty(id.clone()),
-								source,
-								key.metadata().clone(),
+								key_metadata.clone(),
 							));
 						}
 						_ => (),
 					}
 
 					expanded_entries.push(ExpandedEntry(
-						J::Object::upcast_key_ref(key),
+						Meta(key, key_metadata),
 						expanded_key,
-						J::Object::upcast_item_ref(value),
+						value,
 					))
 				}
 
 				if let Some(list_entry) = list_entry {
 					// List objects.
 					let mut index = None;
-					for ExpandedEntry(key, expanded_key, value) in expanded_entries {
+					for ExpandedEntry(Meta(key, key_metadata), expanded_key, value) in expanded_entries {
 						match expanded_key {
-							Term::Keyword(Keyword::Index) => match value.as_str() {
+							Term::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
 								None => {
-									return Err(ErrorCode::InvalidIndexValue
-										.located(source, value.metadata().clone()))
+									return Err(Error::InvalidIndexValue
+										.at(value.metadata().clone()))
 								}
 							},
 							Term::Keyword(Keyword::List) => (),
 							_ => {
-								return Err(ErrorCode::InvalidSetOrListObject
-									.located(source, key.metadata().clone()))
+								return Err(Error::InvalidSetOrListObject
+									.at(key_metadata.clone()))
 							}
 						}
 					}
@@ -316,7 +313,7 @@ where
 					// base URL, and the ordered flags, ensuring that the
 					// result is an array..
 					let mut result = Vec::new();
-					let (list_entry, _) = as_array(&*list_entry);
+					let list_entry = Value::force_as_array(&list_entry);
 					for item in list_entry {
 						result.extend(
 							expand_element(
@@ -336,7 +333,7 @@ where
 					Ok(Expanded::Object(Indexed::new(Object::List(result), index)))
 				} else if let Some(set_entry) = set_entry {
 					// Set objects.
-					for ExpandedEntry(key, expanded_key, _) in expanded_entries {
+					for ExpandedEntry(Meta(key, key_metadata), expanded_key, _) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
 								// having an `@index` here is tolerated,
@@ -344,8 +341,8 @@ where
 							}
 							Term::Keyword(Keyword::Set) => (),
 							_ => {
-								return Err(ErrorCode::InvalidSetOrListObject
-									.located(source, key.metadata().clone()))
+								return Err(Error::InvalidSetOrListObject
+									.at(key_metadata.clone()))
 							}
 						}
 					}
@@ -367,14 +364,13 @@ where
 				} else if let Some(value_entry) = value_entry {
 					// Value objects.
 					if let Some(value) = expand_value(
-						source,
 						input_type,
 						type_scoped_context,
 						expanded_entries,
 						&*value_entry,
 						warnings,
 					)
-					.map_err(|e| e.located(source, value_entry.metadata().clone()))?
+					.map_err(Meta::cast)?
 					{
 						Ok(Expanded::Object(value))
 					} else {
@@ -442,13 +438,12 @@ where
 				// `active_property`, and `element` as value.
 				return Ok(Expanded::Object(
 					expand_literal(
-						source,
 						active_context.as_ref(),
 						active_property,
 						LiteralValue::Given(element),
 						warnings,
 					)
-					.map_err(|e| e.located(source, element.metadata().clone()))?,
+					.map_err(Meta::cast)?,
 				));
 			}
 		}

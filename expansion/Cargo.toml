@@ -15,7 +15,8 @@ readme = "README.md"
 json-ld-core = { path = "../core" }
 json-ld-syntax = { path = "../syntax" }
 json-ld-context-processing = { path = "../context-processing" }
-json-syntax = "0.3.1"
+# json-syntax = "0.3.1"
+json-syntax = { path = "../../../json/syntax" }
 iref = "2.1.3"
 rdf-types = "0.7"
 futures = "^0.3"

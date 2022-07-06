@@ -186,7 +186,7 @@ pub struct CompoundLiteral<T: Id> {
 	triples: Option<CompoundLiteralTriples<T>>,
 }
 
-impl<T: Id> crate::object::Value<T> {
+impl<T: Id, M> crate::object::Value<T, M> {
 	fn rdf_value<G: id::Generator<T>>(
 		&self,
 		generator: &mut G,
@@ -303,18 +303,18 @@ impl<T: Id> crate::object::Value<T> {
 	}
 }
 
-impl<T: Id> Node<T> {
+impl<T: Id, M> Node<T, M> {
 	fn rdf_value(&self) -> Option<Value<T>> {
 		self.id().and_then(Reference::rdf_value)
 	}
 }
 
-impl<T: Id> Object<T> {
+impl<T: Id, M> Object<T, M> {
 	fn rdf_value<G: id::Generator<T>>(
 		&self,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Option<CompoundValue<T>> {
+	) -> Option<CompoundValue<T, M>> {
 		match self {
 			Self::Value(value) => value
 				.rdf_value(generator, rdf_direction)
@@ -344,17 +344,17 @@ impl<T: Id> Object<T> {
 	}
 }
 
-pub struct CompoundValue<'a, T: Id> {
+pub struct CompoundValue<'a, T: Id, M> {
 	value: Value<T>,
-	triples: Option<CompoundValueTriples<'a, T>>,
+	triples: Option<CompoundValueTriples<'a, T, M>>,
 }
 
-impl<'a, T: Id> crate::quad::ObjectRef<'a, T> {
+impl<'a, T: Id, M> crate::quad::ObjectRef<'a, T, M> {
 	pub fn rdf_value<G: id::Generator<T>>(
 		&self,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Option<CompoundValue<'a, T>> {
+	) -> Option<CompoundValue<'a, T, M>> {
 		match self {
 			Self::Object(object) => object.rdf_value(generator, rdf_direction),
 			Self::Node(node) => node.rdf_value().map(|value| CompoundValue {
@@ -369,24 +369,24 @@ impl<'a, T: Id> crate::quad::ObjectRef<'a, T> {
 	}
 }
 
-enum ListItemTriples<'a, T: Id> {
-	NestedList(NestedListTriples<'a, T>),
+enum ListItemTriples<'a, T: Id, M> {
+	NestedList(NestedListTriples<'a, T, M>),
 	CompoundLiteral(CompoundLiteralTriples<T>),
 }
 
-struct NestedListTriples<'a, T: Id> {
+struct NestedListTriples<'a, T: Id, M> {
 	head_ref: Option<ValidReference<T>>,
 	previous: Option<ValidReference<T>>,
-	iter: std::slice::Iter<'a, Indexed<Object<T>>>,
+	iter: std::slice::Iter<'a, Indexed<Object<T, M>>>,
 }
 
-struct ListNode<'a, 'i, T: Id> {
+struct ListNode<'a, 'i, T: Id, M> {
 	id: &'i ValidReference<T>,
-	object: &'a Indexed<Object<T>>,
+	object: &'a Indexed<Object<T, M>>,
 }
 
-impl<'a, T: Id> NestedListTriples<'a, T> {
-	fn new(list: &'a [Indexed<Object<T>>], head_ref: ValidReference<T>) -> Self {
+impl<'a, T: Id, M> NestedListTriples<'a, T, M> {
+	fn new(list: &'a [Indexed<Object<T, M>>], head_ref: ValidReference<T>) -> Self {
 		Self {
 			head_ref: Some(head_ref),
 			previous: None,
@@ -401,7 +401,7 @@ impl<'a, T: Id> NestedListTriples<'a, T> {
 	/// Pull the next object of the list.
 	///
 	/// Uses the given generator to assign as id to the list element.
-	fn next<G: id::Generator<T>>(&mut self, generator: &mut G) -> Option<ListNode<'a, '_, T>> {
+	fn next<G: id::Generator<T>>(&mut self, generator: &mut G) -> Option<ListNode<'a, '_, T, M>> {
 		if let Some(next) = self.iter.next() {
 			let id = match self.head_ref.take() {
 				Some(id) => id,
@@ -419,17 +419,17 @@ impl<'a, T: Id> NestedListTriples<'a, T> {
 	}
 }
 
-pub enum CompoundValueTriples<'a, T: Id> {
+pub enum CompoundValueTriples<'a, T: Id, M> {
 	Literal(CompoundLiteralTriples<T>),
-	List(ListTriples<'a, T>),
+	List(ListTriples<'a, T, M>),
 }
 
-impl<'a, T: Id> CompoundValueTriples<'a, T> {
+impl<'a, T: Id, M> CompoundValueTriples<'a, T, M> {
 	pub fn with<G: id::Generator<T>>(
 		self,
 		generator: G,
 		rdf_direction: Option<RdfDirection>,
-	) -> CompoundValueTriplesWith<'a, T, G> {
+	) -> CompoundValueTriplesWith<'a, T, M, G> {
 		CompoundValueTriplesWith {
 			generator,
 			rdf_direction,
@@ -449,14 +449,14 @@ impl<'a, T: Id> CompoundValueTriples<'a, T> {
 	}
 }
 
-pub struct CompoundValueTriplesWith<'a, T: Id, G: id::Generator<T>> {
+pub struct CompoundValueTriplesWith<'a, T: Id, M, G: id::Generator<T>> {
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
-	inner: CompoundValueTriples<'a, T>,
+	inner: CompoundValueTriples<'a, T, M>,
 }
 
-impl<'a, T: Id, G: id::Generator<T>> Iterator
-	for CompoundValueTriplesWith<'a, T, G>
+impl<'a, T: Id, M, G: id::Generator<T>> Iterator
+	for CompoundValueTriplesWith<'a, T, M, G>
 {
 	type Item = Triple<T>;
 
@@ -468,13 +468,13 @@ impl<'a, T: Id, G: id::Generator<T>> Iterator
 /// Iterator over the RDF quads generated from a list of JSON-LD objects.
 ///
 /// If the list contains nested lists, the iterator will also emit quads for those nested lists.
-pub struct ListTriples<'a, T: Id> {
-	stack: SmallVec<[ListItemTriples<'a, T>; 2]>,
+pub struct ListTriples<'a, T: Id, M> {
+	stack: SmallVec<[ListItemTriples<'a, T, M>; 2]>,
 	pending: Option<Triple<T>>,
 }
 
-impl<'a, T: Id> ListTriples<'a, T> {
-	pub fn new(list: &'a [Indexed<Object<T>>], head_ref: ValidReference<T>) -> Self {
+impl<'a, T: Id, M> ListTriples<'a, T, M> {
+	pub fn new(list: &'a [Indexed<Object<T, M>>], head_ref: ValidReference<T>) -> Self {
 		let mut stack = SmallVec::new();
 		stack.push(ListItemTriples::NestedList(NestedListTriples::new(
 			list, head_ref,
@@ -490,7 +490,7 @@ impl<'a, T: Id> ListTriples<'a, T> {
 		self,
 		generator: G,
 		rdf_direction: Option<RdfDirection>,
-	) -> ListTriplesWith<'a, T, G> {
+	) -> ListTriplesWith<'a, T, M, G> {
 		ListTriplesWith {
 			generator,
 			rdf_direction,
@@ -568,14 +568,14 @@ impl<'a, T: Id> ListTriples<'a, T> {
 	}
 }
 
-pub struct ListTriplesWith<'a, T: Id, G: id::Generator<T>> {
+pub struct ListTriplesWith<'a, T: Id, M, G: id::Generator<T>> {
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
-	inner: ListTriples<'a, T>,
+	inner: ListTriples<'a, T, M>,
 }
 
-impl<'a, T: Id, G: id::Generator<T>> Iterator
-	for ListTriplesWith<'a, T, G>
+impl<'a, T: Id, M, G: id::Generator<T>> Iterator
+	for ListTriplesWith<'a, T, M, G>
 {
 	type Item = Triple<T>;
 

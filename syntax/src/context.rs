@@ -1,6 +1,6 @@
 use iref::{IriBuf, IriRefBuf};
 use rdf_types::BlankIdBuf;
-use locspan::{Loc, Location};
+use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
 use indexmap::IndexMap;
 use derivative::Derivative;
@@ -21,14 +21,14 @@ pub use reference::*;
 
 /// Context entry.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
-#[stripped_ignore(S, P)]
-pub enum ContextEntry<S, P> {
-	One(Loc<Context<S, P>, S, P>),
-	Many(Vec<Loc<Context<S, P>, S, P>>)
+#[stripped_ignore(M)]
+pub enum ContextEntry<M> {
+	One(Meta<Context<M>, M>),
+	Many(Vec<Meta<Context<M>, M>>)
 }
 
-impl<S, P> ContextEntry<S, P> {
-	pub fn as_slice(&self) -> &[Loc<Context<S, P>, S, P>] {
+impl<M> ContextEntry<M> {
+	pub fn as_slice(&self) -> &[Meta<Context<M>, M>] {
 		match self {
 			Self::One(c) => std::slice::from_ref(c),
 			Self::Many(list) => list
@@ -38,37 +38,37 @@ impl<S, P> ContextEntry<S, P> {
 
 /// Context.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
-#[stripped_ignore(S, P)]
-pub enum Context<S, P> {
+#[stripped_ignore(M)]
+pub enum Context<M> {
 	Null,
 	IriRef(#[stripped] IriRefBuf),
-	Definition(ContextDefinition<S, P>)
+	Definition(ContextDefinition<M>)
 }
 
 /// Context definition.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
-#[stripped_ignore(S, P)]
-pub struct ContextDefinition<S, P> {
+#[stripped_ignore(M)]
+pub struct ContextDefinition<M> {
 	#[stripped_option_deref]
-	pub base: Option<Loc<Nullable<IriRefBuf>, S, P>>,
+	pub base: Option<Meta<Nullable<IriRefBuf>, M>>,
 	#[stripped_option_deref]
-	pub import: Option<Loc<IriRefBuf, S, P>>,
-	pub language: Option<Loc<Nullable<LenientLanguageTagBuf>, S, P>>,
-	pub direction: Option<Loc<Nullable<Direction>, S, P>>,
-	pub propagate: Option<Loc<bool, S, P>>,
-	pub protected: Option<Loc<bool, S, P>>,
-	pub type_: Option<Loc<ContextType<S, P>, S, P>>,
-	pub version: Option<Loc<Version, S, P>>,
-	pub vocab: Option<Loc<Nullable<Vocab>, S, P>>,
-	pub bindings: Bindings<S, P>
+	pub import: Option<Meta<IriRefBuf, M>>,
+	pub language: Option<Meta<Nullable<LenientLanguageTagBuf>, M>>,
+	pub direction: Option<Meta<Nullable<Direction>, M>>,
+	pub propagate: Option<Meta<bool, M>>,
+	pub protected: Option<Meta<bool, M>>,
+	pub type_: Option<Meta<ContextType<M>, M>>,
+	pub version: Option<Meta<Version, M>>,
+	pub vocab: Option<Meta<Nullable<Vocab>, M>>,
+	pub bindings: Bindings<M>
 }
 
 /// Context bindings.
 #[derive(PartialEq, Eq, Clone, Derivative)]
 #[derivative(Default(bound=""))]
-pub struct Bindings<S, P>(IndexMap<Key, TermBinding<S, P>>);
+pub struct Bindings<M>(IndexMap<Key, TermBinding<M>>);
 
-impl<S, P> Bindings<S, P> {
+impl<M> Bindings<M> {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -81,16 +81,16 @@ impl<S, P> Bindings<S, P> {
 		self.0.is_empty()
 	}
 
-	pub fn get(&self, key: &Key) -> Option<&TermBinding<S, P>> {
+	pub fn get(&self, key: &Key) -> Option<&TermBinding<M>> {
 		self.0.get(key)
 	}
 
-	pub fn iter(&self) -> indexmap::map::Iter<Key, TermBinding<S, P>> {
+	pub fn iter(&self) -> indexmap::map::Iter<Key, TermBinding<M>> {
 		self.0.iter()
 	}
 }
 
-impl<S, P> locspan::StrippedPartialEq for Bindings<S, P> {
+impl<M> locspan::StrippedPartialEq for Bindings<M> {
 	fn stripped_eq(&self, other: &Self) -> bool {
 		self.len() == other.len() && self.iter().all(|(key, a)| {
 			other.get(key).map(|b| a.stripped_eq(b)).unwrap_or(false)
@@ -100,39 +100,39 @@ impl<S, P> locspan::StrippedPartialEq for Bindings<S, P> {
 
 /// Term binding.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
-#[stripped_ignore(S, P)]
-pub struct TermBinding<S, P> {
+#[stripped_ignore(M)]
+pub struct TermBinding<M> {
 	#[stripped_ignore]
-	key_location: Location<S, P>,
-	definition: Loc<Nullable<TermDefinition<S, P>>, S, P>
+	key_metadata: M,
+	definition: Meta<Nullable<TermDefinition<M>>, M>
 }
 
 /// Term definition.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
-#[stripped_ignore(S, P)]
-pub enum TermDefinition<S, P> {
+#[stripped_ignore(M)]
+pub enum TermDefinition<M> {
 	Iri(#[stripped] IriBuf),
 	CompactIri(#[stripped] CompactIriBuf),
 	Blank(#[stripped] BlankIdBuf),
-	Expanded(ExpandedTermDefinition<S, P>)
+	Expanded(ExpandedTermDefinition<M>)
 }
 
 /// Expanded term definition.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
-#[stripped_ignore(S, P)]
-pub struct ExpandedTermDefinition<S, P> {
-	pub id: Option<Loc<Nullable<Id>, S, P>>,
-	pub type_: Option<Loc<Nullable<TermDefinitionType>, S, P>>,
-	pub context: Option<Box<Loc<ContextEntry<S, P>, S, P>>>,
-	pub reverse: Option<Loc<Key, S, P>>,
-	pub index: Option<Loc<Index, S, P>>,
-	pub language: Option<Loc<Nullable<LenientLanguageTagBuf>, S, P>>,
-	pub direction: Option<Loc<Nullable<Direction>, S, P>>,
-	pub container: Option<Loc<Nullable<Container>, S, P>>,
-	pub nest: Option<Loc<Nest, S, P>>,
-	pub prefix: Option<Loc<bool, S, P>>,
-	pub propagate: Option<Loc<bool, S, P>>,
-	pub protected: Option<Loc<bool, S, P>>
+#[stripped_ignore(M)]
+pub struct ExpandedTermDefinition<M> {
+	pub id: Option<Meta<Nullable<Id>, M>>,
+	pub type_: Option<Meta<Nullable<TermDefinitionType>, M>>,
+	pub context: Option<Box<Meta<ContextEntry<M>, M>>>,
+	pub reverse: Option<Meta<Key, M>>,
+	pub index: Option<Meta<Index, M>>,
+	pub language: Option<Meta<Nullable<LenientLanguageTagBuf>, M>>,
+	pub direction: Option<Meta<Nullable<Direction>, M>>,
+	pub container: Option<Meta<Nullable<Container>, M>>,
+	pub nest: Option<Meta<Nest, M>>,
+	pub prefix: Option<Meta<bool, M>>,
+	pub propagate: Option<Meta<bool, M>>,
+	pub protected: Option<Meta<bool, M>>
 }
 
 #[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -198,10 +198,10 @@ pub enum Version {
 pub struct Import;
 
 #[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
-#[stripped_ignore(S, P)]
-pub struct ContextType<S, P> {
-	pub container: Loc<TypeContainer, S, P>,
-	pub protected: Option<Loc<bool, S, P>>
+#[stripped_ignore(M)]
+pub struct ContextType<M> {
+	pub container: Meta<TypeContainer, M>,
+	pub protected: Option<Meta<bool, M>>
 }
 
 #[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -215,4 +215,14 @@ pub enum Vocab {
 	CompactIri(#[stripped] CompactIriBuf),
 	Blank(#[stripped] BlankIdBuf),
 	Term(#[stripped] String)
+}
+
+pub struct InvalidContextEntry;
+
+impl<M> TryFrom<json_syntax::Value<M>> for ContextEntry<M> {
+	type Error = InvalidContextEntry;
+
+	fn try_from(value: json_syntax::Value<M>) -> Result<Self, Self::Error> {
+		todo!("context entry from JSON")
+	}
 }

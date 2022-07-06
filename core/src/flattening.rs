@@ -1,5 +1,6 @@
 //! Flattening algorithm and related types.
 use crate::{id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object};
+use locspan::Stripped;
 use std::collections::HashSet;
 
 mod namespace;
@@ -8,7 +9,7 @@ mod node_map;
 pub use namespace::Namespace;
 pub use node_map::*;
 
-impl<T: Id, M> ExpandedDocument<T, M> {
+impl<T: Id, M: Clone> ExpandedDocument<T, M> {
 	pub fn flatten<G: id::Generator<T>>(
 		self,
 		generator: G,
@@ -21,7 +22,7 @@ impl<T: Id, M> ExpandedDocument<T, M> {
 	pub fn flatten_unordered<G: id::Generator<T>>(
 		self,
 		generator: G,
-	) -> Result<HashSet<Indexed<Node<T, M>>>, ConflictingIndexes<T>> {
+	) -> Result<HashSet<Stripped<Indexed<Node<T, M>>>>, ConflictingIndexes<T>> {
 		Ok(self.generate_node_map(generator)?.flatten_unordered())
 	}
 }
@@ -63,7 +64,7 @@ impl<T: Id, M> NodeMap<T, M> {
 				nodes.sort_by(|a, b| a.id().unwrap().as_str().cmp(b.id().unwrap().as_str()));
 			}
 			entry.set_graph(Some(
-				nodes.into_iter().filter_map(filter_sub_graph).collect(),
+				nodes.into_iter().filter_map(filter_sub_graph).map(Stripped).collect(),
 			));
 		}
 
@@ -79,19 +80,20 @@ impl<T: Id, M> NodeMap<T, M> {
 		nodes
 	}
 
-	pub fn flatten_unordered(self) -> HashSet<Indexed<Node<T, M>>> {
+	pub fn flatten_unordered(self) -> HashSet<Stripped<Indexed<Node<T, M>>>> {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		for (graph_id, graph) in named_graphs {
 			let entry = default_graph.declare_node(graph_id, None).unwrap();
 			entry.set_graph(Some(
-				graph.into_nodes().filter_map(filter_sub_graph).collect(),
+				graph.into_nodes().filter_map(filter_sub_graph).map(Stripped).collect(),
 			));
 		}
 
 		default_graph
 			.into_nodes()
 			.filter_map(filter_graph)
+			.map(Stripped)
 			.collect()
 	}
 }

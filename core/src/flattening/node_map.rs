@@ -262,7 +262,7 @@ impl<'a, T: Id, M> IntoIterator for &'a NodeMapGraph<T, M> {
 	}
 }
 
-impl<T: Id, M> ExpandedDocument<T, M> {
+impl<T: Id, M: Clone> ExpandedDocument<T, M> {
 	pub fn generate_node_map<G: id::Generator<T>>(
 		&self,
 		generator: G,

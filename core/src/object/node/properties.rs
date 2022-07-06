@@ -50,6 +50,13 @@ impl<T: Id, M> Properties<T, M> {
 		Self(HashMap::new())
 	}
 
+	fn stripped_map(&self) -> &HashMap<Reference<T>, Vec<locspan::Stripped<Indexed<Object<T, M>>>>> {
+		unsafe {
+			// this is safe because `Stripped<_>` is transparent.
+			core::mem::transmute(&self.0)
+		}
+	}
+
 	/// Returns the number of properties.
 	#[inline(always)]
 	pub fn len(&self) -> usize {
@@ -208,7 +215,23 @@ impl<T: Id, M> Properties<T, M> {
 	}
 }
 
-impl<T: Id, M> Hash for Properties<T, M> {
+impl<T: Id, M> locspan::StrippedPartialEq for Properties<T, M> {
+	#[inline(always)]
+	fn stripped_eq(&self, other: &Self) -> bool {
+		self.stripped_map().eq(other.stripped_map())
+	}
+}
+
+impl<T: Id, M> locspan::StrippedEq for Properties<T, M> {}
+
+impl<T: Id, M> locspan::StrippedHash for Properties<T, M> {
+	#[inline(always)]
+	fn stripped_hash<H: Hasher>(&self, h: &mut H) {
+		crate::utils::hash_map(self.stripped_map(), h)
+	}
+}
+
+impl<T: Id, M: Hash> Hash for Properties<T, M> {
 	#[inline(always)]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		crate::utils::hash_map(&self.0, h)

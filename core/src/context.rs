@@ -7,6 +7,7 @@ use iref::{Iri, IriBuf};
 use once_cell::sync::OnceCell;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::borrow::Borrow;
 
 pub use json_ld_syntax::context::{Key, Nest};
 
@@ -54,7 +55,7 @@ impl<T, L> Context<T, L> {
 		}
 	}
 
-	pub fn get(&self, term: &Key) -> Option<&TermDefinition<T, L>> {
+	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<&TermDefinition<T, L>> where Key: Borrow<Q>, Q: Hash + Eq {
 		self.definitions.get(term)
 	}
 

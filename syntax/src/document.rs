@@ -1,154 +1,193 @@
-use crate::{
-	Nullable,
-	Key,
-	Json,
-	Number,
-	Entry,
-	ContextEntry,
-	CompactIriBuf,
-	LenientLanguageTagBuf,
-	Direction
-};
-use iref::{IriRefBuf, IriBuf};
-use rdf_types::BlankIdBuf;
+use locspan::Meta;
+use locspan_derive::*;
+use json_syntax::{Number, NumberBuf, String};
 
-/// JSON-LD document.
-pub enum Document<S, P> {
-	Node(Node<S, P>),
-	Graph(Graph<S, P>),
-	Array(Vec<Node<S, P>>)
-}
+pub mod object;
+pub use object::Object;
 
-pub enum OneOrMany<T> {
-	One(Box<T>),
-	Many(Vec<T>)
-}
-
-/// Node object.
-pub struct Node<S, P> {
-	/// `@context` entry.
-	pub context: Option<Entry<ContextEntry<S, P>, S, P>>,
-
-	/// `@id` entry.
-	pub id: Option<Entry<Id, S, P>>,
-
-	/// `@graph` entry.
-	pub graph: Option<Entry<OneOrMany<Node<S, P>>, S, P>>,
-
-	/// `@type` entry.
-	pub type_: Option<Entry<OneOrMany<Type>, S, P>>,
-
-	/// `@reverse` entry.
-	pub reverse: Option<Entry<Reverse<S, P>, S, P>>,
-
-	/// `@included` entry.
-	pub included: Option<Entry<IncludedBlock, S, P>>,
-
-	/// `@index` entry.
-	pub index: Option<Entry<String, S, P>>,
-
-	/// `@nest` entry.
-	pub nest: Option<Entry<OneOrMany<Nested<S, P>>, S, P>>,
-
-	pub entries: Entries<S, P>
-}
-
-/// Graph object.
-pub struct Graph<S, P> {
-	/// `@context` entry.
-	pub context: Option<Entry<ContextEntry<S, P>, S, P>>,
-
-	/// `@graph` entry.
-	pub graph: Entry<OneOrMany<Node<S, P>>, S, P>
-}
-
-/// Node identifier.
-pub enum Id {
-	IriRef(IriRefBuf),
-	CompactIri(CompactIriBuf),
-	Blank(BlankIdBuf) // TODO useful?
-}
-
-/// Node type.
-pub enum Type {
-	IriRef(IriRefBuf),
-	CompactIri(CompactIriBuf),
-	Blank(BlankIdBuf), // TODO useful?
-	Term(String)
-}
-
-pub struct Reverse<S, P>(::indexmap::IndexMap<Key, OneOrMany<ReverseProperty<S, P>>>);
-
-pub enum ReverseProperty<S, P> {
-	IriRef(IriRefBuf),
-	CompactIri(CompactIriBuf),
-	Blank(BlankIdBuf),
-	Node(Node<S, P>)
-}
-
-pub struct IncludedBlock;
-
-pub enum Nested<S, P> {
-	Node(Node<S, P>)
-}
-
-pub struct Entries<S, P>(::indexmap::IndexMap<Key, OneOrMany<NodeEntry<S, P>>>);
-
-pub enum NodeEntry<S, P> {
-	Normal(OneOrMany<NormalNodeEntry<S, P>>),
-	LanguageMap(LanguageMap),
-	IndexMap(IndexMap),
-	IncludedBlock(IncludedBlock),
-	IdMap(IdMap),
-	TypeMap(TypeMap)
-}
-
-pub enum NormalNodeEntry<S, P> {
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+	Debug,
+	StrippedPartialEq,
+	StrippedEq,
+	StrippedPartialOrd,
+	StrippedOrd,
+	StrippedHash,
+)]
+#[stripped_ignore(M)]
+pub enum Value<C, M> {
 	Null,
-	Boolean(bool),
-	Number(Number),
-	String(String),
-	Node(Node<S, P>),
-	Graph(Graph<S, P>),
-	Value(Value<S, P>),
-	List(List<S, P>),
-	Set(Set<S, P>)
+	Boolean(#[stripped] bool),
+	Number(#[stripped] NumberBuf),
+	String(#[stripped] String),
+	Array(Array<C, M>),
+	Object(Object<C, M>)
 }
 
-/// Value object.
-pub struct Value<S, P> {
-	/// `@value` entry.
-	pub value: Entry<Json<S, P>, S, P>,
+impl<C, M> Value<C, M> {
+	#[inline]
+	pub fn is_null(&self) -> bool {
+		matches!(self, Self::Null)
+	}
 
-	/// `@type` entry.
-	pub type_: Option<Entry<Nullable<ValueType>, S, P>>,
+	#[inline]
+	pub fn is_boolean(&self) -> bool {
+		matches!(self, Self::Boolean(_))
+	}
 
-	/// `@language` entry.
-	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, S, P>>,
+	#[inline]
+	pub fn is_number(&self) -> bool {
+		matches!(self, Self::Number(_))
+	}
 
-	/// `@direction` entry.
-	pub direction: Option<Entry<Nullable<Direction>, S, P>>,
+	#[inline]
+	pub fn is_string(&self) -> bool {
+		matches!(self, Self::String(_))
+	}
 
-	/// `@index` entry.
-	pub index: Option<Entry<String, S, P>>
+	#[inline]
+	pub fn is_array(&self) -> bool {
+		matches!(self, Self::Array(_))
+	}
+
+	#[inline]
+	pub fn is_object(&self) -> bool {
+		matches!(self, Self::Object(_))
+	}
+
+	#[inline]
+	pub fn as_boolean(&self) -> Option<bool> {
+		match self {
+			Self::Boolean(b) => Some(*b),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn as_boolean_mut(&mut self) -> Option<&mut bool> {
+		match self {
+			Self::Boolean(b) => Some(b),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn as_number(&self) -> Option<&Number> {
+		match self {
+			Self::Number(n) => Some(n),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn as_number_mut(&mut self) -> Option<&mut NumberBuf> {
+		match self {
+			Self::Number(n) => Some(n),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn as_string(&self) -> Option<&str> {
+		match self {
+			Self::String(s) => Some(s),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn as_string_mut(&mut self) -> Option<&mut String> {
+		match self {
+			Self::String(s) => Some(s),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn as_array(&self) -> Option<&[Meta<Self, M>]> {
+		match self {
+			Self::Array(a) => Some(a),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn force_as_array<'a>(this: &'a Meta<Self, M>) -> &'a [Meta<Self, M>] {
+		match this.value() {
+			Self::Array(a) => a,
+			_ => core::slice::from_ref(this)
+		}
+	}
+
+	#[inline]
+	pub fn as_array_mut(&mut self) -> Option<&mut Array<C, M>> {
+		match self {
+			Self::Array(a) => Some(a),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn as_object(&self) -> Option<&Object<C, M>> {
+		match self {
+			Self::Object(o) => Some(o),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn as_object_mut(&mut self) -> Option<&mut Object<C, M>> {
+		match self {
+			Self::Object(o) => Some(o),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn into_boolean(self) -> Option<bool> {
+		match self {
+			Self::Boolean(b) => Some(b),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn into_number(self) -> Option<NumberBuf> {
+		match self {
+			Self::Number(n) => Some(n),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn into_string(self) -> Option<String> {
+		match self {
+			Self::String(s) => Some(s),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn into_array(self) -> Option<Array<C, M>> {
+		match self {
+			Self::Array(a) => Some(a),
+			_ => None,
+		}
+	}
+
+	#[inline]
+	pub fn into_object(self) -> Option<Object<C, M>> {
+		match self {
+			Self::Object(o) => Some(o),
+			_ => None,
+		}
+	}
 }
 
-/// Node type.
-pub enum ValueType {
-	Iri(IriBuf),
-	CompactIri(CompactIriBuf),
-	Term(String),
-	Json
-}
-
-pub struct List<S, P> {
-	/// `@list` entry.
-	pub list: Entry<String, S, P>,
-
-	/// `@index` entry.
-	pub index: Option<Entry<String, S, P>>
-}
-
-pub struct Set<S, P> {
-	// ...
-}
+/// JSON-LD array.
+pub type Array<C, M> = Vec<Meta<Value<C, M>, M>>;

@@ -9,7 +9,7 @@ use crate::{id, Id, Indexed, LenientLanguageTag, Reference};
 use iref::{Iri, IriBuf};
 use std::collections::HashSet;
 use std::hash::Hash;
-use locspan::BorrowStripped;
+use locspan::{Stripped, BorrowStripped};
 use locspan_derive::*;
 use json_number::Number;
 
@@ -85,7 +85,7 @@ pub enum Ref<'a, T: Id, M=()> {
 #[derive(StrippedPartialEq, StrippedEq, StrippedHash)]
 #[stripped_ignore(M)]
 #[stripped(T)]
-pub enum Object<T = IriBuf, M=()> {
+pub enum Object<T: Id = IriBuf, M=()> {
 	/// Value object.
 	Value(Value<T, M>),
 
@@ -315,7 +315,7 @@ impl<T: Id, M> Indexed<Object<T, M>> {
 	}
 
 	/// Try to convert this object into an unnamed graph.
-	pub fn into_unnamed_graph(self) -> Result<HashSet<Self>, Self> {
+	pub fn into_unnamed_graph(self) -> Result<HashSet<Stripped<Self>>, Self> {
 		let (obj, index) = self.into_parts();
 		match obj {
 			Object::Node(n) => match n.into_unnamed_graph() {
@@ -327,7 +327,7 @@ impl<T: Id, M> Indexed<Object<T, M>> {
 	}
 }
 
-impl<T: Id, M> Any<T> for Object<T, M> {
+impl<T: Id, M> Any<T, M> for Object<T, M> {
 	#[inline(always)]
 	fn as_ref(&self) -> Ref<T, M> {
 		match self {

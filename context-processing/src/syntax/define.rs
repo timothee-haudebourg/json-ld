@@ -1,5 +1,5 @@
 use super::{expand_iri_with, expand_iri_simple, Merged};
-use crate::{Error, Loader, LocWarning, Process, ProcessingOptions, ProcessingStack, Warning};
+use crate::{Error, Loader, MetaWarning, Process, ProcessingOptions, ProcessingStack, Warning};
 use futures::future::{BoxFuture, FutureExt};
 use iref::Iri;
 use json_ld_core::{context::TermDefinition, Context, Id, ProcessingMode, Reference, Term, Type};
@@ -18,7 +18,7 @@ use json_ld_syntax::{
 	Container, ContainerType, Keyword, Nullable,
 	LenientLanguageTag,
 };
-use locspan::{At, Loc, Location, BorrowStripped};
+use locspan::{Meta, At, BorrowStripped};
 use std::collections::HashMap;
 
 fn is_gen_delim(c: char) -> bool {
@@ -50,7 +50,7 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
 	}
 }
 
-pub struct DefinedTerms<C: AnyContextEntry>(HashMap<KeyOrKeyword, DefinedTerm<C::Source, C::Span>>);
+pub struct DefinedTerms<C: AnyContextEntry>(HashMap<KeyOrKeyword, DefinedTerm<C::Metadata>>);
 
 impl<C: AnyContextEntry> Default for DefinedTerms<C> {
 	fn default() -> Self {
@@ -66,11 +66,10 @@ impl<C: AnyContextEntry> DefinedTerms<C> {
 	pub fn begin(
 		&mut self,
 		key: &KeyOrKeyword,
-		loc: &Location<C::Source, C::Span>,
+		meta: &C::Metadata,
 	) -> Result<bool, Error>
 	where
-		C::Source: Clone,
-		C::Span: Clone,
+		C::Metadata: Clone
 	{
 		match self.0.get(key) {
 			Some(d) => {
@@ -85,7 +84,7 @@ impl<C: AnyContextEntry> DefinedTerms<C> {
 					key.clone(),
 					DefinedTerm {
 						pending: true,
-						location: loc.clone(),
+						metadata: meta.clone(),
 					},
 				);
 
@@ -99,9 +98,9 @@ impl<C: AnyContextEntry> DefinedTerms<C> {
 	}
 }
 
-pub struct DefinedTerm<S, P> {
+pub struct DefinedTerm<M> {
 	pending: bool,
-	location: Location<S, P>,
+	metadata: M,
 }
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
@@ -109,27 +108,26 @@ pub struct DefinedTerm<S, P> {
 pub fn define<
 	'a,
 	T: Id + Send + Sync,
-	C: Process<T>
-		+ AnyContextEntry<Source = <C as Process<T>>::Source, Span = <C as Process<T>>::Span>,
+	C: Process<T>,
 	L: Loader + Send + Sync,
 >(
 	active_context: &'a mut Context<T, C>,
 	local_context: &'a Merged<'a, C>,
-	Loc(term, loc): Loc<KeyOrKeywordRef, <C as Process<T>>::Source, <C as Process<T>>::Span>,
+	Meta(term, meta): Meta<KeyOrKeywordRef, C::Metadata>,
 	defined: &'a mut DefinedTerms<C>,
 	remote_contexts: ProcessingStack,
 	loader: &'a mut L,
 	base_url: Option<Iri<'a>>,
 	protected: bool,
 	options: ProcessingOptions,
-	warnings: &'a mut Vec<LocWarning<T, C>>,
+	mut warnings: impl 'a + Send + FnMut(MetaWarning<C>),
 ) -> BoxFuture<'a, Result<(), Error>>
 where
 	L::Output: Into<C>
 {
 	let term = term.to_owned();
 	async move {
-		if defined.begin(&term, &loc)? {
+		if defined.begin(&term, &meta)? {
 			if term.is_empty() {
 				return Err(Error::InvalidTermDefinition);
 			}
@@ -192,12 +190,12 @@ where
 						}
 
 						// If value contains the entry @type:
-						if let Some(Loc(type_, type_loc)) = &value.type_ {
+						if let Some(Meta(type_, type_loc)) = &value.type_ {
 							// Set `typ` to the result of IRI expanding type, using local context,
 							// and defined.
 							let typ = expand_iri_with(
 								active_context,
-								Loc(type_.cast(), type_loc.clone()),
+								Meta(type_.cast(), type_loc.clone()),
 								false,
 								true,
 								local_context,
@@ -205,7 +203,7 @@ where
 								remote_contexts.clone(),
 								loader,
 								options,
-								warnings,
+								&mut warnings,
 							)
 							.await?;
 							// If the expanded type is @json or @none, and processing mode is
@@ -227,7 +225,7 @@ where
 						}
 
 						// If `value` contains the entry @reverse:
-						if let Some(Loc(reverse_value, reverse_loc)) = value.reverse {
+						if let Some(Meta(reverse_value, reverse_loc)) = value.reverse {
 							// If `value` contains `@id` or `@nest`, entries, an invalid reverse
 							// property error has been detected and processing is aborted.
 							if value.id.is_some() || value.nest.is_some() {
@@ -237,7 +235,7 @@ where
 							// If the value associated with the @reverse entry is a string having
 							// the form of a keyword, return; processors SHOULD generate a warning.
 							if reverse_value.is_keyword_like() {
-								warnings.push(
+								warnings(
 									Warning::KeywordLikeValue(reverse_value.to_string())
 										.at(reverse_loc),
 								);
@@ -252,7 +250,7 @@ where
 							// processing is aborted.
 							match expand_iri_with(
 								active_context,
-								Loc(
+								Meta(
 									Nullable::Some(ExpandableRef::Key(reverse_value)),
 									reverse_loc,
 								),
@@ -278,7 +276,7 @@ where
 							// if its value is neither `@set`, nor `@index`, nor null, an
 							// invalid reverse property error has been detected (reverse properties
 							// only support set- and index-containers) and processing is aborted.
-							if let Some(Loc(container_value, _container_loc)) = value.container {
+							if let Some(Meta(container_value, _container_loc)) = value.container {
 								match container_value {
 									Nullable::Null => (),
 									Nullable::Some(container_value) => {
@@ -307,7 +305,7 @@ where
 
 						// If `value` contains the entry `@id` and its value does not equal `term`:
 						match value.id {
-							Some(Loc(id_value, id_loc))
+							Some(Meta(id_value, id_loc))
 								if id_value.cast::<KeyOrKeywordRef>() != Nullable::Some(key.into()) =>
 							{
 								match id_value {
@@ -321,7 +319,7 @@ where
 										// keyword, but has the form of a keyword, return;
 										// processors SHOULD generate a warning.
 										if id_value.is_keyword_like() && !id_value.is_keyword() {
-											warnings.push(
+											warnings(
 												Warning::KeywordLikeValue(id_value.to_string())
 													.at(id_loc),
 											);
@@ -333,7 +331,7 @@ where
 										// using `local_context`, and `defined`.
 										definition.value = match expand_iri_with(
 											active_context,
-											Loc(Nullable::Some(id_value.into()), id_loc),
+											Meta(Nullable::Some(id_value.into()), id_loc),
 											false,
 											true,
 											local_context,
@@ -341,7 +339,7 @@ where
 											remote_contexts.clone(),
 											loader,
 											options,
-											warnings,
+											&mut warnings,
 										)
 										.await?
 										{
@@ -376,7 +374,7 @@ where
 											// has been detected and processing is aborted.
 											let expanded_term = expand_iri_with(
 												active_context,
-												Loc(Nullable::Some((&term).into()), loc.clone()),
+												Meta(Nullable::Some((&term).into()), meta.clone()),
 												false,
 												true,
 												local_context,
@@ -384,7 +382,7 @@ where
 												remote_contexts.clone(),
 												loader,
 												options,
-												warnings,
+												&mut warnings,
 											)
 											.await?;
 											if definition.value != Some(expanded_term) {
@@ -407,7 +405,7 @@ where
 									}
 								}
 							}
-							Some(Loc(Nullable::Some(IdRef::CompactIri(compact_iri)), id_loc)) => {
+							Some(Meta(Nullable::Some(IdRef::CompactIri(compact_iri)), id_loc)) => {
 								// Otherwise if the `term` contains a colon (:) anywhere after the first
 								// character.
 
@@ -418,14 +416,14 @@ where
 								define(
 									active_context,
 									local_context,
-									Loc(KeyOrKeywordRef::Key(KeyRef::Term(compact_iri.prefix())), id_loc),
+									Meta(KeyOrKeywordRef::Key(KeyRef::Term(compact_iri.prefix())), id_loc),
 									defined,
 									remote_contexts.clone(),
 									loader,
 									None,
 									false,
 									options.with_no_override(),
-									warnings,
+									&mut warnings,
 								)
 								.await?;
 
@@ -455,13 +453,13 @@ where
 									return Err(Error::InvalidIriMapping.into());
 								}
 							}
-							Some(Loc(Nullable::Some(IdRef::Blank(id)), _id_loc)) => {
+							Some(Meta(Nullable::Some(IdRef::Blank(id)), _id_loc)) => {
 								definition.value = Some(Term::Ref(Reference::Blank(id.to_owned())))
 							}
-							Some(Loc(Nullable::Some(IdRef::Iri(iri)), _id_loc)) => {
+							Some(Meta(Nullable::Some(IdRef::Iri(iri)), _id_loc)) => {
 								definition.value = Some(Term::Ref(Reference::Id(T::from_iri(iri))))
 							}
-							Some(Loc(Nullable::Some(IdRef::Keyword(Keyword::Type)), _id_loc)) => {
+							Some(Meta(Nullable::Some(IdRef::Keyword(Keyword::Type)), _id_loc)) => {
 								// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
 								// `@type`.
 								definition.value = Some(Term::Keyword(Keyword::Type))
@@ -494,7 +492,7 @@ where
 						}
 
 						// If value contains the entry @container:
-						if let Some(Loc(container_value, _container_loc)) = value.container {
+						if let Some(Meta(container_value, _container_loc)) = value.container {
 							// If the container value is @graph, @id, or @type, or is otherwise not a
 							// string, generate an invalid container mapping error and abort processing
 							// if processing mode is json-ld-1.0.
@@ -540,7 +538,7 @@ where
 						}
 
 						// If value contains the entry @index:
-						if let Some(Loc(index_value, index_loc)) = value.index {
+						if let Some(Meta(index_value, index_loc)) = value.index {
 							// If processing mode is json-ld-1.0 or container mapping does not include
 							// `@index`, an invalid term definition has been detected and processing
 							// is aborted.
@@ -556,10 +554,10 @@ where
 							// is aborted.
 							match expand_iri_simple(
 								active_context,
-								Loc(Nullable::Some(ExpandableRef::Key(index_value.into())), index_loc),
+								Meta(Nullable::Some(ExpandableRef::Key(index_value.into())), index_loc),
 								false,
 								true,
-								warnings,
+								&mut warnings,
 							) {
 								Term::Ref(Reference::Id(_)) => (),
 								_ => return Err(Error::InvalidTermDefinition.into()),
@@ -569,7 +567,7 @@ where
 						}
 
 						// If `value` contains the entry `@context`:
-						if let Some(Loc(context, _context_loc)) = value.context {
+						if let Some(Meta(context, _context_loc)) = value.context {
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
 							if options.processing_mode == ProcessingMode::JsonLd1_0 {
@@ -605,7 +603,7 @@ where
 						// If `value` contains the entry `@language` and does not contain the entry
 						// `@type`:
 						if value.type_.is_none() {
-							if let Some(Loc(language_value, _language_loc)) = value.language {
+							if let Some(Meta(language_value, _language_loc)) = value.language {
 								// Initialize `language` to the value associated with the `@language`
 								// entry, which MUST be either null or a string.
 								// If `language` is not well-formed according to section 2.2.9 of
@@ -618,7 +616,7 @@ where
 
 							// If `value` contains the entry `@direction` and does not contain the
 							// entry `@type`:
-							if let Some(Loc(direction_value, _direction_loc)) = value.direction {
+							if let Some(Meta(direction_value, _direction_loc)) = value.direction {
 								// Initialize `direction` to the value associated with the `@direction`
 								// entry, which MUST be either null, "ltr", or "rtl".
 								definition.direction = Some(direction_value);
@@ -626,7 +624,7 @@ where
 						}
 
 						// If value contains the entry @nest:
-						if let Some(Loc(nest_value, _nest_loc)) = value.nest {
+						if let Some(Meta(nest_value, _nest_loc)) = value.nest {
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
 							if options.processing_mode == ProcessingMode::JsonLd1_0 {
@@ -637,7 +635,7 @@ where
 						}
 
 						// If value contains the entry @prefix:
-						if let Some(Loc(prefix_value, _prefix_loc)) = value.prefix {
+						if let Some(Meta(prefix_value, _prefix_loc)) = value.prefix {
 							// If processing mode is json-ld-1.0, or if `term` contains a colon (:) or
 							// slash (/), an invalid term definition has been detected and processing
 							// is aborted.
