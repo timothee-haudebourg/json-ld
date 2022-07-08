@@ -1,4 +1,4 @@
-use super::{Node, Nodes};
+use super::{Node, StrippedIndexedNode, Nodes};
 use crate::{Id, Indexed, Reference, ToReference};
 use std::{
 	borrow::Borrow,
@@ -16,7 +16,7 @@ impl<T: Id, M> ReverseProperties<T, M> {
 		Self(HashMap::new())
 	}
 
-	fn stripped_map(&self) -> &HashMap<Reference<T>, Vec<locspan::Stripped<Indexed<Node<T, M>>>>> {
+	fn stripped_map(&self) -> &HashMap<Reference<T>, Vec<StrippedIndexedNode<T, M>>> {
 		unsafe {
 			// this is safe because `Stripped<_>` is transparent.
 			core::mem::transmute(&self.0)

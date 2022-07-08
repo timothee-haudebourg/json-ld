@@ -20,7 +20,7 @@ use std::future::Future;
 use crate::{
 	ProcessingOptions,
 	ProcessingStack,
-	Loader,
+	ContextLoader,
 	Warning,
 	MetaWarning,
 	Error
@@ -43,7 +43,7 @@ pub fn expand_iri_with<
 	'a,
 	T: Id + Send + Sync,
 	C: syntax::AnyContextEntry + Send + Sync,
-	L: Loader + Send + Sync
+	L: ContextLoader + Send + Sync
 >(
 	active_context: &'a mut Context<T, C>,
 	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, C::Metadata>,

@@ -5,13 +5,15 @@ use mown::Mown;
 use locspan::{Meta, At};
 use json_ld_core::{Id, Context, Term, Reference, Indexed, Object};
 use json_ld_syntax::{Nullable, Keyword, Value, object::Entry};
-use json_ld_context_processing::{ProcessingOptions, Process, Loader as ContextLoader};
+use json_ld_context_processing::{ProcessingOptions, Process, ContextLoader};
 use crate::{
 	Expanded,
 	Warning,
 	Error,
 	Loader,
 	Options,
+	LiteralValue,
+	GivenLiteralValue,
 	expand_array,
 	expand_iri,
 	expand_value,
@@ -19,24 +21,67 @@ use crate::{
 	expand_node
 };
 
-pub struct ExpandedEntry<'a, T, C, M>(pub Meta<&'a str, &'a M>, pub Term<T>, pub &'a Meta<Value<C, M>, M>);
+pub(crate) struct ExpandedEntry<'a, T, C, M>(pub Meta<&'a str, &'a M>, pub Term<T>, pub &'a Meta<Value<C, M>, M>);
+
+pub(crate) enum ActiveProperty<'a, M> {
+	Some(Meta<&'a str, &'a M>),
+	None
+}
+
+impl<'a, M> ActiveProperty<'a, M> {
+	pub fn is_some(&self) -> bool {
+		matches!(self, Self::Some(_))
+	}
+
+	pub fn is_none(&self) -> bool {
+		matches!(self, Self::None)
+	}
+
+	pub fn get_from<'c, T, C>(&self, context: &'c Context<T, C>) -> Option<&'c json_ld_core::context::TermDefinition<T, C>> {
+		match self {
+			Self::Some(Meta(s, _)) => context.get(*s),
+			Self::None => None
+		}
+	}
+}
+
+impl<'a, M> Clone for ActiveProperty<'a, M> {
+	fn clone(&self) -> Self {
+		match self {
+			Self::Some(m) => Self::Some(*m),
+			Self::None => Self::None
+		}
+	}
+}
+
+impl<'a, M> Copy for ActiveProperty<'a, M> {}
+
+impl<'a, M> PartialEq<Keyword> for ActiveProperty<'a, M> {
+	fn eq(&self, other: &Keyword) -> bool {
+		match self {
+			Self::Some(Meta(s, _)) => *s == other.into_str(),
+			_ => false
+		}
+	}
+}
 
 /// Result of the expansion of a single element in a JSON-LD document.
-pub type ElementExpansionResult<T, M> = Result<Expanded<T>, Meta<Error, M>>;
+pub(crate) type ElementExpansionResult<T, M> = Result<Expanded<T, M>, Meta<Error, M>>;
 
 /// Expand an element.
 ///
 /// See <https://www.w3.org/TR/json-ld11-api/#expansion-algorithm>.
 /// The default specified value for `ordered` and `from_map` is `false`.
-pub fn expand_element<'a, T: Id, C: Process<T>, L: Loader + ContextLoader>(
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn expand_element<'a, T: Id, C: Process<T>, L: Loader + ContextLoader>(
 	active_context: &'a Context<T, C>,
-	active_property: Option<Meta<&str, C::Metadata>>,
-	element: &'a Value<C, C::Metadata>,
+	active_property: ActiveProperty<'a, C::Metadata>,
+	Meta(element, meta): &'a Meta<Value<C, C::Metadata>, C::Metadata>,
 	base_url: Option<Iri<'a>>,
 	loader: &'a mut L,
 	options: Options,
 	from_map: bool,
-	warnings: impl 'a + Send + FnMut(Meta<Warning, C::Metadata>),
+	mut warnings: impl 'a + Send + FnMut(Meta<Warning, C::Metadata>),
 ) -> BoxFuture<'a, ElementExpansionResult<T, C::Metadata>>
 where
 	T: Sync + Send,
@@ -50,7 +95,7 @@ where
 			return Ok(Expanded::Null);
 		}
 
-		let active_property_definition = active_property.as_ref().and_then(|key| active_context.get(**key));
+		let active_property_definition = active_property.get_from(active_context);
 
 		// If `active_property` has a term definition in `active_context` with a local context,
 		// initialize property-scoped context to that local context.
@@ -83,7 +128,7 @@ where
 			}
 
 			Value::Object(element) => {
-				let mut entries: Cow<[Entry<C, _>]> = if options.ordered {
+				let entries: Cow<[Entry<C, _>]> = if options.ordered {
 					Cow::Owned(element.entries().iter().cloned().collect())
 				} else {
 					Cow::Borrowed(element.entries().as_slice())
@@ -98,7 +143,7 @@ where
 						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
 						true,
-						warnings,
+						&mut warnings,
 					) {
 						Term::Keyword(Keyword::Value) => value_entry1 = Some(value.clone()),
 						Term::Keyword(Keyword::Id) => id_entry = Some(value.clone()),
@@ -156,22 +201,22 @@ where
 					);
 				}
 
-				let mut type_entries: Vec<Entry<C, _>> = Vec::new();
+				let mut type_entries: Vec<&Entry<C, _>> = Vec::new();
 				for entry @ Entry { key: Meta(key, key_metadata), .. } in entries.iter() {
 					let expanded_key = expand_iri(
 						active_context.as_ref(),
 						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
 						true,
-						warnings,
+						&mut warnings,
 					);
 					
 					if let Term::Keyword(Keyword::Type) = expanded_key {
-						type_entries.push(entry.clone());
+						type_entries.push(entry);
 					}
 				}
 
-				type_entries.sort_unstable_by_key(|Entry { key: Meta(key, _), .. }| key);
+				type_entries.sort_unstable_by_key(|entry| entry.key.value());
 
 				// Initialize `type_scoped_context` to `active_context`.
 				// This is used for expanding values that may be relevant to any previous
@@ -192,11 +237,12 @@ where
 							sorted_value.push(Meta(s, meta));
 						}
 					}
-					sorted_value.sort_unstable_by_key(Meta::value);
+
+					sorted_value.sort_unstable_by_key(|s| *s.value());
 
 					// if `term` is a string, and `term`'s term definition in `type_scoped_context`
 					// has a `local_context`,
-					for Meta(term, meta) in sorted_value {
+					for Meta(term, _) in sorted_value {
 						if let Some(term_definition) = type_scoped_context.get(term) {
 							if let Some(local_context) = &term_definition.context {
 								// set `active_context` to the result of
@@ -235,7 +281,7 @@ where
 								Meta(Nullable::Some(input_type_str.into()), input_metadata.clone()),
 								false,
 								true,
-								warnings,
+								&mut warnings,
 							)
 						})
 					} else {
@@ -260,15 +306,13 @@ where
 						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
 						true,
-						warnings,
+						&mut warnings,
 					);
 					match &expanded_key {
 						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
 						Term::Keyword(Keyword::List) => {
-							if let Some(Meta(active_property, _)) = active_property.as_ref() {
-								if *active_property != "@graph" {
-									list_entry = Some(value.clone())
-								}
+							if active_property.is_some() && active_property != Keyword::Graph {
+								list_entry = Some(value.clone())
 							}
 						}
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
@@ -291,7 +335,7 @@ where
 				if let Some(list_entry) = list_entry {
 					// List objects.
 					let mut index = None;
-					for ExpandedEntry(Meta(key, key_metadata), expanded_key, value) in expanded_entries {
+					for ExpandedEntry(Meta(_, key_metadata), expanded_key, value) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
@@ -319,12 +363,12 @@ where
 							expand_element(
 								active_context.as_ref(),
 								active_property,
-								&*item,
+								item,
 								base_url,
 								loader,
 								options,
 								false,
-								warnings,
+								&mut warnings,
 							)
 							.await?,
 						)
@@ -333,7 +377,7 @@ where
 					Ok(Expanded::Object(Indexed::new(Object::List(result), index)))
 				} else if let Some(set_entry) = set_entry {
 					// Set objects.
-					for ExpandedEntry(Meta(key, key_metadata), expanded_key, _) in expanded_entries {
+					for ExpandedEntry(Meta(_, key_metadata), expanded_key, _) in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
 								// having an `@index` here is tolerated,
@@ -353,7 +397,7 @@ where
 					expand_element(
 						active_context.as_ref(),
 						active_property,
-						&*set_entry,
+						&set_entry,
 						base_url,
 						loader,
 						options,
@@ -367,11 +411,9 @@ where
 						input_type,
 						type_scoped_context,
 						expanded_entries,
-						&*value_entry,
+						&value_entry,
 						warnings,
-					)
-					.map_err(Meta::cast)?
-					{
+					)? {
 						Ok(Expanded::Object(value))
 					} else {
 						Ok(Expanded::Null)
@@ -390,7 +432,7 @@ where
 					)
 					.await?
 					{
-						Ok(result.cast::<Object<J, T>>().into())
+						Ok(result.cast::<Object<T, C::Metadata>>().into())
 					} else {
 						Ok(Expanded::Null)
 					}
@@ -403,7 +445,7 @@ where
 				// If element is a scalar (bool, int, string, null),
 				// If `active_property` is `null` or `@graph`, drop the free-floating scalar by
 				// returning null.
-				if active_property.is_none() || active_property == Some("@graph") {
+				if active_property.is_none() || active_property == Keyword::Graph {
 					return Ok(Expanded::Null);
 				}
 
@@ -415,8 +457,7 @@ where
 				{
 					// FIXME it is unclear what we should use as `base_url` if there is no term definition for `active_context`.
 					let base_url =
-						active_context
-							.get_opt(active_property.id())
+						active_property.get_from(active_context)
 							.and_then(|definition| {
 								definition
 									.base_url
@@ -427,8 +468,7 @@ where
 					let result = property_scoped_context
 						.process_with(active_context, loader, base_url, options.into())
 						.await
-						.map_err(|e| e.with_metadata(active_property.metadata().unwrap().clone()))?
-						.into_inner();
+						.map_err(Meta::cast)?;
 					Mown::Owned(result)
 				} else {
 					Mown::Borrowed(active_context)
@@ -436,15 +476,15 @@ where
 
 				// Return the result of the Value Expansion algorithm, passing the `active_context`,
 				// `active_property`, and `element` as value.
-				return Ok(Expanded::Object(
+				Ok(Expanded::Object(
 					expand_literal(
 						active_context.as_ref(),
 						active_property,
-						LiteralValue::Given(element),
+						Meta(LiteralValue::Given(GivenLiteralValue::new(element)), meta),
 						warnings,
 					)
 					.map_err(Meta::cast)?,
-				));
+				))
 			}
 		}
 	}

@@ -1,4 +1,4 @@
-use crate::{id, object, utils, Id, Indexed, Object, Objects, Reference, Term, ToReference};
+use crate::{id, object, utils, Id, Indexed, Object, StrippedIndexedObject, Objects, Reference, Term, ToReference};
 use iref::{Iri, IriBuf};
 use json_ld_syntax::Keyword;
 use locspan::{Stripped, BorrowStripped};
@@ -28,12 +28,12 @@ pub struct Parts<T: Id = IriBuf, M=()> {
 	/// Associated graph.
 	///
 	/// This is the `@graph` field.
-	pub graph: Option<HashSet<Stripped<Indexed<Object<T, M>>>>>,
+	pub graph: Option<HashSet<StrippedIndexedObject<T, M>>>,
 
 	/// Included nodes.
 	///
 	/// This is the `@included` field.
-	pub included: Option<HashSet<Stripped<Indexed<Node<T, M>>>>>,
+	pub included: Option<HashSet<StrippedIndexedNode<T, M>>>,
 
 	/// Properties.
 	///
@@ -45,6 +45,9 @@ pub struct Parts<T: Id = IriBuf, M=()> {
 	/// This is the `@reverse` field.
 	pub reverse_properties: ReverseProperties<T, M>,
 }
+
+/// Indexed node, without regard for its metadata.
+pub type StrippedIndexedNode<T, M> = Stripped<Indexed<Node<T, M>>>;
 
 /// Node object.
 ///
@@ -73,13 +76,13 @@ pub struct Node<T: Id = IriBuf, M=()> {
 	///
 	/// This is the `@graph` field.
 	#[stripped]
-	pub(crate) graph: Option<HashSet<Stripped<Indexed<Object<T, M>>>>>,
+	pub(crate) graph: Option<HashSet<StrippedIndexedObject<T, M>>>,
 
 	/// Included nodes.
 	///
 	/// This is the `@included` field.
 	#[stripped]
-	pub(crate) included: Option<HashSet<Stripped<Indexed<Self>>>>,
+	pub(crate) included: Option<HashSet<StrippedIndexedNode<T, M>>>,
 
 	/// Properties.
 	///
@@ -300,19 +303,19 @@ impl<T: Id, M> Node<T, M> {
 
 	/// If the node is a graph object, get the graph.
 	#[inline(always)]
-	pub fn graph(&self) -> Option<&HashSet<Stripped<Indexed<Object<T, M>>>>> {
+	pub fn graph(&self) -> Option<&HashSet<StrippedIndexedObject<T, M>>> {
 		self.graph.as_ref()
 	}
 
 	/// If the node is a graph object, get the mutable graph.
 	#[inline(always)]
-	pub fn graph_mut(&mut self) -> Option<&mut HashSet<Stripped<Indexed<Object<T, M>>>>> {
+	pub fn graph_mut(&mut self) -> Option<&mut HashSet<StrippedIndexedObject<T, M>>> {
 		self.graph.as_mut()
 	}
 
 	/// Set the graph.
 	#[inline(always)]
-	pub fn set_graph(&mut self, graph: Option<HashSet<Stripped<Indexed<Object<T, M>>>>>) {
+	pub fn set_graph(&mut self, graph: Option<HashSet<StrippedIndexedObject<T, M>>>) {
 		self.graph = graph
 	}
 
@@ -441,7 +444,7 @@ impl<T: Id, M> Node<T, M> {
 	/// The unnamed graph is returned as a set of indexed objects.
 	/// Fails and returns itself if the node is *not* an unnamed graph.
 	#[inline(always)]
-	pub fn into_unnamed_graph(self) -> Result<HashSet<Stripped<Indexed<Object<T, M>>>>, Self> {
+	pub fn into_unnamed_graph(self) -> Result<HashSet<StrippedIndexedObject<T, M>>, Self> {
 		if self.is_unnamed_graph() {
 			Ok(self.graph.unwrap())
 		} else {
@@ -625,9 +628,9 @@ impl<'a, T: Id, M> Iterator for Nodes<'a, T, M> {
 pub struct Traverse<'a, T: Id, M> {
 	itself: Option<&'a Node<T, M>>,
 	current_object: Option<Box<super::Traverse<'a, T, M>>>,
-	graph: Option<std::collections::hash_set::Iter<'a, Stripped<Indexed<Object<T, M>>>>>,
+	graph: Option<std::collections::hash_set::Iter<'a, StrippedIndexedObject<T, M>>>,
 	current_node: Option<Box<Self>>,
-	included: Option<std::collections::hash_set::Iter<'a, Stripped<Indexed<Node<T, M>>>>>,
+	included: Option<std::collections::hash_set::Iter<'a, StrippedIndexedNode<T, M>>>,
 	properties: properties::Traverse<'a, T, M>,
 	reverse_properties: reverse_properties::Traverse<'a, T, M>,
 }

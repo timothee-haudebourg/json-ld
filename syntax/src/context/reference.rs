@@ -1,9 +1,9 @@
-use std::fmt;
-use iref::{Iri, IriRef};
-use rdf_types::BlankId;
-use locspan::{Meta, StrippedPartialEq};
+use crate::{CompactIri, Container, ExpandableRef, Keyword, LenientLanguageTag};
 use derivative::Derivative;
-use crate::{Keyword, Container, CompactIri, LenientLanguageTag, ExpandableRef};
+use iref::{Iri, IriRef};
+use locspan::{Meta, StrippedPartialEq};
+use rdf_types::BlankId;
+use std::fmt;
 
 use super::*;
 
@@ -11,9 +11,15 @@ pub trait AnyContextEntry: Sized + StrippedPartialEq + Clone + Send + Sync {
 	type Metadata: Clone + Send + Sync;
 
 	type Definition: AnyContextDefinition<Self> + Send + Sync;
-	type Definitions<'a>: Iterator<Item=Meta<ContextRef<'a, Self::Definition>, Self::Metadata>> + Send + Sync where Self: 'a;
+	type Definitions<'a>: Iterator<Item = Meta<ContextRef<'a, Self::Definition>, Self::Metadata>>
+		+ Send
+		+ Sync
+	where
+		Self: 'a;
 
-	fn as_entry_ref(&self) -> ContextEntryRef<Self::Metadata, Self::Definition, Self::Definitions<'_>>;
+	fn as_entry_ref(
+		&self,
+	) -> ContextEntryRef<Self::Metadata, Self::Definition, Self::Definitions<'_>>;
 }
 
 impl<M: Clone + Send + Sync> AnyContextEntry for ContextEntry<M> {
@@ -28,19 +34,21 @@ impl<M: Clone + Send + Sync> AnyContextEntry for ContextEntry<M> {
 }
 
 /// Reference to a context entry.
-pub enum ContextEntryRef<'a, M, D=ContextDefinition<M>, C=ManyContexts<'a, M>> {
+pub enum ContextEntryRef<'a, M, D = ContextDefinition<M>, C = ManyContexts<'a, M>> {
 	One(Meta<ContextRef<'a, D>, M>),
-	Many(C)
+	Many(C),
 }
 
-impl<'a, M: Clone, D, C: Iterator<Item=Meta<ContextRef<'a, D>, M>>> IntoIterator for ContextEntryRef<'a, M, D, C> {
+impl<'a, M: Clone, D, C: Iterator<Item = Meta<ContextRef<'a, D>, M>>> IntoIterator
+	for ContextEntryRef<'a, M, D, C>
+{
 	type Item = Meta<ContextRef<'a, D>, M>;
 	type IntoIter = ContextEntryIter<'a, M, D, C>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		match self {
 			Self::One(i) => ContextEntryIter::One(Some(i)),
-			Self::Many(m) => ContextEntryIter::Many(m)
+			Self::Many(m) => ContextEntryIter::Many(m),
 		}
 	}
 }
@@ -49,7 +57,7 @@ impl<'a, M: Clone> From<&'a ContextEntry<M>> for ContextEntryRef<'a, M> {
 	fn from(e: &'a ContextEntry<M>) -> Self {
 		match e {
 			ContextEntry::One(c) => Self::One(c.borrow_value().cast()),
-			ContextEntry::Many(m) => Self::Many(ManyContexts(m.iter()))
+			ContextEntry::Many(m) => Self::Many(ManyContexts(m.iter())),
 		}
 	}
 }
@@ -64,18 +72,20 @@ impl<'a, M: Clone> Iterator for ManyContexts<'a, M> {
 	}
 }
 
-pub enum ContextEntryIter<'a, M, D=ContextDefinition<M>, C=ManyContexts<'a, M>> {
+pub enum ContextEntryIter<'a, M, D = ContextDefinition<M>, C = ManyContexts<'a, M>> {
 	One(Option<Meta<ContextRef<'a, D>, M>>),
-	Many(C)
+	Many(C),
 }
 
-impl<'a, M, D, C: Iterator<Item=Meta<ContextRef<'a, D>, M>>> Iterator for ContextEntryIter<'a, M, D, C> {
+impl<'a, M, D, C: Iterator<Item = Meta<ContextRef<'a, D>, M>>> Iterator
+	for ContextEntryIter<'a, M, D, C>
+{
 	type Item = Meta<ContextRef<'a, D>, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
 			Self::One(i) => i.take(),
-			Self::Many(m) => m.next()
+			Self::Many(m) => m.next(),
 		}
 	}
 }
@@ -84,7 +94,7 @@ impl<'a, M, D, C: Iterator<Item=Meta<ContextRef<'a, D>, M>>> Iterator for Contex
 pub enum ContextRef<'a, D> {
 	Null,
 	IriRef(IriRef<'a>),
-	Definition(&'a D)
+	Definition(&'a D),
 }
 
 impl<'a, M> From<&'a Context<M>> for ContextRef<'a, ContextDefinition<M>> {
@@ -92,13 +102,17 @@ impl<'a, M> From<&'a Context<M>> for ContextRef<'a, ContextDefinition<M>> {
 		match c {
 			Context::Null => ContextRef::Null,
 			Context::IriRef(i) => ContextRef::IriRef(i.as_iri_ref()),
-			Context::Definition(d) => ContextRef::Definition(d)
+			Context::Definition(d) => ContextRef::Definition(d),
 		}
 	}
 }
 
 pub trait AnyContextDefinition<C: AnyContextEntry>: Sized {
-	type Bindings<'a>: Iterator<Item=(KeyRef<'a>, TermBindingRef<'a, C>)> + Send + Sync where Self: 'a, C: 'a, C::Metadata: 'a;
+	type Bindings<'a>: Iterator<Item = (KeyRef<'a>, TermBindingRef<'a, C>)> + Send + Sync
+	where
+		Self: 'a,
+		C: 'a,
+		C::Metadata: 'a;
 
 	fn base(&self) -> Option<Meta<Nullable<IriRef>, C::Metadata>>;
 	fn import(&self) -> Option<Meta<IriRef, C::Metadata>>;
@@ -124,9 +138,9 @@ pub trait AnyContextDefinition<C: AnyContextEntry>: Sized {
 				Keyword::Type => self.type_().map(EntryRef::Type),
 				Keyword::Version => self.version().map(EntryRef::Version),
 				Keyword::Vocab => self.vocab().map(EntryRef::Vocab),
-				_ => None
-			}
-			KeyOrKeyword::Key(k) => self.get_binding(k).map(EntryRef::Definition)
+				_ => None,
+			},
+			KeyOrKeyword::Key(k) => self.get_binding(k).map(EntryRef::Definition),
 		}
 	}
 }
@@ -141,14 +155,16 @@ pub enum EntryRef<'a, C: AnyContextEntry> {
 	Type(Meta<ContextType<C::Metadata>, C::Metadata>),
 	Version(Meta<Version, C::Metadata>),
 	Vocab(Meta<Nullable<VocabRef<'a>>, C::Metadata>),
-	Definition(TermBindingRef<'a, C>)
+	Definition(TermBindingRef<'a, C>),
 }
 
 impl<M: Clone + Send + Sync> AnyContextDefinition<ContextEntry<M>> for ContextDefinition<M> {
 	type Bindings<'a> = Bindings<'a, M> where M: 'a;
 
 	fn base(&self) -> Option<Meta<Nullable<IriRef>, M>> {
-		self.base.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_iri_ref())))
+		self.base
+			.as_ref()
+			.map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_iri_ref())))
 	}
 
 	fn import(&self) -> Option<Meta<IriRef, M>> {
@@ -156,7 +172,9 @@ impl<M: Clone + Send + Sync> AnyContextDefinition<ContextEntry<M>> for ContextDe
 	}
 
 	fn language(&self) -> Option<Meta<Nullable<LenientLanguageTag>, M>> {
-		self.language.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_ref())))
+		self.language
+			.as_ref()
+			.map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_ref())))
 	}
 
 	fn direction(&self) -> Option<Meta<Nullable<Direction>, M>> {
@@ -180,7 +198,9 @@ impl<M: Clone + Send + Sync> AnyContextDefinition<ContextEntry<M>> for ContextDe
 	}
 
 	fn vocab(&self) -> Option<Meta<Nullable<VocabRef>, M>> {
-		self.vocab.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().cast()))
+		self.vocab
+			.as_ref()
+			.map(|v| v.borrow_value().map(|v| v.as_ref().cast()))
 	}
 
 	fn bindings(&self) -> Self::Bindings<'_> {
@@ -204,7 +224,7 @@ impl<'a, M: Clone + Send + Sync> Iterator for Bindings<'a, M> {
 
 pub struct TermBindingRef<'a, C: AnyContextEntry> {
 	pub key_metadata: C::Metadata,
-	pub definition: Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>
+	pub definition: Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>,
 }
 
 impl<'a, C: AnyContextEntry> TermBindingRef<'a, C> {
@@ -217,7 +237,7 @@ impl<'a, M: Clone + Send + Sync> From<&'a TermBinding<M>> for TermBindingRef<'a,
 	fn from(b: &'a TermBinding<M>) -> Self {
 		Self {
 			key_metadata: b.key_metadata.clone(),
-			definition: b.definition.borrow_value().map(|b| b.as_ref().cast())
+			definition: b.definition.borrow_value().map(|b| b.as_ref().cast()),
 		}
 	}
 }
@@ -227,7 +247,7 @@ pub enum TermDefinitionRef<'a, C: AnyContextEntry> {
 	Iri(Iri<'a>),
 	CompactIri(&'a CompactIri),
 	Blank(&'a BlankId),
-	Expanded(ExpandedTermDefinitionRef<'a, C>)
+	Expanded(ExpandedTermDefinitionRef<'a, C>),
 }
 
 impl<'a, C: AnyContextEntry> TermDefinitionRef<'a, C> {
@@ -236,20 +256,22 @@ impl<'a, C: AnyContextEntry> TermDefinitionRef<'a, C> {
 	}
 }
 
-impl<'a, M: Clone + Send + Sync> From<&'a TermDefinition<M>> for TermDefinitionRef<'a, ContextEntry<M>> {
+impl<'a, M: Clone + Send + Sync> From<&'a TermDefinition<M>>
+	for TermDefinitionRef<'a, ContextEntry<M>>
+{
 	fn from(d: &'a TermDefinition<M>) -> Self {
 		match d {
 			TermDefinition::Iri(i) => Self::Iri(i.as_iri()),
 			TermDefinition::CompactIri(c) => Self::CompactIri(c),
 			TermDefinition::Blank(b) => Self::Blank(b),
-			TermDefinition::Expanded(e) => Self::Expanded(e.into())
+			TermDefinition::Expanded(e) => Self::Expanded(e.into()),
 		}
 	}
 }
 
 /// Expanded term definition.
 #[derive(Derivative)]
-#[derivative(Default(bound=""))]
+#[derivative(Default(bound = ""))]
 pub struct ExpandedTermDefinitionRef<'a, C: AnyContextEntry> {
 	pub id: Option<Meta<Nullable<IdRef<'a>>, C::Metadata>>,
 	pub type_: Option<Meta<Nullable<TermDefinitionTypeRef<'a>>, C::Metadata>>,
@@ -262,62 +284,79 @@ pub struct ExpandedTermDefinitionRef<'a, C: AnyContextEntry> {
 	pub nest: Option<Meta<NestRef<'a>, C::Metadata>>,
 	pub prefix: Option<Meta<bool, C::Metadata>>,
 	pub propagate: Option<Meta<bool, C::Metadata>>,
-	pub protected: Option<Meta<bool, C::Metadata>>
+	pub protected: Option<Meta<bool, C::Metadata>>,
 }
 
-impl<'a, C: AnyContextEntry> From<Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>> for ExpandedTermDefinitionRef<'a, C> {
+impl<'a, C: AnyContextEntry> From<Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>>
+	for ExpandedTermDefinitionRef<'a, C>
+{
 	fn from(Meta(d, loc): Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>) -> Self {
 		match d {
 			Nullable::Null => {
 				// If `value` is null, convert it to a map consisting of a single entry
 				// whose key is @id and whose value is null.
-				Self { id: Some(Meta(Nullable::Null, loc)), ..Default::default() }
+				Self {
+					id: Some(Meta(Nullable::Null, loc)),
+					..Default::default()
+				}
+			}
+			Nullable::Some(TermDefinitionRef::Iri(i)) => Self {
+				id: Some(Meta(Nullable::Some(IdRef::Iri(i)), loc)),
+				..Default::default()
 			},
-			Nullable::Some(TermDefinitionRef::Iri(i)) => {
-				Self { id: Some(Meta(Nullable::Some(IdRef::Iri(i)), loc)), ..Default::default() }
-			}
-			Nullable::Some(TermDefinitionRef::CompactIri(i)) => {
-				Self { id: Some(Meta(Nullable::Some(IdRef::CompactIri(i)), loc)), ..Default::default() }
-			}
-			Nullable::Some(TermDefinitionRef::Blank(i)) => {
-				Self { id: Some(Meta(Nullable::Some(IdRef::Blank(i)), loc)), ..Default::default() }
-			}
-			Nullable::Some(TermDefinitionRef::Expanded(e)) => {
-				e
-			}
+			Nullable::Some(TermDefinitionRef::CompactIri(i)) => Self {
+				id: Some(Meta(Nullable::Some(IdRef::CompactIri(i)), loc)),
+				..Default::default()
+			},
+			Nullable::Some(TermDefinitionRef::Blank(i)) => Self {
+				id: Some(Meta(Nullable::Some(IdRef::Blank(i)), loc)),
+				..Default::default()
+			},
+			Nullable::Some(TermDefinitionRef::Expanded(e)) => e,
 		}
 	}
 }
 
-impl<'a, M: Clone + Send + Sync> From<&'a ExpandedTermDefinition<M>> for ExpandedTermDefinitionRef<'a, ContextEntry<M>> {
+impl<'a, M: Clone + Send + Sync> From<&'a ExpandedTermDefinition<M>>
+	for ExpandedTermDefinitionRef<'a, ContextEntry<M>>
+{
 	fn from(d: &'a ExpandedTermDefinition<M>) -> Self {
 		Self {
-			id: d.id.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().cast())),
-			type_: d.type_.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().cast())),
+			id: d
+				.id
+				.as_ref()
+				.map(|v| v.borrow_value().map(|v| v.as_ref().cast())),
+			type_: d
+				.type_
+				.as_ref()
+				.map(|v| v.borrow_value().map(|v| v.as_ref().cast())),
 			context: d.context.as_ref().map(|v| v.borrow_value().cast()),
 			reverse: d.reverse.as_ref().map(|v| v.borrow_value().cast()),
 			index: d.index.as_ref().map(|v| v.borrow_value().cast()),
-			language: d.language.as_ref().map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_ref()))),
+			language: d
+				.language
+				.as_ref()
+				.map(|v| v.borrow_value().map(|v| v.as_ref().map(|v| v.as_ref()))),
 			direction: d.direction.clone(),
 			container: d.container.clone(),
 			nest: d.nest.as_ref().map(|v| v.borrow_value().cast()),
 			prefix: d.prefix.clone(),
 			propagate: d.propagate.clone(),
-			protected: d.protected.clone()
+			protected: d.protected.clone(),
 		}
 	}
 }
 
 pub enum NestRef<'a> {
 	Nest,
-	Term(&'a str)
+	Term(&'a str),
 }
 
 impl<'a> NestRef<'a> {
 	pub fn to_owned(self) -> Nest {
 		match self {
 			Self::Nest => Nest::Nest,
-			Self::Term(t) => Nest::Term(t.to_owned())
+			Self::Term(t) => Nest::Term(t.to_owned()),
 		}
 	}
 }
@@ -326,7 +365,7 @@ impl<'a> From<&'a Nest> for NestRef<'a> {
 	fn from(n: &'a Nest) -> Self {
 		match n {
 			Nest::Nest => Self::Nest,
-			Nest::Term(t) => Self::Term(t)
+			Nest::Term(t) => Self::Term(t),
 		}
 	}
 }
@@ -343,7 +382,7 @@ impl<'a> IndexRef<'a> {
 		match self {
 			Self::Iri(i) => Index::Iri(i.to_owned()),
 			Self::CompactIri(i) => Index::CompactIri(i.to_owned()),
-			Self::Term(t) => Index::Term(t.to_owned())
+			Self::Term(t) => Index::Term(t.to_owned()),
 		}
 	}
 }
@@ -353,7 +392,7 @@ impl<'a> From<&'a Index> for IndexRef<'a> {
 		match i {
 			Index::Iri(i) => Self::Iri(i.as_iri()),
 			Index::CompactIri(c) => Self::CompactIri(c),
-			Index::Term(t) => Self::Term(t)
+			Index::Term(t) => Self::Term(t),
 		}
 	}
 }
@@ -363,7 +402,7 @@ impl<'a> From<IndexRef<'a>> for KeyRef<'a> {
 		match i {
 			IndexRef::Iri(i) => KeyRef::Iri(i),
 			IndexRef::CompactIri(i) => KeyRef::CompactIri(i),
-			IndexRef::Term(t) => KeyRef::Term(t)
+			IndexRef::Term(t) => KeyRef::Term(t),
 		}
 	}
 }
@@ -374,7 +413,7 @@ pub enum IdRef<'a> {
 	Blank(&'a BlankId),
 	CompactIri(&'a CompactIri),
 	Term(&'a str),
-	Keyword(Keyword)
+	Keyword(Keyword),
 }
 
 impl<'a> IdRef<'a> {
@@ -384,7 +423,7 @@ impl<'a> IdRef<'a> {
 			Self::Blank(i) => i.as_str(),
 			Self::CompactIri(i) => i.as_str(),
 			Self::Term(t) => t,
-			Self::Keyword(k) => k.into_str()
+			Self::Keyword(k) => k.into_str(),
 		}
 	}
 
@@ -404,7 +443,7 @@ impl<'a> From<IdRef<'a>> for KeyOrKeywordRef<'a> {
 			IdRef::Blank(i) => Self::Key(KeyRef::Blank(i)),
 			IdRef::CompactIri(i) => Self::Key(KeyRef::CompactIri(i)),
 			IdRef::Term(t) => Self::Key(KeyRef::Term(t)),
-			IdRef::Keyword(k) => Self::Keyword(k)
+			IdRef::Keyword(k) => Self::Keyword(k),
 		}
 	}
 }
@@ -416,7 +455,7 @@ impl<'a> From<IdRef<'a>> for ExpandableRef<'a> {
 			IdRef::Blank(i) => Self::Key(KeyRef::Blank(i)),
 			IdRef::CompactIri(i) => Self::Key(KeyRef::CompactIri(i)),
 			IdRef::Term(t) => Self::Key(KeyRef::Term(t)),
-			IdRef::Keyword(k) => Self::Keyword(k)
+			IdRef::Keyword(k) => Self::Keyword(k),
 		}
 	}
 }
@@ -428,7 +467,7 @@ impl<'a> fmt::Display for IdRef<'a> {
 			Self::Blank(i) => i.fmt(f),
 			Self::CompactIri(i) => i.fmt(f),
 			Self::Term(t) => t.fmt(f),
-			Self::Keyword(k) => k.fmt(f)
+			Self::Keyword(k) => k.fmt(f),
 		}
 	}
 }
@@ -440,7 +479,7 @@ impl<'a> From<&'a Id> for IdRef<'a> {
 			Id::Blank(b) => Self::Blank(b),
 			Id::CompactIri(c) => Self::CompactIri(c),
 			Id::Term(t) => Self::Term(t),
-			Id::Keyword(k) => Self::Keyword(*k)
+			Id::Keyword(k) => Self::Keyword(*k),
 		}
 	}
 }
@@ -450,7 +489,7 @@ pub enum TermDefinitionTypeRef<'a> {
 	Iri(Iri<'a>),
 	CompactIri(&'a CompactIri),
 	Term(&'a str),
-	Keyword(TypeKeyword)
+	Keyword(TypeKeyword),
 }
 
 impl<'a> From<&'a TermDefinitionType> for TermDefinitionTypeRef<'a> {
@@ -459,7 +498,7 @@ impl<'a> From<&'a TermDefinitionType> for TermDefinitionTypeRef<'a> {
 			TermDefinitionType::Iri(i) => Self::Iri(i.as_iri()),
 			TermDefinitionType::CompactIri(c) => Self::CompactIri(c),
 			TermDefinitionType::Term(t) => Self::Term(t),
-			TermDefinitionType::Keyword(k) => Self::Keyword(*k)
+			TermDefinitionType::Keyword(k) => Self::Keyword(*k),
 		}
 	}
 }
@@ -470,7 +509,7 @@ impl<'a> From<TermDefinitionTypeRef<'a>> for KeyOrKeywordRef<'a> {
 			TermDefinitionTypeRef::Iri(i) => Self::Key(KeyRef::Iri(i)),
 			TermDefinitionTypeRef::CompactIri(i) => Self::Key(KeyRef::CompactIri(i)),
 			TermDefinitionTypeRef::Term(t) => Self::Key(KeyRef::Term(t)),
-			TermDefinitionTypeRef::Keyword(k) => Self::Keyword(k.into())
+			TermDefinitionTypeRef::Keyword(k) => Self::Keyword(k.into()),
 		}
 	}
 }
@@ -481,7 +520,7 @@ impl<'a> From<TermDefinitionTypeRef<'a>> for ExpandableRef<'a> {
 			TermDefinitionTypeRef::Iri(i) => Self::Key(KeyRef::Iri(i)),
 			TermDefinitionTypeRef::CompactIri(i) => Self::Key(KeyRef::CompactIri(i)),
 			TermDefinitionTypeRef::Term(t) => Self::Key(KeyRef::Term(t)),
-			TermDefinitionTypeRef::Keyword(k) => Self::Keyword(k.into())
+			TermDefinitionTypeRef::Keyword(k) => Self::Keyword(k.into()),
 		}
 	}
 }
@@ -489,14 +528,14 @@ impl<'a> From<TermDefinitionTypeRef<'a>> for ExpandableRef<'a> {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum KeyOrKeywordRef<'a> {
 	Keyword(Keyword),
-	Key(KeyRef<'a>)
+	Key(KeyRef<'a>),
 }
 
 impl<'a> KeyOrKeywordRef<'a> {
 	pub fn to_owned(self) -> KeyOrKeyword {
 		match self {
 			Self::Keyword(k) => KeyOrKeyword::Keyword(k),
-			Self::Key(k) => KeyOrKeyword::Key(k.to_owned())
+			Self::Key(k) => KeyOrKeyword::Key(k.to_owned()),
 		}
 	}
 }
@@ -505,7 +544,7 @@ impl<'a> From<&'a KeyOrKeyword> for KeyOrKeywordRef<'a> {
 	fn from(k: &'a KeyOrKeyword) -> Self {
 		match k {
 			KeyOrKeyword::Keyword(k) => Self::Keyword(*k),
-			KeyOrKeyword::Key(k) => Self::Key(k.into())
+			KeyOrKeyword::Key(k) => Self::Key(k.into()),
 		}
 	}
 }
@@ -527,7 +566,7 @@ pub enum VocabRef<'a> {
 	IriRef(IriRef<'a>),
 	CompactIri(&'a CompactIri),
 	Blank(&'a BlankId),
-	Term(&'a str)
+	Term(&'a str),
 }
 
 impl<'a> From<&'a Vocab> for VocabRef<'a> {
@@ -536,7 +575,7 @@ impl<'a> From<&'a Vocab> for VocabRef<'a> {
 			Vocab::IriRef(i) => Self::IriRef(i.as_iri_ref()),
 			Vocab::Blank(b) => Self::Blank(b),
 			Vocab::CompactIri(c) => Self::CompactIri(c),
-			Vocab::Term(t) => Self::Term(t)
+			Vocab::Term(t) => Self::Term(t),
 		}
 	}
 }
@@ -547,15 +586,7 @@ impl<'a> From<VocabRef<'a>> for ExpandableRef<'a> {
 			VocabRef::IriRef(i) => ExpandableRef::IriRef(i),
 			VocabRef::Blank(i) => ExpandableRef::Key(KeyRef::Blank(i)),
 			VocabRef::CompactIri(i) => ExpandableRef::Key(KeyRef::CompactIri(i)),
-			VocabRef::Term(t) => ExpandableRef::Key(KeyRef::Term(t))
+			VocabRef::Term(t) => ExpandableRef::Key(KeyRef::Term(t)),
 		}
-	}
-}
-
-impl<'a, M> TryFrom<&'a json_syntax::Value<M>> for ContextEntryRef<'a, M> {
-	type Error = InvalidContextEntry;
-
-	fn try_from(value: &'a json_syntax::Value<M>) -> Result<Self, Self::Error> {
-		todo!("context entry ref from JSON")
 	}
 }

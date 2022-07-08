@@ -1,5 +1,5 @@
 use super::Objects;
-use crate::{Id, Indexed, Object, Reference, ToReference};
+use crate::{Id, Indexed, Object, StrippedIndexedObject, Reference, ToReference};
 use std::{
 	borrow::Borrow,
 	collections::HashMap,
@@ -50,7 +50,7 @@ impl<T: Id, M> Properties<T, M> {
 		Self(HashMap::new())
 	}
 
-	fn stripped_map(&self) -> &HashMap<Reference<T>, Vec<locspan::Stripped<Indexed<Object<T, M>>>>> {
+	fn stripped_map(&self) -> &HashMap<Reference<T>, Vec<StrippedIndexedObject<T, M>>> {
 		unsafe {
 			// this is safe because `Stripped<_>` is transparent.
 			core::mem::transmute(&self.0)

@@ -1,12 +1,6 @@
 use crate::{
-	context::{
-		Key,
-		KeyRef,
-		KeyOrKeyword,
-		KeyOrKeywordRef
-	},
-	Keyword,
-	CompactIri
+	context::{Key, KeyOrKeyword, KeyOrKeywordRef, KeyRef},
+	CompactIri, Keyword,
 };
 use iref::{Iri, IriRef, IriRefBuf};
 
@@ -55,10 +49,10 @@ impl<'a> From<&'a str> for ExpandableRef<'a> {
 					Ok(i) => Self::Key(KeyRef::Iri(i)),
 					Err(_) => match IriRef::new(s) {
 						Ok(i) => Self::IriRef(i),
-						Err(_) => Self::Key(KeyRef::Term(s))
-					}
-				}
-			}
+						Err(_) => Self::Key(KeyRef::Term(s)),
+					},
+				},
+			},
 		}
 	}
 }

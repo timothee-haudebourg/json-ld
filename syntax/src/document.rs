@@ -1,6 +1,6 @@
+use json_syntax::{Number, NumberBuf, String};
 use locspan::Meta;
 use locspan_derive::*;
-use json_syntax::{Number, NumberBuf, String};
 
 pub mod object;
 pub use object::Object;
@@ -26,7 +26,7 @@ pub enum Value<C, M> {
 	Number(#[stripped] NumberBuf),
 	String(#[stripped] String),
 	Array(Array<C, M>),
-	Object(Object<C, M>)
+	Object(Object<C, M>),
 }
 
 impl<C, M> Value<C, M> {
@@ -101,6 +101,11 @@ impl<C, M> Value<C, M> {
 	}
 
 	#[inline]
+	pub fn as_str(&self) -> Option<&str> {
+		self.as_string()
+	}
+
+	#[inline]
 	pub fn as_string_mut(&mut self) -> Option<&mut String> {
 		match self {
 			Self::String(s) => Some(s),
@@ -117,10 +122,10 @@ impl<C, M> Value<C, M> {
 	}
 
 	#[inline]
-	pub fn force_as_array<'a>(this: &'a Meta<Self, M>) -> &'a [Meta<Self, M>] {
+	pub fn force_as_array(this: &Meta<Self, M>) -> &[Meta<Self, M>] {
 		match this.value() {
 			Self::Array(a) => a,
-			_ => core::slice::from_ref(this)
+			_ => core::slice::from_ref(this),
 		}
 	}
 
@@ -185,6 +190,21 @@ impl<C, M> Value<C, M> {
 		match self {
 			Self::Object(o) => Some(o),
 			_ => None,
+		}
+	}
+
+	pub fn into_json(self) -> json_syntax::Value<M> {
+		match self {
+			Self::Null => json_syntax::Value::Null,
+			Self::Boolean(b) => json_syntax::Value::Boolean(b),
+			Self::Number(n) => json_syntax::Value::Number(n),
+			Self::String(s) => json_syntax::Value::String(s),
+			Self::Array(a) => json_syntax::Value::Array(
+				a.into_iter()
+					.map(|item| item.map(Self::into_json))
+					.collect(),
+			),
+			Self::Object(o) => json_syntax::Value::Object(o.into_json()),
 		}
 	}
 }

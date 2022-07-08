@@ -14,7 +14,7 @@ use locspan_derive::*;
 use json_number::Number;
 
 pub use mapped_eq::MappedEq;
-pub use node::{Node, Nodes};
+pub use node::{Node, StrippedIndexedNode, Nodes};
 pub use typ::{Type, TypeRef};
 pub use value::{Literal, LiteralString, Value};
 
@@ -76,6 +76,9 @@ pub enum Ref<'a, T: Id, M=()> {
 	/// List object.
 	List(&'a [Indexed<Object<T, M>>]),
 }
+
+/// Indexed object, without regard for its metadata.
+pub type StrippedIndexedObject<T, M> = Stripped<Indexed<Object<T, M>>>;
 
 /// Object.
 ///

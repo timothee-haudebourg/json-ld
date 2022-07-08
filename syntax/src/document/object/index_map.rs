@@ -1,17 +1,7 @@
-use core::hash::{Hash, BuildHasher};
-use hashbrown::raw::RawTable;
+use super::{Entry, Equivalent, Key};
+use core::hash::{BuildHasher, Hash};
 use hashbrown::hash_map::DefaultHashBuilder;
-use super::{Key, Entry};
-
-pub trait Equivalent<Q: ?Sized> {
-	fn equivalent(&self, q: &Q) -> bool;
-}
-
-impl<T: ?Sized + Eq, Q: ?Sized> Equivalent<Q> for T where Q: std::borrow::Borrow<T> {
-	fn equivalent(&self, q: &Q) -> bool {
-		self == q.borrow()
-	}
-}
+use hashbrown::raw::RawTable;
 
 fn make_insert_hash<K, S>(hash_builder: &S, val: &K) -> u64
 where
@@ -26,12 +16,15 @@ where
 
 fn equivalent_key<'a, C, M, Q>(entries: &'a [Entry<C, M>], k: &'a Q) -> impl 'a + Fn(&usize) -> bool
 where
-	Q: ?Sized + Equivalent<Key>
+	Q: ?Sized + Equivalent<Key>,
 {
 	move |i| k.equivalent(entries[*i].key.value())
 }
 
-fn make_hasher<'a, C, M, S>(entries: &'a [Entry<C, M>], hash_builder: &'a S) -> impl 'a + Fn(&usize) -> u64
+fn make_hasher<'a, C, M, S>(
+	entries: &'a [Entry<C, M>],
+	hash_builder: &'a S,
+) -> impl 'a + Fn(&usize) -> u64
 where
 	S: BuildHasher,
 {
@@ -51,43 +44,49 @@ where
 #[derive(Clone)]
 pub struct IndexMap<S = DefaultHashBuilder> {
 	hash_builder: S,
-	table: RawTable<usize>
+	table: RawTable<usize>,
 }
 
-impl<S: Default> IndexMap<S> {
+impl<S: Default> Default for IndexMap<S> {
 	fn default() -> Self {
 		Self {
 			hash_builder: S::default(),
-			table: RawTable::default()
+			table: RawTable::default(),
 		}
 	}
 }
 
-impl<S> IndexMap<S> {
-	pub fn new() -> Self where S: Default {
-		Self::default()
-	}
-}
-
 impl<S: BuildHasher> IndexMap<S> {
-	pub fn get<C, M, Q: ?Sized>(&self, entries: &[Entry<C, M>], key: &Q) -> Option<usize> where Q: Hash + Equivalent<Key> {
+	pub fn get<C, M, Q: ?Sized>(&self, entries: &[Entry<C, M>], key: &Q) -> Option<usize>
+	where
+		Q: Hash + Equivalent<Key>,
+	{
 		let hash = make_insert_hash(&self.hash_builder, key);
-		self.table.get(hash, equivalent_key::<C, M, Q>(entries, key)).cloned()
+		self.table
+			.get(hash, equivalent_key::<C, M, Q>(entries, key))
+			.cloned()
 	}
 
 	/// Associates the given `key` to `index`.
-	/// 
+	///
 	/// Returns `true` if the key was not associated to any index.
 	pub fn insert<C, M>(&mut self, entries: &[Entry<C, M>], index: usize) -> bool {
 		let key = entries[index].key.value();
 		let hash = make_insert_hash(&self.hash_builder, key);
-		match self.table.get_mut(hash, equivalent_key::<C, M, _>(entries, key)) {
+		match self
+			.table
+			.get_mut(hash, equivalent_key::<C, M, _>(entries, key))
+		{
 			Some(i) => {
 				*i = index;
 				false
-			},
+			}
 			None => {
-				self.table.insert(hash, index, make_hasher::<C, M, S>(entries, &self.hash_builder));
+				self.table.insert(
+					hash,
+					index,
+					make_hasher::<C, M, S>(entries, &self.hash_builder),
+				);
 				true
 			}
 		}
@@ -97,7 +96,8 @@ impl<S: BuildHasher> IndexMap<S> {
 	pub fn remove<C, M>(&mut self, entries: &[Entry<C, M>], index: usize) {
 		let key = entries[index].key.value();
 		let hash = make_insert_hash(&self.hash_builder, key);
-		self.table.remove_entry(hash, equivalent_key::<C, M, _>(entries, key));
+		self.table
+			.remove_entry(hash, equivalent_key::<C, M, _>(entries, key));
 	}
 
 	/// Decreases all index greater than `index` by one everywhere in the table.

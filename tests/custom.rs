@@ -9,7 +9,7 @@ extern crate json_ld;
 use async_std::task;
 use iref::{Iri, IriBuf};
 use json_ld::{
-	context::{self, Loader as ContextLoader, Local, ProcessingOptions},
+	context::{self, ContextLoader, Local, ProcessingOptions},
 	expansion,
 	util::{json_ld_eq, AsJson},
 	Document, FsLoader, Loader, ProcessingMode,

@@ -1,7 +1,23 @@
 pub enum Error {
 	ContextProcessing(json_ld_context_processing::Error),
 	InvalidIndexValue,
-	InvalidSetOrListObject
+	InvalidSetOrListObject,
+	InvalidReversePropertyMap,
+	InvalidLanguageTaggedString,
+	InvalidBaseDirection,
+	InvalidTypedValue,
+	InvalidValueObject,
+	InvalidValueObjectValue,
+	InvalidLanguageTaggedValue,
+	InvalidTypeValue,
+	KeyExpansionFailed,
+	InvalidReversePropertyValue,
+	InvalidLanguageMapValue,
+	CollidingKeywords,
+	InvalidIdValue,
+	InvalidIncludedValue,
+	InvalidReverseValue,
+	InvalidNestValue
 }
 
 impl From<json_ld_context_processing::Error> for Error {

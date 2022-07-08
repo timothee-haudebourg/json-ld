@@ -1,80 +1,54 @@
-use crate::{id, Id, Indexed, Object, Warning};
+use crate::{id, Id, Indexed, Object, StrippedIndexedObject};
 use rdf_types::BlankId;
 use std::collections::{BTreeSet, HashSet};
-use locspan::{Meta, Stripped};
 
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
-pub struct ExpandedDocument<T: Id, M> {
-	objects: HashSet<Stripped<Indexed<Object<T, M>>>>,
-	warnings: Vec<Meta<Warning, M>>,
-}
+pub struct ExpandedDocument<T: Id, M>(HashSet<StrippedIndexedObject<T, M>>);
 
 impl<T: Id, M> ExpandedDocument<T, M> {
 	#[inline(always)]
 	pub fn new(
-		objects: HashSet<Stripped<Indexed<Object<T, M>>>>,
-		warnings: Vec<Meta<Warning, M>>,
+		objects: HashSet<StrippedIndexedObject<T, M>>
 	) -> Self {
-		Self { objects, warnings }
+		Self(objects)
 	}
 
 	#[inline(always)]
 	pub fn len(&self) -> usize {
-		self.objects.len()
+		self.0.len()
 	}
 
 	#[inline(always)]
 	pub fn is_empty(&self) -> bool {
-		self.objects.is_empty()
+		self.0.is_empty()
 	}
 
 	#[inline(always)]
-	pub fn warnings(&self) -> &[Meta<Warning, M>] {
-		&self.warnings
+	pub fn objects(&self) -> &HashSet<StrippedIndexedObject<T, M>> {
+		&self.0
 	}
 
 	#[inline(always)]
-	pub fn into_warnings(self) -> Vec<Meta<Warning, M>> {
-		self.warnings
+	pub fn into_objects(self) -> HashSet<StrippedIndexedObject<T, M>> {
+		self.0
 	}
 
 	#[inline(always)]
-	pub fn objects(&self) -> &HashSet<Stripped<Indexed<Object<T, M>>>> {
-		&self.objects
-	}
-
-	#[inline(always)]
-	pub fn into_objects(self) -> HashSet<Stripped<Indexed<Object<T, M>>>> {
-		self.objects
-	}
-
-	#[inline(always)]
-	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, Stripped<Indexed<Object<T, M>>>> {
-		self.objects.iter()
+	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, StrippedIndexedObject<T, M>> {
+		self.0.iter()
 	}
 
 	#[inline(always)]
 	pub fn identify_all<G: id::Generator<T>>(&mut self, generator: &mut G) {
 		let mut objects = HashSet::new();
-		std::mem::swap(&mut self.objects, &mut objects);
+		std::mem::swap(&mut self.0, &mut objects);
 
 		for mut object in objects {
 			object.identify_all(generator);
-			self.objects.insert(object);
+			self.0.insert(object);
 		}
-	}
-
-	#[inline(always)]
-	#[allow(clippy::type_complexity)]
-	pub fn into_parts(
-		self,
-	) -> (
-		HashSet<Stripped<Indexed<Object<T, M>>>>,
-		Vec<Meta<Warning, M>>,
-	) {
-		(self.objects, self.warnings)
 	}
 
 	/// Returns the set of all blank identifiers in the given document.
@@ -127,7 +101,7 @@ impl<T: Id + PartialEq, M> PartialEq for ExpandedDocument<T, M> {
 	///
 	/// Warnings are not compared.
 	fn eq(&self, other: &Self) -> bool {
-		self.objects.eq(&other.objects)
+		self.0.eq(&other.0)
 	}
 }
 
@@ -139,13 +113,13 @@ impl<T: Id, M> IntoIterator for ExpandedDocument<T, M> {
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
-		IntoIter(self.objects.into_iter())
+		IntoIter(self.0.into_iter())
 	}
 }
 
 impl<'a, T: Id, M> IntoIterator for &'a ExpandedDocument<T, M> {
-	type IntoIter = std::collections::hash_set::Iter<'a, Stripped<Indexed<Object<T, M>>>>;
-	type Item = &'a Stripped<Indexed<Object<T, M>>>;
+	type IntoIter = std::collections::hash_set::Iter<'a, StrippedIndexedObject<T, M>>;
+	type Item = &'a StrippedIndexedObject<T, M>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -153,7 +127,7 @@ impl<'a, T: Id, M> IntoIterator for &'a ExpandedDocument<T, M> {
 	}
 }
 
-pub struct IntoIter<T: Id, M>(std::collections::hash_set::IntoIter<Stripped<Indexed<Object<T, M>>>>);
+pub struct IntoIter<T: Id, M>(std::collections::hash_set::IntoIter<StrippedIndexedObject<T, M>>);
 
 impl<T: Id, M> Iterator for IntoIter<T, M> {
 	type Item = Indexed<Object<T, M>>;
@@ -168,6 +142,6 @@ impl<T: Id, M> Iterator for IntoIter<T, M> {
 // 		&self,
 // 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
 // 	) -> K {
-// 		self.objects.as_json_with(meta)
+// 		self.0.as_json_with(meta)
 // 	}
 // }

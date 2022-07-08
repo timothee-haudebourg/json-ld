@@ -49,10 +49,13 @@ impl<T> Nullable<T> {
 		}
 	}
 
-	pub fn as_deref(&self) -> Nullable<&T::Target> where T: std::ops::Deref {
+	pub fn as_deref(&self) -> Nullable<&T::Target>
+	where
+		T: std::ops::Deref,
+	{
 		match self {
 			Self::Null => Nullable::Null,
-			Self::Some(t) => Nullable::Some(t)
+			Self::Some(t) => Nullable::Some(t),
 		}
 	}
 
@@ -77,24 +80,30 @@ impl<T> Nullable<T> {
 		}
 	}
 
-	pub fn cast<U>(self) -> Nullable<U> where T: Into<U> {
+	pub fn cast<U>(self) -> Nullable<U>
+	where
+		T: Into<U>,
+	{
 		match self {
 			Self::Null => Nullable::Null,
-			Self::Some(t) => Nullable::Some(t.into())
+			Self::Some(t) => Nullable::Some(t.into()),
 		}
 	}
 
 	pub fn unwrap_or(self, default: T) -> T {
 		match self {
 			Self::Null => default,
-			Self::Some(t) => t
+			Self::Some(t) => t,
 		}
 	}
 
-	pub fn unwrap_or_default(self) -> T where T: Default {
+	pub fn unwrap_or_default(self) -> T
+	where
+		T: Default,
+	{
 		match self {
 			Self::Null => T::default(),
-			Self::Some(t) => t
+			Self::Some(t) => t,
 		}
 	}
 }

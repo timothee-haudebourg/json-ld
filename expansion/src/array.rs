@@ -1,17 +1,18 @@
 use iref::Iri;
 use locspan::Meta;
 use json_ld_core::{Id, Context, context::TermDefinition, Object};
-use json_ld_context_processing::{Process, Loader as ContextLoader};
+use json_ld_context_processing::{Process, ContextLoader};
 use json_ld_syntax::{ContainerType, Value, Array};
-use crate::{Loader, Options, Warning, Error, Expanded, expand_element};
+use crate::{Loader, Options, Warning, Error, Expanded, ActiveProperty, expand_element};
 
-pub async fn expand_array<
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn expand_array<
 	T: Id,
 	C: Process<T>,
 	L: Loader + ContextLoader
 >(
 	active_context: &Context<T, C>,
-	active_property: Option<Meta<&str, C::Metadata>>,
+	active_property: ActiveProperty<'_, C::Metadata>,
 	active_property_definition: Option<&TermDefinition<T, C>>,
 	element: &Array<C, C::Metadata>,
 	base_url: Option<Iri<'_>>,
@@ -19,7 +20,7 @@ pub async fn expand_array<
 	options: Options,
 	from_map: bool,
 	mut warnings: impl Send + FnMut(Meta<Warning, C::Metadata>),
-) -> Result<Expanded<T>, Meta<Error, C::Metadata>>
+) -> Result<Expanded<T, C::Metadata>, Meta<Error, C::Metadata>>
 where
 	T: Sync + Send,
 	C: Sync + Send,
@@ -46,8 +47,8 @@ where
 		result.extend(
 			expand_element(
 				active_context,
-				active_property.clone(),
-				&*item,
+				active_property,
+				item,
 				base_url,
 				loader,
 				options,

@@ -1,48 +1,75 @@
-use super::{expand_iri, node_id_of_term, ActiveProperty};
+use locspan::{Meta, At};
+use json_ld_core::{Id, Context, Indexed, Object, Value, Type, Node, object::value::{Literal, LiteralString}, LangString};
+use json_ld_syntax::{Nullable, AnyContextEntry, LenientLanguageTag};
+use json_syntax::Number;
 use crate::{
-	loader, object::*, syntax::Type, Context, Error, ErrorCode, Id, Indexed, LangString, Loc,
 	Warning,
+	Error,
+	ActiveProperty,
+	expand_iri,
+	node_id_of_term
 };
-use generic_json::{Json, JsonClone, JsonHash, ValueRef};
 
-pub enum LiteralValue<'a, J: Json> {
-	Given(&'a J),
-	Inferred(String, J::MetaData),
+pub(crate) enum GivenLiteralValue<'a> {
+	Boolean(bool),
+	Number(&'a Number),
+	String(&'a str),
 }
 
-impl<'a, J: Json> LiteralValue<'a, J> {
+impl<'a> GivenLiteralValue<'a> {
+	pub fn new<C, M>(value: &'a json_ld_syntax::Value<C, M>) -> Self {
+		match value {
+			json_ld_syntax::Value::Boolean(b) => Self::Boolean(*b),
+			json_ld_syntax::Value::Number(n) => Self::Number(n),
+			json_ld_syntax::Value::String(s) => Self::String(s),
+			_ => panic!("not a literal value")
+		}
+	}
+
+	pub fn is_string(&self) -> bool {
+		matches!(self, Self::Number(_))
+	}
+
+	pub fn as_str(&self) -> Option<&'a str> {
+		match self {
+			Self::String(s) => Some(s),
+			_ => None
+		}
+	}
+}
+
+pub(crate) enum LiteralValue<'a> {
+	Given(GivenLiteralValue<'a>),
+	Inferred(String),
+}
+
+impl<'a> LiteralValue<'a> {
 	pub fn is_string(&self) -> bool {
 		match self {
 			Self::Given(v) => v.is_string(),
-			Self::Inferred(_, _) => true,
+			Self::Inferred(_) => true,
 		}
 	}
 
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
 			Self::Given(v) => v.as_str(),
-			Self::Inferred(s, _) => Some(s.as_str()),
-		}
-	}
-
-	pub fn metadata(&self) -> &J::MetaData {
-		match self {
-			Self::Given(v) => v.metadata(),
-			Self::Inferred(_, meta) => meta,
+			Self::Inferred(s) => Some(s.as_str()),
 		}
 	}
 }
 
+pub(crate) type ExpandedLiteral<T, M> = Indexed<Object<T, M>>;
+
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
-pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
-	source: Option<loader::Id>,
-	active_context: &C,
-	active_property: ActiveProperty<J>,
-	value: LiteralValue<J>,
-	warnings: &mut Vec<Loc<Warning, J::MetaData>>,
-) -> Result<Indexed<Object<J, T>>, Error> {
-	let active_property_definition = active_context.get_opt(active_property.id());
+pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
+	active_context: &Context<T, C>,
+	active_property: ActiveProperty<'_, C::Metadata>,
+	Meta(value, meta): Meta<LiteralValue, &C::Metadata>,
+	warnings: impl FnMut(Meta<Warning, C::Metadata>),
+) -> Result<ExpandedLiteral<T, C::Metadata>, Meta<Error, C::Metadata>> {
+	let active_property_definition = active_property.get_from(active_context);
 
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
 	{
@@ -58,15 +85,13 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 		// `false` for vocab.
 		Some(Type::Id) if value.is_string() => {
 			let mut node = Node::new();
-			node.id = node_id_of_term(expand_iri(
-				source,
+			node.set_id(node_id_of_term(expand_iri(
 				active_context,
-				value.as_str().unwrap(),
-				value.metadata(),
+				Meta(Nullable::Some(value.as_str().unwrap().into()), meta.clone()),
 				true,
 				false,
 				warnings,
-			));
+			)));
 			Ok(Object::Node(node).into())
 		}
 
@@ -76,30 +101,26 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 		// document relative.
 		Some(Type::Vocab) if value.is_string() => {
 			let mut node = Node::new();
-			node.id = node_id_of_term(expand_iri(
-				source,
+			node.set_id(node_id_of_term(expand_iri(
 				active_context,
-				value.as_str().unwrap(),
-				value.metadata(),
+				Meta(Nullable::Some(value.as_str().unwrap().into()), meta.clone()),
 				true,
 				true,
 				warnings,
-			));
+			)));
 			Ok(Object::Node(node).into())
 		}
 
 		_ => {
 			// Otherwise, initialize `result` to a map with an `@value` entry whose value is set to
 			// `value`.
-			let result: Literal<J> = match value {
-				LiteralValue::Given(v) => match v.as_value_ref() {
-					ValueRef::Null => Literal::Null,
-					ValueRef::Boolean(b) => Literal::Boolean(b),
-					ValueRef::Number(n) => Literal::Number(n.clone()),
-					ValueRef::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
-					_ => panic!("expand_literal must be called with a literal JSON value"),
+			let result: Literal = match value {
+				LiteralValue::Given(v) => match v {
+					GivenLiteralValue::Boolean(b) => Literal::Boolean(b),
+					GivenLiteralValue::Number(n) => Literal::Number(unsafe { json_syntax::NumberBuf::new_unchecked(n.as_bytes().into()) }),
+					GivenLiteralValue::String(s) => Literal::String(LiteralString::Expanded(s.into()))
 				},
-				LiteralValue::Inferred(s, _) => Literal::String(LiteralString::Inferred(s)),
+				LiteralValue::Inferred(s) => Literal::String(LiteralString::Inferred(s)),
 			};
 
 			// If `active_property` has a type mapping in active context, other than `@id`,
@@ -109,7 +130,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 			match active_property_type {
 				None | Some(Type::Id) | Some(Type::Vocab) | Some(Type::None) => {
 					// Otherwise, if value is a string:
-					if let Literal::String(str) = result {
+					if let Literal::String(s) = result {
 						// Initialize `language` to the language mapping for
 						// `active_property` in `active_context`, if any, otherwise to the
 						// default language of `active_context`.
@@ -118,10 +139,10 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 								if let Some(language) = &active_property_definition.language {
 									language.as_ref().cloned().option()
 								} else {
-									active_context.default_language().map(|lang| lang.cloned())
+									active_context.default_language().map(LenientLanguageTag::to_owned)
 								}
 							} else {
-								active_context.default_language().map(|lang| lang.cloned())
+								active_context.default_language().map(LenientLanguageTag::to_owned)
 							};
 
 						// Initialize `direction` to the direction mapping for
@@ -142,10 +163,10 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 						// `language`.
 						// If `direction` is not null, add `@direction` to result with the
 						// value `direction`.
-						return match LangString::new(str, language, direction) {
+						return match LangString::new(s, language, direction) {
 							Ok(lang_str) => Ok(Object::Value(Value::LangString(lang_str)).into()),
-							Err(str) => Ok(Object::Value(Value::Literal(
-								Literal::String(str),
+							Err(s) => Ok(Object::Value(Value::Literal(
+								Literal::String(s),
 								None,
 							))
 							.into()),
@@ -157,7 +178,7 @@ pub fn expand_literal<J: JsonHash + JsonClone, T: Id, C: Context<T>>(
 					if let Ok(t) = t.into_ref() {
 						ty = Some(t)
 					} else {
-						return Err(ErrorCode::InvalidTypeValue.into());
+						return Err(Error::InvalidTypeValue.at(meta.clone()));
 					}
 				}
 			}

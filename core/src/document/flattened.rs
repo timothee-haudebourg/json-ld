@@ -1,75 +1,54 @@
 use crate::{
 	id,
-	Id, Indexed, Node, Warning,
+	Id, Indexed, Node
 };
-use locspan::Meta;
 
 /// Result of the document flattening algorithm.
 ///
 /// It is just an alias for a set of (indexed) nodes.
-pub struct FlattenedDocument<T: Id, M> {
-	nodes: Vec<Indexed<Node<T, M>>>,
-	warnings: Vec<Meta<Warning, M>>,
-}
+pub struct FlattenedDocument<T: Id, M>(Vec<Indexed<Node<T, M>>>);
 
 impl<T: Id, M> FlattenedDocument<T, M> {
 	#[inline(always)]
 	pub fn new(
-		nodes: Vec<Indexed<Node<T, M>>>,
-		warnings: Vec<Meta<Warning, M>>,
+		nodes: Vec<Indexed<Node<T, M>>>
 	) -> Self {
-		Self { nodes, warnings }
+		Self(nodes)
 	}
 
 	#[inline(always)]
 	pub fn len(&self) -> usize {
-		self.nodes.len()
+		self.0.len()
 	}
 
 	#[inline(always)]
 	pub fn is_empty(&self) -> bool {
-		self.nodes.is_empty()
-	}
-
-	#[inline(always)]
-	pub fn warnings(&self) -> &[Meta<Warning, M>] {
-		&self.warnings
-	}
-
-	#[inline(always)]
-	pub fn into_warnings(self) -> Vec<Meta<Warning, M>> {
-		self.warnings
+		self.0.is_empty()
 	}
 
 	#[inline(always)]
 	pub fn nodes(&self) -> &[Indexed<Node<T, M>>] {
-		&self.nodes
+		&self.0
 	}
 
 	#[inline(always)]
 	pub fn into_nodes(self) -> Vec<Indexed<Node<T, M>>> {
-		self.nodes
+		self.0
 	}
 
 	#[inline(always)]
 	pub fn iter(&self) -> std::slice::Iter<'_, Indexed<Node<T, M>>> {
-		self.nodes.iter()
+		self.0.iter()
 	}
 
 	#[inline(always)]
 	pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Indexed<Node<T, M>>> {
-		self.nodes.iter_mut()
-	}
-
-	#[inline(always)]
-	#[allow(clippy::type_complexity)]
-	pub fn into_parts(self) -> (Vec<Indexed<Node<T, M>>>, Vec<Meta<Warning, M>>) {
-		(self.nodes, self.warnings)
+		self.0.iter_mut()
 	}
 
 	#[inline(always)]
 	pub fn identify_all<G: id::Generator<T>>(&mut self, mut generator: G) {
-		for node in &mut self.nodes {
+		for node in &mut self.0 {
 			node.identify_all(&mut generator)
 		}
 	}
@@ -81,7 +60,7 @@ impl<T: Id, M> IntoIterator for FlattenedDocument<T, M> {
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
-		self.nodes.into_iter()
+		self.0.into_iter()
 	}
 }
 
@@ -112,6 +91,6 @@ impl<'a, T: Id, M> IntoIterator for &'a mut FlattenedDocument<T, M> {
 // 		&self,
 // 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
 // 	) -> K {
-// 		self.nodes.as_json_with(meta)
+// 		self.0.as_json_with(meta)
 // 	}
 // }

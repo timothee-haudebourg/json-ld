@@ -78,7 +78,7 @@ pub fn simple_json_ld_eq<M, N>(a: &Value<M>, b: &Value<N>) -> bool {
 
 			'a_items: for item in a.iter() {
 				for (i, sel) in selected.iter_mut().enumerate() {
-					if !*sel && simple_json_ld_eq(&*item, &*b.get(i).unwrap()) {
+					if !*sel && simple_json_ld_eq(item, b.get(i).unwrap()) {
 						*sel = true;
 						continue 'a_items;
 					}
@@ -104,12 +104,12 @@ pub fn simple_json_ld_eq<M, N>(a: &Value<M>, b: &Value<N>) -> bool {
 								}
 							}
 							_ => {
-								if !simple_json_ld_eq(&*value_a, &*value_b) {
+								if !simple_json_ld_eq(value_a, value_b) {
 									return false;
 								}
 							}
 						}
-					} else if !simple_json_ld_eq(&*value_a, &*value_b) {
+					} else if !simple_json_ld_eq(value_a, value_b) {
 						return false;
 					}
 				} else {

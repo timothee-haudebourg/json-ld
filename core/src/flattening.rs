@@ -1,5 +1,5 @@
 //! Flattening algorithm and related types.
-use crate::{id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object};
+use crate::{id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, StrippedIndexedNode, Object};
 use locspan::Stripped;
 use std::collections::HashSet;
 
@@ -16,13 +16,13 @@ impl<T: Id, M: Clone> ExpandedDocument<T, M> {
 		ordered: bool,
 	) -> Result<FlattenedDocument<T, M>, ConflictingIndexes<T>> {
 		let nodes = self.generate_node_map(generator)?.flatten(ordered);
-		Ok(FlattenedDocument::new(nodes, self.into_warnings()))
+		Ok(FlattenedDocument::new(nodes))
 	}
 
 	pub fn flatten_unordered<G: id::Generator<T>>(
 		self,
 		generator: G,
-	) -> Result<HashSet<Stripped<Indexed<Node<T, M>>>>, ConflictingIndexes<T>> {
+	) -> Result<HashSet<StrippedIndexedNode<T, M>>, ConflictingIndexes<T>> {
 		Ok(self.generate_node_map(generator)?.flatten_unordered())
 	}
 }

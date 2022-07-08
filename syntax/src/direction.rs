@@ -1,5 +1,5 @@
-use std::fmt;
 use locspan_derive::StrippedPartialEq;
+use std::fmt;
 
 /// Internationalized string direction.
 ///

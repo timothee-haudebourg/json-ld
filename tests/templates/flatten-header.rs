@@ -1,7 +1,7 @@
 use iref::{{Iri, IriBuf}};
 use json_ld::{{
 	compaction,
-	context::{{self, Loader as ContextLoader, Local, ProcessingOptions}},
+	context::{{self, ContextLoader, Local, ProcessingOptions}},
 	expansion,
 	util::{{json_ld_eq, AsJson}},
 	Document, ErrorCode, FsLoader, Loader, ProcessingMode,

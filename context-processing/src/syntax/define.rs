@@ -1,5 +1,5 @@
 use super::{expand_iri_with, expand_iri_simple, Merged};
-use crate::{Error, Loader, MetaWarning, Process, ProcessingOptions, ProcessingStack, Warning};
+use crate::{Error, ContextLoader, MetaWarning, Process, ProcessingOptions, ProcessingStack, Warning};
 use futures::future::{BoxFuture, FutureExt};
 use iref::Iri;
 use json_ld_core::{context::TermDefinition, Context, Id, ProcessingMode, Reference, Term, Type};
@@ -84,7 +84,7 @@ impl<C: AnyContextEntry> DefinedTerms<C> {
 					key.clone(),
 					DefinedTerm {
 						pending: true,
-						metadata: meta.clone(),
+						_metadata: meta.clone(),
 					},
 				);
 
@@ -94,13 +94,13 @@ impl<C: AnyContextEntry> DefinedTerms<C> {
 	}
 
 	pub fn end(&mut self, key: &KeyOrKeyword) {
-		self.0.get_mut(&key).unwrap().pending = false
+		self.0.get_mut(key).unwrap().pending = false
 	}
 }
 
 pub struct DefinedTerm<M> {
 	pending: bool,
-	metadata: M,
+	_metadata: M,
 }
 
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
@@ -109,7 +109,7 @@ pub fn define<
 	'a,
 	T: Id + Send + Sync,
 	C: Process<T>,
-	L: Loader + Send + Sync,
+	L: ContextLoader + Send + Sync,
 >(
 	active_context: &'a mut Context<T, C>,
 	local_context: &'a Merged<'a, C>,
@@ -286,7 +286,7 @@ where
 										) {
 											definition.container = container_value
 										} else {
-											return Err(Error::InvalidReverseProperty.into());
+											return Err(Error::InvalidReverseProperty);
 										}
 									}
 								};
@@ -386,7 +386,7 @@ where
 											)
 											.await?;
 											if definition.value != Some(expanded_term) {
-												return Err(Error::InvalidIriMapping.into());
+												return Err(Error::InvalidIriMapping);
 											}
 										}
 
@@ -445,12 +445,12 @@ where
 									if let Ok(iri) = Iri::new(result.as_str()) {
 										definition.value = Some(Term::Ref(Reference::Id(T::from_iri(iri))))
 									} else {
-										return Err(Error::InvalidIriMapping.into());
+										return Err(Error::InvalidIriMapping);
 									}
 								} else if let Ok(iri) = Iri::new(compact_iri.as_str()) {
 									definition.value = Some(Term::Ref(Reference::Id(T::from_iri(iri))))
 								} else {
-									return Err(Error::InvalidIriMapping.into());
+									return Err(Error::InvalidIriMapping);
 								}
 							}
 							Some(Meta(Nullable::Some(IdRef::Blank(id)), _id_loc)) => {
@@ -478,15 +478,15 @@ where
 											definition.value =
 												Some(Term::<T>::from(T::from_iri(iri)))
 										} else {
-											return Err(Error::InvalidIriMapping.into());
+											return Err(Error::InvalidIriMapping);
 										}
 									} else {
-										return Err(Error::InvalidIriMapping.into());
+										return Err(Error::InvalidIriMapping);
 									}
 								} else {
 									// If it does not have a vocabulary mapping, an invalid IRI mapping error
 									// been detected and processing is aborted.
-									return Err(Error::InvalidIriMapping.into());
+									return Err(Error::InvalidIriMapping);
 								}
 							}
 						}
@@ -528,7 +528,7 @@ where
 									// is aborted.
 									match typ {
 										Type::Id | Type::Vocab => (),
-										_ => return Err(Error::InvalidTypeMapping.into()),
+										_ => return Err(Error::InvalidTypeMapping),
 									}
 								} else {
 									// If type mapping in definition is undefined, set it to @id.
@@ -545,7 +545,7 @@ where
 							if !definition.container.contains(ContainerType::Index)
 								|| options.processing_mode == ProcessingMode::JsonLd1_0
 							{
-								return Err(Error::InvalidTermDefinition.into());
+								return Err(Error::InvalidTermDefinition);
 							}
 
 							// Initialize `index` to the value associated with the `@index` entry,
@@ -560,7 +560,7 @@ where
 								&mut warnings,
 							) {
 								Term::Ref(Reference::Id(_)) => (),
-								_ => return Err(Error::InvalidTermDefinition.into()),
+								_ => return Err(Error::InvalidTermDefinition),
 							}
 
 							definition.index = Some(index_value.to_owned())
@@ -571,7 +571,7 @@ where
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
 							if options.processing_mode == ProcessingMode::JsonLd1_0 {
-								return Err(Error::InvalidTermDefinition.into());
+								return Err(Error::InvalidTermDefinition);
 							}
 
 							// Initialize `context` to the value associated with the @context entry,
@@ -593,7 +593,7 @@ where
 								warnings,
 							)
 							.await
-							.map_err(|_| Error::from(Error::InvalidScopedContext))?;
+							.map_err(|_| Error::InvalidScopedContext)?;
 
 							// Set the local context of definition to context, and base URL to base URL.
 							definition.context = Some(context.clone());
@@ -628,7 +628,7 @@ where
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
 							if options.processing_mode == ProcessingMode::JsonLd1_0 {
-								return Err(Error::InvalidTermDefinition.into());
+								return Err(Error::InvalidTermDefinition);
 							}
 
 							definition.nest = Some(nest_value.to_owned());
@@ -643,7 +643,7 @@ where
 								|| key.as_str().contains('/') || options.processing_mode
 								== ProcessingMode::JsonLd1_0
 							{
-								return Err(Error::InvalidTermDefinition.into());
+								return Err(Error::InvalidTermDefinition);
 							}
 
 							// Set the `prefix` flag to the value associated with the @prefix entry,

@@ -1,6 +1,6 @@
 use crate::{object, Direction, Id, LangString, LenientLanguageTag};
 use iref::IriBuf;
-use json_number::{NumberBuf, Number};
+use json_syntax::{NumberBuf, Number};
 use locspan_derive::*;
 use std::{
 	fmt,

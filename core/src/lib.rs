@@ -172,7 +172,7 @@
 #![feature(trait_alias)]
 
 pub use json_ld_syntax::{
-	Direction, LangString, LenientLanguageTag, LenientLanguageTagBuf, Nullable,
+	Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable,
 };
 
 pub mod context;
@@ -188,6 +188,7 @@ pub mod rdf;
 mod reference;
 mod term;
 mod ty;
+mod lang_string;
 pub mod utils;
 mod vocab;
 mod warning;
@@ -198,9 +199,10 @@ pub use error::*;
 pub use id::*;
 pub use indexed::*;
 pub use mode::*;
-pub use object::{Node, Nodes, Object, Objects, Value};
+pub use object::{Node, StrippedIndexedNode, Nodes, Object, StrippedIndexedObject, Objects, Value};
 pub use reference::*;
 pub use term::*;
 pub use ty::*;
+pub use lang_string::*;
 pub use vocab::*;
 pub use warning::*;

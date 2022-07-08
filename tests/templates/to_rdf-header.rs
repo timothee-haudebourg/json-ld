@@ -1,6 +1,6 @@
 use iref::{{Iri, IriBuf}};
 use json_ld::{{
-	context::{{self, Loader as ContextLoader, Local, ProcessingOptions}},
+	context::{{self, ContextLoader, Local, ProcessingOptions}},
 	expansion, rdf,
 	rdf::Display,
 	util::AsJson,

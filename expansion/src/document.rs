@@ -3,17 +3,19 @@ use json_ld_core::{
 	Id,
 	Context,
 	Indexed,
-	Object
+	Object,
+	ExpandedDocument
 };
-use json_ld_context_processing::Process;
-use json_syntax::Value;
+use json_ld_context_processing::{Process, ContextLoader};
+use json_ld_syntax::Value;
 use iref::IriBuf;
-use locspan::Meta;
+use locspan::{Meta, Stripped};
 use crate::{
 	Options,
 	Loader,
 	Warning,
-	Error
+	Error,
+	ActiveProperty
 };
 use super::expand_element;
 
@@ -22,24 +24,25 @@ use super::expand_element;
 /// Note that you probably do not want to use this function directly,
 /// but instead use the [`Document::expand`](crate::Document::expand) method on
 /// a `Value` instance.
-pub async fn expand<'a, T: Id, M, C: Process<T>, L: Loader>(
+pub(crate) async fn expand<'a, T: Id, C: Process<T>, L: Loader + ContextLoader>(
 	active_context: &'a Context<T, C>,
-	document: &'a Value<M>,
+	document: &'a Meta<Value<C, C::Metadata>, C::Metadata>,
 	base_url: Option<IriBuf>,
 	loader: &'a mut L,
 	options: Options,
-	warnings: &mut Vec<Meta<Warning, M>>,
-) -> Result<HashSet<Indexed<Object<T>>>, Meta<Error, M>>
+	warnings: impl 'a + Send + FnMut(Meta<Warning, C::Metadata>),
+) -> Result<ExpandedDocument<T, C::Metadata>, Meta<Error, C::Metadata>>
 where
 	T: Send + Sync,
 	C: Send + Sync,
 	L: Send + Sync,
-	L::Output: Into<Value<M>>,
+	<L as Loader>::Output: Into<Value<C, C::Metadata>>,
+	<L as ContextLoader>::Output: Into<C>
 {
 	let base_url = base_url.as_ref().map(|url| url.as_iri());
 	let expanded = expand_element(
 		active_context,
-		None,
+		ActiveProperty::None,
 		document,
 		base_url,
 		loader,
@@ -50,21 +53,21 @@ where
 	.await?;
 	if expanded.len() == 1 {
 		match expanded.into_iter().next().unwrap().into_unnamed_graph() {
-			Ok(graph) => Ok(graph),
+			Ok(graph) => Ok(ExpandedDocument::new(graph)),
 			Err(obj) => {
 				let mut set = HashSet::new();
 				if filter_top_level_item(&obj) {
-					set.insert(obj);
+					set.insert(Stripped(obj));
 				}
-				Ok(set)
+				Ok(ExpandedDocument::new(set))
 			}
 		}
 	} else {
-		Ok(expanded.into_iter().filter(filter_top_level_item).collect())
+		Ok(ExpandedDocument::new(expanded.into_iter().filter(filter_top_level_item).map(Stripped).collect()))
 	}
 }
 
-fn filter_top_level_item<T: Id>(item: &Indexed<Object<T>>) -> bool {
+pub(crate) fn filter_top_level_item<T: Id, M>(item: &Indexed<Object<T, M>>) -> bool {
 	// Remove dangling values.
 	!matches!(item.inner(), Object::Value(_))
 }

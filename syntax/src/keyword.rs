@@ -2,6 +2,9 @@ use locspan_derive::StrippedPartialEq;
 use std::convert::TryFrom;
 use std::fmt;
 
+#[derive(Clone, Copy, Debug)]
+pub struct NotAKeyword<T>(pub T);
+
 /// JSON-LD keywords.
 #[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Keyword {
@@ -147,11 +150,11 @@ impl Keyword {
 }
 
 impl<'a> TryFrom<&'a str> for Keyword {
-	type Error = &'a str;
+	type Error = NotAKeyword<&'a str>;
 
-	fn try_from(str: &'a str) -> Result<Keyword, &'a str> {
+	fn try_from(s: &'a str) -> Result<Keyword, NotAKeyword<&'a str>> {
 		use Keyword::*;
-		match str {
+		match s {
 			"@base" => Ok(Base),
 			"@container" => Ok(Container),
 			"@context" => Ok(Context),
@@ -175,7 +178,7 @@ impl<'a> TryFrom<&'a str> for Keyword {
 			"@value" => Ok(Value),
 			"@version" => Ok(Version),
 			"@vocab" => Ok(Vocab),
-			_ => Err(str),
+			_ => Err(NotAKeyword(s)),
 		}
 	}
 }

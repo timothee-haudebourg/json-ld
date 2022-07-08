@@ -4,7 +4,8 @@ use json_ld_context_processing::syntax::MalformedIri;
 pub enum Warning {
 	MalformedIri(String),
 	EmptyTerm,
-	BlankNodeIdProperty(BlankIdBuf)
+	BlankNodeIdProperty(BlankIdBuf),
+	MalformedLanguageTag(String, langtag::Error)
 }
 
 impl From<MalformedIri> for Warning {

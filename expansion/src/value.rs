@@ -1,38 +1,35 @@
-use super::{expand_iri, ExpandedEntry};
+use locspan::{Meta, At};
+use json_ld_core::{Id, Context, Term, Reference, Indexed, Object, Value, object::value::{Literal, LiteralString}, LangString};
+use json_ld_syntax::{Nullable, Keyword, Direction, LenientLanguageTagBuf, AnyContextEntry};
 use crate::{
-	loader,
-	object::*,
-	syntax::{Keyword, Term},
-	ContextMut, Direction, Error, ErrorCode, Id, Indexed, LangString, Loc, Reference, Warning,
+	ExpandedEntry,
+	Warning,
+	Error,
+	expand_iri,
 };
-use generic_json::{JsonClone, JsonHash, ValueRef};
-use langtag::LanguageTagBuf;
-use std::convert::TryFrom;
 
-pub(crate) fn expand_value<'e, J: JsonHash + JsonClone, T: Id, C: ContextMut<T>>(
-	source: Option<loader::Id>,
+pub(crate) type ExpandedValue<T, M> = Option<Indexed<Object<T, M>>>;
+
+/// Expand a value object.
+pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 	input_type: Option<Term<T>>,
-	type_scoped_context: &C,
-	expanded_entries: Vec<ExpandedEntry<'e, J, Term<T>>>,
-	value_entry: &J,
-	warnings: &mut Vec<Loc<Warning, J::MetaData>>,
-) -> Result<Option<Indexed<Object<J, T>>>, Error>
-where
-	J::Object: 'e,
-{
+	type_scoped_context: &Context<T, C>,
+	expanded_entries: Vec<ExpandedEntry<'e, T, C, C::Metadata>>,
+	Meta(value_entry, meta): &Meta<json_ld_syntax::Value<C, C::Metadata>, C::Metadata>,
+	mut warnings: impl FnMut(Meta<Warning, C::Metadata>),
+) -> Result<ExpandedValue<T, C::Metadata>, Meta<Error, C::Metadata>> {
 	let mut is_json = input_type == Some(Term::Keyword(Keyword::Json));
 	let mut ty = None;
 	let mut index = None;
 	let mut language = None;
 	let mut direction = None;
 
-	for ExpandedEntry(_, expanded_key, value) in expanded_entries {
+	for ExpandedEntry(_, expanded_key, Meta(value, value_metadata)) in expanded_entries {
 		match expanded_key {
 			// If expanded property is @language:
 			Term::Keyword(Keyword::Language) => {
 				// If value is not a string, an invalid language-tagged string
 				// error has been detected and processing is aborted.
-				let value_metadata = value.metadata();
 				if let Some(value) = value.as_str() {
 					// Otherwise, set expanded value to value. If value is not
 					// well-formed according to section 2.2.9 of [BCP47],
@@ -40,10 +37,10 @@ where
 					// TODO warning.
 
 					if value != "@none" {
-						language = Some((value.to_string(), value_metadata.clone()));
+						language = Some(Meta(value.to_owned(), value_metadata.clone()));
 					}
 				} else {
-					return Err(ErrorCode::InvalidLanguageTaggedString.into());
+					return Err(Error::InvalidLanguageTaggedString.at(meta.clone()));
 				}
 			}
 			// If expanded property is @direction:
@@ -58,10 +55,10 @@ where
 					if let Ok(value) = Direction::try_from(value) {
 						direction = Some(value);
 					} else {
-						return Err(ErrorCode::InvalidBaseDirection.into());
+						return Err(Error::InvalidBaseDirection.at(meta.clone()));
 					}
 				} else {
-					return Err(ErrorCode::InvalidBaseDirection.into());
+					return Err(Error::InvalidBaseDirection.at(meta.clone()));
 				}
 			}
 			// If expanded property is @index:
@@ -71,20 +68,18 @@ where
 				if let Some(value) = value.as_str() {
 					index = Some(value.to_string())
 				} else {
-					return Err(ErrorCode::InvalidIndexValue.into());
+					return Err(Error::InvalidIndexValue.at(meta.clone()));
 				}
 			}
 			// If expanded ...
 			Term::Keyword(Keyword::Type) => {
 				if let Some(ty_value) = value.as_str() {
 					let expanded_ty = expand_iri(
-						source,
 						type_scoped_context,
-						ty_value,
-						value.metadata(),
+						Meta(Nullable::Some(ty_value.into()), value_metadata.clone()),
 						true,
 						true,
-						warnings,
+						&mut warnings,
 					);
 
 					match expanded_ty {
@@ -95,15 +90,15 @@ where
 							is_json = false;
 							ty = Some(expanded_ty)
 						}
-						_ => return Err(ErrorCode::InvalidTypedValue.into()),
+						_ => return Err(Error::InvalidTypedValue.at(meta.clone())),
 					}
 				} else {
-					return Err(ErrorCode::InvalidTypedValue.into());
+					return Err(Error::InvalidTypedValue.at(meta.clone()));
 				}
 			}
 			Term::Keyword(Keyword::Value) => (),
 			_ => {
-				return Err(ErrorCode::InvalidValueObject.into());
+				return Err(Error::InvalidValueObject.at(meta.clone()));
 			}
 		}
 	}
@@ -113,23 +108,23 @@ where
 	// been detected and processing is aborted.
 	if is_json {
 		if language.is_some() || direction.is_some() {
-			return Err(ErrorCode::InvalidValueObject.into());
+			return Err(Error::InvalidValueObject.at(meta.clone()));
 		}
 		return Ok(Some(Indexed::new(
-			Object::Value(Value::Json(value_entry.clone())),
+			Object::Value(Value::Json(value_entry.clone().into_json())),
 			index,
 		)));
 	}
 
 	// Otherwise, if value is not a scalar or null, an invalid value object value
 	// error has been detected and processing is aborted.
-	let result = match value_entry.as_value_ref() {
-		ValueRef::Null => Literal::Null,
-		ValueRef::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
-		ValueRef::Number(n) => Literal::Number(n.clone()),
-		ValueRef::Boolean(b) => Literal::Boolean(b),
+	let result = match value_entry {
+		json_ld_syntax::Value::Null => Literal::Null,
+		json_ld_syntax::Value::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
+		json_ld_syntax::Value::Number(n) => Literal::Number(n.clone()),
+		json_ld_syntax::Value::Boolean(b) => Literal::Boolean(*b),
 		_ => {
-			return Err(ErrorCode::InvalidValueObjectValue.into());
+			return Err(Error::InvalidValueObjectValue.at(meta.clone()));
 		}
 	};
 
@@ -149,37 +144,35 @@ where
 	// aborted.
 	if language.is_some() || direction.is_some() {
 		if ty.is_some() {
-			return Err(ErrorCode::InvalidValueObject.into());
+			return Err(Error::InvalidValueObject.at(meta.clone()));
 		}
 
-		if let Literal::String(str) = result {
+		if let Literal::String(s) = result {
 			let lang = match language {
-				Some(language) => {
-					let (language, language_metadata) = language;
-					match LanguageTagBuf::parse_copy(language.as_str()) {
-						Ok(lang) => Some(lang.into()),
-						Err(err) => {
-							warnings.push(Loc::new(
-								Warning::MalformedLanguageTag(language.to_string(), err),
-								source,
-								language_metadata,
-							));
-							Some(language.to_string().into())
-						}
+				Some(Meta(language, language_metadata)) => {
+					let (language, error) = LenientLanguageTagBuf::new(language);
+
+					if let Some(error) = error {
+						warnings(Meta::new(
+							Warning::MalformedLanguageTag(language.to_string(), error),
+							language_metadata
+						))
 					}
+
+					Some(language)
 				}
 				None => None,
 			};
 
-			return match LangString::new(str, lang, direction) {
+			return match LangString::new(s, lang, direction) {
 				Ok(result) => Ok(Some(Indexed::new(
 					Object::Value(Value::LangString(result)),
 					index,
 				))),
-				Err(_) => Err(ErrorCode::InvalidLanguageTaggedValue.into()),
+				Err(_) => Err(Error::InvalidLanguageTaggedValue.at(meta.clone())),
 			};
 		} else {
-			return Err(ErrorCode::InvalidLanguageTaggedValue.into());
+			return Err(Error::InvalidLanguageTaggedValue.at(meta.clone()));
 		}
 	}
 

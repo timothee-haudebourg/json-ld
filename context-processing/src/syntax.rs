@@ -16,7 +16,7 @@ use crate::{
 	ProcessingStack,
 	ProcessingOptions,
 	ProcessingResult,
-	Loader,
+	ContextLoader,
 	MetaWarning,
 	Error,
 	MetaError
@@ -31,7 +31,7 @@ pub use define::*;
 pub use merged::*;
 
 impl<C: syntax::AnyContextEntry, T: Id> Process<T> for C {
-	fn process_full<'a, L: Loader + Send + Sync>(
+	fn process_full<'a, L: ContextLoader + Send + Sync>(
 		&'a self,
 		active_context: &'a Context<T, C>,
 		stack: ProcessingStack,
@@ -84,7 +84,7 @@ fn process_context<'a, T, C, L>(
 where
 	T: Id + Send + Sync,
 	C: Clone + Process<T>,
-	L: Loader + Send + Sync,
+	L: ContextLoader + Send + Sync,
 	L::Output: Into<C>
 {
 	use syntax::AnyContextDefinition;

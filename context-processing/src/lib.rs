@@ -12,7 +12,7 @@ pub mod syntax;
 
 pub use stack::ProcessingStack;
 
-pub trait Loader {
+pub trait ContextLoader {
 	/// Output of the loader.
 	type Output;
 	type Source;
@@ -67,7 +67,7 @@ pub type ProcessingResult<T, C> = Result<Context<T, C>, MetaError<C>>;
 /// Context processing functions.
 pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 	/// Process the local context with specific options.
-	fn process_full<'a, L: Loader + Send + Sync>(
+	fn process_full<'a, L: ContextLoader + Send + Sync>(
 		&'a self,
 		active_context: &'a Context<T, Self>,
 		stack: ProcessingStack,
@@ -81,7 +81,7 @@ pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 		T: Send + Sync;
 
 	/// Process the local context with specific options.
-	fn process_with<'a, L: Loader + Send + Sync>(
+	fn process_with<'a, L: ContextLoader + Send + Sync>(
 		&'a self,
 		active_context: &'a Context<T, Self>,
 		loader: &'a mut L,
@@ -104,7 +104,7 @@ pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 
 	/// Process the local context with the given initial active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, L: Loader + Send + Sync>(
+	fn process<'a, L: ContextLoader + Send + Sync>(
 		&'a self,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
