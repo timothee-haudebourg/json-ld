@@ -1,11 +1,11 @@
 use crate::{Id, Indexed, Reference};
-use rdf_types::BlankId;
 use locspan::BorrowStripped;
+use rdf_types::BlankId;
 use std::collections::HashSet;
 
 pub trait MappedEq<T: ?Sized = Self> {
 	/// Structural equality with mapped blank identifiers.
-	/// 
+	///
 	/// Does not care for metadata.
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a BlankId) -> &'b BlankId>(
 		&'a self,

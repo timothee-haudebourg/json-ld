@@ -1,5 +1,7 @@
 //! Flattening algorithm and related types.
-use crate::{id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, StrippedIndexedNode, Object};
+use crate::{
+	id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object, StrippedIndexedNode,
+};
 use locspan::Stripped;
 use std::collections::HashSet;
 
@@ -35,9 +37,7 @@ fn filter_graph<T: Id, M>(node: Indexed<Node<T, M>>) -> Option<Indexed<Node<T, M
 	}
 }
 
-fn filter_sub_graph<T: Id, M>(
-	mut node: Indexed<Node<T, M>>,
-) -> Option<Indexed<Object<T, M>>> {
+fn filter_sub_graph<T: Id, M>(mut node: Indexed<Node<T, M>>) -> Option<Indexed<Object<T, M>>> {
 	if node.index().is_none() && node.properties().is_empty() {
 		None
 	} else {
@@ -64,7 +64,11 @@ impl<T: Id, M> NodeMap<T, M> {
 				nodes.sort_by(|a, b| a.id().unwrap().as_str().cmp(b.id().unwrap().as_str()));
 			}
 			entry.set_graph(Some(
-				nodes.into_iter().filter_map(filter_sub_graph).map(Stripped).collect(),
+				nodes
+					.into_iter()
+					.filter_map(filter_sub_graph)
+					.map(Stripped)
+					.collect(),
 			));
 		}
 
@@ -86,7 +90,11 @@ impl<T: Id, M> NodeMap<T, M> {
 		for (graph_id, graph) in named_graphs {
 			let entry = default_graph.declare_node(graph_id, None).unwrap();
 			entry.set_graph(Some(
-				graph.into_nodes().filter_map(filter_sub_graph).map(Stripped).collect(),
+				graph
+					.into_nodes()
+					.filter_map(filter_sub_graph)
+					.map(Stripped)
+					.collect(),
 			));
 		}
 

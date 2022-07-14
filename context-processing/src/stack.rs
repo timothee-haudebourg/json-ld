@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use iref::{Iri, IriBuf};
+use std::sync::Arc;
 
 /// Single frame of the context processing stack.
 struct StackNode {

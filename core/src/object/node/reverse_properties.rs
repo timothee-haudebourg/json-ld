@@ -1,4 +1,4 @@
-use super::{Node, StrippedIndexedNode, Nodes};
+use super::{Node, Nodes, StrippedIndexedNode};
 use crate::{Id, Indexed, Reference, ToReference};
 use std::{
 	borrow::Borrow,
@@ -202,9 +202,7 @@ impl<T: Id, M: Hash> Hash for ReverseProperties<T, M> {
 	}
 }
 
-impl<T: Id, M> Extend<(Reference<T>, Vec<Indexed<Node<T, M>>>)>
-	for ReverseProperties<T, M>
-{
+impl<T: Id, M> Extend<(Reference<T>, Vec<Indexed<Node<T, M>>>)> for ReverseProperties<T, M> {
 	fn extend<I>(&mut self, iter: I)
 	where
 		I: IntoIterator<Item = (Reference<T>, Vec<Indexed<Node<T, M>>>)>,

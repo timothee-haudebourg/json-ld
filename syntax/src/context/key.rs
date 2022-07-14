@@ -6,7 +6,7 @@ use std::borrow::Borrow;
 use std::fmt;
 
 /// Context key.
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum Key {
 	Iri(#[stripped] IriBuf),
 	CompactIri(#[stripped] CompactIriBuf),
@@ -79,7 +79,7 @@ impl Borrow<str> for Key {
 	}
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum KeyRef<'a> {
 	Iri(Iri<'a>),
 	CompactIri(&'a CompactIri),
@@ -99,9 +99,9 @@ impl<'a> KeyRef<'a> {
 		crate::is_keyword_like(self.as_str())
 	}
 
-	pub fn as_str(&self) -> &str {
+	pub fn as_str(&self) -> &'a str {
 		match self {
-			Self::Iri(i) => i.as_str(),
+			Self::Iri(i) => i.into_str(),
 			Self::CompactIri(i) => i.as_str(),
 			Self::Blank(i) => i.as_str(),
 			Self::Term(s) => s,

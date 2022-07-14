@@ -1,3 +1,5 @@
+use crate::context::AnyContextEntryMut;
+
 use super::Value;
 use derivative::Derivative;
 pub use json_syntax::object::{Equivalent, Key};
@@ -22,7 +24,27 @@ pub struct Object<C, M> {
 	entries: Entries<C, M>,
 }
 
+impl<C, M> Default for Object<C, M> {
+	fn default() -> Self {
+		Self {
+			context: None,
+			entries: Entries::default(),
+		}
+	}
+}
+
 impl<C, M> Object<C, M> {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	pub fn with_capacity(cap: usize) -> Self {
+		Self {
+			context: None,
+			entries: Entries::with_capacity(cap),
+		}
+	}
+
 	pub fn len(&self) -> usize {
 		if self.context.is_some() {
 			1 + self.entries.len()
@@ -39,8 +61,58 @@ impl<C, M> Object<C, M> {
 		self.context.as_ref().map(|e| &e.value)
 	}
 
+	pub fn set_context(
+		&mut self,
+		key_metadata: M,
+		context: Meta<C, M>,
+	) -> Option<ContextEntry<C, M>> {
+		self.set_context_entry(Some(ContextEntry::new(key_metadata, context)))
+	}
+
 	pub fn context_entry(&self) -> Option<&ContextEntry<C, M>> {
 		self.context.as_ref()
+	}
+
+	pub fn set_context_entry(
+		&mut self,
+		mut entry: Option<ContextEntry<C, M>>,
+	) -> Option<ContextEntry<C, M>> {
+		core::mem::swap(&mut self.context, &mut entry);
+		entry
+	}
+
+	pub fn remove_context(&mut self) -> Option<ContextEntry<C, M>> {
+		self.context.take()
+	}
+
+	pub fn append_context(&mut self, context: C)
+	where
+		C: AnyContextEntryMut,
+		M: Default,
+	{
+		match self.context.as_mut() {
+			None => {
+				self.context = Some(ContextEntry::new(M::default(), Meta(context, M::default())))
+			}
+			Some(c) => c.value.append(context),
+		}
+	}
+
+	pub fn append_context_with(&mut self, key_metadata: M, context: Meta<C, M>)
+	where
+		C: AnyContextEntryMut,
+	{
+		match self.context.as_mut() {
+			None => self.context = Some(ContextEntry::new(key_metadata, context)),
+			Some(c) => c.value.append(context.into_value()),
+		}
+	}
+
+	pub fn entries_with_context(&self) -> EntriesWithContext<C, M> {
+		EntriesWithContext {
+			context: self.context.as_ref(),
+			entries: self.entries.iter(),
+		}
 	}
 
 	pub fn entries(&self) -> &Entries<C, M> {
@@ -84,6 +156,13 @@ impl<C, M> Object<C, M> {
 		value: Meta<Value<C, M>, M>,
 	) -> Option<Entry<C, M>> {
 		self.entries.insert(key, value)
+	}
+
+	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<C, M>>
+	where
+		Q: Hash + Equivalent<Key>,
+	{
+		self.entries.remove(key)
 	}
 }
 
@@ -191,6 +270,99 @@ pub struct ContextEntry<C, M> {
 	pub value: Meta<C, M>,
 }
 
+impl<C, M> ContextEntry<C, M> {
+	pub fn new(key_metadata: M, value: Meta<C, M>) -> Self {
+		Self {
+			key_metadata,
+			value,
+		}
+	}
+
+	pub fn into_context(self) -> Meta<C, M> {
+		self.value
+	}
+}
+
+pub struct EntriesWithContext<'a, C, M> {
+	context: Option<&'a ContextEntry<C, M>>,
+	entries: core::slice::Iter<'a, Entry<C, M>>,
+}
+
+impl<'a, C, M> Iterator for EntriesWithContext<'a, C, M> {
+	type Item = AnyEntryRef<'a, C, M>;
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		let len = self.entries.len() + if self.context.is_some() { 1 } else { 0 };
+		(len, Some(len))
+	}
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self.context.take() {
+			Some(e) => Some(AnyEntryRef::Context(e)),
+			None => self.entries.next().map(AnyEntryRef::Entry),
+		}
+	}
+}
+
+impl<'a, C, M> ExactSizeIterator for EntriesWithContext<'a, C, M> {}
+
+impl<'a, C, M> DoubleEndedIterator for EntriesWithContext<'a, C, M> {
+	fn next_back(&mut self) -> Option<Self::Item> {
+		match self.entries.next_back() {
+			Some(e) => Some(AnyEntryRef::Entry(e)),
+			None => self.context.take().map(AnyEntryRef::Context),
+		}
+	}
+}
+
+pub enum AnyEntryRef<'a, C, M> {
+	Context(&'a ContextEntry<C, M>),
+	Entry(&'a Entry<C, M>),
+}
+
+impl<'a, C, M> AnyEntryRef<'a, C, M> {
+	pub fn key(&self) -> Meta<AnyKeyRef<'a>, &'a M> {
+		match self {
+			Self::Context(e) => Meta(AnyKeyRef::Context, &e.key_metadata),
+			Self::Entry(e) => Meta(AnyKeyRef::Key(e.key.value()), e.key.metadata()),
+		}
+	}
+
+	pub fn value(&self) -> Meta<AnyValueRef<'a, C, M>, &'a M> {
+		match self {
+			Self::Context(e) => Meta(AnyValueRef::Context(&e.value), &e.key_metadata),
+			Self::Entry(e) => Meta(AnyValueRef::Value(e.value.value()), e.value.metadata()),
+		}
+	}
+
+	pub fn is_context(&self) -> bool {
+		matches!(self, Self::Context(_))
+	}
+}
+
+pub enum AnyKeyRef<'a> {
+	Context,
+	Key(&'a Key),
+}
+
+impl<'a> AnyKeyRef<'a> {
+	pub fn is_context(&self) -> bool {
+		matches!(self, Self::Context)
+	}
+
+	pub fn as_str(&self) -> &'a str {
+		match self {
+			Self::Context => "@context",
+			Self::Key(k) => k.as_str(),
+		}
+	}
+}
+
+pub enum AnyValueRef<'a, C, M> {
+	Context(&'a C),
+	Value(&'a Value<C, M>),
+}
+
 /// Object.
 #[derive(
 	Clone, StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedOrd, StrippedHash, Derivative,
@@ -209,6 +381,13 @@ pub struct Entries<C, M> {
 impl<C, M> Entries<C, M> {
 	pub fn new() -> Self {
 		Self::default()
+	}
+
+	pub fn with_capacity(cap: usize) -> Self {
+		Self {
+			entries: Vec::with_capacity(cap),
+			indexes: IndexMap::with_capacity(cap),
+		}
 	}
 
 	pub fn len(&self) -> usize {

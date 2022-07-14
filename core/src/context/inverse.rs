@@ -1,7 +1,8 @@
 use super::Context;
 use super::Key;
-use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable, Term, Type};
-use json_ld_syntax::Container;
+use crate::{
+	Container, Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable, Term, Type,
+};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;

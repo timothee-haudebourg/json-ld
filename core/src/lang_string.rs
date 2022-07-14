@@ -1,9 +1,4 @@
-use crate::{
-	object::LiteralString,
-	LenientLanguageTag,
-	LenientLanguageTagBuf,
-	Direction
-};
+use crate::{object::LiteralString, Direction, LenientLanguageTag, LenientLanguageTagBuf};
 
 /// Language string.
 ///
@@ -50,13 +45,7 @@ impl LangString {
 		(self.data, self.language, self.direction)
 	}
 
-	pub fn parts(
-		&self,
-	) -> (
-		&str,
-		Option<&LenientLanguageTagBuf>,
-		Option<&Direction>,
-	) {
+	pub fn parts(&self) -> (&str, Option<&LenientLanguageTagBuf>, Option<&Direction>) {
 		(&self.data, self.language.as_ref(), self.direction.as_ref())
 	}
 

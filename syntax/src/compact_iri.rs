@@ -2,7 +2,7 @@ use iref::{IriRef, IriRefBuf};
 
 pub struct InvalidCompactIri<T>(pub T);
 
-#[derive(PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct CompactIri(str);
 
 impl CompactIri {
@@ -68,7 +68,7 @@ impl AsRef<str> for CompactIri {
 	}
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct CompactIriBuf(String);
 
 impl CompactIriBuf {

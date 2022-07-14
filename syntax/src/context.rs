@@ -1,5 +1,6 @@
 use crate::{
-	CompactIriBuf, Container, ContainerType, Direction, Keyword, LenientLanguageTagBuf, Nullable,
+	CompactIriBuf, ComponentRef, Container, ContainerType, Direction, Keyword,
+	LenientLanguageTagBuf, Nullable, TryFromJson,
 };
 use derivative::Derivative;
 use indexmap::IndexMap;
@@ -9,13 +10,14 @@ use locspan_derive::StrippedPartialEq;
 use rdf_types::BlankIdBuf;
 
 mod key;
+mod print;
 mod reference;
 
 pub use key::*;
 pub use reference::*;
 
 /// Context entry.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
 pub enum ContextEntry<M> {
 	One(Meta<Context<M>, M>),
@@ -31,8 +33,92 @@ impl<M> ContextEntry<M> {
 	}
 }
 
+impl<M> From<Meta<Context<M>, M>> for ContextEntry<M> {
+	fn from(c: Meta<Context<M>, M>) -> Self {
+		Self::One(c)
+	}
+}
+
+impl<M: Default> From<Context<M>> for ContextEntry<M> {
+	fn from(c: Context<M>) -> Self {
+		Self::One(Meta(c, M::default()))
+	}
+}
+
+impl<M: Default> From<IriRefBuf> for ContextEntry<M> {
+	fn from(i: IriRefBuf) -> Self {
+		Self::One(Meta(Context::IriRef(i), M::default()))
+	}
+}
+
+impl<'a, M: Default> From<iref::IriRef<'a>> for ContextEntry<M> {
+	fn from(i: iref::IriRef<'a>) -> Self {
+		Self::One(Meta(Context::IriRef(i.into()), M::default()))
+	}
+}
+
+impl<M: Default> From<iref::IriBuf> for ContextEntry<M> {
+	fn from(i: iref::IriBuf) -> Self {
+		Self::One(Meta(Context::IriRef(i.into()), M::default()))
+	}
+}
+
+impl<'a, M: Default> From<iref::Iri<'a>> for ContextEntry<M> {
+	fn from(i: iref::Iri<'a>) -> Self {
+		Self::One(Meta(Context::IriRef(i.into()), M::default()))
+	}
+}
+
+impl<M: Default> From<ContextDefinition<M>> for ContextEntry<M> {
+	fn from(c: ContextDefinition<M>) -> Self {
+		Self::One(Meta(Context::Definition(c), M::default()))
+	}
+}
+
+impl<M> From<Meta<IriRefBuf, M>> for ContextEntry<M> {
+	fn from(Meta(i, meta): Meta<IriRefBuf, M>) -> Self {
+		Self::One(Meta(Context::IriRef(i), meta))
+	}
+}
+
+impl<'a, M> From<Meta<iref::IriRef<'a>, M>> for ContextEntry<M> {
+	fn from(Meta(i, meta): Meta<iref::IriRef<'a>, M>) -> Self {
+		Self::One(Meta(Context::IriRef(i.into()), meta))
+	}
+}
+
+impl<M> From<Meta<iref::IriBuf, M>> for ContextEntry<M> {
+	fn from(Meta(i, meta): Meta<iref::IriBuf, M>) -> Self {
+		Self::One(Meta(Context::IriRef(i.into()), meta))
+	}
+}
+
+impl<'a, M> From<Meta<iref::Iri<'a>, M>> for ContextEntry<M> {
+	fn from(Meta(i, meta): Meta<iref::Iri<'a>, M>) -> Self {
+		Self::One(Meta(Context::IriRef(i.into()), meta))
+	}
+}
+
+impl<M> From<Meta<ContextDefinition<M>, M>> for ContextEntry<M> {
+	fn from(Meta(c, meta): Meta<ContextDefinition<M>, M>) -> Self {
+		Self::One(Meta(Context::Definition(c), meta))
+	}
+}
+
+pub trait Count<C: AnyContextEntry> {
+	fn count<F>(&self, f: F) -> usize
+	where
+		F: Clone + Fn(ComponentRef<C>) -> bool;
+}
+
+pub trait IntoCount<C: AnyContextEntry> {
+	fn into_count<F>(self, f: F) -> usize
+	where
+		F: Clone + Fn(ComponentRef<C>) -> bool;
+}
+
 /// Context.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
 pub enum Context<M> {
 	Null,
@@ -40,8 +126,38 @@ pub enum Context<M> {
 	Definition(ContextDefinition<M>),
 }
 
+impl<M> From<IriRefBuf> for Context<M> {
+	fn from(i: IriRefBuf) -> Self {
+		Context::IriRef(i)
+	}
+}
+
+impl<'a, M> From<iref::IriRef<'a>> for Context<M> {
+	fn from(i: iref::IriRef<'a>) -> Self {
+		Context::IriRef(i.into())
+	}
+}
+
+impl<M> From<iref::IriBuf> for Context<M> {
+	fn from(i: iref::IriBuf) -> Self {
+		Context::IriRef(i.into())
+	}
+}
+
+impl<'a, M> From<iref::Iri<'a>> for Context<M> {
+	fn from(i: iref::Iri<'a>) -> Self {
+		Context::IriRef(i.into())
+	}
+}
+
+impl<M> From<ContextDefinition<M>> for Context<M> {
+	fn from(c: ContextDefinition<M>) -> Self {
+		Context::Definition(c)
+	}
+}
+
 /// Context definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
 #[stripped_ignore(M)]
 #[derivative(Default(bound = ""))]
 pub struct ContextDefinition<M> {
@@ -66,7 +182,7 @@ impl<M> ContextDefinition<M> {
 }
 
 /// Context bindings.
-#[derive(PartialEq, Eq, Clone, Derivative)]
+#[derive(PartialEq, Eq, Clone, Derivative, Debug)]
 #[derivative(Default(bound = ""))]
 pub struct Bindings<M>(IndexMap<Key, TermBinding<M>>);
 
@@ -110,7 +226,7 @@ impl<M> locspan::StrippedPartialEq for Bindings<M> {
 }
 
 /// Term binding.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
 pub struct TermBinding<M> {
 	#[stripped_ignore]
@@ -128,7 +244,7 @@ impl<M> TermBinding<M> {
 }
 
 /// Term definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
 pub enum TermDefinition<M> {
 	Iri(#[stripped] IriBuf),
@@ -138,7 +254,7 @@ pub enum TermDefinition<M> {
 }
 
 /// Expanded term definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
 #[stripped_ignore(M)]
 #[derivative(Default(bound = ""))]
 pub struct ExpandedTermDefinition<M> {
@@ -149,7 +265,7 @@ pub struct ExpandedTermDefinition<M> {
 	pub index: Option<Meta<Index, M>>,
 	pub language: Option<Meta<Nullable<LenientLanguageTagBuf>, M>>,
 	pub direction: Option<Meta<Nullable<Direction>, M>>,
-	pub container: Option<Meta<Nullable<Container>, M>>,
+	pub container: Option<Meta<Nullable<Container<M>>, M>>,
 	pub nest: Option<Meta<Nest, M>>,
 	pub prefix: Option<Meta<bool, M>>,
 	pub propagate: Option<Meta<bool, M>>,
@@ -162,7 +278,7 @@ impl<M> ExpandedTermDefinition<M> {
 	}
 }
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Nest {
 	Nest,
 	Term(#[stripped] String),
@@ -178,7 +294,7 @@ impl From<String> for Nest {
 	}
 }
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Index {
 	Iri(#[stripped] IriBuf),
 	CompactIri(#[stripped] CompactIriBuf),
@@ -207,7 +323,7 @@ impl From<String> for Index {
 	}
 }
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Id {
 	Iri(#[stripped] IriBuf),
 	Blank(#[stripped] BlankIdBuf),
@@ -234,7 +350,7 @@ impl From<String> for Id {
 	}
 }
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum TermDefinitionType {
 	Iri(#[stripped] IriBuf),
 	CompactIri(#[stripped] CompactIriBuf),
@@ -259,12 +375,26 @@ impl From<String> for TermDefinitionType {
 
 /// Subset of keyword acceptable for as value for the `@type` entry
 /// of an expanded term definition.
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum TypeKeyword {
 	Id,
 	Json,
 	None,
 	Vocab,
+}
+
+impl TypeKeyword {
+	pub fn keyword(&self) -> Keyword {
+		self.into_keyword()
+	}
+
+	pub fn into_keyword(self) -> Keyword {
+		self.into()
+	}
+
+	pub fn into_str(self) -> &'static str {
+		self.into_keyword().into_str()
+	}
 }
 
 pub struct NotATypeKeyword(pub Keyword);
@@ -322,27 +452,104 @@ impl<'a> TryFrom<&'a str> for TypeKeyword {
 /// Version number.
 ///
 /// The only allowed value is a number with the value `1.1`.
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Version {
 	V1_1,
 }
 
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Import;
 
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[stripped_ignore(M)]
 pub struct ContextType<M> {
 	pub container: Meta<TypeContainer, M>,
 	pub protected: Option<Meta<bool, M>>,
 }
 
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+impl<M> ContextType<M> {
+	pub fn iter(&self) -> ContextTypeEntries<M> {
+		ContextTypeEntries {
+			container: Some(&self.container),
+			protected: self.protected.as_ref(),
+		}
+	}
+}
+
+pub struct ContextTypeEntries<'a, M> {
+	container: Option<&'a Meta<TypeContainer, M>>,
+	protected: Option<&'a Meta<bool, M>>,
+}
+
+impl<'a, M> Iterator for ContextTypeEntries<'a, M> {
+	type Item = ContextTypeEntry<'a, M>;
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		let mut len = 0;
+
+		if self.container.is_some() {
+			len += 1;
+		}
+
+		if self.protected.is_some() {
+			len += 1;
+		}
+
+		(len, Some(len))
+	}
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self.container.take() {
+			Some(c) => Some(ContextTypeEntry::Container(c)),
+			None => self.protected.take().map(ContextTypeEntry::Protected),
+		}
+	}
+}
+
+impl<'a, M> ExactSizeIterator for ContextTypeEntries<'a, M> {}
+
+pub enum ContextTypeEntry<'a, M> {
+	Container(&'a Meta<TypeContainer, M>),
+	Protected(&'a Meta<bool, M>),
+}
+
+impl<'a, M> ContextTypeEntry<'a, M> {
+	pub fn key(&self) -> ContextTypeKey {
+		match self {
+			Self::Container(_) => ContextTypeKey::Container,
+			Self::Protected(_) => ContextTypeKey::Protected,
+		}
+	}
+}
+
+pub enum ContextTypeKey {
+	Container,
+	Protected,
+}
+
+impl ContextTypeKey {
+	pub fn as_str(&self) -> &'static str {
+		match self {
+			Self::Container => "@container",
+			Self::Protected => "@protected",
+		}
+	}
+}
+
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum TypeContainer {
 	Set,
 }
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash)]
+impl TypeContainer {
+	pub fn as_str(&self) -> &'static str {
+		match self {
+			Self::Set => "@set",
+		}
+	}
+}
+
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Vocab {
 	IriRef(#[stripped] IriRefBuf),
 	CompactIri(#[stripped] CompactIriBuf),
@@ -365,6 +572,7 @@ impl From<String> for Vocab {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub enum InvalidContext {
 	InvalidIriRef(iref::Error),
 	Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]),
@@ -373,28 +581,14 @@ pub enum InvalidContext {
 	InvalidTermDefinition,
 }
 
-pub trait TryFromJson<M>: Sized {
-	fn try_from_json(
-		value: Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>>;
+impl From<crate::Unexpected> for InvalidContext {
+	fn from(crate::Unexpected(u, e): crate::Unexpected) -> Self {
+		Self::Unexpected(u, e)
+	}
 }
 
 pub trait TryFromStrippedJson<M>: Sized {
 	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext>;
-}
-
-impl<M> TryFromJson<M> for bool {
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
-		match value {
-			json_syntax::Value::Boolean(b) => Ok(Meta(b, meta)),
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::Boolean]),
-				meta,
-			)),
-		}
-	}
 }
 
 impl<M> TryFromStrippedJson<M> for IriRefBuf {
@@ -413,6 +607,8 @@ impl<M> TryFromStrippedJson<M> for IriRefBuf {
 }
 
 impl<M> TryFromJson<M> for IriRefBuf {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -460,6 +656,8 @@ impl<M> TryFromStrippedJson<M> for Direction {
 }
 
 impl<M, T: TryFromStrippedJson<M>> TryFromJson<M> for Nullable<T> {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -474,6 +672,8 @@ impl<M, T: TryFromStrippedJson<M>> TryFromJson<M> for Nullable<T> {
 }
 
 impl<M> TryFromJson<M> for TypeContainer {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -491,6 +691,8 @@ impl<M> TryFromJson<M> for TypeContainer {
 }
 
 impl<M> TryFromJson<M> for ContextType<M> {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -516,7 +718,9 @@ impl<M> TryFromJson<M> for ContextType<M> {
 							}
 						}
 						Ok(Keyword::Protected) => {
-							if let Some(prev) = protected.replace(bool::try_from_json(value)?) {
+							if let Some(prev) =
+								protected.replace(bool::try_from_json(value).map_err(Meta::cast)?)
+							{
 								return Err(Meta(
 									InvalidContext::DuplicateKey,
 									prev.into_metadata(),
@@ -547,6 +751,8 @@ impl<M> TryFromJson<M> for ContextType<M> {
 }
 
 impl<M> TryFromJson<M> for Version {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -600,9 +806,11 @@ impl<M> TryFromStrippedJson<M> for TermDefinitionType {
 }
 
 impl<M> TryFromJson<M> for Key {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	) -> Result<Meta<Self, M>, Meta<Self::Error, M>> {
 		match value {
 			json_syntax::Value::String(s) => Ok(Meta(Self::from(s.into_string()), meta)),
 			unexpected => Err(Meta(
@@ -614,6 +822,8 @@ impl<M> TryFromJson<M> for Key {
 }
 
 impl<M> TryFromJson<M> for Index {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -628,6 +838,8 @@ impl<M> TryFromJson<M> for Index {
 }
 
 impl<M> TryFromJson<M> for Nest {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -641,22 +853,21 @@ impl<M> TryFromJson<M> for Nest {
 	}
 }
 
-impl<M> TryFromJson<M> for Container {
+impl<M> TryFromJson<M> for Container<M> {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		value: Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
 		match value {
 			Meta(json_syntax::Value::Array(a), meta) => {
-				let mut container = Self::new();
+				let mut container = Vec::new();
 
 				for item in a {
-					let Meta(t, _) = ContainerType::try_from_json(item)?;
-					if !container.add(t) {
-						return Err(Meta(InvalidContext::InvalidTermDefinition, meta));
-					}
+					container.push(ContainerType::try_from_json(item)?)
 				}
 
-				Ok(Meta(container, meta))
+				Ok(Meta(Self::Many(container), meta))
 			}
 			other => ContainerType::try_from_json(other).map(Meta::cast),
 		}
@@ -664,6 +875,8 @@ impl<M> TryFromJson<M> for Container {
 }
 
 impl<M> TryFromJson<M> for ContainerType {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -681,6 +894,8 @@ impl<M> TryFromJson<M> for ContainerType {
 }
 
 impl<M: Clone> TryFromJson<M> for ContextEntry<M> {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -703,6 +918,8 @@ impl<M: Clone> TryFromJson<M> for ContextEntry<M> {
 }
 
 impl<M: Clone> TryFromJson<M> for Context<M> {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -729,8 +946,12 @@ impl<M: Clone> TryFromJson<M> for Context<M> {
 						Ok(Keyword::Direction) => {
 							def.direction = Some(Nullable::try_from_json(value)?)
 						}
-						Ok(Keyword::Propagate) => def.propagate = Some(bool::try_from_json(value)?),
-						Ok(Keyword::Protected) => def.protected = Some(bool::try_from_json(value)?),
+						Ok(Keyword::Propagate) => {
+							def.propagate = Some(bool::try_from_json(value).map_err(Meta::cast)?)
+						}
+						Ok(Keyword::Protected) => {
+							def.protected = Some(bool::try_from_json(value).map_err(Meta::cast)?)
+						}
 						Ok(Keyword::Type) => def.type_ = Some(ContextType::try_from_json(value)?),
 						Ok(Keyword::Version) => def.version = Some(Version::try_from_json(value)?),
 						Ok(Keyword::Vocab) => def.vocab = Some(Nullable::try_from_json(value)?),
@@ -771,6 +992,8 @@ impl<M: Clone> TryFromJson<M> for Context<M> {
 }
 
 impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
+	type Error = InvalidContext;
+
 	fn try_from_json(
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
@@ -819,9 +1042,15 @@ impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
 							def.container = Some(container)
 						}
 						Ok(Keyword::Nest) => def.nest = Some(Nest::try_from_json(value)?),
-						Ok(Keyword::Prefix) => def.prefix = Some(bool::try_from_json(value)?),
-						Ok(Keyword::Propagate) => def.propagate = Some(bool::try_from_json(value)?),
-						Ok(Keyword::Protected) => def.protected = Some(bool::try_from_json(value)?),
+						Ok(Keyword::Prefix) => {
+							def.prefix = Some(bool::try_from_json(value).map_err(Meta::cast)?)
+						}
+						Ok(Keyword::Propagate) => {
+							def.propagate = Some(bool::try_from_json(value).map_err(Meta::cast)?)
+						}
+						Ok(Keyword::Protected) => {
+							def.protected = Some(bool::try_from_json(value).map_err(Meta::cast)?)
+						}
 						_ => return Err(Meta(InvalidContext::InvalidTermDefinition, key_metadata)),
 					}
 				}
@@ -835,6 +1064,36 @@ impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
 				),
 				meta,
 			)),
+		}
+	}
+}
+
+pub enum ContextComponentRef<'a, C: AnyContextEntry> {
+	ContextArray,
+	Context(ContextRef<'a, C::Definition>),
+	ContextEntry(ValueRef<'a, C>),
+	ExpandedTermDefinition,
+	ExpandedTermDefinitionEntry(TermDefinitionEntryRef<'a, C>),
+	ExpandedTermDefinitionContainer(&'a Meta<ContainerType, C::Metadata>),
+}
+
+impl<'a, C: AnyContextEntry> ContextComponentRef<'a, C> {
+	pub fn is_array(&self) -> bool {
+		match self {
+			Self::ContextArray => true,
+			Self::ExpandedTermDefinitionEntry(e) => e.is_array(),
+			_ => false,
+		}
+	}
+
+	pub fn is_object(&self) -> bool {
+		match self {
+			Self::ContextArray => false,
+			Self::Context(c) => c.is_object(),
+			Self::ContextEntry(c) => c.is_object(),
+			Self::ExpandedTermDefinition => true,
+			Self::ExpandedTermDefinitionEntry(e) => e.is_object(),
+			Self::ExpandedTermDefinitionContainer(_) => false,
 		}
 	}
 }

@@ -1,6 +1,6 @@
+use locspan_derive::*;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
-use locspan_derive::*;
 
 /// Indexed objects.
 ///
@@ -8,8 +8,9 @@ use locspan_derive::*;
 /// This type is a wrapper around any kind of indexable data.
 ///
 /// It is a pointer type that `Deref` into the underlying value.
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-#[derive(StrippedPartialEq, StrippedEq, StrippedHash)]
+#[derive(
+	Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, StrippedPartialEq, StrippedEq, StrippedHash,
+)]
 pub struct Indexed<T> {
 	/// Index.
 	index: Option<String>,

@@ -1,23 +1,32 @@
-use locspan::{Meta, At};
-use json_ld_core::{Id, Context, Term, Reference, Indexed, Object, Value, object::value::{Literal, LiteralString}, LangString};
-use json_ld_syntax::{Nullable, Keyword, Direction, LenientLanguageTagBuf, AnyContextEntry};
-use crate::{
-	ExpandedEntry,
-	Warning,
-	Error,
-	expand_iri,
+use crate::{expand_iri, ExpandedEntry, Warning};
+use json_ld_core::{
+	object::value::{Literal, LiteralString},
+	Context, Id, Indexed, LangString, Object, Reference, Term, Value,
 };
+use json_ld_syntax::{AnyContextEntry, Direction, Keyword, LenientLanguageTagBuf, Nullable};
+use locspan::{At, Meta};
 
-pub(crate) type ExpandedValue<T, M> = Option<Indexed<Object<T, M>>>;
+pub(crate) type ExpandedValue<T, M, W> = (Option<Indexed<Object<T, M>>>, W);
+
+#[derive(Debug)]
+pub enum ValueExpansionError {
+	InvalidLanguageTaggedString,
+	InvalidBaseDirection,
+	InvalidIndexValue,
+	InvalidTypedValue,
+	InvalidValueObject,
+	InvalidValueObjectValue,
+	InvalidLanguageTaggedValue,
+}
 
 /// Expand a value object.
-pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
+pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry, W: FnMut(Meta<Warning, C::Metadata>)>(
 	input_type: Option<Term<T>>,
 	type_scoped_context: &Context<T, C>,
 	expanded_entries: Vec<ExpandedEntry<'e, T, C, C::Metadata>>,
 	Meta(value_entry, meta): &Meta<json_ld_syntax::Value<C, C::Metadata>, C::Metadata>,
-	mut warnings: impl FnMut(Meta<Warning, C::Metadata>),
-) -> Result<ExpandedValue<T, C::Metadata>, Meta<Error, C::Metadata>> {
+	mut warnings: W,
+) -> Result<ExpandedValue<T, C::Metadata, W>, Meta<ValueExpansionError, C::Metadata>> {
 	let mut is_json = input_type == Some(Term::Keyword(Keyword::Json));
 	let mut ty = None;
 	let mut index = None;
@@ -40,7 +49,7 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 						language = Some(Meta(value.to_owned(), value_metadata.clone()));
 					}
 				} else {
-					return Err(Error::InvalidLanguageTaggedString.at(meta.clone()));
+					return Err(ValueExpansionError::InvalidLanguageTaggedString.at(meta.clone()));
 				}
 			}
 			// If expanded property is @direction:
@@ -55,10 +64,10 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 					if let Ok(value) = Direction::try_from(value) {
 						direction = Some(value);
 					} else {
-						return Err(Error::InvalidBaseDirection.at(meta.clone()));
+						return Err(ValueExpansionError::InvalidBaseDirection.at(meta.clone()));
 					}
 				} else {
-					return Err(Error::InvalidBaseDirection.at(meta.clone()));
+					return Err(ValueExpansionError::InvalidBaseDirection.at(meta.clone()));
 				}
 			}
 			// If expanded property is @index:
@@ -68,7 +77,7 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 				if let Some(value) = value.as_str() {
 					index = Some(value.to_string())
 				} else {
-					return Err(Error::InvalidIndexValue.at(meta.clone()));
+					return Err(ValueExpansionError::InvalidIndexValue.at(meta.clone()));
 				}
 			}
 			// If expanded ...
@@ -90,15 +99,15 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 							is_json = false;
 							ty = Some(expanded_ty)
 						}
-						_ => return Err(Error::InvalidTypedValue.at(meta.clone())),
+						_ => return Err(ValueExpansionError::InvalidTypedValue.at(meta.clone())),
 					}
 				} else {
-					return Err(Error::InvalidTypedValue.at(meta.clone()));
+					return Err(ValueExpansionError::InvalidTypedValue.at(meta.clone()));
 				}
 			}
 			Term::Keyword(Keyword::Value) => (),
 			_ => {
-				return Err(Error::InvalidValueObject.at(meta.clone()));
+				return Err(ValueExpansionError::InvalidValueObject.at(meta.clone()));
 			}
 		}
 	}
@@ -108,12 +117,15 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 	// been detected and processing is aborted.
 	if is_json {
 		if language.is_some() || direction.is_some() {
-			return Err(Error::InvalidValueObject.at(meta.clone()));
+			return Err(ValueExpansionError::InvalidValueObject.at(meta.clone()));
 		}
-		return Ok(Some(Indexed::new(
-			Object::Value(Value::Json(value_entry.clone().into_json())),
-			index,
-		)));
+		return Ok((
+			Some(Indexed::new(
+				Object::Value(Value::Json(value_entry.clone().into_json())),
+				index,
+			)),
+			warnings,
+		));
 	}
 
 	// Otherwise, if value is not a scalar or null, an invalid value object value
@@ -124,7 +136,7 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 		json_ld_syntax::Value::Number(n) => Literal::Number(n.clone()),
 		json_ld_syntax::Value::Boolean(b) => Literal::Boolean(*b),
 		_ => {
-			return Err(Error::InvalidValueObjectValue.at(meta.clone()));
+			return Err(ValueExpansionError::InvalidValueObjectValue.at(meta.clone()));
 		}
 	};
 
@@ -135,7 +147,7 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 	// Otherwise, if the value of result's @value entry is null, or an empty array,
 	// return null
 	if matches!(result, Literal::Null) {
-		return Ok(None);
+		return Ok((None, warnings));
 	}
 
 	// Otherwise, if the value of result's @value entry is not a string and result
@@ -144,7 +156,7 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 	// aborted.
 	if language.is_some() || direction.is_some() {
 		if ty.is_some() {
-			return Err(Error::InvalidValueObject.at(meta.clone()));
+			return Err(ValueExpansionError::InvalidValueObject.at(meta.clone()));
 		}
 
 		if let Literal::String(s) = result {
@@ -155,7 +167,7 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 					if let Some(error) = error {
 						warnings(Meta::new(
 							Warning::MalformedLanguageTag(language.to_string(), error),
-							language_metadata
+							language_metadata,
 						))
 					}
 
@@ -165,14 +177,17 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 			};
 
 			return match LangString::new(s, lang, direction) {
-				Ok(result) => Ok(Some(Indexed::new(
-					Object::Value(Value::LangString(result)),
-					index,
-				))),
-				Err(_) => Err(Error::InvalidLanguageTaggedValue.at(meta.clone())),
+				Ok(result) => Ok((
+					Some(Indexed::new(
+						Object::Value(Value::LangString(result)),
+						index,
+					)),
+					warnings,
+				)),
+				Err(_) => Err(ValueExpansionError::InvalidLanguageTaggedValue.at(meta.clone())),
 			};
 		} else {
-			return Err(Error::InvalidLanguageTaggedValue.at(meta.clone()));
+			return Err(ValueExpansionError::InvalidLanguageTaggedValue.at(meta.clone()));
 		}
 	}
 
@@ -181,8 +196,11 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry>(
 	// @list, set result to null.
 	// TODO
 
-	Ok(Some(Indexed::new(
-		Object::Value(Value::Literal(result, ty)),
-		index,
-	)))
+	Ok((
+		Some(Indexed::new(
+			Object::Value(Value::Literal(result, ty)),
+			index,
+		)),
+		warnings,
+	))
 }

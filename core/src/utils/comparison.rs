@@ -1,5 +1,5 @@
-use locspan::Meta;
 use json_syntax::Value;
+use locspan::Meta;
 
 // pub async fn json_ld_eq<J: JsonContext + JsonExpand>(
 // 	a: &J,
@@ -99,8 +99,12 @@ pub fn simple_json_ld_eq<M, N>(a: &Value<M>, b: &Value<N>) -> bool {
 							(Value::Array(item_a), Value::Array(item_b))
 								if item_a.len() == item_b.len() =>
 							{
-								if !item_a.iter().zip(item_b).all(|(a, b)| simple_json_ld_eq(a.value(), b.value())) {
-									return false
+								if !item_a
+									.iter()
+									.zip(item_b)
+									.all(|(a, b)| simple_json_ld_eq(a.value(), b.value()))
+								{
+									return false;
 								}
 							}
 							_ => {

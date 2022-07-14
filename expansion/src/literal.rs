@@ -1,14 +1,11 @@
-use locspan::{Meta, At};
-use json_ld_core::{Id, Context, Indexed, Object, Value, Type, Node, object::value::{Literal, LiteralString}, LangString};
-use json_ld_syntax::{Nullable, AnyContextEntry, LenientLanguageTag};
-use json_syntax::Number;
-use crate::{
-	Warning,
-	Error,
-	ActiveProperty,
-	expand_iri,
-	node_id_of_term
+use crate::{expand_iri, node_id_of_term, ActiveProperty, Warning};
+use json_ld_core::{
+	object::value::{Literal, LiteralString},
+	Context, Id, Indexed, LangString, Node, Object, Type, Value,
 };
+use json_ld_syntax::{AnyContextEntry, LenientLanguageTag, Nullable};
+use json_syntax::Number;
+use locspan::{At, Meta};
 
 pub(crate) enum GivenLiteralValue<'a> {
 	Boolean(bool),
@@ -22,7 +19,7 @@ impl<'a> GivenLiteralValue<'a> {
 			json_ld_syntax::Value::Boolean(b) => Self::Boolean(*b),
 			json_ld_syntax::Value::Number(n) => Self::Number(n),
 			json_ld_syntax::Value::String(s) => Self::String(s),
-			_ => panic!("not a literal value")
+			_ => panic!("not a literal value"),
 		}
 	}
 
@@ -33,7 +30,7 @@ impl<'a> GivenLiteralValue<'a> {
 	pub fn as_str(&self) -> Option<&'a str> {
 		match self {
 			Self::String(s) => Some(s),
-			_ => None
+			_ => None,
 		}
 	}
 }
@@ -61,6 +58,11 @@ impl<'a> LiteralValue<'a> {
 
 pub(crate) type ExpandedLiteral<T, M> = Indexed<Object<T, M>>;
 
+#[derive(Debug)]
+pub enum LiteralExpansionError {
+	InvalidTypeValue,
+}
+
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
@@ -68,7 +70,7 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 	active_property: ActiveProperty<'_, C::Metadata>,
 	Meta(value, meta): Meta<LiteralValue, &C::Metadata>,
 	warnings: impl FnMut(Meta<Warning, C::Metadata>),
-) -> Result<ExpandedLiteral<T, C::Metadata>, Meta<Error, C::Metadata>> {
+) -> Result<ExpandedLiteral<T, C::Metadata>, Meta<LiteralExpansionError, C::Metadata>> {
 	let active_property_definition = active_property.get_from(active_context);
 
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
@@ -117,8 +119,12 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 			let result: Literal = match value {
 				LiteralValue::Given(v) => match v {
 					GivenLiteralValue::Boolean(b) => Literal::Boolean(b),
-					GivenLiteralValue::Number(n) => Literal::Number(unsafe { json_syntax::NumberBuf::new_unchecked(n.as_bytes().into()) }),
-					GivenLiteralValue::String(s) => Literal::String(LiteralString::Expanded(s.into()))
+					GivenLiteralValue::Number(n) => Literal::Number(unsafe {
+						json_syntax::NumberBuf::new_unchecked(n.as_bytes().into())
+					}),
+					GivenLiteralValue::String(s) => {
+						Literal::String(LiteralString::Expanded(s.into()))
+					}
 				},
 				LiteralValue::Inferred(s) => Literal::String(LiteralString::Inferred(s)),
 			};
@@ -139,10 +145,14 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 								if let Some(language) = &active_property_definition.language {
 									language.as_ref().cloned().option()
 								} else {
-									active_context.default_language().map(LenientLanguageTag::to_owned)
+									active_context
+										.default_language()
+										.map(LenientLanguageTag::to_owned)
 								}
 							} else {
-								active_context.default_language().map(LenientLanguageTag::to_owned)
+								active_context
+									.default_language()
+									.map(LenientLanguageTag::to_owned)
 							};
 
 						// Initialize `direction` to the direction mapping for
@@ -165,11 +175,9 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 						// value `direction`.
 						return match LangString::new(s, language, direction) {
 							Ok(lang_str) => Ok(Object::Value(Value::LangString(lang_str)).into()),
-							Err(s) => Ok(Object::Value(Value::Literal(
-								Literal::String(s),
-								None,
-							))
-							.into()),
+							Err(s) => {
+								Ok(Object::Value(Value::Literal(Literal::String(s), None)).into())
+							}
 						};
 					}
 				}
@@ -178,7 +186,7 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 					if let Ok(t) = t.into_ref() {
 						ty = Some(t)
 					} else {
-						return Err(Error::InvalidTypeValue.at(meta.clone()));
+						return Err(LiteralExpansionError::InvalidTypeValue.at(meta.clone()));
 					}
 				}
 			}

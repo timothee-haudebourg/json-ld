@@ -1,22 +1,17 @@
-use super::{Property, PropertyRef, RdfDirection, RdfSyntax, Triple, ValidReference, Value};
+use super::{Property, PropertyRef, RdfDirection, RdfSyntax, ValidReference, Value};
 use crate::{flattening::NodeMap, id, ExpandedDocument, FlattenedDocument, Id};
+use rdf_types::Triple;
 use std::borrow::Cow;
 use std::convert::TryInto;
 
-/// RDF Quad.
-pub struct Quad<T: Id>(
-	pub Option<ValidReference<T>>,
-	pub ValidReference<T>,
-	pub Property<T>,
-	pub Value<T>,
-);
+pub type Quad<T> = rdf_types::Quad<ValidReference<T>, Property<T>, Value<T>, ValidReference<T>>;
 
-pub struct QuadRef<'a, T: Id>(
-	pub Option<&'a ValidReference<T>>,
-	pub Cow<'a, ValidReference<T>>,
-	pub PropertyRef<'a, T>,
-	pub Value<T>,
-);
+pub type QuadRef<'a, T> = rdf_types::Quad<
+	Cow<'a, ValidReference<T>>,
+	PropertyRef<'a, T>,
+	Value<T>,
+	&'a ValidReference<T>,
+>;
 
 struct Compound<'a, T: Id, M> {
 	graph: Option<&'a ValidReference<T>>,
@@ -31,9 +26,7 @@ pub struct Quads<'a, 'g, T: Id, M, G: id::Generator<T>> {
 	quads: crate::quad::Quads<'a, T, M>,
 }
 
-impl<'a, 'g, T: Id, M, G: id::Generator<T>> Iterator
-	for Quads<'a, 'g, T, M, G>
-{
+impl<'a, 'g, T: Id, M, G: id::Generator<T>> Iterator for Quads<'a, 'g, T, M, G> {
 	type Item = QuadRef<'a, T>;
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -44,11 +37,14 @@ impl<'a, 'g, T: Id, M, G: id::Generator<T>> Iterator
 					.next(self.generator, self.rdf_direction)
 				{
 					Some(Triple(subject, property, object)) => {
-						break Some(QuadRef(
-							compound_value.graph,
+						break Some(rdf_types::Quad(
 							Cow::Owned(subject),
-							property.try_into().expect("expected standard rdf property"),
+							property
+								.try_into()
+								.ok()
+								.expect("expected standard rdf property"),
 							object,
+							compound_value.graph,
 						))
 					}
 					None => self.compound_value = None,
@@ -87,11 +83,11 @@ impl<'a, 'g, T: Id, M, G: id::Generator<T>> Iterator
 							});
 						}
 
-						break Some(QuadRef(
-							rdf_graph,
+						break Some(rdf_types::Quad(
 							Cow::Borrowed(rdf_subject),
 							rdf_property,
 							compound_value.value,
+							rdf_graph,
 						));
 					}
 				}

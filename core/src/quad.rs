@@ -2,8 +2,8 @@ use crate::{
 	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object,
 	Reference,
 };
-use smallvec::SmallVec;
 use locspan::Stripped;
+use smallvec::SmallVec;
 
 /// JSON-LD Quad.
 ///

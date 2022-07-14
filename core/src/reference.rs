@@ -1,9 +1,7 @@
-use crate::{
-	Id, Term, TermLike,
-};
+use crate::{Id, Term, TermLike};
 use iref::{AsIri, Iri, IriBuf};
-use rdf_types::{BlankId, BlankIdBuf};
 use locspan_derive::*;
+use rdf_types::{BlankId, BlankIdBuf};
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
@@ -13,8 +11,7 @@ use std::fmt;
 /// Used to reference a node across a document or to a remote document.
 /// It can be an identifier (IRI), a blank node identifier for local blank nodes
 /// or an invalid reference (a string that is neither an IRI nor blank node identifier).
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[derive(StrippedPartialEq, StrippedEq, StrippedHash)]
+#[derive(Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
 #[stripped(T)]
 #[repr(u8)]
 pub enum Reference<T = IriBuf> {
@@ -251,11 +248,27 @@ impl<'a, T: Id> ToReference<T> for &'a Reference<T> {
 }
 
 /// Valid node reference.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[repr(u8)]
 pub enum ValidReference<T = IriBuf> {
 	Id(T),
 	Blank(BlankIdBuf),
+}
+
+impl<T> ValidReference<T> {
+	pub fn into_rdf_subject(self) -> rdf_types::Subject<T> {
+		match self {
+			Self::Id(t) => rdf_types::Subject::Iri(t),
+			Self::Blank(b) => rdf_types::Subject::Blank(b),
+		}
+	}
+
+	pub fn as_rdf_subject(&self) -> rdf_types::Subject<&T, &BlankId> {
+		match self {
+			Self::Id(t) => rdf_types::Subject::Iri(t),
+			Self::Blank(b) => rdf_types::Subject::Blank(b),
+		}
+	}
 }
 
 impl<T: AsIri> ValidReference<T> {
@@ -375,15 +388,6 @@ impl<T: AsIri> crate::rdf::Display for ValidReference<T> {
 		match self {
 			Self::Id(id) => write!(f, "<{}>", id.as_iri()),
 			Self::Blank(b) => write!(f, "{}", b),
-		}
-	}
-}
-
-impl<T: AsIri> fmt::Debug for ValidReference<T> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::Id(id) => write!(f, "ValidReference::Id({})", id.as_iri()),
-			Self::Blank(b) => write!(f, "ValidReference::Blank({})", b),
 		}
 	}
 }

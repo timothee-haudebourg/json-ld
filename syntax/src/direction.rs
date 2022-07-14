@@ -14,6 +14,15 @@ pub enum Direction {
 	Rtl,
 }
 
+impl Direction {
+	pub fn as_str(&self) -> &'static str {
+		match self {
+			Direction::Ltr => "ltr",
+			Direction::Rtl => "rtl",
+		}
+	}
+}
+
 impl<'a> TryFrom<&'a str> for Direction {
 	type Error = &'a str;
 

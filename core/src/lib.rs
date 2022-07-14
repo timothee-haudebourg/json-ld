@@ -171,16 +171,17 @@
 #![feature(generic_associated_types)]
 #![feature(trait_alias)]
 
-pub use json_ld_syntax::{
-	Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable,
-};
+pub use json_ld_syntax::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable};
 
+mod container;
 pub mod context;
 mod document;
 mod error;
 pub mod flattening;
 pub mod id;
 mod indexed;
+mod lang_string;
+pub mod loader;
 mod mode;
 pub mod object;
 pub mod quad;
@@ -188,21 +189,22 @@ pub mod rdf;
 mod reference;
 mod term;
 mod ty;
-mod lang_string;
 pub mod utils;
 mod vocab;
 mod warning;
 
+pub use container::Container;
 pub use context::Context;
 pub use document::*;
 pub use error::*;
 pub use id::*;
 pub use indexed::*;
+pub use lang_string::*;
+pub use loader::*;
 pub use mode::*;
-pub use object::{Node, StrippedIndexedNode, Nodes, Object, StrippedIndexedObject, Objects, Value};
+pub use object::{Node, Nodes, Object, Objects, StrippedIndexedNode, StrippedIndexedObject, Value};
 pub use reference::*;
 pub use term::*;
 pub use ty::*;
-pub use lang_string::*;
 pub use vocab::*;
 pub use warning::*;

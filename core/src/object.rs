@@ -7,22 +7,25 @@ pub mod value;
 
 use crate::{id, Id, Indexed, LenientLanguageTag, Reference};
 use iref::{Iri, IriBuf};
+use json_number::Number;
+use locspan::{BorrowStripped, Stripped};
+use locspan_derive::*;
 use std::collections::HashSet;
 use std::hash::Hash;
-use locspan::{Stripped, BorrowStripped};
-use locspan_derive::*;
-use json_number::Number;
 
 pub use mapped_eq::MappedEq;
-pub use node::{Node, StrippedIndexedNode, Nodes};
+pub use node::{Node, Nodes, StrippedIndexedNode};
 pub use typ::{Type, TypeRef};
 pub use value::{Literal, LiteralString, Value};
 
-pub trait Any<T: Id, M=()> {
+pub trait Any<T: Id, M = ()> {
 	fn as_ref(&self) -> Ref<T, M>;
 
 	#[inline]
-	fn id<'a>(&'a self) -> Option<&'a Reference<T>> where M: 'a {
+	fn id<'a>(&'a self) -> Option<&'a Reference<T>>
+	where
+		M: 'a,
+	{
 		match self.as_ref() {
 			Ref::Node(n) => n.id.as_ref(),
 			_ => None,
@@ -33,7 +36,7 @@ pub trait Any<T: Id, M=()> {
 	fn language<'a>(&'a self) -> Option<LenientLanguageTag>
 	where
 		T: 'a,
-		M: 'a
+		M: 'a,
 	{
 		match self.as_ref() {
 			Ref::Value(value) => value.language(),
@@ -66,7 +69,7 @@ pub trait Any<T: Id, M=()> {
 }
 
 /// Object reference.
-pub enum Ref<'a, T: Id, M=()> {
+pub enum Ref<'a, T: Id, M = ()> {
 	/// Value object.
 	Value(&'a Value<T, M>),
 
@@ -84,11 +87,10 @@ pub type StrippedIndexedObject<T, M> = Stripped<Indexed<Object<T, M>>>;
 ///
 /// JSON-LD connects together multiple kinds of data objects.
 /// Objects may be nodes, values or lists of objects.
-#[derive(PartialEq, Eq, Hash)]
-#[derive(StrippedPartialEq, StrippedEq, StrippedHash)]
+#[derive(PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
 #[stripped_ignore(M)]
 #[stripped(T)]
-pub enum Object<T: Id = IriBuf, M=()> {
+pub enum Object<T: Id = IriBuf, M = ()> {
 	/// Value object.
 	Value(Value<T, M>),
 

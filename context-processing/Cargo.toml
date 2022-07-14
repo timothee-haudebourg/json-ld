@@ -16,7 +16,7 @@ json-ld-core = { path = "../core" }
 json-ld-syntax = { path = "../syntax" }
 generic-json = "0.7.0"
 iref = "2.1.3"
-rdf-types = "0.7"
+rdf-types = "0.8"
 futures = "^0.3"
 mown = "0.2.1"
 cc-traits = "0.8.0"

@@ -1,4 +1,5 @@
 #![feature(generic_associated_types)]
+use locspan::Meta;
 
 mod number;
 
@@ -13,6 +14,7 @@ mod expandable;
 mod keyword;
 mod lang;
 mod nullable;
+mod print;
 
 pub use compact_iri::*;
 pub use container::*;
@@ -26,19 +28,14 @@ pub use expandable::*;
 pub use keyword::*;
 pub use lang::*;
 pub use nullable::*;
-// pub use document::*;
 
-// /// Entry of a map in a JSON-LD document.
-// ///
-// /// This object stores the location of the key, without storing the key itself.
-// pub struct Entry<T, S, P>(Location<S, P>, Loc<T, S, P>);
+pub trait TryFromJson<M>: Sized {
+	type Error;
 
-// impl<T, S, P> Entry<T, S, P> {
-// 	pub fn key_location(&self) -> &Location<S, P> {
-// 		&self.0
-// 	}
+	fn try_from_json(
+		value: Meta<json_syntax::Value<M>, M>,
+	) -> Result<Meta<Self, M>, Meta<Self::Error, M>>;
+}
 
-// 	pub fn value(&self) -> &Loc<T, S, P> {
-// 		&self.1
-// 	}
-// }
+#[derive(Clone, Copy, Debug)]
+pub struct Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]);

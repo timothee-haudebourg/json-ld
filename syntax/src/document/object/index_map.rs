@@ -57,6 +57,16 @@ impl<S: Default> Default for IndexMap<S> {
 }
 
 impl<S: BuildHasher> IndexMap<S> {
+	pub fn with_capacity(cap: usize) -> Self
+	where
+		S: Default,
+	{
+		Self {
+			hash_builder: S::default(),
+			table: RawTable::with_capacity(cap),
+		}
+	}
+
 	pub fn get<C, M, Q: ?Sized>(&self, entries: &[Entry<C, M>], key: &Q) -> Option<usize>
 	where
 		Q: Hash + Equivalent<Key>,

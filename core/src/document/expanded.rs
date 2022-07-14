@@ -9,9 +9,7 @@ pub struct ExpandedDocument<T: Id, M>(HashSet<StrippedIndexedObject<T, M>>);
 
 impl<T: Id, M> ExpandedDocument<T, M> {
 	#[inline(always)]
-	pub fn new(
-		objects: HashSet<StrippedIndexedObject<T, M>>
-	) -> Self {
+	pub fn new(objects: HashSet<StrippedIndexedObject<T, M>>) -> Self {
 		Self(objects)
 	}
 

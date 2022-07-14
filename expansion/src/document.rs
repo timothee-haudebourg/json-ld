@@ -1,46 +1,35 @@
-use std::collections::HashSet;
-use json_ld_core::{
-	Id,
-	Context,
-	Indexed,
-	Object,
-	ExpandedDocument
-};
-use json_ld_context_processing::{Process, ContextLoader};
-use json_ld_syntax::Value;
-use iref::IriBuf;
-use locspan::{Meta, Stripped};
-use crate::{
-	Options,
-	Loader,
-	Warning,
-	Error,
-	ActiveProperty
-};
 use super::expand_element;
+use crate::{ActiveProperty, Error, Loader, Options, Warning};
+use iref::IriBuf;
+use json_ld_context_processing::{ContextLoader, Process};
+use json_ld_core::{Context, ExpandedDocument, Id, Indexed, Object};
+use json_ld_syntax::Value;
+use locspan::{Meta, Stripped};
+use std::collections::HashSet;
 
 /// Expand the given JSON-LD document.
 ///
 /// Note that you probably do not want to use this function directly,
 /// but instead use the [`Document::expand`](crate::Document::expand) method on
 /// a `Value` instance.
-pub(crate) async fn expand<'a, T: Id, C: Process<T>, L: Loader + ContextLoader>(
+pub(crate) async fn expand<'a, T: Id, C: Process<T>, L: Loader + ContextLoader, W>(
 	active_context: &'a Context<T, C>,
 	document: &'a Meta<Value<C, C::Metadata>, C::Metadata>,
 	base_url: Option<IriBuf>,
 	loader: &'a mut L,
 	options: Options,
-	warnings: impl 'a + Send + FnMut(Meta<Warning, C::Metadata>),
-) -> Result<ExpandedDocument<T, C::Metadata>, Meta<Error, C::Metadata>>
+	warnings: W,
+) -> Result<ExpandedDocument<T, C::Metadata>, Meta<Error<L>, C::Metadata>>
 where
 	T: Send + Sync,
 	C: Send + Sync,
 	L: Send + Sync,
 	<L as Loader>::Output: Into<Value<C, C::Metadata>>,
-	<L as ContextLoader>::Output: Into<C>
+	<L as ContextLoader>::Output: Into<C>,
+	W: 'a + Send + FnMut(Meta<Warning, C::Metadata>),
 {
 	let base_url = base_url.as_ref().map(|url| url.as_iri());
-	let expanded = expand_element(
+	let (expanded, _) = expand_element(
 		active_context,
 		ActiveProperty::None,
 		document,
@@ -63,7 +52,13 @@ where
 			}
 		}
 	} else {
-		Ok(ExpandedDocument::new(expanded.into_iter().filter(filter_top_level_item).map(Stripped).collect()))
+		Ok(ExpandedDocument::new(
+			expanded
+				.into_iter()
+				.filter(filter_top_level_item)
+				.map(Stripped)
+				.collect(),
+		))
 	}
 }
 

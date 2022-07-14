@@ -1,15 +1,16 @@
+use crate::{expand_element, ActiveProperty, Error, Expanded, Loader, Options, Warning};
 use iref::Iri;
+use json_ld_context_processing::{ContextLoader, Process};
+use json_ld_core::{context::TermDefinition, Context, Id, Object};
+use json_ld_syntax::{Array, ContainerType, Value};
 use locspan::Meta;
-use json_ld_core::{Id, Context, context::TermDefinition, Object};
-use json_ld_context_processing::{Process, ContextLoader};
-use json_ld_syntax::{ContainerType, Value, Array};
-use crate::{Loader, Options, Warning, Error, Expanded, ActiveProperty, expand_element};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn expand_array<
 	T: Id,
 	C: Process<T>,
-	L: Loader + ContextLoader
+	L: Loader + ContextLoader,
+	W: Send + FnMut(Meta<Warning, C::Metadata>),
 >(
 	active_context: &Context<T, C>,
 	active_property: ActiveProperty<'_, C::Metadata>,
@@ -19,14 +20,14 @@ pub(crate) async fn expand_array<
 	loader: &mut L,
 	options: Options,
 	from_map: bool,
-	mut warnings: impl Send + FnMut(Meta<Warning, C::Metadata>),
-) -> Result<Expanded<T, C::Metadata>, Meta<Error, C::Metadata>>
+	mut warnings: W,
+) -> Result<(Expanded<T, C::Metadata>, W), Meta<Error<L>, C::Metadata>>
 where
 	T: Sync + Send,
 	C: Sync + Send,
 	L: Sync + Send,
 	<L as Loader>::Output: Into<Value<C, C::Metadata>>,
-	<L as ContextLoader>::Output: Into<C>
+	<L as ContextLoader>::Output: Into<C>,
 {
 	// Initialize an empty array, result.
 	let mut is_list = false;
@@ -44,25 +45,26 @@ where
 		// Initialize `expanded_item` to the result of using this algorithm
 		// recursively, passing `active_context`, `active_property`, `item` as element,
 		// `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
-		result.extend(
-			expand_element(
-				active_context,
-				active_property,
-				item,
-				base_url,
-				loader,
-				options,
-				from_map,
-				&mut warnings,
-			)
-			.await?,
-		);
+		let (e, w) = expand_element(
+			active_context,
+			active_property,
+			item,
+			base_url,
+			loader,
+			options,
+			from_map,
+			warnings,
+		)
+		.await?;
+		warnings = w;
+
+		result.extend(e);
 	}
 
 	if is_list {
-		return Ok(Expanded::Object(Object::List(result).into()));
+		return Ok((Expanded::Object(Object::List(result).into()), warnings));
 	}
 
 	// Return result.
-	Ok(Expanded::Array(result))
+	Ok((Expanded::Array(result), warnings))
 }

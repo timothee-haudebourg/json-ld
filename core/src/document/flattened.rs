@@ -1,7 +1,4 @@
-use crate::{
-	id,
-	Id, Indexed, Node
-};
+use crate::{id, Id, Indexed, Node};
 
 /// Result of the document flattening algorithm.
 ///
@@ -10,9 +7,7 @@ pub struct FlattenedDocument<T: Id, M>(Vec<Indexed<Node<T, M>>>);
 
 impl<T: Id, M> FlattenedDocument<T, M> {
 	#[inline(always)]
-	pub fn new(
-		nodes: Vec<Indexed<Node<T, M>>>
-	) -> Self {
+	pub fn new(nodes: Vec<Indexed<Node<T, M>>>) -> Self {
 		Self(nodes)
 	}
 

@@ -1,5 +1,5 @@
-use json_ld_core::ProcessingMode;
 use json_ld_context_processing::ProcessingOptions;
+use json_ld_core::ProcessingMode;
 
 /// Expansion options.
 #[derive(Clone, Copy, Default)]

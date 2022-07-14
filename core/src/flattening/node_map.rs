@@ -1,8 +1,8 @@
 use super::Namespace;
 use crate::{id, ExpandedDocument, Id, Indexed, Node, Object, Reference};
 use derivative::Derivative;
-use std::collections::{HashMap, HashSet};
 use locspan::Stripped;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Derivative)]
 #[derivative(Debug(bound = ""))]

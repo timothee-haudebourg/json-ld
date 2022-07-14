@@ -1,40 +1,37 @@
-pub use json_ld_core::{
-	ProcessingMode,
-	Context
-};
-use locspan::Meta;
-use iref::Iri;
 use futures::future::{BoxFuture, FutureExt};
+use iref::Iri;
+pub use json_ld_core::{Context, ContextLoader, ProcessingMode};
+use locspan::Meta;
+use std::fmt;
 
 mod stack;
-// mod json;
 pub mod syntax;
 
 pub use stack::ProcessingStack;
-
-pub trait ContextLoader {
-	/// Output of the loader.
-	type Output;
-	type Source;
-
-	fn load_context<'a>(
-		&'a mut self,
-		url: Iri,
-	) -> BoxFuture<'a, Result<Self::Output, Error>>;
-}
 
 /// Warnings that can be raised during context processing.
 pub enum Warning {
 	KeywordLikeTerm(String),
 	KeywordLikeValue(String),
-	MalformedIri(String)
+	MalformedIri(String),
+}
+
+impl fmt::Display for Warning {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::KeywordLikeTerm(s) => write!(f, "keyword-like term `{}`", s),
+			Self::KeywordLikeValue(s) => write!(f, "keyword-like value `{}`", s),
+			Self::MalformedIri(s) => write!(f, "malformed IRI `{}`", s),
+		}
+	}
 }
 
 /// Located warning.
 pub type MetaWarning<C> = Meta<Warning, <C as json_ld_syntax::AnyContextEntry>::Metadata>;
 
 /// Errors that can happen during context processing.
-pub enum Error {
+#[derive(Debug)]
+pub enum Error<E> {
 	InvalidContextNullification,
 	LoadingDocumentFailed,
 	ProcessingModeConflict,
@@ -53,19 +50,23 @@ pub enum Error {
 	InvalidKeywordAlias,
 	InvalidContainerMapping,
 	InvalidScopedContext,
-	ProtectedTermRedefinition
+	ProtectedTermRedefinition,
+	ContextLoadingFailed(E),
 }
 
 /// Located error.
-pub type MetaError<C> = Meta<Error, <C as json_ld_syntax::AnyContextEntry>::Metadata>;
+pub type MetaError<C, E> = Meta<Error<E>, <C as json_ld_syntax::AnyContextEntry>::Metadata>;
 
-pub fn ignore_warnings<M>(_warning: Meta<Warning, M>) {}
+pub fn print_warnings<M>(warning: Meta<Warning, M>) {
+	eprintln!("{}", warning.value())
+}
 
 /// Result of context processing functions.
-pub type ProcessingResult<T, C> = Result<Context<T, C>, MetaError<C>>;
+pub type ProcessingResult<T, C, E> = Result<Context<T, C>, MetaError<C, E>>;
 
 /// Context processing functions.
-pub trait Process<T>: json_ld_syntax::AnyContextEntry {
+// FIXME: unclear why the `'static` lifetime is now required.
+pub trait Process<T>: 'static + json_ld_syntax::AnyContextEntry {
 	/// Process the local context with specific options.
 	fn process_full<'a, L: ContextLoader + Send + Sync>(
 		&'a self,
@@ -74,8 +75,8 @@ pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-		warnings: impl 'a + Send + FnMut(MetaWarning<Self>)
-	) -> BoxFuture<'a, ProcessingResult<T, Self>>
+		warnings: impl 'a + Send + FnMut(MetaWarning<Self>),
+	) -> BoxFuture<'a, ProcessingResult<T, Self, L::Error>>
 	where
 		L::Output: Into<Self>,
 		T: Send + Sync;
@@ -87,10 +88,10 @@ pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
 		options: ProcessingOptions,
-	) -> BoxFuture<'a, ProcessingResult<T, Self>>
+	) -> BoxFuture<'a, ProcessingResult<T, Self, L::Error>>
 	where
 		L::Output: Into<Self>,
-		T: Send + Sync
+		T: Send + Sync,
 	{
 		self.process_full(
 			active_context,
@@ -98,7 +99,7 @@ pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 			loader,
 			base_url,
 			options,
-			ignore_warnings
+			print_warnings,
 		)
 	}
 
@@ -108,10 +109,10 @@ pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 		&'a self,
 		loader: &'a mut L,
 		base_url: Option<Iri<'a>>,
-	) -> BoxFuture<'a, ProcessingResult<T, Self>>
+	) -> BoxFuture<'a, ProcessingResult<T, Self, L::Error>>
 	where
 		L::Output: Into<Self>,
-		T: Send + Sync
+		T: Send + Sync,
 	{
 		async move {
 			let active_context = Context::default();
@@ -121,7 +122,7 @@ pub trait Process<T>: json_ld_syntax::AnyContextEntry {
 				loader,
 				base_url,
 				ProcessingOptions::default(),
-				ignore_warnings
+				print_warnings,
 			)
 			.await
 		}

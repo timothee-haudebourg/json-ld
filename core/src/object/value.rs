@@ -1,11 +1,11 @@
 use crate::{object, Direction, Id, LangString, LenientLanguageTag};
 use iref::IriBuf;
-use json_syntax::{NumberBuf, Number};
+use json_syntax::{Number, NumberBuf};
 use locspan_derive::*;
 use std::{
+	cmp::Ordering,
 	fmt,
 	hash::{Hash, Hasher},
-	cmp::Ordering
 };
 
 /// Value type.
@@ -170,11 +170,22 @@ impl Literal {
 /// Value object.
 ///
 /// Either a typed literal value, or an internationalized language string.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedOrd, StrippedHash)]
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+	StrippedPartialEq,
+	StrippedEq,
+	StrippedPartialOrd,
+	StrippedOrd,
+	StrippedHash,
+)]
 #[stripped_ignore(M)]
 #[stripped(T)]
-pub enum Value<T = IriBuf, M=()> {
+pub enum Value<T = IriBuf, M = ()> {
 	/// Typed literal value.
 	Literal(#[stripped] Literal, #[stripped] Option<T>),
 

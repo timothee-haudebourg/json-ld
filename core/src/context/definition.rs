@@ -1,7 +1,7 @@
 use super::Nest;
-use crate::{Direction, LenientLanguageTagBuf, Nullable, Term, Type};
+use crate::{Container, Direction, LenientLanguageTagBuf, Nullable, Term, Type};
 use iref::{Iri, IriBuf};
-use json_ld_syntax::{context::Index, Container};
+use json_ld_syntax::context::Index;
 use locspan_derive::StrippedPartialEq;
 
 // A term definition.

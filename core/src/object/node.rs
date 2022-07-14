@@ -1,7 +1,10 @@
-use crate::{id, object, utils, Id, Indexed, Object, StrippedIndexedObject, Objects, Reference, Term, ToReference};
+use crate::{
+	id, object, utils, Id, Indexed, Object, Objects, Reference, StrippedIndexedObject, Term,
+	ToReference,
+};
 use iref::{Iri, IriBuf};
 use json_ld_syntax::Keyword;
-use locspan::{Stripped, BorrowStripped};
+use locspan::{BorrowStripped, Stripped};
 use locspan_derive::*;
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -14,7 +17,7 @@ pub use properties::Properties;
 pub use reverse_properties::ReverseProperties;
 
 /// Node parts.
-pub struct Parts<T: Id = IriBuf, M=()> {
+pub struct Parts<T: Id = IriBuf, M = ()> {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
@@ -57,11 +60,10 @@ pub type StrippedIndexedNode<T, M> = Stripped<Indexed<Node<T, M>>>;
 /// (`@included` field).
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
-#[derive(PartialEq, Eq)]
-#[derive(StrippedPartialEq, StrippedEq)]
+#[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq)]
 #[stripped_ignore(M)]
 #[stripped(T)]
-pub struct Node<T: Id = IriBuf, M=()> {
+pub struct Node<T: Id = IriBuf, M = ()> {
 	/// Identifier.
 	///
 	/// This is the `@id` field.

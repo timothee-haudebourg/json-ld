@@ -1,5 +1,5 @@
 use super::Objects;
-use crate::{Id, Indexed, Object, StrippedIndexedObject, Reference, ToReference};
+use crate::{Id, Indexed, Object, Reference, StrippedIndexedObject, ToReference};
 use std::{
 	borrow::Borrow,
 	collections::HashMap,
@@ -42,7 +42,7 @@ use std::{
 /// }
 /// ```
 #[derive(PartialEq, Eq)]
-pub struct Properties<T: Id, M=()>(HashMap<Reference<T>, Vec<Indexed<Object<T, M>>>>);
+pub struct Properties<T: Id, M = ()>(HashMap<Reference<T>, Vec<Indexed<Object<T, M>>>>);
 
 impl<T: Id, M> Properties<T, M> {
 	/// Creates an empty map.
