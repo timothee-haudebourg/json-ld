@@ -104,7 +104,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData;
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData;
 
 	/// Compact a JSON-LD document into a `K` JSON value with the provided options.
 	///
@@ -124,7 +124,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 	{
 		async move {
 			self.compact_full(
@@ -154,7 +154,7 @@ pub trait Compact<J: JsonSrc, T: Id> {
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 	{
 		self.compact_with(active_context, loader, Options::default(), meta)
 	}
@@ -184,7 +184,7 @@ pub trait CompactIndexed<J: JsonSrc, T: Id> {
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData;
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData;
 }
 
 impl<J: JsonSrc, T: Sync + Send + Id, V: Sync + Send + CompactIndexed<J, T>> Compact<J, T>
@@ -205,7 +205,7 @@ impl<J: JsonSrc, T: Sync + Send + Id, V: Sync + Send + CompactIndexed<J, T>> Com
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 	{
 		self.inner().compact_indexed(
 			self.index(),
@@ -238,7 +238,7 @@ impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> Compac
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 	{
 		match self.as_ref() {
 			object::Ref::Value(value) => async move {
@@ -321,7 +321,7 @@ impl<J: JsonSrc, T: Sync + Send + Id, N: object::Any<J, T> + Sync + Send> Compac
 					)
 					.await
 				} else {
-					let mut result = K::Object::default();
+					let mut result = <K as generic_json::Json>::Object::default();
 					compact_property::<J, K, _, _, _, _, _, _>(
 						&mut result,
 						Term::Keyword(Keyword::List),
@@ -424,7 +424,7 @@ fn add_value<K: JsonBuild + JsonMut>(
 /// Get the `@value` field of a value object.
 fn value_value<J: JsonClone, K: JsonFrom<J>, T: Id, M>(value: &Value<J, T>, meta: M) -> K
 where
-	M: Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	M: Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 {
 	use crate::object::value::Literal;
 	match value {
@@ -461,7 +461,7 @@ where
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 {
 	async move {
 		let mut result = Vec::new();
@@ -525,7 +525,7 @@ impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for HashSet<Indexed<Object<J
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 	{
 		compact_collection_with(
 			self.iter(),

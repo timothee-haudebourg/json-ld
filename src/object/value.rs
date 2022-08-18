@@ -262,8 +262,8 @@ impl<J: JsonHash, T: Id> Hash for Value<J, T> {
 }
 
 impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Value<J, T> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		let mut obj = K::Object::default();
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
+		let mut obj = <K as generic_json::Json>::Object::default();
 
 		match self {
 			Value::Literal(lit, ty) => {

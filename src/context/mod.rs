@@ -300,7 +300,7 @@ impl<L: generic_json::Json, C> std::convert::AsRef<C> for ProcessedOwned<L, C> {
 impl<J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K>
 	for ProcessedOwned<L, C>
 {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		self.local.as_json_with(meta)
 	}
 }
@@ -392,7 +392,7 @@ impl<'a, L: generic_json::Json, C> std::convert::AsRef<C> for Processed<'a, L, C
 impl<'a, J: JsonClone, K: JsonFrom<J>, L: generic_json::Json + AsJson<J, K>, C> AsJson<J, K>
 	for Processed<'a, L, C>
 {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		self.local.as_json_with(meta)
 	}
 }

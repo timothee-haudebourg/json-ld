@@ -45,9 +45,9 @@ pub trait AsAnyJson<K: JsonBuild> {
 /// Converts a JSON value into the same JSON value represented with another type.
 fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 	input: &J,
-	m: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	m: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 ) -> K {
-	let meta: K::MetaData = m(Some(input.metadata()));
+	let meta: <K as generic_json::Json>::MetaData = m(Some(input.metadata()));
 	match input.as_value_ref() {
 		ValueRef::Null => K::null(meta),
 		ValueRef::Boolean(b) => K::boolean(b, meta),
@@ -74,7 +74,7 @@ fn json_to_json<J: JsonClone, K: JsonFrom<J>>(
 }
 
 impl<J: JsonClone, K: JsonFrom<J>> AsJson<J, K> for J {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		json_to_json(self, meta)
 	}
 }
@@ -116,8 +116,8 @@ impl<K: JsonBuild, T: AsRef<[u8]>> AsAnyJson<K> for LanguageTagBuf<T> {
 }
 
 impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for [T] {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
-		let array = K::Array::from_iter(self.iter().map(|value| value.as_json_with(meta.clone())));
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
+		let array = <K as generic_json::Json>::Array::from_iter(self.iter().map(|value| value.as_json_with(meta.clone())));
 		Value::<K>::Array(array).with(meta(None))
 	}
 }

@@ -67,7 +67,7 @@ impl<J: compaction::JsonSrc, T: Sync + Send + Id> compaction::Compact<J, T>
 		C: Sync + Send,
 		C::LocalContext: Send + Sync + From<L::Output>,
 		L: Sync + Send,
-		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 	{
 		self.objects.compact_full(
 			active_context,
@@ -101,7 +101,7 @@ impl<'a, J: JsonHash, T: Id> IntoIterator for &'a ExpandedDocument<J, T> {
 }
 
 impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<J, T> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		self.objects.as_json_with(meta)
 	}
 }
@@ -236,8 +236,8 @@ pub trait Document<T: Id> {
 			+ Clone
 			+ Send
 			+ Sync
-			+ Fn(Option<&<<C::Target as Context<T>>::LocalContext as Json>::MetaData>) -> K::MetaData,
-		M2: 'a + Clone + Send + Sync + Fn(Option<&<Self::Json as Json>::MetaData>) -> K::MetaData,
+			+ Fn(Option<&<<C::Target as Context<T>>::LocalContext as Json>::MetaData>) -> <K as generic_json::Json>::MetaData,
+		M2: 'a + Clone + Send + Sync + Fn(Option<&<Self::Json as Json>::MetaData>) -> <K as generic_json::Json>::MetaData,
 		L::Output: Into<Self::Json>,
 	{
 		use compaction::Compact;
@@ -278,7 +278,7 @@ pub trait Document<T: Id> {
 
 			let (mut map, metadata) = match compacted.into_parts() {
 				(generic_json::Value::Array(items), metadata) => {
-					let mut map = K::Object::default();
+					let mut map = <K as generic_json::Json>::Object::default();
 					if !items.is_empty() {
 						use crate::syntax::{Keyword, Term};
 						let key = crate::compaction::compact_iri::<Self::Json, _, _>(

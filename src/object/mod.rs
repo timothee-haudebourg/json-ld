@@ -313,12 +313,12 @@ impl<J: JsonHash, T: Id> From<Node<J, T>> for Object<J, T> {
 }
 
 impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<J, T> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		match self {
 			Object::Value(v) => v.as_json_with(meta),
 			Object::Node(n) => n.as_json_with(meta),
 			Object::List(items) => {
-				let mut obj = K::Object::default();
+				let mut obj = <K as generic_json::Json>::Object::default();
 				obj.insert(
 					K::new_key(Keyword::List.into_str(), meta(None)),
 					items.as_json_with(meta.clone()),
@@ -333,7 +333,7 @@ impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
 	for HashSet<Indexed<Object<J, T>>>
 {
 	#[inline(always)]
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		let array = self
 			.iter()
 			.map(|value| value.as_json_with(meta.clone()))

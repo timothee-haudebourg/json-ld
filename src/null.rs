@@ -85,7 +85,7 @@ impl<'a, T: Clone> Nullable<&'a T> {
 
 impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Nullable<T> {
 	#[inline(always)]
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		match self {
 			Nullable::Null => K::null(meta(None)),
 			Nullable::Some(t) => t.as_json_with(meta),

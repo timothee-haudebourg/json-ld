@@ -157,7 +157,7 @@ impl<T: AsIri> From<BlankId> for Reference<T> {
 
 impl<J: JsonClone, K: util::JsonFrom<J>, T: Id> util::AsJson<J, K> for Reference<T> {
 	#[inline]
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		match self {
 			Reference::Id(id) => id.as_json(meta(None)),
 			Reference::Blank(b) => b.as_json_with(meta(None)),

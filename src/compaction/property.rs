@@ -22,7 +22,7 @@ async fn compact_property_list<
 >(
 	list: &[Indexed<Object<J, T>>],
 	expanded_index: Option<&str>,
-	nest_result: &mut K::Object,
+	nest_result: &mut <K as generic_json::Json>::Object,
 	container: Container,
 	as_array: bool,
 	item_active_property: &str,
@@ -36,7 +36,7 @@ where
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 {
 	// If expanded item is a list object:
 	let mut compacted_item: K = compact_collection_with(
@@ -53,7 +53,7 @@ where
 	// If compacted item is not an array,
 	// then set `compacted_item` to an array containing only `compacted_item`.
 	if !compacted_item.is_array() {
-		let mut array = K::Array::default();
+		let mut array = <K as generic_json::Json>::Array::default();
 		array.push_back(compacted_item);
 		compacted_item = K::array(array, meta(None))
 	}
@@ -71,7 +71,7 @@ where
 			false,
 			options,
 		)?;
-		let mut compacted_item_list_object = K::Object::default();
+		let mut compacted_item_list_object = <K as generic_json::Json>::Object::default();
 		compacted_item_list_object.insert(
 			K::new_key(key.unwrap().as_str(), meta(None)),
 			compacted_item,
@@ -123,7 +123,7 @@ async fn compact_property_graph<
 >(
 	node: &Node<J, T>,
 	expanded_index: Option<&str>,
-	nest_result: &mut K::Object,
+	nest_result: &mut <K as generic_json::Json>::Object,
 	container: Container,
 	as_array: bool,
 	item_active_property: &str,
@@ -136,7 +136,7 @@ where
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 {
 	// If expanded item is a graph object
 	let mut compacted_item: K = node
@@ -161,7 +161,7 @@ where
 		if nest_result.get(item_active_property).is_none() {
 			nest_result.insert(
 				K::new_key(item_active_property, meta(None)),
-				K::object(K::Object::default(), meta(None)),
+				K::object(<K as generic_json::Json>::Object::default(), meta(None)),
 			);
 		}
 
@@ -199,7 +199,7 @@ where
 		if nest_result.get(item_active_property).is_none() {
 			nest_result.insert(
 				K::new_key(item_active_property, meta(None)),
-				K::object(K::Object::default(), meta(None)),
+				K::object(<K as generic_json::Json>::Object::default(), meta(None)),
 			);
 		}
 
@@ -234,7 +234,7 @@ where
 					options,
 				)?
 				.unwrap();
-				let mut map = K::Object::default();
+				let mut map = <K as generic_json::Json>::Object::default();
 				map.insert(
 					K::new_key(key.as_str(), meta(None)),
 					K::array(items, items_meta),
@@ -267,7 +267,7 @@ where
 			options,
 		)?
 		.unwrap();
-		let mut map = K::Object::default();
+		let mut map = <K as generic_json::Json>::Object::default();
 		map.insert(K::new_key(key.as_str(), meta(None)), compacted_item);
 
 		// If `expanded_item` contains an @id entry,
@@ -440,9 +440,9 @@ pub async fn compact_property<
 	O: IntoIterator<Item = &'a Indexed<N>>,
 	C: ContextMut<T>,
 	L: Loader,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 >(
-	result: &mut K::Object,
+	result: &mut <K as generic_json::Json>::Object,
 	expanded_property: Term<T>,
 	expanded_value: O,
 	active_context: Inversible<T, &C>,
@@ -475,7 +475,7 @@ where
 		// If the term definition for `item_active_property` in the active context
 		// has a nest value entry (nest term)
 		if let Some(item_active_property) = item_active_property {
-			let (nest_result, container, as_array): (&'_ mut K::Object, _, _) =
+			let (nest_result, container, as_array): (&'_ mut <K as generic_json::Json>::Object, _, _) =
 				select_nest_result::<K, _, _, _>(
 					result,
 					active_context.clone(),

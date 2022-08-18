@@ -29,7 +29,7 @@ where
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 {
 	// If active context has a previous context, the active context is not propagated.
 	// If element does not contain an @value entry, and element does not consist of
@@ -67,7 +67,7 @@ where
 	}
 
 	// let inside_reverse = active_property == Some("@reverse");
-	let mut result = K::Object::default();
+	let mut result = <K as generic_json::Json>::Object::default();
 
 	if !node.types().is_empty() {
 		// If element has an @type entry, create a new array compacted types initialized by
@@ -219,7 +219,7 @@ where
 			}
 		}
 
-		let mut reverse_result = K::Object::default();
+		let mut reverse_result = <K as generic_json::Json>::Object::default();
 		for (expanded_property, expanded_value) in &node.reverse_properties {
 			compact_property::<J, K, _, _, _, _, _, _>(
 				&mut reverse_result,
@@ -235,7 +235,7 @@ where
 		}
 
 		// For each property and value in compacted value:
-		let mut reverse_map = K::Object::default();
+		let mut reverse_map = <K as generic_json::Json>::Object::default();
 		for (property, mut mapped_value) in reverse_result.iter_mut() {
 			let mut value = K::null(meta(None));
 			std::mem::swap(&mut value, &mut *mapped_value);
@@ -364,9 +364,9 @@ fn compact_types<
 	K: JsonFrom<J>,
 	T: Sync + Send + Id,
 	C: ContextMut<T>,
-	M: Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	M: Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 >(
-	result: &mut K::Object,
+	result: &mut <K as generic_json::Json>::Object,
 	types: &[Reference<T>],
 	active_context: Inversible<T, &C>,
 	type_scoped_context: Inversible<T, &C>,

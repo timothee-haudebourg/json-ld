@@ -27,7 +27,7 @@ where
 	C: Sync + Send,
 	C::LocalContext: Send + Sync + From<L::Output>,
 	L: Sync + Send,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData,
 {
 	// If the term definition for active property in active context has a local context:
 	let mut active_context = active_context.into_borrowed();
@@ -59,7 +59,7 @@ where
 	// Here starts the Value Compaction Algorithm.
 
 	// Initialize result to a copy of value.
-	let mut result = K::Object::default();
+	let mut result = <K as generic_json::Json>::Object::default();
 
 	// If the active context has a null inverse context,
 	// set inverse context in active context to the result of calling the

@@ -139,7 +139,7 @@ impl<T> AsMut<T> for Indexed<T> {
 }
 
 impl<J: JsonClone, K: JsonFrom<J>, T: AsJson<J, K>> AsJson<J, K> for Indexed<T> {
-	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> K::MetaData) -> K {
+	fn as_json_with(&self, meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as generic_json::Json>::MetaData) -> K {
 		let mut json = self.value.as_json_with(meta.clone());
 
 		if let Some(obj) = json.as_object_mut() {
