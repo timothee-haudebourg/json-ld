@@ -1,10 +1,34 @@
-use crate::{context, AnyContextEntry, Nullable};
+use crate::{context, Direction, LenientLanguageTag, Nullable};
 use iref::IriRef;
 use json_syntax::print::{
 	pre_compute_array_size, pre_compute_object_size, printed_string_size, string_literal, Options,
 	PrecomputeSize, Print, PrintWithSize, Size,
 };
 use std::fmt;
+
+impl PrecomputeSize for Direction {
+	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
+		Size::Width(printed_string_size(self.as_str()))
+	}
+}
+
+impl Print for Direction {
+	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
+		string_literal(self.as_str(), f)
+	}
+}
+
+impl<'a> PrecomputeSize for LenientLanguageTag<'a> {
+	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
+		Size::Width(printed_string_size(self.as_str()))
+	}
+}
+
+impl<'a> Print for LenientLanguageTag<'a> {
+	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
+		string_literal(self.as_str(), f)
+	}
+}
 
 impl<'a> PrecomputeSize for Nullable<IriRef<'a>> {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
@@ -78,7 +102,7 @@ impl<'a> Print for Nullable<crate::Direction> {
 	}
 }
 
-impl<C: AnyContextEntry<Metadata = M> + context::Count<C> + PrecomputeSize + PrintWithSize, M> Print
+impl<C: context::AnyValue<Metadata = M> + PrecomputeSize + PrintWithSize, M> Print
 	for crate::Value<C, M>
 {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {

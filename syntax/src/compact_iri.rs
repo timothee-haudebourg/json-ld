@@ -8,10 +8,12 @@ pub struct CompactIri(str);
 impl CompactIri {
 	pub fn new(s: &str) -> Result<&Self, InvalidCompactIri<&str>> {
 		match s.split_once(':') {
-			Some((_, suffix)) if !suffix.starts_with("//") => match IriRef::new(s) {
-				Ok(_) => Ok(unsafe { Self::new_unchecked(s) }),
-				Err(_) => Err(InvalidCompactIri(s)),
-			},
+			Some((prefix, suffix)) if prefix != "_" && !suffix.starts_with("//") => {
+				match IriRef::new(s) {
+					Ok(_) => Ok(unsafe { Self::new_unchecked(s) }),
+					Err(_) => Err(InvalidCompactIri(s)),
+				}
+			}
 			_ => Err(InvalidCompactIri(s)),
 		}
 	}

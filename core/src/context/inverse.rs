@@ -197,8 +197,8 @@ impl<T> InverseDefinition<T> {
 	}
 }
 
-pub struct InverseContext<T> {
-	map: HashMap<Term<T>, InverseDefinition<T>>,
+pub struct InverseContext<T, B> {
+	map: HashMap<Term<T, B>, InverseDefinition<T>>,
 }
 
 pub enum Selection<'a, T> {
@@ -217,38 +217,39 @@ impl<'a, T: fmt::Debug> fmt::Debug for Selection<'a, T> {
 	}
 }
 
-impl<T> InverseContext<T> {
-	pub fn new() -> InverseContext<T> {
+impl<T, B> InverseContext<T, B> {
+	pub fn new() -> Self {
 		InverseContext {
 			map: HashMap::new(),
 		}
 	}
 }
 
-impl<T: Hash + Eq> InverseContext<T> {
-	pub fn contains(&self, term: &Term<T>) -> bool {
+impl<T: Hash + Eq, B: Hash + Eq> InverseContext<T, B> {
+	pub fn contains(&self, term: &Term<T, B>) -> bool {
 		self.map.contains_key(term)
 	}
 
-	pub fn insert(&mut self, term: Term<T>, value: InverseDefinition<T>) {
+	pub fn insert(&mut self, term: Term<T, B>, value: InverseDefinition<T>) {
 		self.map.insert(term, value);
 	}
 
-	pub fn get(&self, term: &Term<T>) -> Option<&InverseDefinition<T>> {
+	pub fn get(&self, term: &Term<T, B>) -> Option<&InverseDefinition<T>> {
 		self.map.get(term)
 	}
 
-	pub fn get_mut(&mut self, term: &Term<T>) -> Option<&mut InverseDefinition<T>> {
+	pub fn get_mut(&mut self, term: &Term<T, B>) -> Option<&mut InverseDefinition<T>> {
 		self.map.get_mut(term)
 	}
 
 	fn reference_mut<F: FnOnce() -> InverseDefinition<T>>(
 		&mut self,
-		term: &Term<T>,
+		term: &Term<T, B>,
 		insert: F,
 	) -> &mut InverseDefinition<T>
 	where
 		T: Clone,
+		B: Clone,
 	{
 		if !self.contains(term) {
 			self.insert(term.clone(), insert());
@@ -258,7 +259,7 @@ impl<T: Hash + Eq> InverseContext<T> {
 
 	pub fn select(
 		&self,
-		var: &Term<T>,
+		var: &Term<T, B>,
 		containers: &[Container],
 		selection: &Selection<T>,
 	) -> Option<&Key>
@@ -272,14 +273,16 @@ impl<T: Hash + Eq> InverseContext<T> {
 	}
 }
 
-impl<T> Default for InverseContext<T> {
+impl<T, B> Default for InverseContext<T, B> {
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl<'a, T: Clone + Hash + Eq, L> From<&'a Context<T, L>> for InverseContext<T> {
-	fn from(context: &'a Context<T, L>) -> InverseContext<T> {
+impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq, L> From<&'a Context<T, B, L>>
+	for InverseContext<T, B>
+{
+	fn from(context: &'a Context<T, B, L>) -> Self {
 		let mut result = InverseContext::new();
 
 		let mut definitions: Vec<_> = context.definitions().collect();

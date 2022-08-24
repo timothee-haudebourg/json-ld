@@ -1,16 +1,16 @@
 use super::Nest;
 use crate::{Container, Direction, LenientLanguageTagBuf, Nullable, Term, Type};
-use iref::{Iri, IriBuf};
-use json_ld_syntax::context::Index;
-use locspan_derive::StrippedPartialEq;
+use json_ld_syntax::context::term_definition::Index;
+use locspan::{BorrowStripped, StrippedEq, StrippedPartialEq};
+use locspan_derive::{StrippedEq, StrippedPartialEq};
 
 // A term definition.
-#[derive(StrippedPartialEq, Clone)]
-#[stripped(T)]
-pub struct TermDefinition<T, C> {
+#[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq, Clone)]
+#[stripped(T, B)]
+pub struct TermDefinition<T, B, C> {
 	// IRI mapping.
 	#[stripped]
-	pub value: Option<Term<T>>,
+	pub value: Option<Term<T, B>>,
 
 	// Prefix flag.
 	#[stripped]
@@ -26,7 +26,7 @@ pub struct TermDefinition<T, C> {
 
 	// Optional base URL.
 	#[stripped]
-	pub base_url: Option<IriBuf>,
+	pub base_url: Option<T>,
 
 	// Optional context.
 	pub context: Option<C>,
@@ -56,14 +56,18 @@ pub struct TermDefinition<T, C> {
 	pub typ: Option<Type<T>>,
 }
 
-impl<T, C> TermDefinition<T, C> {
-	pub fn base_url(&self) -> Option<Iri> {
-		self.base_url.as_ref().map(|iri| iri.as_iri())
+impl<T, B, C> TermDefinition<T, B, C> {
+	pub fn base_url(&self) -> Option<&T> {
+		self.base_url.as_ref()
+	}
+
+	pub fn modulo_protected_field(&self) -> ModuloProtectedField<T, B, C> {
+		ModuloProtectedField(self)
 	}
 }
 
-impl<T, C> Default for TermDefinition<T, C> {
-	fn default() -> TermDefinition<T, C> {
+impl<T, B, C> Default for TermDefinition<T, B, C> {
+	fn default() -> TermDefinition<T, B, C> {
 		TermDefinition {
 			value: None,
 			prefix: false,
@@ -81,21 +85,46 @@ impl<T, C> Default for TermDefinition<T, C> {
 	}
 }
 
-impl<T: PartialEq, C: PartialEq> PartialEq for TermDefinition<T, C> {
-	fn eq(&self, other: &TermDefinition<T, C>) -> bool {
+pub struct ModuloProtectedField<'a, T, B, C>(&'a TermDefinition<T, B, C>);
+
+impl<'a, 'b, T: PartialEq, B: PartialEq, C: PartialEq> PartialEq<ModuloProtectedField<'b, T, B, C>>
+	for ModuloProtectedField<'a, T, B, C>
+{
+	fn eq(&self, other: &ModuloProtectedField<'b, T, B, C>) -> bool {
 		// NOTE we ignore the `protected` flag.
-		self.prefix == other.prefix
-			&& self.reverse_property == other.reverse_property
-			&& self.language == other.language
-			&& self.direction == other.direction
-			&& self.nest == other.nest
-			&& self.index == other.index
-			&& self.container == other.container
-			&& self.base_url == other.base_url
-			&& self.value == other.value
-			&& self.typ == other.typ
-			&& self.context == other.context
+		self.0.prefix == other.0.prefix
+			&& self.0.reverse_property == other.0.reverse_property
+			&& self.0.language == other.0.language
+			&& self.0.direction == other.0.direction
+			&& self.0.nest == other.0.nest
+			&& self.0.index == other.0.index
+			&& self.0.container == other.0.container
+			&& self.0.base_url == other.0.base_url
+			&& self.0.value == other.0.value
+			&& self.0.typ == other.0.typ
+			&& self.0.context == other.0.context
 	}
 }
 
-impl<T: Eq, C: Eq> Eq for TermDefinition<T, C> {}
+impl<'a, T: Eq, B: Eq, C: Eq> Eq for ModuloProtectedField<'a, T, B, C> {}
+
+impl<'a, 'b, T: PartialEq, B: PartialEq, C: StrippedPartialEq>
+	StrippedPartialEq<ModuloProtectedField<'b, T, B, C>> for ModuloProtectedField<'a, T, B, C>
+{
+	fn stripped_eq(&self, other: &ModuloProtectedField<'b, T, B, C>) -> bool {
+		// NOTE we ignore the `protected` flag.
+		self.0.prefix == other.0.prefix
+			&& self.0.reverse_property == other.0.reverse_property
+			&& self.0.language == other.0.language
+			&& self.0.direction == other.0.direction
+			&& self.0.nest == other.0.nest
+			&& self.0.index == other.0.index
+			&& self.0.container == other.0.container
+			&& self.0.base_url == other.0.base_url
+			&& self.0.value == other.0.value
+			&& self.0.typ == other.0.typ
+			&& self.0.context.stripped() == other.0.context.stripped()
+	}
+}
+
+impl<'a, T: Eq, B: Eq, C: StrippedEq> StrippedEq for ModuloProtectedField<'a, T, B, C> {}

@@ -1,11 +1,12 @@
-use crate::{expand_iri, node_id_of_term, ActiveProperty, Warning};
+use crate::{expand_iri, node_id_of_term, ActiveProperty, WarningHandler};
 use json_ld_core::{
 	object::value::{Literal, LiteralString},
-	Context, Id, Indexed, LangString, Node, Object, Type, Value,
+	Context, Indexed, LangString, NamespaceMut, Node, Object, Type, Value,
 };
-use json_ld_syntax::{AnyContextEntry, LenientLanguageTag, Nullable};
+use json_ld_syntax::{context, Entry, LenientLanguageTag, Nullable};
 use json_syntax::Number;
 use locspan::{At, Meta};
+use std::fmt;
 
 pub(crate) enum GivenLiteralValue<'a> {
 	Boolean(bool),
@@ -24,7 +25,7 @@ impl<'a> GivenLiteralValue<'a> {
 	}
 
 	pub fn is_string(&self) -> bool {
-		matches!(self, Self::Number(_))
+		matches!(self, Self::String(_))
 	}
 
 	pub fn as_str(&self) -> Option<&'a str> {
@@ -56,23 +57,36 @@ impl<'a> LiteralValue<'a> {
 	}
 }
 
-pub(crate) type ExpandedLiteral<T, M> = Indexed<Object<T, M>>;
+pub(crate) type ExpandedLiteral<T, B, M> = Meta<Indexed<Object<T, B, M>>, M>;
 
 #[derive(Debug)]
 pub enum LiteralExpansionError {
 	InvalidTypeValue,
 }
 
+impl fmt::Display for LiteralExpansionError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::InvalidTypeValue => write!(f, "invalid type value"),
+		}
+	}
+}
+
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
-pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
-	active_context: &Context<T, C>,
+pub(crate) fn expand_literal<T, B, N, C: context::AnyValue>(
+	namespace: &mut N,
+	active_context: &Context<T, B, C>,
 	active_property: ActiveProperty<'_, C::Metadata>,
 	Meta(value, meta): Meta<LiteralValue, &C::Metadata>,
-	warnings: impl FnMut(Meta<Warning, C::Metadata>),
-) -> Result<ExpandedLiteral<T, C::Metadata>, Meta<LiteralExpansionError, C::Metadata>> {
+	warnings: &mut impl WarningHandler<B, N, C::Metadata>,
+) -> Result<ExpandedLiteral<T, B, C::Metadata>, Meta<LiteralExpansionError, C::Metadata>>
+where
+	T: Clone,
+	B: Clone,
+	N: NamespaceMut<T, B>,
+{
 	let active_property_definition = active_property.get_from(active_context);
-
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
 	{
 		active_property_definition.typ.clone()
@@ -87,14 +101,17 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 		// `false` for vocab.
 		Some(Type::Id) if value.is_string() => {
 			let mut node = Node::new();
-			node.set_id(node_id_of_term(expand_iri(
+			let id = node_id_of_term(expand_iri(
+				namespace,
 				active_context,
 				Meta(Nullable::Some(value.as_str().unwrap().into()), meta.clone()),
 				true,
 				false,
 				warnings,
-			)));
-			Ok(Object::Node(node).into())
+			));
+
+			node.set_id(id.map(|id| Entry::new(id.metadata().clone(), id)));
+			Ok(Meta(Object::Node(node).into(), meta.clone()))
 		}
 
 		// If `active_property` has a type mapping in active context that is `@vocab`, and the
@@ -103,14 +120,17 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 		// document relative.
 		Some(Type::Vocab) if value.is_string() => {
 			let mut node = Node::new();
-			node.set_id(node_id_of_term(expand_iri(
+			let id = node_id_of_term(expand_iri(
+				namespace,
 				active_context,
 				Meta(Nullable::Some(value.as_str().unwrap().into()), meta.clone()),
 				true,
 				true,
 				warnings,
-			)));
-			Ok(Object::Node(node).into())
+			));
+
+			node.set_id(id.map(|id| Entry::new(id.metadata().clone(), id)));
+			Ok(Meta(Object::Node(node).into(), meta.clone()))
 		}
 
 		_ => {
@@ -174,10 +194,14 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 						// If `direction` is not null, add `@direction` to result with the
 						// value `direction`.
 						return match LangString::new(s, language, direction) {
-							Ok(lang_str) => Ok(Object::Value(Value::LangString(lang_str)).into()),
-							Err(s) => {
-								Ok(Object::Value(Value::Literal(Literal::String(s), None)).into())
-							}
+							Ok(lang_str) => Ok(Meta(
+								Object::Value(Value::LangString(lang_str)).into(),
+								meta.clone(),
+							)),
+							Err(s) => Ok(Meta(
+								Object::Value(Value::Literal(Literal::String(s), None)).into(),
+								meta.clone(),
+							)),
 						};
 					}
 				}
@@ -191,7 +215,10 @@ pub(crate) fn expand_literal<T: Id, C: AnyContextEntry>(
 				}
 			}
 
-			Ok(Object::Value(Value::Literal(result, ty)).into())
+			Ok(Meta(
+				Object::Value(Value::Literal(result, ty)).into(),
+				meta.clone(),
+			))
 		}
 	}
 }

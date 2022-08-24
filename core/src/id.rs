@@ -1,87 +1,86 @@
-use crate::{TermLike, ValidReference};
-use iref::{AsIri, Iri, IriBuf};
-use std::hash::Hash;
+use crate::ValidReference;
+use locspan::Meta;
 
-/// Unique identifier types.
-///
-/// While JSON-LD uses [Internationalized Resource Identifiers (IRIs)](https://en.wikipedia.org/wiki/Internationalized_resource_identifier)
-/// to uniquely identify each node,
-/// this crate does not imposes the internal representation of identifiers.
-///
-/// Whatever type you choose, it must implement this trait to usure that:
-///  - there is a low cost bijection with IRIs,
-///  - it can be cloned ([`Clone`]),
-///  - it can be compared ([`PartialEq`], [`Eq`]),
-///  - it can be hashed ([`Hash`]).
-///
-/// # Using `enum` types
-/// If you know in advance which IRIs will be used by your implementation,
-/// one possibility is to use a `enum` type as identifier.
-/// This can be done throught the use of the [`Lexicon`](`crate::Lexicon`) type along with the
-/// [`iref-enum`](https://crates.io/crates/iref-enum) crate:
-/// ```
-/// use iref_enum::*;
-/// use json_ld::Lexicon;
-/// use serde_json::Value;
-///
-/// /// Vocabulary used in the implementation.
-/// #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
-/// #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
-/// #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
-/// #[iri_prefix("vocab" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
-/// pub enum Vocab {
-///   #[iri("rdfs:comment")] Comment,
-///
-///   #[iri("manifest:name")] Name,
-///   #[iri("manifest:entries")] Entries,
-///   #[iri("manifest:action")] Action,
-///   #[iri("manifest:result")] Result,
-///
-///   #[iri("vocab:PositiveEvaluationTest")] PositiveEvalTest,
-///   #[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
-///   #[iri("vocab:option")] Option,
-///   #[iri("vocab:specVersion")] SpecVersion,
-///   #[iri("vocab:processingMode")] ProcessingMode,
-///   #[iri("vocab:expandContext")] ExpandContext,
-///   #[iri("vocab:base")] Base
-/// }
-///
-/// /// A fully functional identifier type.
-/// pub type Id = Lexicon<Vocab>;
-///
-/// fn handle_node(node: &json_ld::Node<Value, Id>) {
-///   for name in node.get(Vocab::Name) { // <- note that we can directly use `Vocab` here.
-///     println!("node name: {}", name.as_str().unwrap());
-///   }
-/// }
-/// ```
-pub trait Id: AsIri + Clone + PartialEq + Eq + Hash {
-	/// Create an identifier from its IRI.
-	fn from_iri(iri: Iri) -> Self;
+// /// Unique identifier types.
+// ///
+// /// While JSON-LD uses [Internationalized Resource Identifiers (IRIs)](https://en.wikipedia.org/wiki/Internationalized_resource_identifier)
+// /// to uniquely identify each node,
+// /// this crate does not imposes the internal representation of identifiers.
+// ///
+// /// Whatever type you choose, it must implement this trait to ensure that:
+// ///  - there is a low cost bijection with IRIs,
+// ///  - it can be cloned ([`Clone`]),
+// ///  - it can be compared ([`PartialEq`], [`Eq`]),
+// ///  - it can be hashed ([`Hash`]).
+// ///
+// /// # Using `enum` types
+// /// If you know in advance which IRIs will be used by your implementation,
+// /// one possibility is to use a `enum` type as identifier.
+// /// This can be done throught the use of the [`Lexicon`](`crate::Lexicon`) type along with the
+// /// [`iref-enum`](https://crates.io/crates/iref-enum) crate:
+// /// ```
+// /// use iref_enum::*;
+// /// use json_ld::Lexicon;
+// /// use serde_json::Value;
+// ///
+// /// /// Vocabulary used in the implementation.
+// /// #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+// /// #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
+// /// #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
+// /// #[iri_prefix("vocab" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
+// /// pub enum Vocab {
+// ///   #[iri("rdfs:comment")] Comment,
+// ///
+// ///   #[iri("manifest:name")] Name,
+// ///   #[iri("manifest:entries")] Entries,
+// ///   #[iri("manifest:action")] Action,
+// ///   #[iri("manifest:result")] Result,
+// ///
+// ///   #[iri("vocab:PositiveEvaluationTest")] PositiveEvalTest,
+// ///   #[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
+// ///   #[iri("vocab:option")] Option,
+// ///   #[iri("vocab:specVersion")] SpecVersion,
+// ///   #[iri("vocab:processingMode")] ProcessingMode,
+// ///   #[iri("vocab:expandContext")] ExpandContext,
+// ///   #[iri("vocab:base")] Base
+// /// }
+// ///
+// /// /// A fully functional identifier type.
+// /// pub type Id = Lexicon<Vocab>;
+// ///
+// /// fn handle_node(node: &json_ld::Node<Value, Id>) {
+// ///   for name in node.get(Vocab::Name) { // <- note that we can directly use `Vocab` here.
+// ///     println!("node name: {}", name.as_str().unwrap());
+// ///   }
+// /// }
+// /// ```
+// pub trait Id: AsIri + Clone + PartialEq + Eq + Hash {
+// 	/// Create an identifier from its IRI.
+// 	fn from_iri(iri: Iri) -> Self;
 
-	fn from_iri_buf(iri_buf: IriBuf) -> Self {
-		Self::from_iri(iri_buf.as_iri())
-	}
-}
+// 	fn from_iri_buf(iri_buf: IriBuf) -> Self {
+// 		Self::from_iri(iri_buf.as_iri())
+// 	}
+// }
 
-impl Id for IriBuf {
-	#[inline(always)]
-	fn from_iri(iri: Iri) -> IriBuf {
-		iri.into()
-	}
-}
+// impl Id for IriBuf {
+// 	#[inline(always)]
+// 	fn from_iri(iri: Iri) -> IriBuf {
+// 		iri.into()
+// 	}
+// }
 
-impl<T: Id> TermLike for T {
-	#[inline(always)]
-	fn as_str(&self) -> &str {
-		self.as_iri().into_str()
-	}
+// impl<T: Id> TermLike for T {
+// 	#[inline(always)]
+// 	fn as_str(&self) -> &str {
+// 		self.as_iri().into_str()
+// 	}
 
-	#[inline(always)]
-	fn as_iri(&self) -> Option<Iri> {
-		Some(self.as_iri())
-	}
-}
+// 	#[inline(always)]
+// 	fn as_iri(&self) -> Option<Iri> {
+// 		Some(self.as_iri())
+// 	}
+// }
 
 /// Node identifier generator.
 ///
@@ -89,21 +88,22 @@ impl<T: Id> TermLike for T {
 /// unidentified blank nodes are assigned a blank node identifier.
 /// This trait is used to abstract how
 /// fresh identifiers are generated.
-pub trait Generator<T: Id> {
+pub trait Generator<T, B, M, N> {
 	/// Generates a new unique blank node identifier.
-	fn next(&mut self) -> ValidReference<T>;
+	fn next(&mut self, namespace: &mut N) -> Meta<ValidReference<T, B>, M>;
 }
 
-impl<'a, T: Id, G: Generator<T>> Generator<T> for &'a mut G {
-	fn next(&mut self) -> ValidReference<T> {
-		(*self).next()
+impl<'a, T, B, M, N, G: Generator<T, B, M, N>> Generator<T, B, M, N> for &'a mut G {
+	fn next(&mut self, namespace: &mut N) -> Meta<ValidReference<T, B>, M> {
+		(*self).next(namespace)
 	}
 }
 
 /// Blank node identifiers built-in generators.
 pub mod generator {
 	use super::Generator;
-	use crate::{Id, ValidReference};
+	use crate::{BlankIdNamespaceMut, IriNamespaceMut, ValidReference};
+	use locspan::Meta;
 	use rdf_types::BlankIdBuf;
 
 	/// Generates numbered blank node identifiers,
@@ -112,7 +112,9 @@ pub mod generator {
 	/// This generator can create `usize::MAX` unique blank node identifiers.
 	/// If [`Generator::next`] is called `usize::MAX + 1` times, it will panic.
 	#[derive(Default)]
-	pub struct Blank {
+	pub struct Blank<M> {
+		metadata: M,
+
 		/// Prefix string.
 		prefix: String,
 
@@ -120,10 +122,10 @@ pub mod generator {
 		count: usize,
 	}
 
-	impl Blank {
+	impl<M> Blank<M> {
 		/// Creates a new numbered generator with no prefix.
-		pub fn new() -> Self {
-			Self::new_full(String::new(), 0)
+		pub fn new(metadata: M) -> Self {
+			Self::new_full(metadata, String::new(), 0)
 		}
 
 		/// Creates a new numbered generator with no prefix,
@@ -131,13 +133,13 @@ pub mod generator {
 		///
 		/// The returned generator can create `usize::MAX - offset` unique blank node identifiers
 		/// before panicking.
-		pub fn new_with_offset(offset: usize) -> Self {
-			Self::new_full(String::new(), offset)
+		pub fn new_with_offset(metadata: M, offset: usize) -> Self {
+			Self::new_full(metadata, String::new(), offset)
 		}
 
 		/// Creates a new numbered generator with the given prefix.
-		pub fn new_with_prefix(prefix: String) -> Self {
-			Self::new_full(prefix, 0)
+		pub fn new_with_prefix(metadata: M, prefix: String) -> Self {
+			Self::new_full(metadata, prefix, 0)
 		}
 
 		/// Creates a new numbered generator with the given prefix,
@@ -145,11 +147,16 @@ pub mod generator {
 		///
 		/// The returned generator can create `usize::MAX - offset` unique blank node identifiers
 		/// before panicking.
-		pub fn new_full(prefix: String, offset: usize) -> Self {
+		pub fn new_full(metadata: M, prefix: String, offset: usize) -> Self {
 			Self {
+				metadata,
 				prefix,
 				count: offset,
 			}
+		}
+
+		pub fn metadata(&self) -> &M {
+			&self.metadata
 		}
 
 		/// Returns the prefix of this generator.
@@ -170,9 +177,12 @@ pub mod generator {
 		}
 	}
 
-	impl<T: Id> Generator<T> for Blank {
-		fn next(&mut self) -> ValidReference<T> {
-			ValidReference::Blank(self.next_blank_id())
+	impl<T, B, M: Clone, N: BlankIdNamespaceMut<B>> Generator<T, B, M, N> for Blank<M> {
+		fn next(&mut self, namespace: &mut N) -> Meta<ValidReference<T, B>, M> {
+			Meta(
+				ValidReference::Blank(namespace.insert_blank_id(&self.next_blank_id())),
+				self.metadata.clone(),
+			)
 		}
 	}
 
@@ -187,26 +197,26 @@ pub mod generator {
 	/// use this type.
 	/// You also need to enable the features of each version you need
 	/// in the `uuid` crate.
-	pub enum Uuid {
+	pub enum Uuid<M> {
 		/// UUIDv3.
 		///
 		/// You must provide a namespace UUID and a name.
 		/// See [uuid::Uuid::new_v3] for more information.
 		#[cfg(feature = "uuid-generator-v3")]
-		V3(uuid::Uuid, String),
+		V3(M, uuid::Uuid, String),
 
 		/// UUIDv4.
 		///
 		/// See [uuid::Uuid::new_v4] for more information.
 		#[cfg(feature = "uuid-generator-v4")]
-		V4,
+		V4(M),
 
 		/// UUIDv5.
 		///
 		/// You must provide a namespace UUID and a name.
 		/// See [uuid::Uuid::new_v5] for more information.
 		#[cfg(feature = "uuid-generator-v5")]
-		V5(uuid::Uuid, String),
+		V5(M, uuid::Uuid, String),
 	}
 
 	#[cfg(any(
@@ -214,15 +224,19 @@ pub mod generator {
 		feature = "uuid-generator-v4",
 		feature = "uuid-generator-v5"
 	))]
-	impl Uuid {
-		pub fn next_uuid(&self) -> uuid::Uuid {
+	impl<M: Clone> Uuid<M> {
+		pub fn next_uuid(&self) -> Meta<uuid::Uuid, M> {
 			match self {
 				#[cfg(feature = "uuid-generator-v3")]
-				Self::V3(namespace, name) => uuid::Uuid::new_v3(namespace, name.as_bytes()),
+				Self::V3(meta, namespace, name) => {
+					Meta(uuid::Uuid::new_v3(namespace, name.as_bytes()), meta.clone())
+				}
 				#[cfg(feature = "uuid-generator-v4")]
-				Self::V4 => uuid::Uuid::new_v4(),
+				Self::V4(meta) => Meta(uuid::Uuid::new_v4(), meta.clone()),
 				#[cfg(feature = "uuid-generator-v5")]
-				Self::V5(namespace, name) => uuid::Uuid::new_v5(namespace, name.as_bytes()),
+				Self::V5(meta, namespace, name) => {
+					Meta(uuid::Uuid::new_v5(namespace, name.as_bytes()), meta.clone())
+				}
 			}
 		}
 	}
@@ -232,15 +246,15 @@ pub mod generator {
 		feature = "uuid-generator-v4",
 		feature = "uuid-generator-v5"
 	))]
-	impl<T: Id> Generator<T> for Uuid {
-		fn next(&mut self) -> ValidReference<T> {
+	impl<T, B, M: Clone, N: IriNamespaceMut<T>> Generator<T, B, M, N> for Uuid<M> {
+		fn next(&mut self, namespace: &mut N) -> Meta<ValidReference<T, B>, M> {
 			unsafe {
 				let mut buffer = Vec::with_capacity(uuid::adapter::Urn::LENGTH);
 				let ptr = buffer.as_mut_ptr();
 				let capacity = buffer.capacity();
 				std::mem::forget(buffer);
-				let len = self
-					.next_uuid()
+				let Meta(uuid, meta) = self.next_uuid();
+				let len = uuid
 					.to_urn()
 					.encode_lower(std::slice::from_raw_parts_mut(
 						ptr,
@@ -250,7 +264,7 @@ pub mod generator {
 				let buffer = Vec::from_raw_parts(ptr, len, capacity);
 				let p = iref::parsing::ParsedIriRef::new(&buffer).unwrap();
 				let iri = iref::IriBuf::from_raw_parts(buffer, p);
-				ValidReference::Id(T::from_iri_buf(iri))
+				Meta(ValidReference::Id(namespace.insert(iri.as_iri())), meta)
 			}
 		}
 	}
@@ -268,11 +282,12 @@ pub mod generator {
 		#[test]
 		fn uuidv3_iri() {
 			let mut uuid_gen = Uuid::V3(
+				(),
 				uuid::Uuid::parse_str("936DA01F9ABD4d9d80C702AF85C822A8").unwrap(),
 				"test".to_string(),
 			);
 			for _ in 0..100 {
-				let reference: ValidReference = uuid_gen.next();
+				let reference: ValidReference = uuid_gen.next(&mut ()).into_value();
 				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
 			}
 		}
@@ -280,9 +295,9 @@ pub mod generator {
 		#[cfg(feature = "uuid-generator-v4")]
 		#[test]
 		fn uuidv4_iri() {
-			let mut uuid_gen = Uuid::V4;
+			let mut uuid_gen = Uuid::V4(());
 			for _ in 0..100 {
-				let reference: ValidReference = uuid_gen.next();
+				let reference: ValidReference = uuid_gen.next(&mut ()).into_value();
 				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
 			}
 		}
@@ -291,11 +306,12 @@ pub mod generator {
 		#[test]
 		fn uuidv5_iri() {
 			let mut uuid_gen = Uuid::V5(
+				(),
 				uuid::Uuid::parse_str("936DA01F9ABD4d9d80C702AF85C822A8").unwrap(),
 				"test".to_string(),
 			);
 			for _ in 0..100 {
-				let reference: ValidReference = uuid_gen.next();
+				let reference: ValidReference = uuid_gen.next(&mut ()).into_value();
 				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
 			}
 		}

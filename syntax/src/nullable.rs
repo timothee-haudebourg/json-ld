@@ -1,3 +1,5 @@
+use std::fmt;
+
 use locspan_derive::StrippedPartialEq;
 
 /// Value that can be null.
@@ -115,6 +117,15 @@ impl<'a, T: Clone> Nullable<&'a T> {
 		match self {
 			Nullable::Null => Nullable::Null,
 			Nullable::Some(t) => Nullable::Some((*t).clone()),
+		}
+	}
+}
+
+impl<T: fmt::Display> fmt::Display for Nullable<T> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Null => write!(f, "null"),
+			Self::Some(v) => v.fmt(f),
 		}
 	}
 }

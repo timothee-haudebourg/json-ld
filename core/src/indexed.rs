@@ -1,3 +1,5 @@
+use crate::object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject};
+use locspan::Meta;
 use locspan_derive::*;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
@@ -30,6 +32,10 @@ impl<T> Indexed<T> {
 	#[inline(always)]
 	pub fn inner(&self) -> &T {
 		&self.value
+	}
+
+	pub fn inner_mut(&mut self) -> &mut T {
+		&mut self.value
 	}
 
 	/// Drop the index and return the underlying value.
@@ -81,6 +87,38 @@ impl<T> Indexed<T> {
 			Ok(value) => Ok(Indexed::new(value, self.index)),
 			Err(e) => Err(Indexed::new(e, self.index)),
 		}
+	}
+}
+
+impl<T, B, C, M, O: TryFromJsonObject<T, B, C, M>> TryFromJson<T, B, C, M> for Indexed<O> {
+	fn try_from_json_in(
+		namespace: &mut impl crate::NamespaceMut<T, B>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		match value {
+			json_ld_syntax::Value::Object(object) => {
+				Self::try_from_json_object_in(namespace, Meta(object, meta))
+			}
+			_ => Err(Meta(InvalidExpandedJson::InvalidObject, meta)),
+		}
+	}
+}
+
+impl<T, B, C, M, O: TryFromJsonObject<T, B, C, M>> TryFromJsonObject<T, B, C, M> for Indexed<O> {
+	fn try_from_json_object_in(
+		namespace: &mut impl crate::NamespaceMut<T, B>,
+		Meta(mut object, meta): Meta<json_ld_syntax::Object<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		let index = match object.remove("@index") {
+			Some(index_entry) => match index_entry.value {
+				Meta(json_ld_syntax::Value::String(index), _) => Some(index.to_string()),
+				Meta(_, meta) => return Err(Meta(InvalidExpandedJson::InvalidIndex, meta)),
+			},
+			None => None,
+		};
+
+		let Meta(value, meta) = O::try_from_json_object_in(namespace, Meta(object, meta))?;
+		Ok(Meta(Self::new(value, index), meta))
 	}
 }
 

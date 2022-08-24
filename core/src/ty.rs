@@ -1,28 +1,27 @@
-use super::{Term, TermLike};
-use crate::{Id, Reference};
-use iref::Iri;
+use super::Term;
+use crate::Reference;
 use json_ld_syntax::Keyword;
 use std::convert::TryFrom;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum Type<T> {
+pub enum Type<I> {
 	Id,
 	Json,
 	None,
 	Vocab,
-	Ref(T),
+	Ref(I),
 }
 
-impl<T> Type<T> {
-	pub fn into_ref(self) -> Result<T, Type<T>> {
+impl<I> Type<I> {
+	pub fn into_ref(self) -> Result<I, Type<I>> {
 		match self {
 			Type::Ref(id) => Ok(id),
 			typ => Err(typ),
 		}
 	}
 
-	pub fn map<U, F: FnOnce(&T) -> U>(&self, f: F) -> Type<U> {
+	pub fn map<U, F: FnOnce(&I) -> U>(&self, f: F) -> Type<U> {
 		match self {
 			Type::Id => Type::Id,
 			Type::Json => Type::Json,
@@ -33,8 +32,8 @@ impl<T> Type<T> {
 	}
 }
 
-impl<'a, T: Clone> Type<&'a T> {
-	pub fn cloned(self) -> Type<T> {
+impl<'a, I: Clone> Type<&'a I> {
+	pub fn cloned(self) -> Type<I> {
 		match self {
 			Type::Id => Type::Id,
 			Type::Json => Type::Json,
@@ -45,37 +44,29 @@ impl<'a, T: Clone> Type<&'a T> {
 	}
 }
 
-impl<T: TermLike> Type<T> {
-	pub fn as_iri(&self) -> Option<Iri> {
+impl<I> Type<I> {
+	pub fn as_iri(&self) -> Option<&I> {
 		match self {
-			Type::Ref(id) => id.as_iri(),
+			Type::Ref(id) => Some(id),
 			_ => None,
 		}
 	}
+}
 
+impl<I: AsRef<str>> Type<I> {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Type::Id => "@id",
 			Type::Json => "@json",
 			Type::None => "@none",
 			Type::Vocab => "@vocab",
-			Type::Ref(id) => id.as_str(),
+			Type::Ref(id) => id.as_ref(),
 		}
 	}
 }
 
-impl<T: TermLike> TermLike for Type<T> {
-	fn as_iri(&self) -> Option<Iri> {
-		self.as_iri()
-	}
-
-	fn as_str(&self) -> &str {
-		self.as_str()
-	}
-}
-
-impl<'a, T> From<&'a Type<T>> for Type<&'a T> {
-	fn from(t: &'a Type<T>) -> Type<&'a T> {
+impl<'a, I> From<&'a Type<I>> for Type<&'a I> {
+	fn from(t: &'a Type<I>) -> Type<&'a I> {
 		match t {
 			Type::Id => Type::Id,
 			Type::Json => Type::Json,
@@ -86,8 +77,8 @@ impl<'a, T> From<&'a Type<T>> for Type<&'a T> {
 	}
 }
 
-impl<T: Id> From<Type<T>> for Term<T> {
-	fn from(t: Type<T>) -> Term<T> {
+impl<I, B> From<Type<I>> for Term<I, B> {
+	fn from(t: Type<I>) -> Term<I, B> {
 		match t {
 			Type::Id => Term::Keyword(Keyword::Id),
 			Type::Json => Term::Keyword(Keyword::Json),
@@ -98,10 +89,10 @@ impl<T: Id> From<Type<T>> for Term<T> {
 	}
 }
 
-impl<T: Id> TryFrom<Term<T>> for Type<T> {
-	type Error = Term<T>;
+impl<I, B> TryFrom<Term<I, B>> for Type<I> {
+	type Error = Term<I, B>;
 
-	fn try_from(term: Term<T>) -> Result<Type<T>, Term<T>> {
+	fn try_from(term: Term<I, B>) -> Result<Type<I>, Term<I, B>> {
 		match term {
 			Term::Keyword(Keyword::Id) => Ok(Type::Id),
 			Term::Keyword(Keyword::Json) => Ok(Type::Json),
@@ -113,7 +104,7 @@ impl<T: Id> TryFrom<Term<T>> for Type<T> {
 	}
 }
 
-// impl<K: JsonBuild, T: utils::AsAnyJson<K>> utils::AsAnyJson<K> for Type<T> {
+// impl<K: JsonBuild, I: utils::AsAnyJson<K>> utils::AsAnyJson<K> for Type<I> {
 // 	fn as_json_with(&self, meta: K::MetaData) -> K {
 // 		match self {
 // 			Type::Id => "@id".as_json_with(meta),
@@ -125,7 +116,7 @@ impl<T: Id> TryFrom<Term<T>> for Type<T> {
 // 	}
 // }
 
-impl<T: fmt::Display> fmt::Display for Type<T> {
+impl<I: fmt::Display> fmt::Display for Type<I> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Type::Id => write!(f, "@id"),
@@ -137,12 +128,12 @@ impl<T: fmt::Display> fmt::Display for Type<T> {
 	}
 }
 
-// pub type NodeType<T> = Type<Reference<T>>;
+// pub type NodeType<I> = Type<Reference<I>>;
 
-// impl<T: Id> TryFrom<Term<T>> for NodeType<T> {
-// 	type Error = Term<T>;
+// impl<I: Id> TryFrom<Term<I>> for NodeType<I> {
+// 	type Error = Term<I>;
 
-// 	fn try_from(term: Term<T>) -> Result<NodeType<T>, Term<T>> {
+// 	fn try_from(term: Term<I>) -> Result<NodeType<I>, Term<I>> {
 // 		match term {
 // 			Term::Keyword(Keyword::Id) => Ok(Type::Id),
 // 			Term::Keyword(Keyword::Json) => Ok(Type::Json),

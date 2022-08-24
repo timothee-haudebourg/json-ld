@@ -1,4 +1,4 @@
-use json_ld_syntax::{ContainerType, Nullable};
+use json_ld_syntax::{ContainerKind, Nullable};
 use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
 
@@ -63,9 +63,9 @@ impl Container {
 		}
 	}
 
-	pub fn from<'a, I: IntoIterator<Item = &'a ContainerType>>(
+	pub fn from<'a, I: IntoIterator<Item = &'a ContainerKind>>(
 		iter: I,
-	) -> Result<Container, ContainerType> {
+	) -> Result<Container, ContainerKind> {
 		let mut container = Container::new();
 		for item in iter {
 			if !container.add(*item) {
@@ -76,34 +76,34 @@ impl Container {
 		Ok(container)
 	}
 
-	pub fn as_slice(&self) -> &[ContainerType] {
+	pub fn as_slice(&self) -> &[ContainerKind] {
 		use Container::*;
 		match self {
 			None => &[],
-			Graph => &[ContainerType::Graph],
-			Id => &[ContainerType::Id],
-			Index => &[ContainerType::Index],
-			Language => &[ContainerType::Language],
-			List => &[ContainerType::List],
-			Set => &[ContainerType::Set],
-			Type => &[ContainerType::Type],
-			GraphSet => &[ContainerType::Graph, ContainerType::Set],
-			GraphId => &[ContainerType::Graph, ContainerType::Id],
-			GraphIndex => &[ContainerType::Graph, ContainerType::Index],
-			IdSet => &[ContainerType::Id, ContainerType::Set],
-			IndexSet => &[ContainerType::Index, ContainerType::Set],
-			LanguageSet => &[ContainerType::Language, ContainerType::Set],
-			SetType => &[ContainerType::Type, ContainerType::Set],
-			GraphIdSet => &[ContainerType::Graph, ContainerType::Id, ContainerType::Set],
+			Graph => &[ContainerKind::Graph],
+			Id => &[ContainerKind::Id],
+			Index => &[ContainerKind::Index],
+			Language => &[ContainerKind::Language],
+			List => &[ContainerKind::List],
+			Set => &[ContainerKind::Set],
+			Type => &[ContainerKind::Type],
+			GraphSet => &[ContainerKind::Graph, ContainerKind::Set],
+			GraphId => &[ContainerKind::Graph, ContainerKind::Id],
+			GraphIndex => &[ContainerKind::Graph, ContainerKind::Index],
+			IdSet => &[ContainerKind::Id, ContainerKind::Set],
+			IndexSet => &[ContainerKind::Index, ContainerKind::Set],
+			LanguageSet => &[ContainerKind::Language, ContainerKind::Set],
+			SetType => &[ContainerKind::Type, ContainerKind::Set],
+			GraphIdSet => &[ContainerKind::Graph, ContainerKind::Id, ContainerKind::Set],
 			GraphIndexSet => &[
-				ContainerType::Graph,
-				ContainerType::Index,
-				ContainerType::Set,
+				ContainerKind::Graph,
+				ContainerKind::Index,
+				ContainerKind::Set,
 			],
 		}
 	}
 
-	pub fn iter(&self) -> impl Iterator<Item = &ContainerType> {
+	pub fn iter(&self) -> impl Iterator<Item = &ContainerKind> {
 		self.as_slice().iter()
 	}
 
@@ -115,67 +115,67 @@ impl Container {
 		matches!(self, Container::None)
 	}
 
-	pub fn contains(&self, c: ContainerType) -> bool {
+	pub fn contains(&self, c: ContainerKind) -> bool {
 		self.as_slice().contains(&c)
 	}
 
-	pub fn with(&self, c: ContainerType) -> Option<Container> {
+	pub fn with(&self, c: ContainerKind) -> Option<Container> {
 		let new_container = match (self, c) {
 			(Container::None, c) => c.into(),
-			(Container::Graph, ContainerType::Graph) => *self,
-			(Container::Graph, ContainerType::Set) => Container::GraphSet,
-			(Container::Graph, ContainerType::Id) => Container::GraphId,
-			(Container::Graph, ContainerType::Index) => Container::GraphIndex,
-			(Container::Id, ContainerType::Id) => *self,
-			(Container::Id, ContainerType::Graph) => Container::GraphId,
-			(Container::Id, ContainerType::Set) => Container::IdSet,
-			(Container::Index, ContainerType::Index) => *self,
-			(Container::Index, ContainerType::Graph) => Container::GraphIndex,
-			(Container::Index, ContainerType::Set) => Container::IndexSet,
-			(Container::Language, ContainerType::Language) => *self,
-			(Container::Language, ContainerType::Set) => Container::LanguageSet,
-			(Container::List, ContainerType::List) => *self,
-			(Container::Set, ContainerType::Set) => *self,
-			(Container::Set, ContainerType::Graph) => Container::GraphSet,
-			(Container::Set, ContainerType::Id) => Container::IdSet,
-			(Container::Set, ContainerType::Index) => Container::IndexSet,
-			(Container::Set, ContainerType::Language) => Container::LanguageSet,
-			(Container::Set, ContainerType::Type) => Container::SetType,
-			(Container::Type, ContainerType::Type) => *self,
-			(Container::Type, ContainerType::Set) => Container::SetType,
-			(Container::GraphSet, ContainerType::Graph) => *self,
-			(Container::GraphSet, ContainerType::Set) => *self,
-			(Container::GraphSet, ContainerType::Id) => Container::GraphIdSet,
-			(Container::GraphSet, ContainerType::Index) => Container::GraphIdSet,
-			(Container::GraphId, ContainerType::Graph) => *self,
-			(Container::GraphId, ContainerType::Id) => *self,
-			(Container::GraphId, ContainerType::Set) => Container::GraphIdSet,
-			(Container::GraphIndex, ContainerType::Graph) => *self,
-			(Container::GraphIndex, ContainerType::Index) => *self,
-			(Container::GraphIndex, ContainerType::Set) => Container::GraphIndexSet,
-			(Container::IdSet, ContainerType::Id) => *self,
-			(Container::IdSet, ContainerType::Set) => *self,
-			(Container::IdSet, ContainerType::Graph) => Container::GraphIdSet,
-			(Container::IndexSet, ContainerType::Index) => *self,
-			(Container::IndexSet, ContainerType::Set) => *self,
-			(Container::IndexSet, ContainerType::Graph) => Container::GraphIndexSet,
-			(Container::LanguageSet, ContainerType::Language) => *self,
-			(Container::LanguageSet, ContainerType::Set) => *self,
-			(Container::SetType, ContainerType::Set) => *self,
-			(Container::SetType, ContainerType::Type) => *self,
-			(Container::GraphIdSet, ContainerType::Graph) => *self,
-			(Container::GraphIdSet, ContainerType::Id) => *self,
-			(Container::GraphIdSet, ContainerType::Set) => *self,
-			(Container::GraphIndexSet, ContainerType::Graph) => *self,
-			(Container::GraphIndexSet, ContainerType::Index) => *self,
-			(Container::GraphIndexSet, ContainerType::Set) => *self,
+			(Container::Graph, ContainerKind::Graph) => *self,
+			(Container::Graph, ContainerKind::Set) => Container::GraphSet,
+			(Container::Graph, ContainerKind::Id) => Container::GraphId,
+			(Container::Graph, ContainerKind::Index) => Container::GraphIndex,
+			(Container::Id, ContainerKind::Id) => *self,
+			(Container::Id, ContainerKind::Graph) => Container::GraphId,
+			(Container::Id, ContainerKind::Set) => Container::IdSet,
+			(Container::Index, ContainerKind::Index) => *self,
+			(Container::Index, ContainerKind::Graph) => Container::GraphIndex,
+			(Container::Index, ContainerKind::Set) => Container::IndexSet,
+			(Container::Language, ContainerKind::Language) => *self,
+			(Container::Language, ContainerKind::Set) => Container::LanguageSet,
+			(Container::List, ContainerKind::List) => *self,
+			(Container::Set, ContainerKind::Set) => *self,
+			(Container::Set, ContainerKind::Graph) => Container::GraphSet,
+			(Container::Set, ContainerKind::Id) => Container::IdSet,
+			(Container::Set, ContainerKind::Index) => Container::IndexSet,
+			(Container::Set, ContainerKind::Language) => Container::LanguageSet,
+			(Container::Set, ContainerKind::Type) => Container::SetType,
+			(Container::Type, ContainerKind::Type) => *self,
+			(Container::Type, ContainerKind::Set) => Container::SetType,
+			(Container::GraphSet, ContainerKind::Graph) => *self,
+			(Container::GraphSet, ContainerKind::Set) => *self,
+			(Container::GraphSet, ContainerKind::Id) => Container::GraphIdSet,
+			(Container::GraphSet, ContainerKind::Index) => Container::GraphIdSet,
+			(Container::GraphId, ContainerKind::Graph) => *self,
+			(Container::GraphId, ContainerKind::Id) => *self,
+			(Container::GraphId, ContainerKind::Set) => Container::GraphIdSet,
+			(Container::GraphIndex, ContainerKind::Graph) => *self,
+			(Container::GraphIndex, ContainerKind::Index) => *self,
+			(Container::GraphIndex, ContainerKind::Set) => Container::GraphIndexSet,
+			(Container::IdSet, ContainerKind::Id) => *self,
+			(Container::IdSet, ContainerKind::Set) => *self,
+			(Container::IdSet, ContainerKind::Graph) => Container::GraphIdSet,
+			(Container::IndexSet, ContainerKind::Index) => *self,
+			(Container::IndexSet, ContainerKind::Set) => *self,
+			(Container::IndexSet, ContainerKind::Graph) => Container::GraphIndexSet,
+			(Container::LanguageSet, ContainerKind::Language) => *self,
+			(Container::LanguageSet, ContainerKind::Set) => *self,
+			(Container::SetType, ContainerKind::Set) => *self,
+			(Container::SetType, ContainerKind::Type) => *self,
+			(Container::GraphIdSet, ContainerKind::Graph) => *self,
+			(Container::GraphIdSet, ContainerKind::Id) => *self,
+			(Container::GraphIdSet, ContainerKind::Set) => *self,
+			(Container::GraphIndexSet, ContainerKind::Graph) => *self,
+			(Container::GraphIndexSet, ContainerKind::Index) => *self,
+			(Container::GraphIndexSet, ContainerKind::Set) => *self,
 			_ => return None,
 		};
 
 		Some(new_container)
 	}
 
-	pub fn add(&mut self, c: ContainerType) -> bool {
+	pub fn add(&mut self, c: ContainerKind) -> bool {
 		match self.with(c) {
 			Some(container) => {
 				*self = container;
@@ -186,16 +186,16 @@ impl Container {
 	}
 }
 
-impl From<ContainerType> for Container {
-	fn from(c: ContainerType) -> Self {
+impl From<ContainerKind> for Container {
+	fn from(c: ContainerKind) -> Self {
 		match c {
-			ContainerType::Graph => Self::Graph,
-			ContainerType::Id => Self::Id,
-			ContainerType::Index => Self::Index,
-			ContainerType::Language => Self::Language,
-			ContainerType::List => Self::List,
-			ContainerType::Set => Self::Set,
-			ContainerType::Type => Self::Type,
+			ContainerKind::Graph => Self::Graph,
+			ContainerKind::Id => Self::Id,
+			ContainerKind::Index => Self::Index,
+			ContainerKind::Language => Self::Language,
+			ContainerKind::List => Self::List,
+			ContainerKind::Set => Self::Set,
+			ContainerKind::Type => Self::Type,
 		}
 	}
 }

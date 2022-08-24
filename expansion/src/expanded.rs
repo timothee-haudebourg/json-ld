@@ -1,12 +1,13 @@
-use json_ld_core::{Id, Indexed, Object};
+use json_ld_core::{Indexed, Object};
+use locspan::Meta;
 
-pub enum Expanded<T: Id, M> {
+pub enum Expanded<T, B, M> {
 	Null,
-	Object(Indexed<Object<T, M>>),
-	Array(Vec<Indexed<Object<T, M>>>),
+	Object(Meta<Indexed<Object<T, B, M>>, M>),
+	Array(Vec<Meta<Indexed<Object<T, B, M>>, M>>),
 }
 
-impl<T: Id, M> Expanded<T, M> {
+impl<T, B, M> Expanded<T, B, M> {
 	pub fn len(&self) -> usize {
 		match self {
 			Expanded::Null => 0,
@@ -30,7 +31,7 @@ impl<T: Id, M> Expanded<T, M> {
 		}
 	}
 
-	pub fn iter(&self) -> Iter<T, M> {
+	pub fn iter(&self) -> Iter<T, B, M> {
 		match self {
 			Expanded::Null => Iter::Null,
 			Expanded::Object(ref o) => Iter::Object(Some(o)),
@@ -39,11 +40,11 @@ impl<T: Id, M> Expanded<T, M> {
 	}
 }
 
-impl<T: Id, M> IntoIterator for Expanded<T, M> {
-	type Item = Indexed<Object<T, M>>;
-	type IntoIter = IntoIter<T, M>;
+impl<T, B, M> IntoIterator for Expanded<T, B, M> {
+	type Item = Meta<Indexed<Object<T, B, M>>, M>;
+	type IntoIter = IntoIter<T, B, M>;
 
-	fn into_iter(self) -> IntoIter<T, M> {
+	fn into_iter(self) -> IntoIter<T, B, M> {
 		match self {
 			Expanded::Null => IntoIter::Null,
 			Expanded::Object(o) => IntoIter::Object(Some(o)),
@@ -52,25 +53,25 @@ impl<T: Id, M> IntoIterator for Expanded<T, M> {
 	}
 }
 
-impl<'a, T: Id, M> IntoIterator for &'a Expanded<T, M> {
-	type Item = &'a Indexed<Object<T, M>>;
-	type IntoIter = Iter<'a, T, M>;
+impl<'a, T, B, M> IntoIterator for &'a Expanded<T, B, M> {
+	type Item = &'a Meta<Indexed<Object<T, B, M>>, M>;
+	type IntoIter = Iter<'a, T, B, M>;
 
-	fn into_iter(self) -> Iter<'a, T, M> {
+	fn into_iter(self) -> Iter<'a, T, B, M> {
 		self.iter()
 	}
 }
 
-pub enum Iter<'a, T: Id, M> {
+pub enum Iter<'a, T, B, M> {
 	Null,
-	Object(Option<&'a Indexed<Object<T, M>>>),
-	Array(std::slice::Iter<'a, Indexed<Object<T, M>>>),
+	Object(Option<&'a Meta<Indexed<Object<T, B, M>>, M>>),
+	Array(std::slice::Iter<'a, Meta<Indexed<Object<T, B, M>>, M>>),
 }
 
-impl<'a, T: Id, M> Iterator for Iter<'a, T, M> {
-	type Item = &'a Indexed<Object<T, M>>;
+impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
+	type Item = &'a Meta<Indexed<Object<T, B, M>>, M>;
 
-	fn next(&mut self) -> Option<&'a Indexed<Object<T, M>>> {
+	fn next(&mut self) -> Option<&'a Meta<Indexed<Object<T, B, M>>, M>> {
 		match self {
 			Iter::Null => None,
 			Iter::Object(ref mut o) => {
@@ -83,16 +84,16 @@ impl<'a, T: Id, M> Iterator for Iter<'a, T, M> {
 	}
 }
 
-pub enum IntoIter<T: Id, M> {
+pub enum IntoIter<T, B, M> {
 	Null,
-	Object(Option<Indexed<Object<T, M>>>),
-	Array(std::vec::IntoIter<Indexed<Object<T, M>>>),
+	Object(Option<Meta<Indexed<Object<T, B, M>>, M>>),
+	Array(std::vec::IntoIter<Meta<Indexed<Object<T, B, M>>, M>>),
 }
 
-impl<T: Id, M> Iterator for IntoIter<T, M> {
-	type Item = Indexed<Object<T, M>>;
+impl<T, B, M> Iterator for IntoIter<T, B, M> {
+	type Item = Meta<Indexed<Object<T, B, M>>, M>;
 
-	fn next(&mut self) -> Option<Indexed<Object<T, M>>> {
+	fn next(&mut self) -> Option<Meta<Indexed<Object<T, B, M>>, M>> {
 		match self {
 			IntoIter::Null => None,
 			IntoIter::Object(ref mut o) => {
@@ -105,14 +106,14 @@ impl<T: Id, M> Iterator for IntoIter<T, M> {
 	}
 }
 
-impl<T: Id, M> From<Indexed<Object<T, M>>> for Expanded<T, M> {
-	fn from(obj: Indexed<Object<T, M>>) -> Expanded<T, M> {
+impl<T, B, M> From<Meta<Indexed<Object<T, B, M>>, M>> for Expanded<T, B, M> {
+	fn from(obj: Meta<Indexed<Object<T, B, M>>, M>) -> Expanded<T, B, M> {
 		Expanded::Object(obj)
 	}
 }
 
-impl<T: Id, M> From<Vec<Indexed<Object<T, M>>>> for Expanded<T, M> {
-	fn from(list: Vec<Indexed<Object<T, M>>>) -> Expanded<T, M> {
+impl<T, B, M> From<Vec<Meta<Indexed<Object<T, B, M>>, M>>> for Expanded<T, B, M> {
+	fn from(list: Vec<Meta<Indexed<Object<T, B, M>>, M>>) -> Expanded<T, B, M> {
 		Expanded::Array(list)
 	}
 }

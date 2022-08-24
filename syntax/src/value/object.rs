@@ -1,4 +1,4 @@
-use crate::context::AnyContextEntryMut;
+use crate::context::AnyValueMut;
 
 use super::Value;
 use derivative::Derivative;
@@ -45,6 +45,10 @@ impl<C, M> Object<C, M> {
 		}
 	}
 
+	pub fn into_parts(self) -> (Option<ContextEntry<C, M>>, Entries<C, M>) {
+		(self.context, self.entries)
+	}
+
 	pub fn len(&self) -> usize {
 		if self.context.is_some() {
 			1 + self.entries.len()
@@ -87,7 +91,7 @@ impl<C, M> Object<C, M> {
 
 	pub fn append_context(&mut self, context: C)
 	where
-		C: AnyContextEntryMut,
+		C: AnyValueMut,
 		M: Default,
 	{
 		match self.context.as_mut() {
@@ -100,7 +104,7 @@ impl<C, M> Object<C, M> {
 
 	pub fn append_context_with(&mut self, key_metadata: M, context: Meta<C, M>)
 	where
-		C: AnyContextEntryMut,
+		C: AnyValueMut,
 	{
 		match self.context.as_mut() {
 			None => self.context = Some(ContextEntry::new(key_metadata, context)),
@@ -131,11 +135,6 @@ impl<C, M> Object<C, M> {
 		Q: Hash + Equivalent<Key>,
 	{
 		self.entries.get(key)
-	}
-
-	pub fn into_json(self) -> json_syntax::Object<M> {
-		let entries = self.entries.into_iter().map(Entry::into_json).collect();
-		json_syntax::Object::from_vec(entries)
 	}
 
 	pub fn index_of<Q: ?Sized>(&self, key: &Q) -> Option<usize>
@@ -241,11 +240,25 @@ impl<C, M> Entry<C, M> {
 		(&self.key, &self.value)
 	}
 
-	pub fn into_json(self) -> json_syntax::object::Entry<M> {
-		json_syntax::object::Entry {
-			key: self.key,
-			value: self.value.map(Value::into_json),
-		}
+	#[allow(clippy::type_complexity)]
+	pub fn into_pair(self) -> (Meta<Key, M>, Meta<Value<C, M>, M>) {
+		(self.key, self.value)
+	}
+
+	pub fn as_key(&self) -> &Meta<Key, M> {
+		&self.key
+	}
+
+	pub fn into_key(self) -> Meta<Key, M> {
+		self.key
+	}
+
+	pub fn as_value(&self) -> &Meta<Value<C, M>, M> {
+		&self.value
+	}
+
+	pub fn into_value(self) -> Meta<Value<C, M>, M> {
+		self.value
 	}
 }
 

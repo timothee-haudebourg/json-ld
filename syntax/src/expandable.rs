@@ -1,31 +1,28 @@
+use std::fmt;
+
 use crate::{
-	context::{Key, KeyOrKeyword, KeyOrKeywordRef, KeyRef},
-	CompactIri, Keyword,
+	context::definition::{KeyOrKeyword, KeyOrKeywordRef},
+	Keyword,
 };
-use iref::{Iri, IriRef, IriRefBuf};
 
 pub enum Expandable {
 	Keyword(Keyword),
-	IriRef(IriRefBuf),
-	Key(Key),
+	String(String),
 }
 
 pub enum ExpandableRef<'a> {
 	/// Keyword.
 	Keyword(Keyword),
 
-	/// Key.
-	Key(KeyRef<'a>),
-
-	/// Any IRI reference that is not a key.
-	IriRef(IriRef<'a>),
+	/// Other term.
+	String(&'a str),
 }
 
 impl<'a> From<KeyOrKeywordRef<'a>> for ExpandableRef<'a> {
 	fn from(k: KeyOrKeywordRef<'a>) -> Self {
 		match k {
 			KeyOrKeywordRef::Keyword(k) => Self::Keyword(k),
-			KeyOrKeywordRef::Key(k) => Self::Key(k),
+			KeyOrKeywordRef::Key(k) => Self::String(k.as_str()),
 		}
 	}
 }
@@ -34,7 +31,7 @@ impl<'a> From<&'a KeyOrKeyword> for ExpandableRef<'a> {
 	fn from(k: &'a KeyOrKeyword) -> Self {
 		match k {
 			KeyOrKeyword::Keyword(k) => Self::Keyword(*k),
-			KeyOrKeyword::Key(k) => Self::Key(k.into()),
+			KeyOrKeyword::Key(k) => Self::String(k.as_str()),
 		}
 	}
 }
@@ -43,16 +40,16 @@ impl<'a> From<&'a str> for ExpandableRef<'a> {
 	fn from(s: &'a str) -> Self {
 		match Keyword::try_from(s) {
 			Ok(k) => Self::Keyword(k),
-			Err(_) => match CompactIri::new(s) {
-				Ok(c) => Self::Key(KeyRef::CompactIri(c)),
-				Err(_) => match Iri::new(s) {
-					Ok(i) => Self::Key(KeyRef::Iri(i)),
-					Err(_) => match IriRef::new(s) {
-						Ok(i) => Self::IriRef(i),
-						Err(_) => Self::Key(KeyRef::Term(s)),
-					},
-				},
-			},
+			Err(_) => Self::String(s),
+		}
+	}
+}
+
+impl<'a> fmt::Display for ExpandableRef<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Keyword(k) => k.fmt(f),
+			Self::String(s) => s.fmt(f),
 		}
 	}
 }

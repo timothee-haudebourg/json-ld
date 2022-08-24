@@ -44,6 +44,19 @@ impl LenientLanguageTagBuf {
 			Self::Malformed(tag) => tag.as_str(),
 		}
 	}
+
+	pub fn into_string(self) -> String {
+		match self {
+			Self::WellFormed(LanguageTagBuf::Normal(n)) => unsafe {
+				String::from_utf8_unchecked(n.into_inner())
+			},
+			Self::WellFormed(LanguageTagBuf::PrivateUse(p)) => unsafe {
+				String::from_utf8_unchecked(p.into_inner())
+			},
+			Self::WellFormed(LanguageTagBuf::Grandfathered(g)) => g.to_string(),
+			Self::Malformed(s) => s,
+		}
+	}
 }
 
 impl From<LanguageTagBuf> for LenientLanguageTagBuf {

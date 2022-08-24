@@ -1,17 +1,17 @@
 use iref::IriRef;
 use json_ld_syntax::{
 	self as syntax,
-	context::{KeyRef, TermBindingRef},
+	context::definition::{AnyDefinition, TermBindingRef},
+	Entry,
 };
 use locspan::Meta;
-use syntax::AnyContextDefinition;
 
-pub struct Merged<'a, C: syntax::AnyContextEntry> {
+pub struct Merged<'a, C: syntax::context::AnyValue> {
 	base: &'a C::Definition,
 	imported: Option<C>,
 }
 
-impl<'a, C: syntax::AnyContextEntry> Merged<'a, C> {
+impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 	pub fn new(base: &'a C::Definition, imported: Option<C>) -> Self {
 		Self { base, imported }
 	}
@@ -19,8 +19,8 @@ impl<'a, C: syntax::AnyContextEntry> Merged<'a, C> {
 	pub fn imported(&self) -> Option<&C::Definition> {
 		self.imported
 			.as_ref()
-			.and_then(|imported| match imported.as_entry_ref() {
-				syntax::ContextEntryRef::One(Meta(
+			.and_then(|imported| match imported.as_value_ref() {
+				syntax::context::ValueRef::One(Meta(
 					syntax::ContextRef::Definition(import_context),
 					_,
 				)) => Some(import_context),
@@ -28,56 +28,78 @@ impl<'a, C: syntax::AnyContextEntry> Merged<'a, C> {
 			})
 	}
 
-	pub fn base(&self) -> Option<Meta<syntax::Nullable<IriRef>, C::Metadata>> {
-		self.imported()
-			.and_then(|i| i.base())
-			.or_else(|| self.base.base())
+	pub fn base(&self) -> Option<Entry<syntax::Nullable<IriRef>, C::Metadata>> {
+		self.base
+			.base()
+			.or_else(|| self.imported().and_then(|i| i.base()))
+
+		// self.imported()
+		// 	.and_then(|i| i.base())
+		// 	.or_else(|| self.base.base())
 	}
 
-	pub fn vocab(&self) -> Option<Meta<syntax::Nullable<syntax::context::VocabRef>, C::Metadata>> {
-		self.imported()
-			.and_then(|i| i.vocab())
-			.or_else(|| self.base.vocab())
+	pub fn vocab(
+		&self,
+	) -> Option<Entry<syntax::Nullable<syntax::context::definition::VocabRef>, C::Metadata>> {
+		self.base
+			.vocab()
+			.or_else(|| self.imported().and_then(|i| i.vocab()))
+		// self.imported()
+		// 	.and_then(|i| i.vocab())
+		// 	.or_else(|| self.base.vocab())
 	}
 
 	pub fn language(
 		&self,
-	) -> Option<Meta<syntax::Nullable<syntax::LenientLanguageTag>, C::Metadata>> {
-		self.imported()
-			.and_then(|i| i.language())
-			.or_else(|| self.base.language())
+	) -> Option<Entry<syntax::Nullable<syntax::LenientLanguageTag>, C::Metadata>> {
+		self.base
+			.language()
+			.or_else(|| self.imported().and_then(|i| i.language()))
+		// self.imported()
+		// 	.and_then(|i| i.language())
+		// 	.or_else(|| self.base.language())
 	}
 
-	pub fn direction(&self) -> Option<Meta<syntax::Nullable<syntax::Direction>, C::Metadata>> {
-		self.imported()
-			.and_then(|i| i.direction())
-			.or_else(|| self.base.direction())
+	pub fn direction(&self) -> Option<Entry<syntax::Nullable<syntax::Direction>, C::Metadata>> {
+		self.base
+			.direction()
+			.or_else(|| self.imported().and_then(|i| i.direction()))
+		// self.imported()
+		// 	.and_then(|i| i.direction())
+		// 	.or_else(|| self.base.direction())
 	}
 
-	pub fn protected(&self) -> Option<Meta<bool, C::Metadata>> {
-		self.imported()
-			.and_then(|i| i.protected())
-			.or_else(|| self.base.protected())
+	pub fn protected(&self) -> Option<Entry<bool, C::Metadata>> {
+		self.base
+			.protected()
+			.or_else(|| self.imported().and_then(|i| i.protected()))
+		// self.imported()
+		// 	.and_then(|i| i.protected())
+		// 	.or_else(|| self.base.protected())
 	}
 
 	pub fn bindings(&self) -> MergedBindings<C> {
 		MergedBindings {
+			base: self.base,
 			base_bindings: self.base.bindings(),
-			imported: self.imported().map(|i| MergedImportedBindings {
-				bindings: i.bindings(),
-				context: i,
-			}),
+			imported_bindings: self.imported().map(|i| i.bindings()),
 		}
 	}
 
-	pub fn get(&self, key: &syntax::context::KeyOrKeyword) -> Option<syntax::context::ValueRef<C>> {
-		self.imported()
-			.and_then(|i| i.get(key))
-			.or_else(|| self.base.get(key))
+	pub fn get(
+		&self,
+		key: &syntax::context::definition::KeyOrKeyword,
+	) -> Option<syntax::context::definition::EntryValueRef<C>> {
+		self.base
+			.get(key)
+			.or_else(|| self.imported().and_then(|i| i.get(key)))
+		// self.imported()
+		// 	.and_then(|i| i.get(key))
+		// 	.or_else(|| self.base.get(key))
 	}
 }
 
-impl<'a, C: syntax::AnyContextEntry> From<&'a C::Definition> for Merged<'a, C> {
+impl<'a, C: syntax::context::AnyValue> From<&'a C::Definition> for Merged<'a, C> {
 	fn from(base: &'a C::Definition) -> Self {
 		Self {
 			base,
@@ -86,30 +108,29 @@ impl<'a, C: syntax::AnyContextEntry> From<&'a C::Definition> for Merged<'a, C> {
 	}
 }
 
-pub struct MergedBindings<'a, C: 'a + syntax::AnyContextEntry> {
-	base_bindings: <C::Definition as syntax::AnyContextDefinition>::Bindings<'a>,
-	imported: Option<MergedImportedBindings<'a, C>>,
+pub struct MergedBindings<'a, C: 'a + syntax::context::AnyValue> {
+	base: &'a C::Definition,
+	base_bindings: <C::Definition as syntax::context::AnyDefinition>::Bindings<'a>,
+	imported_bindings: Option<<C::Definition as syntax::context::AnyDefinition>::Bindings<'a>>,
 }
 
-pub struct MergedImportedBindings<'a, C: 'a + syntax::AnyContextEntry> {
-	bindings: <C::Definition as syntax::AnyContextDefinition>::Bindings<'a>,
-	context: &'a C::Definition,
-}
-
-impl<'a, C: 'a + syntax::AnyContextEntry> Iterator for MergedBindings<'a, C> {
-	type Item = (KeyRef<'a>, TermBindingRef<'a, C>);
+impl<'a, C: 'a + syntax::context::AnyValue> Iterator for MergedBindings<'a, C> {
+	type Item = (
+		syntax::context::definition::KeyRef<'a>,
+		TermBindingRef<'a, C>,
+	);
 
 	fn next(&mut self) -> Option<Self::Item> {
-		match &mut self.imported {
-			Some(imported) => {
-				for (key_ref, def) in self.base_bindings.by_ref() {
+		match &mut self.imported_bindings {
+			Some(imported_bindings) => {
+				while let Some((key_ref, def)) = imported_bindings.next() {
 					let key = key_ref.to_owned();
-					if imported.context.get_binding(&key).is_none() {
+					if self.base.get_binding(&key).is_none() {
 						return Some((key_ref, def));
 					}
 				}
 
-				imported.bindings.next()
+				self.base_bindings.next()
 			}
 			None => self.base_bindings.next(),
 		}

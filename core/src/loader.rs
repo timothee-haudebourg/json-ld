@@ -1,35 +1,67 @@
+use crate::IriNamespace;
 use futures::future::{BoxFuture, FutureExt};
-use iref::Iri;
 use locspan::Meta;
+use std::fmt;
 
-mod none;
+pub mod fs;
+pub mod none;
 
+pub use fs::FsLoader;
 pub use none::NoLoader;
 
 /// JSON document loader.
-pub trait Loader {
+pub trait Loader<I> {
 	/// The type of documents that can be loaded.
 	type Output;
 	type Error;
 	type Metadata;
 
+	/// Loads the document behind the given IRI, inside the given namespace.
+	fn load_in<'a>(
+		&'a mut self,
+		namespace: &'a (impl Sync + IriNamespace<I>),
+		url: I,
+	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::Error>>
+	where
+		I: 'a;
+
 	/// Loads the document behind the given IRI.
 	fn load<'a>(
 		&'a mut self,
-		url: Iri,
-	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::Error>>;
+		url: I,
+	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::Error>>
+	where
+		I: 'a,
+		(): IriNamespace<I>,
+	{
+		self.load_in(&(), url)
+	}
 }
 
-pub trait ContextLoader {
+pub trait ContextLoader<I> {
 	/// Output of the loader.
 	type Output;
-	type Error;
+	type ContextError;
 	type Metadata;
+
+	fn load_context_in<'a>(
+		&'a mut self,
+		namespace: &'a (impl Sync + IriNamespace<I>),
+		url: I,
+	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::ContextError>>
+	where
+		I: 'a;
 
 	fn load_context<'a>(
 		&'a mut self,
-		url: Iri,
-	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::Error>>;
+		url: I,
+	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::ContextError>>
+	where
+		I: 'a,
+		(): IriNamespace<I>,
+	{
+		self.load_context_in(&(), url)
+	}
 }
 
 pub trait ExtractContext: Sized {
@@ -46,6 +78,15 @@ pub trait ExtractContext: Sized {
 pub enum ExtractContextError {
 	Unexpected(json_syntax::Kind),
 	NoContext,
+}
+
+impl fmt::Display for ExtractContextError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Unexpected(k) => write!(f, "unexpected {}", k),
+			Self::NoContext => write!(f, "missing context"),
+		}
+	}
 }
 
 impl<C, M> ExtractContext for json_ld_syntax::Value<C, M> {
@@ -72,19 +113,32 @@ pub enum ContextLoaderError<D, C> {
 	ContextExtractionFailed(C),
 }
 
-impl<L: Loader> ContextLoader for L
+impl<D: fmt::Display, C: fmt::Display> fmt::Display for ContextLoaderError<D, C> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::LoadingDocumentFailed(e) => e.fmt(f),
+			Self::ContextExtractionFailed(e) => e.fmt(f),
+		}
+	}
+}
+
+impl<I: Send, L: Loader<I>> ContextLoader<I> for L
 where
 	L::Output: ExtractContext<Metadata = L::Metadata>,
 {
 	type Output = <L::Output as ExtractContext>::Context;
-	type Error = ContextLoaderError<L::Error, <L::Output as ExtractContext>::Error>;
+	type ContextError = ContextLoaderError<L::Error, <L::Output as ExtractContext>::Error>;
 	type Metadata = L::Metadata;
 
-	fn load_context<'a>(
+	fn load_context_in<'a>(
 		&'a mut self,
-		url: Iri,
-	) -> BoxFuture<'a, Result<Meta<Self::Output, L::Metadata>, Self::Error>> {
-		let load_document = self.load(url);
+		namespace: &'a (impl Sync + IriNamespace<I>),
+		url: I,
+	) -> BoxFuture<'a, Result<Meta<Self::Output, L::Metadata>, Self::ContextError>>
+	where
+		I: 'a,
+	{
+		let load_document = self.load_in(namespace, url);
 		async move {
 			let doc = load_document
 				.await

@@ -3,30 +3,29 @@ mod definition;
 pub mod inverse;
 
 use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Term};
-use iref::{Iri, IriBuf};
 use once_cell::sync::OnceCell;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-pub use json_ld_syntax::context::{Key, Nest};
+pub use json_ld_syntax::context::{definition::Key, term_definition::Nest};
 
 pub use definition::*;
 pub use inverse::InverseContext;
 
 /// JSON-LD context.
-pub struct Context<T, L> {
-	original_base_url: Option<IriBuf>,
-	base_iri: Option<IriBuf>,
-	vocabulary: Option<Term<T>>,
+pub struct Context<T, B, L> {
+	original_base_url: Option<T>,
+	base_iri: Option<T>,
+	vocabulary: Option<Term<T, B>>,
 	default_language: Option<LenientLanguageTagBuf>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
-	definitions: HashMap<Key, TermDefinition<T, L>>,
-	inverse: OnceCell<InverseContext<T>>,
+	definitions: HashMap<Key, TermDefinition<T, B, L>>,
+	inverse: OnceCell<InverseContext<T, B>>,
 }
 
-impl<T, L> Default for Context<T, L> {
+impl<T, B, L> Default for Context<T, B, L> {
 	fn default() -> Self {
 		Self {
 			original_base_url: None,
@@ -41,11 +40,14 @@ impl<T, L> Default for Context<T, L> {
 	}
 }
 
-impl<T, L> Context<T, L> {
-	pub fn new(base_iri: Option<Iri>) -> Self {
+impl<T, B, L> Context<T, B, L> {
+	pub fn new(base_iri: Option<T>) -> Self
+	where
+		T: Clone,
+	{
 		Self {
-			original_base_url: base_iri.map(|iri| iri.into()),
-			base_iri: base_iri.map(|iri| iri.into()),
+			original_base_url: base_iri.clone(),
+			base_iri,
 			vocabulary: None,
 			default_language: None,
 			default_base_direction: None,
@@ -55,7 +57,7 @@ impl<T, L> Context<T, L> {
 		}
 	}
 
-	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<&TermDefinition<T, L>>
+	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<&TermDefinition<T, B, L>>
 	where
 		Key: Borrow<Q>,
 		Q: Hash + Eq,
@@ -63,15 +65,15 @@ impl<T, L> Context<T, L> {
 		self.definitions.get(term)
 	}
 
-	pub fn original_base_url(&self) -> Option<Iri> {
-		self.original_base_url.as_ref().map(|iri| iri.as_iri())
+	pub fn original_base_url(&self) -> Option<&T> {
+		self.original_base_url.as_ref()
 	}
 
-	pub fn base_iri(&self) -> Option<Iri> {
-		self.base_iri.as_ref().map(|iri| iri.as_iri())
+	pub fn base_iri(&self) -> Option<&T> {
+		self.base_iri.as_ref()
 	}
 
-	pub fn vocabulary(&self) -> Option<&Term<T>> {
+	pub fn vocabulary(&self) -> Option<&Term<T, B>> {
 		match &self.vocabulary {
 			Some(v) => Some(v),
 			None => None,
@@ -93,9 +95,13 @@ impl<T, L> Context<T, L> {
 		}
 	}
 
+	pub fn len(&self) -> usize {
+		self.definitions.len()
+	}
+
 	pub fn definitions<'a>(
 		&'a self,
-	) -> Box<dyn 'a + Iterator<Item = (&'a Key, &'a TermDefinition<T, L>)>> {
+	) -> Box<dyn 'a + Iterator<Item = (&'a Key, &'a TermDefinition<T, B, L>)>> {
 		Box::new(self.definitions.iter())
 	}
 
@@ -110,9 +116,10 @@ impl<T, L> Context<T, L> {
 		false
 	}
 
-	pub fn inverse(&self) -> &InverseContext<T>
+	pub fn inverse(&self) -> &InverseContext<T, B>
 	where
 		T: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
 	{
 		self.inverse.get_or_init(|| self.into())
 	}
@@ -120,8 +127,8 @@ impl<T, L> Context<T, L> {
 	pub fn set(
 		&mut self,
 		key: Key,
-		definition: Option<TermDefinition<T, L>>,
-	) -> Option<TermDefinition<T, L>> {
+		definition: Option<TermDefinition<T, B, L>>,
+	) -> Option<TermDefinition<T, B, L>> {
 		self.inverse.take();
 		match definition {
 			Some(def) => self.definitions.insert(key, def),
@@ -129,18 +136,12 @@ impl<T, L> Context<T, L> {
 		}
 	}
 
-	pub fn set_base_iri(&mut self, iri: Option<Iri>) {
+	pub fn set_base_iri(&mut self, iri: Option<T>) {
 		self.inverse.take();
-		self.base_iri = match iri {
-			Some(iri) => {
-				let iri_buf: IriBuf = iri.into();
-				Some(iri_buf)
-			}
-			None => None,
-		}
+		self.base_iri = iri
 	}
 
-	pub fn set_vocabulary(&mut self, vocab: Option<Term<T>>) {
+	pub fn set_vocabulary(&mut self, vocab: Option<Term<T, B>>) {
 		self.inverse.take();
 		self.vocabulary = vocab;
 	}
@@ -161,7 +162,7 @@ impl<T, L> Context<T, L> {
 	}
 }
 
-impl<T: Clone, L: Clone> Clone for Context<T, L> {
+impl<T: Clone, B: Clone, L: Clone> Clone for Context<T, B, L> {
 	fn clone(&self) -> Self {
 		Self {
 			original_base_url: self.original_base_url.clone(),
@@ -176,7 +177,7 @@ impl<T: Clone, L: Clone> Clone for Context<T, L> {
 	}
 }
 
-impl<T: PartialEq, L: PartialEq> PartialEq for Context<T, L> {
+impl<T: PartialEq, B: PartialEq, L: PartialEq> PartialEq for Context<T, B, L> {
 	fn eq(&self, other: &Self) -> bool {
 		self.original_base_url == other.original_base_url
 			&& self.base_iri == other.base_iri

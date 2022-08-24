@@ -1,33 +1,41 @@
 //! Nodes, lists and values.
+use crate::{
+	id, namespace::WithNamespace, BorrowWithNamespace, Indexed, LenientLanguageTag, Namespace,
+	NamespaceMut, Reference,
+};
+use derivative::Derivative;
+use iref::IriBuf;
+use json_ld_syntax::{Entry, IntoJson, Keyword};
+use json_number::Number;
+use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedHash, StrippedPartialEq};
+use locspan_derive::*;
+use rdf_types::BlankIdBuf;
+use smallvec::SmallVec;
+use std::collections::HashSet;
+use std::hash::Hash;
 
+pub mod list;
 mod mapped_eq;
 pub mod node;
 mod typ;
 pub mod value;
 
-use crate::{id, Id, Indexed, LenientLanguageTag, Reference};
-use iref::{Iri, IriBuf};
-use json_number::Number;
-use locspan::{BorrowStripped, Stripped};
-use locspan_derive::*;
-use std::collections::HashSet;
-use std::hash::Hash;
-
+pub use list::List;
 pub use mapped_eq::MappedEq;
 pub use node::{Node, Nodes, StrippedIndexedNode};
 pub use typ::{Type, TypeRef};
 pub use value::{Literal, LiteralString, Value};
 
-pub trait Any<T: Id, M = ()> {
-	fn as_ref(&self) -> Ref<T, M>;
+pub trait Any<T, B, M = ()> {
+	fn as_ref(&self) -> Ref<T, B, M>;
 
 	#[inline]
-	fn id<'a>(&'a self) -> Option<&'a Reference<T>>
+	fn id<'a>(&'a self) -> Option<&'a Meta<Reference<T, B>, M>>
 	where
 		M: 'a,
 	{
 		match self.as_ref() {
-			Ref::Node(n) => n.id.as_ref(),
+			Ref::Node(n) => n.id.as_ref().map(Entry::as_value),
 			_ => None,
 		}
 	}
@@ -36,6 +44,7 @@ pub trait Any<T: Id, M = ()> {
 	fn language<'a>(&'a self) -> Option<LenientLanguageTag>
 	where
 		T: 'a,
+		B: 'a,
 		M: 'a,
 	{
 		match self.as_ref() {
@@ -69,62 +78,79 @@ pub trait Any<T: Id, M = ()> {
 }
 
 /// Object reference.
-pub enum Ref<'a, T: Id, M = ()> {
+pub enum Ref<'a, T, B, M = ()> {
 	/// Value object.
 	Value(&'a Value<T, M>),
 
 	/// Node object.
-	Node(&'a Node<T, M>),
+	Node(&'a Node<T, B, M>),
 
 	/// List object.
-	List(&'a [Indexed<Object<T, M>>]),
+	List(&'a List<T, B, M>),
 }
 
 /// Indexed object, without regard for its metadata.
-pub type StrippedIndexedObject<T, M> = Stripped<Indexed<Object<T, M>>>;
+pub type StrippedIndexedObject<T, B, M> = Stripped<Meta<Indexed<Object<T, B, M>>, M>>;
 
 /// Object.
 ///
 /// JSON-LD connects together multiple kinds of data objects.
 /// Objects may be nodes, values or lists of objects.
-#[derive(PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
+#[derive(Derivative, Clone, Hash, StrippedHash)]
+#[derivative(
+	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
+	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
+)]
 #[stripped_ignore(M)]
-#[stripped(T)]
-pub enum Object<T: Id = IriBuf, M = ()> {
+#[stripped(T, B)]
+pub enum Object<T = IriBuf, B = BlankIdBuf, M = ()> {
 	/// Value object.
 	Value(Value<T, M>),
 
 	/// Node object.
-	Node(Node<T, M>),
+	Node(Node<T, B, M>),
 
 	/// List object.
-	List(Vec<Indexed<Self>>),
+	List(List<T, B, M>),
 }
 
-impl<T: Id, M> Object<T, M> {
+impl<T, B, M> Object<T, B, M> {
 	/// Identifier of the object, if it is a node object.
 	#[inline(always)]
-	pub fn id(&self) -> Option<&Reference<T>> {
+	pub fn id(&self) -> Option<&Meta<Reference<T, B>, M>> {
 		match self {
-			Object::Node(n) => n.id.as_ref(),
+			Object::Node(n) => n.id.as_ref().map(Entry::as_value),
 			_ => None,
 		}
 	}
 
 	/// Assigns an identifier to every node included in this object using the given `generator`.
-	pub fn identify_all<G: id::Generator<T>>(&mut self, generator: &mut G) {
+	pub fn identify_all_in<N, G: id::Generator<T, B, M, N>>(
+		&mut self,
+		namespace: &mut N,
+		generator: &mut G,
+	) where
+		M: Clone,
+	{
 		match self {
-			Object::Node(n) => n.identify_all(generator),
+			Object::Node(n) => n.identify_all_in(namespace, generator),
 			Object::List(l) => {
 				for object in l {
-					object.identify_all(generator)
+					object.identify_all_in(namespace, generator)
 				}
 			}
 			_ => (),
 		}
 	}
 
-	pub fn types(&self) -> Types<T> {
+	pub fn identify_all<G: id::Generator<T, B, M, ()>>(&mut self, generator: &mut G)
+	where
+		M: Clone,
+	{
+		self.identify_all_in(&mut (), generator)
+	}
+
+	pub fn types(&self) -> Types<T, B, M> {
 		match self {
 			Self::Value(value) => Types::Value(value.typ()),
 			Self::Node(node) => Types::Node(node.types().iter()),
@@ -137,7 +163,7 @@ impl<T: Id, M> Object<T, M> {
 	/// If the object is a node identified by an IRI, returns this IRI.
 	/// Returns `None` otherwise.
 	#[inline(always)]
-	pub fn as_iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<&T> {
 		match self {
 			Object::Node(node) => node.as_iri(),
 			_ => None,
@@ -176,7 +202,7 @@ impl<T: Id, M> Object<T, M> {
 
 	/// Returns this object as a node, if it is one.
 	#[inline(always)]
-	pub fn as_node(&self) -> Option<&Node<T, M>> {
+	pub fn as_node(&self) -> Option<&Node<T, B, M>> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -185,7 +211,7 @@ impl<T: Id, M> Object<T, M> {
 
 	/// Converts this object into a node, if it is one.
 	#[inline(always)]
-	pub fn into_node(self) -> Option<Node<T, M>> {
+	pub fn into_node(self) -> Option<Node<T, B, M>> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -209,16 +235,16 @@ impl<T: Id, M> Object<T, M> {
 
 	/// Returns this object as a list, if it is one.
 	#[inline(always)]
-	pub fn as_list(&self) -> Option<&[Indexed<Self>]> {
+	pub fn as_list(&self) -> Option<&List<T, B, M>> {
 		match self {
-			Self::List(l) => Some(l.as_slice()),
+			Self::List(l) => Some(l),
 			_ => None,
 		}
 	}
 
 	/// Converts this object into a list, if it is one.
 	#[inline(always)]
-	pub fn into_list(self) -> Option<Vec<Indexed<Self>>> {
+	pub fn into_list(self) -> Option<List<T, B, M>> {
 		match self {
 			Self::List(l) => Some(l),
 			_ => None,
@@ -231,7 +257,11 @@ impl<T: Id, M> Object<T, M> {
 	/// If the object is a node that is identified, returns the identifier as a string.
 	/// Returns `None` otherwise.
 	#[inline(always)]
-	pub fn as_str(&self) -> Option<&str> {
+	pub fn as_str(&self) -> Option<&str>
+	where
+		T: AsRef<str>,
+		B: AsRef<str>,
+	{
 		match self {
 			Object::Value(value) => value.as_str(),
 			Object::Node(node) => node.as_str(),
@@ -267,14 +297,15 @@ impl<T: Id, M> Object<T, M> {
 		}
 	}
 
-	pub fn traverse(&self) -> Traverse<T, M> {
+	pub fn traverse(&self) -> Traverse<T, B, M> {
+		Traverse::new(Some(FragmentRef::Object(self)))
+	}
+
+	fn sub_fragments(&self) -> ObjectSubFragments<T, B, M> {
 		match self {
-			Self::List(list) => Traverse::List {
-				current: None,
-				list: list.iter(),
-			},
-			Self::Value(value) => Traverse::Value(Some(value)),
-			Self::Node(node) => Traverse::Node(Box::new(node.traverse())),
+			Self::Value(v) => ObjectSubFragments::Value(v.entries()),
+			Self::List(l) => ObjectSubFragments::List(Some(l.entry())),
+			Self::Node(n) => ObjectSubFragments::Node(n.entries()),
 		}
 	}
 
@@ -282,25 +313,50 @@ impl<T: Id, M> Object<T, M> {
 	///
 	/// Equivalence is different from equality for anonymous objects:
 	/// List objects and anonymous node objects have an implicit unlabeled blank nodes and thus never equivalent.
-	pub fn equivalent(&self, other: &Self) -> bool {
+	pub fn equivalent(&self, other: &Self) -> bool
+	where
+		T: Eq + Hash,
+		B: Eq + Hash,
+	{
 		match (self, other) {
 			(Self::Value(a), Self::Value(b)) => a.stripped() == b.stripped(),
 			(Self::Node(a), Self::Node(b)) => a.equivalent(b),
 			_ => false,
 		}
 	}
+
+	pub fn entries(&self) -> Entries<T, B, M> {
+		match self {
+			Self::Value(value) => Entries::Value(value.entries()),
+			Self::List(list) => Entries::List(Some(list.entry())),
+			Self::Node(node) => Entries::Node(node.entries()),
+		}
+	}
 }
 
-impl<T: Id, M> Indexed<Object<T, M>> {
+impl<T: Eq + Hash, B: Eq + Hash, M> StrippedPartialEq for Object<T, B, M> {
+	fn stripped_eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Self::Value(a), Self::Value(b)) => a.stripped_eq(b),
+			(Self::Node(a), Self::Node(b)) => a.stripped_eq(b),
+			(Self::List(a), Self::List(b)) => a.stripped_eq(b),
+			_ => false,
+		}
+	}
+}
+
+impl<T: Eq + Hash, B: Eq + Hash, M> StrippedEq for Object<T, B, M> {}
+
+impl<T: Eq + Hash, B: Eq + Hash, M> Indexed<Object<T, B, M>> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
 }
 
-impl<T: Id, M> Indexed<Object<T, M>> {
+impl<T, B, M> Indexed<Object<T, B, M>> {
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_node(self) -> Option<Indexed<Node<T, M>>> {
+	pub fn into_indexed_node(self) -> Option<Indexed<Node<T, B, M>>> {
 		let (object, index) = self.into_parts();
 		object.into_node().map(|node| Indexed::new(node, index))
 	}
@@ -314,50 +370,484 @@ impl<T: Id, M> Indexed<Object<T, M>> {
 
 	/// Converts this indexed object into an indexed list, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_list(self) -> Option<Indexed<Vec<Self>>> {
+	pub fn into_indexed_list(self) -> Option<Indexed<List<T, B, M>>> {
 		let (object, index) = self.into_parts();
 		object.into_list().map(|list| Indexed::new(list, index))
 	}
 
 	/// Try to convert this object into an unnamed graph.
-	pub fn into_unnamed_graph(self) -> Result<HashSet<Stripped<Self>>, Self> {
+	pub fn into_unnamed_graph(self) -> Result<Meta<HashSet<Stripped<Meta<Self, M>>>, M>, Self> {
 		let (obj, index) = self.into_parts();
 		match obj {
 			Object::Node(n) => match n.into_unnamed_graph() {
-				Ok(g) => Ok(g),
+				Ok(g) => Ok(g.value),
 				Err(n) => Err(Indexed::new(Object::Node(n), index)),
 			},
 			obj => Err(Indexed::new(obj, index)),
 		}
 	}
-}
 
-impl<T: Id, M> Any<T, M> for Object<T, M> {
-	#[inline(always)]
-	fn as_ref(&self) -> Ref<T, M> {
-		match self {
-			Object::Value(value) => Ref::Value(value),
-			Object::Node(node) => Ref::Node(node),
-			Object::List(list) => Ref::List(list.as_ref()),
+	pub fn entries(&self) -> IndexedEntries<T, B, M> {
+		IndexedEntries {
+			index: self.index(),
+			inner: self.inner().entries(),
 		}
 	}
 }
 
-impl<T: Id, M> From<Value<T, M>> for Object<T, M> {
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub enum Entries<'a, T, B, M> {
+	Value(value::Entries<'a, T, M>),
+	List(Option<list::EntryRef<'a, T, B, M>>),
+	Node(node::Entries<'a, T, B, M>),
+}
+
+impl<'a, T, B, M> Iterator for Entries<'a, T, B, M> {
+	type Item = EntryRef<'a, T, B, M>;
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		let len = match self {
+			Self::Value(v) => v.len(),
+			Self::List(l) => {
+				if l.is_some() {
+					1
+				} else {
+					0
+				}
+			}
+			Self::Node(n) => n.len(),
+		};
+
+		(len, Some(len))
+	}
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::Value(v) => v.next().map(EntryRef::Value),
+			Self::List(l) => l.take().map(EntryRef::List),
+			Self::Node(n) => n.next().map(EntryRef::Node),
+		}
+	}
+}
+
+impl<'a, T, B, M> ExactSizeIterator for Entries<'a, T, B, M> {}
+
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""))]
+pub struct IndexedEntries<'a, T, B, M> {
+	index: Option<&'a str>,
+	inner: Entries<'a, T, B, M>,
+}
+
+impl<'a, T, B, M> Iterator for IndexedEntries<'a, T, B, M> {
+	type Item = IndexedEntryRef<'a, T, B, M>;
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		let len = self.inner.len() + if self.index.is_some() { 1 } else { 0 };
+		(len, Some(len))
+	}
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.index
+			.take()
+			.map(IndexedEntryRef::Index)
+			.or_else(|| self.inner.next().map(IndexedEntryRef::Object))
+	}
+}
+
+impl<'a, T, B, M> ExactSizeIterator for IndexedEntries<'a, T, B, M> {}
+
+#[derive(Derivative, PartialEq, Eq)]
+#[derivative(Clone(bound = ""), Copy(bound = ""))]
+pub enum EntryKeyRef<'a, T, B, M> {
+	Value(value::EntryKey),
+	List(&'a M),
+	Node(node::EntryKeyRef<'a, T, B>),
+}
+
+impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
+	pub fn into_keyword(self) -> Option<Keyword> {
+		match self {
+			Self::Value(e) => Some(e.into_keyword()),
+			Self::List(_) => Some(Keyword::List),
+			Self::Node(e) => e.into_keyword(),
+		}
+	}
+
+	pub fn as_keyword(&self) -> Option<Keyword> {
+		self.into_keyword()
+	}
+
+	pub fn into_str(self) -> &'a str
+	where
+		T: AsRef<str>,
+		B: AsRef<str>,
+	{
+		match self {
+			Self::Value(e) => e.into_str(),
+			Self::List(_) => "@list",
+			Self::Node(e) => e.into_str(),
+		}
+	}
+
+	pub fn as_str(self) -> &'a str
+	where
+		T: AsRef<str>,
+		B: AsRef<str>,
+	{
+		self.into_str()
+	}
+}
+
+impl<'a, T, B, M, N: Namespace<T, B>> WithNamespace<EntryKeyRef<'a, T, B, M>, &'a N> {
+	pub fn into_str(self) -> &'a str {
+		match self.0 {
+			EntryKeyRef::Value(e) => e.into_str(),
+			EntryKeyRef::List(_) => "@list",
+			EntryKeyRef::Node(e) => e.into_with_namespace(self.1).into_str(),
+		}
+	}
+
+	pub fn as_str(&self) -> &'a str {
+		self.into_str()
+	}
+}
+
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""), Copy(bound = ""))]
+pub enum EntryValueRef<'a, T, B, M> {
+	Value(value::EntryRef<'a, T, M>),
+	List(list::EntryValueRef<'a, T, B, M>),
+	Node(node::EntryValueRef<'a, T, B, M>),
+}
+
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""), Copy(bound = ""))]
+pub enum EntryRef<'a, T, B, M> {
+	Value(value::EntryRef<'a, T, M>),
+	List(list::EntryRef<'a, T, B, M>),
+	Node(node::EntryRef<'a, T, B, M>),
+}
+
+impl<'a, T, B, M> EntryRef<'a, T, B, M> {
+	pub fn into_key(self) -> EntryKeyRef<'a, T, B, M> {
+		match self {
+			Self::Value(e) => EntryKeyRef::Value(e.key()),
+			Self::List(e) => EntryKeyRef::List(&e.key_metadata),
+			Self::Node(e) => EntryKeyRef::Node(e.key()),
+		}
+	}
+
+	pub fn key(&self) -> EntryKeyRef<'a, T, B, M> {
+		self.into_key()
+	}
+
+	pub fn into_value(self) -> EntryValueRef<'a, T, B, M> {
+		match self {
+			Self::Value(v) => EntryValueRef::Value(v),
+			Self::List(v) => EntryValueRef::List(v),
+			Self::Node(e) => EntryValueRef::Node(e.value()),
+		}
+	}
+
+	pub fn value(&self) -> EntryValueRef<'a, T, B, M> {
+		self.into_value()
+	}
+
+	pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B, M>, EntryValueRef<'a, T, B, M>) {
+		match self {
+			Self::Value(e) => (EntryKeyRef::Value(e.key()), EntryValueRef::Value(e)),
+			Self::List(e) => (
+				EntryKeyRef::List(&e.key_metadata),
+				EntryValueRef::List(&e.value),
+			),
+			Self::Node(e) => {
+				let (k, v) = e.into_key_value();
+				(EntryKeyRef::Node(k), EntryValueRef::Node(v))
+			}
+		}
+	}
+
+	pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B, M>, EntryValueRef<'a, T, B, M>) {
+		self.into_key_value()
+	}
+}
+
+#[derive(Derivative, PartialEq, Eq)]
+#[derivative(Clone(bound = ""), Copy(bound = ""))]
+pub enum IndexedEntryKeyRef<'a, T, B, M> {
+	Index,
+	Object(EntryKeyRef<'a, T, B, M>),
+}
+
+impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
+	pub fn into_keyword(self) -> Option<Keyword> {
+		match self {
+			Self::Index => Some(Keyword::Index),
+			Self::Object(e) => e.into_keyword(),
+		}
+	}
+
+	pub fn as_keyword(&self) -> Option<Keyword> {
+		self.into_keyword()
+	}
+
+	pub fn into_str(self) -> &'a str
+	where
+		T: AsRef<str>,
+		B: AsRef<str>,
+	{
+		match self {
+			Self::Index => "@index",
+			Self::Object(e) => e.into_str(),
+		}
+	}
+
+	pub fn as_str(&self) -> &'a str
+	where
+		T: AsRef<str>,
+		B: AsRef<str>,
+	{
+		self.into_str()
+	}
+}
+
+impl<'a, T, B, M, N: Namespace<T, B>> WithNamespace<IndexedEntryKeyRef<'a, T, B, M>, &'a N> {
+	pub fn into_str(self) -> &'a str {
+		match self.0 {
+			IndexedEntryKeyRef::Index => "@value",
+			IndexedEntryKeyRef::Object(e) => e.into_with_namespace(self.1).into_str(),
+		}
+	}
+
+	pub fn as_str(&self) -> &'a str {
+		self.into_str()
+	}
+}
+
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""), Copy(bound = ""))]
+pub enum IndexedEntryValueRef<'a, T, B, M> {
+	Index(&'a str),
+	Object(EntryValueRef<'a, T, B, M>),
+}
+
+#[derive(Derivative)]
+#[derivative(Clone(bound = ""), Copy(bound = ""))]
+pub enum IndexedEntryRef<'a, T, B, M> {
+	Index(&'a str),
+	Object(EntryRef<'a, T, B, M>),
+}
+
+impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
+	pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B, M> {
+		match self {
+			Self::Index(_) => IndexedEntryKeyRef::Index,
+			Self::Object(e) => IndexedEntryKeyRef::Object(e.key()),
+		}
+	}
+
+	pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B, M> {
+		self.into_key()
+	}
+
+	pub fn into_value(self) -> IndexedEntryValueRef<'a, T, B, M> {
+		match self {
+			Self::Index(v) => IndexedEntryValueRef::Index(v),
+			Self::Object(e) => IndexedEntryValueRef::Object(e.value()),
+		}
+	}
+
+	pub fn value(&self) -> IndexedEntryValueRef<'a, T, B, M> {
+		self.into_value()
+	}
+
+	pub fn into_key_value(
+		self,
+	) -> (
+		IndexedEntryKeyRef<'a, T, B, M>,
+		IndexedEntryValueRef<'a, T, B, M>,
+	) {
+		match self {
+			Self::Index(v) => (IndexedEntryKeyRef::Index, IndexedEntryValueRef::Index(v)),
+			Self::Object(e) => {
+				let (k, v) = e.into_key_value();
+				(
+					IndexedEntryKeyRef::Object(k),
+					IndexedEntryValueRef::Object(v),
+				)
+			}
+		}
+	}
+
+	pub fn as_key_value(
+		&self,
+	) -> (
+		IndexedEntryKeyRef<'a, T, B, M>,
+		IndexedEntryValueRef<'a, T, B, M>,
+	) {
+		self.into_key_value()
+	}
+}
+
+pub trait TryFromJson<T, B, C, M>: Sized {
+	fn try_from_json_in(
+		namespace: &mut impl NamespaceMut<T, B>,
+		value: Meta<json_ld_syntax::Value<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>>;
+}
+
+pub trait TryFromJsonObject<T, B, C, M>: Sized {
+	fn try_from_json_object_in(
+		namespace: &mut impl NamespaceMut<T, B>,
+		object: Meta<json_ld_syntax::Object<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>>;
+}
+
+impl<T, B, C, M, V: TryFromJson<T, B, C, M>> TryFromJson<T, B, C, M> for Stripped<V> {
+	fn try_from_json_in(
+		namespace: &mut impl NamespaceMut<T, B>,
+		value: Meta<json_ld_syntax::Value<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		let Meta(v, meta) = V::try_from_json_in(namespace, value)?;
+		Ok(Meta(Stripped(v), meta))
+	}
+}
+
+impl<T, B, C, M, V: TryFromJson<T, B, C, M>> TryFromJson<T, B, C, M> for Vec<Meta<V, M>> {
+	fn try_from_json_in(
+		namespace: &mut impl NamespaceMut<T, B>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		match value {
+			json_ld_syntax::Value::Array(items) => {
+				let mut result = Vec::new();
+
+				for item in items {
+					result.push(V::try_from_json_in(namespace, item)?)
+				}
+
+				Ok(Meta(result, meta))
+			}
+			_ => Err(Meta(InvalidExpandedJson::InvalidList, meta)),
+		}
+	}
+}
+
+impl<T, B, C, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, C, M>> TryFromJson<T, B, C, M>
+	for HashSet<Stripped<Meta<V, M>>>
+{
+	fn try_from_json_in(
+		namespace: &mut impl NamespaceMut<T, B>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		match value {
+			json_ld_syntax::Value::Array(items) => {
+				let mut result = HashSet::new();
+
+				for item in items {
+					result.insert(Stripped(V::try_from_json_in(namespace, item)?));
+				}
+
+				Ok(Meta(result, meta))
+			}
+			_ => Err(Meta(InvalidExpandedJson::InvalidList, meta)),
+		}
+	}
+}
+
+impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, C, M> for Object<T, B, M> {
+	fn try_from_json_in(
+		namespace: &mut impl NamespaceMut<T, B>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		match value {
+			json_ld_syntax::Value::Object(object) => {
+				Self::try_from_json_object_in(namespace, Meta(object, meta))
+			}
+			_ => Err(Meta(InvalidExpandedJson::InvalidObject, meta)),
+		}
+	}
+}
+
+impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, C, M>
+	for Object<T, B, M>
+{
+	fn try_from_json_object_in(
+		namespace: &mut impl NamespaceMut<T, B>,
+		Meta(mut object, meta): Meta<json_ld_syntax::Object<C, M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		match object.remove_context() {
+			Some(entry) => Err(Meta(InvalidExpandedJson::NotExpanded, entry.key_metadata)),
+			None => {
+				if let Some(value_entry) = object.remove("@value") {
+					Ok(Meta(
+						Self::Value(Value::try_from_json_object_in(
+							namespace,
+							object,
+							value_entry,
+						)?),
+						meta,
+					))
+				} else if let Some(list_entry) = object.remove("@list") {
+					Ok(Meta(
+						Self::List(List::try_from_json_object_in(
+							namespace, object, list_entry,
+						)?),
+						meta,
+					))
+				} else {
+					let Meta(node, meta) =
+						Node::try_from_json_object_in(namespace, Meta(object, meta))?;
+					Ok(Meta(Self::Node(node), meta))
+				}
+			}
+		}
+	}
+}
+
+#[derive(Debug)]
+pub enum InvalidExpandedJson {
+	InvalidObject,
+	InvalidList,
+	InvalidIndex,
+	InvalidId,
+	InvalidValueType,
+	InvalidLiteral,
+	InvalidLanguage,
+	InvalidDirection,
+	NotExpanded,
+	UnexpectedEntry,
+	Unexpected(json_ld_syntax::Kind, json_ld_syntax::Kind),
+}
+
+impl<T, B, M> Any<T, B, M> for Object<T, B, M> {
+	#[inline(always)]
+	fn as_ref(&self) -> Ref<T, B, M> {
+		match self {
+			Object::Value(value) => Ref::Value(value),
+			Object::Node(node) => Ref::Node(node),
+			Object::List(list) => Ref::List(list),
+		}
+	}
+}
+
+impl<T, B, M> From<Value<T, M>> for Object<T, B, M> {
 	#[inline(always)]
 	fn from(value: Value<T, M>) -> Self {
 		Self::Value(value)
 	}
 }
 
-impl<T: Id, M> From<Node<T, M>> for Object<T, M> {
+impl<T, B, M> From<Node<T, B, M>> for Object<T, B, M> {
 	#[inline(always)]
-	fn from(node: Node<T, M>) -> Self {
+	fn from(node: Node<T, B, M>) -> Self {
 		Self::Node(node)
 	}
 }
 
-// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for Object<T, M> {
+// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T> AsJson<J, K> for Object<T, B, M> {
 // 	fn as_json_with(
 // 		&self,
 // 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
@@ -377,8 +867,8 @@ impl<T: Id, M> From<Node<T, M>> for Object<T, M> {
 // 	}
 // }
 
-// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K>
-// 	for HashSet<Indexed<Object<T, M>>>
+// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T> AsJson<J, K>
+// 	for HashSet<Indexed<Object<T, B, M>>>
 // {
 // 	#[inline(always)]
 // 	fn as_json_with(
@@ -394,74 +884,222 @@ impl<T: Id, M> From<Node<T, M>> for Object<T, M> {
 // }
 
 /// Iterator through the types of an object.
-pub enum Types<'a, T> {
+pub enum Types<'a, T, B, M> {
 	Value(Option<value::TypeRef<'a, T>>),
-	Node(std::slice::Iter<'a, Reference<T>>),
+	Node(std::slice::Iter<'a, Meta<Reference<T, B>, M>>),
 	List,
 }
 
-impl<'a, T> Iterator for Types<'a, T> {
-	type Item = TypeRef<'a, T>;
+impl<'a, T, B, M> Iterator for Types<'a, T, B, M> {
+	type Item = TypeRef<'a, T, B>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
 			Self::Value(ty) => ty.take().map(TypeRef::from_value_type),
-			Self::Node(tys) => tys.next().map(TypeRef::from_reference),
+			Self::Node(tys) => tys.next().map(|t| TypeRef::from_reference(t.value())),
 			Self::List => None,
 		}
 	}
 }
 
 /// Iterator through indexed objects.
-pub struct Objects<'a, T: Id, M>(Option<std::slice::Iter<'a, Indexed<Object<T, M>>>>);
+pub struct Objects<'a, T, B, M>(
+	Option<std::slice::Iter<'a, Stripped<Meta<Indexed<Object<T, B, M>>, M>>>>,
+);
 
-impl<'a, T: Id, M> Objects<'a, T, M> {
+impl<'a, T, B, M> Objects<'a, T, B, M> {
 	#[inline(always)]
-	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Indexed<Object<T, M>>>>) -> Self {
+	pub(crate) fn new(
+		inner: Option<std::slice::Iter<'a, Stripped<Meta<Indexed<Object<T, B, M>>, M>>>>,
+	) -> Self {
 		Self(inner)
 	}
 }
 
-impl<'a, T: Id, M> Iterator for Objects<'a, T, M> {
-	type Item = &'a Indexed<Object<T, M>>;
+impl<'a, T, B, M> Iterator for Objects<'a, T, B, M> {
+	type Item = &'a Meta<Indexed<Object<T, B, M>>, M>;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a Indexed<Object<T, M>>> {
+	fn next(&mut self) -> Option<&'a Meta<Indexed<Object<T, B, M>>, M>> {
 		match &mut self.0 {
 			None => None,
-			Some(it) => it.next(),
+			Some(it) => it.next().map(|o| &o.0),
 		}
 	}
 }
 
-pub enum Traverse<'a, T: Id, M> {
-	List {
-		current: Option<Box<Traverse<'a, T, M>>>,
-		list: std::slice::Iter<'a, Indexed<Object<T, M>>>,
-	},
-	Value(Option<&'a Value<T, M>>),
-	Node(Box<node::Traverse<'a, T, M>>),
+/// JSON-LD object fragment.
+pub enum FragmentRef<'a, T, B, M> {
+	/// "@index" entry.
+	IndexEntry(&'a str),
+
+	/// "@index" entry key.
+	IndexKey,
+
+	/// "@index" entry value.
+	IndexValue(&'a str),
+
+	/// Object.
+	Object(&'a Object<T, B, M>),
+
+	/// Indexed object.
+	IndexedObject(&'a Indexed<Object<T, B, M>>),
+
+	/// Node object.
+	Node(&'a Node<T, B, M>),
+
+	/// Indexed node object.
+	IndexedNode(&'a Meta<Indexed<Node<T, B, M>>, M>),
+
+	IndexedNodeList(&'a [StrippedIndexedNode<T, B, M>]),
+
+	/// Value object fragment.
+	ValueFragment(value::FragmentRef<'a, T, M>),
+
+	/// List object fragment.
+	ListFragment(list::FragmentRef<'a, T, B, M>),
+
+	/// Node object fragment.
+	NodeFragment(node::FragmentRef<'a, T, B, M>),
 }
 
-impl<'a, T: Id, M> Iterator for Traverse<'a, T, M> {
-	type Item = Ref<'a, T, M>;
+impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
+	pub fn into_ref(self) -> Option<Ref<'a, T, B, M>> {
+		match self {
+			Self::Object(o) => Some(o.as_ref()),
+			Self::IndexedObject(o) => Some(o.inner().as_ref()),
+			Self::Node(n) => Some(n.as_ref()),
+			Self::IndexedNode(n) => Some(n.inner().as_ref()),
+			_ => None,
+		}
+	}
+
+	pub fn into_id(self) -> Option<Reference<&'a T, &'a B>> {
+		match self {
+			Self::ValueFragment(i) => i.into_iri().map(Reference::Id),
+			Self::NodeFragment(i) => i.into_id().map(Into::into),
+			_ => None,
+		}
+	}
+
+	pub fn as_id(&self) -> Option<Reference<&'a T, &'a B>> {
+		match self {
+			Self::ValueFragment(i) => i.as_iri().map(Reference::Id),
+			Self::NodeFragment(i) => i.as_id().map(Into::into),
+			_ => None,
+		}
+	}
+
+	pub fn is_json_array(&self) -> bool {
+		match self {
+			Self::IndexedNodeList(_) => true,
+			Self::ValueFragment(i) => i.is_json_array(),
+			Self::NodeFragment(n) => n.is_json_array(),
+			_ => false,
+		}
+	}
+
+	pub fn is_json_object(&self) -> bool {
+		match self {
+			Self::Object(_) | Self::IndexedObject(_) | Self::Node(_) | Self::IndexedNode(_) => true,
+			Self::ValueFragment(i) => i.is_json_array(),
+			Self::NodeFragment(i) => i.is_json_array(),
+			_ => false,
+		}
+	}
+
+	pub fn sub_fragments(&self) -> SubFragments<'a, T, B, M> {
+		match self {
+			Self::IndexEntry(v) => SubFragments::IndexEntry(Some(()), Some(v)),
+			Self::Object(o) => SubFragments::Object(None, o.sub_fragments()),
+			Self::IndexedObject(o) => SubFragments::Object(o.index(), o.sub_fragments()),
+			Self::Node(n) => SubFragments::Object(None, ObjectSubFragments::Node(n.entries())),
+			Self::IndexedNode(n) => {
+				SubFragments::Object(n.index(), ObjectSubFragments::Node(n.inner().entries()))
+			}
+			Self::IndexedNodeList(l) => SubFragments::IndexedNodeList(l.iter()),
+			Self::ValueFragment(i) => SubFragments::Value(i.sub_fragments()),
+			Self::NodeFragment(i) => SubFragments::Node(i.sub_fragments()),
+			_ => SubFragments::None,
+		}
+	}
+}
+
+pub enum ObjectSubFragments<'a, T, B, M> {
+	List(Option<list::EntryRef<'a, T, B, M>>),
+	Value(value::Entries<'a, T, M>),
+	Node(node::Entries<'a, T, B, M>),
+}
+
+impl<'a, T, B, M> Iterator for ObjectSubFragments<'a, T, B, M> {
+	type Item = FragmentRef<'a, T, B, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
-			Self::List { current, list } => loop {
-				match current {
-					Some(object) => match object.next() {
-						Some(next) => break Some(next),
-						None => *current = None,
-					},
-					None => match list.next() {
-						Some(object) => *current = Some(Box::new(object.traverse())),
-						None => break None,
-					},
-				}
+			Self::List(l) => l
+				.take()
+				.map(|e| FragmentRef::ListFragment(list::FragmentRef::Entry(e))),
+			Self::Value(e) => e
+				.next_back()
+				.map(|e| FragmentRef::ValueFragment(value::FragmentRef::Entry(e))),
+			Self::Node(e) => e
+				.next()
+				.map(|e| FragmentRef::NodeFragment(node::FragmentRef::Entry(e))),
+		}
+	}
+}
+
+pub enum SubFragments<'a, T, B, M> {
+	None,
+	IndexEntry(Option<()>, Option<&'a str>),
+	Object(Option<&'a str>, ObjectSubFragments<'a, T, B, M>),
+	Value(value::SubFragments<'a, T, M>),
+	Node(node::SubFragments<'a, T, B, M>),
+	IndexedNodeList(std::slice::Iter<'a, StrippedIndexedNode<T, B, M>>),
+}
+
+impl<'a, T, B, M> Iterator for SubFragments<'a, T, B, M> {
+	type Item = FragmentRef<'a, T, B, M>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::None => None,
+			Self::IndexEntry(k, v) => k
+				.take()
+				.map(|()| FragmentRef::IndexKey)
+				.or_else(|| v.take().map(FragmentRef::IndexValue)),
+			Self::Object(index, i) => match index.take() {
+				Some(index) => Some(FragmentRef::IndexEntry(index)),
+				None => i.next(),
 			},
-			Self::Value(value) => value.take().map(Ref::Value),
-			Self::Node(node) => node.next(),
+			Self::Value(i) => i.next().map(FragmentRef::ValueFragment),
+			Self::Node(i) => i.next(),
+			Self::IndexedNodeList(i) => i.next().map(|n| FragmentRef::IndexedNode(&n.0)),
+		}
+	}
+}
+
+pub struct Traverse<'a, T, B, M> {
+	stack: SmallVec<[FragmentRef<'a, T, B, M>; 8]>,
+}
+
+impl<'a, T, B, M> Traverse<'a, T, B, M> {
+	pub(crate) fn new(items: impl IntoIterator<Item = FragmentRef<'a, T, B, M>>) -> Self {
+		let stack = items.into_iter().collect();
+		Self { stack }
+	}
+}
+
+impl<'a, T, B, M> Iterator for Traverse<'a, T, B, M> {
+	type Item = FragmentRef<'a, T, B, M>;
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self.stack.pop() {
+			Some(item) => {
+				self.stack.extend(item.sub_fragments());
+				Some(item)
+			}
+			None => None,
 		}
 	}
 }

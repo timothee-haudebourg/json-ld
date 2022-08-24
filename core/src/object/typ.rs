@@ -1,17 +1,15 @@
-use crate::{Id, Reference};
-use iref::Iri;
-use rdf_types::{BlankId, BlankIdBuf};
+use crate::Reference;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Type<T> {
+pub enum Type<T, B> {
 	Json,
 	Id(T),
-	Blank(BlankIdBuf),
+	Blank(B),
 	Invalid(String),
 }
 
-impl<T> Type<T> {
+impl<T, B> Type<T, B> {
 	pub fn from_value_type(value_ty: super::value::Type<T>) -> Self {
 		match value_ty {
 			super::value::Type::Json => Self::Json,
@@ -19,7 +17,7 @@ impl<T> Type<T> {
 		}
 	}
 
-	pub fn from_reference(r: Reference<T>) -> Self {
+	pub fn from_reference(r: Reference<T, B>) -> Self {
 		match r {
 			Reference::Id(id) => Self::Id(id),
 			Reference::Blank(id) => Self::Blank(id),
@@ -27,7 +25,7 @@ impl<T> Type<T> {
 		}
 	}
 
-	pub fn into_reference(self) -> Result<Reference<T>, Type<T>> {
+	pub fn into_reference(self) -> Result<Reference<T, B>, Self> {
 		match self {
 			Type::Id(id) => Ok(Reference::Id(id)),
 			Type::Blank(id) => Ok(Reference::Blank(id)),
@@ -37,26 +35,28 @@ impl<T> Type<T> {
 	}
 }
 
-impl<T: Id> Type<T> {
-	pub fn as_iri(&self) -> Option<Iri> {
+impl<T, B> Type<T, B> {
+	pub fn as_iri(&self) -> Option<&T> {
 		match self {
-			Self::Id(id) => Some(id.as_iri()),
+			Self::Id(id) => Some(id),
 			_ => None,
 		}
 	}
+}
 
+impl<T: AsRef<str>, B: AsRef<str>> Type<T, B> {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Json => "@json",
-			Self::Id(id) => id.as_iri().into_str(),
-			Self::Blank(id) => id.as_str(),
+			Self::Id(id) => id.as_ref(),
+			Self::Blank(id) => id.as_ref(),
 			Self::Invalid(id) => id,
 		}
 	}
 }
 
-impl<'a, T> From<&'a Type<T>> for TypeRef<'a, T> {
-	fn from(t: &'a Type<T>) -> TypeRef<'a, T> {
+impl<'a, T, B> From<&'a Type<T, B>> for TypeRef<'a, T, B> {
+	fn from(t: &'a Type<T, B>) -> TypeRef<'a, T, B> {
 		match t {
 			Type::Json => Self::Json,
 			Type::Id(id) => Self::Id(id),
@@ -66,7 +66,7 @@ impl<'a, T> From<&'a Type<T>> for TypeRef<'a, T> {
 	}
 }
 
-impl<T: Id + fmt::Display> fmt::Display for Type<T> {
+impl<T: fmt::Display, B: fmt::Display> fmt::Display for Type<T, B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Json => write!(f, "@json"),
@@ -78,14 +78,14 @@ impl<T: Id + fmt::Display> fmt::Display for Type<T> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TypeRef<'a, T> {
+pub enum TypeRef<'a, T, B> {
 	Json,
 	Id(&'a T),
-	Blank(&'a BlankId),
+	Blank(&'a B),
 	Invalid(&'a str),
 }
 
-impl<'a, T> TypeRef<'a, T> {
+impl<'a, T, B> TypeRef<'a, T, B> {
 	pub fn from_value_type(value_ty: super::value::TypeRef<'a, T>) -> Self {
 		match value_ty {
 			super::value::TypeRef::Json => Self::Json,
@@ -93,7 +93,7 @@ impl<'a, T> TypeRef<'a, T> {
 		}
 	}
 
-	pub fn from_reference(r: &'a Reference<T>) -> Self {
+	pub fn from_reference(r: &'a Reference<T, B>) -> Self {
 		match r {
 			Reference::Id(id) => Self::Id(id),
 			Reference::Blank(id) => Self::Blank(id),
@@ -101,52 +101,55 @@ impl<'a, T> TypeRef<'a, T> {
 		}
 	}
 
-	pub fn cloned(self) -> Type<T>
+	pub fn cloned(self) -> Type<T, B>
 	where
 		T: Clone,
+		B: Clone,
 	{
 		match self {
 			Self::Json => Type::Json,
 			Self::Id(id) => Type::Id(id.clone()),
-			Self::Blank(id) => Type::Blank(id.to_owned()),
+			Self::Blank(id) => Type::Blank(id.clone()),
 			Self::Invalid(id) => Type::Invalid(id.to_string()),
 		}
 	}
 }
 
-impl<'a, T: Id> TypeRef<'a, T> {
-	pub fn as_iri(&self) -> Option<Iri> {
+impl<'a, T, B> TypeRef<'a, T, B> {
+	pub fn as_iri(&self) -> Option<&'a T> {
 		match self {
-			Self::Id(id) => Some(id.as_iri()),
+			Self::Id(id) => Some(id),
 			_ => None,
 		}
 	}
+}
 
+impl<'a, T: AsRef<str>, B: AsRef<str>> TypeRef<'a, T, B> {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Json => "@json",
-			Self::Id(id) => id.as_iri().into_str(),
-			Self::Blank(id) => id.as_str(),
+			Self::Id(id) => id.as_ref(),
+			Self::Blank(id) => id.as_ref(),
 			Self::Invalid(id) => id,
 		}
 	}
 }
 
-impl<'a, T: PartialEq> PartialEq<Type<T>> for TypeRef<'a, T> {
-	fn eq(&self, other: &Type<T>) -> bool {
-		let other_ref: TypeRef<T> = other.into();
+impl<'a, T: PartialEq, B: PartialEq> PartialEq<Type<T, B>> for TypeRef<'a, T, B> {
+	fn eq(&self, other: &Type<T, B>) -> bool {
+		let other_ref: TypeRef<T, B> = other.into();
 		*self == other_ref
 	}
 }
 
-impl<'a, T: PartialEq> PartialEq<TypeRef<'a, T>> for Type<T> {
-	fn eq(&self, other: &TypeRef<'a, T>) -> bool {
-		let self_ref: TypeRef<T> = self.into();
+impl<'a, T: PartialEq, B: PartialEq> PartialEq<TypeRef<'a, T, B>> for Type<T, B> {
+	fn eq(&self, other: &TypeRef<'a, T, B>) -> bool {
+		let self_ref: TypeRef<T, B> = self.into();
 		self_ref == *other
 	}
 }
 
-impl<'a, T: Id + fmt::Display> fmt::Display for TypeRef<'a, T> {
+impl<'a, T: fmt::Display, B: fmt::Display> fmt::Display for TypeRef<'a, T, B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Json => write!(f, "@json"),

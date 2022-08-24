@@ -1,66 +1,51 @@
 use crate::{
-	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object,
-	Reference,
+	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Indexed, Node, Object,
+	Reference, StrippedIndexedNode, StrippedIndexedObject,
 };
-use locspan::Stripped;
+use locspan::Meta;
 use smallvec::SmallVec;
+use std::hash::Hash;
 
 /// JSON-LD Quad.
 ///
 /// This is different from an RDF Quad since the object (last element) is a JSON-LD object.
 /// A JSON-LD Quad can correspond to multiple RDF Quads.
-///
-/// ## Example
-///
-/// ```
-/// # #[async_std::main]
-/// # async fn main() {
-/// # use serde_json::Value;
-/// # use json_ld::{context, Document, NoLoader};
-/// # let doc: Value = serde_json::from_str(r#"{"@context": {"name": "http://xmlns.com/foaf/0.1/name"},"@id": "https://www.rust-lang.org","name": "Rust Programming Language"}"#,).unwrap();
-/// # let mut loader = NoLoader::<Value>::new();
-/// # let expanded_doc = doc.expand::<context::Json<Value>, _>(&mut loader).await.unwrap();
-/// for json_ld::quad::QuadRef(graph, subject, property, object) in expanded_doc.quads() {
-///   // ...
-/// }
-/// # }
-/// ```
-pub struct QuadRef<'a, T: Id, M>(
-	pub Option<&'a Reference<T>>,
-	pub &'a Reference<T>,
-	pub PropertyRef<'a, T>,
-	pub ObjectRef<'a, T, M>,
+pub struct QuadRef<'a, T, B, M>(
+	pub Option<&'a Reference<T, B>>,
+	pub &'a Reference<T, B>,
+	pub PropertyRef<'a, T, B>,
+	pub ObjectRef<'a, T, B, M>,
 );
 
-pub enum PropertyRef<'a, T: Id> {
+pub enum PropertyRef<'a, T, B> {
 	Type,
-	Ref(&'a Reference<T>),
+	Ref(&'a Reference<T, B>),
 }
 
-pub enum ObjectRef<'a, T: Id, M> {
-	Object(&'a Object<T, M>),
-	Node(&'a Node<T, M>),
-	Ref(&'a Reference<T>),
+pub enum ObjectRef<'a, T, B, M> {
+	Object(&'a Object<T, B, M>),
+	Node(&'a Node<T, B, M>),
+	Ref(&'a Reference<T, B>),
 }
 
-impl<T: Id, M> ExpandedDocument<T, M> {
-	pub fn quads(&self) -> Quads<T, M> {
+impl<T, B, M> ExpandedDocument<T, B, M> {
+	pub fn quads(&self) -> Quads<T, B, M> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedObjectSet(None, self.iter()));
 		Quads { stack }
 	}
 }
 
-impl<T: Id, M> FlattenedDocument<T, M> {
-	pub fn quads(&self) -> Quads<T, M> {
+impl<T, B, M> FlattenedDocument<T, B, M> {
+	pub fn quads(&self) -> Quads<T, B, M> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedNodeSlice(None, self.iter()));
 		Quads { stack }
 	}
 }
 
-impl<T: Id, M> NodeMap<T, M> {
-	pub fn quads(&self) -> Quads<T, M> {
+impl<T: Eq + Hash, B: Eq + Hash, M> NodeMap<T, B, M> {
+	pub fn quads(&self) -> Quads<T, B, M> {
 		let mut stack = SmallVec::new();
 
 		for (id, graph) in self {
@@ -73,62 +58,66 @@ impl<T: Id, M> NodeMap<T, M> {
 
 const STACK_LEN: usize = 6;
 
-pub struct Quads<'a, T: Id, M> {
-	stack: SmallVec<[QuadsFrame<'a, T, M>; STACK_LEN]>,
+pub struct Quads<'a, T, B, M> {
+	stack: SmallVec<[QuadsFrame<'a, T, B, M>; STACK_LEN]>,
 }
 
-enum QuadsFrame<'a, T: Id, M> {
+enum QuadsFrame<'a, T, B, M> {
 	NodeMapGraph(
-		Option<&'a Reference<T>>,
-		crate::flattening::NodeMapGraphNodes<'a, T, M>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		crate::flattening::NodeMapGraphNodes<'a, T, B, M>,
 	),
 	IndexedObjectSet(
-		Option<&'a Reference<T>>,
-		std::collections::hash_set::Iter<'a, Stripped<Indexed<Object<T, M>>>>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		std::collections::hash_set::Iter<'a, StrippedIndexedObject<T, B, M>>,
 	),
 	IndexedNodeSet(
-		Option<&'a Reference<T>>,
-		std::collections::hash_set::Iter<'a, Stripped<Indexed<Node<T, M>>>>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		std::collections::hash_set::Iter<'a, StrippedIndexedNode<T, B, M>>,
 	),
 	IndexedObjectSlice(
-		Option<&'a Reference<T>>,
-		std::slice::Iter<'a, Indexed<Object<T, M>>>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		std::slice::Iter<'a, Meta<Indexed<Object<T, B, M>>, M>>,
 	),
 	IndexedNodeSlice(
-		Option<&'a Reference<T>>,
-		std::slice::Iter<'a, Indexed<Node<T, M>>>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		std::slice::Iter<'a, Meta<Indexed<Node<T, B, M>>, M>>,
 	),
 	NodeTypes(
-		Option<&'a Reference<T>>,
-		&'a Reference<T>,
-		std::slice::Iter<'a, Reference<T>>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		&'a Reference<T, B>,
+		std::slice::Iter<'a, Meta<Reference<T, B>, M>>,
 	),
 	NodeProperties(
-		Option<&'a Reference<T>>,
-		&'a Reference<T>,
-		object::node::properties::Iter<'a, T, M>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		&'a Reference<T, B>,
+		object::node::properties::Iter<'a, T, B, M>,
 	),
 	NodeReverseProperties(
-		Option<&'a Reference<T>>,
-		&'a Node<T, M>,
-		object::node::reverse_properties::Iter<'a, T, M>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		&'a Node<T, B, M>,
+		object::node::reverse_properties::Iter<'a, T, B, M>,
 	),
 	NodePropertyObjects(
-		Option<&'a Reference<T>>,
-		&'a Reference<T>,
-		&'a Reference<T>,
-		std::slice::Iter<'a, Indexed<Object<T, M>>>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		&'a Reference<T, B>,
+		&'a Reference<T, B>,
+		std::slice::Iter<'a, StrippedIndexedObject<T, B, M>>,
 	),
 	NodeReversePropertySubjects(
-		Option<&'a Reference<T>>,
-		&'a Node<T, M>,
-		&'a Reference<T>,
-		std::slice::Iter<'a, Indexed<Node<T, M>>>,
+		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		&'a Node<T, B, M>,
+		&'a Reference<T, B>,
+		std::slice::Iter<'a, StrippedIndexedNode<T, B, M>>,
 	),
 }
 
-impl<'a, T: Id, M> Quads<'a, T, M> {
-	fn push_object(&mut self, graph: Option<&'a Reference<T>>, object: &'a Indexed<Object<T, M>>) {
+impl<'a, T, B, M> Quads<'a, T, B, M> {
+	fn push_object(
+		&mut self,
+		graph: Option<Meta<&'a Reference<T, B>, &'a M>>,
+		object: &'a Indexed<Object<T, B, M>>,
+	) {
 		match object.inner() {
 			Object::Node(node) => self.push_node(graph, node),
 			Object::List(objects) => self
@@ -138,36 +127,48 @@ impl<'a, T: Id, M> Quads<'a, T, M> {
 		}
 	}
 
-	fn push_node(&mut self, graph: Option<&'a Reference<T>>, node: &'a Node<T, M>) {
-		if let Some(id) = node.id() {
-			if let Some(graph) = node.graph() {
-				self.stack
-					.push(QuadsFrame::IndexedObjectSet(Some(id), graph.iter()))
+	fn push_node(
+		&mut self,
+		graph: Option<Meta<&'a Reference<T, B>, &'a M>>,
+		node: &'a Node<T, B, M>,
+	) {
+		if let Some(id) = node.id_entry() {
+			if let Some(graph) = node.graph_entry() {
+				self.stack.push(QuadsFrame::IndexedObjectSet(
+					Some(id.value.borrow()),
+					graph.iter(),
+				))
 			}
 
-			if let Some(included) = node.included() {
+			if let Some(included) = node.included_entry() {
 				self.stack
 					.push(QuadsFrame::IndexedNodeSet(graph, included.iter()))
 			}
 
-			self.stack.push(QuadsFrame::NodeReverseProperties(
-				graph,
-				node,
-				node.reverse_properties().iter(),
-			));
+			if let Some(reverse_properties) = node.reverse_properties_entry() {
+				self.stack.push(QuadsFrame::NodeReverseProperties(
+					graph,
+					node,
+					reverse_properties.iter(),
+				));
+			}
+
 			self.stack.push(QuadsFrame::NodeProperties(
 				graph,
 				id,
 				node.properties().iter(),
 			));
-			self.stack
-				.push(QuadsFrame::NodeTypes(graph, id, node.types().iter()));
+
+			if let Some(types) = node.type_entry() {
+				self.stack
+					.push(QuadsFrame::NodeTypes(graph, id, types.iter()));
+			}
 		}
 	}
 }
 
-impl<'a, T: Id, M> Iterator for Quads<'a, T, M> {
-	type Item = QuadRef<'a, T, M>;
+impl<'a, T, B, M> Iterator for Quads<'a, T, B, M> {
+	type Item = QuadRef<'a, T, B, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		while let Some(last) = self.stack.last_mut() {
@@ -222,10 +223,10 @@ impl<'a, T: Id, M> Iterator for Quads<'a, T, M> {
 					match types.next() {
 						Some(ty) => {
 							return Some(QuadRef(
-								graph,
+								graph.map(Meta::into_value),
 								subject,
 								PropertyRef::Type,
-								ObjectRef::<T, M>::Ref(ty),
+								ObjectRef::<T, B, M>::Ref(ty),
 							))
 						}
 						None => {
@@ -271,7 +272,7 @@ impl<'a, T: Id, M> Iterator for Quads<'a, T, M> {
 						Some(object) => {
 							self.push_object(graph, object);
 							return Some(QuadRef(
-								graph,
+								graph.map(Meta::into_value),
 								subject,
 								PropertyRef::Ref(property),
 								ObjectRef::Object(object),
@@ -287,9 +288,9 @@ impl<'a, T: Id, M> Iterator for Quads<'a, T, M> {
 					match subjects.next() {
 						Some(subject) => {
 							self.push_node(graph, subject.inner());
-							if let Some(id) = subject.id() {
+							if let Some(id) = subject.id_entry() {
 								return Some(QuadRef(
-									graph,
+									graph.map(Meta::into_value),
 									id,
 									PropertyRef::Ref(property),
 									ObjectRef::Node(object),

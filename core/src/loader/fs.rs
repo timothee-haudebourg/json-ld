@@ -1,36 +1,74 @@
+use super::Loader;
+use crate::namespace::Index;
+use crate::IriNamespace;
+use futures::future::{BoxFuture, FutureExt};
+use locspan::Meta;
+use std::collections::HashMap;
+use std::fmt;
+use std::fs::File;
+use std::hash::Hash;
+use std::io::{BufReader, Read};
+use std::path::{Path, PathBuf};
+
+#[derive(Debug)]
+pub enum Error<E> {
+	NoMountPoint,
+	IO(std::io::Error),
+	Parse(E),
+}
+
+impl<E> Error<E> {
+	pub fn map<U>(self, f: impl FnOnce(E) -> U) -> Error<U> {
+		match self {
+			Self::NoMountPoint => Error::NoMountPoint,
+			Self::IO(e) => Error::IO(e),
+			Self::Parse(e) => Error::Parse(f(e)),
+		}
+	}
+}
+
+impl<E: fmt::Display> fmt::Display for Error<E> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::NoMountPoint => write!(f, "no mount point"),
+			Self::IO(e) => e.fmt(f),
+			Self::Parse(e) => e.fmt(f),
+		}
+	}
+}
+
 /// File-system loader.
 ///
 /// This is a special JSON-LD document loader that can load document from the file system by
 /// attaching a directory to specific URLs.
-pub struct FsLoader<J> {
-	namespace: HashMap<IriBuf, Id>,
-	cache: Vec<(J, IriBuf)>,
-	mount_points: HashMap<PathBuf, IriBuf>,
-	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>,
+pub struct FsLoader<
+	I = Index,
+	T = json_ld_syntax::Value<
+		json_ld_syntax::context::Value<locspan::Location<I>>,
+		locspan::Location<I>,
+	>,
+	M = locspan::Location<I>,
+	E = Meta<json_ld_syntax::Error<I>, locspan::Location<I>>,
+> {
+	mount_points: HashMap<PathBuf, I>,
+	cache: HashMap<I, Meta<T, M>>,
+	parser: Box<
+		dyn 'static + Send + Sync + FnMut(&dyn IriNamespace<I>, &I, &str) -> Result<Meta<T, M>, E>,
+	>,
 }
 
-impl<J> FsLoader<J> {
-	pub fn new<E: 'static + std::error::Error>(
-		mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>,
-	) -> Self {
-		Self {
-			namespace: HashMap::new(),
-			cache: Vec::new(),
-			mount_points: HashMap::new(),
-			parser: Box::new(move |s| {
-				parser(s).map_err(|e| Error::with_source(ErrorCode::LoadingDocumentFailed, e))
-			}),
-		}
-	}
-
+impl<I, T, M, E> FsLoader<I, T, M, E> {
 	#[inline(always)]
-	pub fn mount<P: AsRef<Path>>(&mut self, url: Iri, path: P) {
-		self.mount_points.insert(path.as_ref().into(), url.into());
+	pub fn mount<P: AsRef<Path>>(&mut self, url: I, path: P) {
+		self.mount_points.insert(path.as_ref().into(), url);
 	}
 
-	pub fn filepath(&self, url: IriRef) -> Option<PathBuf> {
+	pub fn filepath(&self, namespace: &impl IriNamespace<I>, url: &I) -> Option<PathBuf> {
+		let url = namespace.iri(url).unwrap();
 		for (path, target_url) in &self.mount_points {
-			if let Some((suffix, _, _)) = url.suffix(target_url.as_iri_ref()) {
+			if let Some((suffix, _, _)) =
+				url.suffix(namespace.iri(target_url).unwrap().as_iri_ref())
+			{
 				let mut filepath = path.clone();
 				for seg in suffix.as_path().segments() {
 					filepath.push(seg.as_str())
@@ -42,68 +80,72 @@ impl<J> FsLoader<J> {
 
 		None
 	}
-
-	/// Allocate a identifier to the given IRI.
-	fn allocate(&mut self, iri: IriBuf, doc: J) -> Id {
-		let id = Id::new(self.cache.len());
-		self.namespace.insert(iri.clone(), id);
-		self.cache.push((doc, iri));
-		id
-	}
 }
 
-impl<J: FromStr> Default for FsLoader<J>
-where
-	J::Err: 'static + std::error::Error,
-{
-	#[inline(always)]
-	fn default() -> Self {
-		Self::new(|s| J::from_str(s))
-	}
-}
+impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I> for FsLoader<I, T, M, E> {
+	type Output = T;
+	type Error = Error<E>;
+	type Metadata = M;
 
-impl<J: Json + Clone + Send> Loader for FsLoader<J> {
-	type Document = J;
-
-	#[inline(always)]
-	fn id(&self, iri: Iri<'_>) -> Option<Id> {
-		self.namespace.get(&IriBuf::from(iri)).cloned()
-	}
-
-	#[inline(always)]
-	fn iri(&self, id: Id) -> Option<Iri<'_>> {
-		self.cache.get(id.unwrap()).map(|(_, iri)| iri.as_iri())
-	}
-
-	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
-		let url: IriBuf = url.into();
+	fn load_in<'a>(
+		&'a mut self,
+		namespace: &'a (impl Sync + IriNamespace<I>),
+		url: I,
+	) -> BoxFuture<'a, Result<Meta<T, M>, Self::Error>>
+	where
+		I: 'a,
+	{
 		async move {
-			match self.namespace.get(&url) {
-				Some(id) => Ok(RemoteDocument::new(
-					self.cache[id.unwrap()].0.clone(),
-					url,
-					*id,
-				)),
-				None => match self.filepath(url.as_iri_ref()) {
+			match self.cache.get(&url) {
+				Some(t) => Ok(t.clone()),
+				None => match self.filepath(namespace, &url) {
 					Some(filepath) => {
-						if let Ok(file) = File::open(filepath) {
-							let mut buf_reader = BufReader::new(file);
-							let mut contents = String::new();
-							if buf_reader.read_to_string(&mut contents).is_ok() {
-								let doc = (*self.parser)(contents.as_str())?;
-								let id = self.allocate(url.clone(), doc.clone());
-								Ok(RemoteDocument::new(doc, url, id))
-							} else {
-								Err(ErrorCode::LoadingDocumentFailed.into())
-							}
-						} else {
-							Err(ErrorCode::LoadingDocumentFailed.into())
-						}
+						let file = File::open(filepath).map_err(Error::IO)?;
+						let mut buf_reader = BufReader::new(file);
+						let mut contents = String::new();
+						buf_reader
+							.read_to_string(&mut contents)
+							.map_err(Error::IO)?;
+						let doc = (*self.parser)(namespace, &url, contents.as_str())
+							.map_err(Error::Parse)?;
+						self.cache.insert(url, doc.clone());
+						Ok(doc)
 					}
-					None => Err(ErrorCode::LoadingDocumentFailed.into()),
+					None => Err(Error::NoMountPoint),
 				},
 			}
 		}
 		.boxed()
+	}
+}
+
+impl<I, T, M, E> FsLoader<I, T, M, E> {
+	pub fn new(
+		parser: impl 'static
+			+ Send
+			+ Sync
+			+ FnMut(&dyn IriNamespace<I>, &I, &str) -> Result<Meta<T, M>, E>,
+	) -> Self {
+		Self {
+			mount_points: HashMap::new(),
+			cache: HashMap::new(),
+			parser: Box::new(parser),
+		}
+	}
+}
+
+impl<I: Clone> Default
+	for FsLoader<
+		I,
+		json_ld_syntax::Value<
+			json_ld_syntax::context::Value<locspan::Location<I>>,
+			locspan::Location<I>,
+		>,
+		locspan::Location<I>,
+		Meta<json_ld_syntax::Error<I>, locspan::Location<I>>,
+	>
+{
+	fn default() -> Self {
+		Self::new(|_, file: &I, s| json_ld_syntax::from_str_in(file.clone(), s))
 	}
 }

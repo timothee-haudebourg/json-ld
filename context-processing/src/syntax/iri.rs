@@ -1,14 +1,16 @@
 use super::{DefinedTerms, Merged};
-use crate::{Error, MetaWarning, Process, ProcessingOptions, ProcessingStack, Warning};
-use iref::IriRefBuf;
-use json_ld_core::{Context, ContextLoader, Id, Reference, Term};
+use crate::{Error, Process, ProcessingOptions, ProcessingStack, Warning, WarningHandler};
+use iref::{Iri, IriRef};
+use json_ld_core::{BorrowWithNamespace, Context, ContextLoader, NamespaceMut, Reference, Term};
 use json_ld_syntax::{
 	self as syntax,
-	context::{Key, KeyOrKeywordRef, KeyRef},
+	context::definition::{Key, KeyOrKeywordRef},
 	ExpandableRef, Nullable,
 };
 use locspan::Meta;
+use rdf_types::BlankId;
 use std::future::Future;
+use syntax::{is_keyword_like, CompactIri};
 
 pub struct MalformedIri(pub String);
 
@@ -21,40 +23,47 @@ impl From<MalformedIri> for Warning {
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
 pub fn expand_iri_with<
 	'a,
-	T: Id + Send + Sync,
-	C: Process<T>,
-	L: ContextLoader + Send + Sync,
-	W: 'a + Send + FnMut(MetaWarning<C>),
+	T: Clone + Send + Sync + PartialEq,
+	B: Clone + Send + Sync + PartialEq,
+	N: Send + Sync + NamespaceMut<T, B>,
+	C: Process<T, B>,
+	L: ContextLoader<T> + Send + Sync,
+	W: 'a + Send + WarningHandler<N, C>,
 >(
-	active_context: &'a mut Context<T, C>,
+	namespace: &'a mut N,
+	active_context: &'a mut Context<T, B, C>,
 	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, C::Metadata>,
 	document_relative: bool,
 	vocab: bool,
 	local_context: &'a Merged<C>,
 	defined: &'a mut DefinedTerms<C>,
-	remote_contexts: ProcessingStack,
+	remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
 	options: ProcessingOptions,
 	mut warnings: W,
-) -> impl 'a + Send + Future<Output = Result<(Term<T>, W), Error<L::Error>>>
+) -> impl 'a + Send + Future<Output = Result<(Term<T, B>, W), Error<L::ContextError>>>
 where
 	L::Output: Into<C>,
 {
 	async move {
-		let iri_ref = match value {
-			Nullable::Null => return Ok((Term::Null, warnings)),
-			Nullable::Some(ExpandableRef::Keyword(k)) => return Ok((Term::Keyword(k), warnings)),
-			Nullable::Some(ExpandableRef::IriRef(iri_ref)) => iri_ref.to_owned(),
-			Nullable::Some(ExpandableRef::Key(key)) => {
+		match value {
+			Nullable::Null => Ok((Term::Null, warnings)),
+			Nullable::Some(ExpandableRef::Keyword(k)) => Ok((Term::Keyword(k), warnings)),
+			Nullable::Some(ExpandableRef::String(value)) => {
+				if is_keyword_like(value) {
+					return Ok((Term::Null, warnings));
+				}
+
 				// If `local_context` is not null, it contains an entry with a key that equals value, and the
 				// value of the entry for value in defined is not true, invoke the Create Term Definition
 				// algorithm, passing active context, local context, value as term, and defined. This will
 				// ensure that a term definition is created for value in active context during Context
 				// Processing.
 				warnings = super::define(
+					namespace,
 					active_context,
 					local_context,
-					Meta(key.into(), loc.clone()),
+					Meta(value.into(), loc.clone()),
 					defined,
 					remote_contexts.clone(),
 					loader,
@@ -65,8 +74,7 @@ where
 				)
 				.await?;
 
-				let key = key.to_owned();
-				if let Some(term_definition) = active_context.get(&key) {
+				if let Some(term_definition) = active_context.get(value) {
 					// If active context has a term definition for value, and the associated IRI mapping
 					// is a keyword, return that keyword.
 					if let Some(value) = &term_definition.value {
@@ -85,21 +93,30 @@ where
 					}
 				}
 
-				match key {
-					Key::Blank(blank_id) => {
-						return Ok((Term::Ref(Reference::Blank(blank_id)), warnings));
+				if value.find(':').map(|i| i > 0).unwrap_or(false) {
+					if let Ok(blank_id) = BlankId::new(value) {
+						return Ok((
+							Term::Ref(Reference::Blank(namespace.insert_blank_id(blank_id))),
+							warnings,
+						));
 					}
-					Key::CompactIri(compact_iri) => {
+
+					if value == "_:" {
+						return Ok((Term::Ref(Reference::Invalid("_:".to_string())), warnings));
+					}
+
+					if let Ok(compact_iri) = CompactIri::new(value) {
 						// If local context is not null, it contains a `prefix` entry, and the value of the
 						// prefix entry in defined is not true, invoke the Create Term Definition
 						// algorithm, passing active context, local context, prefix as term, and defined.
 						// This will ensure that a term definition is created for prefix in active context
 						// during Context Processing.
 						warnings = super::define(
+							namespace,
 							active_context,
 							local_context,
 							Meta(
-								KeyOrKeywordRef::Key(KeyRef::Term(compact_iri.prefix())),
+								KeyOrKeywordRef::Key(compact_iri.prefix().into()),
 								loc.clone(),
 							),
 							defined,
@@ -115,84 +132,92 @@ where
 						// If active context contains a term definition for prefix having a non-null IRI
 						// mapping and the prefix flag of the term definition is true, return the result
 						// of concatenating the IRI mapping associated with prefix and suffix.
-						let prefix_key = Key::Term(compact_iri.prefix().to_string());
+						let prefix_key = Key::from(compact_iri.prefix().to_string());
 						if let Some(term_definition) = active_context.get(&prefix_key) {
 							if term_definition.prefix {
 								if let Some(mapping) = &term_definition.value {
-									let mut result = mapping.as_str().to_string();
+									let mut result =
+										mapping.with_namespace(namespace).as_str().to_string();
 									result.push_str(compact_iri.suffix());
 
 									return Ok((
-										Term::Ref(Reference::from_string(result)),
+										Term::Ref(Reference::from_string_in(namespace, result)),
 										warnings,
 									));
 								}
 							}
 						}
+					}
 
-						compact_iri.into_iri_ref()
+					if let Ok(iri) = Iri::new(value) {
+						return Ok((Term::Ref(Reference::Id(namespace.insert(iri))), warnings));
 					}
-					Key::Iri(iri) => {
-						return Ok((
-							Term::Ref(Reference::Id(T::from_iri(iri.as_iri()))),
-							warnings,
-						));
-					}
-					Key::Term(term) => match IriRefBuf::from_string(term) {
-						Ok(iri_ref) => iri_ref,
-						Err((_, term)) => {
-							return Ok((Term::Ref(Reference::Invalid(term)), warnings))
+				}
+
+				// If vocab is true, and active context has a vocabulary mapping, return the result of
+				// concatenating the vocabulary mapping with value.
+				if vocab {
+					match active_context.vocabulary() {
+						Some(Term::Ref(mapping)) => {
+							let mut result = mapping.with_namespace(namespace).as_str().to_string();
+							result.push_str(value);
+
+							return Ok((
+								Term::Ref(Reference::from_string_in(namespace, result)),
+								warnings,
+							));
 						}
-					},
+						Some(_) => {
+							return Ok(invalid_iri::<_, _, _, _, Warning, _>(
+								namespace,
+								Meta(value.to_string(), loc),
+								warnings,
+							))
+						}
+						None => (),
+					}
 				}
-			}
-		};
 
-		// If value has the form of an IRI, return value.
-		if let Ok(iri) = iri_ref.as_iri() {
-			return Ok((Term::from(T::from_iri(iri)), warnings));
-		}
-
-		// If vocab is true, and active context has a vocabulary mapping, return the result of
-		// concatenating the vocabulary mapping with value.
-		if vocab {
-			match active_context.vocabulary() {
-				Some(Term::Ref(mapping)) => {
-					let mut result = mapping.as_str().to_string();
-					result.push_str(iri_ref.as_str());
-
-					return Ok((Term::Ref(Reference::from_string(result)), warnings));
+				// Otherwise, if document relative is true set value to the result of resolving value
+				// against the base IRI from active context. Only the basic algorithm in section 5.2 of
+				// [RFC3986] is used; neither Syntax-Based Normalization nor Scheme-Based Normalization
+				// are performed. Characters additionally allowed in IRI references are treated in the
+				// same way that unreserved characters are treated in URI references, per section 6.5 of
+				// [RFC3987].
+				if document_relative {
+					if let Ok(iri_ref) = IriRef::new(value) {
+						if let Some(iri) =
+							super::resolve_iri(namespace, iri_ref, active_context.base_iri())
+						{
+							return Ok((Term::from(iri), warnings));
+						}
+					}
 				}
-				Some(_) => return Ok(invalid_iri(Meta(iri_ref.to_string(), loc), warnings)),
-				None => (),
+
+				// Return value as is.
+				Ok(invalid_iri::<_, _, _, _, Warning, _>(
+					namespace,
+					Meta(value.to_string(), loc),
+					warnings,
+				))
 			}
 		}
-
-		// Otherwise, if document relative is true set value to the result of resolving value
-		// against the base IRI from active context. Only the basic algorithm in section 5.2 of
-		// [RFC3986] is used; neither Syntax-Based Normalization nor Scheme-Based Normalization
-		// are performed. Characters additionally allowed in IRI references are treated in the
-		// same way that unreserved characters are treated in URI references, per section 6.5 of
-		// [RFC3987].
-		if document_relative {
-			if let Some(value) = super::resolve_iri(iri_ref.as_iri_ref(), active_context.base_iri())
-			{
-				return Ok((Term::from(T::from_iri(value.as_iri())), warnings));
-			} else {
-				return Ok(invalid_iri(Meta(iri_ref.to_string(), loc), warnings));
-			}
-		}
-
-		// Return value as is.
-		Ok(invalid_iri(Meta(iri_ref.to_string(), loc), warnings))
 	}
 }
 
-fn invalid_iri<T, M, W: From<MalformedIri>, F: FnMut(Meta<W, M>)>(
+fn invalid_iri<
+	T,
+	B,
+	N,
+	M,
+	W: From<MalformedIri>,
+	H: json_ld_core::warning::Handler<N, Meta<Warning, M>>,
+>(
+	namespace: &N,
 	Meta(value, loc): Meta<String, M>,
-	mut warnings: F,
-) -> (Term<T>, F) {
-	warnings(Meta(MalformedIri(value.clone()).into(), loc));
+	mut warnings: H,
+) -> (Term<T, B>, H) {
+	warnings.handle(namespace, Meta(MalformedIri(value.clone()).into(), loc));
 
 	(Term::Ref(Reference::Invalid(value)), warnings)
 }
@@ -200,29 +225,34 @@ fn invalid_iri<T, M, W: From<MalformedIri>, F: FnMut(Meta<W, M>)>(
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
 pub fn expand_iri_simple<
 	'a,
-	T: Id,
-	C: syntax::AnyContextEntry,
+	T: Clone,
+	B: Clone,
+	N: NamespaceMut<T, B>,
+	C: syntax::context::AnyValue,
 	W: From<MalformedIri>,
-	F: FnMut(Meta<W, C::Metadata>),
+	H: json_ld_core::warning::Handler<N, Meta<W, C::Metadata>>,
 >(
-	active_context: &'a Context<T, C>,
-	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, C::Metadata>,
+	namespace: &'a mut N,
+	active_context: &'a Context<T, B, C>,
+	Meta(value, meta): Meta<Nullable<ExpandableRef<'a>>, C::Metadata>,
 	document_relative: bool,
 	vocab: bool,
-	warnings: F,
-) -> Term<T> {
-	let iri_ref = match value {
-		Nullable::Null => return Term::Null,
-		Nullable::Some(ExpandableRef::Keyword(k)) => return Term::Keyword(k),
-		Nullable::Some(ExpandableRef::IriRef(iri_ref)) => iri_ref.to_owned(),
-		Nullable::Some(ExpandableRef::Key(key)) => {
-			let key = key.to_owned();
-			if let Some(term_definition) = active_context.get(&key) {
+	warnings: &mut H,
+) -> Meta<Term<T, B>, C::Metadata> {
+	match value {
+		Nullable::Null => return Meta(Term::Null, meta),
+		Nullable::Some(ExpandableRef::Keyword(k)) => Meta(Term::Keyword(k), meta),
+		Nullable::Some(ExpandableRef::String(value)) => {
+			if is_keyword_like(value) {
+				return Meta(Term::Null, meta);
+			}
+
+			if let Some(term_definition) = active_context.get(value) {
 				// If active context has a term definition for value, and the associated IRI mapping
 				// is a keyword, return that keyword.
 				if let Some(value) = &term_definition.value {
 					if value.is_keyword() {
-						return value.clone();
+						return Meta(value.clone(), meta);
 					}
 				}
 
@@ -230,84 +260,111 @@ pub fn expand_iri_simple<
 				// associated IRI mapping.
 				if vocab {
 					return match &term_definition.value {
-						Some(value) => value.clone(),
-						None => Term::Null,
+						Some(value) => Meta(value.clone(), meta),
+						None => Meta(Term::Null, meta),
 					};
 				}
 			}
 
-			match key {
-				Key::Blank(blank_id) => return Term::Ref(Reference::Blank(blank_id)),
-				Key::CompactIri(compact_iri) => {
+			if value.find(':').map(|i| i > 0).unwrap_or(false) {
+				if let Ok(blank_id) = BlankId::new(value) {
+					return Meta(
+						Term::Ref(Reference::Blank(namespace.insert_blank_id(blank_id))),
+						meta,
+					);
+				}
+
+				if value == "_:" {
+					return Meta(Term::Ref(Reference::Invalid("_:".to_string())), meta);
+				}
+
+				if let Ok(compact_iri) = CompactIri::new(value) {
 					// If active context contains a term definition for prefix having a non-null IRI
 					// mapping and the prefix flag of the term definition is true, return the result
 					// of concatenating the IRI mapping associated with prefix and suffix.
-					let prefix_key = Key::Term(compact_iri.prefix().to_string());
+					let prefix_key = Key::from(compact_iri.prefix().to_string());
 					if let Some(term_definition) = active_context.get(&prefix_key) {
 						if term_definition.prefix {
 							if let Some(mapping) = &term_definition.value {
-								let mut result = mapping.as_str().to_string();
+								let mut result =
+									mapping.with_namespace(namespace).as_str().to_string();
 								result.push_str(compact_iri.suffix());
 
-								return Term::Ref(Reference::from_string(result));
+								return Meta(
+									Term::Ref(Reference::from_string_in(namespace, result)),
+									meta,
+								);
 							}
 						}
 					}
-
-					compact_iri.into_iri_ref()
 				}
-				Key::Iri(iri) => return Term::Ref(Reference::Id(T::from_iri(iri.as_iri()))),
-				Key::Term(term) => match IriRefBuf::from_string(term) {
-					Ok(iri_ref) => iri_ref,
-					Err((_, term)) => return Term::Ref(Reference::Invalid(term)),
-				},
+
+				if let Ok(iri) = Iri::new(value) {
+					return Meta(Term::Ref(Reference::Id(namespace.insert(iri))), meta);
+				}
 			}
-		}
-	};
 
-	// If value has the form of an IRI, return value.
-	if let Ok(iri) = iri_ref.as_iri() {
-		return Term::from(T::from_iri(iri));
-	}
+			// If vocab is true, and active context has a vocabulary mapping, return the result of
+			// concatenating the vocabulary mapping with value.
+			if vocab {
+				match active_context.vocabulary() {
+					Some(Term::Ref(mapping)) => {
+						let mut result = mapping.with_namespace(namespace).as_str().to_string();
+						result.push_str(value);
 
-	// If vocab is true, and active context has a vocabulary mapping, return the result of
-	// concatenating the vocabulary mapping with value.
-	if vocab {
-		match active_context.vocabulary() {
-			Some(Term::Ref(mapping)) => {
-				let mut result = mapping.as_str().to_string();
-				result.push_str(iri_ref.as_str());
-
-				return Term::Ref(Reference::from_string(result));
+						return Meta(
+							Term::Ref(Reference::from_string_in(namespace, result)),
+							meta,
+						);
+					}
+					Some(_) => {
+						return invalid_iri_simple(
+							namespace,
+							Meta(value.to_string(), meta),
+							warnings,
+						)
+					}
+					None => (),
+				}
 			}
-			Some(_) => return invalid_iri_simple(Meta(iri_ref.to_string(), loc), warnings),
-			None => (),
+
+			// Otherwise, if document relative is true set value to the result of resolving value
+			// against the base IRI from active context. Only the basic algorithm in section 5.2 of
+			// [RFC3986] is used; neither Syntax-Based Normalization nor Scheme-Based Normalization
+			// are performed. Characters additionally allowed in IRI references are treated in the
+			// same way that unreserved characters are treated in URI references, per section 6.5 of
+			// [RFC3987].
+			if document_relative {
+				if let Ok(iri_ref) = IriRef::new(value) {
+					if let Some(iri) =
+						super::resolve_iri(namespace, iri_ref, active_context.base_iri())
+					{
+						return Meta(Term::from(iri), meta);
+					}
+				}
+			}
+
+			// Return value as is.
+			invalid_iri_simple(namespace, Meta(value.to_string(), meta), warnings)
 		}
 	}
-
-	// Otherwise, if document relative is true set value to the result of resolving value
-	// against the base IRI from active context. Only the basic algorithm in section 5.2 of
-	// [RFC3986] is used; neither Syntax-Based Normalization nor Scheme-Based Normalization
-	// are performed. Characters additionally allowed in IRI references are treated in the
-	// same way that unreserved characters are treated in URI references, per section 6.5 of
-	// [RFC3987].
-	if document_relative {
-		if let Some(value) = super::resolve_iri(iri_ref.as_iri_ref(), active_context.base_iri()) {
-			return Term::from(T::from_iri(value.as_iri()));
-		} else {
-			return invalid_iri_simple(Meta(iri_ref.to_string(), loc), warnings);
-		}
-	}
-
-	// Return value as is.
-	invalid_iri_simple(Meta(iri_ref.to_string(), loc), warnings)
 }
 
-fn invalid_iri_simple<T, M, W: From<MalformedIri>, F: FnMut(Meta<W, M>)>(
-	Meta(value, loc): Meta<String, M>,
-	mut warnings: F,
-) -> Term<T> {
-	warnings(Meta(MalformedIri(value.clone()).into(), loc));
-
-	Term::Ref(Reference::Invalid(value))
+fn invalid_iri_simple<
+	T,
+	B,
+	N,
+	M: Clone,
+	W: From<MalformedIri>,
+	H: json_ld_core::warning::Handler<N, Meta<W, M>>,
+>(
+	namespace: &N,
+	Meta(value, meta): Meta<String, M>,
+	warnings: &mut H,
+) -> Meta<Term<T, B>, M> {
+	warnings.handle(
+		namespace,
+		Meta(MalformedIri(value.clone()).into(), meta.clone()),
+	);
+	Meta(Term::Ref(Reference::Invalid(value)), meta)
 }

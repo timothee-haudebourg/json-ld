@@ -1,12 +1,14 @@
-use crate::{expand_iri, ExpandedEntry, Warning};
+use crate::{expand_iri, ExpandedEntry, Warning, WarningHandler};
+use json_ld_context_processing::NamespaceMut;
 use json_ld_core::{
 	object::value::{Literal, LiteralString},
-	Context, Id, Indexed, LangString, Object, Reference, Term, Value,
+	Context, Indexed, LangString, Object, Reference, Term, Value,
 };
-use json_ld_syntax::{AnyContextEntry, Direction, Keyword, LenientLanguageTagBuf, Nullable};
+use json_ld_syntax::{context, Direction, IntoJson, Keyword, LenientLanguageTagBuf, Nullable};
 use locspan::{At, Meta};
+use std::fmt;
 
-pub(crate) type ExpandedValue<T, M, W> = (Option<Indexed<Object<T, M>>>, W);
+pub(crate) type ExpandedValue<T, B, M, W> = (Option<Meta<Indexed<Object<T, B, M>>, M>>, W);
 
 #[derive(Debug)]
 pub enum ValueExpansionError {
@@ -19,15 +21,39 @@ pub enum ValueExpansionError {
 	InvalidLanguageTaggedValue,
 }
 
+impl fmt::Display for ValueExpansionError {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::InvalidLanguageTaggedString => write!(f, "invalid language tagged string"),
+			Self::InvalidBaseDirection => write!(f, "invalid base direction"),
+			Self::InvalidIndexValue => write!(f, "invalid index value"),
+			Self::InvalidTypedValue => write!(f, "invalid typed value"),
+			Self::InvalidValueObject => write!(f, "invalid value object"),
+			Self::InvalidValueObjectValue => write!(f, "invalid value object value"),
+			Self::InvalidLanguageTaggedValue => write!(f, "invalid language tagged value"),
+		}
+	}
+}
+
 /// Expand a value object.
-pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry, W: FnMut(Meta<Warning, C::Metadata>)>(
-	input_type: Option<Term<T>>,
-	type_scoped_context: &Context<T, C>,
-	expanded_entries: Vec<ExpandedEntry<'e, T, C, C::Metadata>>,
+pub(crate) fn expand_value<'e, T, B, N, C: context::AnyValue + IntoJson<C::Metadata>, W>(
+	namespace: &mut N,
+	input_type: Option<Meta<Term<T, B>, C::Metadata>>,
+	type_scoped_context: &Context<T, B, C>,
+	expanded_entries: Vec<ExpandedEntry<'e, T, B, C, C::Metadata>>,
 	Meta(value_entry, meta): &Meta<json_ld_syntax::Value<C, C::Metadata>, C::Metadata>,
 	mut warnings: W,
-) -> Result<ExpandedValue<T, C::Metadata, W>, Meta<ValueExpansionError, C::Metadata>> {
-	let mut is_json = input_type == Some(Term::Keyword(Keyword::Json));
+) -> Result<ExpandedValue<T, B, C::Metadata, W>, Meta<ValueExpansionError, C::Metadata>>
+where
+	N: NamespaceMut<T, B>,
+	T: Clone + PartialEq,
+	B: Clone + PartialEq,
+	W: WarningHandler<B, N, C::Metadata>,
+{
+	let mut is_json = input_type
+		.as_ref()
+		.map(|t| **t == Term::Keyword(Keyword::Json))
+		.unwrap_or(false);
 	let mut ty = None;
 	let mut index = None;
 	let mut language = None;
@@ -83,7 +109,8 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry, W: FnMut(Meta<Warning,
 			// If expanded ...
 			Term::Keyword(Keyword::Type) => {
 				if let Some(ty_value) = value.as_str() {
-					let expanded_ty = expand_iri(
+					let Meta(expanded_ty, _) = expand_iri(
+						namespace,
 						type_scoped_context,
 						Meta(Nullable::Some(ty_value.into()), value_metadata.clone()),
 						true,
@@ -120,9 +147,15 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry, W: FnMut(Meta<Warning,
 			return Err(ValueExpansionError::InvalidValueObject.at(meta.clone()));
 		}
 		return Ok((
-			Some(Indexed::new(
-				Object::Value(Value::Json(value_entry.clone().into_json())),
-				index,
+			Some(Meta(
+				Indexed::new(
+					Object::Value(Value::Json(json_ld_syntax::Value::into_json(Meta(
+						value_entry.clone(),
+						meta.clone(),
+					)))),
+					index,
+				),
+				meta.clone(),
 			)),
 			warnings,
 		));
@@ -165,10 +198,13 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry, W: FnMut(Meta<Warning,
 					let (language, error) = LenientLanguageTagBuf::new(language);
 
 					if let Some(error) = error {
-						warnings(Meta::new(
-							Warning::MalformedLanguageTag(language.to_string(), error),
-							language_metadata,
-						))
+						warnings.handle(
+							namespace,
+							Meta::new(
+								Warning::MalformedLanguageTag(language.to_string(), error),
+								language_metadata,
+							),
+						)
 					}
 
 					Some(language)
@@ -178,9 +214,9 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry, W: FnMut(Meta<Warning,
 
 			return match LangString::new(s, lang, direction) {
 				Ok(result) => Ok((
-					Some(Indexed::new(
-						Object::Value(Value::LangString(result)),
-						index,
+					Some(Meta(
+						Indexed::new(Object::Value(Value::LangString(result)), index),
+						meta.clone(),
 					)),
 					warnings,
 				)),
@@ -197,9 +233,9 @@ pub(crate) fn expand_value<'e, T: Id, C: AnyContextEntry, W: FnMut(Meta<Warning,
 	// TODO
 
 	Ok((
-		Some(Indexed::new(
-			Object::Value(Value::Literal(result, ty)),
-			index,
+		Some(Meta(
+			Indexed::new(Object::Value(Value::Literal(result, ty)), index),
+			meta.clone(),
 		)),
 		warnings,
 	))

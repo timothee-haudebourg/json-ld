@@ -1,4 +1,8 @@
-use crate::{object::LiteralString, Direction, LenientLanguageTag, LenientLanguageTagBuf};
+use crate::{
+	object::{InvalidExpandedJson, LiteralString},
+	Direction, LenientLanguageTag, LenientLanguageTagBuf,
+};
+use locspan::Meta;
 
 /// Language string.
 ///
@@ -111,6 +115,61 @@ impl LangString {
 			Ok(())
 		} else {
 			Err(InvalidLangString)
+		}
+	}
+
+	pub(crate) fn try_from_json<C, M>(
+		object: json_ld_syntax::Object<C, M>,
+		value: Meta<json_ld_syntax::Value<C, M>, M>,
+		language: Option<Meta<json_ld_syntax::Value<C, M>, M>>,
+		direction: Option<Meta<json_ld_syntax::Value<C, M>, M>>,
+	) -> Result<Self, Meta<InvalidExpandedJson, M>> {
+		let data = match value {
+			Meta(json_ld_syntax::Value::String(s), _) => s.into(),
+			Meta(v, meta) => {
+				return Err(Meta(
+					InvalidExpandedJson::Unexpected(v.kind(), json_ld_syntax::Kind::String),
+					meta,
+				))
+			}
+		};
+
+		let language = match language {
+			Some(Meta(json_ld_syntax::Value::String(value), _)) => {
+				let (tag, _) = LenientLanguageTagBuf::new(value.to_string());
+				Some(tag)
+			}
+			Some(Meta(v, meta)) => {
+				return Err(Meta(
+					InvalidExpandedJson::Unexpected(v.kind(), json_ld_syntax::Kind::String),
+					meta,
+				))
+			}
+			None => None,
+		};
+
+		let direction = match direction {
+			Some(Meta(json_ld_syntax::Value::String(value), meta)) => {
+				match Direction::try_from(value.as_str()) {
+					Ok(direction) => Some(direction),
+					Err(_) => return Err(Meta(InvalidExpandedJson::InvalidDirection, meta)),
+				}
+			}
+			Some(Meta(v, meta)) => {
+				return Err(Meta(
+					InvalidExpandedJson::Unexpected(v.kind(), json_ld_syntax::Kind::String),
+					meta,
+				))
+			}
+			None => None,
+		};
+
+		match object.into_iter().next() {
+			None => Ok(Self::new(data, language, direction).unwrap()),
+			Some(entry) => Err(Meta(
+				InvalidExpandedJson::UnexpectedEntry,
+				entry.key.into_metadata(),
+			)),
 		}
 	}
 }

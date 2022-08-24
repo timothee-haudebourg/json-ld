@@ -4,7 +4,8 @@ members = [
 	"syntax",
 	"context-processing",
 	"expansion",
-	"testing"
+	"testing",
+	"tests",
 	# "compaction",
-	# "json-ld"
+	"json-ld"
 ]

@@ -1,35 +1,47 @@
 //! Flattening algorithm and related types.
-use crate::{
-	id, ExpandedDocument, FlattenedDocument, Id, Indexed, Node, Object, StrippedIndexedNode,
-};
-use locspan::Stripped;
+use crate::{id, ExpandedDocument, FlattenedDocument, Indexed, Node, Object, StrippedIndexedNode};
+use json_ld_syntax::Entry;
+use locspan::{Meta, Stripped};
 use std::collections::HashSet;
+use std::hash::Hash;
 
-mod namespace;
+mod environment;
 mod node_map;
 
-pub use namespace::Namespace;
+pub use environment::Environment;
 pub use node_map::*;
 
-impl<T: Id, M: Clone> ExpandedDocument<T, M> {
-	pub fn flatten<G: id::Generator<T>>(
+impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B, M> {
+	pub fn flatten_in<N, G: id::Generator<T, B, M, N>>(
 		self,
+		namespace: &mut N,
 		generator: G,
 		ordered: bool,
-	) -> Result<FlattenedDocument<T, M>, ConflictingIndexes<T>> {
-		let nodes = self.generate_node_map(generator)?.flatten(ordered);
+	) -> Result<FlattenedDocument<T, B, M>, ConflictingIndexes<T, B, M>>
+	where
+		T: AsRef<str>,
+		B: AsRef<str>,
+	{
+		let nodes = self
+			.generate_node_map_in(namespace, generator)?
+			.flatten(ordered);
 		Ok(FlattenedDocument::new(nodes))
 	}
 
-	pub fn flatten_unordered<G: id::Generator<T>>(
+	pub fn flatten_unordered_in<N, G: id::Generator<T, B, M, N>>(
 		self,
+		namespace: &mut N,
 		generator: G,
-	) -> Result<HashSet<StrippedIndexedNode<T, M>>, ConflictingIndexes<T>> {
-		Ok(self.generate_node_map(generator)?.flatten_unordered())
+	) -> Result<HashSet<StrippedIndexedNode<T, B, M>>, ConflictingIndexes<T, B, M>> {
+		Ok(self
+			.generate_node_map_in(namespace, generator)?
+			.flatten_unordered())
 	}
 }
 
-fn filter_graph<T: Id, M>(node: Indexed<Node<T, M>>) -> Option<Indexed<Node<T, M>>> {
+fn filter_graph<T, B, M>(
+	node: Meta<Indexed<Node<T, B, M>>, M>,
+) -> Option<Meta<Indexed<Node<T, B, M>>, M>> {
 	if node.index().is_none() && node.is_empty() {
 		None
 	} else {
@@ -37,19 +49,25 @@ fn filter_graph<T: Id, M>(node: Indexed<Node<T, M>>) -> Option<Indexed<Node<T, M
 	}
 }
 
-fn filter_sub_graph<T: Id, M>(mut node: Indexed<Node<T, M>>) -> Option<Indexed<Object<T, M>>> {
+fn filter_sub_graph<T, B, M>(
+	Meta(mut node, meta): Meta<Indexed<Node<T, B, M>>, M>,
+) -> Option<Meta<Indexed<Object<T, B, M>>, M>> {
 	if node.index().is_none() && node.properties().is_empty() {
 		None
 	} else {
 		node.set_graph(None);
 		node.set_included(None);
-		node.reverse_properties_mut().clear();
-		Some(node.map_inner(Object::Node))
+		node.set_reverse_properties(None);
+		Some(Meta(node.map_inner(Object::Node), meta))
 	}
 }
 
-impl<T: Id, M> NodeMap<T, M> {
-	pub fn flatten(self, ordered: bool) -> Vec<Indexed<Node<T, M>>> {
+impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
+	pub fn flatten(self, ordered: bool) -> Vec<Meta<Indexed<Node<T, B, M>>, M>>
+	where
+		T: AsRef<str>,
+		B: AsRef<str>,
+	{
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		let mut named_graphs: Vec<_> = named_graphs.into_iter().collect();
@@ -58,18 +76,31 @@ impl<T: Id, M> NodeMap<T, M> {
 		}
 
 		for (graph_id, graph) in named_graphs {
-			let entry = default_graph.declare_node(graph_id, None).unwrap();
+			let (id_metadata, graph) = graph.into_parts();
+			let entry = default_graph
+				.declare_node(Meta(graph_id, id_metadata.clone()), None)
+				.ok()
+				.unwrap();
 			let mut nodes: Vec<_> = graph.into_nodes().collect();
 			if ordered {
-				nodes.sort_by(|a, b| a.id().unwrap().as_str().cmp(b.id().unwrap().as_str()));
+				nodes.sort_by(|a, b| {
+					a.id_entry()
+						.unwrap()
+						.as_str()
+						.cmp(b.id_entry().unwrap().as_str())
+				});
 			}
-			entry.set_graph(Some(
-				nodes
-					.into_iter()
-					.filter_map(filter_sub_graph)
-					.map(Stripped)
-					.collect(),
-			));
+			entry.set_graph(Some(Entry::new(
+				id_metadata.clone(),
+				Meta(
+					nodes
+						.into_iter()
+						.filter_map(filter_sub_graph)
+						.map(Stripped)
+						.collect(),
+					id_metadata,
+				),
+			)));
 		}
 
 		let mut nodes: Vec<_> = default_graph
@@ -78,24 +109,37 @@ impl<T: Id, M> NodeMap<T, M> {
 			.collect();
 
 		if ordered {
-			nodes.sort_by(|a, b| a.id().unwrap().as_str().cmp(b.id().unwrap().as_str()));
+			nodes.sort_by(|a, b| {
+				a.id_entry()
+					.unwrap()
+					.as_str()
+					.cmp(b.id_entry().unwrap().as_str())
+			});
 		}
 
 		nodes
 	}
 
-	pub fn flatten_unordered(self) -> HashSet<Stripped<Indexed<Node<T, M>>>> {
+	pub fn flatten_unordered(self) -> HashSet<StrippedIndexedNode<T, B, M>> {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		for (graph_id, graph) in named_graphs {
-			let entry = default_graph.declare_node(graph_id, None).unwrap();
-			entry.set_graph(Some(
-				graph
-					.into_nodes()
-					.filter_map(filter_sub_graph)
-					.map(Stripped)
-					.collect(),
-			));
+			let (id_metadata, graph) = graph.into_parts();
+			let entry = default_graph
+				.declare_node(Meta(graph_id, id_metadata.clone()), None)
+				.ok()
+				.unwrap();
+			entry.set_graph(Some(Entry::new(
+				id_metadata.clone(),
+				Meta(
+					graph
+						.into_nodes()
+						.filter_map(filter_sub_graph)
+						.map(Stripped)
+						.collect(),
+					id_metadata,
+				),
+			)));
 		}
 
 		default_graph

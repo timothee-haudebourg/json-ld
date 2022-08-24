@@ -1,7 +1,8 @@
 use super::Loader;
+use crate::{BorrowWithNamespace, DisplayWithNamespace, IriNamespace};
 use futures::future::{BoxFuture, FutureExt};
-use iref::{Iri, IriBuf};
 use locspan::Meta;
+use std::fmt;
 use std::marker::PhantomData;
 
 /// Dummy loader.
@@ -10,33 +11,51 @@ use std::marker::PhantomData;
 /// Can be useful when you know that you will never need to load remote resource.
 ///
 /// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
-pub struct NoLoader<T, M>(PhantomData<(T, M)>);
+pub struct NoLoader<I, T, M>(PhantomData<(I, T, M)>);
 
 #[derive(Debug)]
-pub struct CannotLoad(IriBuf);
+pub struct CannotLoad<I>(I);
 
-impl<T, M> NoLoader<T, M> {
+impl<I: fmt::Display> fmt::Display for CannotLoad<I> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "cannot load `{}`", self.0)
+	}
+}
+
+impl<I: DisplayWithNamespace<N>, N> DisplayWithNamespace<N> for CannotLoad<I> {
+	fn fmt_with(&self, namespace: &N, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "cannot load `{}`", self.0.with_namespace(namespace))
+	}
+}
+
+impl<I, T, M> NoLoader<I, T, M> {
 	#[inline(always)]
 	pub fn new() -> Self {
 		Self(PhantomData)
 	}
 }
 
-impl<T, M> Default for NoLoader<T, M> {
+impl<I, T, M> Default for NoLoader<I, T, M> {
 	#[inline(always)]
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl<T, M> Loader for NoLoader<T, M> {
+impl<I: Send, T, M> Loader<I> for NoLoader<I, T, M> {
 	type Output = T;
-	type Error = CannotLoad;
+	type Error = CannotLoad<I>;
 	type Metadata = M;
 
 	#[inline(always)]
-	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<Meta<T, M>, Self::Error>> {
-		let url: IriBuf = url.into();
+	fn load_in<'a>(
+		&'a mut self,
+		_namespace: &impl IriNamespace<I>,
+		url: I,
+	) -> BoxFuture<'a, Result<Meta<T, M>, Self::Error>>
+	where
+		I: 'a,
+	{
 		async move { Err(CannotLoad(url)) }.boxed()
 	}
 }

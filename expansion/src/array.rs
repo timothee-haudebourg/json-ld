@@ -1,33 +1,38 @@
-use crate::{expand_element, ActiveProperty, Error, Expanded, Loader, Options, Warning};
-use iref::Iri;
-use json_ld_context_processing::{ContextLoader, Process};
-use json_ld_core::{context::TermDefinition, Context, Id, Object};
-use json_ld_syntax::{Array, ContainerType, Value};
+use crate::{expand_element, ActiveProperty, Error, Expanded, Loader, Options, WarningHandler};
+use json_ld_context_processing::{ContextLoader, NamespaceMut, Process};
+use json_ld_core::{context::TermDefinition, object, Context, Object};
+use json_ld_syntax::{Array, ContainerKind, Value};
 use locspan::Meta;
+use std::hash::Hash;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn expand_array<
-	T: Id,
-	C: Process<T>,
-	L: Loader + ContextLoader,
-	W: Send + FnMut(Meta<Warning, C::Metadata>),
+	T,
+	B,
+	N,
+	C: Process<T, B>,
+	L: Loader<T> + ContextLoader<T>,
+	W: Send + WarningHandler<B, N, C::Metadata>,
 >(
-	active_context: &Context<T, C>,
+	namespace: &mut N,
+	active_context: &Context<T, B, C>,
 	active_property: ActiveProperty<'_, C::Metadata>,
-	active_property_definition: Option<&TermDefinition<T, C>>,
-	element: &Array<C, C::Metadata>,
-	base_url: Option<Iri<'_>>,
+	active_property_definition: Option<&TermDefinition<T, B, C>>,
+	Meta(element, meta): Meta<&Array<C, C::Metadata>, &C::Metadata>,
+	base_url: Option<&T>,
 	loader: &mut L,
 	options: Options,
 	from_map: bool,
 	mut warnings: W,
-) -> Result<(Expanded<T, C::Metadata>, W), Meta<Error<L>, C::Metadata>>
+) -> Result<(Expanded<T, B, C::Metadata>, W), Meta<Error<L::ContextError>, C::Metadata>>
 where
-	T: Sync + Send,
+	N: Send + Sync + NamespaceMut<T, B>,
+	T: Clone + Eq + Hash + Sync + Send,
+	B: Clone + Eq + Hash + Sync + Send,
 	C: Sync + Send,
 	L: Sync + Send,
-	<L as Loader>::Output: Into<Value<C, C::Metadata>>,
-	<L as ContextLoader>::Output: Into<C>,
+	<L as Loader<T>>::Output: Into<Value<C, C::Metadata>>,
+	<L as ContextLoader<T>>::Output: Into<C>,
 {
 	// Initialize an empty array, result.
 	let mut is_list = false;
@@ -37,7 +42,7 @@ where
 	// `expanded_item` is an array, set `expanded_item` to a new map containing
 	// the entry `@list` where the value is the original `expanded_item`.
 	if let Some(definition) = active_property_definition {
-		is_list = definition.container.contains(ContainerType::List);
+		is_list = definition.container.contains(ContainerKind::List);
 	}
 
 	// For each item in element:
@@ -46,6 +51,7 @@ where
 		// recursively, passing `active_context`, `active_property`, `item` as element,
 		// `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
 		let (e, w) = expand_element(
+			namespace,
 			active_context,
 			active_property,
 			item,
@@ -62,7 +68,13 @@ where
 	}
 
 	if is_list {
-		return Ok((Expanded::Object(Object::List(result).into()), warnings));
+		return Ok((
+			Expanded::Object(Meta(
+				Object::List(object::List::new(meta.clone(), Meta(result, meta.clone()))).into(),
+				meta.clone(),
+			)),
+			warnings,
+		));
 	}
 
 	// Return result.

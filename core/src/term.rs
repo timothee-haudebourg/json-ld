@@ -1,38 +1,29 @@
-use crate::Reference;
-use iref::{AsIri, Iri};
+use crate::{BorrowWithNamespace, DisplayWithNamespace, Namespace, Reference};
 use json_ld_syntax::Keyword;
 use std::fmt;
 
-pub trait TermLike {
-	fn as_iri(&self) -> Option<Iri>;
+// pub trait TermLike {
+// 	fn as_iri(&self) -> Option<Iri>;
 
-	fn as_str(&self) -> &str;
-}
+// 	fn as_str(&self) -> &str;
+// }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Term<T> {
+pub enum Term<T, B> {
 	Null,
-	Ref(Reference<T>),
+	Ref(Reference<T, B>),
 	Keyword(Keyword),
 }
 
-impl<T: AsIri> Term<T> {
+impl<I, B> Term<I, B> {
 	pub fn is_null(&self) -> bool {
 		matches!(self, Term::Null)
 	}
 
-	pub fn into_id(self) -> Result<T, Self> {
+	pub fn into_id(self) -> Result<I, Self> {
 		match self {
 			Term::Ref(Reference::Id(id)) => Ok(id),
 			term => Err(term),
-		}
-	}
-
-	pub fn as_str(&self) -> &str {
-		match self {
-			Term::Ref(p) => p.as_str(),
-			Term::Keyword(k) => k.into_str(),
-			Term::Null => "",
 		}
 	}
 
@@ -40,7 +31,7 @@ impl<T: AsIri> Term<T> {
 		matches!(self, Term::Keyword(_))
 	}
 
-	pub fn as_iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<&I> {
 		match self {
 			Term::Ref(p) => p.as_iri(),
 			_ => None,
@@ -48,18 +39,49 @@ impl<T: AsIri> Term<T> {
 	}
 }
 
-impl<T: AsIri> TermLike for Term<T> {
-	fn as_iri(&self) -> Option<Iri> {
-		self.as_iri()
-	}
-
-	fn as_str(&self) -> &str {
-		self.as_str()
+impl<T, B, N: Namespace<T, B>> DisplayWithNamespace<N> for Term<T, B> {
+	fn fmt_with(&self, namespace: &N, f: &mut fmt::Formatter) -> fmt::Result {
+		use std::fmt::Display;
+		match self {
+			Self::Null => write!(f, "null"),
+			Self::Ref(id) => id.with_namespace(namespace).fmt(f),
+			Self::Keyword(k) => k.fmt(f),
+		}
 	}
 }
 
-impl<'a, T: AsIri> From<&'a Term<T>> for Term<&'a T> {
-	fn from(t: &'a Term<T>) -> Term<&'a T> {
+impl<T: AsRef<str>, B: AsRef<str>> Term<T, B> {
+	pub fn as_str(&self) -> &str {
+		match self {
+			Term::Ref(p) => p.as_str(),
+			Term::Keyword(k) => k.into_str(),
+			Term::Null => "",
+		}
+	}
+}
+
+impl<'t, 'n, T, B, N: Namespace<T, B>> crate::namespace::WithNamespace<&'t Term<T, B>, &'n N> {
+	pub fn as_str(&self) -> &str {
+		match self.0 {
+			Term::Ref(p) => p.with_namespace(self.1).as_str(),
+			Term::Keyword(k) => k.into_str(),
+			Term::Null => "",
+		}
+	}
+}
+
+// impl<T> TermLike for Term<T, B> {
+// 	fn as_iri(&self) -> Option<Iri> {
+// 		self.as_iri()
+// 	}
+
+// 	fn as_str(&self) -> &str {
+// 		self.as_str()
+// 	}
+// }
+
+impl<'a, T, B> From<&'a Term<T, B>> for Term<&'a T, &'a B> {
+	fn from(t: &'a Term<T, B>) -> Term<&'a T, &'a B> {
 		match t {
 			Term::Null => Term::Null,
 			Term::Ref(r) => Term::Ref(r.into()),
@@ -68,29 +90,29 @@ impl<'a, T: AsIri> From<&'a Term<T>> for Term<&'a T> {
 	}
 }
 
-impl<T: AsIri> From<T> for Term<T> {
-	fn from(id: T) -> Term<T> {
+impl<T, B> From<T> for Term<T, B> {
+	fn from(id: T) -> Term<T, B> {
 		Term::Ref(Reference::Id(id))
 	}
 }
 
-impl<T: AsIri> From<Reference<T>> for Term<T> {
-	fn from(prop: Reference<T>) -> Term<T> {
+impl<T, B> From<Reference<T, B>> for Term<T, B> {
+	fn from(prop: Reference<T, B>) -> Term<T, B> {
 		Term::Ref(prop)
 	}
 }
 
-impl<T: AsIri + fmt::Display> fmt::Display for Term<T> {
+impl<T: fmt::Display, B: fmt::Display> fmt::Display for Term<T, B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Term::Ref(p) => p.fmt(f),
-			Term::Keyword(kw) => kw.into_str().fmt(f),
+			Term::Keyword(kw) => kw.fmt(f),
 			Term::Null => write!(f, "null"),
 		}
 	}
 }
 
-impl<T: AsIri> fmt::Debug for Term<T> {
+impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Term<T, B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Term::Ref(p) => write!(f, "Term::Ref({:?})", p),
@@ -99,13 +121,3 @@ impl<T: AsIri> fmt::Debug for Term<T> {
 		}
 	}
 }
-
-// impl<K: JsonBuild, T: AsIri> AsAnyJson<K> for Term<T> {
-// 	fn as_json_with(&self, meta: K::MetaData) -> K {
-// 		match self {
-// 			Term::Ref(p) => p.as_str().as_json_with(meta),
-// 			Term::Keyword(kw) => kw.into_str().as_json_with(meta),
-// 			Term::Null => K::null(meta),
-// 		}
-// 	}
-// }

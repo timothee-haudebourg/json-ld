@@ -16,7 +16,7 @@ use locspan_derive::*;
 	Hash,
 	Debug,
 )]
-pub enum ContainerType {
+pub enum ContainerKind {
 	Graph,
 	Id,
 	Index,
@@ -26,7 +26,7 @@ pub enum ContainerType {
 	Type,
 }
 
-impl ContainerType {
+impl ContainerKind {
 	pub fn into_keyword(self) -> Keyword {
 		self.into()
 	}
@@ -40,11 +40,11 @@ impl ContainerType {
 	}
 }
 
-impl<'a> TryFrom<&'a str> for ContainerType {
+impl<'a> TryFrom<&'a str> for ContainerKind {
 	type Error = &'a str;
 
-	fn try_from(str: &'a str) -> Result<ContainerType, &'a str> {
-		use ContainerType::*;
+	fn try_from(str: &'a str) -> Result<ContainerKind, &'a str> {
+		use ContainerKind::*;
 		match str {
 			"@graph" => Ok(Graph),
 			"@id" => Ok(Id),
@@ -58,11 +58,11 @@ impl<'a> TryFrom<&'a str> for ContainerType {
 	}
 }
 
-impl TryFrom<Keyword> for ContainerType {
+impl TryFrom<Keyword> for ContainerKind {
 	type Error = Keyword;
 
-	fn try_from(k: Keyword) -> Result<ContainerType, Keyword> {
-		use ContainerType::*;
+	fn try_from(k: Keyword) -> Result<ContainerKind, Keyword> {
+		use ContainerKind::*;
 		match k {
 			Keyword::Graph => Ok(Graph),
 			Keyword::Id => Ok(Id),
@@ -76,9 +76,9 @@ impl TryFrom<Keyword> for ContainerType {
 	}
 }
 
-impl From<ContainerType> for Keyword {
-	fn from(c: ContainerType) -> Keyword {
-		use ContainerType::*;
+impl From<ContainerKind> for Keyword {
+	fn from(c: ContainerKind) -> Keyword {
+		use ContainerKind::*;
 		match c {
 			Graph => Keyword::Graph,
 			Id => Keyword::Id,
@@ -91,8 +91,8 @@ impl From<ContainerType> for Keyword {
 	}
 }
 
-impl<M> From<ContainerType> for Container<M> {
-	fn from(c: ContainerType) -> Self {
+impl<M> From<ContainerKind> for Container<M> {
+	fn from(c: ContainerKind) -> Self {
 		Container::One(c)
 	}
 }
@@ -112,19 +112,26 @@ impl<M> From<ContainerType> for Container<M> {
 )]
 #[stripped_ignore(M)]
 pub enum Container<M> {
-	One(ContainerType),
-	Many(Vec<Meta<ContainerType, M>>),
+	One(ContainerKind),
+	Many(Vec<Meta<ContainerKind, M>>),
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum ContainerRef<'a, M> {
-	One(ContainerType),
-	Many(&'a [Meta<ContainerType, M>]),
+	One(ContainerKind),
+	Many(&'a [Meta<ContainerKind, M>]),
 }
 
 impl<'a, M> ContainerRef<'a, M> {
 	pub fn is_array(&self) -> bool {
 		matches!(self, Self::Many(_))
+	}
+
+	pub fn sub_fragments(&self) -> SubValues<'a, M> {
+		match self {
+			Self::One(_) => SubValues::None,
+			Self::Many(m) => SubValues::Many(m.iter()),
+		}
 	}
 }
 
@@ -133,6 +140,40 @@ impl<'a, M> From<&'a Container<M>> for ContainerRef<'a, M> {
 		match c {
 			Container::One(c) => Self::One(*c),
 			Container::Many(m) => Self::Many(m),
+		}
+	}
+}
+
+pub enum SubValues<'a, M> {
+	None,
+	Many(std::slice::Iter<'a, Meta<ContainerKind, M>>),
+}
+
+impl<'a, M> Iterator for SubValues<'a, M> {
+	type Item = &'a Meta<ContainerKind, M>;
+
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		match self {
+			Self::None => (0, Some(0)),
+			Self::Many(m) => m.size_hint(),
+		}
+	}
+
+	fn next(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::None => None,
+			Self::Many(m) => m.next(),
+		}
+	}
+}
+
+impl<'a, M> ExactSizeIterator for SubValues<'a, M> {}
+
+impl<'a, M> DoubleEndedIterator for SubValues<'a, M> {
+	fn next_back(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::None => None,
+			Self::Many(m) => m.next_back(),
 		}
 	}
 }
