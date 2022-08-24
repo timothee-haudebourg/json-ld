@@ -1,9 +1,13 @@
 use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
+use crate::is_keyword;
+
 #[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
 pub enum Nest {
 	Nest,
+
+	/// Must not be a keyword.
 	Term(#[stripped] String),
 }
 
@@ -29,12 +33,18 @@ impl Hash for Nest {
 	}
 }
 
-impl From<String> for Nest {
-	fn from(s: String) -> Self {
+pub struct InvalidNest(pub String);
+
+impl TryFrom<String> for Nest {
+	type Error = InvalidNest;
+
+	fn try_from(s: String) -> Result<Self, InvalidNest> {
 		if s == "@nest" {
-			Self::Nest
+			Ok(Self::Nest)
+		} else if is_keyword(&s) {
+			Err(InvalidNest(s))
 		} else {
-			Self::Term(s)
+			Ok(Self::Term(s))
 		}
 	}
 }

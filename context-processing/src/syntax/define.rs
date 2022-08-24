@@ -12,7 +12,8 @@ use json_ld_syntax::{
 		definition::{EntryValueRef, KeyOrKeyword, KeyOrKeywordRef},
 		term_definition::{self, IdRef},
 	},
-	CompactIri, ContainerKind, Entry, ExpandableRef, Keyword, LenientLanguageTag, Nullable,
+	CompactIri, ContainerKind, ContainerRef, Entry, ExpandableRef, Keyword, LenientLanguageTag,
+	Nullable,
 };
 use locspan::{At, BorrowStripped, Meta};
 use rdf_types::BlankId;
@@ -586,20 +587,26 @@ where
 							..
 						}) = value.container
 						{
-							let container_value = Container::from_syntax_ref(container_value)
-								.map_err(|_| Error::InvalidContainerMapping)?;
-
 							// If the container value is @graph, @id, or @type, or is otherwise not a
 							// string, generate an invalid container mapping error and abort processing
 							// if processing mode is json-ld-1.0.
 							if options.processing_mode == ProcessingMode::JsonLd1_0 {
 								match container_value {
-									Container::Graph | Container::Id | Container::Type => {
-										return Err(Error::InvalidContainerMapping)
-									}
+									Nullable::Null
+									| Nullable::Some(
+										ContainerRef::Many(_)
+										| ContainerRef::One(
+											ContainerKind::Graph
+											| ContainerKind::Id
+											| ContainerKind::Type,
+										),
+									) => return Err(Error::InvalidContainerMapping),
 									_ => (),
 								}
 							}
+
+							let container_value = Container::from_syntax_ref(container_value)
+								.map_err(|_| Error::InvalidContainerMapping)?;
 
 							// Initialize `container` to the value associated with the `@container`
 							// entry, which MUST be either `@graph`, `@id`, `@index`, `@language`,

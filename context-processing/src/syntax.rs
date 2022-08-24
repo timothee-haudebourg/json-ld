@@ -15,6 +15,7 @@ mod merged;
 pub use define::*;
 pub use iri::*;
 pub use merged::*;
+use syntax::context::definition::KeyOrKeywordRef;
 
 impl<C: 'static + syntax::context::AnyValue + syntax::IntoJson<C::Metadata>, T, B> Process<T, B>
 	for C
@@ -418,6 +419,27 @@ where
 					// active context, context for local context, key, defined, base URL,
 					// and the value of the @protected entry from context, if any, for protected.
 					// (and the value of override protected)
+					if let Some(ty) = context.type_() {
+						warnings = define(
+							namespace,
+							&mut result,
+							&context,
+							Meta(
+								KeyOrKeywordRef::Keyword(syntax::Keyword::Type),
+								ty.key_metadata.clone(),
+							),
+							&mut defined,
+							remote_contexts.clone(),
+							loader,
+							base_url.clone(),
+							protected,
+							options,
+							warnings,
+						)
+						.await
+						.map_err(|e| e.at(ty.key_metadata.clone()))?
+					}
+
 					for (key, binding) in context.bindings() {
 						warnings = define(
 							namespace,

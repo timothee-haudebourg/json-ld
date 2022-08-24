@@ -1,4 +1,8 @@
-use super::{definition, term_definition, Context, Definition, Entry, TermDefinition, Value};
+use super::{
+	definition,
+	term_definition::{self, InvalidNest},
+	Context, Definition, Entry, TermDefinition, Value,
+};
 use crate::{Container, Keyword, Nullable, TryFromJson, TryFromStrippedJson};
 use iref::IriRefBuf;
 use locspan::Meta;
@@ -11,6 +15,7 @@ pub enum InvalidContext {
 	InvalidDirection,
 	DuplicateKey,
 	InvalidTermDefinition,
+	InvalidNestValue(String),
 }
 
 impl fmt::Display for InvalidContext {
@@ -21,6 +26,7 @@ impl fmt::Display for InvalidContext {
 			Self::InvalidDirection => write!(f, "invalid direction"),
 			Self::DuplicateKey => write!(f, "duplicate key"),
 			Self::InvalidTermDefinition => write!(f, "invalid term definition"),
+			Self::InvalidNestValue(s) => write!(f, "invalid `@nest` value `{}`", s),
 		}
 	}
 }
@@ -305,7 +311,10 @@ impl<M> TryFromJson<M> for term_definition::Nest {
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
 		match value {
-			json_syntax::Value::String(s) => Ok(Meta(Self::from(s.into_string()), meta)),
+			json_syntax::Value::String(s) => match Self::try_from(s.into_string()) {
+				Ok(nest) => Ok(Meta(nest, meta)),
+				Err(InvalidNest(s)) => Err(Meta(InvalidContext::InvalidNestValue(s), meta)),
+			},
 			unexpected => Err(Meta(
 				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String]),
 				meta,

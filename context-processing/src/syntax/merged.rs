@@ -78,6 +78,17 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 		// 	.or_else(|| self.base.protected())
 	}
 
+	pub fn type_(
+		&self,
+	) -> Option<Entry<syntax::context::definition::Type<C::Metadata>, C::Metadata>> {
+		self.base
+			.type_()
+			.or_else(|| self.imported().and_then(|i| i.type_()))
+		// self.imported()
+		// 	.and_then(|i| i.protected())
+		// 	.or_else(|| self.base.protected())
+	}
+
 	pub fn bindings(&self) -> MergedBindings<C> {
 		MergedBindings {
 			base: self.base,
