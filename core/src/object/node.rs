@@ -261,7 +261,7 @@ impl<T, B, M> Node<T, B, M> {
 		}
 	}
 
-	pub fn insert_type_entry_default(
+	pub fn type_entry_or_default(
 		&mut self,
 		key_metadata: M,
 		value_metadata: M,
@@ -270,7 +270,7 @@ impl<T, B, M> Node<T, B, M> {
 			.get_or_insert_with(|| Entry::new(key_metadata, Meta(Vec::new(), value_metadata)))
 	}
 
-	pub fn insert_type_entry(
+	pub fn type_entry_or_insert(
 		&mut self,
 		key_metadata: M,
 		value: Meta<Vec<Meta<Reference<T, B>, M>>, M>,
@@ -279,7 +279,7 @@ impl<T, B, M> Node<T, B, M> {
 			.get_or_insert_with(|| Entry::new(key_metadata, value))
 	}
 
-	pub fn insert_type_entry_with(
+	pub fn type_entry_or_insert_with(
 		&mut self,
 		f: impl FnOnce() -> Entry<Vec<Meta<Reference<T, B>, M>>, M>,
 	) -> &mut Entry<Vec<Meta<Reference<T, B>, M>>, M> {
@@ -532,7 +532,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 		self.properties.insert_all(prop, values)
 	}
 
-	pub fn insert_reverse_properties(
+	pub fn reverse_properties_or_insert(
 		&mut self,
 		key_metadata: M,
 		props: Meta<ReverseProperties<T, B, M>, M>,
@@ -541,7 +541,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 			.get_or_insert_with(|| Entry::new(key_metadata, props))
 	}
 
-	pub fn insert_reverse_properties_default(
+	pub fn reverse_properties_or_default(
 		&mut self,
 		key_metadata: M,
 		value_metadata: M,
@@ -551,7 +551,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 		})
 	}
 
-	pub fn insert_reverse_properties_with(
+	pub fn reverse_properties_or_insert_with(
 		&mut self,
 		f: impl FnOnce() -> Entry<ReverseProperties<T, B, M>, M>,
 	) -> &mut Entry<ReverseProperties<T, B, M>, M> {

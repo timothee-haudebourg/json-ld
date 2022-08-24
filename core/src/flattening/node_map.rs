@@ -306,7 +306,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 
 			if let Some(types) = node.types {
 				flat_node
-					.insert_type_entry_default(
+					.type_entry_or_default(
 						types.key_metadata.clone(),
 						types.value.metadata().clone(),
 					)
@@ -321,7 +321,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 
 			if let Some(props) = node.reverse_properties {
 				flat_node
-					.insert_reverse_properties_default(
+					.reverse_properties_or_default(
 						props.key_metadata.clone(),
 						props.value.metadata().clone(),
 					)

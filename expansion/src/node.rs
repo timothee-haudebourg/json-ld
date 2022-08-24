@@ -222,7 +222,7 @@ where
 									.try_cast()
 									{
 										result
-											.insert_type_entry_default(
+											.type_entry_or_default(
 												key_metadata.clone(),
 												value_metadata.clone(),
 											)
@@ -427,7 +427,7 @@ where
 												}
 
 												result
-													.insert_reverse_properties_default(
+													.reverse_properties_or_default(
 														key_metadata.clone(),
 														reverse_value.metadata().clone(),
 													)
@@ -1007,7 +1007,7 @@ where
 													.try_cast::<Reference<T, B>>()
 												{
 													if let Object::Node(ref mut node) = **item {
-														node.insert_type_entry_default(
+														node.type_entry_or_default(
 															key_metadata.clone(),
 															typ.metadata().clone(),
 														)
@@ -1114,7 +1114,7 @@ where
 							}
 
 							result
-								.insert_reverse_properties_default(
+								.reverse_properties_or_default(
 									key_metadata.clone(),
 									value.metadata().clone(),
 								)
