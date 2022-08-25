@@ -1,9 +1,0 @@
-[
-	{
-	  "http://example.org/nest/property": [
-		{
-		  "@value": "should be in /nest"
-		}
-	  ]
-	}
-  ]
