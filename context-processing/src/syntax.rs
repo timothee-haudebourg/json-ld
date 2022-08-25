@@ -1,5 +1,5 @@
 use crate::{
-	ContextLoader, Error, MetaError, Process, ProcessingOptions, ProcessingResult, ProcessingStack,
+	ContextLoader, Error, MetaError, Options, Process, ProcessingResult, ProcessingStack,
 	WarningHandler,
 };
 use futures::future::{BoxFuture, FutureExt};
@@ -27,7 +27,7 @@ impl<C: 'static + syntax::context::AnyValue + syntax::IntoJson<C::Metadata>, T, 
 		stack: ProcessingStack<T>,
 		loader: &'a mut L,
 		base_url: Option<T>,
-		options: ProcessingOptions,
+		options: Options,
 		warnings: impl 'a + Send + WarningHandler<N, C>,
 	) -> BoxFuture<'a, ProcessingResult<T, B, C, L::ContextError>>
 	where
@@ -86,7 +86,7 @@ fn process_context<'a, T, B, N, C, L, W>(
 	mut remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
 	base_url: Option<T>,
-	mut options: ProcessingOptions,
+	mut options: Options,
 	mut warnings: W,
 ) -> BoxFuture<'a, ContextProcessingResult<T, B, C, W, L::ContextError>>
 where
@@ -196,7 +196,7 @@ where
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
 						// document for base URL, and a copy of remote contexts.
-						let new_options = ProcessingOptions {
+						let new_options = Options {
 							processing_mode: options.processing_mode,
 							override_protected: false,
 							propagate: true,

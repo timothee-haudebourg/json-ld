@@ -1,5 +1,5 @@
 use super::{DefinedTerms, Merged};
-use crate::{Error, Process, ProcessingOptions, ProcessingStack, Warning, WarningHandler};
+use crate::{Error, Options, Process, ProcessingStack, Warning, WarningHandler};
 use iref::{Iri, IriRef};
 use json_ld_core::{BorrowWithNamespace, Context, ContextLoader, NamespaceMut, Reference, Term};
 use json_ld_syntax::{
@@ -39,7 +39,7 @@ pub fn expand_iri_with<
 	defined: &'a mut DefinedTerms<C>,
 	remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
-	options: ProcessingOptions,
+	options: Options,
 	mut warnings: W,
 ) -> impl 'a + Send + Future<Output = Result<(Term<T, B>, W), Error<L::ContextError>>>
 where

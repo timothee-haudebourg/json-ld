@@ -1,5 +1,5 @@
 use super::{expand_iri_simple, expand_iri_with, Merged};
-use crate::{Error, Process, ProcessingOptions, ProcessingStack, Warning, WarningHandler};
+use crate::{Error, Options, Process, ProcessingStack, Warning, WarningHandler};
 use futures::future::{BoxFuture, FutureExt};
 use iref::{Iri, IriRef};
 use json_ld_core::{
@@ -117,7 +117,7 @@ pub fn define<
 	loader: &'a mut L,
 	base_url: Option<T>,
 	protected: bool,
-	options: ProcessingOptions,
+	options: Options,
 	mut warnings: W,
 ) -> BoxFuture<'a, Result<W, Error<L::ContextError>>>
 where

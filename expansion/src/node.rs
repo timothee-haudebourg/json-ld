@@ -3,7 +3,9 @@ use crate::{
 	Expanded, ExpandedEntry, LiteralValue, Loader, Options, Policy, Warning, WarningHandler,
 };
 use futures::future::{BoxFuture, FutureExt};
-use json_ld_context_processing::{ContextLoader, NamespaceMut, Process, ProcessingOptions};
+use json_ld_context_processing::{
+	ContextLoader, NamespaceMut, Options as ProcessingOptions, Process,
+};
 use json_ld_core::{
 	object,
 	object::value::{Literal, LiteralString},

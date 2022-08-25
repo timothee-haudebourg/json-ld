@@ -1,4 +1,3 @@
-use json_ld_context_processing::ProcessingOptions;
 use json_ld_core::ProcessingMode;
 
 /// Expansion options.
@@ -26,9 +25,9 @@ impl Options {
 	}
 }
 
-impl From<Options> for ProcessingOptions {
-	fn from(options: Options) -> ProcessingOptions {
-		ProcessingOptions {
+impl From<Options> for json_ld_context_processing::Options {
+	fn from(options: Options) -> json_ld_context_processing::Options {
+		json_ld_context_processing::Options {
 			processing_mode: options.processing_mode,
 			..Default::default()
 		}

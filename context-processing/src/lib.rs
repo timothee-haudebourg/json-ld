@@ -109,7 +109,7 @@ pub trait Process<T, B>:
 		stack: ProcessingStack<T>,
 		loader: &'a mut L,
 		base_url: Option<T>,
-		options: ProcessingOptions,
+		options: Options,
 		warnings: impl 'a + Send + WarningHandler<N, Self>,
 	) -> BoxFuture<'a, ProcessingResult<T, B, Self, L::ContextError>>
 	where
@@ -125,7 +125,7 @@ pub trait Process<T, B>:
 		active_context: &'a Context<T, B, Self>,
 		loader: &'a mut L,
 		base_url: Option<T>,
-		options: ProcessingOptions,
+		options: Options,
 	) -> BoxFuture<'a, ProcessingResult<T, B, Self, L::ContextError>>
 	where
 		N: Send + Sync + NamespaceMut<T, B>,
@@ -166,7 +166,7 @@ pub trait Process<T, B>:
 				ProcessingStack::new(),
 				loader,
 				base_url,
-				ProcessingOptions::default(),
+				Options::default(),
 				warning::print,
 			)
 			.await
@@ -177,7 +177,7 @@ pub trait Process<T, B>:
 
 /// Options of the Context Processing Algorithm.
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct ProcessingOptions {
+pub struct Options {
 	/// The processing mode
 	pub processing_mode: ProcessingMode,
 
@@ -188,10 +188,10 @@ pub struct ProcessingOptions {
 	pub propagate: bool,
 }
 
-impl ProcessingOptions {
+impl Options {
 	/// Return the same set of options, but with `override_protected` set to `true`.
 	#[must_use]
-	pub fn with_override(&self) -> ProcessingOptions {
+	pub fn with_override(&self) -> Options {
 		let mut opt = *self;
 		opt.override_protected = true;
 		opt
@@ -199,7 +199,7 @@ impl ProcessingOptions {
 
 	/// Return the same set of options, but with `override_protected` set to `false`.
 	#[must_use]
-	pub fn with_no_override(&self) -> ProcessingOptions {
+	pub fn with_no_override(&self) -> Options {
 		let mut opt = *self;
 		opt.override_protected = false;
 		opt
@@ -207,16 +207,16 @@ impl ProcessingOptions {
 
 	/// Return the same set of options, but with `propagate` set to `false`.
 	#[must_use]
-	pub fn without_propagation(&self) -> ProcessingOptions {
+	pub fn without_propagation(&self) -> Options {
 		let mut opt = *self;
 		opt.propagate = false;
 		opt
 	}
 }
 
-impl Default for ProcessingOptions {
-	fn default() -> ProcessingOptions {
-		ProcessingOptions {
+impl Default for Options {
+	fn default() -> Options {
+		Options {
 			processing_mode: ProcessingMode::default(),
 			override_protected: false,
 			propagate: true,

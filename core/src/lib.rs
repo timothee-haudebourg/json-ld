@@ -7,7 +7,6 @@ pub use json_ld_syntax::{Direction, LenientLanguageTag, LenientLanguageTagBuf, N
 mod container;
 pub mod context;
 mod document;
-mod error;
 pub mod flattening;
 pub mod id;
 mod indexed;
@@ -28,7 +27,6 @@ pub mod warning;
 pub use container::Container;
 pub use context::Context;
 pub use document::*;
-pub use error::*;
 pub use id::*;
 pub use indexed::*;
 pub use lang_string::*;
