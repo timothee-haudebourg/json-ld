@@ -3,7 +3,7 @@ use iref::Iri;
 use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub struct Index(#[stripped] String);
 
 impl Index {
@@ -23,6 +23,14 @@ impl Index {
 		self.0
 	}
 }
+
+impl PartialEq for Index {
+	fn eq(&self, other: &Self) -> bool {
+		self.0 == other.0
+	}
+}
+
+impl Eq for Index {}
 
 impl Hash for Index {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

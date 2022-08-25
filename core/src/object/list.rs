@@ -1,5 +1,5 @@
-use super::{InvalidExpandedJson, MappedEq, Object};
-use crate::{Indexed, NamespaceMut, TryFromJson};
+use super::{InvalidExpandedJson, MappedEq};
+use crate::{IndexedObject, NamespaceMut, TryFromJson};
 use derivative::Derivative;
 use json_ld_syntax::{Entry, IntoJson};
 use locspan::{Meta, StrippedEq, StrippedPartialEq};
@@ -15,11 +15,11 @@ use std::hash::Hash;
 #[stripped(T, B)]
 /// List object.
 pub struct List<T, B, M> {
-	entry: Entry<Vec<Meta<Indexed<Object<T, B, M>>, M>>, M>,
+	entry: Entry<Vec<IndexedObject<T, B, M>>, M>,
 }
 
 impl<T, B, M> List<T, B, M> {
-	pub fn new(key_metadata: M, value: Meta<Vec<Meta<Indexed<Object<T, B, M>>, M>>, M>) -> Self {
+	pub fn new(key_metadata: M, value: Meta<Vec<IndexedObject<T, B, M>>, M>) -> Self {
 		Self {
 			entry: Entry::new(key_metadata, value),
 		}
@@ -34,39 +34,39 @@ impl<T, B, M> List<T, B, M> {
 	}
 
 	/// Returns a reference to the "@list" entry of the list object.
-	pub fn entry(&self) -> &Entry<Vec<Meta<Indexed<Object<T, B, M>>, M>>, M> {
+	pub fn entry(&self) -> &Entry<Vec<IndexedObject<T, B, M>>, M> {
 		&self.entry
 	}
 
-	pub fn entry_mut(&mut self) -> &mut Entry<Vec<Meta<Indexed<Object<T, B, M>>, M>>, M> {
+	pub fn entry_mut(&mut self) -> &mut Entry<Vec<IndexedObject<T, B, M>>, M> {
 		&mut self.entry
 	}
 
-	pub fn into_entry(self) -> Entry<Vec<Meta<Indexed<Object<T, B, M>>, M>>, M> {
+	pub fn into_entry(self) -> Entry<Vec<IndexedObject<T, B, M>>, M> {
 		self.entry
 	}
 
-	pub fn push(&mut self, object: Meta<Indexed<Object<T, B, M>>, M>) {
+	pub fn push(&mut self, object: IndexedObject<T, B, M>) {
 		self.entry.push(object)
 	}
 
-	pub fn pop(&mut self) -> Option<Meta<Indexed<Object<T, B, M>>, M>> {
+	pub fn pop(&mut self) -> Option<IndexedObject<T, B, M>> {
 		self.entry.pop()
 	}
 
-	pub fn iter(&self) -> core::slice::Iter<Meta<Indexed<Object<T, B, M>>, M>> {
+	pub fn iter(&self) -> core::slice::Iter<IndexedObject<T, B, M>> {
 		self.entry.iter()
 	}
 
-	pub fn iter_mut(&mut self) -> core::slice::IterMut<Meta<Indexed<Object<T, B, M>>, M>> {
+	pub fn iter_mut(&mut self) -> core::slice::IterMut<IndexedObject<T, B, M>> {
 		self.entry.iter_mut()
 	}
 
-	pub fn as_slice(&self) -> &[Meta<Indexed<Object<T, B, M>>, M>] {
+	pub fn as_slice(&self) -> &[IndexedObject<T, B, M>] {
 		self.entry.as_slice()
 	}
 
-	pub fn as_mut_slice(&mut self) -> &mut [Meta<Indexed<Object<T, B, M>>, M>] {
+	pub fn as_mut_slice(&mut self) -> &mut [IndexedObject<T, B, M>] {
 		self.entry.as_mut_slice()
 	}
 }
@@ -74,8 +74,8 @@ impl<T, B, M> List<T, B, M> {
 impl<T: Eq + Hash, B: Eq + Hash, M> List<T, B, M> {
 	pub(crate) fn try_from_json_object_in<C: IntoJson<M>>(
 		namespace: &mut impl NamespaceMut<T, B>,
-		object: json_ld_syntax::Object<C, M>,
-		list_entry: json_ld_syntax::object::Entry<C, M>,
+		object: json_ld_syntax::Object<M, C>,
+		list_entry: json_ld_syntax::object::Entry<M, C>,
 	) -> Result<Self, Meta<InvalidExpandedJson, M>> {
 		let list = Vec::try_from_json_in(namespace, list_entry.value)?;
 
@@ -109,8 +109,8 @@ impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for List<T, B, M> {
 }
 
 impl<'a, T, B, M> IntoIterator for &'a List<T, B, M> {
-	type Item = &'a Meta<Indexed<Object<T, B, M>>, M>;
-	type IntoIter = core::slice::Iter<'a, Meta<Indexed<Object<T, B, M>>, M>>;
+	type Item = &'a IndexedObject<T, B, M>;
+	type IntoIter = core::slice::Iter<'a, IndexedObject<T, B, M>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
@@ -118,8 +118,8 @@ impl<'a, T, B, M> IntoIterator for &'a List<T, B, M> {
 }
 
 impl<'a, T, B, M> IntoIterator for &'a mut List<T, B, M> {
-	type Item = &'a mut Meta<Indexed<Object<T, B, M>>, M>;
-	type IntoIter = core::slice::IterMut<'a, Meta<Indexed<Object<T, B, M>>, M>>;
+	type Item = &'a mut IndexedObject<T, B, M>;
+	type IntoIter = core::slice::IterMut<'a, IndexedObject<T, B, M>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter_mut()
@@ -127,17 +127,17 @@ impl<'a, T, B, M> IntoIterator for &'a mut List<T, B, M> {
 }
 
 impl<T, B, M> IntoIterator for List<T, B, M> {
-	type Item = Meta<Indexed<Object<T, B, M>>, M>;
-	type IntoIter = std::vec::IntoIter<Meta<Indexed<Object<T, B, M>>, M>>;
+	type Item = IndexedObject<T, B, M>;
+	type IntoIter = std::vec::IntoIter<IndexedObject<T, B, M>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.entry.value.into_value().into_iter()
 	}
 }
 
-pub type EntryRef<'a, T, B, M> = &'a Entry<Vec<Meta<Indexed<Object<T, B, M>>, M>>, M>;
+pub type EntryRef<'a, T, B, M> = &'a Entry<Vec<IndexedObject<T, B, M>>, M>;
 
-pub type EntryValueRef<'a, T, B, M> = &'a [Meta<Indexed<Object<T, B, M>>, M>];
+pub type EntryValueRef<'a, T, B, M> = &'a [IndexedObject<T, B, M>];
 
 /// List object fragment.
 pub enum FragmentRef<'a, T, B, M> {

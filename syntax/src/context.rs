@@ -128,7 +128,7 @@ impl<M> Context<M> {
 		match self {
 			Self::Null => ContextRef::Null,
 			Self::IriRef(i) => ContextRef::IriRef(i.as_iri_ref()),
-			Self::Definition(d) => ContextRef::Definition(d.into()),
+			Self::Definition(d) => ContextRef::Definition(d),
 		}
 	}
 }
@@ -164,7 +164,7 @@ impl<M> From<Definition<M>> for Context<M> {
 }
 
 /// Context value fragment.
-pub enum FragmentRef<'a, C: AnyValue> {
+pub enum FragmentRef<'a, C: 'a + AnyValue> {
 	/// Context array.
 	ContextArray(C::Array<'a>),
 
@@ -219,7 +219,7 @@ impl<'a, D: 'a + AnyDefinition> Iterator for ContextSubFragments<'a, D> {
 	}
 }
 
-pub enum SubFragments<'a, C: AnyValue> {
+pub enum SubFragments<'a, C: 'a + AnyValue> {
 	ContextArray(C::Array<'a>),
 	Context(ContextSubFragments<'a, C::Definition>),
 	Definition(definition::SubItems<'a, C>),

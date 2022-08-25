@@ -40,6 +40,8 @@ impl<T, B, L> Default for Context<T, B, L> {
 	}
 }
 
+pub type DefinitionEntryRef<'a, T, B, L> = (&'a Key, &'a TermDefinition<T, B, L>);
+
 impl<T, B, L> Context<T, B, L> {
 	pub fn new(base_iri: Option<T>) -> Self
 	where
@@ -99,9 +101,13 @@ impl<T, B, L> Context<T, B, L> {
 		self.definitions.len()
 	}
 
+	pub fn is_empty(&self) -> bool {
+		self.definitions.is_empty()
+	}
+
 	pub fn definitions<'a>(
 		&'a self,
-	) -> Box<dyn 'a + Iterator<Item = (&'a Key, &'a TermDefinition<T, B, L>)>> {
+	) -> Box<dyn 'a + Iterator<Item = DefinitionEntryRef<'a, T, B, L>>> {
 		Box::new(self.definitions.iter())
 	}
 

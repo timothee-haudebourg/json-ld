@@ -67,7 +67,7 @@ impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
 						Ok(Keyword::Context) => {
 							def.context = Some(Entry::new(
 								key_metadata,
-								Value::try_from_json(value)?.map(|c| Box::new(c)),
+								Value::try_from_json(value)?.map(Box::new),
 							))
 						}
 						Ok(Keyword::Reverse) => {

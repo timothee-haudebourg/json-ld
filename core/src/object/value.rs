@@ -332,8 +332,8 @@ impl<T, M> Value<T, M> {
 
 	pub(crate) fn try_from_json_object_in<C: IntoJson<M>>(
 		namespace: &mut impl IriNamespaceMut<T>,
-		mut object: json_ld_syntax::Object<C, M>,
-		value_entry: json_ld_syntax::object::Entry<C, M>,
+		mut object: json_ld_syntax::Object<M, C>,
+		value_entry: json_ld_syntax::object::Entry<M, C>,
 	) -> Result<Self, Meta<InvalidExpandedJson, M>> {
 		match object.remove("@type") {
 			Some(type_entry) => match type_entry.value {
@@ -378,10 +378,10 @@ impl<T, M> Value<T, M> {
 	}
 }
 
-impl<C, M> TryFrom<json_ld_syntax::Value<C, M>> for Literal {
+impl<M, C> TryFrom<json_ld_syntax::Value<M, C>> for Literal {
 	type Error = InvalidExpandedJson;
 
-	fn try_from(value: json_ld_syntax::Value<C, M>) -> Result<Self, Self::Error> {
+	fn try_from(value: json_ld_syntax::Value<M, C>) -> Result<Self, Self::Error> {
 		match value {
 			json_ld_syntax::Value::Null => Ok(Self::Null),
 			json_ld_syntax::Value::Boolean(b) => Ok(Self::Boolean(b)),
@@ -458,8 +458,8 @@ pub enum ValueEntryRef<'a, M> {
 impl<'a, M> Clone for ValueEntryRef<'a, M> {
 	fn clone(&self) -> Self {
 		match self {
-			Self::Literal(l) => Self::Literal(*l),
-			Self::LangString(l) => Self::LangString(*l),
+			Self::Literal(l) => Self::Literal(l),
+			Self::LangString(l) => Self::LangString(l),
 			Self::Json(v) => Self::Json(*v),
 		}
 	}

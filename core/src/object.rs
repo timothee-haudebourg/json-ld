@@ -6,7 +6,7 @@ use crate::{
 use derivative::Derivative;
 use iref::IriBuf;
 use json_ld_syntax::{Entry, IntoJson, Keyword};
-use json_number::Number;
+use json_syntax::Number;
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedHash, StrippedPartialEq};
 use locspan_derive::*;
 use rdf_types::BlankIdBuf;
@@ -22,7 +22,7 @@ pub mod value;
 
 pub use list::List;
 pub use mapped_eq::MappedEq;
-pub use node::{Node, Nodes, StrippedIndexedNode};
+pub use node::{Graph, IndexedNode, Node, Nodes, StrippedIndexedNode};
 pub use typ::{Type, TypeRef};
 pub use value::{Literal, LiteralString, Value};
 
@@ -89,8 +89,10 @@ pub enum Ref<'a, T, B, M = ()> {
 	List(&'a List<T, B, M>),
 }
 
+pub type IndexedObject<T, B, M> = Meta<Indexed<Object<T, B, M>>, M>;
+
 /// Indexed object, without regard for its metadata.
-pub type StrippedIndexedObject<T, B, M> = Stripped<Meta<Indexed<Object<T, B, M>>, M>>;
+pub type StrippedIndexedObject<T, B, M> = Stripped<IndexedObject<T, B, M>>;
 
 /// Object.
 ///
@@ -376,7 +378,7 @@ impl<T, B, M> Indexed<Object<T, B, M>> {
 	}
 
 	/// Try to convert this object into an unnamed graph.
-	pub fn into_unnamed_graph(self) -> Result<Meta<HashSet<Stripped<Meta<Self, M>>>, M>, Self> {
+	pub fn into_unnamed_graph(self) -> Result<Meta<Graph<T, B, M>, M>, Self> {
 		let (obj, index) = self.into_parts();
 		match obj {
 			Object::Node(n) => match n.into_unnamed_graph() {
@@ -691,34 +693,34 @@ impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
 	}
 }
 
-pub trait TryFromJson<T, B, C, M>: Sized {
+pub trait TryFromJson<T, B, M, C>: Sized {
 	fn try_from_json_in(
 		namespace: &mut impl NamespaceMut<T, B>,
-		value: Meta<json_ld_syntax::Value<C, M>, M>,
+		value: Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>>;
 }
 
-pub trait TryFromJsonObject<T, B, C, M>: Sized {
+pub trait TryFromJsonObject<T, B, M, C>: Sized {
 	fn try_from_json_object_in(
 		namespace: &mut impl NamespaceMut<T, B>,
-		object: Meta<json_ld_syntax::Object<C, M>, M>,
+		object: Meta<json_ld_syntax::Object<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>>;
 }
 
-impl<T, B, C, M, V: TryFromJson<T, B, C, M>> TryFromJson<T, B, C, M> for Stripped<V> {
+impl<T, B, M, C, V: TryFromJson<T, B, M, C>> TryFromJson<T, B, M, C> for Stripped<V> {
 	fn try_from_json_in(
 		namespace: &mut impl NamespaceMut<T, B>,
-		value: Meta<json_ld_syntax::Value<C, M>, M>,
+		value: Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		let Meta(v, meta) = V::try_from_json_in(namespace, value)?;
 		Ok(Meta(Stripped(v), meta))
 	}
 }
 
-impl<T, B, C, M, V: TryFromJson<T, B, C, M>> TryFromJson<T, B, C, M> for Vec<Meta<V, M>> {
+impl<T, B, M, C, V: TryFromJson<T, B, M, C>> TryFromJson<T, B, M, C> for Vec<Meta<V, M>> {
 	fn try_from_json_in(
 		namespace: &mut impl NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		match value {
 			json_ld_syntax::Value::Array(items) => {
@@ -735,12 +737,12 @@ impl<T, B, C, M, V: TryFromJson<T, B, C, M>> TryFromJson<T, B, C, M> for Vec<Met
 	}
 }
 
-impl<T, B, C, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, C, M>> TryFromJson<T, B, C, M>
+impl<T, B, M, C, V: StrippedEq + StrippedHash + TryFromJson<T, B, M, C>> TryFromJson<T, B, M, C>
 	for HashSet<Stripped<Meta<V, M>>>
 {
 	fn try_from_json_in(
 		namespace: &mut impl NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		match value {
 			json_ld_syntax::Value::Array(items) => {
@@ -757,10 +759,10 @@ impl<T, B, C, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, C, M>> TryFrom
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, C, M> for Object<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, M, C> for Object<T, B, M> {
 	fn try_from_json_in(
 		namespace: &mut impl NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		match value {
 			json_ld_syntax::Value::Object(object) => {
@@ -771,12 +773,12 @@ impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, C, M> for 
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, C, M>
+impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C>
 	for Object<T, B, M>
 {
 	fn try_from_json_object_in(
 		namespace: &mut impl NamespaceMut<T, B>,
-		Meta(mut object, meta): Meta<json_ld_syntax::Object<C, M>, M>,
+		Meta(mut object, meta): Meta<json_ld_syntax::Object<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		match object.remove_context() {
 			Some(entry) => Err(Meta(InvalidExpandedJson::NotExpanded, entry.key_metadata)),
@@ -903,24 +905,22 @@ impl<'a, T, B, M> Iterator for Types<'a, T, B, M> {
 }
 
 /// Iterator through indexed objects.
-pub struct Objects<'a, T, B, M>(
-	Option<std::slice::Iter<'a, Stripped<Meta<Indexed<Object<T, B, M>>, M>>>>,
-);
+pub struct Objects<'a, T, B, M>(Option<std::slice::Iter<'a, Stripped<IndexedObject<T, B, M>>>>);
 
 impl<'a, T, B, M> Objects<'a, T, B, M> {
 	#[inline(always)]
 	pub(crate) fn new(
-		inner: Option<std::slice::Iter<'a, Stripped<Meta<Indexed<Object<T, B, M>>, M>>>>,
+		inner: Option<std::slice::Iter<'a, Stripped<IndexedObject<T, B, M>>>>,
 	) -> Self {
 		Self(inner)
 	}
 }
 
 impl<'a, T, B, M> Iterator for Objects<'a, T, B, M> {
-	type Item = &'a Meta<Indexed<Object<T, B, M>>, M>;
+	type Item = &'a IndexedObject<T, B, M>;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a Meta<Indexed<Object<T, B, M>>, M>> {
+	fn next(&mut self) -> Option<&'a IndexedObject<T, B, M>> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next().map(|o| &o.0),

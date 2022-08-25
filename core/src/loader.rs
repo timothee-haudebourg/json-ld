@@ -9,6 +9,8 @@ pub mod none;
 pub use fs::FsLoader;
 pub use none::NoLoader;
 
+pub type LoadingResult<O, M, E> = Result<Meta<O, M>, E>;
+
 /// JSON document loader.
 pub trait Loader<I> {
 	/// The type of documents that can be loaded.
@@ -21,7 +23,7 @@ pub trait Loader<I> {
 		&'a mut self,
 		namespace: &'a (impl Sync + IriNamespace<I>),
 		url: I,
-	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::Error>>
+	) -> BoxFuture<'a, LoadingResult<Self::Output, Self::Metadata, Self::Error>>
 	where
 		I: 'a;
 
@@ -29,7 +31,7 @@ pub trait Loader<I> {
 	fn load<'a>(
 		&'a mut self,
 		url: I,
-	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::Error>>
+	) -> BoxFuture<'a, LoadingResult<Self::Output, Self::Metadata, Self::Error>>
 	where
 		I: 'a,
 		(): IriNamespace<I>,
@@ -48,14 +50,14 @@ pub trait ContextLoader<I> {
 		&'a mut self,
 		namespace: &'a (impl Sync + IriNamespace<I>),
 		url: I,
-	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<Self::Output, Self::Metadata, Self::ContextError>>
 	where
 		I: 'a;
 
 	fn load_context<'a>(
 		&'a mut self,
 		url: I,
-	) -> BoxFuture<'a, Result<Meta<Self::Output, Self::Metadata>, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<Self::Output, Self::Metadata, Self::ContextError>>
 	where
 		I: 'a,
 		(): IriNamespace<I>,
@@ -89,7 +91,7 @@ impl fmt::Display for ExtractContextError {
 	}
 }
 
-impl<C, M> ExtractContext for json_ld_syntax::Value<C, M> {
+impl<M, C> ExtractContext for json_ld_syntax::Value<M, C> {
 	type Context = C;
 	type Error = Meta<ExtractContextError, M>;
 	type Metadata = M;

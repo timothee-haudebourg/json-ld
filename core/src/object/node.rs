@@ -1,8 +1,8 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
 use crate::namespace::WithNamespace;
 use crate::{
-	id, object, utils, BorrowWithNamespace, Indexed, Namespace, Object, Objects, Reference,
-	StrippedIndexedObject, Term, ToReference,
+	id, object, utils, BorrowWithNamespace, Indexed, IndexedObject, Namespace, Object, Objects,
+	Reference, StrippedIndexedObject, Term, ToReference,
 };
 use derivative::Derivative;
 use iref::IriBuf;
@@ -21,9 +21,7 @@ pub use multiset::Multiset;
 pub use properties::Properties;
 pub use reverse_properties::ReverseProperties;
 
-// fn unstripped_slice<T>(slice: &[Stripped<T>]) -> &[T] {
-// 	unsafe { core::mem::transmute(slice) }
-// }
+pub type Graph<T, B, M> = HashSet<StrippedIndexedObject<T, B, M>>;
 
 /// Node parts.
 pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
@@ -35,17 +33,17 @@ pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
 	/// Types.
 	///
 	/// This is the `@type` field.
-	pub types: Option<Entry<Vec<Meta<Reference<T, B>, M>>, M>>,
+	pub types: Option<TypeEntry<T, B, M>>,
 
 	/// Associated graph.
 	///
 	/// This is the `@graph` field.
-	pub graph: Option<Entry<HashSet<StrippedIndexedObject<T, B, M>>, M>>,
+	pub graph: Option<GraphEntry<T, B, M>>,
 
 	/// Included nodes.
 	///
 	/// This is the `@included` field.
-	pub included: Option<Entry<HashSet<StrippedIndexedNode<T, B, M>>, M>>,
+	pub included: Option<IncludedEntry<T, B, M>>,
 
 	/// Properties.
 	///
@@ -58,8 +56,10 @@ pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
 	pub reverse_properties: Option<Entry<ReverseProperties<T, B, M>, M>>,
 }
 
+pub type IndexedNode<T, B, M> = Meta<Indexed<Node<T, B, M>>, M>;
+
 /// Indexed node, without regard for its metadata.
-pub type StrippedIndexedNode<T, B, M> = Stripped<Meta<Indexed<Node<T, B, M>>, M>>;
+pub type StrippedIndexedNode<T, B, M> = Stripped<IndexedNode<T, B, M>>;
 
 /// Node object.
 ///
@@ -80,17 +80,17 @@ pub struct Node<T = IriBuf, B = BlankIdBuf, M = ()> {
 	/// Types.
 	///
 	/// This is the `@type` field.
-	pub(crate) types: Option<Entry<Vec<Meta<Reference<T, B>, M>>, M>>,
+	pub(crate) types: Option<TypeEntry<T, B, M>>,
 
 	/// Associated graph.
 	///
 	/// This is the `@graph` field.
-	pub(crate) graph: Option<Entry<HashSet<StrippedIndexedObject<T, B, M>>, M>>,
+	pub(crate) graph: Option<GraphEntry<T, B, M>>,
 
 	/// Included nodes.
 	///
 	/// This is the `@included` field.
-	pub(crate) included: Option<Entry<HashSet<StrippedIndexedNode<T, B, M>>, M>>,
+	pub(crate) included: Option<IncludedEntry<T, B, M>>,
 
 	/// Properties.
 	///
@@ -265,7 +265,7 @@ impl<T, B, M> Node<T, B, M> {
 		&mut self,
 		key_metadata: M,
 		value_metadata: M,
-	) -> &mut Entry<Vec<Meta<Reference<T, B>, M>>, M> {
+	) -> &mut TypeEntry<T, B, M> {
 		self.types
 			.get_or_insert_with(|| Entry::new(key_metadata, Meta(Vec::new(), value_metadata)))
 	}
@@ -273,24 +273,24 @@ impl<T, B, M> Node<T, B, M> {
 	pub fn type_entry_or_insert(
 		&mut self,
 		key_metadata: M,
-		value: Meta<Vec<Meta<Reference<T, B>, M>>, M>,
-	) -> &mut Entry<Vec<Meta<Reference<T, B>, M>>, M> {
+		value: TypeEntryValue<T, B, M>,
+	) -> &mut TypeEntry<T, B, M> {
 		self.types
 			.get_or_insert_with(|| Entry::new(key_metadata, value))
 	}
 
 	pub fn type_entry_or_insert_with(
 		&mut self,
-		f: impl FnOnce() -> Entry<Vec<Meta<Reference<T, B>, M>>, M>,
-	) -> &mut Entry<Vec<Meta<Reference<T, B>, M>>, M> {
+		f: impl FnOnce() -> TypeEntry<T, B, M>,
+	) -> &mut TypeEntry<T, B, M> {
 		self.types.get_or_insert_with(f)
 	}
 
-	pub fn type_entry(&self) -> Option<&Entry<Vec<Meta<Reference<T, B>, M>>, M>> {
+	pub fn type_entry(&self) -> Option<&TypeEntry<T, B, M>> {
 		self.types.as_ref()
 	}
 
-	pub fn set_type_entry(&mut self, entry: Option<Entry<Vec<Meta<Reference<T, B>, M>>, M>>) {
+	pub fn set_type_entry(&mut self, entry: Option<TypeEntry<T, B, M>>) {
 		self.types = entry
 	}
 
@@ -341,21 +341,19 @@ impl<T, B, M> Node<T, B, M> {
 
 	/// If the node is a graph object, get the graph.
 	#[inline(always)]
-	pub fn graph_entry(&self) -> Option<&Entry<HashSet<StrippedIndexedObject<T, B, M>>, M>> {
+	pub fn graph_entry(&self) -> Option<&GraphEntry<T, B, M>> {
 		self.graph.as_ref()
 	}
 
 	/// If the node is a graph object, get the mutable graph.
 	#[inline(always)]
-	pub fn graph_entry_mut(
-		&mut self,
-	) -> Option<&mut Entry<HashSet<StrippedIndexedObject<T, B, M>>, M>> {
+	pub fn graph_entry_mut(&mut self) -> Option<&mut GraphEntry<T, B, M>> {
 		self.graph.as_mut()
 	}
 
 	/// Set the graph.
 	#[inline(always)]
-	pub fn set_graph(&mut self, graph: Option<Entry<HashSet<StrippedIndexedObject<T, B, M>>, M>>) {
+	pub fn set_graph(&mut self, graph: Option<GraphEntry<T, B, M>>) {
 		self.graph = graph
 	}
 
@@ -363,7 +361,7 @@ impl<T, B, M> Node<T, B, M> {
 	///
 	/// This correspond to the `@included` field in the JSON representation.
 	#[inline(always)]
-	pub fn included_entry(&self) -> Option<&Entry<HashSet<Stripped<Meta<Indexed<Self>, M>>>, M>> {
+	pub fn included_entry(&self) -> Option<&IncludedEntry<T, B, M>> {
 		self.included.as_ref()
 	}
 
@@ -371,18 +369,13 @@ impl<T, B, M> Node<T, B, M> {
 	///
 	/// This correspond to the `@included` field in the JSON representation.
 	#[inline(always)]
-	pub fn included_entry_mut(
-		&mut self,
-	) -> Option<&mut Entry<HashSet<Stripped<Meta<Indexed<Self>, M>>>, M>> {
+	pub fn included_entry_mut(&mut self) -> Option<&mut IncludedEntry<T, B, M>> {
 		self.included.as_mut()
 	}
 
 	/// Set the set of nodes included by the node.
 	#[inline(always)]
-	pub fn set_included(
-		&mut self,
-		included: Option<Entry<HashSet<Stripped<Meta<Indexed<Self>, M>>>, M>>,
-	) {
+	pub fn set_included(&mut self, included: Option<IncludedEntry<T, B, M>>) {
 		self.included = included
 	}
 
@@ -436,9 +429,7 @@ impl<T, B, M> Node<T, B, M> {
 	/// The unnamed graph is returned as a set of indexed objects.
 	/// Fails and returns itself if the node is *not* an unnamed graph.
 	#[inline(always)]
-	pub fn into_unnamed_graph(
-		self,
-	) -> Result<Entry<HashSet<StrippedIndexedObject<T, B, M>>, M>, Self> {
+	pub fn into_unnamed_graph(self) -> Result<Entry<Graph<T, B, M>, M>, Self> {
 		if self.is_unnamed_graph() {
 			Ok(self.graph.unwrap())
 		} else {
@@ -503,10 +494,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: ToReference<T, B>>(
-		&self,
-		prop: Q,
-	) -> Option<&Meta<Indexed<Object<T, B, M>>, M>>
+	pub fn get_any<'a, Q: ToReference<T, B>>(&self, prop: Q) -> Option<&IndexedObject<T, B, M>>
 	where
 		T: 'a,
 	{
@@ -700,7 +688,7 @@ impl<'a, T, B, N: Namespace<T, B>> WithNamespace<EntryKeyRef<'a, T, B>, &'a N> {
 #[derivative(Clone(bound = ""), Copy(bound = ""))]
 pub enum EntryValueRef<'a, T, B, M> {
 	Id(&'a Reference<T, B>),
-	Type(&'a Entry<Vec<Meta<Reference<T, B>, M>>, M>),
+	Type(&'a TypeEntryValue<T, B, M>),
 	Graph(&'a HashSet<StrippedIndexedObject<T, B, M>>),
 	Included(&'a HashSet<StrippedIndexedNode<T, B, M>>),
 	Reverse(&'a ReverseProperties<T, B, M>),
@@ -735,9 +723,9 @@ impl<'a, T, B, M> EntryValueRef<'a, T, B, M> {
 #[derivative(Clone(bound = ""), Copy(bound = ""))]
 pub enum EntryRef<'a, T, B, M> {
 	Id(&'a Entry<Reference<T, B>, M>),
-	Type(&'a Entry<Vec<Meta<Reference<T, B>, M>>, M>),
-	Graph(&'a Entry<HashSet<StrippedIndexedObject<T, B, M>>, M>),
-	Included(&'a Entry<HashSet<StrippedIndexedNode<T, B, M>>, M>),
+	Type(&'a TypeEntry<T, B, M>),
+	Graph(&'a GraphEntry<T, B, M>),
+	Included(&'a IncludedEntry<T, B, M>),
 	Reverse(&'a Entry<ReverseProperties<T, B, M>, M>),
 	Property(&'a Reference<T, B>, &'a [StrippedIndexedObject<T, B, M>]),
 }
@@ -761,7 +749,7 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 	pub fn into_value(self) -> EntryValueRef<'a, T, B, M> {
 		match self {
 			Self::Id(v) => EntryValueRef::Id(v),
-			Self::Type(v) => EntryValueRef::Type(v),
+			Self::Type(v) => EntryValueRef::Type(&v.value),
 			Self::Graph(v) => EntryValueRef::Graph(v),
 			Self::Included(v) => EntryValueRef::Included(v),
 			Self::Reverse(v) => EntryValueRef::Reverse(v),
@@ -776,7 +764,7 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 	pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B, M>) {
 		match self {
 			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
-			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(v)),
+			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(&v.value)),
 			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
 			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
 			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(v)),
@@ -787,7 +775,7 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 	pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B, M>) {
 		match self {
 			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
-			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(v)),
+			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(&v.value)),
 			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
 			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
 			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(v)),
@@ -796,13 +784,18 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 	}
 }
 
+pub type TypeEntryValue<T, B, M> = Meta<Vec<Meta<Reference<T, B>, M>>, M>;
+pub type TypeEntry<T, B, M> = Entry<Vec<Meta<Reference<T, B>, M>>, M>;
+pub type GraphEntry<T, B, M> = Entry<Graph<T, B, M>, M>;
+pub type IncludedEntry<T, B, M> = Entry<HashSet<StrippedIndexedNode<T, B, M>>, M>;
+
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct Entries<'a, T, B, M> {
 	id: Option<&'a Entry<Reference<T, B>, M>>,
-	type_: Option<&'a Entry<Vec<Meta<Reference<T, B>, M>>, M>>,
-	graph: Option<&'a Entry<HashSet<StrippedIndexedObject<T, B, M>>, M>>,
-	included: Option<&'a Entry<HashSet<StrippedIndexedNode<T, B, M>>, M>>,
+	type_: Option<&'a TypeEntry<T, B, M>>,
+	graph: Option<&'a GraphEntry<T, B, M>>,
+	included: Option<&'a IncludedEntry<T, B, M>>,
 	reverse: Option<&'a Entry<ReverseProperties<T, B, M>, M>>,
 	properties: properties::Iter<'a, T, B, M>,
 }
@@ -1201,7 +1194,7 @@ impl<T: Hash, B: Hash, M> locspan::StrippedHash for Node<T, B, M> {
 // }
 
 // impl<J: JsonHash + JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K>
-// 	for HashSet<Meta<Indexed<Node<T, B, M>>, M>>
+// 	for HashSet<IndexedNode<T, B, M>>
 // {
 // 	#[inline(always)]
 // 	fn as_json_with(
@@ -1217,24 +1210,20 @@ impl<T: Hash, B: Hash, M> locspan::StrippedHash for Node<T, B, M> {
 // }
 
 /// Iterator through indexed nodes.
-pub struct Nodes<'a, T, B, M>(
-	Option<std::slice::Iter<'a, Stripped<Meta<Indexed<Node<T, B, M>>, M>>>>,
-);
+pub struct Nodes<'a, T, B, M>(Option<std::slice::Iter<'a, Stripped<IndexedNode<T, B, M>>>>);
 
 impl<'a, T, B, M> Nodes<'a, T, B, M> {
 	#[inline(always)]
-	pub(crate) fn new(
-		inner: Option<std::slice::Iter<'a, Stripped<Meta<Indexed<Node<T, B, M>>, M>>>>,
-	) -> Self {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Stripped<IndexedNode<T, B, M>>>>) -> Self {
 		Self(inner)
 	}
 }
 
 impl<'a, T, B, M> Iterator for Nodes<'a, T, B, M> {
-	type Item = &'a Meta<Indexed<Node<T, B, M>>, M>;
+	type Item = &'a IndexedNode<T, B, M>;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a Meta<Indexed<Node<T, B, M>>, M>> {
+	fn next(&mut self) -> Option<&'a IndexedNode<T, B, M>> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next().map(|n| &n.0),
@@ -1242,12 +1231,12 @@ impl<'a, T, B, M> Iterator for Nodes<'a, T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, C, M>
+impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C>
 	for Node<T, B, M>
 {
 	fn try_from_json_object_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		mut object: Meta<json_ld_syntax::Object<C, M>, M>,
+		mut object: Meta<json_ld_syntax::Object<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		let id = match object.remove("@id") {
 			Some(entry) => Some(Entry::new(

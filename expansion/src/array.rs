@@ -18,7 +18,7 @@ pub(crate) async fn expand_array<
 	active_context: &Context<T, B, C>,
 	active_property: ActiveProperty<'_, C::Metadata>,
 	active_property_definition: Option<&TermDefinition<T, B, C>>,
-	Meta(element, meta): Meta<&Array<C, C::Metadata>, &C::Metadata>,
+	Meta(element, meta): Meta<&Array<C::Metadata, C>, &C::Metadata>,
 	base_url: Option<&T>,
 	loader: &mut L,
 	options: Options,
@@ -31,7 +31,7 @@ where
 	B: Clone + Eq + Hash + Sync + Send,
 	C: Sync + Send,
 	L: Sync + Send,
-	<L as Loader<T>>::Output: Into<Value<C, C::Metadata>>,
+	<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
 	<L as ContextLoader<T>>::Output: Into<C>,
 {
 	// Initialize an empty array, result.

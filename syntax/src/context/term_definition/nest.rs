@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 use crate::is_keyword;
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum Nest {
 	Nest,
 
@@ -15,7 +15,7 @@ impl Nest {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Nest => "@nest",
-			Self::Term(t) => &t,
+			Self::Term(t) => t,
 		}
 	}
 
@@ -26,6 +26,18 @@ impl Nest {
 		}
 	}
 }
+
+impl PartialEq for Nest {
+	fn eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Self::Nest, Self::Nest) => true,
+			(Self::Term(a), Self::Term(b)) => a == b,
+			_ => false,
+		}
+	}
+}
+
+impl Eq for Nest {}
 
 impl Hash for Nest {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

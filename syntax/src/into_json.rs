@@ -47,7 +47,7 @@ impl<M> IntoJson<M> for String {
 	}
 }
 
-impl<C: IntoJson<M>, M> IntoJson<M> for Value<C, M> {
+impl<C: IntoJson<M>, M> IntoJson<M> for Value<M, C> {
 	fn into_json(Meta(value, meta): Meta<Self, M>) -> Meta<json_syntax::Value<M>, M> {
 		let json = match value {
 			Self::Null => json_syntax::Value::Null,
@@ -64,7 +64,7 @@ impl<C: IntoJson<M>, M> IntoJson<M> for Value<C, M> {
 	}
 }
 
-impl<C, M> Object<C, M> {
+impl<M, C> Object<M, C> {
 	pub fn into_json_object(self) -> json_syntax::Object<M>
 	where
 		C: IntoJson<M>,
@@ -86,13 +86,13 @@ impl<C, M> Object<C, M> {
 	}
 }
 
-impl<C: IntoJson<M>, M> IntoJson<M> for Object<C, M> {
+impl<C: IntoJson<M>, M> IntoJson<M> for Object<M, C> {
 	fn into_json(Meta(object, meta): Meta<Self, M>) -> Meta<json_syntax::Value<M>, M> {
 		Meta(json_syntax::Value::Object(object.into_json_object()), meta)
 	}
 }
 
-impl<C, M> object::Entry<C, M> {
+impl<M, C> object::Entry<M, C> {
 	pub fn into_json(self) -> json_syntax::object::Entry<M>
 	where
 		C: IntoJson<M>,

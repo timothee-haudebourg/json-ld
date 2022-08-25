@@ -1,7 +1,7 @@
-use super::{Multiset, Node, Nodes};
+use super::{Multiset, Nodes};
 use crate::{
 	object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
-	Indexed, Reference, StrippedIndexedNode, ToReference,
+	IndexedNode, Reference, StrippedIndexedNode, ToReference,
 };
 use derivative::Derivative;
 use json_ld_syntax::IntoJson;
@@ -12,15 +12,15 @@ use std::{
 	hash::{Hash, Hasher},
 };
 
+pub type ReversePropertyNodes<T, B, M> = Multiset<Stripped<IndexedNode<T, B, M>>>;
+
 /// Reverse properties of a node object, and their associated nodes.
 #[derive(Derivative, Clone)]
 #[derivative(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
-pub struct ReverseProperties<T, B, M>(
-	HashMap<Reference<T, B>, Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>>>,
-);
+pub struct ReverseProperties<T, B, M>(HashMap<Reference<T, B>, ReversePropertyNodes<T, B, M>>);
 
 impl<T, B, M> ReverseProperties<T, B, M> {
 	/// Creates an empty map.
@@ -28,9 +28,7 @@ impl<T, B, M> ReverseProperties<T, B, M> {
 		Self(HashMap::new())
 	}
 
-	fn stripped_map(
-		&self,
-	) -> &HashMap<Reference<T, B>, Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>>> {
+	fn stripped_map(&self) -> &HashMap<Reference<T, B>, ReversePropertyNodes<T, B, M>> {
 		&self.0
 	}
 
@@ -92,10 +90,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 	///
 	/// If multiple nodes are found, there are no guaranties on which node will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: ToReference<T, B>>(
-		&self,
-		prop: Q,
-	) -> Option<&Meta<Indexed<Node<T, B, M>>, M>>
+	pub fn get_any<'a, Q: ToReference<T, B>>(&self, prop: Q) -> Option<&IndexedNode<T, B, M>>
 	where
 		T: 'a,
 	{
@@ -107,7 +102,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate the given node to the given reverse property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Reference<T, B>, value: Meta<Indexed<Node<T, B, M>>, M>) {
+	pub fn insert(&mut self, prop: Reference<T, B>, value: IndexedNode<T, B, M>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(Stripped(value));
 		} else {
@@ -117,7 +112,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate the given node to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(&mut self, prop: Reference<T, B>, value: Meta<Indexed<Node<T, B, M>>, M>) {
+	pub fn insert_unique(&mut self, prop: Reference<T, B>, value: IndexedNode<T, B, M>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
 				node_values.insert(Stripped(value))
@@ -129,7 +124,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate all the given nodes to the given reverse property.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = Meta<Indexed<Node<T, B, M>>, M>>>(
+	pub fn insert_all<Objects: IntoIterator<Item = IndexedNode<T, B, M>>>(
 		&mut self,
 		prop: Reference<T, B>,
 		values: Objects,
@@ -145,7 +140,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 	/// Associate all the given nodes to the given reverse property, unless it is already.
 	#[inline(always)]
 	pub fn insert_all_unique_stripped<
-		Nodes: IntoIterator<Item = Stripped<Meta<Indexed<Node<T, B, M>>, M>>>,
+		Nodes: IntoIterator<Item = Stripped<IndexedNode<T, B, M>>>,
 	>(
 		&mut self,
 		prop: Reference<T, B>,
@@ -159,7 +154,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 			}
 		} else {
 			let values = values.into_iter();
-			let mut node_values: Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>> =
+			let mut node_values: ReversePropertyNodes<T, B, M> =
 				Multiset::with_capacity(values.size_hint().0);
 			for value in values {
 				if node_values.iter().all(|v| !v.equivalent(&value)) {
@@ -173,7 +168,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate all the given nodes to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_all_unique<Nodes: IntoIterator<Item = Meta<Indexed<Node<T, B, M>>, M>>>(
+	pub fn insert_all_unique<Nodes: IntoIterator<Item = IndexedNode<T, B, M>>>(
 		&mut self,
 		prop: Reference<T, B>,
 		values: Nodes,
@@ -184,7 +179,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 	pub fn extend_unique<I, N>(&mut self, iter: I)
 	where
 		I: IntoIterator<Item = (Reference<T, B>, N)>,
-		N: IntoIterator<Item = Meta<Indexed<Node<T, B, M>>, M>>,
+		N: IntoIterator<Item = IndexedNode<T, B, M>>,
 	{
 		for (prop, values) in iter {
 			self.insert_all_unique(prop, values)
@@ -194,7 +189,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 	pub fn extend_unique_stripped<I, N>(&mut self, iter: I)
 	where
 		I: IntoIterator<Item = (Reference<T, B>, N)>,
-		N: IntoIterator<Item = Stripped<Meta<Indexed<Node<T, B, M>>, M>>>,
+		N: IntoIterator<Item = Stripped<IndexedNode<T, B, M>>>,
 	{
 		for (prop, values) in iter {
 			self.insert_all_unique_stripped(prop, values)
@@ -203,20 +198,17 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Removes and returns all the values associated to the given reverse property.
 	#[inline(always)]
-	pub fn remove(
-		&mut self,
-		prop: &Reference<T, B>,
-	) -> Option<Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>>> {
+	pub fn remove(&mut self, prop: &Reference<T, B>) -> Option<ReversePropertyNodes<T, B, M>> {
 		self.0.remove(prop)
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, C, M>
+impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, M, C>
 	for ReverseProperties<T, B, M>
 {
 	fn try_from_json_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		match value {
 			json_ld_syntax::Value::Object(object) => {
@@ -227,18 +219,18 @@ impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, C, M>
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, C, M>
+impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C>
 	for ReverseProperties<T, B, M>
 {
 	fn try_from_json_object_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(object, meta): Meta<json_ld_syntax::Object<C, M>, M>,
+		Meta(object, meta): Meta<json_ld_syntax::Object<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		let mut result = Self::new();
 
 		for entry in object {
 			let prop = Reference::from_string_in(namespace, entry.key.into_value().to_string());
-			let nodes: Vec<Meta<Indexed<Node<T, B, M>>, M>> =
+			let nodes: Vec<IndexedNode<T, B, M>> =
 				Vec::try_from_json_in(namespace, entry.value)?.into_value();
 			result.insert_all(prop, nodes)
 		}
@@ -270,12 +262,12 @@ impl<T: Hash, B: Hash, M: Hash> Hash for ReverseProperties<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> Extend<(Reference<T, B>, Vec<Meta<Indexed<Node<T, B, M>>, M>>)>
+impl<T: Eq + Hash, B: Eq + Hash, M> Extend<(Reference<T, B>, Vec<IndexedNode<T, B, M>>)>
 	for ReverseProperties<T, B, M>
 {
 	fn extend<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Reference<T, B>, Vec<Meta<Indexed<Node<T, B, M>>, M>>)>,
+		I: IntoIterator<Item = (Reference<T, B>, Vec<IndexedNode<T, B, M>>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -285,10 +277,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Extend<(Reference<T, B>, Vec<Meta<Indexed<No
 
 /// Tuple type representing a reverse binding in a node object,
 /// associating a reverse property to some nodes.
-pub type ReverseBinding<T, B, M> = (
-	Reference<T, B>,
-	Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>>,
-);
+pub type ReverseBinding<T, B, M> = (Reference<T, B>, ReversePropertyNodes<T, B, M>);
 
 /// Tuple type representing a reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes.
@@ -296,10 +285,8 @@ pub type ReverseBindingRef<'a, T, B, M> = (&'a Reference<T, B>, &'a [StrippedInd
 
 /// Tuple type representing a mutable reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes, with a mutable access to the nodes.
-pub type ReverseBindingMut<'a, T, B, M> = (
-	&'a Reference<T, B>,
-	&'a mut Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>>,
-);
+pub type ReverseBindingMut<'a, T, B, M> =
+	(&'a Reference<T, B>, &'a mut ReversePropertyNodes<T, B, M>);
 
 impl<T, B, M> IntoIterator for ReverseProperties<T, B, M> {
 	type Item = ReverseBinding<T, B, M>;
@@ -337,10 +324,7 @@ impl<'a, T, B, M> IntoIterator for &'a mut ReverseProperties<T, B, M> {
 ///
 /// It is created by the [`ReverseProperties::into_iter`] function.
 pub struct IntoIter<T, B, M> {
-	inner: std::collections::hash_map::IntoIter<
-		Reference<T, B>,
-		Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>>,
-	>,
+	inner: std::collections::hash_map::IntoIter<Reference<T, B>, ReversePropertyNodes<T, B, M>>,
 }
 
 impl<T, B, M> Iterator for IntoIter<T, B, M> {
@@ -367,11 +351,7 @@ impl<T, B, M> std::iter::FusedIterator for IntoIter<T, B, M> {}
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct Iter<'a, T, B, M> {
-	inner: std::collections::hash_map::Iter<
-		'a,
-		Reference<T, B>,
-		Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>>,
-	>,
+	inner: std::collections::hash_map::Iter<'a, Reference<T, B>, ReversePropertyNodes<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
@@ -399,11 +379,7 @@ impl<'a, T, B, M> std::iter::FusedIterator for Iter<'a, T, B, M> {}
 ///
 /// It is created by the [`ReverseProperties::iter_mut`] function.
 pub struct IterMut<'a, T, B, M> {
-	inner: std::collections::hash_map::IterMut<
-		'a,
-		Reference<T, B>,
-		Multiset<Stripped<Meta<Indexed<Node<T, B, M>>, M>>>,
-	>,
+	inner: std::collections::hash_map::IterMut<'a, Reference<T, B>, ReversePropertyNodes<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for IterMut<'a, T, B, M> {

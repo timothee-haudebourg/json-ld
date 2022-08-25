@@ -81,7 +81,7 @@ pub trait BorrowWithNamespace {
 		WithNamespace(self, namespace)
 	}
 
-	fn into_with_namespace<'n, N>(self, namespace: &'n N) -> WithNamespace<Self, &'n N>
+	fn into_with_namespace<N>(self, namespace: &N) -> WithNamespace<Self, &N>
 	where
 		Self: Sized,
 	{

@@ -1,5 +1,9 @@
 //! Flattening algorithm and related types.
-use crate::{id, ExpandedDocument, FlattenedDocument, Indexed, Node, Object, StrippedIndexedNode};
+use crate::flattened::UnorderedFlattenedDocument;
+use crate::{
+	id, ExpandedDocument, FlattenedDocument, IndexedNode, IndexedObject, Object,
+	StrippedIndexedNode,
+};
 use json_ld_syntax::Entry;
 use locspan::{Meta, Stripped};
 use std::collections::HashSet;
@@ -22,26 +26,23 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B
 		T: AsRef<str>,
 		B: AsRef<str>,
 	{
-		let nodes = self
+		Ok(self
 			.generate_node_map_in(namespace, generator)?
-			.flatten(ordered);
-		Ok(FlattenedDocument::new(nodes))
+			.flatten(ordered))
 	}
 
 	pub fn flatten_unordered_in<N, G: id::Generator<T, B, M, N>>(
 		self,
 		namespace: &mut N,
 		generator: G,
-	) -> Result<HashSet<StrippedIndexedNode<T, B, M>>, ConflictingIndexes<T, B, M>> {
+	) -> Result<UnorderedFlattenedDocument<T, B, M>, ConflictingIndexes<T, B, M>> {
 		Ok(self
 			.generate_node_map_in(namespace, generator)?
 			.flatten_unordered())
 	}
 }
 
-fn filter_graph<T, B, M>(
-	node: Meta<Indexed<Node<T, B, M>>, M>,
-) -> Option<Meta<Indexed<Node<T, B, M>>, M>> {
+fn filter_graph<T, B, M>(node: IndexedNode<T, B, M>) -> Option<IndexedNode<T, B, M>> {
 	if node.index().is_none() && node.is_empty() {
 		None
 	} else {
@@ -50,8 +51,8 @@ fn filter_graph<T, B, M>(
 }
 
 fn filter_sub_graph<T, B, M>(
-	Meta(mut node, meta): Meta<Indexed<Node<T, B, M>>, M>,
-) -> Option<Meta<Indexed<Object<T, B, M>>, M>> {
+	Meta(mut node, meta): IndexedNode<T, B, M>,
+) -> Option<IndexedObject<T, B, M>> {
 	if node.index().is_none() && node.properties().is_empty() {
 		None
 	} else {
@@ -63,7 +64,7 @@ fn filter_sub_graph<T, B, M>(
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
-	pub fn flatten(self, ordered: bool) -> Vec<Meta<Indexed<Node<T, B, M>>, M>>
+	pub fn flatten(self, ordered: bool) -> Vec<IndexedNode<T, B, M>>
 	where
 		T: AsRef<str>,
 		B: AsRef<str>,

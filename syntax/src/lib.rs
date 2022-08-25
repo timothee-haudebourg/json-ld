@@ -2,7 +2,7 @@
 use std::convert::Infallible;
 use std::fmt;
 
-use locspan::{Loc, Location};
+use locspan::{Location, MapLocErr, Meta, Span};
 
 mod number;
 
@@ -39,10 +39,12 @@ pub use value::*;
 pub struct Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]);
 
 #[derive(Debug)]
-pub enum Error<F> {
-	InvalidJson(json_syntax::parse::Error<Infallible, F>),
-	InvalidJsonLd(ValueFromJsonError<Location<F>>),
+pub enum Error<M> {
+	InvalidJson(json_syntax::parse::Error<Infallible, M>),
+	InvalidJsonLd(ValueFromJsonError<M>),
 }
+
+pub type MetaError<M> = Meta<Error<M>, M>;
 
 impl<F> fmt::Display for Error<F> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -56,17 +58,15 @@ impl<F> fmt::Display for Error<F> {
 pub fn from_str_in<F: Clone>(
 	file: F,
 	s: &str,
-) -> Result<Loc<Value<context::Value<Location<F>>, Location<F>>, F>, Loc<Error<F>, F>> {
-	use decoded_char::DecodedChars;
+) -> Result<MetaValue<Location<F>>, MetaError<Location<F>>> {
 	use json_syntax::Parse;
-	use locspan::MapLocErr;
-	let json = json_syntax::Value::parse(file, s.decoded_chars().map(Ok))
+	let json = json_syntax::Value::parse_str(s, |span| Location::new(file.clone(), span))
 		.map_loc_err(Error::InvalidJson)?;
 	Value::try_from_json(json).map_loc_err(Error::InvalidJsonLd)
 }
 
-pub fn from_str(
-	s: &str,
-) -> Result<Loc<Value<context::Value<Location<()>>, Location<()>>, ()>, Loc<Error<()>, ()>> {
-	from_str_in((), s)
+pub fn from_str(s: &str) -> Result<MetaValue<Span>, MetaError<Span>> {
+	use json_syntax::Parse;
+	let json = json_syntax::Value::parse_str(s, |span| span).map_loc_err(Error::InvalidJson)?;
+	Value::try_from_json(json).map_loc_err(Error::InvalidJsonLd)
 }

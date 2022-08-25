@@ -19,12 +19,12 @@ use index_map::IndexMap;
 	Clone, StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedOrd, StrippedHash, Debug,
 )]
 #[stripped_ignore(M)]
-pub struct Object<C, M> {
-	context: Option<ContextEntry<C, M>>,
-	entries: Entries<C, M>,
+pub struct Object<M, C> {
+	context: Option<ContextEntry<M, C>>,
+	entries: Entries<M, C>,
 }
 
-impl<C, M> Default for Object<C, M> {
+impl<M, C> Default for Object<M, C> {
 	fn default() -> Self {
 		Self {
 			context: None,
@@ -33,7 +33,7 @@ impl<C, M> Default for Object<C, M> {
 	}
 }
 
-impl<C, M> Object<C, M> {
+impl<M, C> Object<M, C> {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -45,7 +45,7 @@ impl<C, M> Object<C, M> {
 		}
 	}
 
-	pub fn into_parts(self) -> (Option<ContextEntry<C, M>>, Entries<C, M>) {
+	pub fn into_parts(self) -> (Option<ContextEntry<M, C>>, Entries<M, C>) {
 		(self.context, self.entries)
 	}
 
@@ -69,23 +69,23 @@ impl<C, M> Object<C, M> {
 		&mut self,
 		key_metadata: M,
 		context: Meta<C, M>,
-	) -> Option<ContextEntry<C, M>> {
+	) -> Option<ContextEntry<M, C>> {
 		self.set_context_entry(Some(ContextEntry::new(key_metadata, context)))
 	}
 
-	pub fn context_entry(&self) -> Option<&ContextEntry<C, M>> {
+	pub fn context_entry(&self) -> Option<&ContextEntry<M, C>> {
 		self.context.as_ref()
 	}
 
 	pub fn set_context_entry(
 		&mut self,
-		mut entry: Option<ContextEntry<C, M>>,
-	) -> Option<ContextEntry<C, M>> {
+		mut entry: Option<ContextEntry<M, C>>,
+	) -> Option<ContextEntry<M, C>> {
 		core::mem::swap(&mut self.context, &mut entry);
 		entry
 	}
 
-	pub fn remove_context(&mut self) -> Option<ContextEntry<C, M>> {
+	pub fn remove_context(&mut self) -> Option<ContextEntry<M, C>> {
 		self.context.take()
 	}
 
@@ -112,25 +112,25 @@ impl<C, M> Object<C, M> {
 		}
 	}
 
-	pub fn entries_with_context(&self) -> EntriesWithContext<C, M> {
+	pub fn entries_with_context(&self) -> EntriesWithContext<M, C> {
 		EntriesWithContext {
 			context: self.context.as_ref(),
 			entries: self.entries.iter(),
 		}
 	}
 
-	pub fn entries(&self) -> &Entries<C, M> {
+	pub fn entries(&self) -> &Entries<M, C> {
 		&self.entries
 	}
 
-	pub fn iter(&self) -> core::slice::Iter<Entry<C, M>> {
+	pub fn iter(&self) -> core::slice::Iter<Entry<M, C>> {
 		self.entries.iter()
 	}
 
 	/// Returns an iterator over the entries matching the given key.
 	///
 	/// Runs in `O(1)` (average).
-	pub fn get<'a, Q: ?Sized>(&'a self, key: &Q) -> Option<&'a Entry<C, M>>
+	pub fn get<'a, Q: ?Sized>(&'a self, key: &Q) -> Option<&'a Entry<M, C>>
 	where
 		Q: Hash + Equivalent<Key>,
 	{
@@ -152,12 +152,12 @@ impl<C, M> Object<C, M> {
 	pub fn insert(
 		&mut self,
 		key: Meta<Key, M>,
-		value: Meta<Value<C, M>, M>,
-	) -> Option<Entry<C, M>> {
+		value: Meta<Value<M, C>, M>,
+	) -> Option<Entry<M, C>> {
 		self.entries.insert(key, value)
 	}
 
-	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<C, M>>
+	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<M, C>>
 	where
 		Q: Hash + Equivalent<Key>,
 	{
@@ -165,44 +165,44 @@ impl<C, M> Object<C, M> {
 	}
 }
 
-impl<C: PartialEq, M: PartialEq> PartialEq for Object<C, M> {
+impl<C: PartialEq, M: PartialEq> PartialEq for Object<M, C> {
 	fn eq(&self, other: &Self) -> bool {
 		self.entries == other.entries
 	}
 }
 
-impl<C: Eq, M: Eq> Eq for Object<C, M> {}
+impl<C: Eq, M: Eq> Eq for Object<M, C> {}
 
-impl<C: PartialOrd, M: PartialOrd> PartialOrd for Object<C, M> {
+impl<C: PartialOrd, M: PartialOrd> PartialOrd for Object<M, C> {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		self.entries.partial_cmp(&other.entries)
 	}
 }
 
-impl<C: Ord, M: Ord> Ord for Object<C, M> {
+impl<C: Ord, M: Ord> Ord for Object<M, C> {
 	fn cmp(&self, other: &Self) -> Ordering {
 		self.entries.cmp(&other.entries)
 	}
 }
 
-impl<C: Hash, M: Hash> Hash for Object<C, M> {
+impl<C: Hash, M: Hash> Hash for Object<M, C> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.entries.hash(state)
 	}
 }
 
-impl<'a, C, M> IntoIterator for &'a Object<C, M> {
-	type IntoIter = core::slice::Iter<'a, Entry<C, M>>;
-	type Item = &'a Entry<C, M>;
+impl<'a, M, C> IntoIterator for &'a Object<M, C> {
+	type IntoIter = core::slice::Iter<'a, Entry<M, C>>;
+	type Item = &'a Entry<M, C>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
 
-impl<C, M> IntoIterator for Object<C, M> {
-	type IntoIter = std::vec::IntoIter<Entry<C, M>>;
-	type Item = Entry<C, M>;
+impl<M, C> IntoIterator for Object<M, C> {
+	type IntoIter = std::vec::IntoIter<Entry<M, C>>;
+	type Item = Entry<M, C>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.entries.into_iter()
@@ -224,24 +224,24 @@ impl<C, M> IntoIterator for Object<C, M> {
 	StrippedHash,
 )]
 #[stripped_ignore(M)]
-pub struct Entry<C, M> {
+pub struct Entry<M, C> {
 	#[stripped_deref]
 	pub key: Meta<Key, M>,
-	pub value: Meta<Value<C, M>, M>,
+	pub value: Meta<Value<M, C>, M>,
 }
 
-impl<C, M> Entry<C, M> {
-	pub fn new(key: Meta<Key, M>, value: Meta<Value<C, M>, M>) -> Self {
+impl<M, C> Entry<M, C> {
+	pub fn new(key: Meta<Key, M>, value: Meta<Value<M, C>, M>) -> Self {
 		Self { key, value }
 	}
 
 	#[allow(clippy::type_complexity)]
-	pub fn as_pair(&self) -> (&Meta<Key, M>, &Meta<Value<C, M>, M>) {
+	pub fn as_pair(&self) -> (&Meta<Key, M>, &Meta<Value<M, C>, M>) {
 		(&self.key, &self.value)
 	}
 
 	#[allow(clippy::type_complexity)]
-	pub fn into_pair(self) -> (Meta<Key, M>, Meta<Value<C, M>, M>) {
+	pub fn into_pair(self) -> (Meta<Key, M>, Meta<Value<M, C>, M>) {
 		(self.key, self.value)
 	}
 
@@ -253,11 +253,11 @@ impl<C, M> Entry<C, M> {
 		self.key
 	}
 
-	pub fn as_value(&self) -> &Meta<Value<C, M>, M> {
+	pub fn as_value(&self) -> &Meta<Value<M, C>, M> {
 		&self.value
 	}
 
-	pub fn into_value(self) -> Meta<Value<C, M>, M> {
+	pub fn into_value(self) -> Meta<Value<M, C>, M> {
 		self.value
 	}
 }
@@ -277,13 +277,13 @@ impl<C, M> Entry<C, M> {
 	StrippedHash,
 )]
 #[stripped_ignore(M)]
-pub struct ContextEntry<C, M> {
+pub struct ContextEntry<M, C> {
 	#[stripped_ignore]
 	pub key_metadata: M,
 	pub value: Meta<C, M>,
 }
 
-impl<C, M> ContextEntry<C, M> {
+impl<M, C> ContextEntry<M, C> {
 	pub fn new(key_metadata: M, value: Meta<C, M>) -> Self {
 		Self {
 			key_metadata,
@@ -296,13 +296,13 @@ impl<C, M> ContextEntry<C, M> {
 	}
 }
 
-pub struct EntriesWithContext<'a, C, M> {
-	context: Option<&'a ContextEntry<C, M>>,
-	entries: core::slice::Iter<'a, Entry<C, M>>,
+pub struct EntriesWithContext<'a, M, C> {
+	context: Option<&'a ContextEntry<M, C>>,
+	entries: core::slice::Iter<'a, Entry<M, C>>,
 }
 
-impl<'a, C, M> Iterator for EntriesWithContext<'a, C, M> {
-	type Item = AnyEntryRef<'a, C, M>;
+impl<'a, M, C> Iterator for EntriesWithContext<'a, M, C> {
+	type Item = AnyEntryRef<'a, M, C>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let len = self.entries.len() + if self.context.is_some() { 1 } else { 0 };
@@ -317,9 +317,9 @@ impl<'a, C, M> Iterator for EntriesWithContext<'a, C, M> {
 	}
 }
 
-impl<'a, C, M> ExactSizeIterator for EntriesWithContext<'a, C, M> {}
+impl<'a, M, C> ExactSizeIterator for EntriesWithContext<'a, M, C> {}
 
-impl<'a, C, M> DoubleEndedIterator for EntriesWithContext<'a, C, M> {
+impl<'a, M, C> DoubleEndedIterator for EntriesWithContext<'a, M, C> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		match self.entries.next_back() {
 			Some(e) => Some(AnyEntryRef::Entry(e)),
@@ -328,12 +328,12 @@ impl<'a, C, M> DoubleEndedIterator for EntriesWithContext<'a, C, M> {
 	}
 }
 
-pub enum AnyEntryRef<'a, C, M> {
-	Context(&'a ContextEntry<C, M>),
-	Entry(&'a Entry<C, M>),
+pub enum AnyEntryRef<'a, M, C> {
+	Context(&'a ContextEntry<M, C>),
+	Entry(&'a Entry<M, C>),
 }
 
-impl<'a, C, M> AnyEntryRef<'a, C, M> {
+impl<'a, M, C> AnyEntryRef<'a, M, C> {
 	pub fn key(&self) -> Meta<AnyKeyRef<'a>, &'a M> {
 		match self {
 			Self::Context(e) => Meta(AnyKeyRef::Context, &e.key_metadata),
@@ -341,7 +341,7 @@ impl<'a, C, M> AnyEntryRef<'a, C, M> {
 		}
 	}
 
-	pub fn value(&self) -> Meta<AnyValueRef<'a, C, M>, &'a M> {
+	pub fn value(&self) -> Meta<AnyValueRef<'a, M, C>, &'a M> {
 		match self {
 			Self::Context(e) => Meta(AnyValueRef::Context(&e.value), &e.key_metadata),
 			Self::Entry(e) => Meta(AnyValueRef::Value(e.value.value()), e.value.metadata()),
@@ -371,9 +371,9 @@ impl<'a> AnyKeyRef<'a> {
 	}
 }
 
-pub enum AnyValueRef<'a, C, M> {
+pub enum AnyValueRef<'a, M, C> {
 	Context(&'a C),
-	Value(&'a Value<C, M>),
+	Value(&'a Value<M, C>),
 }
 
 /// Object.
@@ -382,16 +382,16 @@ pub enum AnyValueRef<'a, C, M> {
 )]
 #[derivative(Default(bound = ""))]
 #[stripped_ignore(M)]
-pub struct Entries<C, M> {
+pub struct Entries<M, C> {
 	/// The entries of the object, in order.
-	entries: Vec<Entry<C, M>>,
+	entries: Vec<Entry<M, C>>,
 
 	/// Maps each key to
 	#[stripped_ignore]
 	indexes: IndexMap,
 }
 
-impl<C, M> Entries<C, M> {
+impl<M, C> Entries<M, C> {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -414,17 +414,17 @@ impl<C, M> Entries<C, M> {
 	/// Returns an iterator over the entries matching the given key.
 	///
 	/// Runs in `O(1)` (average).
-	pub fn get<Q: ?Sized + Hash + Equivalent<Key>>(&self, key: &Q) -> Option<&Entry<C, M>> {
+	pub fn get<Q: ?Sized + Hash + Equivalent<Key>>(&self, key: &Q) -> Option<&Entry<M, C>> {
 		self.indexes
-			.get::<C, M, Q>(&self.entries, key)
+			.get::<M, C, Q>(&self.entries, key)
 			.map(|i| &self.entries[i])
 	}
 
-	pub fn as_slice(&self) -> &[Entry<C, M>] {
+	pub fn as_slice(&self) -> &[Entry<M, C>] {
 		&self.entries
 	}
 
-	pub fn iter(&self) -> core::slice::Iter<Entry<C, M>> {
+	pub fn iter(&self) -> core::slice::Iter<Entry<M, C>> {
 		self.entries.iter()
 	}
 
@@ -443,8 +443,8 @@ impl<C, M> Entries<C, M> {
 	pub fn insert(
 		&mut self,
 		key: Meta<Key, M>,
-		value: Meta<Value<C, M>, M>,
-	) -> Option<Entry<C, M>> {
+		value: Meta<Value<M, C>, M>,
+	) -> Option<Entry<M, C>> {
 		match self.index_of(key.value()) {
 			Some(index) => {
 				let mut entry = Entry::new(key, value);
@@ -461,7 +461,7 @@ impl<C, M> Entries<C, M> {
 	}
 
 	/// Removes the entry at the given index.
-	pub fn remove_at(&mut self, index: usize) -> Option<Entry<C, M>> {
+	pub fn remove_at(&mut self, index: usize) -> Option<Entry<M, C>> {
 		if index < self.entries.len() {
 			self.indexes.remove(&self.entries, index);
 			self.indexes.shift(index);
@@ -474,7 +474,7 @@ impl<C, M> Entries<C, M> {
 	/// Remove the entry associated to the given key.
 	///
 	/// Runs in `O(n)` time (average).
-	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<C, M>>
+	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<M, C>>
 	where
 		Q: Hash + Equivalent<Key>,
 	{
@@ -485,33 +485,33 @@ impl<C, M> Entries<C, M> {
 	}
 }
 
-impl<C: PartialEq, M: PartialEq> PartialEq for Entries<C, M> {
+impl<C: PartialEq, M: PartialEq> PartialEq for Entries<M, C> {
 	fn eq(&self, other: &Self) -> bool {
 		self.entries == other.entries
 	}
 }
 
-impl<C: Eq, M: Eq> Eq for Entries<C, M> {}
+impl<C: Eq, M: Eq> Eq for Entries<M, C> {}
 
-impl<C: PartialOrd, M: PartialOrd> PartialOrd for Entries<C, M> {
+impl<C: PartialOrd, M: PartialOrd> PartialOrd for Entries<M, C> {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		self.entries.partial_cmp(&other.entries)
 	}
 }
 
-impl<C: Ord, M: Ord> Ord for Entries<C, M> {
+impl<C: Ord, M: Ord> Ord for Entries<M, C> {
 	fn cmp(&self, other: &Self) -> Ordering {
 		self.entries.cmp(&other.entries)
 	}
 }
 
-impl<C: Hash, M: Hash> Hash for Entries<C, M> {
+impl<C: Hash, M: Hash> Hash for Entries<M, C> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.entries.hash(state)
 	}
 }
 
-impl<C: fmt::Debug, M: fmt::Debug> fmt::Debug for Entries<C, M> {
+impl<C: fmt::Debug, M: fmt::Debug> fmt::Debug for Entries<M, C> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		f.debug_map()
 			.entries(self.entries.iter().map(Entry::as_pair))
@@ -519,18 +519,18 @@ impl<C: fmt::Debug, M: fmt::Debug> fmt::Debug for Entries<C, M> {
 	}
 }
 
-impl<'a, C, M> IntoIterator for &'a Entries<C, M> {
-	type IntoIter = core::slice::Iter<'a, Entry<C, M>>;
-	type Item = &'a Entry<C, M>;
+impl<'a, M, C> IntoIterator for &'a Entries<M, C> {
+	type IntoIter = core::slice::Iter<'a, Entry<M, C>>;
+	type Item = &'a Entry<M, C>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
 
-impl<C, M> IntoIterator for Entries<C, M> {
-	type IntoIter = std::vec::IntoIter<Entry<C, M>>;
-	type Item = Entry<C, M>;
+impl<M, C> IntoIterator for Entries<M, C> {
+	type IntoIter = std::vec::IntoIter<Entry<M, C>>;
+	type Item = Entry<M, C>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.entries.into_iter()

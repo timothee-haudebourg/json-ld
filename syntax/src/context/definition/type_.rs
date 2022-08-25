@@ -78,7 +78,7 @@ impl ContextTypeKey {
 	}
 }
 
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum TypeContainer {
 	Set,
 }
@@ -90,6 +90,14 @@ impl TypeContainer {
 		}
 	}
 }
+
+impl PartialEq for TypeContainer {
+	fn eq(&self, _other: &Self) -> bool {
+		true
+	}
+}
+
+impl Eq for TypeContainer {}
 
 impl Hash for TypeContainer {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

@@ -128,19 +128,28 @@ impl<'a, M: Clone + Send + Sync> From<&'a TermDefinition<M>>
 	}
 }
 
+pub type IdEntryRef<'a, M> = Entry<Nullable<IdRef<'a>>, M>;
+pub type TypeEntryRef<'a, M> = Entry<Nullable<TypeRef<'a>>, M>;
+pub type ReverseEntryRef<'a, M> = Entry<context::definition::KeyRef<'a>, M>;
+pub type IndexEntryRef<'a, M> = Entry<IndexRef<'a>, M>;
+pub type LanguageEntryRef<'a, M> = Entry<Nullable<LenientLanguageTag<'a>>, M>;
+pub type DirectionEntry<M> = Entry<Nullable<Direction>, M>;
+pub type ContainerEntryRef<'a, M> = Entry<Nullable<ContainerRef<'a, M>>, M>;
+pub type NestEntryRef<'a, M> = Entry<NestRef<'a>, M>;
+
 /// Expanded term definition.
 #[derive(Derivative)]
 #[derivative(Default(bound = ""), Clone(bound = ""))]
 pub struct ExpandedRef<'a, C: context::AnyValue> {
-	pub id: Option<Entry<Nullable<IdRef<'a>>, C::Metadata>>,
-	pub type_: Option<Entry<Nullable<TypeRef<'a>>, C::Metadata>>,
+	pub id: Option<IdEntryRef<'a, C::Metadata>>,
+	pub type_: Option<TypeEntryRef<'a, C::Metadata>>,
 	pub context: Option<Entry<&'a C, C::Metadata>>,
-	pub reverse: Option<Entry<context::definition::KeyRef<'a>, C::Metadata>>,
-	pub index: Option<Entry<IndexRef<'a>, C::Metadata>>,
-	pub language: Option<Entry<Nullable<LenientLanguageTag<'a>>, C::Metadata>>,
-	pub direction: Option<Entry<Nullable<Direction>, C::Metadata>>,
-	pub container: Option<Entry<Nullable<ContainerRef<'a, C::Metadata>>, C::Metadata>>,
-	pub nest: Option<Entry<NestRef<'a>, C::Metadata>>,
+	pub reverse: Option<ReverseEntryRef<'a, C::Metadata>>,
+	pub index: Option<IndexEntryRef<'a, C::Metadata>>,
+	pub language: Option<LanguageEntryRef<'a, C::Metadata>>,
+	pub direction: Option<DirectionEntry<C::Metadata>>,
+	pub container: Option<ContainerEntryRef<'a, C::Metadata>>,
+	pub nest: Option<NestEntryRef<'a, C::Metadata>>,
 	pub prefix: Option<Entry<bool, C::Metadata>>,
 	pub propagate: Option<Entry<bool, C::Metadata>>,
 	pub protected: Option<Entry<bool, C::Metadata>>,
@@ -165,7 +174,7 @@ impl<'a, C: context::AnyValue> ExpandedRef<'a, C> {
 	}
 }
 
-impl<'a, C: context::AnyValue> IntoIterator for ExpandedRef<'a, C> {
+impl<'a, C: 'a + context::AnyValue> IntoIterator for ExpandedRef<'a, C> {
 	type Item = EntryRef<'a, C>;
 	type IntoIter = Entries<'a, C>;
 
@@ -244,15 +253,15 @@ impl<'a, M: Clone + Send + Sync> From<&'a Expanded<M>> for ExpandedRef<'a, conte
 }
 
 pub struct Entries<'a, C: context::AnyValue> {
-	id: Option<Entry<Nullable<IdRef<'a>>, C::Metadata>>,
-	type_: Option<Entry<Nullable<TypeRef<'a>>, C::Metadata>>,
+	id: Option<IdEntryRef<'a, C::Metadata>>,
+	type_: Option<TypeEntryRef<'a, C::Metadata>>,
 	context: Option<Entry<&'a C, C::Metadata>>,
-	reverse: Option<Entry<context::definition::KeyRef<'a>, C::Metadata>>,
-	index: Option<Entry<IndexRef<'a>, C::Metadata>>,
-	language: Option<Entry<Nullable<LenientLanguageTag<'a>>, C::Metadata>>,
-	direction: Option<Entry<Nullable<Direction>, C::Metadata>>,
-	container: Option<Entry<Nullable<ContainerRef<'a, C::Metadata>>, C::Metadata>>,
-	nest: Option<Entry<NestRef<'a>, C::Metadata>>,
+	reverse: Option<ReverseEntryRef<'a, C::Metadata>>,
+	index: Option<IndexEntryRef<'a, C::Metadata>>,
+	language: Option<LanguageEntryRef<'a, C::Metadata>>,
+	direction: Option<DirectionEntry<C::Metadata>>,
+	container: Option<ContainerEntryRef<'a, C::Metadata>>,
+	nest: Option<NestEntryRef<'a, C::Metadata>>,
 	prefix: Option<Entry<bool, C::Metadata>>,
 	propagate: Option<Entry<bool, C::Metadata>>,
 	protected: Option<Entry<bool, C::Metadata>>,

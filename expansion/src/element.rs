@@ -10,10 +10,10 @@ use locspan::{At, Meta};
 use mown::Mown;
 use std::{borrow::Cow, hash::Hash};
 
-pub(crate) struct ExpandedEntry<'a, T, B, C, M>(
+pub(crate) struct ExpandedEntry<'a, T, B, M, C>(
 	pub Meta<&'a str, &'a M>,
 	pub Term<T, B>,
-	pub &'a Meta<Value<C, M>, M>,
+	pub &'a Meta<Value<M, C>, M>,
 );
 
 pub(crate) enum ActiveProperty<'a, M> {
@@ -81,7 +81,7 @@ pub(crate) fn expand_element<'a, T, B, N, C: Process<T, B>, L: Loader<T> + Conte
 	namespace: &'a mut N,
 	active_context: &'a Context<T, B, C>,
 	active_property: ActiveProperty<'a, C::Metadata>,
-	Meta(element, meta): &'a Meta<Value<C, C::Metadata>, C::Metadata>,
+	Meta(element, meta): &'a Meta<Value<C::Metadata, C>, C::Metadata>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
 	options: Options,
@@ -93,7 +93,7 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	L: Sync + Send,
-	<L as Loader<T>>::Output: Into<Value<C, C::Metadata>>,
+	<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
 	<L as ContextLoader<T>>::Output: Into<C>,
 	W: 'a + Send + WarningHandler<B, N, C::Metadata>,
 {
@@ -332,7 +332,7 @@ where
 					None
 				};
 
-				let mut expanded_entries: Vec<ExpandedEntry<T, B, C, C::Metadata>> =
+				let mut expanded_entries: Vec<ExpandedEntry<T, B, C::Metadata, C>> =
 					Vec::with_capacity(element.len());
 				let mut list_entry = None;
 				let mut set_entry = None;

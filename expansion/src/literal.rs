@@ -15,7 +15,7 @@ pub(crate) enum GivenLiteralValue<'a> {
 }
 
 impl<'a> GivenLiteralValue<'a> {
-	pub fn new<C, M>(value: &'a json_ld_syntax::Value<C, M>) -> Self {
+	pub fn new<M, C>(value: &'a json_ld_syntax::Value<M, C>) -> Self {
 		match value {
 			json_ld_syntax::Value::Boolean(b) => Self::Boolean(*b),
 			json_ld_syntax::Value::Number(n) => Self::Number(n),

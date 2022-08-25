@@ -68,7 +68,7 @@ pub trait Expand<T, B, C: Process<T, B>> {
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: Send + Sync,
 		L: Send + Sync,
-		<L as Loader<T>>::Output: Into<Value<C, C::Metadata>>,
+		<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
 		<L as ContextLoader<T>>::Output: Into<C>;
 
 	fn expand_in<'a, L: Loader<T> + ContextLoader<T>>(
@@ -82,7 +82,7 @@ pub trait Expand<T, B, C: Process<T, B>> {
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: Send + Sync,
 		L: Send + Sync,
-		<L as Loader<T>>::Output: Into<Value<C, C::Metadata>>,
+		<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
 		<L as ContextLoader<T>>::Output: Into<C>,
 	{
 		self.expand_full(
@@ -105,7 +105,7 @@ pub trait Expand<T, B, C: Process<T, B>> {
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: Send + Sync,
 		L: Send + Sync,
-		<L as Loader<T>>::Output: Into<Value<C, C::Metadata>>,
+		<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
 		<L as ContextLoader<T>>::Output: Into<C>,
 		(): NamespaceMut<T, B>,
 	{
@@ -121,7 +121,7 @@ pub trait Expand<T, B, C: Process<T, B>> {
 	}
 }
 
-impl<T, B, C: Process<T, B>> Expand<T, B, C> for Meta<Value<C, C::Metadata>, C::Metadata> {
+impl<T, B, C: Process<T, B>> Expand<T, B, C> for Meta<Value<C::Metadata, C>, C::Metadata> {
 	fn expand_full<'a, N, L: Loader<T> + ContextLoader<T>>(
 		&'a self,
 		namespace: &'a mut N,
@@ -137,7 +137,7 @@ impl<T, B, C: Process<T, B>> Expand<T, B, C> for Meta<Value<C, C::Metadata>, C::
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: Send + Sync,
 		L: Send + Sync,
-		<L as Loader<T>>::Output: Into<Value<C, C::Metadata>>,
+		<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
 		<L as ContextLoader<T>>::Output: Into<C>,
 	{
 		async move {

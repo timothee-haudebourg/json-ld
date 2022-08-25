@@ -118,11 +118,11 @@ impl LangString {
 		}
 	}
 
-	pub(crate) fn try_from_json<C, M>(
-		object: json_ld_syntax::Object<C, M>,
-		value: Meta<json_ld_syntax::Value<C, M>, M>,
-		language: Option<Meta<json_ld_syntax::Value<C, M>, M>>,
-		direction: Option<Meta<json_ld_syntax::Value<C, M>, M>>,
+	pub(crate) fn try_from_json<M, C>(
+		object: json_ld_syntax::Object<M, C>,
+		value: Meta<json_ld_syntax::Value<M, C>, M>,
+		language: Option<Meta<json_ld_syntax::Value<M, C>, M>>,
+		direction: Option<Meta<json_ld_syntax::Value<M, C>, M>>,
 	) -> Result<Self, Meta<InvalidExpandedJson, M>> {
 		let data = match value {
 			Meta(json_ld_syntax::Value::String(s), _) => s.into(),

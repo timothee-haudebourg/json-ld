@@ -178,7 +178,7 @@ pub enum EntryValueSubItems<'a, C: AnyValue> {
 	TermDefinitionFragment(term_definition::Entries<'a, C>),
 }
 
-impl<'a, C: AnyValue> Iterator for EntryValueSubItems<'a, C> {
+impl<'a, C: 'a + AnyValue> Iterator for EntryValueSubItems<'a, C> {
 	type Item = FragmentRef<'a, C>;
 
 	fn next(&mut self) -> Option<Self::Item> {

@@ -1,6 +1,6 @@
 use crate::{
-	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Indexed, Node, Object,
-	Reference, StrippedIndexedNode, StrippedIndexedObject,
+	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Indexed, IndexedNode,
+	IndexedObject, Node, Object, Reference, StrippedIndexedNode, StrippedIndexedObject,
 };
 use locspan::Meta;
 use smallvec::SmallVec;
@@ -28,24 +28,28 @@ pub enum ObjectRef<'a, T, B, M> {
 	Ref(&'a Reference<T, B>),
 }
 
-impl<T, B, M> ExpandedDocument<T, B, M> {
-	pub fn quads(&self) -> Quads<T, B, M> {
+pub trait LdQuads<T, B, M> {
+	fn quads(&self) -> Quads<T, B, M>;
+}
+
+impl<T, B, M> LdQuads<T, B, M> for ExpandedDocument<T, B, M> {
+	fn quads(&self) -> Quads<T, B, M> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedObjectSet(None, self.iter()));
 		Quads { stack }
 	}
 }
 
-impl<T, B, M> FlattenedDocument<T, B, M> {
-	pub fn quads(&self) -> Quads<T, B, M> {
+impl<T, B, M> LdQuads<T, B, M> for FlattenedDocument<T, B, M> {
+	fn quads(&self) -> Quads<T, B, M> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedNodeSlice(None, self.iter()));
 		Quads { stack }
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> NodeMap<T, B, M> {
-	pub fn quads(&self) -> Quads<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash, M> LdQuads<T, B, M> for NodeMap<T, B, M> {
+	fn quads(&self) -> Quads<T, B, M> {
 		let mut stack = SmallVec::new();
 
 		for (id, graph) in self {
@@ -77,11 +81,11 @@ enum QuadsFrame<'a, T, B, M> {
 	),
 	IndexedObjectSlice(
 		Option<Meta<&'a Reference<T, B>, &'a M>>,
-		std::slice::Iter<'a, Meta<Indexed<Object<T, B, M>>, M>>,
+		std::slice::Iter<'a, IndexedObject<T, B, M>>,
 	),
 	IndexedNodeSlice(
 		Option<Meta<&'a Reference<T, B>, &'a M>>,
-		std::slice::Iter<'a, Meta<Indexed<Node<T, B, M>>, M>>,
+		std::slice::Iter<'a, IndexedNode<T, B, M>>,
 	),
 	NodeTypes(
 		Option<Meta<&'a Reference<T, B>, &'a M>>,

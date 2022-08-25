@@ -4,7 +4,7 @@ use std::hash::Hash;
 /// Version number.
 ///
 /// The only allowed value is a number with the value `1.1`.
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum Version {
 	V1_1,
 }
@@ -30,6 +30,14 @@ impl Version {
 		unsafe { json_syntax::NumberBuf::new_unchecked(self.into_bytes().into()) }
 	}
 }
+
+impl PartialEq for Version {
+	fn eq(&self, _other: &Self) -> bool {
+		true
+	}
+}
+
+impl Eq for Version {}
 
 impl Hash for Version {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

@@ -48,7 +48,7 @@ impl<'a> Print for Nullable<IriRef<'a>> {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<bool> {
+impl PrecomputeSize for Nullable<bool> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -57,7 +57,7 @@ impl<'a> PrecomputeSize for Nullable<bool> {
 	}
 }
 
-impl<'a> Print for Nullable<bool> {
+impl Print for Nullable<bool> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -93,7 +93,7 @@ impl PrecomputeSize for Nullable<crate::Direction> {
 	}
 }
 
-impl<'a> Print for Nullable<crate::Direction> {
+impl Print for Nullable<crate::Direction> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -103,7 +103,7 @@ impl<'a> Print for Nullable<crate::Direction> {
 }
 
 impl<C: context::AnyValue<Metadata = M> + PrecomputeSize + PrintWithSize, M> Print
-	for crate::Value<C, M>
+	for crate::Value<M, C>
 {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		match self {
@@ -127,7 +127,7 @@ impl<C: context::AnyValue<Metadata = M> + PrecomputeSize + PrintWithSize, M> Pri
 	}
 }
 
-impl<C: PrecomputeSize, M> PrecomputeSize for crate::Value<C, M> {
+impl<C: PrecomputeSize, M> PrecomputeSize for crate::Value<M, C> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			crate::Value::Null => Size::Width(4),
@@ -146,7 +146,7 @@ impl<C: PrecomputeSize, M> PrecomputeSize for crate::Value<C, M> {
 	}
 }
 
-impl<C: PrintWithSize, M> PrintWithSize for crate::Value<C, M> {
+impl<C: PrintWithSize, M> PrintWithSize for crate::Value<M, C> {
 	#[inline(always)]
 	fn fmt_with_size(
 		&self,
@@ -167,7 +167,7 @@ impl<C: PrintWithSize, M> PrintWithSize for crate::Value<C, M> {
 	}
 }
 
-impl<C: PrintWithSize, M> PrintWithSize for crate::Object<C, M> {
+impl<C: PrintWithSize, M> PrintWithSize for crate::Object<M, C> {
 	#[inline(always)]
 	fn fmt_with_size(
 		&self,
@@ -189,7 +189,7 @@ impl<C: PrintWithSize, M> PrintWithSize for crate::Object<C, M> {
 	}
 }
 
-impl<'a, C: PrecomputeSize, M> PrecomputeSize for crate::object::AnyValueRef<'a, C, M> {
+impl<'a, C: PrecomputeSize, M> PrecomputeSize for crate::object::AnyValueRef<'a, M, C> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Context(c) => c.pre_compute_size(options, sizes),
@@ -198,7 +198,7 @@ impl<'a, C: PrecomputeSize, M> PrecomputeSize for crate::object::AnyValueRef<'a,
 	}
 }
 
-impl<'a, C: PrintWithSize, M> PrintWithSize for crate::object::AnyValueRef<'a, C, M> {
+impl<'a, C: PrintWithSize, M> PrintWithSize for crate::object::AnyValueRef<'a, M, C> {
 	#[inline(always)]
 	fn fmt_with_size(
 		&self,

@@ -46,6 +46,7 @@ impl From<json_syntax::object::Key> for Key {
 	}
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Key {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)
@@ -159,6 +160,7 @@ impl KeyOrKeyword {
 	}
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl Hash for KeyOrKeyword {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)

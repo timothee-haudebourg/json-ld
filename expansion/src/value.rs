@@ -40,8 +40,8 @@ pub(crate) fn expand_value<'e, T, B, N, C: context::AnyValue + IntoJson<C::Metad
 	namespace: &mut N,
 	input_type: Option<Meta<Term<T, B>, C::Metadata>>,
 	type_scoped_context: &Context<T, B, C>,
-	expanded_entries: Vec<ExpandedEntry<'e, T, B, C, C::Metadata>>,
-	Meta(value_entry, meta): &Meta<json_ld_syntax::Value<C, C::Metadata>, C::Metadata>,
+	expanded_entries: Vec<ExpandedEntry<'e, T, B, C::Metadata, C>>,
+	Meta(value_entry, meta): &Meta<json_ld_syntax::Value<C::Metadata, C>, C::Metadata>,
 	mut warnings: W,
 ) -> Result<ExpandedValue<T, B, C::Metadata, W>, Meta<ValueExpansionError, C::Metadata>>
 where

@@ -37,7 +37,7 @@ pub(crate) async fn expand_node<'a, T, B, N, C: Process<T, B>, L: Loader<T> + Co
 	active_context: &'a Context<T, B, C>,
 	type_scoped_context: &'a Context<T, B, C>,
 	active_property: ActiveProperty<'a, C::Metadata>,
-	expanded_entries: Vec<ExpandedEntry<'a, T, B, C, C::Metadata>>,
+	expanded_entries: Vec<ExpandedEntry<'a, T, B, C::Metadata, C>>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
 	options: Options,
@@ -48,7 +48,7 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	L: Sync + Send,
-	<L as Loader<T>>::Output: Into<json_ld_syntax::Value<C, C::Metadata>>,
+	<L as Loader<T>>::Output: Into<json_ld_syntax::Value<C::Metadata, C>>,
 	<L as ContextLoader<T>>::Output: Into<C>,
 	W: 'a + Send + WarningHandler<B, N, C::Metadata>,
 {
@@ -122,7 +122,7 @@ fn expand_node_entries<'a, T, B, N, C: Process<T, B>, L: Loader<T> + ContextLoad
 	active_context: &'a Context<T, B, C>,
 	type_scoped_context: &'a Context<T, B, C>,
 	active_property: ActiveProperty<'a, C::Metadata>,
-	expanded_entries: Vec<ExpandedEntry<'a, T, B, C, C::Metadata>>,
+	expanded_entries: Vec<ExpandedEntry<'a, T, B, C::Metadata, C>>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
 	options: Options,
@@ -133,7 +133,7 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	L: Sync + Send,
-	<L as Loader<T>>::Output: Into<json_ld_syntax::Value<C, C::Metadata>>,
+	<L as Loader<T>>::Output: Into<json_ld_syntax::Value<C::Metadata, C>>,
 	<L as ContextLoader<T>>::Output: Into<C>,
 	W: 'a + Send + WarningHandler<B, N, C::Metadata>,
 {
@@ -338,7 +338,7 @@ where
 							// If value is not a map, an invalid @reverse value error
 							// has been detected and processing is aborted.
 							if let Some(value) = value.as_object() {
-								let mut reverse_entries: Vec<&Entry<C, C::Metadata>> =
+								let mut reverse_entries: Vec<&Entry<C::Metadata, C>> =
 									value.iter().collect();
 
 								if options.ordered {
@@ -493,7 +493,7 @@ where
 
 								// Steps 13 and 14 again.
 								if let Some(nested_value) = nested_value.as_object() {
-									let mut nested_entries: Vec<&Entry<C, C::Metadata>> =
+									let mut nested_entries: Vec<&Entry<C::Metadata, C>> =
 										Vec::new();
 
 									for entry in nested_value.iter() {
@@ -621,7 +621,7 @@ where
 
 								// For each key-value pair language-language value in
 								// value, ordered lexicographically by language if ordered is true:
-								let mut language_entries: Vec<&Entry<C, C::Metadata>> =
+								let mut language_entries: Vec<&Entry<C::Metadata, C>> =
 									Vec::with_capacity(value.len());
 								for language_entry in value.iter() {
 									language_entries.push(language_entry);
@@ -760,7 +760,7 @@ where
 
 								// For each key-value pair index-index value in value,
 								// ordered lexicographically by index if ordered is true:
-								let mut entries: Vec<&Entry<C, C::Metadata>> =
+								let mut entries: Vec<&Entry<C::Metadata, C>> =
 									Vec::with_capacity(value.len());
 								for entry in value.iter() {
 									entries.push(entry)

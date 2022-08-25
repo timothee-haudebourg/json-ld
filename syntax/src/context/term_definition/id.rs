@@ -5,7 +5,7 @@ use rdf_types::BlankId;
 use std::fmt;
 use std::hash::Hash;
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum Id {
 	Term(#[stripped] String),
 	Keyword(#[stripped] Keyword),
@@ -47,6 +47,18 @@ impl Id {
 		}
 	}
 }
+
+impl PartialEq for Id {
+	fn eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Self::Term(a), Self::Term(b)) => a == b,
+			(Self::Keyword(a), Self::Keyword(b)) => a == b,
+			_ => false,
+		}
+	}
+}
+
+impl Eq for Id {}
 
 impl Hash for Id {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -100,7 +112,7 @@ impl<'a> IdRef<'a> {
 
 	pub fn as_str(&self) -> &'a str {
 		match self {
-			Self::Term(t) => *t,
+			Self::Term(t) => t,
 			Self::Keyword(k) => k.into_str(),
 		}
 	}
@@ -135,7 +147,7 @@ impl<'a> From<IdRef<'a>> for context::definition::KeyOrKeywordRef<'a> {
 impl<'a> From<IdRef<'a>> for ExpandableRef<'a> {
 	fn from(i: IdRef<'a>) -> Self {
 		match i {
-			IdRef::Term(t) => Self::String(t.into()),
+			IdRef::Term(t) => Self::String(t),
 			IdRef::Keyword(k) => Self::Keyword(k),
 		}
 	}

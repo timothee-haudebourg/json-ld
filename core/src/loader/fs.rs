@@ -37,6 +37,9 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 	}
 }
 
+type DynParser<I, T, M, E> =
+	dyn 'static + Send + Sync + FnMut(&dyn IriNamespace<I>, &I, &str) -> Result<Meta<T, M>, E>;
+
 /// File-system loader.
 ///
 /// This is a special JSON-LD document loader that can load document from the file system by
@@ -44,17 +47,15 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 pub struct FsLoader<
 	I = Index,
 	T = json_ld_syntax::Value<
-		json_ld_syntax::context::Value<locspan::Location<I>>,
 		locspan::Location<I>,
+		json_ld_syntax::context::Value<locspan::Location<I>>,
 	>,
 	M = locspan::Location<I>,
-	E = Meta<json_ld_syntax::Error<I>, locspan::Location<I>>,
+	E = json_ld_syntax::MetaError<locspan::Location<I>>,
 > {
 	mount_points: HashMap<PathBuf, I>,
 	cache: HashMap<I, Meta<T, M>>,
-	parser: Box<
-		dyn 'static + Send + Sync + FnMut(&dyn IriNamespace<I>, &I, &str) -> Result<Meta<T, M>, E>,
-	>,
+	parser: Box<DynParser<I, T, M, E>>,
 }
 
 impl<I, T, M, E> FsLoader<I, T, M, E> {
@@ -138,11 +139,11 @@ impl<I: Clone> Default
 	for FsLoader<
 		I,
 		json_ld_syntax::Value<
-			json_ld_syntax::context::Value<locspan::Location<I>>,
 			locspan::Location<I>,
+			json_ld_syntax::context::Value<locspan::Location<I>>,
 		>,
 		locspan::Location<I>,
-		Meta<json_ld_syntax::Error<I>, locspan::Location<I>>,
+		json_ld_syntax::MetaError<locspan::Location<I>>,
 	>
 {
 	fn default() -> Self {

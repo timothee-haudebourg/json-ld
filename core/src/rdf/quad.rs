@@ -1,7 +1,7 @@
 use super::{RdfDirection, ValidReference, Value};
 use crate::namespace::no_namespace_mut;
 use crate::IriNamespaceMut;
-use crate::{flattening::NodeMap, id, ExpandedDocument, FlattenedDocument};
+use crate::{flattening::NodeMap, id, ExpandedDocument, FlattenedDocument, LdQuads};
 use rdf_types::Triple;
 use std::borrow::Cow;
 use std::convert::TryInto;
@@ -104,8 +104,23 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriNamespaceMut<T>, M, G: id::Generator<
 	}
 }
 
-impl<T, B, M> ExpandedDocument<T, B, M> {
-	pub fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+pub trait RdfQuads<T, B, M> {
+	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+		&self,
+		namespace: &'n mut N,
+		generator: &'g mut G,
+		rdf_direction: Option<RdfDirection>,
+	) -> Quads<'_, 'n, 'g, T, B, N, M, G>;
+
+	fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
+		&self,
+		generator: &'g mut G,
+		rdf_direction: Option<RdfDirection>,
+	) -> Quads<'_, 'static, 'g, T, B, (), M, G>;
+}
+
+impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
+	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
 		namespace: &'n mut N,
 		generator: &'g mut G,
@@ -120,7 +135,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		}
 	}
 
-	pub fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
+	fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
@@ -135,8 +150,8 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 }
 
-impl<T, B, M> FlattenedDocument<T, B, M> {
-	pub fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
+	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
 		namespace: &'n mut N,
 		generator: &'g mut G,
@@ -151,7 +166,7 @@ impl<T, B, M> FlattenedDocument<T, B, M> {
 		}
 	}
 
-	pub fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
+	fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
@@ -166,8 +181,8 @@ impl<T, B, M> FlattenedDocument<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> NodeMap<T, B, M> {
-	pub fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+impl<T: Eq + Hash, B: Eq + Hash, M> RdfQuads<T, B, M> for NodeMap<T, B, M> {
+	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
 		namespace: &'n mut N,
 		generator: &'g mut G,
@@ -182,7 +197,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMap<T, B, M> {
 		}
 	}
 
-	pub fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
+	fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,

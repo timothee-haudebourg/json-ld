@@ -1,5 +1,7 @@
 use super::Environment;
-use crate::{id, object, ExpandedDocument, Indexed, Node, Object, Reference};
+use crate::{
+	id, object, ExpandedDocument, Indexed, IndexedNode, IndexedObject, Node, Object, Reference,
+};
 use derivative::Derivative;
 use json_ld_syntax::Entry;
 use locspan::{Meta, Stripped};
@@ -192,7 +194,7 @@ impl<T, B, M> IntoIterator for NodeMap<T, B, M> {
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct NodeMapGraph<T, B, M> {
-	nodes: HashMap<Reference<T, B>, Meta<Indexed<Node<T, B, M>>, M>>,
+	nodes: HashMap<Reference<T, B>, IndexedNode<T, B, M>>,
 }
 
 impl<T, B, M> NodeMapGraph<T, B, M> {
@@ -203,19 +205,19 @@ impl<T, B, M> NodeMapGraph<T, B, M> {
 	}
 }
 
+pub type DeclareNodeResult<'a, T, B, M> =
+	Result<&'a mut Indexed<Node<T, B, M>>, ConflictingIndexes<T, B, M>>;
+
 impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 	pub fn contains(&self, id: &Reference<T, B>) -> bool {
 		self.nodes.contains_key(id)
 	}
 
-	pub fn get(&self, id: &Reference<T, B>) -> Option<&Meta<Indexed<Node<T, B, M>>, M>> {
+	pub fn get(&self, id: &Reference<T, B>) -> Option<&IndexedNode<T, B, M>> {
 		self.nodes.get(id)
 	}
 
-	pub fn get_mut(
-		&mut self,
-		id: &Reference<T, B>,
-	) -> Option<&mut Meta<Indexed<Node<T, B, M>>, M>> {
+	pub fn get_mut(&mut self, id: &Reference<T, B>) -> Option<&mut IndexedNode<T, B, M>> {
 		self.nodes.get_mut(id)
 	}
 
@@ -223,7 +225,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 		&mut self,
 		id: Meta<Reference<T, B>, M>,
 		index: Option<&str>,
-	) -> Result<&mut Indexed<Node<T, B, M>>, ConflictingIndexes<T, B, M>>
+	) -> DeclareNodeResult<T, B, M>
 	where
 		T: Clone,
 		B: Clone,
@@ -391,7 +393,7 @@ fn extend_node_map<
 	node_map: &mut NodeMap<T, B, M>,
 	Meta(element, meta): &Meta<Indexed<Object<T, B, M>>, M>,
 	active_graph: Option<&Reference<T, B>>,
-) -> Result<Meta<Indexed<Object<T, B, M>>, M>, ConflictingIndexes<T, B, M>> {
+) -> Result<IndexedObject<T, B, M>, ConflictingIndexes<T, B, M>> {
 	match element.inner() {
 		Object::Value(value) => {
 			let flat_value = value.clone();
@@ -429,6 +431,9 @@ fn extend_node_map<
 	}
 }
 
+type ExtendNodeMapFromNodeResult<T, B, M> =
+	Result<Indexed<Node<T, B, M>>, ConflictingIndexes<T, B, M>>;
+
 fn extend_node_map_from_node<
 	T: Clone + Eq + Hash,
 	B: Clone + Eq + Hash,
@@ -441,7 +446,7 @@ fn extend_node_map_from_node<
 	node: &Node<T, B, M>,
 	index: Option<&str>,
 	active_graph: Option<&Reference<T, B>>,
-) -> Result<Indexed<Node<T, B, M>>, ConflictingIndexes<T, B, M>> {
+) -> ExtendNodeMapFromNodeResult<T, B, M> {
 	let id = env.assign_node_id(node.id_entry().map(Entry::as_value));
 
 	{

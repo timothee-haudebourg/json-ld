@@ -29,10 +29,10 @@ pub enum Reference<I = IriBuf, B = BlankIdBuf> {
 	Invalid(#[stripped] String),
 }
 
-impl<I, B, C, M> TryFromJson<I, B, C, M> for Reference<I, B> {
+impl<I, B, M, C> TryFromJson<I, B, M, C> for Reference<I, B> {
 	fn try_from_json_in(
 		namespace: &mut impl NamespaceMut<I, B>,
-		Meta(value, meta): locspan::Meta<json_ld_syntax::Value<C, M>, M>,
+		Meta(value, meta): locspan::Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, locspan::Meta<InvalidExpandedJson, M>> {
 		match value {
 			json_ld_syntax::Value::String(s) => match Iri::new(s.as_str()) {

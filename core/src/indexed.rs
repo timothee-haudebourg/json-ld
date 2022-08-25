@@ -90,10 +90,10 @@ impl<T> Indexed<T> {
 	}
 }
 
-impl<T, B, C, M, O: TryFromJsonObject<T, B, C, M>> TryFromJson<T, B, C, M> for Indexed<O> {
+impl<T, B, M, C, O: TryFromJsonObject<T, B, M, C>> TryFromJson<T, B, M, C> for Indexed<O> {
 	fn try_from_json_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		match value {
 			json_ld_syntax::Value::Object(object) => {
@@ -104,10 +104,10 @@ impl<T, B, C, M, O: TryFromJsonObject<T, B, C, M>> TryFromJson<T, B, C, M> for I
 	}
 }
 
-impl<T, B, C, M, O: TryFromJsonObject<T, B, C, M>> TryFromJsonObject<T, B, C, M> for Indexed<O> {
+impl<T, B, M, C, O: TryFromJsonObject<T, B, M, C>> TryFromJsonObject<T, B, M, C> for Indexed<O> {
 	fn try_from_json_object_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(mut object, meta): Meta<json_ld_syntax::Object<C, M>, M>,
+		Meta(mut object, meta): Meta<json_ld_syntax::Object<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		let index = match object.remove("@index") {
 			Some(index_entry) => match index_entry.value {

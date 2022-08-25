@@ -39,9 +39,12 @@ pub use namespace::{
 	IndexNamespace, IriNamespace, IriNamespaceMut, Namespace, NamespaceMut,
 };
 pub use object::{
-	Node, Nodes, Object, Objects, StrippedIndexedNode, StrippedIndexedObject, TryFromJson, Value,
+	IndexedNode, IndexedObject, Node, Nodes, Object, Objects, StrippedIndexedNode,
+	StrippedIndexedObject, TryFromJson, Value,
 };
 pub use print::Print;
+pub use quad::LdQuads;
+pub use rdf::RdfQuads;
 pub use reference::*;
 pub use term::*;
 pub use ty::*;

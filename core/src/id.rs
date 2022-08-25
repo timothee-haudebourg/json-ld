@@ -317,3 +317,13 @@ pub mod generator {
 		}
 	}
 }
+
+pub trait IdentifyAll<T, B, M> {
+	fn identify_all_in<N, G: Generator<T, B, M, N>>(&mut self, namespace: &mut N, generator: G)
+	where
+		M: Clone;
+
+	fn identify_all<G: Generator<T, B, M, ()>>(&mut self, generator: G)
+	where
+		M: Clone;
+}

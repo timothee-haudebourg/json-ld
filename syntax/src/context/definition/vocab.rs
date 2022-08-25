@@ -51,6 +51,6 @@ impl<'a> From<&'a Vocab> for VocabRef<'a> {
 
 impl<'a> From<VocabRef<'a>> for ExpandableRef<'a> {
 	fn from(v: VocabRef<'a>) -> Self {
-		ExpandableRef::String(&v.0)
+		ExpandableRef::String(v.0)
 	}
 }

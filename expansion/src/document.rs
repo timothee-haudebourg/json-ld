@@ -13,7 +13,7 @@ use std::hash::Hash;
 /// a `Value` instance.
 pub(crate) async fn expand<'a, T, B, N, C: Process<T, B>, L: Loader<T> + ContextLoader<T>, W>(
 	namespace: &'a mut N,
-	document: &'a Meta<Value<C, C::Metadata>, C::Metadata>,
+	document: &'a Meta<Value<C::Metadata, C>, C::Metadata>,
 	active_context: Context<T, B, C>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
@@ -26,7 +26,7 @@ where
 	B: Clone + Eq + Hash + Send + Sync,
 	C: Send + Sync,
 	L: Send + Sync,
-	<L as Loader<T>>::Output: Into<Value<C, C::Metadata>>,
+	<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
 	<L as ContextLoader<T>>::Output: Into<C>,
 	W: 'a + Send + WarningHandler<B, N, C::Metadata>,
 {

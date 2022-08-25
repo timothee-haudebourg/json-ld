@@ -1,5 +1,7 @@
-use crate::{id, object::value, Direction, Indexed, Node, Object, Reference, ValidReference};
-use crate::{DisplayWithNamespace, IriNamespace, IriNamespaceMut, Namespace};
+use crate::{
+	id, object::value, Direction, DisplayWithNamespace, Indexed, IndexedObject, IriNamespace,
+	IriNamespaceMut, Namespace, Node, Object, Reference, ValidReference,
+};
 use iref::{AsIri, Iri, IriBuf};
 use json_ld_syntax::Entry;
 use json_syntax::Print;
@@ -313,7 +315,7 @@ enum ListItemTriples<'a, T, B, M> {
 struct NestedListTriples<'a, T, B, M> {
 	head_ref: Option<ValidReference<T, B>>,
 	previous: Option<ValidReference<T, B>>,
-	iter: std::slice::Iter<'a, Meta<Indexed<Object<T, B, M>>, M>>,
+	iter: std::slice::Iter<'a, IndexedObject<T, B, M>>,
 }
 
 struct ListNode<'a, 'i, T, B, M> {
@@ -322,7 +324,7 @@ struct ListNode<'a, 'i, T, B, M> {
 }
 
 impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
-	fn new(list: &'a [Meta<Indexed<Object<T, B, M>>, M>], head_ref: ValidReference<T, B>) -> Self {
+	fn new(list: &'a [IndexedObject<T, B, M>], head_ref: ValidReference<T, B>) -> Self {
 		Self {
 			head_ref: Some(head_ref),
 			previous: None,
@@ -430,10 +432,7 @@ pub struct ListTriples<'a, T, B, M> {
 }
 
 impl<'a, T, B, M> ListTriples<'a, T, B, M> {
-	pub fn new(
-		list: &'a [Meta<Indexed<Object<T, B, M>>, M>],
-		head_ref: ValidReference<T, B>,
-	) -> Self {
+	pub fn new(list: &'a [IndexedObject<T, B, M>], head_ref: ValidReference<T, B>) -> Self {
 		let mut stack = SmallVec::new();
 		stack.push(ListItemTriples::NestedList(NestedListTriples::new(
 			list, head_ref,

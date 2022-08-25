@@ -3,7 +3,7 @@ use iref::Iri;
 use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum Type {
 	Term(#[stripped] String),
 	Keyword(#[stripped] TypeKeyword),
@@ -46,6 +46,18 @@ impl Type {
 	}
 }
 
+impl PartialEq for Type {
+	fn eq(&self, other: &Self) -> bool {
+		match (self, other) {
+			(Self::Term(a), Self::Term(b)) => a == b,
+			(Self::Keyword(a), Self::Keyword(b)) => a == b,
+			_ => false,
+		}
+	}
+}
+
+impl Eq for Type {}
+
 impl Hash for Type {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)
@@ -63,13 +75,27 @@ impl From<String> for Type {
 
 /// Subset of keyword acceptable for as value for the `@type` entry
 /// of an expanded term definition.
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum TypeKeyword {
 	Id,
 	Json,
 	None,
 	Vocab,
 }
+
+impl PartialEq for TypeKeyword {
+	fn eq(&self, other: &Self) -> bool {
+		matches!(
+			(self, other),
+			(Self::Id, Self::Id)
+				| (Self::Json, Self::Json)
+				| (Self::None, Self::None)
+				| (Self::Vocab, Self::Vocab)
+		)
+	}
+}
+
+impl Eq for TypeKeyword {}
 
 impl Hash for TypeKeyword {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
@@ -183,7 +209,7 @@ impl<'a> From<TypeRef<'a>> for context::definition::KeyOrKeywordRef<'a> {
 impl<'a> From<TypeRef<'a>> for ExpandableRef<'a> {
 	fn from(d: TypeRef<'a>) -> Self {
 		match d {
-			TypeRef::Term(t) => Self::String(t.into()),
+			TypeRef::Term(t) => Self::String(t),
 			TypeRef::Keyword(k) => Self::Keyword(k.into()),
 		}
 	}

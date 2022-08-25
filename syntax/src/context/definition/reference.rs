@@ -7,6 +7,41 @@ use derivative::Derivative;
 use iref::IriRef;
 use locspan::Meta;
 
+pub type BaseEntryRef<'a, D> = Entry<
+	Nullable<IriRef<'a>>,
+	<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata,
+>;
+
+pub type ImportEntryRef<'a, D> =
+	Entry<IriRef<'a>, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+
+pub type LanguageEntryRef<'a, D> = Entry<
+	Nullable<LenientLanguageTag<'a>>,
+	<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata,
+>;
+
+pub type DirectionEntry<D> =
+	Entry<Nullable<Direction>, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+
+pub type PropagateEntry<D> =
+	Entry<bool, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+
+pub type ProtectedEntry<D> =
+	Entry<bool, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+
+pub type TypeEntry<D> = Entry<
+	Type<<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>,
+	<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata,
+>;
+
+pub type VersionEntry<D> =
+	Entry<Version, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+
+pub type VocabEntryRef<'a, D> = Entry<
+	Nullable<VocabRef<'a>>,
+	<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata,
+>;
+
 pub trait AnyDefinition: Sized {
 	type ContextValue: context::AnyValue;
 
@@ -18,36 +53,15 @@ pub trait AnyDefinition: Sized {
 		Self::ContextValue: 'a,
 		<Self::ContextValue as context::AnyValue>::Metadata: 'a;
 
-	fn base(
-		&self,
-	) -> Option<Entry<Nullable<IriRef>, <Self::ContextValue as context::AnyValue>::Metadata>>;
-	fn import(&self) -> Option<Entry<IriRef, <Self::ContextValue as context::AnyValue>::Metadata>>;
-	fn language(
-		&self,
-	) -> Option<
-		Entry<Nullable<LenientLanguageTag>, <Self::ContextValue as context::AnyValue>::Metadata>,
-	>;
-	fn direction(
-		&self,
-	) -> Option<Entry<Nullable<Direction>, <Self::ContextValue as context::AnyValue>::Metadata>>;
-	fn propagate(&self)
-		-> Option<Entry<bool, <Self::ContextValue as context::AnyValue>::Metadata>>;
-	fn protected(&self)
-		-> Option<Entry<bool, <Self::ContextValue as context::AnyValue>::Metadata>>;
-	fn type_(
-		&self,
-	) -> Option<
-		Entry<
-			Type<<Self::ContextValue as context::AnyValue>::Metadata>,
-			<Self::ContextValue as context::AnyValue>::Metadata,
-		>,
-	>;
-	fn version(
-		&self,
-	) -> Option<Entry<Version, <Self::ContextValue as context::AnyValue>::Metadata>>;
-	fn vocab(
-		&self,
-	) -> Option<Entry<Nullable<VocabRef>, <Self::ContextValue as context::AnyValue>::Metadata>>;
+	fn base(&self) -> Option<BaseEntryRef<Self>>;
+	fn import(&self) -> Option<ImportEntryRef<Self>>;
+	fn language(&self) -> Option<LanguageEntryRef<Self>>;
+	fn direction(&self) -> Option<DirectionEntry<Self>>;
+	fn propagate(&self) -> Option<PropagateEntry<Self>>;
+	fn protected(&self) -> Option<ProtectedEntry<Self>>;
+	fn type_(&self) -> Option<TypeEntry<Self>>;
+	fn version(&self) -> Option<VersionEntry<Self>>;
+	fn vocab(&self) -> Option<VocabEntryRef<Self>>;
 	fn bindings(&self) -> Self::Bindings<'_>;
 	fn get_binding(&self, key: &Key) -> Option<TermBindingRef<Self::ContextValue>>;
 

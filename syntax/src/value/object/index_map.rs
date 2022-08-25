@@ -14,15 +14,15 @@ where
 	state.finish()
 }
 
-fn equivalent_key<'a, C, M, Q>(entries: &'a [Entry<C, M>], k: &'a Q) -> impl 'a + Fn(&usize) -> bool
+fn equivalent_key<'a, M, C, Q>(entries: &'a [Entry<M, C>], k: &'a Q) -> impl 'a + Fn(&usize) -> bool
 where
 	Q: ?Sized + Equivalent<Key>,
 {
 	move |i| k.equivalent(entries[*i].key.value())
 }
 
-fn make_hasher<'a, C, M, S>(
-	entries: &'a [Entry<C, M>],
+fn make_hasher<'a, M, C, S>(
+	entries: &'a [Entry<M, C>],
 	hash_builder: &'a S,
 ) -> impl 'a + Fn(&usize) -> u64
 where
@@ -67,25 +67,25 @@ impl<S: BuildHasher> IndexMap<S> {
 		}
 	}
 
-	pub fn get<C, M, Q: ?Sized>(&self, entries: &[Entry<C, M>], key: &Q) -> Option<usize>
+	pub fn get<M, C, Q: ?Sized>(&self, entries: &[Entry<M, C>], key: &Q) -> Option<usize>
 	where
 		Q: Hash + Equivalent<Key>,
 	{
 		let hash = make_insert_hash(&self.hash_builder, key);
 		self.table
-			.get(hash, equivalent_key::<C, M, Q>(entries, key))
+			.get(hash, equivalent_key::<M, C, Q>(entries, key))
 			.cloned()
 	}
 
 	/// Associates the given `key` to `index`.
 	///
 	/// Returns `true` if the key was not associated to any index.
-	pub fn insert<C, M>(&mut self, entries: &[Entry<C, M>], index: usize) -> bool {
+	pub fn insert<M, C>(&mut self, entries: &[Entry<M, C>], index: usize) -> bool {
 		let key = entries[index].key.value();
 		let hash = make_insert_hash(&self.hash_builder, key);
 		match self
 			.table
-			.get_mut(hash, equivalent_key::<C, M, _>(entries, key))
+			.get_mut(hash, equivalent_key::<M, C, _>(entries, key))
 		{
 			Some(i) => {
 				*i = index;
@@ -95,7 +95,7 @@ impl<S: BuildHasher> IndexMap<S> {
 				self.table.insert(
 					hash,
 					index,
-					make_hasher::<C, M, S>(entries, &self.hash_builder),
+					make_hasher::<M, C, S>(entries, &self.hash_builder),
 				);
 				true
 			}
@@ -103,11 +103,11 @@ impl<S: BuildHasher> IndexMap<S> {
 	}
 
 	/// Removes the association between the given key and index.
-	pub fn remove<C, M>(&mut self, entries: &[Entry<C, M>], index: usize) {
+	pub fn remove<M, C>(&mut self, entries: &[Entry<M, C>], index: usize) {
 		let key = entries[index].key.value();
 		let hash = make_insert_hash(&self.hash_builder, key);
 		self.table
-			.remove_entry(hash, equivalent_key::<C, M, _>(entries, key));
+			.remove_entry(hash, equivalent_key::<M, C, _>(entries, key));
 	}
 
 	/// Decreases all index greater than `index` by one everywhere in the table.

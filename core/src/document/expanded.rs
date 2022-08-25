@@ -13,10 +13,17 @@ pub struct ExpandedDocument<T = Index, B = Index, M = Location<T>>(
 	HashSet<StrippedIndexedObject<T, B, M>>,
 );
 
+impl<T, B, M> Default for ExpandedDocument<T, B, M> {
+	#[inline(always)]
+	fn default() -> Self {
+		Self(HashSet::new())
+	}
+}
+
 impl<T, B, M> ExpandedDocument<T, B, M> {
 	#[inline(always)]
 	pub fn new() -> Self {
-		Self(HashSet::new())
+		Self::default()
 	}
 
 	#[inline(always)]
@@ -101,12 +108,12 @@ impl<T: Hash + Eq, B: Hash + Eq, M> ExpandedDocument<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, C, M>
+impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, M, C>
 	for ExpandedDocument<T, B, M>
 {
 	fn try_from_json_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<C, M>, M>,
+		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
 		match value {
 			json_ld_syntax::Value::Array(items) => {
