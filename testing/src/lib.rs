@@ -23,9 +23,9 @@ use ty::{Type, UnknownType};
 
 type FsLoader = json_ld::FsLoader<
 	IriIndex,
-	json_ld::syntax::Value<json_ld::syntax::context::Value<Location<IriIndex>>, Location<IriIndex>>,
+	json_ld::syntax::Value<Location<IriIndex>>,
 	Location<IriIndex>,
-	Loc<json_ld::syntax::Error<IriIndex>, IriIndex>,
+	json_ld::syntax::MetaError<Location<IriIndex>>,
 >;
 
 struct MountAttribute {
@@ -421,20 +421,20 @@ fn parse_enum_type(
 	Ok(ty::Enum { variants })
 }
 
+type ExpandError = Loc<
+	json_ld::expansion::Error<
+		json_ld::ContextLoaderError<
+			json_ld::fs::Error<json_ld::syntax::MetaError<Location<IriIndex>>>,
+			Loc<json_ld::ExtractContextError, IriIndex>,
+		>,
+	>,
+	IriIndex,
+>;
+
 enum Error {
 	Parse(syn::Error),
-	Load(json_ld::loader::fs::Error<Loc<json_ld::syntax::Error<IriIndex>, IriIndex>>),
-	Expand(
-		Loc<
-			json_ld::expansion::Error<
-				json_ld::ContextLoaderError<
-					json_ld::fs::Error<Loc<json_ld::syntax::Error<IriIndex>, IriIndex>>,
-					Loc<json_ld::ExtractContextError, IriIndex>,
-				>,
-			>,
-			IriIndex,
-		>,
-	),
+	Load(json_ld::loader::fs::Error<json_ld::syntax::MetaError<Location<IriIndex>>>),
+	Expand(ExpandError),
 	InvalidIri(String),
 	InvalidValue(Type, json_ld::rdf::Value<IriIndex, BlankIdIndex>),
 	InvalidTypeField,
@@ -489,7 +489,7 @@ async fn generate_test_suite(
 	mut loader: FsLoader,
 	spec: TestSpec,
 ) -> Result<TokenStream, Error> {
-	use json_ld::Loader;
+	use json_ld::{Loader, RdfQuads};
 
 	let json_ld = loader
 		.load_in(namespace, spec.suite)
@@ -513,7 +513,7 @@ async fn generate_test_suite(
 			if *predicate == ValidReference::Id(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))) {
 				if let json_ld::rdf::Value::Reference(ValidReference::Id(ty)) = object {
 					if let Some(type_id) = spec.type_map.get(ty) {
-						tests.insert(id.clone(), type_id);
+						tests.insert(*id, type_id);
 					}
 				}
 			}
@@ -554,11 +554,9 @@ fn test_prefix(name: &str) -> String {
 	let mut buffer = String::new();
 
 	for c in name.chars() {
-		if c.is_uppercase() {
-			if !buffer.is_empty() {
-				segments.push(buffer);
-				buffer = String::new();
-			}
+		if c.is_uppercase() && !buffer.is_empty() {
+			segments.push(buffer);
+			buffer = String::new();
 		}
 
 		buffer.push(c.to_lowercase().next().unwrap())
@@ -588,22 +586,18 @@ fn func_name(prefix: &str, id: &str) -> String {
 	name
 }
 
-fn quad_to_owned<'a>(
-	rdf_types::Quad(subject, predicate, object, graph): json_ld::rdf::QuadRef<
-		'a,
-		IriIndex,
-		BlankIdIndex,
-	>,
-) -> rdf_types::Quad<
+type OwnedQuad<'a> = rdf_types::Quad<
 	ValidReference<IriIndex, BlankIdIndex>,
 	ValidReference<IriIndex, BlankIdIndex>,
 	json_ld::rdf::Value<IriIndex, BlankIdIndex>,
 	&'a ValidReference<IriIndex, BlankIdIndex>,
-> {
-	Quad(
-		subject.as_ref().clone(),
-		predicate.as_ref().clone(),
-		object,
-		graph,
-	)
+>;
+
+fn quad_to_owned(
+	rdf_types::Quad(subject, predicate, object, graph): json_ld::rdf::QuadRef<
+		IriIndex,
+		BlankIdIndex,
+	>,
+) -> OwnedQuad {
+	Quad(*subject.as_ref(), *predicate.as_ref(), object, graph)
 }

@@ -53,9 +53,9 @@ pub enum Manifest {
 #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
 pub enum Test {
 	#[iri("test:PositiveEvaluationTest")]
-	PositiveEvalTest,
+	PositiveEval,
 	#[iri("test:NegativeEvaluationTest")]
-	NegativeEvalTest,
+	NegativeEval,
 	#[iri("test:context")]
 	Context,
 	#[iri("test:option")]

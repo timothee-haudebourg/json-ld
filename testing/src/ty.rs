@@ -59,12 +59,7 @@ impl Type {
 		&self,
 		namespace: &IndexNamespace,
 		spec: &TestSpec,
-		dataset: &grdf::HashDataset<
-			ValidReference<IriIndex, BlankIdIndex>,
-			ValidReference<IriIndex, BlankIdIndex>,
-			json_ld::rdf::Value<IriIndex, BlankIdIndex>,
-			&ValidReference<IriIndex, BlankIdIndex>,
-		>,
+		dataset: &OwnedDataset,
 		value: &json_ld::rdf::Value<IriIndex, BlankIdIndex>,
 	) -> Result<TokenStream, Error> {
 		match self {
@@ -101,7 +96,7 @@ impl Type {
 					let s = namespace.iri(i).unwrap().into_str();
 					Ok(quote! { ::static_iref::iri!(#s) })
 				}
-				_ => return Err(Error::InvalidValue(self.clone(), value.clone())),
+				_ => Err(Error::InvalidValue(self.clone(), value.clone())),
 			},
 			Self::ProcessingMode => {
 				let s = match value {
@@ -122,7 +117,7 @@ impl Type {
 							Ok(quote! { ::json_ld::ProcessingMode::JsonLd1_1 })
 						}
 					},
-					Err(_) => return Err(Error::InvalidValue(self.clone(), value.clone())),
+					Err(_) => Err(Error::InvalidValue(self.clone(), value.clone())),
 				}
 			}
 			Self::Ref(r) => match value {
@@ -131,7 +126,7 @@ impl Type {
 					let mod_id = &spec.id;
 					d.generate(namespace, spec, dataset, *id, quote! { #mod_id :: #r })
 				}
-				_ => return Err(Error::InvalidValue(self.clone(), value.clone())),
+				_ => Err(Error::InvalidValue(self.clone(), value.clone())),
 			},
 		}
 	}
@@ -142,12 +137,7 @@ impl Struct {
 		&self,
 		namespace: &json_ld::IndexNamespace,
 		spec: &TestSpec,
-		dataset: &grdf::HashDataset<
-			ValidReference<IriIndex, BlankIdIndex>,
-			ValidReference<IriIndex, BlankIdIndex>,
-			json_ld::rdf::Value<IriIndex, BlankIdIndex>,
-			&ValidReference<IriIndex, BlankIdIndex>,
-		>,
+		dataset: &OwnedDataset,
 		id: ValidReference<IriIndex, BlankIdIndex>,
 		path: TokenStream,
 	) -> Result<TokenStream, Error> {
@@ -207,17 +197,19 @@ impl Struct {
 	}
 }
 
+type OwnedDataset<'a> = grdf::HashDataset<
+	ValidReference<IriIndex, BlankIdIndex>,
+	ValidReference<IriIndex, BlankIdIndex>,
+	json_ld::rdf::Value<IriIndex, BlankIdIndex>,
+	&'a ValidReference<IriIndex, BlankIdIndex>,
+>;
+
 impl Definition {
 	pub(crate) fn generate(
 		&self,
 		namespace: &json_ld::IndexNamespace,
 		spec: &TestSpec,
-		dataset: &grdf::HashDataset<
-			ValidReference<IriIndex, BlankIdIndex>,
-			ValidReference<IriIndex, BlankIdIndex>,
-			json_ld::rdf::Value<IriIndex, BlankIdIndex>,
-			&ValidReference<IriIndex, BlankIdIndex>,
-		>,
+		dataset: &OwnedDataset,
 		id: ValidReference<IriIndex, BlankIdIndex>,
 		path: TokenStream,
 	) -> Result<TokenStream, Error> {

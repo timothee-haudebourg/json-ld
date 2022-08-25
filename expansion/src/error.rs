@@ -16,7 +16,7 @@ pub enum Error<E> {
 	InvalidReverseValue,
 	InvalidNestValue,
 	Literal(crate::LiteralExpansionError),
-	Value(crate::ValueExpansionError),
+	Value(crate::InvalidValue),
 }
 
 impl<E> From<json_ld_context_processing::Error<E>> for Error<E> {
@@ -31,8 +31,8 @@ impl<E> From<crate::LiteralExpansionError> for Error<E> {
 	}
 }
 
-impl<E> From<crate::ValueExpansionError> for Error<E> {
-	fn from(e: crate::ValueExpansionError) -> Self {
+impl<E> From<crate::InvalidValue> for Error<E> {
+	fn from(e: crate::InvalidValue) -> Self {
 		Self::Value(e)
 	}
 }

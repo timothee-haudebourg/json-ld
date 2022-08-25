@@ -72,6 +72,9 @@ impl fmt::Display for LiteralExpansionError {
 	}
 }
 
+pub(crate) type LiteralExpansionResult<T, B, M> =
+	Result<ExpandedLiteral<T, B, M>, Meta<LiteralExpansionError, M>>;
+
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 pub(crate) fn expand_literal<T, B, N, C: context::AnyValue>(
@@ -80,7 +83,7 @@ pub(crate) fn expand_literal<T, B, N, C: context::AnyValue>(
 	active_property: ActiveProperty<'_, C::Metadata>,
 	Meta(value, meta): Meta<LiteralValue, &C::Metadata>,
 	warnings: &mut impl WarningHandler<B, N, C::Metadata>,
-) -> Result<ExpandedLiteral<T, B, C::Metadata>, Meta<LiteralExpansionError, C::Metadata>>
+) -> LiteralExpansionResult<T, B, C::Metadata>
 where
 	T: Clone,
 	B: Clone,

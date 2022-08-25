@@ -137,7 +137,7 @@ fn is_static_argument(arg: &syn::GenericArgument) -> bool {
 
 fn is_str(ty: &syn::Type) -> bool {
 	match ty {
-		syn::Type::Path(p) => is_str_path(&p),
+		syn::Type::Path(p) => is_str_path(p),
 		_ => false,
 	}
 }
@@ -148,7 +148,7 @@ fn is_bool_path(p: &syn::TypePath) -> bool {
 			&& segment_is_empty_ident(&p.path, 0, "core")
 			&& segment_is_empty_ident(&p.path, 1, "primitive")
 			&& segment_is_empty_ident(&p.path, 2, "bool"))
-			|| (!p.path.leading_colon.is_some()
+			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1
 				&& segment_is_empty_ident(&p.path, 0, "bool")))
 }
@@ -160,7 +160,7 @@ fn is_str_path(p: &syn::TypePath) -> bool {
 				|| segment_is_empty_ident(&p.path, 0, "core")
 				|| segment_is_empty_ident(&p.path, 0, "alloc"))
 			&& segment_is_empty_ident(&p.path, 1, "str"))
-			|| (!p.path.leading_colon.is_some()
+			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1
 				&& segment_is_empty_ident(&p.path, 0, "str")))
 }
@@ -170,7 +170,7 @@ fn is_iri_path(p: &syn::TypePath) -> bool {
 		&& ((p.path.segments.len() == 2
 			&& segment_is_empty_ident(&p.path, 0, "iref")
 			&& segment_is_ident(&p.path, 1, "Iri"))
-			|| (!p.path.leading_colon.is_some()
+			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1
 				&& segment_is_ident(&p.path, 0, "Iri")))
 		&& is_static_arguments(&p.path.segments.last().unwrap().arguments)
@@ -181,7 +181,7 @@ fn is_processing_mode_path(p: &syn::TypePath) -> bool {
 		&& ((p.path.segments.len() == 2
 			&& segment_is_empty_ident(&p.path, 0, "json_ld")
 			&& segment_is_empty_ident(&p.path, 1, "ProcessingMode"))
-			|| (!p.path.leading_colon.is_some()
+			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1
 				&& segment_is_empty_ident(&p.path, 0, "ProcessingMode")))
 }
@@ -193,7 +193,7 @@ fn is_option_path(p: &syn::TypePath) -> bool {
 				|| segment_is_empty_ident(&p.path, 0, "core"))
 			&& segment_is_empty_ident(&p.path, 1, "option")
 			&& segment_is_ident(&p.path, 2, "Option"))
-			|| (!p.path.leading_colon.is_some()
+			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1
 				&& segment_is_ident(&p.path, 0, "Option")))
 		&& is_option_arguments(&p.path.segments.last().unwrap().arguments)

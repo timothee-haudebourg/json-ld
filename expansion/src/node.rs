@@ -7,8 +7,8 @@ use json_ld_context_processing::{ContextLoader, NamespaceMut, Process, Processin
 use json_ld_core::{
 	object,
 	object::value::{Literal, LiteralString},
-	BorrowWithNamespace, Container, Context, Indexed, LangString, Node, Object, ProcessingMode,
-	Reference, Term, Type, Value,
+	BorrowWithNamespace, Container, Context, Indexed, IndexedObject, LangString, Node, Object,
+	ProcessingMode, Reference, Term, Type, Value,
 };
 use json_ld_syntax::{
 	object::Entry, ContainerKind, IntoJson, Keyword, LenientLanguageTagBuf, Nullable,
@@ -742,9 +742,8 @@ where
 								// is a map then value is expanded from a map as follows:
 
 								// Initialize expanded value to an empty array.
-								let mut expanded_value: Vec<
-									Meta<Indexed<Object<T, B, C::Metadata>>, C::Metadata>,
-								> = Vec::new();
+								let mut expanded_value: Vec<IndexedObject<T, B, C::Metadata>> =
+									Vec::new();
 
 								// Initialize `index_key` to the key's index mapping in
 								// `active_context`, or @index, if it does not exist.
@@ -944,10 +943,10 @@ where
 													// contain any extra properties; an invalid
 													// value object error has been detected and
 													// processing is aborted.
-													return Err(Error::Value(crate::ValueExpansionError::InvalidValueObject)
-														.at(
-															index_value.metadata().clone(),
-														));
+													return Err(Error::Value(
+														crate::InvalidValue::ValueObject,
+													)
+													.at(index_value.metadata().clone()));
 												}
 											} else if container_mapping
 												.contains(ContainerKind::Index) && item

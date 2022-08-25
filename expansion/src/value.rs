@@ -11,29 +11,32 @@ use std::fmt;
 pub(crate) type ExpandedValue<T, B, M, W> = (Option<Meta<Indexed<Object<T, B, M>>, M>>, W);
 
 #[derive(Debug)]
-pub enum ValueExpansionError {
-	InvalidLanguageTaggedString,
-	InvalidBaseDirection,
-	InvalidIndexValue,
-	InvalidTypedValue,
-	InvalidValueObject,
-	InvalidValueObjectValue,
-	InvalidLanguageTaggedValue,
+pub enum InvalidValue {
+	LanguageTaggedString,
+	BaseDirection,
+	IndexValue,
+	TypedValue,
+	ValueObject,
+	ValueObjectValue,
+	LanguageTaggedValue,
 }
 
-impl fmt::Display for ValueExpansionError {
+impl fmt::Display for InvalidValue {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::InvalidLanguageTaggedString => write!(f, "invalid language tagged string"),
-			Self::InvalidBaseDirection => write!(f, "invalid base direction"),
-			Self::InvalidIndexValue => write!(f, "invalid index value"),
-			Self::InvalidTypedValue => write!(f, "invalid typed value"),
-			Self::InvalidValueObject => write!(f, "invalid value object"),
-			Self::InvalidValueObjectValue => write!(f, "invalid value object value"),
-			Self::InvalidLanguageTaggedValue => write!(f, "invalid language tagged value"),
+			Self::LanguageTaggedString => write!(f, "invalid language tagged string"),
+			Self::BaseDirection => write!(f, "invalid base direction"),
+			Self::IndexValue => write!(f, "invalid index value"),
+			Self::TypedValue => write!(f, "invalid typed value"),
+			Self::ValueObject => write!(f, "invalid value object"),
+			Self::ValueObjectValue => write!(f, "invalid value object value"),
+			Self::LanguageTaggedValue => write!(f, "invalid language tagged value"),
 		}
 	}
 }
+
+pub type ValueExpansionResult<T, B, M, W> =
+	Result<ExpandedValue<T, B, M, W>, Meta<InvalidValue, M>>;
 
 /// Expand a value object.
 pub(crate) fn expand_value<'e, T, B, N, C: context::AnyValue + IntoJson<C::Metadata>, W>(
@@ -43,7 +46,7 @@ pub(crate) fn expand_value<'e, T, B, N, C: context::AnyValue + IntoJson<C::Metad
 	expanded_entries: Vec<ExpandedEntry<'e, T, B, C::Metadata, C>>,
 	Meta(value_entry, meta): &Meta<json_ld_syntax::Value<C::Metadata, C>, C::Metadata>,
 	mut warnings: W,
-) -> Result<ExpandedValue<T, B, C::Metadata, W>, Meta<ValueExpansionError, C::Metadata>>
+) -> ValueExpansionResult<T, B, C::Metadata, W>
 where
 	N: NamespaceMut<T, B>,
 	T: Clone + PartialEq,
@@ -75,7 +78,7 @@ where
 						language = Some(Meta(value.to_owned(), value_metadata.clone()));
 					}
 				} else {
-					return Err(ValueExpansionError::InvalidLanguageTaggedString.at(meta.clone()));
+					return Err(InvalidValue::LanguageTaggedString.at(meta.clone()));
 				}
 			}
 			// If expanded property is @direction:
@@ -90,10 +93,10 @@ where
 					if let Ok(value) = Direction::try_from(value) {
 						direction = Some(value);
 					} else {
-						return Err(ValueExpansionError::InvalidBaseDirection.at(meta.clone()));
+						return Err(InvalidValue::BaseDirection.at(meta.clone()));
 					}
 				} else {
-					return Err(ValueExpansionError::InvalidBaseDirection.at(meta.clone()));
+					return Err(InvalidValue::BaseDirection.at(meta.clone()));
 				}
 			}
 			// If expanded property is @index:
@@ -103,7 +106,7 @@ where
 				if let Some(value) = value.as_str() {
 					index = Some(value.to_string())
 				} else {
-					return Err(ValueExpansionError::InvalidIndexValue.at(meta.clone()));
+					return Err(InvalidValue::IndexValue.at(meta.clone()));
 				}
 			}
 			// If expanded ...
@@ -126,15 +129,15 @@ where
 							is_json = false;
 							ty = Some(expanded_ty)
 						}
-						_ => return Err(ValueExpansionError::InvalidTypedValue.at(meta.clone())),
+						_ => return Err(InvalidValue::TypedValue.at(meta.clone())),
 					}
 				} else {
-					return Err(ValueExpansionError::InvalidTypedValue.at(meta.clone()));
+					return Err(InvalidValue::TypedValue.at(meta.clone()));
 				}
 			}
 			Term::Keyword(Keyword::Value) => (),
 			_ => {
-				return Err(ValueExpansionError::InvalidValueObject.at(meta.clone()));
+				return Err(InvalidValue::ValueObject.at(meta.clone()));
 			}
 		}
 	}
@@ -144,7 +147,7 @@ where
 	// been detected and processing is aborted.
 	if is_json {
 		if language.is_some() || direction.is_some() {
-			return Err(ValueExpansionError::InvalidValueObject.at(meta.clone()));
+			return Err(InvalidValue::ValueObject.at(meta.clone()));
 		}
 		return Ok((
 			Some(Meta(
@@ -169,7 +172,7 @@ where
 		json_ld_syntax::Value::Number(n) => Literal::Number(n.clone()),
 		json_ld_syntax::Value::Boolean(b) => Literal::Boolean(*b),
 		_ => {
-			return Err(ValueExpansionError::InvalidValueObjectValue.at(meta.clone()));
+			return Err(InvalidValue::ValueObjectValue.at(meta.clone()));
 		}
 	};
 
@@ -189,7 +192,7 @@ where
 	// aborted.
 	if language.is_some() || direction.is_some() {
 		if ty.is_some() {
-			return Err(ValueExpansionError::InvalidValueObject.at(meta.clone()));
+			return Err(InvalidValue::ValueObject.at(meta.clone()));
 		}
 
 		if let Literal::String(s) = result {
@@ -220,10 +223,10 @@ where
 					)),
 					warnings,
 				)),
-				Err(_) => Err(ValueExpansionError::InvalidLanguageTaggedValue.at(meta.clone())),
+				Err(_) => Err(InvalidValue::LanguageTaggedValue.at(meta.clone())),
 			};
 		} else {
-			return Err(ValueExpansionError::InvalidLanguageTaggedValue.at(meta.clone()));
+			return Err(InvalidValue::LanguageTaggedValue.at(meta.clone()));
 		}
 	}
 
