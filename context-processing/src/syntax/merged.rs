@@ -134,7 +134,7 @@ impl<'a, C: 'a + syntax::context::AnyValue> Iterator for MergedBindings<'a, C> {
 	fn next(&mut self) -> Option<Self::Item> {
 		match &mut self.imported_bindings {
 			Some(imported_bindings) => {
-				while let Some((key_ref, def)) = imported_bindings.next() {
+				for (key_ref, def) in imported_bindings {
 					let key = key_ref.to_owned();
 					if self.base.get_binding(&key).is_none() {
 						return Some((key_ref, def));

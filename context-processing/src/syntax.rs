@@ -72,6 +72,8 @@ fn resolve_iri<I>(
 	}
 }
 
+type ContextProcessingResult<T, B, C, W, E> = Result<(Context<T, B, C>, W), MetaError<C, E>>;
+
 // This function tries to follow the recommended context processing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
@@ -86,7 +88,7 @@ fn process_context<'a, T, B, N, C, L, W>(
 	base_url: Option<T>,
 	mut options: ProcessingOptions,
 	mut warnings: W,
-) -> BoxFuture<'a, Result<(Context<T, B, C>, W), MetaError<C, L::ContextError>>>
+) -> BoxFuture<'a, ContextProcessingResult<T, B, C, W, L::ContextError>>
 where
 	T: 'a + Clone + PartialEq + Send + Sync,
 	B: 'a + Clone + PartialEq + Send + Sync,
@@ -110,7 +112,7 @@ where
 		{
 			if let Some(propagate) = def.propagate() {
 				if options.processing_mode == ProcessingMode::JsonLd1_0 {
-					return Err(Error::InvalidContextEntry.at(propagate.key_metadata.clone()));
+					return Err(Error::InvalidContextEntry.at(propagate.key_metadata));
 				}
 
 				options.propagate = *propagate.value.value()

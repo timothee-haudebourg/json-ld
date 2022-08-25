@@ -240,7 +240,7 @@ pub fn expand_iri_simple<
 	warnings: &mut H,
 ) -> Meta<Term<T, B>, C::Metadata> {
 	match value {
-		Nullable::Null => return Meta(Term::Null, meta),
+		Nullable::Null => Meta(Term::Null, meta),
 		Nullable::Some(ExpandableRef::Keyword(k)) => Meta(Term::Keyword(k), meta),
 		Nullable::Some(ExpandableRef::String(value)) => {
 			if is_keyword_like(value) {
