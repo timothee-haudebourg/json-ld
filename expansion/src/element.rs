@@ -137,7 +137,7 @@ where
 			}
 
 			Value::Object(element) => {
-				// let entries: Cow<[Entry<C, _>]> = if options.ordered {
+				// let entries: Cow<[Entry<_, C>]> = if options.ordered {
 				// 	Cow::Owned(element.entries().iter().cloned().collect())
 				// } else {
 				// 	Cow::Borrowed(element.entries().as_slice())
@@ -227,13 +227,13 @@ where
 					);
 				}
 
-				let entries: Cow<[Entry<C, _>]> = if options.ordered {
+				let entries: Cow<[Entry<_, C>]> = if options.ordered {
 					Cow::Owned(element.entries().iter().cloned().collect())
 				} else {
 					Cow::Borrowed(element.entries().as_slice())
 				};
 
-				let mut type_entries: Vec<&Entry<C, _>> = Vec::new();
+				let mut type_entries: Vec<&Entry<_, C>> = Vec::new();
 				for entry @ Entry {
 					key: Meta(key, key_metadata),
 					..
