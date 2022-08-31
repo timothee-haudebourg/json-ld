@@ -5,6 +5,20 @@ use crate::Nullable;
 use json_syntax::print::{string_literal, Options, PrecomputeSize, Print, PrintWithSize, Size};
 use std::{fmt, marker::PhantomData};
 
+impl<M: Clone + Send + Sync> Print for super::Value<M> {
+	fn fmt_with(
+		&self,
+		f: &mut fmt::Formatter,
+		options: &Options,
+		indent: usize
+	) -> fmt::Result {
+		let mut sizes = Vec::with_capacity(self.traverse().filter(|f| f.is_array() || f.is_object()).count());
+		self.pre_compute_size(options, &mut sizes);
+		let mut index = 0;
+		self.fmt_with_size(f, options, indent, &sizes, &mut index)
+	}
+}
+
 impl<M: Clone + Send + Sync> PrintWithSize for super::Value<M> {
 	fn fmt_with_size(
 		&self,
