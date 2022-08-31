@@ -2,13 +2,13 @@ use crate::{expand_iri, ExpandedEntry, Warning, WarningHandler};
 use json_ld_context_processing::NamespaceMut;
 use json_ld_core::{
 	object::value::{Literal, LiteralString},
-	Context, Indexed, LangString, Object, Reference, Term, Value,
+	Context, Indexed, LangString, Object, Reference, ValidReference, Term, Value, IndexedObject,
 };
-use json_ld_syntax::{context, Direction, IntoJson, Keyword, LenientLanguageTagBuf, Nullable};
+use json_ld_syntax::{Direction, Keyword, LenientLanguageTagBuf, Nullable};
 use locspan::{At, Meta};
 use std::fmt;
 
-pub(crate) type ExpandedValue<T, B, M, W> = (Option<Meta<Indexed<Object<T, B, M>>, M>>, W);
+pub(crate) type ExpandedValue<T, B, M, W> = (Option<IndexedObject<T, B, M>>, W);
 
 #[derive(Debug)]
 pub enum InvalidValue {
@@ -39,19 +39,20 @@ pub type ValueExpansionResult<T, B, M, W> =
 	Result<ExpandedValue<T, B, M, W>, Meta<InvalidValue, M>>;
 
 /// Expand a value object.
-pub(crate) fn expand_value<'e, T, B, N, C: context::AnyValue + IntoJson<C::Metadata>, W>(
+pub(crate) fn expand_value<'e, T, B, M, N, C, W>(
 	namespace: &mut N,
-	input_type: Option<Meta<Term<T, B>, C::Metadata>>,
+	input_type: Option<Meta<Term<T, B>, M>>,
 	type_scoped_context: &Context<T, B, C>,
-	expanded_entries: Vec<ExpandedEntry<'e, T, B, C::Metadata, C>>,
-	Meta(value_entry, meta): &Meta<json_ld_syntax::Value<C::Metadata, C>, C::Metadata>,
+	expanded_entries: Vec<ExpandedEntry<'e, T, B, M>>,
+	Meta(value_entry, meta): &Meta<json_syntax::Value<M>, M>,
 	mut warnings: W,
-) -> ValueExpansionResult<T, B, C::Metadata, W>
+) -> ValueExpansionResult<T, B, M, W>
 where
 	N: NamespaceMut<T, B>,
 	T: Clone + PartialEq,
 	B: Clone + PartialEq,
-	W: WarningHandler<B, N, C::Metadata>,
+	M: Clone,
+	W: WarningHandler<B, N, M>,
 {
 	let mut is_json = input_type
 		.as_ref()
@@ -62,7 +63,7 @@ where
 	let mut language = None;
 	let mut direction = None;
 
-	for ExpandedEntry(_, expanded_key, Meta(value, value_metadata)) in expanded_entries {
+	for ExpandedEntry(key, expanded_key, Meta(value, value_metadata)) in expanded_entries {
 		match expanded_key {
 			// If expanded property is @language:
 			Term::Keyword(Keyword::Language) => {
@@ -104,7 +105,10 @@ where
 				// If value is not a string, an invalid @index value error has
 				// been detected and processing is aborted.
 				if let Some(value) = value.as_str() {
-					index = Some(value.to_string())
+					index = Some(json_ld_syntax::Entry::new(
+						key.into_metadata().clone(),
+						Meta(value.to_string(), value_metadata.clone())
+					))
 				} else {
 					return Err(InvalidValue::IndexValue.at(meta.clone()));
 				}
@@ -125,7 +129,7 @@ where
 						Term::Keyword(Keyword::Json) => {
 							is_json = true;
 						}
-						Term::Ref(Reference::Id(expanded_ty)) => {
+						Term::Ref(Reference::Valid(ValidReference::Id(expanded_ty))) => {
 							is_json = false;
 							ty = Some(expanded_ty)
 						}
@@ -152,10 +156,10 @@ where
 		return Ok((
 			Some(Meta(
 				Indexed::new(
-					Object::Value(Value::Json(json_ld_syntax::Value::into_json(Meta(
+					Object::Value(Value::Json(Meta(
 						value_entry.clone(),
 						meta.clone(),
-					)))),
+					))),
 					index,
 				),
 				meta.clone(),
@@ -167,10 +171,10 @@ where
 	// Otherwise, if value is not a scalar or null, an invalid value object value
 	// error has been detected and processing is aborted.
 	let result = match value_entry {
-		json_ld_syntax::Value::Null => Literal::Null,
-		json_ld_syntax::Value::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
-		json_ld_syntax::Value::Number(n) => Literal::Number(n.clone()),
-		json_ld_syntax::Value::Boolean(b) => Literal::Boolean(*b),
+		json_syntax::Value::Null => Literal::Null,
+		json_syntax::Value::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
+		json_syntax::Value::Number(n) => Literal::Number(n.clone()),
+		json_syntax::Value::Boolean(b) => Literal::Boolean(*b),
 		_ => {
 			return Err(InvalidValue::ValueObjectValue.at(meta.clone()));
 		}

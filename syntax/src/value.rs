@@ -1,4 +1,3 @@
-use crate::context::{self, ValueRef};
 pub use json_syntax::{Kind, Number, NumberBuf, String};
 use locspan::Meta;
 use locspan_derive::*;
@@ -8,7 +7,7 @@ use std::fmt;
 pub mod object;
 pub use object::Object;
 
-pub type MetaValue<M, C = context::Value<M>> = Meta<Value<M, C>, M>;
+pub type MetaValue<M> = Meta<Value<M>, M>;
 
 #[derive(
 	Clone,
@@ -25,16 +24,16 @@ pub type MetaValue<M, C = context::Value<M>> = Meta<Value<M, C>, M>;
 	StrippedHash,
 )]
 #[stripped_ignore(M)]
-pub enum Value<M, C = context::Value<M>> {
+pub enum Value<M> {
 	Null,
 	Boolean(#[stripped] bool),
 	Number(#[stripped] NumberBuf),
 	String(#[stripped] String),
-	Array(Array<M, C>),
-	Object(Object<M, C>),
+	Array(Array<M>),
+	Object(Object<M>),
 }
 
-impl<M, C> Value<M, C> {
+impl<M> Value<M> {
 	pub fn kind(&self) -> Kind {
 		match self {
 			Self::Null => Kind::Null,
@@ -146,7 +145,7 @@ impl<M, C> Value<M, C> {
 	}
 
 	#[inline]
-	pub fn as_array_mut(&mut self) -> Option<&mut Array<M, C>> {
+	pub fn as_array_mut(&mut self) -> Option<&mut Array<M>> {
 		match self {
 			Self::Array(a) => Some(a),
 			_ => None,
@@ -154,7 +153,7 @@ impl<M, C> Value<M, C> {
 	}
 
 	#[inline]
-	pub fn as_object(&self) -> Option<&Object<M, C>> {
+	pub fn as_object(&self) -> Option<&Object<M>> {
 		match self {
 			Self::Object(o) => Some(o),
 			_ => None,
@@ -162,7 +161,7 @@ impl<M, C> Value<M, C> {
 	}
 
 	#[inline]
-	pub fn as_object_mut(&mut self) -> Option<&mut Object<M, C>> {
+	pub fn as_object_mut(&mut self) -> Option<&mut Object<M>> {
 		match self {
 			Self::Object(o) => Some(o),
 			_ => None,
@@ -194,7 +193,7 @@ impl<M, C> Value<M, C> {
 	}
 
 	#[inline]
-	pub fn into_array(self) -> Option<Array<M, C>> {
+	pub fn into_array(self) -> Option<Array<M>> {
 		match self {
 			Self::Array(a) => Some(a),
 			_ => None,
@@ -202,38 +201,29 @@ impl<M, C> Value<M, C> {
 	}
 
 	#[inline]
-	pub fn into_object(self) -> Option<Object<M, C>> {
+	pub fn into_object(self) -> Option<Object<M>> {
 		match self {
 			Self::Object(o) => Some(o),
 			_ => None,
 		}
 	}
 
-	fn sub_items(&self) -> ValueSubFragments<C>
-	where
-		C: context::AnyValue<Metadata = M>,
-	{
+	fn sub_items(&self) -> ValueSubFragments<M> {
 		match self {
 			Self::Array(a) => ValueSubFragments::Array(a.iter()),
-			Self::Object(o) => ValueSubFragments::Object(o.context().map(Meta::value), o.iter()),
+			Self::Object(o) => ValueSubFragments::Object(o.iter()),
 			_ => ValueSubFragments::None,
 		}
 	}
 
-	pub fn traverse(&self) -> TraverseStripped<C>
-	where
-		C: context::AnyValue<Metadata = M>,
-	{
+	pub fn traverse(&self) -> TraverseStripped<M> {
 		let mut stack = SmallVec::new();
 		stack.push(StrippedFragmentRef::Value(self));
 		TraverseStripped { stack }
 	}
 
 	/// Recursively count the number of fragments for which `f` returns `true`.
-	pub fn count(&self, mut f: impl FnMut(StrippedFragmentRef<C>) -> bool) -> usize
-	where
-		C: context::AnyValue<Metadata = M>,
-	{
+	pub fn count(&self, mut f: impl FnMut(StrippedFragmentRef<M>) -> bool) -> usize {
 		let mut count = 0;
 
 		for i in self.traverse() {
@@ -245,13 +235,9 @@ impl<M, C> Value<M, C> {
 		count
 	}
 
-	pub fn try_from_json_with<E, F>(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-		context_from_json: F,
-	) -> Result<Meta<Self, M>, MetaValueFromJsonError<M, C, E>>
-	where
-		F: Clone + Fn(Meta<json_syntax::Value<M>, M>) -> Result<Meta<C, M>, Meta<E, M>>,
-	{
+	pub fn try_from_json_with(
+		Meta(value, meta): Meta<json_syntax::Value<M>, M>
+	) -> Result<Meta<Self, M>, MetaValueFromJsonError<M>> {
 		match value {
 			json_syntax::Value::Null => Ok(Meta(Self::Null, meta)),
 			json_syntax::Value::Boolean(b) => Ok(Meta(Self::Boolean(b), meta)),
@@ -261,7 +247,7 @@ impl<M, C> Value<M, C> {
 				let mut result = Vec::with_capacity(a.len());
 
 				for item in a {
-					result.push(Self::try_from_json_with(item, context_from_json.clone())?)
+					result.push(Self::try_from_json_with(item)?)
 				}
 
 				Ok(Meta(Self::Array(result), meta))
@@ -270,19 +256,9 @@ impl<M, C> Value<M, C> {
 				let mut result = Object::with_capacity(o.len());
 
 				for json_syntax::object::Entry { key, value } in o {
-					if key.as_str() == "@context" {
-						let context = context_from_json(value)
-							.map_err(|e| e.map(ValueFromJsonError::InvalidContext))?;
-						if let Some(duplicate) = result.set_context(key.into_metadata(), context) {
-							let entry = result.remove_context().unwrap();
-							return Err(Meta(
-								ValueFromJsonError::DuplicateContext(duplicate),
-								entry.key_metadata,
-							));
-						}
-					} else if let Some(duplicate) = result.insert(
+					if let Some(duplicate) = result.insert(
 						key,
-						Self::try_from_json_with(value, context_from_json.clone())?,
+						Self::try_from_json_with(value)?,
 					) {
 						let entry = result.remove(duplicate.key.value()).unwrap();
 						return Err(Meta(
@@ -305,9 +281,9 @@ pub trait Traversal<'a> {
 	fn traverse(&'a self) -> Self::Traverse;
 }
 
-impl<'a, C: 'a + context::AnyValue> Traversal<'a> for MetaValue<C::Metadata, C> {
-	type Fragment = FragmentRef<'a, C>;
-	type Traverse = Traverse<'a, C>;
+impl<'a, M: 'a> Traversal<'a> for MetaValue<M> {
+	type Fragment = FragmentRef<'a, M>;
+	type Traverse = Traverse<'a, M>;
 
 	fn traverse(&'a self) -> Self::Traverse {
 		let mut stack = SmallVec::new();
@@ -316,82 +292,62 @@ impl<'a, C: 'a + context::AnyValue> Traversal<'a> for MetaValue<C::Metadata, C> 
 	}
 }
 
-impl<M, C> From<bool> for Value<M, C> {
+impl<M> From<bool> for Value<M> {
 	fn from(b: bool) -> Self {
 		Self::Boolean(b)
 	}
 }
 
-impl<M, C> From<NumberBuf> for Value<M, C> {
+impl<M> From<NumberBuf> for Value<M> {
 	fn from(n: NumberBuf) -> Self {
 		Self::Number(n)
 	}
 }
 
-impl<M, C> From<String> for Value<M, C> {
+impl<M> From<String> for Value<M> {
 	fn from(s: String) -> Self {
 		Self::String(s)
 	}
 }
 
-impl<M, C> From<::std::string::String> for Value<M, C> {
+impl<M> From<::std::string::String> for Value<M> {
 	fn from(s: ::std::string::String) -> Self {
 		Self::String(s.into())
 	}
 }
 
-impl<M, C> From<Array<M, C>> for Value<M, C> {
-	fn from(a: Array<M, C>) -> Self {
+impl<M> From<Array<M>> for Value<M> {
+	fn from(a: Array<M>) -> Self {
 		Self::Array(a)
 	}
 }
 
-impl<M, C> From<Object<M, C>> for Value<M, C> {
-	fn from(o: Object<M, C>) -> Self {
+impl<M> From<Object<M>> for Value<M> {
+	fn from(o: Object<M>) -> Self {
 		Self::Object(o)
 	}
 }
 
 /// JSON-LD array.
-pub type Array<M, C> = Vec<Meta<Value<M, C>, M>>;
-
-impl<M> crate::TryFromJson<M> for bool {
-	type Error = crate::Unexpected;
-
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<Self::Error, M>> {
-		match value {
-			json_syntax::Value::Boolean(b) => Ok(Meta(b, meta)),
-			unexpected => Err(Meta(
-				crate::Unexpected(unexpected.kind(), &[json_syntax::Kind::Boolean]),
-				meta,
-			)),
-		}
-	}
-}
+pub type Array<M> = Vec<Meta<Value<M>, M>>;
 
 #[derive(Clone, Debug)]
-pub enum ValueFromJsonError<M, C = context::Value<M>, E = context::InvalidContext> {
-	DuplicateContext(object::ContextEntry<M, C>),
-	DuplicateKey(object::Entry<M, C>),
-	InvalidContext(E),
+pub enum ValueFromJsonError<M> {
+	DuplicateKey(object::Entry<M>)
 }
 
-pub type MetaValueFromJsonError<M, C = context::Value<M>, E = context::InvalidContext> =
-	Meta<ValueFromJsonError<M, C, E>, M>;
+pub type MetaValueFromJsonError<M> =
+	Meta<ValueFromJsonError<M>, M>;
 
-impl<M, C, E: fmt::Display> fmt::Display for ValueFromJsonError<M, C, E> {
+impl<M> fmt::Display for ValueFromJsonError<M> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::DuplicateContext(_) => write!(f, "duplicate context entry"),
-			Self::DuplicateKey(e) => write!(f, "duplicate key `{}`", e.key.value()),
-			Self::InvalidContext(e) => e.fmt(f),
+			Self::DuplicateKey(e) => write!(f, "duplicate key `{}`", e.key.value())
 		}
 	}
 }
 
-impl<M: Clone> crate::TryFromJson<M> for Value<M, context::Value<M>> {
+impl<M: Clone> crate::TryFromJson<M> for Value<M> {
 	type Error = ValueFromJsonError<M>;
 
 	fn try_from_json(
@@ -401,65 +357,48 @@ impl<M: Clone> crate::TryFromJson<M> for Value<M, context::Value<M>> {
 	}
 }
 
-impl<M: Clone> Value<M, context::Value<M>> {
+impl<M: Clone> Value<M> {
 	pub fn try_from_json(
 		value: Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<ValueFromJsonError<M>, M>> {
-		Self::try_from_json_with(value, crate::TryFromJson::try_from_json)
+		Self::try_from_json_with(value)
 	}
 }
 
-pub enum ValueSubFragments<'a, C: context::AnyValue> {
+pub enum ValueSubFragments<'a, M> {
 	None,
-	Array(core::slice::Iter<'a, MetaValue<C::Metadata, C>>),
-	Object(
-		Option<&'a C>,
-		core::slice::Iter<'a, object::Entry<C::Metadata, C>>,
-	),
+	Array(core::slice::Iter<'a, MetaValue<M>>),
+	Object(core::slice::Iter<'a, object::Entry<M>>),
 }
 
-impl<'a, C: context::AnyValue> Iterator for ValueSubFragments<'a, C> {
-	type Item = FragmentRef<'a, C>;
+impl<'a, M> Iterator for ValueSubFragments<'a, M> {
+	type Item = FragmentRef<'a, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
 			Self::None => None,
 			Self::Array(a) => a.next_back().map(|v| FragmentRef::Value(v)),
-			Self::Object(c, e) => match c.take() {
-				Some(c) => {
-					let item = match c.as_value_ref() {
-						ValueRef::One(Meta(c, _)) => context::FragmentRef::Context(c),
-						ValueRef::Many(m) => context::FragmentRef::ContextArray(m),
-					};
-
-					Some(FragmentRef::ContextFragment(item))
-				}
-				None => e.next_back().map(|e| FragmentRef::Value(e.as_value())),
-			},
+			Self::Object(e) => e.next_back().map(|e| FragmentRef::Value(e.as_value())),
 		}
 	}
 }
 
 /// JSON-LD value fragment.
-pub enum FragmentRef<'a, C: context::AnyValue> {
+pub enum FragmentRef<'a, M> {
 	/// Object entry.
-	Entry(&'a object::Entry<C::Metadata, C>),
+	Entry(&'a object::Entry<M>),
 
 	/// Object entry key.
-	Key(&'a Meta<object::Key, C::Metadata>),
+	Key(&'a Meta<object::Key, M>),
 
 	/// JSON-LD value (may be an object entry value).
-	Value(&'a MetaValue<C::Metadata, C>),
-
-	/// Context value fragment.
-	ContextFragment(crate::context::FragmentRef<'a, C>),
+	Value(&'a MetaValue<M>)
 }
 
-impl<'a, C: context::AnyValue> FragmentRef<'a, C> {
+impl<'a, M> FragmentRef<'a, M> {
 	pub fn is_array(&self) -> bool {
 		match self {
 			Self::Value(v) => v.is_array(),
-			Self::ContextFragment(c) => c.is_array(),
 			_ => false,
 		}
 	}
@@ -467,32 +406,29 @@ impl<'a, C: context::AnyValue> FragmentRef<'a, C> {
 	pub fn is_object(&self) -> bool {
 		match self {
 			Self::Value(v) => v.is_object(),
-			Self::ContextFragment(c) => c.is_object(),
 			_ => false,
 		}
 	}
 
-	pub fn sub_items(&self) -> SubFragments<'a, C> {
+	pub fn sub_items(&self) -> SubFragments<'a, M> {
 		match self {
 			Self::Entry(e) => SubFragments::Entry(Some(&e.key), Some(&e.value)),
 			Self::Key(_) => SubFragments::None,
-			Self::Value(v) => SubFragments::Value(v.sub_items()),
-			Self::ContextFragment(c) => SubFragments::Context(c.sub_items()),
+			Self::Value(v) => SubFragments::Value(v.sub_items())
 		}
 	}
 
-	pub fn strip(self) -> StrippedFragmentRef<'a, C> {
+	pub fn strip(self) -> StrippedFragmentRef<'a, M> {
 		match self {
 			Self::Entry(e) => StrippedFragmentRef::Entry(e),
 			Self::Key(k) => StrippedFragmentRef::Key(k),
-			Self::Value(v) => StrippedFragmentRef::Value(v),
-			Self::ContextFragment(f) => StrippedFragmentRef::ContextFragment(f),
+			Self::Value(v) => StrippedFragmentRef::Value(v)
 		}
 	}
 }
 
-impl<'a, C: context::AnyValue> locspan::Strip for FragmentRef<'a, C> {
-	type Stripped = StrippedFragmentRef<'a, C>;
+impl<'a, M> locspan::Strip for FragmentRef<'a, M> {
+	type Stripped = StrippedFragmentRef<'a, M>;
 
 	fn strip(self) -> Self::Stripped {
 		self.strip()
@@ -500,25 +436,21 @@ impl<'a, C: context::AnyValue> locspan::Strip for FragmentRef<'a, C> {
 }
 
 /// JSON-LD value fragment.
-pub enum StrippedFragmentRef<'a, C: context::AnyValue> {
+pub enum StrippedFragmentRef<'a, M> {
 	/// Object entry.
-	Entry(&'a object::Entry<C::Metadata, C>),
+	Entry(&'a object::Entry<M>),
 
 	/// Object entry key.
 	Key(&'a object::Key),
 
 	/// JSON-LD value (may be an object entry value).
-	Value(&'a Value<C::Metadata, C>),
-
-	/// Context value fragment.
-	ContextFragment(crate::context::FragmentRef<'a, C>),
+	Value(&'a Value<M>)
 }
 
-impl<'a, C: context::AnyValue> StrippedFragmentRef<'a, C> {
+impl<'a, M> StrippedFragmentRef<'a, M> {
 	pub fn is_array(&self) -> bool {
 		match self {
 			Self::Value(v) => v.is_array(),
-			Self::ContextFragment(c) => c.is_array(),
 			_ => false,
 		}
 	}
@@ -526,33 +458,30 @@ impl<'a, C: context::AnyValue> StrippedFragmentRef<'a, C> {
 	pub fn is_object(&self) -> bool {
 		match self {
 			Self::Value(v) => v.is_object(),
-			Self::ContextFragment(c) => c.is_object(),
 			_ => false,
 		}
 	}
 
-	pub fn sub_items(&self) -> SubFragments<'a, C> {
+	pub fn sub_items(&self) -> SubFragments<'a, M> {
 		match self {
 			Self::Entry(e) => SubFragments::Entry(Some(&e.key), Some(&e.value)),
 			Self::Key(_) => SubFragments::None,
-			Self::Value(v) => SubFragments::Value(v.sub_items()),
-			Self::ContextFragment(c) => SubFragments::Context(c.sub_items()),
+			Self::Value(v) => SubFragments::Value(v.sub_items())
 		}
 	}
 }
 
-pub enum SubFragments<'a, C: context::AnyValue> {
+pub enum SubFragments<'a, M> {
 	None,
 	Entry(
-		Option<&'a Meta<object::Key, C::Metadata>>,
-		Option<&'a MetaValue<C::Metadata, C>>,
+		Option<&'a Meta<object::Key, M>>,
+		Option<&'a MetaValue<M>>,
 	),
-	Value(ValueSubFragments<'a, C>),
-	Context(context::SubFragments<'a, C>),
+	Value(ValueSubFragments<'a, M>)
 }
 
-impl<'a, C: context::AnyValue> Iterator for SubFragments<'a, C> {
-	type Item = FragmentRef<'a, C>;
+impl<'a, M> Iterator for SubFragments<'a, M> {
+	type Item = FragmentRef<'a, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
@@ -561,18 +490,17 @@ impl<'a, C: context::AnyValue> Iterator for SubFragments<'a, C> {
 				.take()
 				.map(FragmentRef::Key)
 				.or_else(|| v.take().map(FragmentRef::Value)),
-			Self::Value(s) => s.next(),
-			Self::Context(s) => s.next().map(FragmentRef::ContextFragment),
+			Self::Value(s) => s.next()
 		}
 	}
 }
 
-pub struct Traverse<'a, C: context::AnyValue> {
-	stack: SmallVec<[FragmentRef<'a, C>; 8]>,
+pub struct Traverse<'a, M> {
+	stack: SmallVec<[FragmentRef<'a, M>; 8]>,
 }
 
-impl<'a, C: 'a + context::AnyValue> Iterator for Traverse<'a, C> {
-	type Item = FragmentRef<'a, C>;
+impl<'a, M> Iterator for Traverse<'a, M> {
+	type Item = FragmentRef<'a, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.stack.pop() {
@@ -585,12 +513,12 @@ impl<'a, C: 'a + context::AnyValue> Iterator for Traverse<'a, C> {
 	}
 }
 
-pub struct TraverseStripped<'a, C: context::AnyValue> {
-	stack: SmallVec<[StrippedFragmentRef<'a, C>; 8]>,
+pub struct TraverseStripped<'a, M> {
+	stack: SmallVec<[StrippedFragmentRef<'a, M>; 8]>,
 }
 
-impl<'a, C: 'a + context::AnyValue> Iterator for TraverseStripped<'a, C> {
-	type Item = StrippedFragmentRef<'a, C>;
+impl<'a, M> Iterator for TraverseStripped<'a, M> {
+	type Item = StrippedFragmentRef<'a, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.stack.pop() {

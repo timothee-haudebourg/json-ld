@@ -1,79 +1,69 @@
-use super::{
-	add_value, compact_collection_with, compact_iri, compact_iri_with, value_value, Compact,
-	CompactIndexed, JsonSrc, Options,
-};
-use crate::{
-	context::{Inversible, Loader},
-	object,
-	syntax::{Container, ContainerType, Keyword, Term},
-	util::JsonFrom,
-	ContextMut, Error, ErrorCode, Id, Indexed, Node, Object, Reference,
-};
-use cc_traits::Len;
-use generic_json::{JsonBuild, JsonClone, JsonHash, JsonIntoMut, JsonMut, ValueMut};
+use std::hash::Hash;
+use json_ld_core::{NamespaceMut, Reference, Loader, ContextLoader, Context, Indexed, Node, Value, object, Type, Container, ContainerKind, Term, IndexedObject, context::Nest};
+use json_ld_syntax::Keyword;
+use json_ld_context_processing::Process;
+use locspan::Meta;
+use crate::{Options, MetaError, Error, compact_iri, compact_key, compact_iri_with, compact_collection_with, add_value};
 
-async fn compact_property_list<
-	J: JsonClone + JsonHash,
-	K: JsonFrom<J>,
-	T: Sync + Send + Id,
-	C: ContextMut<T>,
-	L: Loader,
-	M,
->(
-	list: &[Indexed<Object<J, T>>],
-	expanded_index: Option<&str>,
-	nest_result: &mut K::Object,
+async fn compact_property_list<I, B, M, C, N, L>(
+	namespace: &mut N,
+	Meta(list, meta): Meta<&[IndexedObject<I, B, M>], &M>,
+	expanded_index: Option<&json_ld_syntax::Entry<String, M>>,
+	nest_result: &mut json_syntax::Object<M>,
 	container: Container,
 	as_array: bool,
-	item_active_property: &str,
-	active_context: &Inversible<T, C>,
+	item_active_property: Meta<&str, &M>,
+	active_context: &Context<I, B, C>,
 	loader: &mut L,
-	options: Options,
-	meta: M,
-) -> Result<(), Error>
+	options: Options
+) -> Result<(), MetaError<M, L::ContextError>>
 where
-	J: JsonSrc,
-	C: Sync + Send,
-	C::LocalContext: Send + Sync + From<L::Output>,
-	L: Sync + Send,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	N: Send + Sync + NamespaceMut<I, B>,
+	I: Clone + Hash + Eq + Send + Sync,
+	B: Clone + Hash + Eq + Send + Sync,
+	M: Clone + Send + Sync,
+	C: Process<I, B, M>,
+	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+	L::Output: Into<Value<M, C>>,
+	L::Context: Into<C>
 {
 	// If expanded item is a list object:
-	let mut compacted_item: K = compact_collection_with(
-		list.iter(),
+	let mut compacted_item = compact_collection_with(
+		namespace,
+		Meta(list.iter(), meta),
 		active_context,
 		active_context,
 		Some(item_active_property),
 		loader,
-		options,
-		meta.clone(),
+		options
 	)
 	.await?;
 
 	// If compacted item is not an array,
 	// then set `compacted_item` to an array containing only `compacted_item`.
 	if !compacted_item.is_array() {
-		let mut array = K::Array::default();
-		array.push_back(compacted_item);
-		compacted_item = K::array(array, meta(None))
+		let mut array = json_syntax::Array::default();
+		array.push(compacted_item);
+		compacted_item = Meta(json_syntax::Value::Array(array), meta.clone())
 	}
 
 	// If container does not include @list:
-	if !container.contains(ContainerType::List) {
+	if !container.contains(ContainerKind::List) {
 		// Convert `compacted_item` to a list object by setting it to
 		// a map containing an entry where the key is the result of
 		// IRI compacting @list and the value is the original
 		// compacted item.
-		let key = compact_iri::<J, T, C>(
+		let key = compact_key(
+			namespace,
 			active_context,
-			&Term::Keyword(Keyword::List),
+			Meta(&Term::Keyword(Keyword::List), meta),
 			true,
 			false,
 			options,
-		)?;
-		let mut compacted_item_list_object = K::Object::default();
+		).map_err(Meta::cast)?;
+		let mut compacted_item_list_object = json_syntax::Object::default();
 		compacted_item_list_object.insert(
-			K::new_key(key.unwrap().as_str(), meta(None)),
+			key.unwrap(),
 			compacted_item,
 		);
 
@@ -81,20 +71,24 @@ where
 		// then add an entry to compacted item where the key is
 		// the result of IRI compacting @index and value is value.
 		if let Some(index) = expanded_index {
-			let key = compact_iri::<J, T, C>(
+			let key = compact_key(
+				namespace,
 				active_context,
-				&Term::Keyword(Keyword::Index),
+				Meta(&Term::Keyword(Keyword::Index), &index.key_metadata),
 				true,
 				false,
 				options,
-			)?;
+			).map_err(Meta::cast)?;
+			
+			let Meta(index_value, meta) = &index.value;
+
 			compacted_item_list_object.insert(
-				K::new_key(key.unwrap().as_str(), meta(None)),
-				K::string(index.into(), meta(None)),
+				key.unwrap(),
+				Meta(json_syntax::Value::String(index_value.as_str().into()), meta.clone())
 			);
 		}
 
-		compacted_item = K::object(compacted_item_list_object, meta(None));
+		compacted_item = Meta(json_syntax::Value::Object(compacted_item_list_object), meta.clone());
 
 		// Use add value to add `compacted_item` to
 		// the `item_active_property` entry in `nest_result` using `as_array`.
@@ -102,44 +96,43 @@ where
 			nest_result,
 			item_active_property,
 			compacted_item,
-			as_array,
-			|| meta(None),
+			as_array
 		)
 	} else {
 		// Otherwise, set the value of the item active property entry in nest result to compacted item.
-		nest_result.insert(K::new_key(item_active_property, meta(None)), compacted_item);
+		nest_result.insert(
+			Meta(item_active_property.0.into(), item_active_property.1.clone()),
+			compacted_item
+		);
 	}
 
 	Ok(())
 }
 
-async fn compact_property_graph<
-	J: JsonSrc,
-	K: JsonFrom<J>,
-	T: Sync + Send + Id,
-	C: ContextMut<T>,
-	L: Loader,
-	M,
->(
-	node: &Node<J, T>,
+async fn compact_property_graph<I, B, M, C, N, L>(
+	namespace: &mut N,
+	Meta(node, meta): Meta<&Node<I, B, M>, &M>,
 	expanded_index: Option<&str>,
-	nest_result: &mut K::Object,
+	nest_result: &mut json_syntax::Object<M>,
 	container: Container,
 	as_array: bool,
 	item_active_property: &str,
-	active_context: &Inversible<T, C>,
+	active_context: &Context<I, B, C>,
 	loader: &mut L,
-	options: Options,
-	meta: M,
-) -> Result<(), Error>
+	options: Options
+) -> Result<(), Error<L::ContextError>>
 where
-	C: Sync + Send,
-	C::LocalContext: Send + Sync + From<L::Output>,
-	L: Sync + Send,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
+	N: Send + Sync + NamespaceMut<I, B>,
+	I: Clone + Hash + Eq + Send + Sync,
+	B: Clone + Hash + Eq + Send + Sync,
+	M: Clone + Send + Sync,
+	C: Process<I, B, M>,
+	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+	L::Output: Into<Value<M, C>>,
+	L::Context: Into<C>
 {
 	// If expanded item is a graph object
-	let mut compacted_item: K = node
+	let mut compacted_item = node
 		.graph
 		.as_ref()
 		.unwrap()
@@ -154,7 +147,7 @@ where
 		.await?;
 
 	// If `container` includes @graph and @id:
-	if container.contains(ContainerType::Graph) && container.contains(ContainerType::Id) {
+	if container.contains(ContainerKind::Graph) && container.contains(ContainerKind::Id) {
 		// Initialize `map_object` to the value of `item_active_property`
 		// in `nest_result`, initializing it to a new empty map,
 		// if necessary.
@@ -172,7 +165,7 @@ where
 		// `expanded_item` or @none if no such value exists
 		// with `vocab` set to false if there is an @id entry in
 		// `expanded_item`.
-		let (id_value, vocab): (Term<T>, bool) = match node.id() {
+		let (id_value, vocab): (Term<I, B>, bool) = match node.id() {
 			Some(term) => (term.clone().into_term(), false),
 			None => (Term::Keyword(Keyword::None), true),
 		};
@@ -189,8 +182,8 @@ where
 			as_array,
 			|| meta(None),
 		)
-	} else if container.contains(ContainerType::Graph)
-		&& container.contains(ContainerType::Index)
+	} else if container.contains(ContainerKind::Graph)
+		&& container.contains(ContainerKind::Index)
 		&& node.is_simple_graph()
 	{
 		// Initialize `map_object` to the value of `item_active_property`
@@ -213,7 +206,7 @@ where
 		// Use `add_value` to add `compacted_item` to
 		// the `map_key` entry in `map_object` using `as_array`.
 		add_value(map_object, map_key, compacted_item, as_array, || meta(None))
-	} else if container.contains(ContainerType::Graph) && node.is_simple_graph() {
+	} else if container.contains(ContainerKind::Graph) && node.is_simple_graph() {
 		// Otherwise, if `container` includes @graph and
 		// `expanded_item` is a simple graph object
 		// the value cannot be represented as a map object.
@@ -333,40 +326,18 @@ where
 	Ok(())
 }
 
-// pub enum SubObject<'o, K: JsonMut> {
-// 	Root(&'o mut K::Object),
-// 	Sub(<K::Object as cc_traits::CollectionMut>::ItemMut<'o>, &'o mut K::Object)
-// }
-
-// impl<'o, K: JsonMut> std::ops::Deref for SubObject<'o, K> {
-// 	type Target = K::Object;
-
-// 	fn deref(&self) -> &Self::Target {
-// 		match self {
-// 			Self::Root(o) => o,
-// 			Self::Sub(_, o) => o
-// 		}
-// 	}
-// }
-
-// impl<'o, K: JsonMut> std::ops::DerefMut for SubObject<'o, K> {
-// 	fn deref_mut(&mut self) -> &mut Self::Target {
-// 		match self {
-// 			Self::Root(o) => o,
-// 			Self::Sub(_, o) => o
-// 		}
-// 	}
-// }
-
-fn select_nest_result<'a, K: 'a + JsonBuild + JsonMut + JsonIntoMut, T: Id, C: ContextMut<T>, M>(
-	result: &'a mut K::Object,
-	active_context: &Inversible<T, C>,
+fn select_nest_result<'a, I, B, M, C, N, E>(
+	namespace: &N,
+	result: &'a mut json_syntax::Object<M>,
+	active_context: &Context<I, B, C>,
 	item_active_property: &str,
-	compact_arrays: bool,
-	meta: M,
-) -> Result<(&'a mut K::Object, Container, bool), Error>
+	compact_arrays: bool
+) -> Result<(&'a mut json_syntax::Object<M>, Container, bool), MetaError<M, E>>
 where
-	M: Fn() -> K::MetaData,
+	N: Send + Sync + NamespaceMut<I, B>,
+	I: Clone + Hash + Eq + Send + Sync,
+	B: Clone + Hash + Eq + Send + Sync,
+	M: Clone + Send + Sync
 {
 	let (nest_result, container) = match active_context.get(item_active_property) {
 		Some(term_definition) => {
@@ -376,11 +347,11 @@ where
 					// or a term in the active context that expands to @nest,
 					// an invalid @nest value error has been detected,
 					// and processing is aborted.
-					if nest_term != "@nest" {
+					if *nest_term != Nest::Nest {
 						match active_context.get(nest_term.as_ref()) {
 							Some(term_def)
 								if term_def.value == Some(Term::Keyword(Keyword::Nest)) => {}
-							_ => return Err(ErrorCode::InvalidNestValue.into()),
+							_ => return Err(Error::InvalidNestValue),
 						}
 					}
 
@@ -418,7 +389,7 @@ where
 	// Initialize `as_array` to true if `container` includes @set,
 	// or if `item_active_property` is @graph or @list,
 	// otherwise the negation of `options.compact_arrays`.
-	let as_array = if container.contains(ContainerType::Set)
+	let as_array = if container.contains(ContainerKind::Set)
 		|| item_active_property == "@graph"
 		|| item_active_property == "@list"
 	{
@@ -431,30 +402,27 @@ where
 }
 
 /// Compact the given property into the `result` compacted object.
-pub async fn compact_property<
-	'a,
-	J: JsonSrc,
-	K: JsonFrom<J>,
-	T: 'a + Sync + Send + Id,
-	N: 'a + object::Any<J, T> + Sync + Send,
-	O: IntoIterator<Item = &'a Indexed<N>>,
-	C: ContextMut<T>,
-	L: Loader,
-	M: Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
->(
-	result: &mut K::Object,
-	expanded_property: Term<T>,
+pub async fn compact_property<'a, T, O, I, B, M, C, N, L>(
+	namespace: &mut N,
+	result: &mut json_syntax::Object<M>,
+	expanded_property: Meta<Term<I, B>, M>,
 	expanded_value: O,
-	active_context: &Inversible<T, C>,
+	active_context: &Context<I, B, C>,
 	loader: &mut L,
 	inside_reverse: bool,
-	options: Options,
-	meta: M,
-) -> Result<(), Error>
+	options: Options
+) -> Result<(), MetaError<M, L::ContextError>>
 where
-	C: Sync + Send,
-	C::LocalContext: Send + Sync + From<L::Output>,
-	L: Sync + Send,
+	T: 'a + object::Any<I, B, M> + Sync + Send,
+	O: IntoIterator<Item = &'a Meta<Indexed<T, M>, M>>,
+	N: Send + Sync + NamespaceMut<I, B>,
+	I: Clone + Hash + Eq + Send + Sync,
+	B: Clone + Hash + Eq + Send + Sync,
+	M: 'a + Clone + Send + Sync,
+	C: Process<I, B, M>,
+	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+	L::Output: Into<Value<M, C>>,
+	L::Context: Into<C>
 {
 	let mut is_empty = true;
 
@@ -464,24 +432,25 @@ where
 		// Initialize `item_active_property` by IRI compacting `expanded_property`
 		// using `expanded_item` for value and `inside_reverse` for `reverse`.
 		let item_active_property = compact_iri_with(
+			namespace,
 			active_context,
-			&expanded_property,
+			Meta(&expanded_property.0, &expanded_property.1),
 			expanded_item,
 			true,
 			inside_reverse,
 			options,
-		)?;
+		).map_err(Meta::cast)?;
 
 		// If the term definition for `item_active_property` in the active context
 		// has a nest value entry (nest term)
 		if let Some(item_active_property) = item_active_property {
-			let (nest_result, container, as_array): (&'_ mut K::Object, _, _) =
-				select_nest_result::<K, _, _, _>(
+			let (nest_result, container, as_array) =
+				select_nest_result(
+					namespace,
 					result,
 					active_context,
 					item_active_property.as_str(),
-					options.compact_arrays,
-					|| meta(None),
+					options.compact_arrays
 				)?;
 
 			// Initialize `compacted_item` to the result of using this algorithm
@@ -536,11 +505,11 @@ where
 
 					// if container includes @language, @index, @id,
 					// or @type and container does not include @graph:
-					if !container.contains(ContainerType::Graph)
-						&& (container.contains(ContainerType::Language)
-							|| container.contains(ContainerType::Index)
-							|| container.contains(ContainerType::Id)
-							|| container.contains(ContainerType::Type))
+					if !container.contains(ContainerKind::Graph)
+						&& (container.contains(ContainerKind::Language)
+							|| container.contains(ContainerKind::Index)
+							|| container.contains(ContainerKind::Id)
+							|| container.contains(ContainerKind::Type))
 					{
 						// Initialize `map_object` to the value of
 						// `item_active_property` in `nest_result`,
@@ -558,14 +527,14 @@ where
 
 						// Initialize container key by IRI compacting either
 						// @language, @index, @id, or @type based on the contents of container.
-						let container_type = if container.contains(ContainerType::Language) {
-							ContainerType::Language
-						} else if container.contains(ContainerType::Index) {
-							ContainerType::Index
-						} else if container.contains(ContainerType::Id) {
-							ContainerType::Id
+						let container_type = if container.contains(ContainerKind::Language) {
+							ContainerKind::Language
+						} else if container.contains(ContainerKind::Index) {
+							ContainerKind::Index
+						} else if container.contains(ContainerKind::Id) {
+							ContainerKind::Id
 						} else {
-							ContainerType::Type
+							ContainerKind::Type
 						};
 
 						let mut container_key = compact_iri::<J, _, _>(
@@ -589,7 +558,7 @@ where
 						// the value associated with its @value entry.
 						// Set `map_key` to the value of @language in `expanded_item`,
 						// if any.
-						let map_key = if container_type == ContainerType::Language
+						let map_key = if container_type == ContainerKind::Language
 							&& expanded_item.is_value()
 						{
 							if let object::Ref::Value(value) = expanded_item.inner().as_ref() {
@@ -597,7 +566,7 @@ where
 							}
 
 							expanded_item.language().map(|lang| lang.to_string())
-						} else if container_type == ContainerType::Index {
+						} else if container_type == ContainerKind::Index {
 							if index_key == "@index" {
 								// Otherwise, if `container` includes @index and
 								// `index_key` is @index, set `map_key` to the value of
@@ -671,7 +640,7 @@ where
 
 								map_key
 							}
-						} else if container_type == ContainerType::Id {
+						} else if container_type == ContainerKind::Id {
 							// Otherwise, if `container` includes @id,
 							// set `map_key` to the value of `container_key` in
 							// `compacted_item` and remove `container_key` from

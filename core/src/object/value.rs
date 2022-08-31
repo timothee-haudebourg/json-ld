@@ -1,7 +1,7 @@
 use crate::{object, Direction, IriNamespaceMut, LangString, LenientLanguageTag};
 use derivative::Derivative;
 use iref::{Iri, IriBuf};
-use json_ld_syntax::{IntoJson, Keyword};
+use json_ld_syntax::Keyword;
 use json_syntax::{Number, NumberBuf};
 use locspan::Meta;
 use locspan_derive::*;
@@ -330,17 +330,15 @@ impl<T, M> Value<T, M> {
 		}
 	}
 
-	pub(crate) fn try_from_json_object_in<C: IntoJson<M>>(
+	pub(crate) fn try_from_json_object_in(
 		namespace: &mut impl IriNamespaceMut<T>,
-		mut object: json_ld_syntax::Object<M, C>,
-		value_entry: json_ld_syntax::object::Entry<M, C>,
-	) -> Result<Self, Meta<InvalidExpandedJson, M>> {
-		match object.remove("@type") {
+		mut object: json_syntax::Object<M>,
+		value_entry: json_syntax::object::Entry<M>,
+	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
+		match object.remove_unique("@type").map_err(InvalidExpandedJson::duplicate_key)? {
 			Some(type_entry) => match type_entry.value {
-				Meta(json_ld_syntax::Value::String(ty), ty_meta) => match ty.as_str() {
-					"@json" => Ok(Self::Json(json_ld_syntax::Value::into_json(
-						value_entry.value,
-					))),
+				Meta(json_syntax::Value::String(ty), ty_meta) => match ty.as_str() {
+					"@json" => Ok(Self::Json(value_entry.value)),
 					iri => match Iri::new(iri) {
 						Ok(iri) => {
 							let ty = namespace.insert(iri);
@@ -355,11 +353,13 @@ impl<T, M> Value<T, M> {
 			},
 			None => {
 				let language = object
-					.remove("@language")
-					.map(json_ld_syntax::object::Entry::into_value);
+					.remove_unique("@language")
+					.map_err(InvalidExpandedJson::duplicate_key)?
+					.map(json_syntax::object::Entry::into_value);
 				let direction = object
-					.remove("@direction")
-					.map(json_ld_syntax::object::Entry::into_value);
+					.remove_unique("@direction")
+					.map_err(InvalidExpandedJson::duplicate_key)?
+					.map(json_syntax::object::Entry::into_value);
 
 				if language.is_some() || direction.is_some() {
 					Ok(Self::LangString(LangString::try_from_json(
@@ -378,15 +378,15 @@ impl<T, M> Value<T, M> {
 	}
 }
 
-impl<M, C> TryFrom<json_ld_syntax::Value<M, C>> for Literal {
-	type Error = InvalidExpandedJson;
+impl<M> TryFrom<json_syntax::Value<M>> for Literal {
+	type Error = InvalidExpandedJson<M>;
 
-	fn try_from(value: json_ld_syntax::Value<M, C>) -> Result<Self, Self::Error> {
+	fn try_from(value: json_syntax::Value<M>) -> Result<Self, Self::Error> {
 		match value {
-			json_ld_syntax::Value::Null => Ok(Self::Null),
-			json_ld_syntax::Value::Boolean(b) => Ok(Self::Boolean(b)),
-			json_ld_syntax::Value::Number(n) => Ok(Self::Number(n)),
-			json_ld_syntax::Value::String(s) => Ok(Self::String(s.into())),
+			json_syntax::Value::Null => Ok(Self::Null),
+			json_syntax::Value::Boolean(b) => Ok(Self::Boolean(b)),
+			json_syntax::Value::Number(n) => Ok(Self::Number(n)),
+			json_syntax::Value::String(s) => Ok(Self::String(s.into())),
 			_ => Err(InvalidExpandedJson::InvalidLiteral),
 		}
 	}

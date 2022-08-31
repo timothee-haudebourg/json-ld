@@ -25,7 +25,7 @@ type FsLoader = json_ld::FsLoader<
 	IriIndex,
 	json_ld::syntax::Value<Location<IriIndex>>,
 	Location<IriIndex>,
-	json_ld::syntax::MetaError<Location<IriIndex>>,
+	json_ld::syntax::parse::MetaError<Location<IriIndex>>,
 >;
 
 struct MountAttribute {
@@ -423,9 +423,10 @@ fn parse_enum_type(
 
 type ExpandError = Loc<
 	json_ld::expansion::Error<
+		Location<IriIndex>,
 		json_ld::ContextLoaderError<
-			json_ld::fs::Error<json_ld::syntax::MetaError<Location<IriIndex>>>,
-			Loc<json_ld::ExtractContextError, IriIndex>,
+			json_ld::fs::Error<json_ld::syntax::parse::MetaError<Location<IriIndex>>>,
+			Loc<json_ld::ExtractContextError<Location<IriIndex>>, IriIndex>,
 		>,
 	>,
 	IriIndex,
@@ -433,7 +434,7 @@ type ExpandError = Loc<
 
 enum Error {
 	Parse(syn::Error),
-	Load(json_ld::loader::fs::Error<json_ld::syntax::MetaError<Location<IriIndex>>>),
+	Load(json_ld::loader::fs::Error<json_ld::syntax::parse::MetaError<Location<IriIndex>>>),
 	Expand(ExpandError),
 	InvalidIri(String),
 	InvalidValue(Type, json_ld::rdf::Value<IriIndex, BlankIdIndex>),
@@ -495,6 +496,7 @@ async fn generate_test_suite(
 		.load_in(namespace, spec.suite)
 		.await
 		.map_err(Error::Load)?;
+		
 	let mut expanded_json_ld: json_ld::ExpandedDocument<IriIndex, BlankIdIndex, _> = json_ld
 		.expand_in(namespace, Some(&spec.suite), &mut loader)
 		.await
@@ -503,6 +505,7 @@ async fn generate_test_suite(
 	let mut generator =
 		json_ld::id::generator::Blank::new(Location::new(IriIndex::Index(0), Span::default()));
 	expanded_json_ld.identify_all_in(namespace, &mut generator);
+
 	let rdf_quads = expanded_json_ld.rdf_quads_in(namespace, &mut generator, None);
 	let dataset: grdf::HashDataset<_, _, _, _> = rdf_quads.map(quad_to_owned).collect();
 

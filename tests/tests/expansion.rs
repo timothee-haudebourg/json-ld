@@ -137,14 +137,10 @@ impl expand::Test {
 					.await
 					.unwrap();
 
-				eprintln!("expansion done.");
-
 				let expect_iri = namespace.insert(expect);
 				let expected = loader.load_in(&mut namespace, expect_iri).await.unwrap();
 				let Meta(expected, _) =
 					json_ld::ExpandedDocument::try_from_json_in(&mut namespace, expected).unwrap();
-
-				eprintln!("load done.");
 
 				let success = expanded == expected;
 

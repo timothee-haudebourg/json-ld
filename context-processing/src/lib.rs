@@ -26,15 +26,15 @@ impl fmt::Display for Warning {
 }
 
 /// Located warning.
-pub type MetaWarning<C> = Meta<Warning, <C as json_ld_syntax::context::AnyValue>::Metadata>;
+pub type MetaWarning<M> = Meta<Warning, M>;
 
-pub trait WarningHandler<N, C: json_ld_syntax::context::AnyValue>:
-	json_ld_core::warning::Handler<N, MetaWarning<C>>
+pub trait WarningHandler<N, M>:
+	json_ld_core::warning::Handler<N, MetaWarning<M>>
 {
 }
 
-impl<N, C: json_ld_syntax::context::AnyValue, H> WarningHandler<N, C> for H where
-	H: json_ld_core::warning::Handler<N, MetaWarning<C>>
+impl<N, M, H> WarningHandler<N, M> for H where
+	H: json_ld_core::warning::Handler<N, MetaWarning<M>>
 {
 }
 
@@ -91,18 +91,18 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 }
 
 /// Located error.
-pub type MetaError<C, E> = Meta<Error<E>, <C as json_ld_syntax::context::AnyValue>::Metadata>;
+pub type MetaError<M, E> = Meta<Error<E>, M>;
 
 /// Result of context processing functions.
-pub type ProcessingResult<T, B, C, E> = Result<Context<T, B, C>, MetaError<C, E>>;
+pub type ProcessingResult<T, B, M, C, E> = Result<Context<T, B, C>, MetaError<M, E>>;
 
 /// Context processing functions.
 // FIXME: unclear why the `'static` lifetime is now required.
-pub trait Process<T, B>:
-	'static + json_ld_syntax::context::AnyValue + json_ld_syntax::IntoJson<Self::Metadata>
+pub trait Process<T, B, M>:
+	json_ld_syntax::IntoJson<M> + json_ld_syntax::context::AnyValue<M>
 {
 	/// Process the local context with specific options.
-	fn process_full<'a, N, L: ContextLoader<T> + Send + Sync>(
+	fn process_full<'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'a self,
 		namespace: &'a mut N,
 		active_context: &'a Context<T, B, Self>,
@@ -110,28 +110,30 @@ pub trait Process<T, B>:
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
-		warnings: impl 'a + Send + WarningHandler<N, Self>,
-	) -> BoxFuture<'a, ProcessingResult<T, B, Self, L::ContextError>>
+		warnings: impl 'a + Send + WarningHandler<N, M>,
+	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
 	where
 		N: Send + Sync + NamespaceMut<T, B>,
-		L::Output: Into<Self>,
 		T: Clone + PartialEq + Send + Sync,
-		B: Clone + PartialEq + Send + Sync;
+		B: Clone + PartialEq + Send + Sync,
+		M: 'a + Clone + Send + Sync,
+		L::Context: Into<Self>;
 
 	/// Process the local context with specific options.
-	fn process_with<'a, N, L: ContextLoader<T> + Send + Sync>(
+	fn process_with<'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'a self,
 		namespace: &'a mut N,
 		active_context: &'a Context<T, B, Self>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
-	) -> BoxFuture<'a, ProcessingResult<T, B, Self, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
 	where
 		N: Send + Sync + NamespaceMut<T, B>,
-		L::Output: Into<Self>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
+		M: 'a + Clone + Send + Sync,
+		L::Context: Into<Self>
 	{
 		self.process_full(
 			namespace,
@@ -146,17 +148,18 @@ pub trait Process<T, B>:
 
 	/// Process the local context with the given initial active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, N, L: ContextLoader<T> + Send + Sync>(
+	fn process<'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'a self,
 		namespace: &'a mut N,
 		loader: &'a mut L,
 		base_url: Option<T>,
-	) -> BoxFuture<'a, ProcessingResult<T, B, Self, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
 	where
 		N: Send + Sync + NamespaceMut<T, B>,
-		L::Output: Into<Self>,
 		T: 'a + Clone + PartialEq + Send + Sync,
 		B: 'a + Clone + PartialEq + Send + Sync,
+		M: 'a + Clone + Send + Sync,
+		L::Context: Into<Self>
 	{
 		async move {
 			let active_context = Context::default();

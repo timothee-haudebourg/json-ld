@@ -120,7 +120,7 @@ impl<'a, T, B, M> Quads<'a, T, B, M> {
 	fn push_object(
 		&mut self,
 		graph: Option<Meta<&'a Reference<T, B>, &'a M>>,
-		object: &'a Indexed<Object<T, B, M>>,
+		object: &'a Indexed<Object<T, B, M>, M>,
 	) {
 		match object.inner() {
 			Object::Node(node) => self.push_node(graph, node),

@@ -67,6 +67,14 @@ impl<T, B, L> Context<T, B, L> {
 		self.definitions.get(term)
 	}
 
+	pub fn contains_key<Q: ?Sized>(&self, term: &Q) -> bool
+	where
+		Key: Borrow<Q>,
+		Q: Hash + Eq,
+	{
+		self.definitions.contains_key(term)
+	}
+
 	pub fn original_base_url(&self) -> Option<&T> {
 		self.original_base_url.as_ref()
 	}

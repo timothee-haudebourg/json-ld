@@ -42,7 +42,7 @@ impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, M, 
 		r: Option<&Meta<Reference<T, B>, M>>,
 	) -> Meta<Reference<T, B>, M> {
 		match r {
-			Some(Meta(Reference::Blank(id), _)) => self.assign(id.clone()).cast(),
+			Some(Meta(Reference::Valid(ValidReference::Blank(id)), _)) => self.assign(id.clone()).cast(),
 			Some(r) => r.clone(),
 			None => self.next().cast(),
 		}

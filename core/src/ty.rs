@@ -1,5 +1,5 @@
 use super::Term;
-use crate::Reference;
+use crate::{Reference, ValidReference};
 use json_ld_syntax::Keyword;
 use std::convert::TryFrom;
 use std::fmt;
@@ -84,7 +84,7 @@ impl<I, B> From<Type<I>> for Term<I, B> {
 			Type::Json => Term::Keyword(Keyword::Json),
 			Type::None => Term::Keyword(Keyword::None),
 			Type::Vocab => Term::Keyword(Keyword::Vocab),
-			Type::Ref(id) => Term::Ref(Reference::Id(id)),
+			Type::Ref(id) => Term::Ref(Reference::Valid(ValidReference::Id(id))),
 		}
 	}
 }
@@ -98,7 +98,7 @@ impl<I, B> TryFrom<Term<I, B>> for Type<I> {
 			Term::Keyword(Keyword::Json) => Ok(Type::Json),
 			Term::Keyword(Keyword::None) => Ok(Type::None),
 			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			Term::Ref(Reference::Id(id)) => Ok(Type::Ref(id)),
+			Term::Ref(Reference::Valid(ValidReference::Id(id))) => Ok(Type::Ref(id)),
 			term => Err(term),
 		}
 	}

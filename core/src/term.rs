@@ -1,4 +1,4 @@
-use crate::{BorrowWithNamespace, DisplayWithNamespace, Namespace, Reference};
+use crate::{BorrowWithNamespace, DisplayWithNamespace, Namespace, Reference, ValidReference};
 use json_ld_syntax::Keyword;
 use std::fmt;
 
@@ -22,7 +22,7 @@ impl<I, B> Term<I, B> {
 
 	pub fn into_id(self) -> Result<I, Self> {
 		match self {
-			Term::Ref(Reference::Id(id)) => Ok(id),
+			Term::Ref(Reference::Valid(ValidReference::Id(id))) => Ok(id),
 			term => Err(term),
 		}
 	}
@@ -92,7 +92,7 @@ impl<'a, T, B> From<&'a Term<T, B>> for Term<&'a T, &'a B> {
 
 impl<T, B> From<T> for Term<T, B> {
 	fn from(id: T) -> Term<T, B> {
-		Term::Ref(Reference::Id(id))
+		Term::Ref(Reference::Valid(ValidReference::Id(id)))
 	}
 }
 

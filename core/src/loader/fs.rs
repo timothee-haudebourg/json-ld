@@ -46,12 +46,9 @@ type DynParser<I, T, M, E> =
 /// attaching a directory to specific URLs.
 pub struct FsLoader<
 	I = Index,
-	T = json_ld_syntax::Value<
-		locspan::Location<I>,
-		json_ld_syntax::context::Value<locspan::Location<I>>,
-	>,
+	T = json_syntax::Value<locspan::Location<I>>,
 	M = locspan::Location<I>,
-	E = json_ld_syntax::MetaError<locspan::Location<I>>,
+	E = json_syntax::parse::MetaError<locspan::Location<I>>,
 > {
 	mount_points: HashMap<PathBuf, I>,
 	cache: HashMap<I, Meta<T, M>>,
@@ -83,10 +80,9 @@ impl<I, T, M, E> FsLoader<I, T, M, E> {
 	}
 }
 
-impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I> for FsLoader<I, T, M, E> {
+impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M> for FsLoader<I, T, M, E> {
 	type Output = T;
 	type Error = Error<E>;
-	type Metadata = M;
 
 	fn load_in<'a>(
 		&'a mut self,
@@ -138,15 +134,13 @@ impl<I, T, M, E> FsLoader<I, T, M, E> {
 impl<I: Clone> Default
 	for FsLoader<
 		I,
-		json_ld_syntax::Value<
-			locspan::Location<I>,
-			json_ld_syntax::context::Value<locspan::Location<I>>,
-		>,
+		json_syntax::Value<locspan::Location<I>>,
 		locspan::Location<I>,
-		json_ld_syntax::MetaError<locspan::Location<I>>,
+		json_syntax::parse::MetaError<locspan::Location<I>>,
 	>
 {
 	fn default() -> Self {
-		Self::new(|_, file: &I, s| json_ld_syntax::from_str_in(file.clone(), s))
+		use json_syntax::Parse;
+		Self::new(|_, file: &I, s| json_syntax::Value::parse_str(s, |span| locspan::Location::new(file.clone(), span)))
 	}
 }

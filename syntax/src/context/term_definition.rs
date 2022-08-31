@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use crate::{
 	container,
 	context::{self, Entry},
@@ -20,12 +22,14 @@ pub use index::*;
 pub use nest::*;
 pub use type_::*;
 
+use super::AnyValue;
+
 /// Term definition.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
-pub enum TermDefinition<M> {
+pub enum TermDefinition<M, C=context::Value<M>> {
 	Simple(Simple),
-	Expanded(Expanded<M>),
+	Expanded(Expanded<M, C>),
 }
 
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
@@ -57,10 +61,10 @@ impl Simple {
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
 #[stripped_ignore(M)]
 #[derivative(Default(bound = ""))]
-pub struct Expanded<M> {
+pub struct Expanded<M, C=context::Value<M>> {
 	pub id: Option<Entry<Nullable<Id>, M>>,
 	pub type_: Option<Entry<Nullable<Type>, M>>,
-	pub context: Option<Entry<Box<context::Value<M>>, M>>,
+	pub context: Option<Entry<Box<C>, M>>,
 	pub reverse: Option<Entry<context::definition::Key, M>>,
 	pub index: Option<Entry<Index, M>>,
 	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, M>>,
@@ -101,13 +105,13 @@ impl<'a> SimpleRef<'a> {
 
 /// Term definition.
 #[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub enum TermDefinitionRef<'a, C: context::AnyValue> {
+#[derivative(Clone(bound = "M: Clone"))]
+pub enum TermDefinitionRef<'a, M, C> {
 	Simple(SimpleRef<'a>),
-	Expanded(ExpandedRef<'a, C>),
+	Expanded(ExpandedRef<'a, M, C>),
 }
 
-impl<'a, C: context::AnyValue> TermDefinitionRef<'a, C> {
+impl<'a, M, C> TermDefinitionRef<'a, M, C> {
 	pub fn is_expanded(&self) -> bool {
 		matches!(self, Self::Expanded(_))
 	}
@@ -117,10 +121,10 @@ impl<'a, C: context::AnyValue> TermDefinitionRef<'a, C> {
 	}
 }
 
-impl<'a, M: Clone + Send + Sync> From<&'a TermDefinition<M>>
-	for TermDefinitionRef<'a, context::Value<M>>
+impl<'a, M: Clone, C> From<&'a TermDefinition<M, C>>
+	for TermDefinitionRef<'a, M, C>
 {
-	fn from(d: &'a TermDefinition<M>) -> Self {
+	fn from(d: &'a TermDefinition<M, C>) -> Self {
 		match d {
 			TermDefinition::Simple(s) => Self::Simple(SimpleRef(s.as_str())),
 			TermDefinition::Expanded(e) => Self::Expanded(e.into()),
@@ -139,24 +143,24 @@ pub type NestEntryRef<'a, M> = Entry<NestRef<'a>, M>;
 
 /// Expanded term definition.
 #[derive(Derivative)]
-#[derivative(Default(bound = ""), Clone(bound = ""))]
-pub struct ExpandedRef<'a, C: context::AnyValue> {
-	pub id: Option<IdEntryRef<'a, C::Metadata>>,
-	pub type_: Option<TypeEntryRef<'a, C::Metadata>>,
-	pub context: Option<Entry<&'a C, C::Metadata>>,
-	pub reverse: Option<ReverseEntryRef<'a, C::Metadata>>,
-	pub index: Option<IndexEntryRef<'a, C::Metadata>>,
-	pub language: Option<LanguageEntryRef<'a, C::Metadata>>,
-	pub direction: Option<DirectionEntry<C::Metadata>>,
-	pub container: Option<ContainerEntryRef<'a, C::Metadata>>,
-	pub nest: Option<NestEntryRef<'a, C::Metadata>>,
-	pub prefix: Option<Entry<bool, C::Metadata>>,
-	pub propagate: Option<Entry<bool, C::Metadata>>,
-	pub protected: Option<Entry<bool, C::Metadata>>,
+#[derivative(Default(bound = ""), Clone(bound = "M: Clone"))]
+pub struct ExpandedRef<'a, M, C> {
+	pub id: Option<IdEntryRef<'a, M>>,
+	pub type_: Option<TypeEntryRef<'a, M>>,
+	pub context: Option<Entry<&'a C, M>>,
+	pub reverse: Option<ReverseEntryRef<'a, M>>,
+	pub index: Option<IndexEntryRef<'a, M>>,
+	pub language: Option<LanguageEntryRef<'a, M>>,
+	pub direction: Option<DirectionEntry<M>>,
+	pub container: Option<ContainerEntryRef<'a, M>>,
+	pub nest: Option<NestEntryRef<'a, M>>,
+	pub prefix: Option<Entry<bool, M>>,
+	pub propagate: Option<Entry<bool, M>>,
+	pub protected: Option<Entry<bool, M>>,
 }
 
-impl<'a, C: context::AnyValue> ExpandedRef<'a, C> {
-	pub fn iter(&self) -> Entries<'a, C> {
+impl<'a, M, C> ExpandedRef<'a, M, C> {
+	pub fn iter(&self) -> Entries<'a, M, C> where M: Clone {
 		Entries {
 			id: self.id.clone(),
 			type_: self.type_.clone(),
@@ -174,11 +178,11 @@ impl<'a, C: context::AnyValue> ExpandedRef<'a, C> {
 	}
 }
 
-impl<'a, C: 'a + context::AnyValue> IntoIterator for ExpandedRef<'a, C> {
-	type Item = EntryRef<'a, C>;
-	type IntoIter = Entries<'a, C>;
+impl<'a, M, C> IntoIterator for ExpandedRef<'a, M, C> {
+	type Item = EntryRef<'a, M, C>;
+	type IntoIter = Entries<'a, M, C>;
 
-	fn into_iter(self) -> Entries<'a, C> {
+	fn into_iter(self) -> Entries<'a, M, C> {
 		Entries {
 			id: self.id,
 			type_: self.type_,
@@ -196,10 +200,10 @@ impl<'a, C: 'a + context::AnyValue> IntoIterator for ExpandedRef<'a, C> {
 	}
 }
 
-impl<'a, C: context::AnyValue> From<Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>>
-	for ExpandedRef<'a, C>
+impl<'a, M: Clone, C> From<Meta<Nullable<TermDefinitionRef<'a, M, C>>, M>>
+	for ExpandedRef<'a, M, C>
 {
-	fn from(Meta(d, loc): Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>) -> Self {
+	fn from(Meta(d, loc): Meta<Nullable<TermDefinitionRef<'a, M, C>>, M>) -> Self {
 		match d {
 			Nullable::Null => {
 				// If `value` is null, convert it to a map consisting of a single entry
@@ -221,8 +225,8 @@ impl<'a, C: context::AnyValue> From<Meta<Nullable<TermDefinitionRef<'a, C>>, C::
 	}
 }
 
-impl<'a, M: Clone + Send + Sync> From<&'a Expanded<M>> for ExpandedRef<'a, context::Value<M>> {
-	fn from(d: &'a Expanded<M>) -> Self {
+impl<'a, M: Clone, C> From<&'a Expanded<M, C>> for ExpandedRef<'a, M, C> {
+	fn from(d: &'a Expanded<M, C>) -> Self {
 		Self {
 			id: d
 				.id
@@ -252,37 +256,37 @@ impl<'a, M: Clone + Send + Sync> From<&'a Expanded<M>> for ExpandedRef<'a, conte
 	}
 }
 
-pub struct Entries<'a, C: context::AnyValue> {
-	id: Option<IdEntryRef<'a, C::Metadata>>,
-	type_: Option<TypeEntryRef<'a, C::Metadata>>,
-	context: Option<Entry<&'a C, C::Metadata>>,
-	reverse: Option<ReverseEntryRef<'a, C::Metadata>>,
-	index: Option<IndexEntryRef<'a, C::Metadata>>,
-	language: Option<LanguageEntryRef<'a, C::Metadata>>,
-	direction: Option<DirectionEntry<C::Metadata>>,
-	container: Option<ContainerEntryRef<'a, C::Metadata>>,
-	nest: Option<NestEntryRef<'a, C::Metadata>>,
-	prefix: Option<Entry<bool, C::Metadata>>,
-	propagate: Option<Entry<bool, C::Metadata>>,
-	protected: Option<Entry<bool, C::Metadata>>,
+pub struct Entries<'a, M, C> {
+	id: Option<IdEntryRef<'a, M>>,
+	type_: Option<TypeEntryRef<'a, M>>,
+	context: Option<Entry<&'a C, M>>,
+	reverse: Option<ReverseEntryRef<'a, M>>,
+	index: Option<IndexEntryRef<'a, M>>,
+	language: Option<LanguageEntryRef<'a, M>>,
+	direction: Option<DirectionEntry<M>>,
+	container: Option<ContainerEntryRef<'a, M>>,
+	nest: Option<NestEntryRef<'a, M>>,
+	prefix: Option<Entry<bool, M>>,
+	propagate: Option<Entry<bool, M>>,
+	protected: Option<Entry<bool, M>>,
 }
 
-pub enum EntryRef<'a, C: context::AnyValue> {
-	Id(Entry<Nullable<IdRef<'a>>, C::Metadata>),
-	Type(Entry<Nullable<TypeRef<'a>>, C::Metadata>),
-	Context(Entry<&'a C, C::Metadata>),
-	Reverse(Entry<context::definition::KeyRef<'a>, C::Metadata>),
-	Index(Entry<IndexRef<'a>, C::Metadata>),
-	Language(Entry<Nullable<LenientLanguageTag<'a>>, C::Metadata>),
-	Direction(Entry<Nullable<Direction>, C::Metadata>),
-	Container(Entry<Nullable<ContainerRef<'a, C::Metadata>>, C::Metadata>),
-	Nest(Entry<NestRef<'a>, C::Metadata>),
-	Prefix(Entry<bool, C::Metadata>),
-	Propagate(Entry<bool, C::Metadata>),
-	Protected(Entry<bool, C::Metadata>),
+pub enum EntryRef<'a, M, C> {
+	Id(Entry<Nullable<IdRef<'a>>, M>),
+	Type(Entry<Nullable<TypeRef<'a>>, M>),
+	Context(Entry<&'a C, M>),
+	Reverse(Entry<context::definition::KeyRef<'a>, M>),
+	Index(Entry<IndexRef<'a>, M>),
+	Language(Entry<Nullable<LenientLanguageTag<'a>>, M>),
+	Direction(Entry<Nullable<Direction>, M>),
+	Container(Entry<Nullable<ContainerRef<'a, M>>, M>),
+	Nest(Entry<NestRef<'a>, M>),
+	Prefix(Entry<bool, M>),
+	Propagate(Entry<bool, M>),
+	Protected(Entry<bool, M>),
 }
 
-impl<'a, C: context::AnyValue> EntryRef<'a, C> {
+impl<'a, M, C> EntryRef<'a, M, C> {
 	pub fn into_key(self) -> EntryKey {
 		match self {
 			Self::Id(_) => EntryKey::Id,
@@ -317,7 +321,7 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 		}
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a, C> {
+	pub fn into_value(self) -> EntryValueRef<'a, M, C> {
 		match self {
 			Self::Id(e) => EntryValueRef::Id(e.value),
 			Self::Type(e) => EntryValueRef::Type(e.value),
@@ -334,7 +338,7 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a, C> {
+	pub fn value(&self) -> EntryValueRef<'a, M, C> where M: Clone {
 		match self {
 			Self::Id(e) => EntryValueRef::Id(e.value.clone()),
 			Self::Type(e) => EntryValueRef::Type(e.value.clone()),
@@ -351,7 +355,7 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 		}
 	}
 
-	pub fn into_key_value(self) -> (EntryKey, EntryValueRef<'a, C>) {
+	pub fn into_key_value(self) -> (EntryKey, EntryValueRef<'a, M, C>) {
 		match self {
 			Self::Id(e) => (EntryKey::Id, EntryValueRef::Id(e.value)),
 			Self::Type(e) => (EntryKey::Type, EntryValueRef::Type(e.value)),
@@ -368,7 +372,7 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 		}
 	}
 
-	pub fn key_value(&self) -> (EntryKey, EntryValueRef<'a, C>) {
+	pub fn key_value(&self) -> (EntryKey, EntryValueRef<'a, M, C>) where M: Clone {
 		match self {
 			Self::Id(e) => (EntryKey::Id, EntryValueRef::Id(e.value.clone())),
 			Self::Type(e) => (EntryKey::Type, EntryValueRef::Type(e.value.clone())),
@@ -436,23 +440,23 @@ impl EntryKey {
 	}
 }
 
-pub enum EntryValueRef<'a, C: context::AnyValue> {
-	Id(Meta<Nullable<IdRef<'a>>, C::Metadata>),
-	Type(Meta<Nullable<TypeRef<'a>>, C::Metadata>),
-	Context(Meta<&'a C, C::Metadata>),
-	Reverse(Meta<context::definition::KeyRef<'a>, C::Metadata>),
-	Index(Meta<IndexRef<'a>, C::Metadata>),
-	Language(Meta<Nullable<LenientLanguageTag<'a>>, C::Metadata>),
-	Direction(Meta<Nullable<Direction>, C::Metadata>),
-	Container(Meta<Nullable<ContainerRef<'a, C::Metadata>>, C::Metadata>),
-	Nest(Meta<NestRef<'a>, C::Metadata>),
-	Prefix(Meta<bool, C::Metadata>),
-	Propagate(Meta<bool, C::Metadata>),
-	Protected(Meta<bool, C::Metadata>),
+pub enum EntryValueRef<'a, M, C> {
+	Id(Meta<Nullable<IdRef<'a>>, M>),
+	Type(Meta<Nullable<TypeRef<'a>>, M>),
+	Context(Meta<&'a C, M>),
+	Reverse(Meta<context::definition::KeyRef<'a>, M>),
+	Index(Meta<IndexRef<'a>, M>),
+	Language(Meta<Nullable<LenientLanguageTag<'a>>, M>),
+	Direction(Meta<Nullable<Direction>, M>),
+	Container(Meta<Nullable<ContainerRef<'a, M>>, M>),
+	Nest(Meta<NestRef<'a>, M>),
+	Prefix(Meta<bool, M>),
+	Propagate(Meta<bool, M>),
+	Protected(Meta<bool, M>),
 }
 
-impl<'a, C: context::AnyValue> EntryValueRef<'a, C> {
-	pub fn is_object(&self) -> bool {
+impl<'a, M, C> EntryValueRef<'a, M, C> {
+	pub fn is_object(&self) -> bool where C: AnyValue<M> {
 		match self {
 			Self::Context(c) => c.as_value_ref().is_object(),
 			_ => false,
@@ -467,8 +471,8 @@ impl<'a, C: context::AnyValue> EntryValueRef<'a, C> {
 	}
 }
 
-impl<'a, C: 'a + context::AnyValue> Iterator for Entries<'a, C> {
-	type Item = EntryRef<'a, C>;
+impl<'a, M, C> Iterator for Entries<'a, M, C> {
+	type Item = EntryRef<'a, M, C>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = 0;
@@ -565,24 +569,24 @@ impl<'a, C: 'a + context::AnyValue> Iterator for Entries<'a, C> {
 	}
 }
 
-impl<'a, C: 'a + context::AnyValue> ExactSizeIterator for Entries<'a, C> {}
+impl<'a, M, C> ExactSizeIterator for Entries<'a, M, C> {}
 
 /// Term definition fragment.
-pub enum FragmentRef<'a, C: context::AnyValue> {
+pub enum FragmentRef<'a, M, C> {
 	/// Term definition entry.
-	Entry(EntryRef<'a, C>),
+	Entry(EntryRef<'a, M, C>),
 
 	/// Term definition entry key.
 	Key(EntryKey),
 
 	/// Term definition entry value.
-	Value(EntryValueRef<'a, C>),
+	Value(EntryValueRef<'a, M, C>),
 
 	/// Container value fragment.
-	ContainerFragment(&'a Meta<ContainerKind, C::Metadata>),
+	ContainerFragment(&'a Meta<ContainerKind, M>),
 }
 
-impl<'a, C: context::AnyValue> FragmentRef<'a, C> {
+impl<'a, M, C> FragmentRef<'a, M, C> {
 	pub fn is_key(&self) -> bool {
 		matches!(self, Self::Key(_))
 	}
@@ -598,35 +602,35 @@ impl<'a, C: context::AnyValue> FragmentRef<'a, C> {
 		}
 	}
 
-	pub fn is_object(&self) -> bool {
+	pub fn is_object(&self) -> bool where C: AnyValue<M> {
 		match self {
 			Self::Value(v) => v.is_object(),
 			_ => false,
 		}
 	}
 
-	pub fn sub_fragments(&self) -> SubFragments<'a, C> {
+	pub fn sub_fragments(&self) -> SubFragments<'a, M, C> {
 		match self {
 			Self::Value(EntryValueRef::Container(Meta(Nullable::Some(c), _))) => {
-				SubFragments::Container(c.sub_fragments())
+				SubFragments::Container(c.sub_fragments(), PhantomData)
 			}
 			_ => SubFragments::None,
 		}
 	}
 }
 
-pub enum SubFragments<'a, C: context::AnyValue> {
+pub enum SubFragments<'a, M, C> {
 	None,
-	Container(container::SubValues<'a, C::Metadata>),
+	Container(container::SubValues<'a, M>, PhantomData<C>),
 }
 
-impl<'a, C: 'a + context::AnyValue> Iterator for SubFragments<'a, C> {
-	type Item = FragmentRef<'a, C>;
+impl<'a, M, C: 'a> Iterator for SubFragments<'a, M, C> {
+	type Item = FragmentRef<'a, M, C>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
 			Self::None => None,
-			Self::Container(c) => c.next().map(FragmentRef::ContainerFragment),
+			Self::Container(c, _) => c.next().map(FragmentRef::ContainerFragment),
 		}
 	}
 }

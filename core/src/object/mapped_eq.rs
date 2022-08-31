@@ -1,4 +1,4 @@
-use crate::{Indexed, Reference};
+use crate::{Indexed, Reference, ValidReference};
 use locspan::BorrowStripped;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -212,7 +212,7 @@ impl<T: MappedEq, M> MappedEq for json_ld_syntax::Entry<T, M> {
 	}
 }
 
-impl<T: MappedEq> MappedEq for Indexed<T> {
+impl<T: MappedEq, M> MappedEq for Indexed<T, M> {
 	type BlankId = T::BlankId;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(
@@ -239,9 +239,27 @@ impl<T: PartialEq, B: PartialEq> MappedEq for Reference<T, B> {
 		Self::BlankId: 'a + 'b,
 	{
 		match (self, other) {
+			(Self::Valid(a), Self::Valid(b)) => a.mapped_eq(b, f),
+			(Self::Invalid(a), Self::Invalid(b)) => a == b,
+			_ => false,
+		}
+	}
+}
+
+impl<T: PartialEq, B: PartialEq> MappedEq for ValidReference<T, B> {
+	type BlankId = B;
+
+	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(
+		&'a self,
+		other: &Self,
+		f: F,
+	) -> bool
+	where
+		Self::BlankId: 'a + 'b,
+	{
+		match (self, other) {
 			(Self::Blank(a), Self::Blank(b)) => f(a) == b,
 			(Self::Id(a), Self::Id(b)) => a == b,
-			(Self::Invalid(a), Self::Invalid(b)) => a == b,
 			_ => false,
 		}
 	}

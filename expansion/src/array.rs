@@ -1,7 +1,8 @@
 use crate::{expand_element, ActiveProperty, Error, Expanded, Loader, Options, WarningHandler};
 use json_ld_context_processing::{ContextLoader, NamespaceMut, Process};
 use json_ld_core::{context::TermDefinition, object, Context, Object};
-use json_ld_syntax::{Array, ContainerKind, Value};
+use json_ld_syntax::ContainerKind;
+use json_syntax::{Array, Value};
 use locspan::Meta;
 use std::hash::Hash;
 
@@ -9,30 +10,33 @@ use std::hash::Hash;
 pub(crate) async fn expand_array<
 	T,
 	B,
+	M,
+	C,
 	N,
-	C: Process<T, B>,
-	L: Loader<T> + ContextLoader<T>,
-	W: Send + WarningHandler<B, N, C::Metadata>,
+	L: Loader<T, M> + ContextLoader<T, M>,
+	W: Send + WarningHandler<B, N, M>,
 >(
 	namespace: &mut N,
 	active_context: &Context<T, B, C>,
-	active_property: ActiveProperty<'_, C::Metadata>,
+	active_property: ActiveProperty<'_, M>,
 	active_property_definition: Option<&TermDefinition<T, B, C>>,
-	Meta(element, meta): Meta<&Array<C::Metadata, C>, &C::Metadata>,
+	Meta(element, meta): Meta<&Array<M>, &M>,
 	base_url: Option<&T>,
 	loader: &mut L,
 	options: Options,
 	from_map: bool,
 	mut warnings: W,
-) -> Result<(Expanded<T, B, C::Metadata>, W), Meta<Error<L::ContextError>, C::Metadata>>
+) -> Result<(Expanded<T, B, M>, W), Meta<Error<M, L::ContextError>, M>>
 where
 	N: Send + Sync + NamespaceMut<T, B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
-	C: Sync + Send,
+	M: Clone + Sync + Send,
+	C: Process<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
-	<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
-	<L as ContextLoader<T>>::Output: Into<C>,
+	L::Output: Into<Value<M>>,
+	L::Context: Into<C>,
+	L::ContextError: Send,
 {
 	// Initialize an empty array, result.
 	let mut is_list = false;

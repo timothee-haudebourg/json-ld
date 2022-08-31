@@ -4,11 +4,10 @@ use futures::future::{BoxFuture, FutureExt};
 use iref::{Iri, IriRef};
 use json_ld_core::{
 	context::TermDefinition, Container, Context, ContextLoader, NamespaceMut, ProcessingMode,
-	Reference, Term, Type,
+	Reference, ValidReference, Term, Type,
 };
 use json_ld_syntax::{
 	context::{
-		self,
 		definition::{EntryValueRef, KeyOrKeyword, KeyOrKeywordRef},
 		term_definition::{self, IdRef},
 	},
@@ -26,8 +25,8 @@ fn is_gen_delim(c: char) -> bool {
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
 fn is_gen_delim_or_blank<T, B>(namespace: &impl NamespaceMut<T, B>, t: &Term<T, B>) -> bool {
 	match t {
-		Term::Ref(Reference::Blank(_)) => true,
-		Term::Ref(Reference::Id(id)) => {
+		Term::Ref(Reference::Valid(ValidReference::Blank(_))) => true,
+		Term::Ref(Reference::Valid(ValidReference::Id(id))) => {
 			if let Some(c) = namespace.iri(id).unwrap().as_str().chars().last() {
 				is_gen_delim(c)
 			} else {
@@ -48,22 +47,22 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
 	}
 }
 
-pub struct DefinedTerms<C: context::AnyValue>(HashMap<KeyOrKeyword, DefinedTerm<C::Metadata>>);
+pub struct DefinedTerms<M>(HashMap<KeyOrKeyword, DefinedTerm<M>>);
 
-impl<C: context::AnyValue> Default for DefinedTerms<C> {
+impl<M> Default for DefinedTerms<M> {
 	fn default() -> Self {
 		Self(HashMap::new())
 	}
 }
 
-impl<C: context::AnyValue> DefinedTerms<C> {
+impl<M> DefinedTerms<M> {
 	pub fn new() -> Self {
 		Self::default()
 	}
 
-	pub fn begin<E>(&mut self, key: &KeyOrKeyword, meta: &C::Metadata) -> Result<bool, Error<E>>
+	pub fn begin<E>(&mut self, key: &KeyOrKeyword, meta: &M) -> Result<bool, Error<E>>
 	where
-		C::Metadata: Clone,
+		M: Clone,
 	{
 		match self.0.get(key) {
 			Some(d) => {
@@ -103,16 +102,17 @@ pub fn define<
 	'a,
 	T: Clone + PartialEq + Send + Sync,
 	B: Clone + PartialEq + Send + Sync,
+	M: 'a + Clone + Send + Sync,
+	C: Process<T, B, M>,
 	N: Send + Sync + NamespaceMut<T, B>,
-	C: Process<T, B>,
-	L: ContextLoader<T> + Send + Sync,
-	W: 'a + Send + WarningHandler<N, C>,
+	L: ContextLoader<T, M> + Send + Sync,
+	W: 'a + Send + WarningHandler<N, M>,
 >(
 	namespace: &'a mut N,
 	active_context: &'a mut Context<T, B, C>,
-	local_context: &'a Merged<'a, C>,
-	Meta(term, meta): Meta<KeyOrKeywordRef, C::Metadata>,
-	defined: &'a mut DefinedTerms<C>,
+	local_context: &'a Merged<'a, M, C>,
+	Meta(term, meta): Meta<KeyOrKeywordRef, M>,
+	defined: &'a mut DefinedTerms<M>,
 	remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
 	base_url: Option<T>,
@@ -121,7 +121,7 @@ pub fn define<
 	mut warnings: W,
 ) -> BoxFuture<'a, Result<W, Error<L::ContextError>>>
 where
-	L::Output: Into<C>,
+	L::Context: Into<C>,
 {
 	let term = term.to_owned();
 	async move {
@@ -162,7 +162,7 @@ where
 
 						let simple_term =
 							!d.value().as_ref().map(|d| d.is_expanded()).unwrap_or(false);
-						let value: term_definition::ExpandedRef<C> = d.into();
+						let value: term_definition::ExpandedRef<M, C> = d.into();
 
 						// Create a new term definition, `definition`, initializing `prefix` flag to
 						// `false`, `protected` to `protected`, and `reverse_property` to `false`.
@@ -487,7 +487,7 @@ where
 											result.push_str(compact_iri.suffix());
 
 											if let Ok(iri) = Iri::new(result.as_str()) {
-												definition.value = Some(Term::Ref(Reference::Id(
+												definition.value = Some(Term::Ref(Reference::id(
 													namespace.insert(iri),
 												)))
 											} else {
@@ -499,14 +499,14 @@ where
 									// not a compact IRI
 									if definition.value.is_none() {
 										if let Ok(blank_id) = BlankId::new(term.as_str()) {
-											definition.value = Some(Term::Ref(Reference::Blank(
+											definition.value = Some(Term::Ref(Reference::blank(
 												namespace.insert_blank_id(blank_id),
 											)))
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
 											match iri_ref.into_iri() {
 												Ok(iri) => {
 													definition.value = Some(Term::Ref(
-														Reference::Id(namespace.insert(iri)),
+														Reference::id(namespace.insert(iri)),
 													))
 												}
 												Err(iri_ref) => {
@@ -530,7 +530,7 @@ where
 															&mut warnings,
 														) {
 															Meta(
-																Term::Ref(Reference::Id(id)),
+																Term::Ref(Reference::Valid(ValidReference::Id(id))),
 																_,
 															) => definition.value = Some(id.into()),
 															// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
@@ -667,7 +667,7 @@ where
 								true,
 								&mut warnings,
 							) {
-								Meta(Term::Ref(Reference::Id(_)), _) => (),
+								Meta(Term::Ref(Reference::Valid(ValidReference::Id(_))), _) => (),
 								_ => return Err(Error::InvalidTermDefinition),
 							}
 

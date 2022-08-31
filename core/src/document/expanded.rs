@@ -1,7 +1,6 @@
 use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
-use crate::TryFromJson;
-use crate::{id, namespace::Index, Indexed, Object, Reference, StrippedIndexedObject};
-use json_ld_syntax::IntoJson;
+use crate::{TryFromJson, IndexedObject};
+use crate::{id, namespace::Index, Indexed, Reference, StrippedIndexedObject};
 use locspan::{Location, Meta};
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -103,20 +102,20 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 
 impl<T: Hash + Eq, B: Hash + Eq, M> ExpandedDocument<T, B, M> {
 	#[inline(always)]
-	pub fn insert(&mut self, object: Meta<Indexed<Object<T, B, M>>, M>) -> bool {
+	pub fn insert(&mut self, object: IndexedObject<T, B, M>) -> bool {
 		self.0.insert(locspan::Stripped(object))
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, M, C>
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M>
 	for ExpandedDocument<T, B, M>
 {
 	fn try_from_json_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
-			json_ld_syntax::Value::Array(items) => {
+			json_syntax::Value::Array(items) => {
 				let mut result = Self::new();
 
 				for item in items {
@@ -126,7 +125,7 @@ impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, M, C>
 				Ok(Meta(result, meta))
 			}
 			other => Err(Meta(
-				InvalidExpandedJson::Unexpected(other.kind(), json_ld_syntax::Kind::Array),
+				InvalidExpandedJson::Unexpected(other.kind(), json_syntax::Kind::Array),
 				meta,
 			)),
 		}
@@ -144,7 +143,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Eq for ExpandedDocument<T, B, M> {}
 
 impl<T, B, M> IntoIterator for ExpandedDocument<T, B, M> {
 	type IntoIter = IntoIter<T, B, M>;
-	type Item = Meta<Indexed<Object<T, B, M>>, M>;
+	type Item = IndexedObject<T, B, M>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -164,25 +163,25 @@ impl<'a, T, B, M> IntoIterator for &'a ExpandedDocument<T, B, M> {
 pub struct IntoIter<T, B, M>(std::collections::hash_set::IntoIter<StrippedIndexedObject<T, B, M>>);
 
 impl<T, B, M> Iterator for IntoIter<T, B, M> {
-	type Item = Meta<Indexed<Object<T, B, M>>, M>;
+	type Item = IndexedObject<T, B, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next().map(|s| s.0)
 	}
 }
 
-impl<T: Hash + Eq, B: Hash + Eq, M> FromIterator<Meta<Indexed<Object<T, B, M>>, M>>
+impl<T: Hash + Eq, B: Hash + Eq, M> FromIterator<IndexedObject<T, B, M>>
 	for ExpandedDocument<T, B, M>
 {
-	fn from_iter<I: IntoIterator<Item = Meta<Indexed<Object<T, B, M>>, M>>>(iter: I) -> Self {
+	fn from_iter<I: IntoIterator<Item = IndexedObject<T, B, M>>>(iter: I) -> Self {
 		Self(iter.into_iter().map(locspan::Stripped).collect())
 	}
 }
 
-impl<T: Hash + Eq, B: Hash + Eq, M> Extend<Meta<Indexed<Object<T, B, M>>, M>>
+impl<T: Hash + Eq, B: Hash + Eq, M> Extend<IndexedObject<T, B, M>>
 	for ExpandedDocument<T, B, M>
 {
-	fn extend<I: IntoIterator<Item = Meta<Indexed<Object<T, B, M>>, M>>>(&mut self, iter: I) {
+	fn extend<I: IntoIterator<Item = IndexedObject<T, B, M>>>(&mut self, iter: I) {
 		self.0.extend(iter.into_iter().map(locspan::Stripped))
 	}
 }

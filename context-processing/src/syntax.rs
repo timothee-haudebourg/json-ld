@@ -17,10 +17,10 @@ pub use iri::*;
 pub use merged::*;
 use syntax::context::definition::KeyOrKeywordRef;
 
-impl<C: 'static + syntax::context::AnyValue + syntax::IntoJson<C::Metadata>, T, B> Process<T, B>
+impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> Process<T, B, M>
 	for C
 {
-	fn process_full<'a, N, L: ContextLoader<T> + Send + Sync>(
+	fn process_full<'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'a self,
 		namespace: &'a mut N,
 		active_context: &'a Context<T, B, C>,
@@ -28,13 +28,14 @@ impl<C: 'static + syntax::context::AnyValue + syntax::IntoJson<C::Metadata>, T, 
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
-		warnings: impl 'a + Send + WarningHandler<N, C>,
-	) -> BoxFuture<'a, ProcessingResult<T, B, C, L::ContextError>>
+		warnings: impl 'a + Send + WarningHandler<N, M>,
+	) -> BoxFuture<'a, ProcessingResult<T, B, M, C, L::ContextError>>
 	where
 		N: Send + Sync + NamespaceMut<T, B>,
-		L::Output: Into<C>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
+		M: 'a + Clone + Send + Sync,
+		L::Context: Into<C>
 	{
 		async move {
 			Ok(process_context(
@@ -72,14 +73,14 @@ fn resolve_iri<I>(
 	}
 }
 
-type ContextProcessingResult<T, B, C, W, E> = Result<(Context<T, B, C>, W), MetaError<C, E>>;
+type ContextProcessingResult<T, B, M, C, L, W> = Result<(Context<T, B, C>, W), MetaError<M, <L as ContextLoader<T, M>>::ContextError>>;
 
 // This function tries to follow the recommended context processing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T, B, N, C, L, W>(
+fn process_context<'a, T, B, M, C, N, L, W>(
 	namespace: &'a mut N,
 	active_context: &'a Context<T, B, C>,
 	local_context: &'a C,
@@ -88,15 +89,16 @@ fn process_context<'a, T, B, N, C, L, W>(
 	base_url: Option<T>,
 	mut options: Options,
 	mut warnings: W,
-) -> BoxFuture<'a, ContextProcessingResult<T, B, C, W, L::ContextError>>
+) -> BoxFuture<'a, ContextProcessingResult<T, B, M, C, L, W>>
 where
 	T: 'a + Clone + PartialEq + Send + Sync,
 	B: 'a + Clone + PartialEq + Send + Sync,
+	M: 'a + Clone + Send + Sync,
+	C: Process<T, B, M>,
 	N: Send + Sync + NamespaceMut<T, B>,
-	C: Clone + Process<T, B>,
-	L: ContextLoader<T> + Send + Sync,
-	L::Output: Into<C>,
-	W: 'a + Send + WarningHandler<N, C>,
+	L: ContextLoader<T, M> + Send + Sync,
+	L::Context: Into<C>,
+	W: 'a + Send + WarningHandler<N, M>,
 {
 	use syntax::context::AnyDefinition;
 
@@ -106,7 +108,8 @@ where
 
 		// 2) If `local_context` is an object containing the member @propagate,
 		// its value MUST be boolean true or false, set `propagate` to that value.
-		let local_context_ref = local_context.as_value_ref();
+		let local_context_ref: syntax::context::ValueRef<'a, M, _> = local_context.as_value_ref();
+		
 		if let syntax::context::ValueRef::One(Meta(syntax::ContextRef::Definition(def), _)) =
 			local_context_ref
 		{
@@ -135,7 +138,7 @@ where
 					// definitions, an invalid context nullification has been detected and processing
 					// is aborted.
 					if !options.override_protected && result.has_protected_items() {
-						let e: MetaError<C, L::ContextError> =
+						let e: MetaError<M, L::ContextError> =
 							Error::InvalidContextNullification.at(context_meta);
 						return Err(e);
 					} else {
@@ -190,8 +193,7 @@ where
 							.load_context_in(namespace, context_iri.clone())
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(context_meta))?
-							.into_value()
-							.into();
+							.into_value().into();
 
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
@@ -202,16 +204,6 @@ where
 							propagate: true,
 						};
 
-						// result = loaded_context
-						// 	.process_full(
-						// 		&result,
-						// 		remote_contexts.clone(),
-						// 		loader,
-						// 		Some(context_iri.as_iri()),
-						// 		new_options,
-						// 		warnings
-						// 	)
-						// 	.await?;
 						let (r, w) = process_context(
 							namespace,
 							&result,
@@ -242,7 +234,7 @@ where
 					}
 
 					// 5.6) If context has an @import entry:
-					let context: Merged<'a, C> = if let Some(Entry {
+					let context: Merged<'a, M, C> = if let Some(Entry {
 						value: Meta(import_value, import_meta),
 						..
 					}) = context.import()
@@ -259,7 +251,7 @@ where
 							.ok_or_else(|| Error::InvalidImportValue.at(import_meta.clone()))?;
 
 						// 5.6.4) Dereference import.
-						let import_context: C = loader
+						let import_context = loader
 							.load_context_in(namespace, import)
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(import_meta.clone()))?

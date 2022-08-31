@@ -1,4 +1,5 @@
 use super::Loader;
+use crate::namespace::Index;
 use crate::{BorrowWithNamespace, DisplayWithNamespace, IriNamespace};
 use futures::future::{BoxFuture, FutureExt};
 use locspan::Meta;
@@ -11,7 +12,7 @@ use std::marker::PhantomData;
 /// Can be useful when you know that you will never need to load remote resource.
 ///
 /// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
-pub struct NoLoader<I, T, M>(PhantomData<(I, T, M)>);
+pub struct NoLoader<I = Index, T = json_syntax::Value<locspan::Location<I>>, M = locspan::Location<I>>(PhantomData<(I, T, M)>);
 
 #[derive(Debug)]
 pub struct CannotLoad<I>(I);
@@ -42,10 +43,9 @@ impl<I, T, M> Default for NoLoader<I, T, M> {
 	}
 }
 
-impl<I: Send, T, M> Loader<I> for NoLoader<I, T, M> {
+impl<I: Send, T, M> Loader<I, M> for NoLoader<I, T, M> {
 	type Output = T;
 	type Error = CannotLoad<I>;
-	type Metadata = M;
 
 	#[inline(always)]
 	fn load_in<'a>(

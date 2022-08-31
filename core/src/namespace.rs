@@ -1,4 +1,4 @@
-use crate::{Reference, ToReference};
+use crate::{Reference, ValidReference, ToReference};
 use iref::{AsIri, Iri, IriBuf};
 use json_ld_syntax::Nullable;
 use rdf_types::{BlankId, BlankIdBuf};
@@ -408,6 +408,7 @@ impl<V: AsIri> AsIri for Lexicon<V> {
 	}
 }
 
+#[allow(clippy::derive_hash_xor_eq)]
 impl<V: Hash> Hash for Lexicon<V> {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		match self {
@@ -421,7 +422,7 @@ impl<T, B> ToReference<Lexicon<T>, B> for T {
 	type Reference = Reference<Lexicon<T>, B>;
 
 	fn to_ref(self) -> Self::Reference {
-		Reference::Id(Lexicon::Id(self))
+		Reference::Valid(ValidReference::Id(Lexicon::Id(self)))
 	}
 }
 

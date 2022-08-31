@@ -1,11 +1,12 @@
-use super::{InvalidExpandedJson, MappedEq};
+use super::{InvalidExpandedJson, MappedEq, Any};
 use crate::{IndexedObject, NamespaceMut, TryFromJson};
 use derivative::Derivative;
-use json_ld_syntax::{Entry, IntoJson};
+use json_ld_syntax::Entry;
 use locspan::{Meta, StrippedEq, StrippedPartialEq};
 use locspan_derive::StrippedHash;
 use std::hash::Hash;
 
+#[allow(clippy::derive_hash_xor_eq)]
 #[derive(Derivative, Clone, Hash, StrippedHash)]
 #[derivative(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
@@ -72,11 +73,11 @@ impl<T, B, M> List<T, B, M> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash, M> List<T, B, M> {
-	pub(crate) fn try_from_json_object_in<C: IntoJson<M>>(
+	pub(crate) fn try_from_json_object_in(
 		namespace: &mut impl NamespaceMut<T, B>,
-		object: json_ld_syntax::Object<M, C>,
-		list_entry: json_ld_syntax::object::Entry<M, C>,
-	) -> Result<Self, Meta<InvalidExpandedJson, M>> {
+		object: json_syntax::Object<M>,
+		list_entry: json_syntax::object::Entry<M>,
+	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
 		let list = Vec::try_from_json_in(namespace, list_entry.value)?;
 
 		match object.into_iter().next() {
@@ -86,6 +87,12 @@ impl<T: Eq + Hash, B: Eq + Hash, M> List<T, B, M> {
 			)),
 			None => Ok(Self::new(list_entry.key.into_metadata(), list)),
 		}
+	}
+}
+
+impl<T, B, M> Any<T, B, M> for List<T, B, M> {
+	fn as_ref(&self) -> super::Ref<T, B, M> {
+		super::Ref::List(self)
 	}
 }
 

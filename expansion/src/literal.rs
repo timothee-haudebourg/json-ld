@@ -1,7 +1,7 @@
 use crate::{expand_iri, node_id_of_term, ActiveProperty, WarningHandler};
 use json_ld_core::{
 	object::value::{Literal, LiteralString},
-	Context, Indexed, LangString, NamespaceMut, Node, Object, Type, Value,
+	Context, LangString, NamespaceMut, Node, Object, Type, Value, IndexedObject,
 };
 use json_ld_syntax::{context, Entry, LenientLanguageTag, Nullable};
 use json_syntax::Number;
@@ -15,11 +15,11 @@ pub(crate) enum GivenLiteralValue<'a> {
 }
 
 impl<'a> GivenLiteralValue<'a> {
-	pub fn new<M, C>(value: &'a json_ld_syntax::Value<M, C>) -> Self {
+	pub fn new<M>(value: &'a json_syntax::Value<M>) -> Self {
 		match value {
-			json_ld_syntax::Value::Boolean(b) => Self::Boolean(*b),
-			json_ld_syntax::Value::Number(n) => Self::Number(n),
-			json_ld_syntax::Value::String(s) => Self::String(s),
+			json_syntax::Value::Boolean(b) => Self::Boolean(*b),
+			json_syntax::Value::Number(n) => Self::Number(n),
+			json_syntax::Value::String(s) => Self::String(s),
 			_ => panic!("not a literal value"),
 		}
 	}
@@ -57,7 +57,7 @@ impl<'a> LiteralValue<'a> {
 	}
 }
 
-pub(crate) type ExpandedLiteral<T, B, M> = Meta<Indexed<Object<T, B, M>>, M>;
+pub(crate) type ExpandedLiteral<T, B, M> = IndexedObject<T, B, M>;
 
 #[derive(Debug)]
 pub enum LiteralExpansionError {
@@ -77,16 +77,17 @@ pub(crate) type LiteralExpansionResult<T, B, M> =
 
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
-pub(crate) fn expand_literal<T, B, N, C: context::AnyValue>(
+pub(crate) fn expand_literal<T, B, M, N, C: context::AnyValue<M>>(
 	namespace: &mut N,
 	active_context: &Context<T, B, C>,
-	active_property: ActiveProperty<'_, C::Metadata>,
-	Meta(value, meta): Meta<LiteralValue, &C::Metadata>,
-	warnings: &mut impl WarningHandler<B, N, C::Metadata>,
-) -> LiteralExpansionResult<T, B, C::Metadata>
+	active_property: ActiveProperty<'_, M>,
+	Meta(value, meta): Meta<LiteralValue, &M>,
+	warnings: &mut impl WarningHandler<B, N, M>,
+) -> LiteralExpansionResult<T, B, M>
 where
 	T: Clone,
 	B: Clone,
+	M: Clone,
 	N: NamespaceMut<T, B>,
 {
 	let active_property_definition = active_property.get_from(active_context);

@@ -1,4 +1,4 @@
-use crate::Reference;
+use crate::{Reference, ValidReference};
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -19,16 +19,16 @@ impl<T, B> Type<T, B> {
 
 	pub fn from_reference(r: Reference<T, B>) -> Self {
 		match r {
-			Reference::Id(id) => Self::Id(id),
-			Reference::Blank(id) => Self::Blank(id),
+			Reference::Valid(ValidReference::Id(id)) => Self::Id(id),
+			Reference::Valid(ValidReference::Blank(id)) => Self::Blank(id),
 			Reference::Invalid(id) => Self::Invalid(id),
 		}
 	}
 
 	pub fn into_reference(self) -> Result<Reference<T, B>, Self> {
 		match self {
-			Type::Id(id) => Ok(Reference::Id(id)),
-			Type::Blank(id) => Ok(Reference::Blank(id)),
+			Type::Id(id) => Ok(Reference::Valid(ValidReference::Id(id))),
+			Type::Blank(id) => Ok(Reference::Valid(ValidReference::Blank(id))),
 			Type::Invalid(id) => Ok(Reference::Invalid(id)),
 			typ => Err(typ),
 		}
@@ -95,8 +95,8 @@ impl<'a, T, B> TypeRef<'a, T, B> {
 
 	pub fn from_reference(r: &'a Reference<T, B>) -> Self {
 		match r {
-			Reference::Id(id) => Self::Id(id),
-			Reference::Blank(id) => Self::Blank(id),
+			Reference::Valid(ValidReference::Id(id)) => Self::Id(id),
+			Reference::Valid(ValidReference::Blank(id)) => Self::Blank(id),
 			Reference::Invalid(id) => Self::Invalid(id),
 		}
 	}

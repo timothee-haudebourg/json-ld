@@ -1,6 +1,8 @@
-use json_ld_syntax::{ContainerKind, Nullable};
+use json_ld_syntax::Nullable;
 use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
+
+pub use json_ld_syntax::ContainerKind;
 
 pub struct InvalidContainer;
 

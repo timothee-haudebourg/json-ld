@@ -13,8 +13,9 @@ use json_ld_core::{
 	ProcessingMode, Reference, Term, Type, Value,
 };
 use json_ld_syntax::{
-	object::Entry, ContainerKind, IntoJson, Keyword, LenientLanguageTagBuf, Nullable,
+	ContainerKind, Keyword, LenientLanguageTagBuf, Nullable,
 };
+use json_syntax::object::Entry;
 use locspan::{At, Meta, Stripped};
 use mown::Mown;
 use std::collections::HashSet;
@@ -34,25 +35,28 @@ pub(crate) fn node_id_of_term<T, B, M>(
 
 /// Expand a node object.
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn expand_node<'a, T, B, N, C: Process<T, B>, L: Loader<T> + ContextLoader<T>, W>(
+pub(crate) async fn expand_node<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	namespace: &'a mut N,
 	active_context: &'a Context<T, B, C>,
 	type_scoped_context: &'a Context<T, B, C>,
-	active_property: ActiveProperty<'a, C::Metadata>,
-	expanded_entries: Vec<ExpandedEntry<'a, T, B, C::Metadata, C>>,
+	active_property: ActiveProperty<'a, M>,
+	expanded_entries: Vec<ExpandedEntry<'a, T, B, M>>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
 	options: Options,
 	warnings: W,
-) -> Result<(Option<Indexed<Node<T, B, C::Metadata>>>, W), Meta<Error<L::ContextError>, C::Metadata>>
+) -> Result<(Option<Indexed<Node<T, B, M>, M>>, W), Meta<Error<M, L::ContextError>, M>>
 where
 	N: Send + Sync + NamespaceMut<T, B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
+	M: Clone + Sync + Send,
+	C: Process<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
-	<L as Loader<T>>::Output: Into<json_ld_syntax::Value<C::Metadata, C>>,
-	<L as ContextLoader<T>>::Output: Into<C>,
-	W: 'a + Send + WarningHandler<B, N, C::Metadata>,
+	L::Output: Into<json_syntax::Value<M>>,
+	L::Context: Into<C>,
+	L::ContextError: Send,
+	W: 'a + Send + WarningHandler<B, N, M>,
 {
 	// Initialize two empty maps, `result` and `nests`.
 	// let mut result = Indexed::new(Node::new(), None);
@@ -110,34 +114,37 @@ where
 /// It is a tuple containing both the node being expanded
 /// and a boolean flag set to `true` if the node contains
 /// value object entries (in practice, if it has a `@language` entry).
-type ExpandedNode<T, B, M, W> = (Indexed<Node<T, B, M>>, bool, W);
+type ExpandedNode<T, B, M, W> = (Indexed<Node<T, B, M>, M>, bool, W);
 
 /// Result of the `expand_node_entries` function.
 type NodeEntriesExpensionResult<T, B, M, L, W> =
-	Result<ExpandedNode<T, B, M, W>, Meta<Error<<L as ContextLoader<T>>::ContextError>, M>>;
+	Result<ExpandedNode<T, B, M, W>, Meta<Error<M, <L as ContextLoader<T, M>>::ContextError>, M>>;
 
 #[allow(clippy::too_many_arguments)]
-fn expand_node_entries<'a, T, B, N, C: Process<T, B>, L: Loader<T> + ContextLoader<T>, W>(
+fn expand_node_entries<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	namespace: &'a mut N,
-	mut result: Indexed<Node<T, B, C::Metadata>>,
+	mut result: Indexed<Node<T, B, M>, M>,
 	mut has_value_object_entries: bool,
 	active_context: &'a Context<T, B, C>,
 	type_scoped_context: &'a Context<T, B, C>,
-	active_property: ActiveProperty<'a, C::Metadata>,
-	expanded_entries: Vec<ExpandedEntry<'a, T, B, C::Metadata, C>>,
+	active_property: ActiveProperty<'a, M>,
+	expanded_entries: Vec<ExpandedEntry<'a, T, B, M>>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
 	options: Options,
 	mut warnings: W,
-) -> BoxFuture<'a, NodeEntriesExpensionResult<T, B, C::Metadata, L, W>>
+) -> BoxFuture<'a, NodeEntriesExpensionResult<T, B, M, L, W>>
 where
 	N: Send + Sync + NamespaceMut<T, B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
+	M: Clone + Sync + Send,
+	C: Process<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
-	<L as Loader<T>>::Output: Into<json_ld_syntax::Value<C::Metadata, C>>,
-	<L as ContextLoader<T>>::Output: Into<C>,
-	W: 'a + Send + WarningHandler<B, N, C::Metadata>,
+	L::Output: Into<json_syntax::Value<M>>,
+	L::Context: Into<C>,
+	L::ContextError: Send,
+	W: 'a + Send + WarningHandler<B, N, M>,
 {
 	async move {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
@@ -207,7 +214,7 @@ where
 							// invalid type value error has been detected and processing
 							// is aborted.
 							let Meta(value, value_metadata) =
-								json_ld_syntax::Value::force_as_array(value);
+								json_syntax::Value::force_as_array(value);
 							// Set `expanded_value` to the result of IRI expanding each
 							// of its values using `type_scoped_context` for active
 							// context, and true for document relative.
@@ -299,7 +306,7 @@ where
 							warnings = w;
 							let mut expanded_nodes = Vec::new();
 							for Meta(obj, meta) in expanded_value.into_iter() {
-								match obj.try_cast::<Node<T, B, C::Metadata>>() {
+								match obj.try_cast::<Node<T, B, M>>() {
 									Ok(node) => expanded_nodes.push(Meta(node, meta)),
 									Err(_) => {
 										return Err(Error::InvalidIncludedValue.at(
@@ -327,8 +334,11 @@ where
 						Keyword::Direction => has_value_object_entries = true,
 						// If expanded property is @index:
 						Keyword::Index => {
-							if let Some(value) = value.as_str() {
-								result.set_index(Some(value.to_string()))
+							if let Some(index) = value.as_str() {
+								result.set_index(Some(json_ld_syntax::Entry::new(
+									key_metadata.clone(),
+									Meta(index.to_string(), value.metadata().clone())
+								)))
 							} else {
 								// If value is not a string, an invalid @index value
 								// error has been detected and processing is aborted.
@@ -340,7 +350,7 @@ where
 							// If value is not a map, an invalid @reverse value error
 							// has been detected and processing is aborted.
 							if let Some(value) = value.as_object() {
-								let mut reverse_entries: Vec<&Entry<C::Metadata, C>> =
+								let mut reverse_entries: Vec<&Entry<M>> =
 									value.iter().collect();
 
 								if options.ordered {
@@ -413,7 +423,7 @@ where
 												let mut reverse_expanded_nodes = Vec::new();
 												for Meta(object, meta) in reverse_expanded_value {
 													match object
-														.try_cast::<Node<T, B, C::Metadata>>()
+														.try_cast::<Node<T, B, M>>()
 													{
 														Ok(node) => reverse_expanded_nodes
 															.push(Meta(node, meta)),
@@ -457,7 +467,7 @@ where
 							let nesting_key = key;
 							// Recursively repeat steps 3, 8, 13, and 14 using `nesting_key` for active property,
 							// and nested value for element.
-							let Meta(value, _) = json_ld_syntax::Value::force_as_array(value);
+							let Meta(value, _) = json_syntax::Value::force_as_array(value);
 							for nested_value in value {
 								// Step 3 again.
 								let mut property_scoped_base_url = None;
@@ -495,7 +505,7 @@ where
 
 								// Steps 13 and 14 again.
 								if let Some(nested_value) = nested_value.as_object() {
-									let mut nested_entries: Vec<&Entry<C::Metadata, C>> =
+									let mut nested_entries: Vec<&Entry<M>> =
 										Vec::new();
 
 									for entry in nested_value.iter() {
@@ -596,9 +606,7 @@ where
 
 					let mut expanded_value = if is_json {
 						Expanded::Object(Meta(
-							Object::Value(Value::Json(json_ld_syntax::Value::into_json(
-								value.clone(),
-							)))
+							Object::Value(Value::Json(value.clone()))
 							.into(),
 							value.metadata().clone(),
 						))
@@ -623,7 +631,7 @@ where
 
 								// For each key-value pair language-language value in
 								// value, ordered lexicographically by language if ordered is true:
-								let mut language_entries: Vec<&Entry<C::Metadata, C>> =
+								let mut language_entries: Vec<&Entry<M>> =
 									Vec::with_capacity(value.len());
 								for language_entry in value.iter() {
 									language_entries.push(language_entry);
@@ -641,15 +649,15 @@ where
 									// If language value is not an array set language value to
 									// an array containing only language value.
 									let Meta(language_value, _) =
-										json_ld_syntax::Value::force_as_array(language_value);
+										json_syntax::Value::force_as_array(language_value);
 
 									// For each item in language value:
 									for Meta(item, item_metadata) in language_value {
 										match item {
 											// If item is null, continue to the next entry in
 											// language value.
-											json_ld_syntax::Value::Null => (),
-											json_ld_syntax::Value::String(item) => {
+											json_syntax::Value::Null => (),
+											json_syntax::Value::String(item) => {
 												// If language is @none, or expands to
 												// @none, remove @language from v.
 												let language = if expand_iri(
@@ -744,7 +752,7 @@ where
 								// is a map then value is expanded from a map as follows:
 
 								// Initialize expanded value to an empty array.
-								let mut expanded_value: Vec<IndexedObject<T, B, C::Metadata>> =
+								let mut expanded_value: Vec<IndexedObject<T, B, M>> =
 									Vec::new();
 
 								// Initialize `index_key` to the key's index mapping in
@@ -761,7 +769,7 @@ where
 
 								// For each key-value pair index-index value in value,
 								// ordered lexicographically by index if ordered is true:
-								let mut entries: Vec<&Entry<C::Metadata, C>> =
+								let mut entries: Vec<&Entry<M>> =
 									Vec::with_capacity(value.len());
 								for entry in value.iter() {
 									entries.push(entry)
@@ -959,7 +967,10 @@ where
 												// @index, item does not have an entry @index,
 												// and expanded index is not @none, add the
 												// key-value pair (@index-index) to item.
-												item.set_index(Some((*index).to_string()))
+												item.set_index(Some(json_ld_syntax::Entry::new(
+													index_metadata.clone(),
+													Meta((*index).to_string(), index_metadata.clone())
+												)))
 											} else if container_mapping.contains(ContainerKind::Id)
 												&& item.id().is_none()
 											{
@@ -1105,7 +1116,7 @@ where
 							// We must filter out anything that is not an object.
 							let mut reverse_expanded_nodes = Vec::new();
 							for Meta(object, meta) in expanded_value {
-								match object.try_cast::<Node<T, B, C::Metadata>>() {
+								match object.try_cast::<Node<T, B, M>>() {
 									Ok(node) => reverse_expanded_nodes.push(Meta(node, meta)),
 									Err(_) => {
 										return Err(Error::InvalidReversePropertyValue

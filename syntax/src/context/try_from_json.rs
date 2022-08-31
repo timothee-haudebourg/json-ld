@@ -347,7 +347,7 @@ impl<M: Clone> TryFromJson<M> for Value<M> {
 	}
 }
 
-impl<M: Clone> TryFromJson<M> for Context<M> {
+impl<M: Clone> TryFromJson<M> for Context<Definition<M>> {
 	type Error = InvalidContext;
 
 	fn try_from_json(

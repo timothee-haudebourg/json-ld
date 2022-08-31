@@ -4,7 +4,6 @@ use crate::{
 	IndexedNode, Reference, StrippedIndexedNode, ToReference,
 };
 use derivative::Derivative;
-use json_ld_syntax::IntoJson;
 use locspan::{Meta, Stripped};
 use std::{
 	borrow::Borrow,
@@ -203,15 +202,15 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, M, C>
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M>
 	for ReverseProperties<T, B, M>
 {
 	fn try_from_json_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
-			json_ld_syntax::Value::Object(object) => {
+			json_syntax::Value::Object(object) => {
 				Self::try_from_json_object_in(namespace, Meta(object, meta))
 			}
 			_ => Err(Meta(InvalidExpandedJson::InvalidObject, meta)),
@@ -219,13 +218,13 @@ impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJson<T, B, M, C>
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C>
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M>
 	for ReverseProperties<T, B, M>
 {
 	fn try_from_json_object_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(object, meta): Meta<json_ld_syntax::Object<M, C>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		Meta(object, meta): Meta<json_syntax::Object<M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let mut result = Self::new();
 
 		for entry in object {

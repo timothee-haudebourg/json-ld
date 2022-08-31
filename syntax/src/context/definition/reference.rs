@@ -7,65 +7,96 @@ use derivative::Derivative;
 use iref::IriRef;
 use locspan::Meta;
 
-pub type BaseEntryRef<'a, D> = Entry<
+pub type BaseEntryRef<'a, M> = Entry<
 	Nullable<IriRef<'a>>,
-	<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata,
+	M,
 >;
 
-pub type ImportEntryRef<'a, D> =
-	Entry<IriRef<'a>, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+pub type ImportEntryRef<'a, M> =
+	Entry<IriRef<'a>, M>;
 
-pub type LanguageEntryRef<'a, D> = Entry<
+pub type LanguageEntryRef<'a, M> = Entry<
 	Nullable<LenientLanguageTag<'a>>,
-	<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata,
+	M,
 >;
 
-pub type DirectionEntry<D> =
-	Entry<Nullable<Direction>, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+pub type DirectionEntry<M> =
+	Entry<Nullable<Direction>, M>;
 
-pub type PropagateEntry<D> =
-	Entry<bool, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+pub type PropagateEntry<M> =
+	Entry<bool, M>;
 
-pub type ProtectedEntry<D> =
-	Entry<bool, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+pub type ProtectedEntry<M> =
+	Entry<bool, M>;
 
-pub type TypeEntry<D> = Entry<
-	Type<<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>,
-	<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata,
+pub type TypeEntry<M> = Entry<
+	Type<M>,
+	M,
 >;
 
-pub type VersionEntry<D> =
-	Entry<Version, <<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata>;
+pub type VersionEntry<M> =
+	Entry<Version, M>;
 
-pub type VocabEntryRef<'a, D> = Entry<
+pub type VocabEntryRef<'a, M> = Entry<
 	Nullable<VocabRef<'a>>,
-	<<D as AnyDefinition>::ContextValue as context::AnyValue>::Metadata,
+	M,
 >;
 
-pub trait AnyDefinition: Sized {
-	type ContextValue: context::AnyValue;
+pub enum BindingsIter<'a, M, C=context::Value<M>> {
+	Map(indexmap::map::Iter<'a, Key, TermBinding<M, C>>),
+	Slice(core::slice::Iter<'a, (KeyRef<'a>, TermBindingRef<'a, M, C>)>)
+}
 
-	type Bindings<'a>: Iterator<Item = (KeyRef<'a>, TermBindingRef<'a, Self::ContextValue>)>
-		+ Send
-		+ Sync
-	where
-		Self: 'a,
-		Self::ContextValue: 'a,
-		<Self::ContextValue as context::AnyValue>::Metadata: 'a;
+impl<'a, M: Clone, C> Iterator for BindingsIter<'a, M, C> {
+	type Item = (KeyRef<'a>, TermBindingRef<'a, M, C>);
 
-	fn base(&self) -> Option<BaseEntryRef<Self>>;
-	fn import(&self) -> Option<ImportEntryRef<Self>>;
-	fn language(&self) -> Option<LanguageEntryRef<Self>>;
-	fn direction(&self) -> Option<DirectionEntry<Self>>;
-	fn propagate(&self) -> Option<PropagateEntry<Self>>;
-	fn protected(&self) -> Option<ProtectedEntry<Self>>;
-	fn type_(&self) -> Option<TypeEntry<Self>>;
-	fn version(&self) -> Option<VersionEntry<Self>>;
-	fn vocab(&self) -> Option<VocabEntryRef<Self>>;
-	fn bindings(&self) -> Self::Bindings<'_>;
-	fn get_binding(&self, key: &Key) -> Option<TermBindingRef<Self::ContextValue>>;
+	fn size_hint(&self) -> (usize, Option<usize>) {
+		match self {
+			Self::Map(m) => m.size_hint(),
+			Self::Slice(s) => s.size_hint()
+		}
+	}
 
-	fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<Self::ContextValue>> {
+	fn next(&mut self) -> Option<Self::Item> {
+		match self {
+			Self::Map(m) => m.next().map(|(k, v)| (k.into(), v.into())),
+			Self::Slice(s) => s.next().cloned()
+		}
+	}
+}
+
+impl<'a, M: Clone, C> ExactSizeIterator for BindingsIter<'a, M, C> {} 
+
+// /// Context definition reference.
+// pub struct DefinitionRef<'a, M, C> {
+// 	base: Option<Entry<Nullable<IriRef<'a>>, M>>,
+// 	import: Option<Entry<IriRef<'a>, M>>,
+// 	language: Option<Entry<Nullable<LenientLanguageTag<'a>>, M>>,
+// 	direction: Option<Entry<Nullable<Direction>, M>>,
+// 	propagate: Option<Entry<bool, M>>,
+// 	protected: Option<Entry<bool, M>>,
+// 	type_: Option<Entry<Type<M>, M>>,
+// 	version: Option<Entry<Version, M>>,
+// 	vocab: Option<Entry<Nullable<VocabRef<'a>>, M>>,
+// 	bindings: BindingsRef<'a, M, C>
+// }
+
+pub trait AnyDefinition<M>: Sized {
+	type ContextValue: context::AnyValue<M>;
+
+	fn base(&self) -> Option<BaseEntryRef<M>>;
+	fn import(&self) -> Option<ImportEntryRef<M>>;
+	fn language(&self) -> Option<LanguageEntryRef<M>>;
+	fn direction(&self) -> Option<DirectionEntry<M>>;
+	fn propagate(&self) -> Option<PropagateEntry<M>>;
+	fn protected(&self) -> Option<ProtectedEntry<M>>;
+	fn type_(&self) -> Option<TypeEntry<M>>;
+	fn version(&self) -> Option<VersionEntry<M>>;
+	fn vocab(&self) -> Option<VocabEntryRef<M>>;
+	fn bindings(&self) -> BindingsIter<M, Self::ContextValue>;
+	fn get_binding(&self, key: &Key) -> Option<TermBindingRef<M, Self::ContextValue>>;
+
+	fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<M, Self::ContextValue>> {
 		match key {
 			KeyOrKeyword::Keyword(k) => match k {
 				Keyword::Base => self.base().map(|e| EntryValueRef::Base(e.value)),
@@ -85,7 +116,7 @@ pub trait AnyDefinition: Sized {
 		}
 	}
 
-	fn entries(&self) -> Entries<Self::ContextValue, Self::Bindings<'_>> {
+	fn entries(&self) -> Entries<M, Self::ContextValue> {
 		Entries {
 			base: self.base(),
 			import: self.import(),
@@ -101,24 +132,21 @@ pub trait AnyDefinition: Sized {
 	}
 }
 
-pub struct Entries<'a, C: context::AnyValue, B> {
-	base: Option<Entry<Nullable<IriRef<'a>>, C::Metadata>>,
-	import: Option<Entry<IriRef<'a>, C::Metadata>>,
-	language: Option<Entry<Nullable<LenientLanguageTag<'a>>, C::Metadata>>,
-	direction: Option<Entry<Nullable<Direction>, C::Metadata>>,
-	propagate: Option<Entry<bool, C::Metadata>>,
-	protected: Option<Entry<bool, C::Metadata>>,
-	type_: Option<Entry<Type<C::Metadata>, C::Metadata>>,
-	version: Option<Entry<Version, C::Metadata>>,
-	vocab: Option<Entry<Nullable<VocabRef<'a>>, C::Metadata>>,
-	bindings: B,
+pub struct Entries<'a, M, C> {
+	base: Option<Entry<Nullable<IriRef<'a>>, M>>,
+	import: Option<Entry<IriRef<'a>, M>>,
+	language: Option<Entry<Nullable<LenientLanguageTag<'a>>, M>>,
+	direction: Option<Entry<Nullable<Direction>, M>>,
+	propagate: Option<Entry<bool, M>>,
+	protected: Option<Entry<bool, M>>,
+	type_: Option<Entry<Type<M>, M>>,
+	version: Option<Entry<Version, M>>,
+	vocab: Option<Entry<Nullable<VocabRef<'a>>, M>>,
+	bindings: BindingsIter<'a, M, C>,
 }
 
-impl<'a, C: 'a + context::AnyValue, B> Iterator for Entries<'a, C, B>
-where
-	B: Iterator<Item = (KeyRef<'a>, TermBindingRef<'a, C>)>,
-{
-	type Item = EntryRef<'a, C>;
+impl<'a, M: Clone, C> Iterator for Entries<'a, M, C> {
+	type Item = EntryRef<'a, M, C>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = 0;
@@ -197,25 +225,22 @@ where
 	}
 }
 
-impl<'a, C: 'a + context::AnyValue, B> ExactSizeIterator for Entries<'a, C, B> where
-	B: Iterator<Item = (KeyRef<'a>, TermBindingRef<'a, C>)>
-{
+impl<'a, M: Clone, C> ExactSizeIterator for Entries<'a, M, C> where {}
+
+pub enum EntryValueRef<'a, M, C> {
+	Base(Meta<Nullable<IriRef<'a>>, M>),
+	Import(Meta<IriRef<'a>, M>),
+	Language(Meta<Nullable<LenientLanguageTag<'a>>, M>),
+	Direction(Meta<Nullable<Direction>, M>),
+	Propagate(Meta<bool, M>),
+	Protected(Meta<bool, M>),
+	Type(Meta<Type<M>, M>),
+	Version(Meta<Version, M>),
+	Vocab(Meta<Nullable<VocabRef<'a>>, M>),
+	Definition(Meta<Nullable<TermDefinitionRef<'a, M, C>>, M>),
 }
 
-pub enum EntryValueRef<'a, C: context::AnyValue> {
-	Base(Meta<Nullable<IriRef<'a>>, C::Metadata>),
-	Import(Meta<IriRef<'a>, C::Metadata>),
-	Language(Meta<Nullable<LenientLanguageTag<'a>>, C::Metadata>),
-	Direction(Meta<Nullable<Direction>, C::Metadata>),
-	Propagate(Meta<bool, C::Metadata>),
-	Protected(Meta<bool, C::Metadata>),
-	Type(Meta<Type<C::Metadata>, C::Metadata>),
-	Version(Meta<Version, C::Metadata>),
-	Vocab(Meta<Nullable<VocabRef<'a>>, C::Metadata>),
-	Definition(Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>),
-}
-
-impl<'a, C: context::AnyValue> EntryValueRef<'a, C> {
+impl<'a, M: Clone, C> EntryValueRef<'a, M, C> {
 	pub fn is_object(&self) -> bool {
 		match self {
 			Self::Type(_) => true,
@@ -224,7 +249,7 @@ impl<'a, C: context::AnyValue> EntryValueRef<'a, C> {
 		}
 	}
 
-	pub fn sub_items(&self) -> EntryValueSubItems<'a, C> {
+	pub fn sub_items(&self) -> EntryValueSubItems<'a, M, C> {
 		match self {
 			Self::Definition(Meta(Nullable::Some(TermDefinitionRef::Expanded(e)), _)) => {
 				EntryValueSubItems::TermDefinitionFragment(e.iter())
@@ -234,17 +259,17 @@ impl<'a, C: context::AnyValue> EntryValueRef<'a, C> {
 	}
 }
 
-pub enum EntryRef<'a, C: context::AnyValue> {
-	Base(Entry<Nullable<IriRef<'a>>, C::Metadata>),
-	Import(Entry<IriRef<'a>, C::Metadata>),
-	Language(Entry<Nullable<LenientLanguageTag<'a>>, C::Metadata>),
-	Direction(Entry<Nullable<Direction>, C::Metadata>),
-	Propagate(Entry<bool, C::Metadata>),
-	Protected(Entry<bool, C::Metadata>),
-	Type(Entry<Type<C::Metadata>, C::Metadata>),
-	Version(Entry<Version, C::Metadata>),
-	Vocab(Entry<Nullable<VocabRef<'a>>, C::Metadata>),
-	Definition(KeyRef<'a>, TermBindingRef<'a, C>),
+pub enum EntryRef<'a, M, C> {
+	Base(Entry<Nullable<IriRef<'a>>, M>),
+	Import(Entry<IriRef<'a>, M>),
+	Language(Entry<Nullable<LenientLanguageTag<'a>>, M>),
+	Direction(Entry<Nullable<Direction>, M>),
+	Propagate(Entry<bool, M>),
+	Protected(Entry<bool, M>),
+	Type(Entry<Type<M>, M>),
+	Version(Entry<Version, M>),
+	Vocab(Entry<Nullable<VocabRef<'a>>, M>),
+	Definition(KeyRef<'a>, TermBindingRef<'a, M, C>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -278,7 +303,7 @@ impl<'a> EntryKeyRef<'a> {
 	}
 }
 
-impl<'a, C: context::AnyValue> EntryRef<'a, C> {
+impl<'a, M, C> EntryRef<'a, M, C> {
 	pub fn into_key(self) -> EntryKeyRef<'a> {
 		match self {
 			Self::Base(_) => EntryKeyRef::Base,
@@ -309,7 +334,7 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 		}
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a, C> {
+	pub fn into_value(self) -> EntryValueRef<'a, M, C> {
 		match self {
 			Self::Base(v) => EntryValueRef::Base(v.value),
 			Self::Import(v) => EntryValueRef::Import(v.value),
@@ -324,7 +349,7 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a, C> {
+	pub fn value(&self) -> EntryValueRef<'a, M, C> where M: Clone {
 		match self {
 			Self::Base(v) => EntryValueRef::Base(v.value.clone()),
 			Self::Import(v) => EntryValueRef::Import(v.value.clone()),
@@ -339,7 +364,7 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 		}
 	}
 
-	pub fn key_value(&self) -> (Meta<EntryKeyRef<'a>, C::Metadata>, EntryValueRef<'a, C>) {
+	pub fn key_value(&self) -> (Meta<EntryKeyRef<'a>, M>, EntryValueRef<'a, M, C>) where M: Clone {
 		match self {
 			Self::Base(v) => (
 				Meta(EntryKeyRef::Base, v.key_metadata.clone()),
@@ -384,7 +409,7 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 		}
 	}
 
-	pub fn into_key_value(self) -> (Meta<EntryKeyRef<'a>, C::Metadata>, EntryValueRef<'a, C>) {
+	pub fn into_key_value(self) -> (Meta<EntryKeyRef<'a>, M>, EntryValueRef<'a, M, C>) {
 		match self {
 			Self::Base(v) => (
 				Meta(EntryKeyRef::Base, v.key_metadata),
@@ -430,9 +455,8 @@ impl<'a, C: context::AnyValue> EntryRef<'a, C> {
 	}
 }
 
-impl<M: Clone + Send + Sync> AnyDefinition for Definition<M> {
+impl<M: Clone + Send + Sync> AnyDefinition<M> for Definition<M> {
 	type ContextValue = context::Value<M>;
-	type Bindings<'a> = Bindings<'a, M> where M: 'a;
 
 	fn base(&self) -> Option<Entry<Nullable<IriRef>, M>> {
 		self.base
@@ -476,11 +500,11 @@ impl<M: Clone + Send + Sync> AnyDefinition for Definition<M> {
 			.map(|v| v.borrow_value().map(|v| v.as_ref().cast()))
 	}
 
-	fn bindings(&self) -> Self::Bindings<'_> {
-		Bindings(self.bindings.iter())
+	fn bindings(&self) -> BindingsIter<M, context::Value<M>> {
+		BindingsIter::Map(self.bindings.iter())
 	}
 
-	fn get_binding(&self, key: &Key) -> Option<TermBindingRef<context::Value<M>>> {
+	fn get_binding(&self, key: &Key) -> Option<TermBindingRef<M, context::Value<M>>> {
 		self.bindings.get(key).map(Into::into)
 	}
 }
@@ -488,7 +512,7 @@ impl<M: Clone + Send + Sync> AnyDefinition for Definition<M> {
 pub struct Bindings<'a, M>(indexmap::map::Iter<'a, Key, TermBinding<M>>);
 
 impl<'a, M: Clone + Send + Sync> Iterator for Bindings<'a, M> {
-	type Item = (KeyRef<'a>, TermBindingRef<'a, context::Value<M>>);
+	type Item = (KeyRef<'a>, TermBindingRef<'a, M, context::Value<M>>);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next().map(|(key, def)| (key.into(), def.into()))
@@ -496,22 +520,22 @@ impl<'a, M: Clone + Send + Sync> Iterator for Bindings<'a, M> {
 }
 
 #[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
-pub struct TermBindingRef<'a, C: context::AnyValue> {
-	pub key_metadata: C::Metadata,
-	pub definition: Meta<Nullable<TermDefinitionRef<'a, C>>, C::Metadata>,
+#[derivative(Clone(bound = "M: Clone"))]
+pub struct TermBindingRef<'a, M, C> {
+	pub key_metadata: M,
+	pub definition: Meta<Nullable<TermDefinitionRef<'a, M, C>>, M>,
 }
 
-impl<'a, C: context::AnyValue> TermBindingRef<'a, C> {
-	pub fn key_metadata(&self) -> &C::Metadata {
+impl<'a, M, C> TermBindingRef<'a, M, C> {
+	pub fn key_metadata(&self) -> &M {
 		&self.key_metadata
 	}
 }
 
-impl<'a, M: Clone + Send + Sync> From<&'a TermBinding<M>>
-	for TermBindingRef<'a, context::Value<M>>
+impl<'a, M: Clone, C> From<&'a TermBinding<M, C>>
+	for TermBindingRef<'a, M, C>
 {
-	fn from(b: &'a TermBinding<M>) -> Self {
+	fn from(b: &'a TermBinding<M, C>) -> Self {
 		Self {
 			key_metadata: b.key_metadata.clone(),
 			definition: b.definition.borrow_value().map(|b| b.as_ref().cast()),

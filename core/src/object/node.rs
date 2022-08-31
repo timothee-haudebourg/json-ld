@@ -6,7 +6,7 @@ use crate::{
 };
 use derivative::Derivative;
 use iref::IriBuf;
-use json_ld_syntax::{Entry, IntoJson, Keyword};
+use json_ld_syntax::{Entry, Keyword};
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedPartialEq};
 use rdf_types::BlankIdBuf;
 use std::collections::HashSet;
@@ -56,7 +56,7 @@ pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
 	pub reverse_properties: Option<Entry<ReverseProperties<T, B, M>, M>>,
 }
 
-pub type IndexedNode<T, B, M> = Meta<Indexed<Node<T, B, M>>, M>;
+pub type IndexedNode<T, B, M> = Meta<Indexed<Node<T, B, M>, M>, M>;
 
 /// Indexed node, without regard for its metadata.
 pub type StrippedIndexedNode<T, B, M> = Stripped<IndexedNode<T, B, M>>;
@@ -503,7 +503,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Reference<T, B>, value: Meta<Indexed<Object<T, B, M>>, M>) {
+	pub fn insert(&mut self, prop: Reference<T, B>, value: IndexedObject<T, B, M>) {
 		self.properties.insert(prop, value)
 	}
 
@@ -512,7 +512,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// If there already exists objects associated to the given reverse property,
 	/// `reverse_value` is added to the list. Duplicate objects are not removed.
 	#[inline(always)]
-	pub fn insert_all<Objects: Iterator<Item = Meta<Indexed<Object<T, B, M>>, M>>>(
+	pub fn insert_all<Objects: Iterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,
 		prop: Reference<T, B>,
 		values: Objects,
@@ -601,7 +601,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> StrippedPartialEq for Node<T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> StrippedEq for Node<T, B, M> {}
 
-impl<T, B, M> Indexed<Node<T, B, M>> {
+impl<T, B, M> Indexed<Node<T, B, M>, M> {
 	pub fn entries(&self) -> IndexedEntries<T, B, M> {
 		IndexedEntries {
 			index: self.index(),
@@ -610,7 +610,7 @@ impl<T, B, M> Indexed<Node<T, B, M>> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> Indexed<Node<T, B, M>> {
+impl<T: Eq + Hash, B: Eq + Hash, M> Indexed<Node<T, B, M>, M> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
@@ -1231,14 +1231,14 @@ impl<'a, T, B, M> Iterator for Nodes<'a, T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C>
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M>
 	for Node<T, B, M>
 {
 	fn try_from_json_object_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		mut object: Meta<json_ld_syntax::Object<M, C>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
-		let id = match object.remove("@id") {
+		mut object: Meta<json_syntax::Object<M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
+		let id = match object.remove_unique("@id").map_err(InvalidExpandedJson::duplicate_key)? {
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
 				Reference::try_from_json_in(namespace, entry.value)?,
@@ -1246,7 +1246,7 @@ impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C
 			None => None,
 		};
 
-		let types = match object.remove("@type") {
+		let types = match object.remove_unique("@type").map_err(InvalidExpandedJson::duplicate_key)? {
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
 				Vec::try_from_json_in(namespace, entry.value)?,
@@ -1254,7 +1254,7 @@ impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C
 			None => None,
 		};
 
-		let graph = match object.remove("@graph") {
+		let graph = match object.remove_unique("@graph").map_err(InvalidExpandedJson::duplicate_key)? {
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
 				HashSet::try_from_json_in(namespace, entry.value)?,
@@ -1262,7 +1262,7 @@ impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C
 			None => None,
 		};
 
-		let included = match object.remove("@included") {
+		let included = match object.remove_unique("@included").map_err(InvalidExpandedJson::duplicate_key)? {
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
 				HashSet::try_from_json_in(namespace, entry.value)?,
@@ -1270,7 +1270,7 @@ impl<T: Eq + Hash, B: Eq + Hash, C: IntoJson<M>, M> TryFromJsonObject<T, B, M, C
 			None => None,
 		};
 
-		let reverse_properties = match object.remove("@reverse") {
+		let reverse_properties = match object.remove_unique("@reverse").map_err(InvalidExpandedJson::duplicate_key)? {
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
 				ReverseProperties::try_from_json_in(namespace, entry.value)?,

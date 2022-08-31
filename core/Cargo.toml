@@ -20,7 +20,7 @@ default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
 
 [dependencies]
 json-ld-syntax = { path = "../syntax" }
-json-syntax = "0.7"
+json-syntax = "0.8.6"
 log = "^0.4"
 derivative = "^2.2"
 mown = "^0.2"
@@ -39,11 +39,4 @@ locspan = "0.7.3"
 locspan-derive = "0.5.1"
 
 [dev-dependencies]
-async-std = { version = "^1.5", features = ["attributes"] }
-static-iref = "2.0"
-iref-enum = "^1.2"
-stderrlog = "^0.5"
-tokio = { version = "^1.0", features = ["macros", "rt-multi-thread"] }
-itertools = "0.10"
-grdf = "0.4.2"
-nquads-syntax = "0.1.6"
+iref-enum = "2.1"

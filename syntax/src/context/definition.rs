@@ -48,9 +48,9 @@ impl<M> Definition<M> {
 /// Context bindings.
 #[derive(PartialEq, Eq, Clone, Derivative, Debug)]
 #[derivative(Default(bound = ""))]
-pub struct Bindings<M>(IndexMap<Key, TermBinding<M>>);
+pub struct Bindings<M, C=super::Value<M>>(IndexMap<Key, TermBinding<M, C>>);
 
-impl<M> Bindings<M> {
+impl<M, C> Bindings<M, C> {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -63,33 +63,33 @@ impl<M> Bindings<M> {
 		self.0.is_empty()
 	}
 
-	pub fn get(&self, key: &Key) -> Option<&TermBinding<M>> {
+	pub fn get(&self, key: &Key) -> Option<&TermBinding<M, C>> {
 		self.0.get(key)
 	}
 
-	pub fn iter(&self) -> indexmap::map::Iter<Key, TermBinding<M>> {
+	pub fn iter(&self) -> indexmap::map::Iter<Key, TermBinding<M, C>> {
 		self.0.iter()
 	}
 
 	pub fn insert(
 		&mut self,
 		Meta(key, key_metadata): Meta<Key, M>,
-		def: Meta<Nullable<TermDefinition<M>>, M>,
-	) -> Option<TermBinding<M>> {
+		def: Meta<Nullable<TermDefinition<M, C>>, M>,
+	) -> Option<TermBinding<M, C>> {
 		self.0.insert(key, TermBinding::new(key_metadata, def))
 	}
 }
 
-impl<M> IntoIterator for Bindings<M> {
-	type Item = (Key, TermBinding<M>);
-	type IntoIter = indexmap::map::IntoIter<Key, TermBinding<M>>;
+impl<M, C> IntoIterator for Bindings<M, C> {
+	type Item = (Key, TermBinding<M, C>);
+	type IntoIter = indexmap::map::IntoIter<Key, TermBinding<M, C>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
 	}
 }
 
-impl<M> locspan::StrippedPartialEq for Bindings<M> {
+impl<M, C: locspan::StrippedPartialEq> locspan::StrippedPartialEq for Bindings<M, C> {
 	fn stripped_eq(&self, other: &Self) -> bool {
 		self.len() == other.len()
 			&& self
@@ -101,14 +101,14 @@ impl<M> locspan::StrippedPartialEq for Bindings<M> {
 /// Term binding.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
-pub struct TermBinding<M> {
+pub struct TermBinding<M, C=super::Value<M>> {
 	#[stripped_ignore]
 	pub key_metadata: M,
-	pub definition: Meta<Nullable<TermDefinition<M>>, M>,
+	pub definition: Meta<Nullable<TermDefinition<M, C>>, M>,
 }
 
-impl<M> TermBinding<M> {
-	pub fn new(key_metadata: M, definition: Meta<Nullable<TermDefinition<M>>, M>) -> Self {
+impl<M, C> TermBinding<M, C> {
+	pub fn new(key_metadata: M, definition: Meta<Nullable<TermDefinition<M, C>>, M>) -> Self {
 		Self {
 			key_metadata,
 			definition,
@@ -117,21 +117,21 @@ impl<M> TermBinding<M> {
 }
 
 /// Context definition fragment.
-pub enum FragmentRef<'a, C: AnyValue> {
+pub enum FragmentRef<'a, M, C> {
 	/// Context definition entry.
-	Entry(EntryRef<'a, C>),
+	Entry(EntryRef<'a, M, C>),
 
 	/// Context definition entry key.
 	Key(EntryKeyRef<'a>),
 
 	/// Context definition entry value.
-	Value(EntryValueRef<'a, C>),
+	Value(EntryValueRef<'a, M, C>),
 
 	/// Term definition fragment.
-	TermDefinitionFragment(term_definition::FragmentRef<'a, C>),
+	TermDefinitionFragment(term_definition::FragmentRef<'a, M, C>),
 }
 
-impl<'a, C: AnyValue> FragmentRef<'a, C> {
+impl<'a, M, C> FragmentRef<'a, M, C> {
 	pub fn is_key(&self) -> bool {
 		match self {
 			Self::Key(_) => true,
@@ -155,7 +155,7 @@ impl<'a, C: AnyValue> FragmentRef<'a, C> {
 		}
 	}
 
-	pub fn is_object(&self) -> bool {
+	pub fn is_object(&self) -> bool where M: Clone, C: AnyValue<M> {
 		match self {
 			Self::Value(v) => v.is_object(),
 			Self::TermDefinitionFragment(v) => v.is_object(),
@@ -163,7 +163,7 @@ impl<'a, C: AnyValue> FragmentRef<'a, C> {
 		}
 	}
 
-	pub fn sub_items(&self) -> SubItems<'a, C> {
+	pub fn sub_items(&self) -> SubItems<'a, M, C> where M: Clone {
 		match self {
 			Self::Entry(e) => SubItems::Entry(Some(e.key()), Some(e.value())),
 			Self::Key(_) => SubItems::None,
@@ -173,13 +173,13 @@ impl<'a, C: AnyValue> FragmentRef<'a, C> {
 	}
 }
 
-pub enum EntryValueSubItems<'a, C: AnyValue> {
+pub enum EntryValueSubItems<'a, M, C> {
 	None,
-	TermDefinitionFragment(term_definition::Entries<'a, C>),
+	TermDefinitionFragment(term_definition::Entries<'a, M, C>),
 }
 
-impl<'a, C: 'a + AnyValue> Iterator for EntryValueSubItems<'a, C> {
-	type Item = FragmentRef<'a, C>;
+impl<'a, M, C> Iterator for EntryValueSubItems<'a, M, C> {
+	type Item = FragmentRef<'a, M, C>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
@@ -191,15 +191,15 @@ impl<'a, C: 'a + AnyValue> Iterator for EntryValueSubItems<'a, C> {
 	}
 }
 
-pub enum SubItems<'a, C: AnyValue> {
+pub enum SubItems<'a, M, C> {
 	None,
-	Entry(Option<EntryKeyRef<'a>>, Option<EntryValueRef<'a, C>>),
-	Value(EntryValueSubItems<'a, C>),
-	TermDefinitionFragment(term_definition::SubFragments<'a, C>),
+	Entry(Option<EntryKeyRef<'a>>, Option<EntryValueRef<'a, M, C>>),
+	Value(EntryValueSubItems<'a, M, C>),
+	TermDefinitionFragment(term_definition::SubFragments<'a, M, C>),
 }
 
-impl<'a, C: AnyValue> Iterator for SubItems<'a, C> {
-	type Item = FragmentRef<'a, C>;
+impl<'a, M, C> Iterator for SubItems<'a, M, C> {
+	type Item = FragmentRef<'a, M, C>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {

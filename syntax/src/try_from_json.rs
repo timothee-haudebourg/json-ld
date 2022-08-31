@@ -16,6 +16,22 @@ pub trait TryFromStrippedJson<M>: Sized {
 	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext>;
 }
 
+impl<M> crate::TryFromJson<M> for bool {
+	type Error = crate::Unexpected;
+
+	fn try_from_json(
+		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
+	) -> Result<Meta<Self, M>, Meta<Self::Error, M>> {
+		match value {
+			json_syntax::Value::Boolean(b) => Ok(Meta(b, meta)),
+			unexpected => Err(Meta(
+				crate::Unexpected(unexpected.kind(), &[json_syntax::Kind::Boolean]),
+				meta,
+			)),
+		}
+	}
+}
+
 impl<M> TryFromStrippedJson<M> for IriRefBuf {
 	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext> {
 		match value {

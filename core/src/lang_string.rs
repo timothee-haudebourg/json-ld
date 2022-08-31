@@ -118,30 +118,30 @@ impl LangString {
 		}
 	}
 
-	pub(crate) fn try_from_json<M, C>(
-		object: json_ld_syntax::Object<M, C>,
-		value: Meta<json_ld_syntax::Value<M, C>, M>,
-		language: Option<Meta<json_ld_syntax::Value<M, C>, M>>,
-		direction: Option<Meta<json_ld_syntax::Value<M, C>, M>>,
-	) -> Result<Self, Meta<InvalidExpandedJson, M>> {
+	pub(crate) fn try_from_json<M>(
+		object: json_syntax::Object<M>,
+		value: Meta<json_syntax::Value<M>, M>,
+		language: Option<Meta<json_syntax::Value<M>, M>>,
+		direction: Option<Meta<json_syntax::Value<M>, M>>,
+	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
 		let data = match value {
-			Meta(json_ld_syntax::Value::String(s), _) => s.into(),
+			Meta(json_syntax::Value::String(s), _) => s.into(),
 			Meta(v, meta) => {
 				return Err(Meta(
-					InvalidExpandedJson::Unexpected(v.kind(), json_ld_syntax::Kind::String),
+					InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String),
 					meta,
 				))
 			}
 		};
 
 		let language = match language {
-			Some(Meta(json_ld_syntax::Value::String(value), _)) => {
+			Some(Meta(json_syntax::Value::String(value), _)) => {
 				let (tag, _) = LenientLanguageTagBuf::new(value.to_string());
 				Some(tag)
 			}
 			Some(Meta(v, meta)) => {
 				return Err(Meta(
-					InvalidExpandedJson::Unexpected(v.kind(), json_ld_syntax::Kind::String),
+					InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String),
 					meta,
 				))
 			}
@@ -149,7 +149,7 @@ impl LangString {
 		};
 
 		let direction = match direction {
-			Some(Meta(json_ld_syntax::Value::String(value), meta)) => {
+			Some(Meta(json_syntax::Value::String(value), meta)) => {
 				match Direction::try_from(value.as_str()) {
 					Ok(direction) => Some(direction),
 					Err(_) => return Err(Meta(InvalidExpandedJson::InvalidDirection, meta)),
@@ -157,7 +157,7 @@ impl LangString {
 			}
 			Some(Meta(v, meta)) => {
 				return Err(Meta(
-					InvalidExpandedJson::Unexpected(v.kind(), json_ld_syntax::Kind::String),
+					InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String),
 					meta,
 				))
 			}

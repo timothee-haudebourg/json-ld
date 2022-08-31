@@ -1,7 +1,3 @@
-#![allow(clippy::derive_hash_xor_eq)]
-#![feature(generic_associated_types)]
-#![feature(trait_alias)]
-
 pub use json_ld_syntax::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable};
 
 mod container;
@@ -24,7 +20,7 @@ mod ty;
 pub mod utils;
 pub mod warning;
 
-pub use container::Container;
+pub use container::{Container, ContainerKind};
 pub use context::Context;
 pub use document::*;
 pub use id::*;

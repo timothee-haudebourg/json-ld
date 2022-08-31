@@ -1,6 +1,6 @@
 use crate::{
-	context, object, Container, ContainerKind, Context, Direction, Entry, Keyword,
-	LenientLanguageTagBuf, Nullable, Object, Value,
+	context, Container, ContainerKind, Context, Direction, Entry, Keyword,
+	LenientLanguageTagBuf, Nullable
 };
 use locspan::Meta;
 
@@ -47,62 +47,47 @@ impl<M> IntoJson<M> for String {
 	}
 }
 
-impl<C: IntoJson<M>, M> IntoJson<M> for Value<M, C> {
-	fn into_json(Meta(value, meta): Meta<Self, M>) -> Meta<json_syntax::Value<M>, M> {
-		let json = match value {
-			Self::Null => json_syntax::Value::Null,
-			Self::Boolean(b) => json_syntax::Value::Boolean(b),
-			Self::Number(n) => json_syntax::Value::Number(n),
-			Self::String(s) => json_syntax::Value::String(s),
-			Self::Array(a) => {
-				json_syntax::Value::Array(a.into_iter().map(Self::into_json).collect())
-			}
-			Self::Object(o) => json_syntax::Value::Object(o.into_json_object()),
-		};
+// impl<M> IntoJson<M> for Value<M> {
+// 	fn into_json(Meta(value, meta): Meta<Self, M>) -> Meta<json_syntax::Value<M>, M> {
+// 		let json = match value {
+// 			Self::Null => json_syntax::Value::Null,
+// 			Self::Boolean(b) => json_syntax::Value::Boolean(b),
+// 			Self::Number(n) => json_syntax::Value::Number(n),
+// 			Self::String(s) => json_syntax::Value::String(s),
+// 			Self::Array(a) => {
+// 				json_syntax::Value::Array(a.into_iter().map(Self::into_json).collect())
+// 			}
+// 			Self::Object(o) => json_syntax::Value::Object(o.into_json_object()),
+// 		};
 
-		Meta(json, meta)
-	}
-}
+// 		Meta(json, meta)
+// 	}
+// }
 
-impl<M, C> Object<M, C> {
-	pub fn into_json_object(self) -> json_syntax::Object<M>
-	where
-		C: IntoJson<M>,
-	{
-		let mut result = Vec::new();
+// impl<M> Object<M> {
+// 	pub fn into_json_object(self) -> json_syntax::Object<M> {
+// 		let mut result = Vec::new();
 
-		let (context, entries) = self.into_parts();
+// 		result.extend(self.into_iter().map(object::Entry::into_json));
 
-		if let Some(context) = context {
-			result.push(json_syntax::object::Entry::new(
-				Meta("@context".into(), context.key_metadata),
-				C::into_json(context.value),
-			))
-		}
+// 		json_syntax::Object::from_vec(result)
+// 	}
+// }
 
-		result.extend(entries.into_iter().map(object::Entry::into_json));
+// impl<M> IntoJson<M> for Object<M> {
+// 	fn into_json(Meta(object, meta): Meta<Self, M>) -> Meta<json_syntax::Value<M>, M> {
+// 		Meta(json_syntax::Value::Object(object.into_json_object()), meta)
+// 	}
+// }
 
-		json_syntax::Object::from_vec(result)
-	}
-}
-
-impl<C: IntoJson<M>, M> IntoJson<M> for Object<M, C> {
-	fn into_json(Meta(object, meta): Meta<Self, M>) -> Meta<json_syntax::Value<M>, M> {
-		Meta(json_syntax::Value::Object(object.into_json_object()), meta)
-	}
-}
-
-impl<M, C> object::Entry<M, C> {
-	pub fn into_json(self) -> json_syntax::object::Entry<M>
-	where
-		C: IntoJson<M>,
-	{
-		json_syntax::object::Entry {
-			key: self.key,
-			value: Value::into_json(self.value),
-		}
-	}
-}
+// impl<M> object::Entry<M> {
+// 	pub fn into_json(self) -> json_syntax::object::Entry<M> {
+// 		json_syntax::object::Entry {
+// 			key: self.key,
+// 			value: Value::into_json(self.value),
+// 		}
+// 	}
+// }
 
 impl<T, M> Entry<T, M> {
 	pub fn insert_in_json_object(
@@ -224,7 +209,7 @@ impl<M> IntoJson<M> for context::Value<M> {
 	}
 }
 
-impl<M> IntoJson<M> for Context<M> {
+impl<M> IntoJson<M> for Context<context::Definition<M>> {
 	fn into_json(Meta(value, meta): Meta<Self, M>) -> Meta<json_syntax::Value<M>, M> {
 		match value {
 			Self::Null => Meta(json_syntax::Value::Null, meta),

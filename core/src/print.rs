@@ -153,7 +153,7 @@ impl<'a, T, B, N: Namespace<T, B>> PrintWithSize for WithNamespace<&'a Reference
 }
 
 impl<'a, T, B, M, N: Namespace<T, B>> PrecomputeSize
-	for WithNamespace<&'a Indexed<Object<T, B, M>>, &'a N>
+	for WithNamespace<&'a Indexed<Object<T, B, M>, M>, &'a N>
 {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		pre_compute_object_size(
@@ -171,7 +171,7 @@ impl<'a, T, B, M, N: Namespace<T, B>> PrecomputeSize
 }
 
 impl<'a, T, B, M, N: Namespace<T, B>> PrintWithSize
-	for WithNamespace<&'a Indexed<Object<T, B, M>>, &'a N>
+	for WithNamespace<&'a Indexed<Object<T, B, M>, M>, &'a N>
 {
 	fn fmt_with_size(
 		&self,
@@ -512,7 +512,7 @@ impl<'a, T, B, M, N: Namespace<T, B>> PrintWithSize
 }
 
 impl<'a, T, B, M, N: Namespace<T, B>> PrecomputeSize
-	for WithNamespace<&'a Indexed<object::Node<T, B, M>>, &'a N>
+	for WithNamespace<&'a Indexed<object::Node<T, B, M>, M>, &'a N>
 {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		pre_compute_object_size(
@@ -530,7 +530,7 @@ impl<'a, T, B, M, N: Namespace<T, B>> PrecomputeSize
 }
 
 impl<'a, T, B, M, N: Namespace<T, B>> PrintWithSize
-	for WithNamespace<&'a Indexed<object::Node<T, B, M>>, &'a N>
+	for WithNamespace<&'a Indexed<object::Node<T, B, M>, M>, &'a N>
 {
 	fn fmt_with_size(
 		&self,

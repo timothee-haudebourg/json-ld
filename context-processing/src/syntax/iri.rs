@@ -1,5 +1,5 @@
 use super::{DefinedTerms, Merged};
-use crate::{Error, Options, Process, ProcessingStack, Warning, WarningHandler};
+use crate::{Error, Options, ProcessingStack, Warning, WarningHandler, Process};
 use iref::{Iri, IriRef};
 use json_ld_core::{BorrowWithNamespace, Context, ContextLoader, NamespaceMut, Reference, Term};
 use json_ld_syntax::{
@@ -25,25 +25,27 @@ pub fn expand_iri_with<
 	'a,
 	T: Clone + Send + Sync + PartialEq,
 	B: Clone + Send + Sync + PartialEq,
+	M: 'a + Clone + Send + Sync,
+	C,
 	N: Send + Sync + NamespaceMut<T, B>,
-	C: Process<T, B>,
-	L: ContextLoader<T> + Send + Sync,
-	W: 'a + Send + WarningHandler<N, C>,
+	L: ContextLoader<T, M> + Send + Sync,
+	W: 'a + Send + WarningHandler<N, M>,
 >(
 	namespace: &'a mut N,
 	active_context: &'a mut Context<T, B, C>,
-	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, C::Metadata>,
+	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, M>,
 	document_relative: bool,
 	vocab: bool,
-	local_context: &'a Merged<C>,
-	defined: &'a mut DefinedTerms<C>,
+	local_context: &'a Merged<M, C>,
+	defined: &'a mut DefinedTerms<M>,
 	remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
 	options: Options,
 	mut warnings: W,
 ) -> impl 'a + Send + Future<Output = Result<(Term<T, B>, W), Error<L::ContextError>>>
 where
-	L::Output: Into<C>,
+	C: Process<T, B, M>,
+	L::Context: Into<C>,
 {
 	async move {
 		match value {
@@ -96,7 +98,7 @@ where
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
 						return Ok((
-							Term::Ref(Reference::Blank(namespace.insert_blank_id(blank_id))),
+							Term::Ref(Reference::blank(namespace.insert_blank_id(blank_id))),
 							warnings,
 						));
 					}
@@ -150,7 +152,7 @@ where
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Ok((Term::Ref(Reference::Id(namespace.insert(iri))), warnings));
+						return Ok((Term::Ref(Reference::id(namespace.insert(iri))), warnings));
 					}
 				}
 
@@ -227,18 +229,19 @@ pub fn expand_iri_simple<
 	'a,
 	T: Clone,
 	B: Clone,
+	M: Clone,
 	N: NamespaceMut<T, B>,
-	C: syntax::context::AnyValue,
+	C,
 	W: From<MalformedIri>,
-	H: json_ld_core::warning::Handler<N, Meta<W, C::Metadata>>,
+	H: json_ld_core::warning::Handler<N, Meta<W, M>>,
 >(
 	namespace: &'a mut N,
 	active_context: &'a Context<T, B, C>,
-	Meta(value, meta): Meta<Nullable<ExpandableRef<'a>>, C::Metadata>,
+	Meta(value, meta): Meta<Nullable<ExpandableRef<'a>>, M>,
 	document_relative: bool,
 	vocab: bool,
 	warnings: &mut H,
-) -> Meta<Term<T, B>, C::Metadata> {
+) -> Meta<Term<T, B>, M> {
 	match value {
 		Nullable::Null => Meta(Term::Null, meta),
 		Nullable::Some(ExpandableRef::Keyword(k)) => Meta(Term::Keyword(k), meta),
@@ -269,7 +272,7 @@ pub fn expand_iri_simple<
 			if value.find(':').map(|i| i > 0).unwrap_or(false) {
 				if let Ok(blank_id) = BlankId::new(value) {
 					return Meta(
-						Term::Ref(Reference::Blank(namespace.insert_blank_id(blank_id))),
+						Term::Ref(Reference::blank(namespace.insert_blank_id(blank_id))),
 						meta,
 					);
 				}
@@ -300,7 +303,7 @@ pub fn expand_iri_simple<
 				}
 
 				if let Ok(iri) = Iri::new(value) {
-					return Meta(Term::Ref(Reference::Id(namespace.insert(iri))), meta);
+					return Meta(Term::Ref(Reference::id(namespace.insert(iri))), meta);
 				}
 			}
 

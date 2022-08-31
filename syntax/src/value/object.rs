@@ -1,5 +1,3 @@
-use crate::context::AnyValueMut;
-
 use super::Value;
 use derivative::Derivative;
 pub use json_syntax::object::{Equivalent, Key};
@@ -19,118 +17,100 @@ use index_map::IndexMap;
 	Clone, StrippedPartialEq, StrippedEq, StrippedPartialOrd, StrippedOrd, StrippedHash, Debug,
 )]
 #[stripped_ignore(M)]
-pub struct Object<M, C> {
-	context: Option<ContextEntry<M, C>>,
-	entries: Entries<M, C>,
+pub struct Object<M> {
+	entries: Entries<M>,
 }
 
-impl<M, C> Default for Object<M, C> {
+impl<M> Default for Object<M> {
 	fn default() -> Self {
 		Self {
-			context: None,
 			entries: Entries::default(),
 		}
 	}
 }
 
-impl<M, C> Object<M, C> {
+impl<M> Object<M> {
 	pub fn new() -> Self {
 		Self::default()
 	}
 
 	pub fn with_capacity(cap: usize) -> Self {
 		Self {
-			context: None,
 			entries: Entries::with_capacity(cap),
 		}
 	}
 
-	pub fn into_parts(self) -> (Option<ContextEntry<M, C>>, Entries<M, C>) {
-		(self.context, self.entries)
+	pub fn into_entries(self) -> Entries<M> {
+		self.entries
 	}
 
 	pub fn len(&self) -> usize {
-		if self.context.is_some() {
-			1 + self.entries.len()
-		} else {
-			self.entries.len()
-		}
+		self.entries.len()
 	}
 
 	pub fn is_empty(&self) -> bool {
-		self.context.is_none() && self.entries.is_empty()
+		self.entries.is_empty()
 	}
 
-	pub fn context(&self) -> Option<&Meta<C, M>> {
-		self.context.as_ref().map(|e| &e.value)
+	pub fn context(&self) -> Option<&Entry<M>> {
+		self.get("@context")
 	}
 
-	pub fn set_context(
-		&mut self,
-		key_metadata: M,
-		context: Meta<C, M>,
-	) -> Option<ContextEntry<M, C>> {
-		self.set_context_entry(Some(ContextEntry::new(key_metadata, context)))
+	pub fn remove_context(&mut self) -> Option<Entry<M>> {
+		self.remove("@context")
 	}
 
-	pub fn context_entry(&self) -> Option<&ContextEntry<M, C>> {
-		self.context.as_ref()
-	}
+	// pub fn set_context(
+	// 	&mut self,
+	// 	key_metadata: M,
+	// 	context: Meta<Value<M>, M>,
+	// ) -> Option<ContextEntry<M>> {
+	// 	self.set_context_entry(Some(ContextEntry::new(key_metadata, context)))
+	// }
 
-	pub fn set_context_entry(
-		&mut self,
-		mut entry: Option<ContextEntry<M, C>>,
-	) -> Option<ContextEntry<M, C>> {
-		core::mem::swap(&mut self.context, &mut entry);
-		entry
-	}
+	// pub fn set_context_entry(
+	// 	&mut self,
+	// 	mut entry: Option<ContextEntry<M>>,
+	// ) -> Option<ContextEntry<M>> {
+	// 	core::mem::swap(&mut self.context, &mut entry);
+	// 	entry
+	// }
 
-	pub fn remove_context(&mut self) -> Option<ContextEntry<M, C>> {
-		self.context.take()
-	}
+	// pub fn append_context(&mut self, context: C)
+	// where
+	// 	C: AnyValueMut,
+	// 	M: Default,
+	// {
+	// 	match self.context.as_mut() {
+	// 		None => {
+	// 			self.context = Some(ContextEntry::new(M::default(), Meta(context, M::default())))
+	// 		}
+	// 		Some(c) => c.value.append(context),
+	// 	}
+	// }
 
-	pub fn append_context(&mut self, context: C)
-	where
-		C: AnyValueMut,
-		M: Default,
-	{
-		match self.context.as_mut() {
-			None => {
-				self.context = Some(ContextEntry::new(M::default(), Meta(context, M::default())))
-			}
-			Some(c) => c.value.append(context),
-		}
-	}
+	// pub fn append_context_with(&mut self, key_metadata: M, context: Meta<Value<M>, M>)
+	// where
+	// 	C: AnyValueMut,
+	// {
+	// 	match self.context.as_mut() {
+	// 		None => self.context = Some(ContextEntry::new(key_metadata, context)),
+	// 		Some(c) => c.value.append(context.into_value()),
+	// 	}
+	// }
 
-	pub fn append_context_with(&mut self, key_metadata: M, context: Meta<C, M>)
-	where
-		C: AnyValueMut,
-	{
-		match self.context.as_mut() {
-			None => self.context = Some(ContextEntry::new(key_metadata, context)),
-			Some(c) => c.value.append(context.into_value()),
-		}
-	}
-
-	pub fn entries_with_context(&self) -> EntriesWithContext<M, C> {
-		EntriesWithContext {
-			context: self.context.as_ref(),
-			entries: self.entries.iter(),
-		}
-	}
-
-	pub fn entries(&self) -> &Entries<M, C> {
+	pub fn entries(&self) -> &Entries<M> {
 		&self.entries
 	}
 
-	pub fn iter(&self) -> core::slice::Iter<Entry<M, C>> {
+	pub fn iter(&self) -> core::slice::Iter<Entry<M>> {
 		self.entries.iter()
 	}
 
 	/// Returns an iterator over the entries matching the given key.
 	///
 	/// Runs in `O(1)` (average).
-	pub fn get<'a, Q: ?Sized>(&'a self, key: &Q) -> Option<&'a Entry<M, C>>
+	pub fn get<'a, Q: ?Sized>(&'a self, key: &Q) -> Option<&'a Entry<M>>
 	where
 		Q: Hash + Equivalent<Key>,
 	{
@@ -152,12 +132,12 @@ impl<M, C> Object<M, C> {
 	pub fn insert(
 		&mut self,
 		key: Meta<Key, M>,
-		value: Meta<Value<M, C>, M>,
-	) -> Option<Entry<M, C>> {
+		value: Meta<Value<M>, M>,
+	) -> Option<Entry<M>> {
 		self.entries.insert(key, value)
 	}
 
-	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<M, C>>
+	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<M>>
 	where
 		Q: Hash + Equivalent<Key>,
 	{
@@ -165,44 +145,44 @@ impl<M, C> Object<M, C> {
 	}
 }
 
-impl<C: PartialEq, M: PartialEq> PartialEq for Object<M, C> {
+impl<M: PartialEq> PartialEq for Object<M> {
 	fn eq(&self, other: &Self) -> bool {
 		self.entries == other.entries
 	}
 }
 
-impl<C: Eq, M: Eq> Eq for Object<M, C> {}
+impl<M: Eq> Eq for Object<M> {}
 
-impl<C: PartialOrd, M: PartialOrd> PartialOrd for Object<M, C> {
+impl<M: PartialOrd> PartialOrd for Object<M> {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		self.entries.partial_cmp(&other.entries)
 	}
 }
 
-impl<C: Ord, M: Ord> Ord for Object<M, C> {
+impl<M: Ord> Ord for Object<M> {
 	fn cmp(&self, other: &Self) -> Ordering {
 		self.entries.cmp(&other.entries)
 	}
 }
 
-impl<C: Hash, M: Hash> Hash for Object<M, C> {
+impl<M: Hash> Hash for Object<M> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.entries.hash(state)
 	}
 }
 
-impl<'a, M, C> IntoIterator for &'a Object<M, C> {
-	type IntoIter = core::slice::Iter<'a, Entry<M, C>>;
-	type Item = &'a Entry<M, C>;
+impl<'a, M> IntoIterator for &'a Object<M> {
+	type IntoIter = core::slice::Iter<'a, Entry<M>>;
+	type Item = &'a Entry<M>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
 
-impl<M, C> IntoIterator for Object<M, C> {
-	type IntoIter = std::vec::IntoIter<Entry<M, C>>;
-	type Item = Entry<M, C>;
+impl<M> IntoIterator for Object<M> {
+	type IntoIter = std::vec::IntoIter<Entry<M>>;
+	type Item = Entry<M>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.entries.into_iter()
@@ -224,24 +204,24 @@ impl<M, C> IntoIterator for Object<M, C> {
 	StrippedHash,
 )]
 #[stripped_ignore(M)]
-pub struct Entry<M, C> {
+pub struct Entry<M> {
 	#[stripped_deref]
 	pub key: Meta<Key, M>,
-	pub value: Meta<Value<M, C>, M>,
+	pub value: Meta<Value<M>, M>,
 }
 
-impl<M, C> Entry<M, C> {
-	pub fn new(key: Meta<Key, M>, value: Meta<Value<M, C>, M>) -> Self {
+impl<M> Entry<M> {
+	pub fn new(key: Meta<Key, M>, value: Meta<Value<M>, M>) -> Self {
 		Self { key, value }
 	}
 
 	#[allow(clippy::type_complexity)]
-	pub fn as_pair(&self) -> (&Meta<Key, M>, &Meta<Value<M, C>, M>) {
+	pub fn as_pair(&self) -> (&Meta<Key, M>, &Meta<Value<M>, M>) {
 		(&self.key, &self.value)
 	}
 
 	#[allow(clippy::type_complexity)]
-	pub fn into_pair(self) -> (Meta<Key, M>, Meta<Value<M, C>, M>) {
+	pub fn into_pair(self) -> (Meta<Key, M>, Meta<Value<M>, M>) {
 		(self.key, self.value)
 	}
 
@@ -253,127 +233,13 @@ impl<M, C> Entry<M, C> {
 		self.key
 	}
 
-	pub fn as_value(&self) -> &Meta<Value<M, C>, M> {
+	pub fn as_value(&self) -> &Meta<Value<M>, M> {
 		&self.value
 	}
 
-	pub fn into_value(self) -> Meta<Value<M, C>, M> {
+	pub fn into_value(self) -> Meta<Value<M>, M> {
 		self.value
 	}
-}
-
-#[derive(
-	Clone,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Hash,
-	Debug,
-	StrippedPartialEq,
-	StrippedEq,
-	StrippedPartialOrd,
-	StrippedOrd,
-	StrippedHash,
-)]
-#[stripped_ignore(M)]
-pub struct ContextEntry<M, C> {
-	#[stripped_ignore]
-	pub key_metadata: M,
-	pub value: Meta<C, M>,
-}
-
-impl<M, C> ContextEntry<M, C> {
-	pub fn new(key_metadata: M, value: Meta<C, M>) -> Self {
-		Self {
-			key_metadata,
-			value,
-		}
-	}
-
-	pub fn into_context(self) -> Meta<C, M> {
-		self.value
-	}
-}
-
-pub struct EntriesWithContext<'a, M, C> {
-	context: Option<&'a ContextEntry<M, C>>,
-	entries: core::slice::Iter<'a, Entry<M, C>>,
-}
-
-impl<'a, M, C> Iterator for EntriesWithContext<'a, M, C> {
-	type Item = AnyEntryRef<'a, M, C>;
-
-	fn size_hint(&self) -> (usize, Option<usize>) {
-		let len = self.entries.len() + if self.context.is_some() { 1 } else { 0 };
-		(len, Some(len))
-	}
-
-	fn next(&mut self) -> Option<Self::Item> {
-		match self.context.take() {
-			Some(e) => Some(AnyEntryRef::Context(e)),
-			None => self.entries.next().map(AnyEntryRef::Entry),
-		}
-	}
-}
-
-impl<'a, M, C> ExactSizeIterator for EntriesWithContext<'a, M, C> {}
-
-impl<'a, M, C> DoubleEndedIterator for EntriesWithContext<'a, M, C> {
-	fn next_back(&mut self) -> Option<Self::Item> {
-		match self.entries.next_back() {
-			Some(e) => Some(AnyEntryRef::Entry(e)),
-			None => self.context.take().map(AnyEntryRef::Context),
-		}
-	}
-}
-
-pub enum AnyEntryRef<'a, M, C> {
-	Context(&'a ContextEntry<M, C>),
-	Entry(&'a Entry<M, C>),
-}
-
-impl<'a, M, C> AnyEntryRef<'a, M, C> {
-	pub fn key(&self) -> Meta<AnyKeyRef<'a>, &'a M> {
-		match self {
-			Self::Context(e) => Meta(AnyKeyRef::Context, &e.key_metadata),
-			Self::Entry(e) => Meta(AnyKeyRef::Key(e.key.value()), e.key.metadata()),
-		}
-	}
-
-	pub fn value(&self) -> Meta<AnyValueRef<'a, M, C>, &'a M> {
-		match self {
-			Self::Context(e) => Meta(AnyValueRef::Context(&e.value), &e.key_metadata),
-			Self::Entry(e) => Meta(AnyValueRef::Value(e.value.value()), e.value.metadata()),
-		}
-	}
-
-	pub fn is_context(&self) -> bool {
-		matches!(self, Self::Context(_))
-	}
-}
-
-pub enum AnyKeyRef<'a> {
-	Context,
-	Key(&'a Key),
-}
-
-impl<'a> AnyKeyRef<'a> {
-	pub fn is_context(&self) -> bool {
-		matches!(self, Self::Context)
-	}
-
-	pub fn as_str(&self) -> &'a str {
-		match self {
-			Self::Context => "@context",
-			Self::Key(k) => k.as_str(),
-		}
-	}
-}
-
-pub enum AnyValueRef<'a, M, C> {
-	Context(&'a C),
-	Value(&'a Value<M, C>),
 }
 
 /// Object.
@@ -382,16 +248,16 @@ pub enum AnyValueRef<'a, M, C> {
 )]
 #[derivative(Default(bound = ""))]
 #[stripped_ignore(M)]
-pub struct Entries<M, C> {
+pub struct Entries<M> {
 	/// The entries of the object, in order.
-	entries: Vec<Entry<M, C>>,
+	entries: Vec<Entry<M>>,
 
 	/// Maps each key to
 	#[stripped_ignore]
 	indexes: IndexMap,
 }
 
-impl<M, C> Entries<M, C> {
+impl<M> Entries<M> {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -414,17 +280,17 @@ impl<M, C> Entries<M, C> {
 	/// Returns an iterator over the entries matching the given key.
 	///
 	/// Runs in `O(1)` (average).
-	pub fn get<Q: ?Sized + Hash + Equivalent<Key>>(&self, key: &Q) -> Option<&Entry<M, C>> {
+	pub fn get<Q: ?Sized + Hash + Equivalent<Key>>(&self, key: &Q) -> Option<&Entry<M>> {
 		self.indexes
-			.get::<M, C, Q>(&self.entries, key)
+			.get::<M, Q>(&self.entries, key)
 			.map(|i| &self.entries[i])
 	}
 
-	pub fn as_slice(&self) -> &[Entry<M, C>] {
+	pub fn as_slice(&self) -> &[Entry<M>] {
 		&self.entries
 	}
 
-	pub fn iter(&self) -> core::slice::Iter<Entry<M, C>> {
+	pub fn iter(&self) -> core::slice::Iter<Entry<M>> {
 		self.entries.iter()
 	}
 
@@ -443,8 +309,8 @@ impl<M, C> Entries<M, C> {
 	pub fn insert(
 		&mut self,
 		key: Meta<Key, M>,
-		value: Meta<Value<M, C>, M>,
-	) -> Option<Entry<M, C>> {
+		value: Meta<Value<M>, M>,
+	) -> Option<Entry<M>> {
 		match self.index_of(key.value()) {
 			Some(index) => {
 				let mut entry = Entry::new(key, value);
@@ -461,7 +327,7 @@ impl<M, C> Entries<M, C> {
 	}
 
 	/// Removes the entry at the given index.
-	pub fn remove_at(&mut self, index: usize) -> Option<Entry<M, C>> {
+	pub fn remove_at(&mut self, index: usize) -> Option<Entry<M>> {
 		if index < self.entries.len() {
 			self.indexes.remove(&self.entries, index);
 			self.indexes.shift(index);
@@ -474,7 +340,7 @@ impl<M, C> Entries<M, C> {
 	/// Remove the entry associated to the given key.
 	///
 	/// Runs in `O(n)` time (average).
-	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<M, C>>
+	pub fn remove<Q: ?Sized>(&mut self, key: &Q) -> Option<Entry<M>>
 	where
 		Q: Hash + Equivalent<Key>,
 	{
@@ -485,33 +351,33 @@ impl<M, C> Entries<M, C> {
 	}
 }
 
-impl<C: PartialEq, M: PartialEq> PartialEq for Entries<M, C> {
+impl<M: PartialEq> PartialEq for Entries<M> {
 	fn eq(&self, other: &Self) -> bool {
 		self.entries == other.entries
 	}
 }
 
-impl<C: Eq, M: Eq> Eq for Entries<M, C> {}
+impl<M: Eq> Eq for Entries<M> {}
 
-impl<C: PartialOrd, M: PartialOrd> PartialOrd for Entries<M, C> {
+impl<M: PartialOrd> PartialOrd for Entries<M> {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		self.entries.partial_cmp(&other.entries)
 	}
 }
 
-impl<C: Ord, M: Ord> Ord for Entries<M, C> {
+impl<M: Ord> Ord for Entries<M> {
 	fn cmp(&self, other: &Self) -> Ordering {
 		self.entries.cmp(&other.entries)
 	}
 }
 
-impl<C: Hash, M: Hash> Hash for Entries<M, C> {
+impl<M: Hash> Hash for Entries<M> {
 	fn hash<H: Hasher>(&self, state: &mut H) {
 		self.entries.hash(state)
 	}
 }
 
-impl<C: fmt::Debug, M: fmt::Debug> fmt::Debug for Entries<M, C> {
+impl<M: fmt::Debug> fmt::Debug for Entries<M> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		f.debug_map()
 			.entries(self.entries.iter().map(Entry::as_pair))
@@ -519,18 +385,18 @@ impl<C: fmt::Debug, M: fmt::Debug> fmt::Debug for Entries<M, C> {
 	}
 }
 
-impl<'a, M, C> IntoIterator for &'a Entries<M, C> {
-	type IntoIter = core::slice::Iter<'a, Entry<M, C>>;
-	type Item = &'a Entry<M, C>;
+impl<'a, M> IntoIterator for &'a Entries<M> {
+	type IntoIter = core::slice::Iter<'a, Entry<M>>;
+	type Item = &'a Entry<M>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
 
-impl<M, C> IntoIterator for Entries<M, C> {
-	type IntoIter = std::vec::IntoIter<Entry<M, C>>;
-	type Item = Entry<M, C>;
+impl<M> IntoIterator for Entries<M> {
+	type IntoIter = std::vec::IntoIter<Entry<M>>;
+	type Item = Entry<M>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.entries.into_iter()

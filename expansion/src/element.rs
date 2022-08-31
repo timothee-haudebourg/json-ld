@@ -6,16 +6,17 @@ use futures::future::{BoxFuture, FutureExt};
 use json_ld_context_processing::{
 	ContextLoader, NamespaceMut, Options as ProcessingOptions, Process,
 };
-use json_ld_core::{object, Context, Indexed, Object, Reference, Term};
-use json_ld_syntax::{object::Entry, Keyword, Nullable, Value};
-use locspan::{At, Meta};
+use json_ld_core::{object, Context, Indexed, Object, Reference, ValidReference, Term};
+use json_ld_syntax::{Keyword, Nullable};
+use json_syntax::{object::Entry, Value};
+use locspan::{At, Meta, MapLocErr};
 use mown::Mown;
 use std::{borrow::Cow, hash::Hash};
 
-pub(crate) struct ExpandedEntry<'a, T, B, M, C>(
+pub(crate) struct ExpandedEntry<'a, T, B, M>(
 	pub Meta<&'a str, &'a M>,
 	pub Term<T, B>,
-	pub &'a Meta<Value<M, C>, M>,
+	pub &'a Meta<Value<M>, M>,
 );
 
 pub(crate) enum ActiveProperty<'a, M> {
@@ -72,32 +73,35 @@ impl<'a, M> PartialEq<Keyword> for ActiveProperty<'a, M> {
 
 /// Result of the expansion of a single element in a JSON-LD document.
 pub(crate) type ElementExpansionResult<T, B, M, L, W> =
-	Result<(Expanded<T, B, M>, W), Meta<Error<<L as ContextLoader<T>>::ContextError>, M>>;
+	Result<(Expanded<T, B, M>, W), Meta<Error<M, <L as ContextLoader<T, M>>::ContextError>, M>>;
 
 /// Expand an element.
 ///
 /// See <https://www.w3.org/TR/json-ld11-api/#expansion-algorithm>.
 /// The default specified value for `ordered` and `from_map` is `false`.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn expand_element<'a, T, B, N, C: Process<T, B>, L: Loader<T> + ContextLoader<T>, W>(
+pub(crate) fn expand_element<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	namespace: &'a mut N,
 	active_context: &'a Context<T, B, C>,
-	active_property: ActiveProperty<'a, C::Metadata>,
-	Meta(element, meta): &'a Meta<Value<C::Metadata, C>, C::Metadata>,
+	active_property: ActiveProperty<'a, M>,
+	Meta(element, meta): &'a Meta<Value<M>, M>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
 	options: Options,
 	from_map: bool,
 	mut warnings: W,
-) -> BoxFuture<'a, ElementExpansionResult<T, B, C::Metadata, L, W>>
+) -> BoxFuture<'a, ElementExpansionResult<T, B, M, L, W>>
 where
 	N: Send + Sync + NamespaceMut<T, B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
+	M: Clone + Sync + Send,
+	C: Process<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
-	<L as Loader<T>>::Output: Into<Value<C::Metadata, C>>,
-	<L as ContextLoader<T>>::Output: Into<C>,
-	W: 'a + Send + WarningHandler<B, N, C::Metadata>,
+	L::Output: Into<Value<M>>,
+	L::Context: Into<C>,
+	L::ContextError: Send,
+	W: 'a + Send + WarningHandler<B, N, M>,
 {
 	async move {
 		// If `element` is null, return null.
@@ -214,7 +218,10 @@ where
 				// If `element` contains the entry `@context`, set `active_context` to the result
 				// of the Context Processing algorithm, passing `active_context`, the value of the
 				// `@context` entry as `local_context` and `base_url`.
-				if let Some(Meta(local_context, _)) = element.context() {
+				if let Some(local_context) = element.get_unique("@context").map_err(Error::duplicate_key_ref)? {
+					use json_ld_syntax::TryFromJson;
+					let local_context: C = json_ld_syntax::context::Value::try_from_json(local_context.clone()).map_loc_err(Error::ContextSyntax)?.into_value().into();
+					
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
@@ -229,13 +236,13 @@ where
 					);
 				}
 
-				let entries: Cow<[Entry<_, C>]> = if options.ordered {
-					Cow::Owned(element.entries().iter().cloned().collect())
+				let entries: Cow<[Entry<_>]> = if options.ordered {
+					Cow::Owned(element.entries().to_vec())
 				} else {
-					Cow::Borrowed(element.entries().as_slice())
+					Cow::Borrowed(element.entries())
 				};
 
-				let mut type_entries: Vec<&Entry<_, C>> = Vec::new();
+				let mut type_entries: Vec<&Entry<_>> = Vec::new();
 				for entry @ Entry {
 					key: Meta(key, key_metadata),
 					..
@@ -334,7 +341,7 @@ where
 					None
 				};
 
-				let mut expanded_entries: Vec<ExpandedEntry<T, B, C::Metadata, C>> =
+				let mut expanded_entries: Vec<ExpandedEntry<T, B, M>> =
 					Vec::with_capacity(element.len());
 				let mut list_entry = None;
 				let mut set_entry = None;
@@ -368,7 +375,7 @@ where
 							}
 						}
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
-						Term::Ref(Reference::Blank(id)) => {
+						Term::Ref(Reference::Valid(ValidReference::Blank(id))) => {
 							warnings.handle(
 								namespace,
 								Meta::new(
@@ -395,7 +402,10 @@ where
 					{
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
-								Some(value) => index = Some(value.to_string()),
+								Some(value) => index = Some(json_ld_syntax::Entry::new(
+									key_metadata.clone(),
+									Meta(value.to_string(), key_metadata.clone())
+								)),
 								None => {
 									return Err(
 										Error::InvalidIndexValue.at(value.metadata().clone())
@@ -504,7 +514,7 @@ where
 					.await?;
 					if let Some(result) = e {
 						Ok((
-							Meta(result.cast::<Object<T, B, C::Metadata>>(), meta.clone()).into(),
+							Meta(result.cast::<Object<T, B, M>>(), meta.clone()).into(),
 							warnings,
 						))
 					} else {

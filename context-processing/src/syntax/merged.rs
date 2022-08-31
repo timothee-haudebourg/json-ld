@@ -6,12 +6,12 @@ use json_ld_syntax::{
 };
 use locspan::Meta;
 
-pub struct Merged<'a, C: syntax::context::AnyValue> {
+pub struct Merged<'a, M, C: syntax::context::AnyValue<M>> {
 	base: &'a C::Definition,
 	imported: Option<C>,
 }
 
-impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
+impl<'a, M, C: syntax::context::AnyValue<M>> Merged<'a, M, C> {
 	pub fn new(base: &'a C::Definition, imported: Option<C>) -> Self {
 		Self { base, imported }
 	}
@@ -28,7 +28,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 			})
 	}
 
-	pub fn base(&self) -> Option<Entry<syntax::Nullable<IriRef>, C::Metadata>> {
+	pub fn base(&self) -> Option<Entry<syntax::Nullable<IriRef>, M>> {
 		self.base
 			.base()
 			.or_else(|| self.imported().and_then(|i| i.base()))
@@ -40,7 +40,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 
 	pub fn vocab(
 		&self,
-	) -> Option<Entry<syntax::Nullable<syntax::context::definition::VocabRef>, C::Metadata>> {
+	) -> Option<Entry<syntax::Nullable<syntax::context::definition::VocabRef>, M>> {
 		self.base
 			.vocab()
 			.or_else(|| self.imported().and_then(|i| i.vocab()))
@@ -51,7 +51,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 
 	pub fn language(
 		&self,
-	) -> Option<Entry<syntax::Nullable<syntax::LenientLanguageTag>, C::Metadata>> {
+	) -> Option<Entry<syntax::Nullable<syntax::LenientLanguageTag>, M>> {
 		self.base
 			.language()
 			.or_else(|| self.imported().and_then(|i| i.language()))
@@ -60,7 +60,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 		// 	.or_else(|| self.base.language())
 	}
 
-	pub fn direction(&self) -> Option<Entry<syntax::Nullable<syntax::Direction>, C::Metadata>> {
+	pub fn direction(&self) -> Option<Entry<syntax::Nullable<syntax::Direction>, M>> {
 		self.base
 			.direction()
 			.or_else(|| self.imported().and_then(|i| i.direction()))
@@ -69,7 +69,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 		// 	.or_else(|| self.base.direction())
 	}
 
-	pub fn protected(&self) -> Option<Entry<bool, C::Metadata>> {
+	pub fn protected(&self) -> Option<Entry<bool, M>> {
 		self.base
 			.protected()
 			.or_else(|| self.imported().and_then(|i| i.protected()))
@@ -80,7 +80,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 
 	pub fn type_(
 		&self,
-	) -> Option<Entry<syntax::context::definition::Type<C::Metadata>, C::Metadata>> {
+	) -> Option<Entry<syntax::context::definition::Type<M>, M>> {
 		self.base
 			.type_()
 			.or_else(|| self.imported().and_then(|i| i.type_()))
@@ -89,7 +89,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 		// 	.or_else(|| self.base.protected())
 	}
 
-	pub fn bindings(&self) -> MergedBindings<C> {
+	pub fn bindings(&self) -> MergedBindings<M, C> {
 		MergedBindings {
 			base: self.base,
 			base_bindings: self.base.bindings(),
@@ -100,7 +100,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 	pub fn get(
 		&self,
 		key: &syntax::context::definition::KeyOrKeyword,
-	) -> Option<syntax::context::definition::EntryValueRef<C>> {
+	) -> Option<syntax::context::definition::EntryValueRef<M, C>> {
 		self.base
 			.get(key)
 			.or_else(|| self.imported().and_then(|i| i.get(key)))
@@ -110,7 +110,7 @@ impl<'a, C: syntax::context::AnyValue> Merged<'a, C> {
 	}
 }
 
-impl<'a, C: syntax::context::AnyValue> From<&'a C::Definition> for Merged<'a, C> {
+impl<'a, M, C: syntax::context::AnyValue<M>> From<&'a C::Definition> for Merged<'a, M, C> {
 	fn from(base: &'a C::Definition) -> Self {
 		Self {
 			base,
@@ -119,16 +119,16 @@ impl<'a, C: syntax::context::AnyValue> From<&'a C::Definition> for Merged<'a, C>
 	}
 }
 
-pub struct MergedBindings<'a, C: 'a + syntax::context::AnyValue> {
+pub struct MergedBindings<'a, M, C: syntax::context::AnyValue<M>> {
 	base: &'a C::Definition,
-	base_bindings: <C::Definition as syntax::context::AnyDefinition>::Bindings<'a>,
-	imported_bindings: Option<<C::Definition as syntax::context::AnyDefinition>::Bindings<'a>>,
+	base_bindings: syntax::context::definition::BindingsIter<'a, M, C>,
+	imported_bindings: Option<syntax::context::definition::BindingsIter<'a, M, C>>,
 }
 
-impl<'a, C: 'a + syntax::context::AnyValue> Iterator for MergedBindings<'a, C> {
+impl<'a, M: Clone, C: syntax::context::AnyValue<M>> Iterator for MergedBindings<'a, M, C> {
 	type Item = (
 		syntax::context::definition::KeyRef<'a>,
-		TermBindingRef<'a, C>,
+		TermBindingRef<'a, M, C>,
 	);
 
 	fn next(&mut self) -> Option<Self::Item> {

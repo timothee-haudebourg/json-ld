@@ -1,50 +1,82 @@
-use super::{Options, TypeLangValue};
-use crate::{
-	context::inverse::{Inversible, LangSelection, Selection, TypeSelection},
-	object,
-	syntax::{Container, Term, Type},
-	Context, Error, ErrorCode, Id, Indexed, Nullable, Object, ProcessingMode, Value,
-};
-use generic_json::{JsonClone, JsonHash};
+use std::hash::Hash;
+use locspan::Meta;
+use json_ld_core::{ProcessingMode, Context, Term, Indexed, Type, Object, Value, Container, Nullable, object, context::inverse::{Selection, LangSelection, TypeSelection}, Namespace, BorrowWithNamespace};
+use crate::{Options, TypeLangValue};
+
+pub struct IriConfusedWithPrefix;
 
 /// Compact the given term without considering any value.
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
-pub(crate) fn compact_iri<'a, J: JsonHash, T: 'a + Id, C: Context<T>>(
-	active_context: &Inversible<T, C>,
-	var: &Term<T>,
+pub(crate) fn compact_iri<'a, I, B, M, C>(
+	namespace: &impl Namespace<I, B>,
+	active_context: &Context<I, B, C>,
+	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<Option<String>, Error> {
-	compact_iri_full::<J, T, C, Object<J, T>>(active_context, var, None, vocab, reverse, options)
+) -> Result<Option<Meta<String, M>>, Meta<IriConfusedWithPrefix, M>>
+where
+	I: Clone + Hash + Eq,
+	B: Clone + Hash + Eq,
+	M: Clone
+{
+	compact_iri_full::<I, B, M, C, Object<I, B, M>>(namespace, active_context, var, None, vocab, reverse, options)
+}
+
+pub(crate) fn compact_key<'a, I, B, M, C>(
+	namespace: &impl Namespace<I, B>,
+	active_context: &Context<I, B, C>,
+	var: Meta<&Term<I, B>, &M>,
+	vocab: bool,
+	reverse: bool,
+	options: Options,
+) -> Result<Option<Meta<json_syntax::object::Key, M>>, Meta<IriConfusedWithPrefix, M>>
+where
+	I: Clone + Hash + Eq,
+	B: Clone + Hash + Eq,
+	M: Clone
+{
+	Ok(compact_key(namespace, active_context, var, vocab, reverse, options)?.map(Meta::cast))
 }
 
 /// Compact the given term considering the given value object.
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
-pub(crate) fn compact_iri_with<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: object::Any<J, T>>(
-	active_context: &Inversible<T, C>,
-	var: &Term<T>,
-	value: &Indexed<N>,
+pub(crate) fn compact_iri_with<'a, I, B, M, C, O: object::Any<I, B, M>>(
+	namespace: &impl Namespace<I, B>,
+	active_context: &Context<I, B, C>,
+	var: Meta<&Term<I, B>, &M>,
+	value: &Indexed<O, M>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<Option<String>, Error> {
-	compact_iri_full(active_context, var, Some(value), vocab, reverse, options)
+) -> Result<Option<Meta<String, M>>, Meta<IriConfusedWithPrefix, M>>
+where
+	I: Clone + Hash + Eq,
+	B: Clone + Hash + Eq,
+	M: Clone
+{
+	compact_iri_full(namespace, active_context, var, Some(value), vocab, reverse, options)
 }
 
 /// Compact the given term.
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
-pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: object::Any<J, T>>(
-	active_context: &Inversible<T, C>,
-	var: &Term<T>,
-	value: Option<&Indexed<N>>,
+pub(crate) fn compact_iri_full<'a, I, B, M, C, O: object::Any<I, B, M>>(
+	namespace: &impl Namespace<I, B>,
+	active_context: &Context<I, B, C>,
+	Meta(var, meta): Meta<&Term<I, B>, &M>,
+	value: Option<&Indexed<O, M>>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<Option<String>, Error> {
+) -> Result<Option<Meta<String, M>>, Meta<IriConfusedWithPrefix, M>>
+where
+	I: Clone + Hash + Eq,
+	B: Clone + Hash + Eq,
+	M: Clone
+{
 	if var.is_null() {
 		return Ok(None);
 	}
@@ -258,7 +290,7 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 			} else {
 				match type_lang_value {
 					Some(TypeLangValue::Type(type_value)) => {
-						let mut selection: Vec<TypeSelection<T>> = Vec::new();
+						let mut selection: Vec<TypeSelection<I>> = Vec::new();
 
 						if type_value == TypeSelection::Reverse {
 							selection.push(TypeSelection::Reverse);
@@ -266,21 +298,22 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 
 						let mut has_id_type = false;
 						if let Some(value) = value {
-							if let Some(id) = value.id() {
+							if let Some(Meta(id, meta)) = value.id() {
 								if type_value == TypeSelection::Type(Type::Id)
 									|| type_value == TypeSelection::Reverse
 								{
 									has_id_type = true;
 									let mut vocab = false;
-									let compacted_iri = compact_iri::<J, _, _>(
+									let Meta(compacted_iri, _) = compact_iri::<_, _, M, _>(
+										namespace,
 										active_context,
-										&id.clone().into_term(),
+										Meta(&id.clone().into_term(), meta),
 										true,
 										false,
 										options,
-									)?;
+									)?.unwrap();
 									if let Some(def) =
-										active_context.get(compacted_iri.as_ref().unwrap())
+										active_context.get(compacted_iri.as_str())
 									{
 										if let Some(iri_mapping) = &def.value {
 											vocab = iri_mapping == id;
@@ -333,7 +366,7 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 			};
 
 			if let Some(term) = entry.select(&containers, &selection) {
-				return Ok(Some(term.into()));
+				return Ok(Some(Meta(term.to_string(), meta.clone())));
 			}
 		}
 
@@ -343,9 +376,9 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 			// If var begins with the vocabulary mapping's value but is longer, then initialize
 			// suffix to the substring of var that does not match. If suffix does not have a term
 			// definition in active context, then return suffix.
-			if let Some(suffix) = var.as_str().strip_prefix(vocab_mapping.as_str()) {
+			if let Some(suffix) = var.with_namespace(namespace).as_str().strip_prefix(vocab_mapping.with_namespace(namespace).as_str()) {
 				if !suffix.is_empty() && active_context.get(suffix).is_none() {
-					return Ok(Some(suffix.into()));
+					return Ok(Some(Meta(suffix.into(), meta.clone())));
 				}
 			}
 		}
@@ -365,26 +398,28 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 		// Continue with the next definition.
 		match definition.value.as_ref() {
 			Some(iri_mapping) if definition.prefix => {
-				if let Some(suffix) = var.as_str().strip_prefix(iri_mapping.as_str()) {
+				if let Some(suffix) = var.with_namespace(namespace).as_str().strip_prefix(iri_mapping.with_namespace(namespace).as_str()) {
 					if !suffix.is_empty() {
 						// Initialize candidate by concatenating definition key,
 						// a colon (:),
 						// and the substring of var that follows after the value of the definition's IRI mapping.
-						let candidate = key.clone() + ":" + suffix;
+						let mut candidate = key.to_string();
+						candidate.push(':');
+						candidate.push_str(suffix);
 
 						// If either compact IRI is null,
 						// candidate is shorter or the same length but lexicographically less than
 						// compact IRI and candidate does not have a term definition in active
 						// context, or if that term definition has an IRI mapping that equals var
 						// and value is null, set compact IRI to candidate.
-						let candidate_def = active_context.get(&candidate);
+						let candidate_def = active_context.get(candidate.as_str());
 						if (compact_iri.is_empty()
 							|| (candidate.len() <= compact_iri.len() && candidate < compact_iri))
 							&& (candidate_def.is_none()
 								|| (candidate_def.is_some()
 									&& candidate_def
 										.and_then(|def| def.value.as_ref())
-										.map_or(false, |v| v.as_str() == var.as_str())
+										.map_or(false, |v| v == var)
 									&& value.is_none()))
 						{
 							compact_iri = candidate
@@ -398,7 +433,7 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 
 	// If compact IRI is not null, return compact IRI.
 	if !compact_iri.is_empty() {
-		return Ok(Some(compact_iri.as_str().into()));
+		return Ok(Some(Meta(compact_iri.as_str().into(), meta.clone())));
 	}
 
 	// To ensure that the IRI var is not confused with a compact IRI,
@@ -406,8 +441,9 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 	// and var has no IRI authority (preceded by double-forward-slash (//),
 	// an IRI confused with prefix error has been detected, and processing is aborted.
 	if let Some(iri) = var.as_iri() {
-		if active_context.contains(iri.scheme().as_str()) {
-			return Err(ErrorCode::IriConfusedWithPrefix.into());
+		let iri = namespace.iri(iri).unwrap();
+		if active_context.contains_key(iri.scheme().as_str()) {
+			return Err(Meta(IriConfusedWithPrefix, meta.clone()));
 		}
 	}
 
@@ -416,12 +452,14 @@ pub(crate) fn compact_iri_full<'a, J: JsonHash, T: 'a + Id, C: Context<T>, N: ob
 	// if it exists.
 	if !vocab {
 		if let Some(base_iri) = active_context.base_iri() {
+			let base_iri = namespace.iri(base_iri).unwrap();
 			if let Some(iri) = var.as_iri() {
-				return Ok(Some(iri.relative_to(base_iri).as_str().into()));
+				let iri = namespace.iri(iri).unwrap();
+				return Ok(Some(Meta(iri.relative_to(base_iri).as_str().into(), meta.clone())));
 			}
 		}
 	}
 
 	// Finally, return var as is.
-	Ok(Some(var.as_str().into()))
+	Ok(Some(Meta(var.with_namespace(namespace).to_string(), meta.clone())))
 }

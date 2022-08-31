@@ -4,7 +4,7 @@ use crate::{
 };
 use derivative::Derivative;
 use json_ld_syntax::Entry;
-use locspan::{Meta, Stripped};
+use locspan::{Meta, Stripped, BorrowStripped};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
@@ -206,7 +206,7 @@ impl<T, B, M> NodeMapGraph<T, B, M> {
 }
 
 pub type DeclareNodeResult<'a, T, B, M> =
-	Result<&'a mut Indexed<Node<T, B, M>>, ConflictingIndexes<T, B, M>>;
+	Result<&'a mut Indexed<Node<T, B, M>, M>, ConflictingIndexes<T, B, M>>;
 
 impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 	pub fn contains(&self, id: &Reference<T, B>) -> bool {
@@ -224,7 +224,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 	pub fn declare_node(
 		&mut self,
 		id: Meta<Reference<T, B>, M>,
-		index: Option<&str>,
+		index: Option<&Entry<String, M>>,
 	) -> DeclareNodeResult<T, B, M>
 	where
 		T: Clone,
@@ -232,9 +232,9 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 		M: Clone,
 	{
 		if let Some(entry) = self.nodes.get_mut(&id) {
-			match (entry.index(), index) {
+			match (entry.index_entry(), index) {
 				(Some(entry_index), Some(index)) => {
-					if entry_index != index {
+					if entry_index.stripped() != index.stripped() {
 						return Err(ConflictingIndexes {
 							node_id: id,
 							defined_index: entry_index.to_string(),
@@ -242,7 +242,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 						});
 					}
 				}
-				(None, Some(index)) => entry.set_index(Some(index.to_string())),
+				(None, Some(index)) => entry.set_index(Some(index.clone())),
 				_ => (),
 			}
 		} else {
@@ -251,7 +251,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 				Meta(
 					Indexed::new(
 						Node::with_id(Entry::new(id.metadata().clone(), id.clone())),
-						index.map(|s| s.to_string()),
+						index.cloned(),
 					),
 					id.metadata().clone(),
 				),
@@ -283,7 +283,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 	/// - The list of `node` types is concatenated after the preexisting types.
 	/// - The graph and imported values are overridden.
 	/// - Properties and reverse properties are merged.
-	pub fn merge_node(&mut self, Meta(node, meta): Meta<Indexed<Node<T, B, M>>, M>)
+	pub fn merge_node(&mut self, Meta(node, meta): IndexedNode<T, B, M>)
 	where
 		T: Clone,
 		B: Clone,
@@ -342,14 +342,14 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 }
 
 pub type NodeMapGraphNodes<'a, T, B, M> =
-	std::collections::hash_map::Values<'a, Reference<T, B>, Meta<Indexed<Node<T, B, M>>, M>>;
+	std::collections::hash_map::Values<'a, Reference<T, B>, IndexedNode<T, B, M>>;
 pub type IntoNodeMapGraphNodes<T, B, M> =
-	std::collections::hash_map::IntoValues<Reference<T, B>, Meta<Indexed<Node<T, B, M>>, M>>;
+	std::collections::hash_map::IntoValues<Reference<T, B>, IndexedNode<T, B, M>>;
 
 impl<T, B, M> IntoIterator for NodeMapGraph<T, B, M> {
-	type Item = (Reference<T, B>, Meta<Indexed<Node<T, B, M>>, M>);
+	type Item = (Reference<T, B>, IndexedNode<T, B, M>);
 	type IntoIter =
-		std::collections::hash_map::IntoIter<Reference<T, B>, Meta<Indexed<Node<T, B, M>>, M>>;
+		std::collections::hash_map::IntoIter<Reference<T, B>, IndexedNode<T, B, M>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.into_iter()
@@ -357,9 +357,9 @@ impl<T, B, M> IntoIterator for NodeMapGraph<T, B, M> {
 }
 
 impl<'a, T, B, M> IntoIterator for &'a NodeMapGraph<T, B, M> {
-	type Item = (&'a Reference<T, B>, &'a Meta<Indexed<Node<T, B, M>>, M>);
+	type Item = (&'a Reference<T, B>, &'a IndexedNode<T, B, M>);
 	type IntoIter =
-		std::collections::hash_map::Iter<'a, Reference<T, B>, Meta<Indexed<Node<T, B, M>>, M>>;
+		std::collections::hash_map::Iter<'a, Reference<T, B>, IndexedNode<T, B, M>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.iter()
@@ -391,7 +391,7 @@ fn extend_node_map<
 >(
 	env: &mut Environment<T, B, M, N, G>,
 	node_map: &mut NodeMap<T, B, M>,
-	Meta(element, meta): &Meta<Indexed<Object<T, B, M>>, M>,
+	Meta(element, meta): &IndexedObject<T, B, M>,
 	active_graph: Option<&Reference<T, B>>,
 ) -> Result<IndexedObject<T, B, M>, ConflictingIndexes<T, B, M>> {
 	match element.inner() {
@@ -400,7 +400,7 @@ fn extend_node_map<
 			Ok(Meta(
 				Indexed::new(
 					Object::Value(flat_value),
-					element.index().map(|s| s.to_string()),
+					element.index_entry().cloned()
 				),
 				meta.clone(),
 			))
@@ -418,21 +418,21 @@ fn extend_node_map<
 						list.entry().key_metadata.clone(),
 						Meta(flat_list, list.entry().value.metadata().clone()),
 					)),
-					element.index().map(|s| s.to_string()),
+					element.index_entry().cloned(),
 				),
 				meta.clone(),
 			))
 		}
 		Object::Node(node) => {
 			let flat_node =
-				extend_node_map_from_node(env, node_map, node, element.index(), active_graph)?;
+				extend_node_map_from_node(env, node_map, node, element.index_entry(), active_graph)?;
 			Ok(Meta(flat_node.map_inner(Object::Node), meta.clone()))
 		}
 	}
 }
 
 type ExtendNodeMapFromNodeResult<T, B, M> =
-	Result<Indexed<Node<T, B, M>>, ConflictingIndexes<T, B, M>>;
+	Result<Indexed<Node<T, B, M>, M>, ConflictingIndexes<T, B, M>>;
 
 fn extend_node_map_from_node<
 	T: Clone + Eq + Hash,
@@ -444,7 +444,7 @@ fn extend_node_map_from_node<
 	env: &mut Environment<T, B, M, N, G>,
 	node_map: &mut NodeMap<T, B, M>,
 	node: &Node<T, B, M>,
-	index: Option<&str>,
+	index: Option<&Entry<String, M>>,
 	active_graph: Option<&Reference<T, B>>,
 ) -> ExtendNodeMapFromNodeResult<T, B, M> {
 	let id = env.assign_node_id(node.id_entry().map(Entry::as_value));
@@ -495,7 +495,7 @@ fn extend_node_map_from_node<
 
 	if let Some(included_entry) = node.included_entry() {
 		for inode in included_entry.value.iter() {
-			extend_node_map_from_node(env, node_map, inode.inner(), inode.index(), active_graph)?;
+			extend_node_map_from_node(env, node_map, inode.inner(), inode.index_entry(), active_graph)?;
 		}
 	}
 
@@ -521,7 +521,7 @@ fn extend_node_map_from_node<
 					env,
 					node_map,
 					subject.inner(),
-					subject.index(),
+					subject.index_entry(),
 					active_graph,
 				)?;
 

@@ -3,6 +3,7 @@ use locspan::Meta;
 use locspan_derive::*;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
+use json_ld_syntax::Entry;
 
 /// Indexed objects.
 ///
@@ -13,18 +14,19 @@ use std::ops::{Deref, DerefMut};
 #[derive(
 	Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, StrippedPartialEq, StrippedEq, StrippedHash,
 )]
-pub struct Indexed<T> {
+#[stripped_ignore(M)]
+pub struct Indexed<T, M> {
 	/// Index.
-	index: Option<String>,
+	index: Option<Entry<String, M>>,
 
 	/// Value.
 	value: T,
 }
 
-impl<T> Indexed<T> {
+impl<T, M> Indexed<T, M> {
 	/// Create a new (maybe) indexed value.
 	#[inline(always)]
-	pub fn new(value: T, index: Option<String>) -> Indexed<T> {
+	pub fn new(value: T, index: Option<Entry<String, M>>) -> Indexed<T, M> {
 		Indexed { value, index }
 	}
 
@@ -53,21 +55,27 @@ impl<T> Indexed<T> {
 		}
 	}
 
+	/// Get the index entry, if any.
+	#[inline(always)]
+	pub fn index_entry(&self) -> Option<&Entry<String, M>> {
+		self.index.as_ref()
+	}
+
 	/// Set the value index.
 	#[inline(always)]
-	pub fn set_index(&mut self, index: Option<String>) {
+	pub fn set_index(&mut self, index: Option<Entry<String, M>>) {
 		self.index = index
 	}
 
 	/// Turn this indexed value into its components: inner value and index.
 	#[inline(always)]
-	pub fn into_parts(self) -> (T, Option<String>) {
+	pub fn into_parts(self) -> (T, Option<Entry<String, M>>) {
 		(self.value, self.index)
 	}
 
 	/// Cast the inner value.
 	#[inline(always)]
-	pub fn map_inner<U, F>(self, f: F) -> Indexed<U>
+	pub fn map_inner<U, F>(self, f: F) -> Indexed<U, M>
 	where
 		F: FnOnce(T) -> U,
 	{
@@ -76,13 +84,13 @@ impl<T> Indexed<T> {
 
 	/// Cast the inner value.
 	#[inline(always)]
-	pub fn cast<U: From<T>>(self) -> Indexed<U> {
+	pub fn cast<U: From<T>>(self) -> Indexed<U, M> {
 		Indexed::new(self.value.into(), self.index)
 	}
 
 	/// Try to cast the inner value.
 	#[inline(always)]
-	pub fn try_cast<U: TryFrom<T>>(self) -> Result<Indexed<U>, Indexed<U::Error>> {
+	pub fn try_cast<U: TryFrom<T>>(self) -> Result<Indexed<U, M>, Indexed<U::Error, M>> {
 		match self.value.try_into() {
 			Ok(value) => Ok(Indexed::new(value, self.index)),
 			Err(e) => Err(Indexed::new(e, self.index)),
@@ -90,13 +98,13 @@ impl<T> Indexed<T> {
 	}
 }
 
-impl<T, B, M, C, O: TryFromJsonObject<T, B, M, C>> TryFromJson<T, B, M, C> for Indexed<O> {
+impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJson<T, B, M> for Indexed<O, M> {
 	fn try_from_json_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(value, meta): Meta<json_ld_syntax::Value<M, C>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
+		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
-			json_ld_syntax::Value::Object(object) => {
+			json_syntax::Value::Object(object) => {
 				Self::try_from_json_object_in(namespace, Meta(object, meta))
 			}
 			_ => Err(Meta(InvalidExpandedJson::InvalidObject, meta)),
@@ -104,14 +112,14 @@ impl<T, B, M, C, O: TryFromJsonObject<T, B, M, C>> TryFromJson<T, B, M, C> for I
 	}
 }
 
-impl<T, B, M, C, O: TryFromJsonObject<T, B, M, C>> TryFromJsonObject<T, B, M, C> for Indexed<O> {
+impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJsonObject<T, B, M> for Indexed<O, M> {
 	fn try_from_json_object_in(
 		namespace: &mut impl crate::NamespaceMut<T, B>,
-		Meta(mut object, meta): Meta<json_ld_syntax::Object<M, C>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson, M>> {
-		let index = match object.remove("@index") {
+		Meta(mut object, meta): Meta<json_syntax::Object<M>, M>,
+	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
+		let index = match object.remove_unique("@index").map_err(InvalidExpandedJson::duplicate_key)? {
 			Some(index_entry) => match index_entry.value {
-				Meta(json_ld_syntax::Value::String(index), _) => Some(index.to_string()),
+				Meta(json_syntax::Value::String(index), meta) => Some(Entry::new(index_entry.key.into_metadata(), Meta(index.to_string(), meta))),
 				Meta(_, meta) => return Err(Meta(InvalidExpandedJson::InvalidIndex, meta)),
 			},
 			None => None,
@@ -122,14 +130,14 @@ impl<T, B, M, C, O: TryFromJsonObject<T, B, M, C>> TryFromJsonObject<T, B, M, C>
 	}
 }
 
-impl<T> From<T> for Indexed<T> {
+impl<T, M> From<T> for Indexed<T, M> {
 	#[inline(always)]
-	fn from(value: T) -> Indexed<T> {
+	fn from(value: T) -> Indexed<T, M> {
 		Indexed::new(value, None)
 	}
 }
 
-impl<T> Deref for Indexed<T> {
+impl<T, M> Deref for Indexed<T, M> {
 	type Target = T;
 
 	#[inline(always)]
@@ -138,21 +146,21 @@ impl<T> Deref for Indexed<T> {
 	}
 }
 
-impl<T> DerefMut for Indexed<T> {
+impl<T, M> DerefMut for Indexed<T, M> {
 	#[inline(always)]
 	fn deref_mut(&mut self) -> &mut T {
 		&mut self.value
 	}
 }
 
-impl<T> AsRef<T> for Indexed<T> {
+impl<T, M> AsRef<T> for Indexed<T, M> {
 	#[inline(always)]
 	fn as_ref(&self) -> &T {
 		&self.value
 	}
 }
 
-impl<T> AsMut<T> for Indexed<T> {
+impl<T, M> AsMut<T> for Indexed<T, M> {
 	#[inline(always)]
 	fn as_mut(&mut self) -> &mut T {
 		&mut self.value

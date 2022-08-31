@@ -70,8 +70,7 @@ pub type Triple<T, B> = rdf_types::Triple<ValidReference<T, B>, ValidReference<T
 impl<T: Clone, B: Clone> Reference<T, B> {
 	fn rdf_value(&self) -> Option<Value<T, B>> {
 		match self {
-			Reference::Id(id) => Some(Value::Reference(ValidReference::Id(id.clone()))),
-			Reference::Blank(id) => Some(Value::Reference(ValidReference::Blank(id.clone()))),
+			Reference::Valid(id) => Some(Value::Reference(id.clone())),
 			Reference::Invalid(_) => None,
 		}
 	}
@@ -320,7 +319,7 @@ struct NestedListTriples<'a, T, B, M> {
 
 struct ListNode<'a, 'i, T, B, M> {
 	id: &'i ValidReference<T, B>,
-	object: &'a Indexed<Object<T, B, M>>,
+	object: &'a Indexed<Object<T, B, M>, M>,
 }
 
 impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
