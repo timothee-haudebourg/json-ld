@@ -76,9 +76,50 @@ pub struct Expanded<M, C=context::Value<M>> {
 	pub protected: Option<Entry<bool, M>>,
 }
 
-impl<M> Expanded<M> {
+impl<M, C> Expanded<M, C> {
 	pub fn new() -> Self {
 		Self::default()
+	}
+
+	pub fn is_null(&self) -> bool {
+		matches!(&self.id, None | Some(Entry { key_metadata: _, value: Meta(Nullable::Null, _) })) &&
+		self.type_.is_none() &&
+		self.context.is_none() && 
+		self.reverse.is_none() && 
+		self.index.is_none() &&
+		self.language.is_none() &&
+		self.direction.is_none() &&
+		self.container.is_none() &&
+		self.nest.is_none() &&
+		self.prefix.is_none() &&
+		self.propagate.is_none() &&
+		self.protected.is_none()
+	}
+
+	pub fn is_simple_definition(&self) -> bool {
+		matches!(&self.id, Some(Entry { key_metadata: _, value: Meta(Nullable::Some(_), _) })) &&
+		self.type_.is_none() &&
+		self.context.is_none() && 
+		self.reverse.is_none() && 
+		self.index.is_none() &&
+		self.language.is_none() &&
+		self.direction.is_none() &&
+		self.container.is_none() &&
+		self.nest.is_none() &&
+		self.prefix.is_none() &&
+		self.propagate.is_none() &&
+		self.protected.is_none()
+	}
+
+	pub fn simplify(self) -> Nullable<TermDefinition<M, C>> {
+		if self.is_null() {
+			Nullable::Null
+		} else if self.is_simple_definition() {
+			let Meta(id_value, _) = self.id.unwrap().value;
+			Nullable::Some(TermDefinition::Simple(Simple(id_value.unwrap().into_string())))
+		} else {
+			Nullable::Some(TermDefinition::Expanded(self))
+		}
 	}
 }
 

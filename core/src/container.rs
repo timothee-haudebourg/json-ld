@@ -186,6 +186,16 @@ impl Container {
 			None => false,
 		}
 	}
+
+	pub fn into_syntax<M: Clone>(self, meta: M) -> Option<Meta<json_ld_syntax::Container<M>, M>> {
+		let slice = self.as_slice();
+
+		match slice.len() {
+			0 => None,
+			1 => Some(Meta(json_ld_syntax::Container::One(slice[0]), meta)),
+			_ => Some(Meta(json_ld_syntax::Container::Many(slice.iter().map(|k| Meta(*k, meta.clone())).collect()), meta)),
+		}
+	}
 }
 
 impl From<ContainerKind> for Container {

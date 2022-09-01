@@ -1,8 +1,8 @@
 use iref::IriBuf;
 use json_ld::{syntax::Parse, Expand};
+use locspan::Span;
 use rdf_types::BlankIdBuf;
 use static_iref::iri;
-use locspan::Span;
 
 #[async_std::test]
 async fn expand() {
@@ -22,7 +22,7 @@ async fn expand() {
 			]
 		}
 	"##,
-	|span| span
+		|span| span,
 	)
 	.unwrap();
 

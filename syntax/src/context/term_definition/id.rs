@@ -46,6 +46,13 @@ impl Id {
 			Self::Keyword(k) => k.into_str(),
 		}
 	}
+
+	pub fn into_string(self) -> String {
+		match self {
+			Self::Term(t) => t,
+			Self::Keyword(k) => k.to_string()
+		}
+	}
 }
 
 impl PartialEq for Id {

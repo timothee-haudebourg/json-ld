@@ -50,15 +50,15 @@ pub trait AnyValueMut {
 	fn append(&mut self, context: Self);
 }
 
-impl<M: Clone + Send + Sync, D: AnyDefinition<M, ContextValue = Self> + Clone + StrippedPartialEq + Send + Sync> AnyValue<M> for Value<M, D> {
-	type Definition = D;
+impl<M: Clone + Send + Sync> AnyValue<M> for Value<M> {
+	type Definition = Definition<M, Self>;
 
-	fn as_value_ref(&self) -> ValueRef<M, D> {
+	fn as_value_ref(&self) -> ValueRef<M, Self::Definition> {
 		self.into()
 	}
 }
 
-impl<M, D> AnyValueMut for Value<M, D> {
+impl<M> AnyValueMut for Value<M> {
 	fn append(&mut self, context: Self) {
 		match self {
 			Self::One(a) => {
@@ -118,8 +118,8 @@ impl<'a, M: Clone, D> IntoIterator
 	}
 }
 
-impl<'a, M: Clone, D> From<&'a Value<M, D>> for ValueRef<'a, M, D> {
-	fn from(e: &'a Value<M, D>) -> Self {
+impl<'a, M: Clone> From<&'a Value<M>> for ValueRef<'a, M, Definition<M>> {
+	fn from(e: &'a Value<M>) -> Self {
 		match e {
 			Value::One(c) => Self::One(c.borrow_value().cast()),
 			Value::Many(m) => Self::Many(ArrayIter::Owned(m.iter())),

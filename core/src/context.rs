@@ -2,11 +2,12 @@
 mod definition;
 pub mod inverse;
 
-use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Term};
+use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Term, BorrowWithNamespace, Namespace};
 use once_cell::sync::OnceCell;
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::Hash;
+use locspan::Meta;
 
 pub use json_ld_syntax::context::{definition::Key, term_definition::Nest};
 
@@ -173,6 +174,55 @@ impl<T, B, L> Context<T, B, L> {
 	pub fn set_previous_context(&mut self, previous: Self) {
 		self.inverse.take();
 		self.previous_context = Some(Box::new(previous))
+	}
+
+	pub fn into_syntax_definition<M: Clone>(self, namespace: &impl Namespace<T, B>, meta: M) -> Meta<json_ld_syntax::context::Definition<M>, M> where L: IntoSyntax<T, B, M> {
+		use json_ld_syntax::{Nullable, Entry};
+
+		let definition = json_ld_syntax::context::Definition {
+			base: self.base_iri.map(|i| Entry::new(meta.clone(), Meta(Nullable::Some(namespace.iri(&i).unwrap().into()), meta.clone()))),
+			import: None,
+			language: self.default_language.map(|l| Entry::new(meta.clone(), Meta(Nullable::Some(l), meta.clone()))),
+			direction: self.default_base_direction.map(|d| Entry::new(meta.clone(), Meta(Nullable::Some(d), meta.clone()))),
+			propagate: None,
+			protected: None,
+			type_: None,
+			version: None,
+			vocab: self.vocabulary.map(|v| {
+				let vocab = match v {
+					Term::Null => Nullable::Null,
+					Term::Ref(r) => Nullable::Some(r.with_namespace(namespace).to_string().into()),
+					Term::Keyword(_) => panic!("invalid vocab")
+				};
+
+				Entry::new(meta.clone(), Meta(vocab, meta.clone()))
+			}),
+			bindings: self.definitions.into_iter().map(|(key, definition)| {
+				(Meta(key, meta.clone()), definition.into_syntax_definition(namespace, meta.clone()))
+			}).collect()
+		};
+
+		Meta(definition, meta)
+	}
+}
+
+pub trait IntoSyntax<T, B, M> {
+	fn into_syntax(self, namespace: &impl Namespace<T, B>, meta: M) -> json_ld_syntax::context::Value<M>;
+}
+
+impl<T, B, M> IntoSyntax<T, B, M> for json_ld_syntax::context::Value<M> {
+	fn into_syntax(self, _namespace: &impl Namespace<T, B>, _meta: M) -> json_ld_syntax::context::Value<M> {
+		self
+	}
+}
+
+impl<T, B, M: Clone, L: IntoSyntax<T, B, M>> IntoSyntax<T, B, M> for Context<T, B, L> {
+	fn into_syntax(self, namespace: &impl Namespace<T, B>, meta: M) -> json_ld_syntax::context::Value<M> {
+		let Meta(definition, meta) = self.into_syntax_definition(namespace, meta);
+		json_ld_syntax::context::Value::One(Meta(
+			json_ld_syntax::Context::Definition(definition),
+			meta
+		))
 	}
 }
 

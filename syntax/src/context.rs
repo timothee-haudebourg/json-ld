@@ -1,6 +1,6 @@
 use crate::Entry;
 use iref::IriRefBuf;
-use locspan::{Meta, StrippedPartialEq};
+use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
 use smallvec::SmallVec;
 
@@ -18,13 +18,13 @@ pub use try_from_json::InvalidContext;
 /// Context entry.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
-pub enum Value<M, D=Definition<M>> {
-	One(Meta<Context<D>, M>),
-	Many(Vec<Meta<Context<D>, M>>),
+pub enum Value<M> {
+	One(Meta<Context<Definition<M, Self>>, M>),
+	Many(Vec<Meta<Context<Definition<M, Self>>, M>>),
 }
 
-impl<M, D> Value<M, D> {
-	pub fn as_slice(&self) -> &[Meta<Context<D>, M>] {
+impl<M> Value<M> {
+	pub fn as_slice(&self) -> &[Meta<Context<Definition<M, Self>>, M>] {
 		match self {
 			Self::One(c) => std::slice::from_ref(c),
 			Self::Many(list) => list,
@@ -33,8 +33,7 @@ impl<M, D> Value<M, D> {
 
 	pub fn traverse(&self) -> Traverse<M, Self>
 	where
-		M: Clone + Send + Sync,
-		D: AnyDefinition<M, ContextValue = Self> + Clone + StrippedPartialEq + Send + Sync,
+		M: Clone + Send + Sync
 	{
 		match self {
 			Self::One(c) => Traverse::new(FragmentRef::Context(c.as_context_ref())),
@@ -43,67 +42,67 @@ impl<M, D> Value<M, D> {
 	}
 }
 
-impl<M, D> From<Meta<Context<D>, M>> for Value<M, D> {
-	fn from(c: Meta<Context<D>, M>) -> Self {
+impl<M> From<Meta<Context<Definition<M, Self>>, M>> for Value<M> {
+	fn from(c: Meta<Context<Definition<M, Self>>, M>) -> Self {
 		Self::One(c)
 	}
 }
 
-impl<M: Default, D> From<Context<D>> for Value<M, D> {
-	fn from(c: Context<D>) -> Self {
+impl<M: Default> From<Context<Definition<M, Self>>> for Value<M> {
+	fn from(c: Context<Definition<M, Self>>) -> Self {
 		Self::One(Meta(c, M::default()))
 	}
 }
 
-impl<M: Default, D> From<IriRefBuf> for Value<M, D> {
+impl<M: Default> From<IriRefBuf> for Value<M> {
 	fn from(i: IriRefBuf) -> Self {
 		Self::One(Meta(Context::IriRef(i), M::default()))
 	}
 }
 
-impl<'a, M: Default, D> From<iref::IriRef<'a>> for Value<M, D> {
+impl<'a, M: Default> From<iref::IriRef<'a>> for Value<M> {
 	fn from(i: iref::IriRef<'a>) -> Self {
 		Self::One(Meta(Context::IriRef(i.into()), M::default()))
 	}
 }
 
-impl<M: Default, D> From<iref::IriBuf> for Value<M, D> {
+impl<M: Default> From<iref::IriBuf> for Value<M> {
 	fn from(i: iref::IriBuf) -> Self {
 		Self::One(Meta(Context::IriRef(i.into()), M::default()))
 	}
 }
 
-impl<'a, M: Default, D> From<iref::Iri<'a>> for Value<M, D> {
+impl<'a, M: Default> From<iref::Iri<'a>> for Value<M> {
 	fn from(i: iref::Iri<'a>) -> Self {
 		Self::One(Meta(Context::IriRef(i.into()), M::default()))
 	}
 }
 
-impl<M: Default> From<Definition<M>> for Value<M, Definition<M>> {
-	fn from(c: Definition<M>) -> Self {
+impl<M: Default> From<Definition<M, Self>> for Value<M> {
+	fn from(c: Definition<M, Self>) -> Self {
 		Self::One(Meta(Context::Definition(c), M::default()))
 	}
 }
 
-impl<M, D> From<Meta<IriRefBuf, M>> for Value<M, D> {
+impl<M> From<Meta<IriRefBuf, M>> for Value<M> {
 	fn from(Meta(i, meta): Meta<IriRefBuf, M>) -> Self {
 		Self::One(Meta(Context::IriRef(i), meta))
 	}
 }
 
-impl<'a, M, D> From<Meta<iref::IriRef<'a>, M>> for Value<M, D> {
+impl<'a, M> From<Meta<iref::IriRef<'a>, M>> for Value<M> {
 	fn from(Meta(i, meta): Meta<iref::IriRef<'a>, M>) -> Self {
 		Self::One(Meta(Context::IriRef(i.into()), meta))
 	}
 }
 
-impl<M, D> From<Meta<iref::IriBuf, M>> for Value<M, D> {
+impl<M> From<Meta<iref::IriBuf, M>> for Value<M> {
 	fn from(Meta(i, meta): Meta<iref::IriBuf, M>) -> Self {
 		Self::One(Meta(Context::IriRef(i.into()), meta))
 	}
 }
 
-impl<'a, M, D> From<Meta<iref::Iri<'a>, M>> for Value<M, D> {
+impl<'a, M> From<Meta<iref::Iri<'a>, M>> for Value<M> {
 	fn from(Meta(i, meta): Meta<iref::Iri<'a>, M>) -> Self {
 		Self::One(Meta(Context::IriRef(i.into()), meta))
 	}
@@ -158,8 +157,8 @@ impl<'a, D> From<iref::Iri<'a>> for Context<D> {
 	}
 }
 
-impl<M> From<Definition<M>> for Context<Definition<M>> {
-	fn from(c: Definition<M>) -> Self {
+impl<M, C> From<Definition<M, C>> for Context<Definition<M, C>> {
+	fn from(c: Definition<M, C>) -> Self {
 		Context::Definition(c)
 	}
 }

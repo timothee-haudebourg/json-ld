@@ -24,7 +24,7 @@ pub use vocab::*;
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
 #[stripped_ignore(M)]
 #[derivative(Default(bound = ""))]
-pub struct Definition<M> {
+pub struct Definition<M, C=super::Value<M>> {
 	#[stripped_option_deref]
 	pub base: Option<Entry<Nullable<IriRefBuf>, M>>,
 	#[stripped_option_deref]
@@ -36,10 +36,10 @@ pub struct Definition<M> {
 	pub type_: Option<Entry<Type<M>, M>>,
 	pub version: Option<Entry<Version, M>>,
 	pub vocab: Option<Entry<Nullable<Vocab>, M>>,
-	pub bindings: Bindings<M>,
+	pub bindings: Bindings<M, C>,
 }
 
-impl<M> Definition<M> {
+impl<M, C> Definition<M, C> {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -86,6 +86,30 @@ impl<M, C> IntoIterator for Bindings<M, C> {
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
+	}
+}
+
+impl<M, C> FromIterator<(Key, TermBinding<M, C>)> for Bindings<M, C> {
+	fn from_iter<T: IntoIterator<Item = (Key, TermBinding<M, C>)>>(iter: T) -> Self {
+		let mut result = Self::new();
+
+		for (key, binding) in iter {
+			result.0.insert(key, binding);
+		}
+
+		result
+	}
+}
+
+impl<M, C> FromIterator<(Meta<Key, M>, Meta<Nullable<TermDefinition<M, C>>, M>)> for Bindings<M, C> {
+	fn from_iter<T: IntoIterator<Item = (Meta<Key, M>, Meta<Nullable<TermDefinition<M, C>>, M>)>>(iter: T) -> Self {
+		let mut result = Self::new();
+
+		for (key, definition) in iter {
+			result.insert(key, definition);
+		}
+
+		result
 	}
 }
 
