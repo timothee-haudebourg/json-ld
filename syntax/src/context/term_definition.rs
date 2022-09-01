@@ -27,7 +27,7 @@ use super::AnyValue;
 /// Term definition.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
-pub enum TermDefinition<M, C=context::Value<M>> {
+pub enum TermDefinition<M, C = context::Value<M>> {
 	Simple(Simple),
 	Expanded(Expanded<M, C>),
 }
@@ -61,7 +61,7 @@ impl Simple {
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
 #[stripped_ignore(M)]
 #[derivative(Default(bound = ""))]
-pub struct Expanded<M, C=context::Value<M>> {
+pub struct Expanded<M, C = context::Value<M>> {
 	pub id: Option<Entry<Nullable<Id>, M>>,
 	pub type_: Option<Entry<Nullable<Type>, M>>,
 	pub context: Option<Entry<Box<C>, M>>,
@@ -82,33 +82,43 @@ impl<M, C> Expanded<M, C> {
 	}
 
 	pub fn is_null(&self) -> bool {
-		matches!(&self.id, None | Some(Entry { key_metadata: _, value: Meta(Nullable::Null, _) })) &&
-		self.type_.is_none() &&
-		self.context.is_none() && 
-		self.reverse.is_none() && 
-		self.index.is_none() &&
-		self.language.is_none() &&
-		self.direction.is_none() &&
-		self.container.is_none() &&
-		self.nest.is_none() &&
-		self.prefix.is_none() &&
-		self.propagate.is_none() &&
-		self.protected.is_none()
+		matches!(
+			&self.id,
+			None | Some(Entry {
+				key_metadata: _,
+				value: Meta(Nullable::Null, _)
+			})
+		) && self.type_.is_none()
+			&& self.context.is_none()
+			&& self.reverse.is_none()
+			&& self.index.is_none()
+			&& self.language.is_none()
+			&& self.direction.is_none()
+			&& self.container.is_none()
+			&& self.nest.is_none()
+			&& self.prefix.is_none()
+			&& self.propagate.is_none()
+			&& self.protected.is_none()
 	}
 
 	pub fn is_simple_definition(&self) -> bool {
-		matches!(&self.id, Some(Entry { key_metadata: _, value: Meta(Nullable::Some(_), _) })) &&
-		self.type_.is_none() &&
-		self.context.is_none() && 
-		self.reverse.is_none() && 
-		self.index.is_none() &&
-		self.language.is_none() &&
-		self.direction.is_none() &&
-		self.container.is_none() &&
-		self.nest.is_none() &&
-		self.prefix.is_none() &&
-		self.propagate.is_none() &&
-		self.protected.is_none()
+		matches!(
+			&self.id,
+			Some(Entry {
+				key_metadata: _,
+				value: Meta(Nullable::Some(_), _)
+			})
+		) && self.type_.is_none()
+			&& self.context.is_none()
+			&& self.reverse.is_none()
+			&& self.index.is_none()
+			&& self.language.is_none()
+			&& self.direction.is_none()
+			&& self.container.is_none()
+			&& self.nest.is_none()
+			&& self.prefix.is_none()
+			&& self.propagate.is_none()
+			&& self.protected.is_none()
 	}
 
 	pub fn simplify(self) -> Nullable<TermDefinition<M, C>> {
@@ -116,7 +126,9 @@ impl<M, C> Expanded<M, C> {
 			Nullable::Null
 		} else if self.is_simple_definition() {
 			let Meta(id_value, _) = self.id.unwrap().value;
-			Nullable::Some(TermDefinition::Simple(Simple(id_value.unwrap().into_string())))
+			Nullable::Some(TermDefinition::Simple(Simple(
+				id_value.unwrap().into_string(),
+			)))
 		} else {
 			Nullable::Some(TermDefinition::Expanded(self))
 		}
@@ -162,9 +174,7 @@ impl<'a, M, C> TermDefinitionRef<'a, M, C> {
 	}
 }
 
-impl<'a, M: Clone, C> From<&'a TermDefinition<M, C>>
-	for TermDefinitionRef<'a, M, C>
-{
+impl<'a, M: Clone, C> From<&'a TermDefinition<M, C>> for TermDefinitionRef<'a, M, C> {
 	fn from(d: &'a TermDefinition<M, C>) -> Self {
 		match d {
 			TermDefinition::Simple(s) => Self::Simple(SimpleRef(s.as_str())),
@@ -201,7 +211,10 @@ pub struct ExpandedRef<'a, M, C> {
 }
 
 impl<'a, M, C> ExpandedRef<'a, M, C> {
-	pub fn iter(&self) -> Entries<'a, M, C> where M: Clone {
+	pub fn iter(&self) -> Entries<'a, M, C>
+	where
+		M: Clone,
+	{
 		Entries {
 			id: self.id.clone(),
 			type_: self.type_.clone(),
@@ -379,7 +392,10 @@ impl<'a, M, C> EntryRef<'a, M, C> {
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a, M, C> where M: Clone {
+	pub fn value(&self) -> EntryValueRef<'a, M, C>
+	where
+		M: Clone,
+	{
 		match self {
 			Self::Id(e) => EntryValueRef::Id(e.value.clone()),
 			Self::Type(e) => EntryValueRef::Type(e.value.clone()),
@@ -413,7 +429,10 @@ impl<'a, M, C> EntryRef<'a, M, C> {
 		}
 	}
 
-	pub fn key_value(&self) -> (EntryKey, EntryValueRef<'a, M, C>) where M: Clone {
+	pub fn key_value(&self) -> (EntryKey, EntryValueRef<'a, M, C>)
+	where
+		M: Clone,
+	{
 		match self {
 			Self::Id(e) => (EntryKey::Id, EntryValueRef::Id(e.value.clone())),
 			Self::Type(e) => (EntryKey::Type, EntryValueRef::Type(e.value.clone())),
@@ -497,7 +516,10 @@ pub enum EntryValueRef<'a, M, C> {
 }
 
 impl<'a, M, C> EntryValueRef<'a, M, C> {
-	pub fn is_object(&self) -> bool where C: AnyValue<M> {
+	pub fn is_object(&self) -> bool
+	where
+		C: AnyValue<M>,
+	{
 		match self {
 			Self::Context(c) => c.as_value_ref().is_object(),
 			_ => false,
@@ -643,7 +665,10 @@ impl<'a, M, C> FragmentRef<'a, M, C> {
 		}
 	}
 
-	pub fn is_object(&self) -> bool where C: AnyValue<M> {
+	pub fn is_object(&self) -> bool
+	where
+		C: AnyValue<M>,
+	{
 		match self {
 			Self::Value(v) => v.is_object(),
 			_ => false,

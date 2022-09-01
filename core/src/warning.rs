@@ -1,15 +1,15 @@
-use crate::{BorrowWithNamespace, DisplayWithNamespace};
+use contextual::{DisplayWithContext, WithContext};
 
 pub trait Handler<N, W> {
-	fn handle(&mut self, namespace: &N, warning: W);
+	fn handle(&mut self, vocabulary: &N, warning: W);
 }
 
 impl<N, W, F> Handler<N, W> for F
 where
 	F: FnMut(&N, W),
 {
-	fn handle(&mut self, namespace: &N, warning: W) {
-		(*self)(namespace, warning)
+	fn handle(&mut self, vocabulary: &N, warning: W) {
+		(*self)(vocabulary, warning)
 	}
 }
 
@@ -21,6 +21,6 @@ pub fn print<N, W: std::fmt::Display>(_namespace: &N, warning: W) {
 	eprintln!("{}", warning)
 }
 
-pub fn print_in<N, W: DisplayWithNamespace<N>>(namespace: &N, warning: W) {
-	eprintln!("{}", warning.with_namespace(namespace))
+pub fn print_in<N, W: DisplayWithContext<N>>(vocabulary: &N, warning: W) {
+	eprintln!("{}", warning.with(vocabulary))
 }

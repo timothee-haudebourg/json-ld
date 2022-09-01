@@ -3,14 +3,13 @@ use crate::{
 	GivenLiteralValue, LiteralValue, Loader, Options, Warning, WarningHandler,
 };
 use futures::future::{BoxFuture, FutureExt};
-use json_ld_context_processing::{
-	ContextLoader, NamespaceMut, Options as ProcessingOptions, Process,
-};
-use json_ld_core::{object, Context, Indexed, Object, Reference, ValidReference, Term};
+use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
+use json_ld_core::{object, Context, Indexed, Object, Reference, Term, ValidReference};
 use json_ld_syntax::{Keyword, Nullable};
 use json_syntax::{object::Entry, Value};
-use locspan::{At, Meta, MapLocErr};
+use locspan::{At, MapLocErr, Meta};
 use mown::Mown;
+use rdf_types::VocabularyMut;
 use std::{borrow::Cow, hash::Hash};
 
 pub(crate) struct ExpandedEntry<'a, T, B, M>(
@@ -81,7 +80,7 @@ pub(crate) type ElementExpansionResult<T, B, M, L, W> =
 /// The default specified value for `ordered` and `from_map` is `false`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn expand_element<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
-	namespace: &'a mut N,
+	vocabulary: &'a mut N,
 	active_context: &'a Context<T, B, C>,
 	active_property: ActiveProperty<'a, M>,
 	Meta(element, meta): &'a Meta<Value<M>, M>,
@@ -92,7 +91,7 @@ pub(crate) fn expand_element<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<
 	mut warnings: W,
 ) -> BoxFuture<'a, ElementExpansionResult<T, B, M, L, W>>
 where
-	N: Send + Sync + NamespaceMut<T, B>,
+	N: Send + Sync + VocabularyMut<T, B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
@@ -128,7 +127,7 @@ where
 			Value::Null => unreachable!(),
 			Value::Array(element) => {
 				expand_array(
-					namespace,
+					vocabulary,
 					active_context,
 					active_property,
 					active_property_definition,
@@ -158,7 +157,7 @@ where
 				} in element.entries()
 				{
 					match expand_iri(
-						namespace,
+						vocabulary,
 						active_context,
 						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
@@ -203,7 +202,7 @@ where
 					active_context = Mown::Owned(
 						property_scoped_context
 							.process_with(
-								namespace,
+								vocabulary,
 								active_context.as_ref(),
 								loader,
 								property_scoped_base_url,
@@ -218,14 +217,21 @@ where
 				// If `element` contains the entry `@context`, set `active_context` to the result
 				// of the Context Processing algorithm, passing `active_context`, the value of the
 				// `@context` entry as `local_context` and `base_url`.
-				if let Some(local_context) = element.get_unique("@context").map_err(Error::duplicate_key_ref)? {
+				if let Some(local_context) = element
+					.get_unique("@context")
+					.map_err(Error::duplicate_key_ref)?
+				{
 					use json_ld_syntax::TryFromJson;
-					let local_context: C = json_ld_syntax::context::Value::try_from_json(local_context.clone()).map_loc_err(Error::ContextSyntax)?.into_value().into();
-					
+					let local_context: C =
+						json_ld_syntax::context::Value::try_from_json(local_context.clone())
+							.map_loc_err(Error::ContextSyntax)?
+							.into_value()
+							.into();
+
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
-								namespace,
+								vocabulary,
 								active_context.as_ref(),
 								loader,
 								base_url.cloned(),
@@ -249,7 +255,7 @@ where
 				} in entries.iter()
 				{
 					let Meta(expanded_key, _) = expand_iri(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
@@ -300,7 +306,7 @@ where
 								active_context = Mown::Owned(
 									local_context
 										.process_with(
-											namespace,
+											vocabulary,
 											active_context.as_ref(),
 											loader,
 											base_url,
@@ -323,7 +329,7 @@ where
 					if let Some(Meta(input_type, input_metadata)) = value.last() {
 						input_type.as_string().map(|input_type_str| {
 							expand_iri(
-								namespace,
+								vocabulary,
 								active_context.as_ref(),
 								Meta(
 									Nullable::Some(input_type_str.into()),
@@ -353,13 +359,13 @@ where
 				{
 					if key.is_empty() {
 						warnings.handle(
-							namespace,
+							vocabulary,
 							Meta::new(Warning::EmptyTerm, key_metadata.clone()),
 						);
 					}
 
 					let Meta(expanded_key, _) = expand_iri(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
@@ -377,7 +383,7 @@ where
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
 						Term::Ref(Reference::Valid(ValidReference::Blank(id))) => {
 							warnings.handle(
-								namespace,
+								vocabulary,
 								Meta::new(
 									Warning::BlankNodeIdProperty(id.clone()),
 									key_metadata.clone(),
@@ -402,10 +408,12 @@ where
 					{
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
-								Some(value) => index = Some(json_ld_syntax::Entry::new(
-									key_metadata.clone(),
-									Meta(value.to_string(), key_metadata.clone())
-								)),
+								Some(value) => {
+									index = Some(json_ld_syntax::Entry::new(
+										key_metadata.clone(),
+										Meta(value.to_string(), key_metadata.clone()),
+									))
+								}
 								None => {
 									return Err(
 										Error::InvalidIndexValue.at(value.metadata().clone())
@@ -425,7 +433,7 @@ where
 					let Meta(list_entry, list_meta) = Value::force_as_array(&list_entry);
 					for item in list_entry {
 						let (e, w) = expand_element(
-							namespace,
+							vocabulary,
 							active_context.as_ref(),
 							active_property,
 							item,
@@ -470,7 +478,7 @@ where
 					// passing active context, active property, value for element, base URL,
 					// and ordered flags.
 					expand_element(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						active_property,
 						&set_entry,
@@ -484,7 +492,7 @@ where
 				} else if let Some(value_entry) = value_entry {
 					// Value objects.
 					let (expanded_value, warnings) = expand_value(
-						namespace,
+						vocabulary,
 						input_type,
 						type_scoped_context,
 						expanded_entries,
@@ -501,7 +509,7 @@ where
 				} else {
 					// Node objects.
 					let (e, warnings) = expand_node(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						type_scoped_context,
 						active_property,
@@ -545,7 +553,7 @@ where
 						.and_then(|definition| definition.base_url.clone());
 
 					let result = property_scoped_context
-						.process_with(namespace, active_context, loader, base_url, options.into())
+						.process_with(vocabulary, active_context, loader, base_url, options.into())
 						.await
 						.map_err(Meta::cast)?;
 					Mown::Owned(result)
@@ -558,7 +566,7 @@ where
 				Ok((
 					Expanded::Object(
 						expand_literal(
-							namespace,
+							vocabulary,
 							active_context.as_ref(),
 							active_property,
 							Meta(LiteralValue::Given(GivenLiteralValue::new(element)), meta),

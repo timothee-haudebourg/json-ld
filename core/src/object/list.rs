@@ -1,9 +1,10 @@
-use super::{InvalidExpandedJson, MappedEq, Any};
-use crate::{IndexedObject, NamespaceMut, TryFromJson};
+use super::{Any, InvalidExpandedJson, MappedEq};
+use crate::{IndexedObject, TryFromJson};
 use derivative::Derivative;
 use json_ld_syntax::Entry;
 use locspan::{Meta, StrippedEq, StrippedPartialEq};
 use locspan_derive::StrippedHash;
+use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
 #[allow(clippy::derive_hash_xor_eq)]
@@ -74,11 +75,11 @@ impl<T, B, M> List<T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> List<T, B, M> {
 	pub(crate) fn try_from_json_object_in(
-		namespace: &mut impl NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		object: json_syntax::Object<M>,
 		list_entry: json_syntax::object::Entry<M>,
 	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
-		let list = Vec::try_from_json_in(namespace, list_entry.value)?;
+		let list = Vec::try_from_json_in(vocabulary, list_entry.value)?;
 
 		match object.into_iter().next() {
 			Some(unexpected_entry) => Err(Meta(

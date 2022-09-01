@@ -24,7 +24,7 @@ pub use vocab::*;
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
 #[stripped_ignore(M)]
 #[derivative(Default(bound = ""))]
-pub struct Definition<M, C=super::Value<M>> {
+pub struct Definition<M, C = super::Value<M>> {
 	#[stripped_option_deref]
 	pub base: Option<Entry<Nullable<IriRefBuf>, M>>,
 	#[stripped_option_deref]
@@ -48,7 +48,7 @@ impl<M, C> Definition<M, C> {
 /// Context bindings.
 #[derive(PartialEq, Eq, Clone, Derivative, Debug)]
 #[derivative(Default(bound = ""))]
-pub struct Bindings<M, C=super::Value<M>>(IndexMap<Key, TermBinding<M, C>>);
+pub struct Bindings<M, C = super::Value<M>>(IndexMap<Key, TermBinding<M, C>>);
 
 impl<M, C> Bindings<M, C> {
 	pub fn new() -> Self {
@@ -101,8 +101,14 @@ impl<M, C> FromIterator<(Key, TermBinding<M, C>)> for Bindings<M, C> {
 	}
 }
 
-impl<M, C> FromIterator<(Meta<Key, M>, Meta<Nullable<TermDefinition<M, C>>, M>)> for Bindings<M, C> {
-	fn from_iter<T: IntoIterator<Item = (Meta<Key, M>, Meta<Nullable<TermDefinition<M, C>>, M>)>>(iter: T) -> Self {
+impl<M, C> FromIterator<(Meta<Key, M>, Meta<Nullable<TermDefinition<M, C>>, M>)>
+	for Bindings<M, C>
+{
+	fn from_iter<
+		T: IntoIterator<Item = (Meta<Key, M>, Meta<Nullable<TermDefinition<M, C>>, M>)>,
+	>(
+		iter: T,
+	) -> Self {
 		let mut result = Self::new();
 
 		for (key, definition) in iter {
@@ -125,7 +131,7 @@ impl<M, C: locspan::StrippedPartialEq> locspan::StrippedPartialEq for Bindings<M
 /// Term binding.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[stripped_ignore(M)]
-pub struct TermBinding<M, C=super::Value<M>> {
+pub struct TermBinding<M, C = super::Value<M>> {
 	#[stripped_ignore]
 	pub key_metadata: M,
 	pub definition: Meta<Nullable<TermDefinition<M, C>>, M>,
@@ -179,7 +185,11 @@ impl<'a, M, C> FragmentRef<'a, M, C> {
 		}
 	}
 
-	pub fn is_object(&self) -> bool where M: Clone, C: AnyValue<M> {
+	pub fn is_object(&self) -> bool
+	where
+		M: Clone,
+		C: AnyValue<M>,
+	{
 		match self {
 			Self::Value(v) => v.is_object(),
 			Self::TermDefinitionFragment(v) => v.is_object(),
@@ -187,7 +197,10 @@ impl<'a, M, C> FragmentRef<'a, M, C> {
 		}
 	}
 
-	pub fn sub_items(&self) -> SubItems<'a, M, C> where M: Clone {
+	pub fn sub_items(&self) -> SubItems<'a, M, C>
+	where
+		M: Clone,
+	{
 		match self {
 			Self::Entry(e) => SubItems::Entry(Some(e.key()), Some(e.value())),
 			Self::Key(_) => SubItems::None,

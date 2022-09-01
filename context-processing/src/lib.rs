@@ -1,6 +1,7 @@
 use futures::future::{BoxFuture, FutureExt};
-pub use json_ld_core::{warning, Context, ContextLoader, NamespaceMut, ProcessingMode};
+pub use json_ld_core::{warning, Context, ContextLoader, ProcessingMode};
 use locspan::Meta;
+use rdf_types::VocabularyMut;
 use std::fmt;
 
 mod stack;
@@ -28,15 +29,9 @@ impl fmt::Display for Warning {
 /// Located warning.
 pub type MetaWarning<M> = Meta<Warning, M>;
 
-pub trait WarningHandler<N, M>:
-	json_ld_core::warning::Handler<N, MetaWarning<M>>
-{
-}
+pub trait WarningHandler<N, M>: json_ld_core::warning::Handler<N, MetaWarning<M>> {}
 
-impl<N, M, H> WarningHandler<N, M> for H where
-	H: json_ld_core::warning::Handler<N, MetaWarning<M>>
-{
-}
+impl<N, M, H> WarningHandler<N, M> for H where H: json_ld_core::warning::Handler<N, MetaWarning<M>> {}
 
 /// Errors that can happen during context processing.
 #[derive(Debug)]
@@ -104,7 +99,7 @@ pub trait Process<T, B, M>:
 	/// Process the local context with specific options.
 	fn process_full<'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'a self,
-		namespace: &'a mut N,
+		vocabulary: &'a mut N,
 		active_context: &'a Context<T, B, Self>,
 		stack: ProcessingStack<T>,
 		loader: &'a mut L,
@@ -113,7 +108,7 @@ pub trait Process<T, B, M>:
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
 	where
-		N: Send + Sync + NamespaceMut<T, B>,
+		N: Send + Sync + VocabularyMut<T, B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -122,21 +117,21 @@ pub trait Process<T, B, M>:
 	/// Process the local context with specific options.
 	fn process_with<'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'a self,
-		namespace: &'a mut N,
+		vocabulary: &'a mut N,
 		active_context: &'a Context<T, B, Self>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
 	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
 	where
-		N: Send + Sync + NamespaceMut<T, B>,
+		N: Send + Sync + VocabularyMut<T, B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		L::Context: Into<Self>
+		L::Context: Into<Self>,
 	{
 		self.process_full(
-			namespace,
+			vocabulary,
 			active_context,
 			ProcessingStack::new(),
 			loader,
@@ -150,21 +145,21 @@ pub trait Process<T, B, M>:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
 	fn process<'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'a self,
-		namespace: &'a mut N,
+		vocabulary: &'a mut N,
 		loader: &'a mut L,
 		base_url: Option<T>,
 	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
 	where
-		N: Send + Sync + NamespaceMut<T, B>,
+		N: Send + Sync + VocabularyMut<T, B>,
 		T: 'a + Clone + PartialEq + Send + Sync,
 		B: 'a + Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		L::Context: Into<Self>
+		L::Context: Into<Self>,
 	{
 		async move {
 			let active_context = Context::default();
 			self.process_full(
-				namespace,
+				vocabulary,
 				&active_context,
 				ProcessingStack::new(),
 				loader,

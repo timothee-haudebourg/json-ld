@@ -1,6 +1,6 @@
 use crate::{
-	context, Container, ContainerKind, Context, Direction, Entry, Keyword,
-	LenientLanguageTagBuf, Nullable
+	context, Container, ContainerKind, Context, Direction, Entry, Keyword, LenientLanguageTagBuf,
+	Nullable,
 };
 use locspan::Meta;
 

@@ -129,3 +129,12 @@ impl<T: fmt::Display> fmt::Display for Nullable<T> {
 		}
 	}
 }
+
+impl<T: contextual::DisplayWithContext<V>, V> contextual::DisplayWithContext<V> for Nullable<T> {
+	fn fmt_with(&self, vocabulary: &V, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Null => write!(f, "null"),
+			Self::Some(v) => v.fmt_with(vocabulary, f),
+		}
+	}
+}

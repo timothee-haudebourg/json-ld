@@ -1,8 +1,7 @@
 use crate::{Direction, LenientLanguageTag, Nullable};
 use iref::IriRef;
 use json_syntax::print::{
-	printed_string_size, string_literal, Options,
-	PrecomputeSize, Print, Size,
+	printed_string_size, string_literal, Options, PrecomputeSize, Print, Size,
 };
 use std::fmt;
 

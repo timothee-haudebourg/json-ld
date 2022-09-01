@@ -5,6 +5,7 @@ use crate::{
 };
 use derivative::Derivative;
 use locspan::{Meta, Stripped};
+use rdf_types::VocabularyMut;
 use std::{
 	borrow::Borrow,
 	collections::HashMap,
@@ -202,35 +203,31 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M>
-	for ReverseProperties<T, B, M>
-{
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for ReverseProperties<T, B, M> {
 	fn try_from_json_in(
-		namespace: &mut impl crate::NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
 			json_syntax::Value::Object(object) => {
-				Self::try_from_json_object_in(namespace, Meta(object, meta))
+				Self::try_from_json_object_in(vocabulary, Meta(object, meta))
 			}
 			_ => Err(Meta(InvalidExpandedJson::InvalidObject, meta)),
 		}
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M>
-	for ReverseProperties<T, B, M>
-{
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for ReverseProperties<T, B, M> {
 	fn try_from_json_object_in(
-		namespace: &mut impl crate::NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(object, meta): Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let mut result = Self::new();
 
 		for entry in object {
-			let prop = Reference::from_string_in(namespace, entry.key.into_value().to_string());
+			let prop = Reference::from_string_in(vocabulary, entry.key.into_value().to_string());
 			let nodes: Vec<IndexedNode<T, B, M>> =
-				Vec::try_from_json_in(namespace, entry.value)?.into_value();
+				Vec::try_from_json_in(vocabulary, entry.value)?.into_value();
 			result.insert_all(prop, nodes)
 		}
 

@@ -4,7 +4,7 @@ use crate::{
 };
 use derivative::Derivative;
 use json_ld_syntax::Entry;
-use locspan::{Meta, Stripped, BorrowStripped};
+use locspan::{BorrowStripped, Meta, Stripped};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
@@ -348,8 +348,7 @@ pub type IntoNodeMapGraphNodes<T, B, M> =
 
 impl<T, B, M> IntoIterator for NodeMapGraph<T, B, M> {
 	type Item = (Reference<T, B>, IndexedNode<T, B, M>);
-	type IntoIter =
-		std::collections::hash_map::IntoIter<Reference<T, B>, IndexedNode<T, B, M>>;
+	type IntoIter = std::collections::hash_map::IntoIter<Reference<T, B>, IndexedNode<T, B, M>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.into_iter()
@@ -358,8 +357,7 @@ impl<T, B, M> IntoIterator for NodeMapGraph<T, B, M> {
 
 impl<'a, T, B, M> IntoIterator for &'a NodeMapGraph<T, B, M> {
 	type Item = (&'a Reference<T, B>, &'a IndexedNode<T, B, M>);
-	type IntoIter =
-		std::collections::hash_map::Iter<'a, Reference<T, B>, IndexedNode<T, B, M>>;
+	type IntoIter = std::collections::hash_map::Iter<'a, Reference<T, B>, IndexedNode<T, B, M>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.iter()
@@ -369,11 +367,11 @@ impl<'a, T, B, M> IntoIterator for &'a NodeMapGraph<T, B, M> {
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B, M> {
 	pub fn generate_node_map_in<N, G: id::Generator<T, B, M, N>>(
 		&self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: G,
 	) -> Result<NodeMap<T, B, M>, ConflictingIndexes<T, B, M>> {
 		let mut node_map: NodeMap<T, B, M> = NodeMap::new();
-		let mut env: Environment<T, B, M, N, G> = Environment::new(namespace, generator);
+		let mut env: Environment<T, B, M, N, G> = Environment::new(vocabulary, generator);
 		for object in self {
 			extend_node_map(&mut env, &mut node_map, object, None)?;
 		}
@@ -398,10 +396,7 @@ fn extend_node_map<
 		Object::Value(value) => {
 			let flat_value = value.clone();
 			Ok(Meta(
-				Indexed::new(
-					Object::Value(flat_value),
-					element.index_entry().cloned()
-				),
+				Indexed::new(Object::Value(flat_value), element.index_entry().cloned()),
 				meta.clone(),
 			))
 		}
@@ -424,8 +419,13 @@ fn extend_node_map<
 			))
 		}
 		Object::Node(node) => {
-			let flat_node =
-				extend_node_map_from_node(env, node_map, node, element.index_entry(), active_graph)?;
+			let flat_node = extend_node_map_from_node(
+				env,
+				node_map,
+				node,
+				element.index_entry(),
+				active_graph,
+			)?;
 			Ok(Meta(flat_node.map_inner(Object::Node), meta.clone()))
 		}
 	}
@@ -495,7 +495,13 @@ fn extend_node_map_from_node<
 
 	if let Some(included_entry) = node.included_entry() {
 		for inode in included_entry.value.iter() {
-			extend_node_map_from_node(env, node_map, inode.inner(), inode.index_entry(), active_graph)?;
+			extend_node_map_from_node(
+				env,
+				node_map,
+				inode.inner(),
+				inode.index_entry(),
+				active_graph,
+			)?;
 		}
 	}
 

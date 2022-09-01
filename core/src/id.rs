@@ -90,21 +90,21 @@ use locspan::Meta;
 /// fresh identifiers are generated.
 pub trait Generator<T, B, M, N> {
 	/// Generates a new unique blank node identifier.
-	fn next(&mut self, namespace: &mut N) -> Meta<ValidReference<T, B>, M>;
+	fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M>;
 }
 
 impl<'a, T, B, M, N, G: Generator<T, B, M, N>> Generator<T, B, M, N> for &'a mut G {
-	fn next(&mut self, namespace: &mut N) -> Meta<ValidReference<T, B>, M> {
-		(*self).next(namespace)
+	fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M> {
+		(*self).next(vocabulary)
 	}
 }
 
 /// Blank node identifiers built-in generators.
 pub mod generator {
 	use super::Generator;
-	use crate::{BlankIdNamespaceMut, IriNamespaceMut, ValidReference};
+	use crate::ValidReference;
 	use locspan::Meta;
-	use rdf_types::BlankIdBuf;
+	use rdf_types::{BlankIdBuf, BlankIdVocabularyMut, IriVocabularyMut};
 
 	/// Generates numbered blank node identifiers,
 	/// with an optional prefix.
@@ -177,10 +177,10 @@ pub mod generator {
 		}
 	}
 
-	impl<T, B, M: Clone, N: BlankIdNamespaceMut<B>> Generator<T, B, M, N> for Blank<M> {
-		fn next(&mut self, namespace: &mut N) -> Meta<ValidReference<T, B>, M> {
+	impl<T, B, M: Clone, N: BlankIdVocabularyMut<B>> Generator<T, B, M, N> for Blank<M> {
+		fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M> {
 			Meta(
-				ValidReference::Blank(namespace.insert_blank_id(&self.next_blank_id())),
+				ValidReference::Blank(vocabulary.insert_blank_id(&self.next_blank_id())),
 				self.metadata.clone(),
 			)
 		}
@@ -200,7 +200,7 @@ pub mod generator {
 	pub enum Uuid<M> {
 		/// UUIDv3.
 		///
-		/// You must provide a namespace UUID and a name.
+		/// You must provide a vocabulary UUID and a name.
 		/// See [uuid::Uuid::new_v3] for more information.
 		#[cfg(feature = "uuid-generator-v3")]
 		V3(M, uuid::Uuid, String),
@@ -213,7 +213,7 @@ pub mod generator {
 
 		/// UUIDv5.
 		///
-		/// You must provide a namespace UUID and a name.
+		/// You must provide a vocabulary UUID and a name.
 		/// See [uuid::Uuid::new_v5] for more information.
 		#[cfg(feature = "uuid-generator-v5")]
 		V5(M, uuid::Uuid, String),
@@ -228,15 +228,17 @@ pub mod generator {
 		pub fn next_uuid(&self) -> Meta<uuid::Uuid, M> {
 			match self {
 				#[cfg(feature = "uuid-generator-v3")]
-				Self::V3(meta, namespace, name) => {
-					Meta(uuid::Uuid::new_v3(namespace, name.as_bytes()), meta.clone())
-				}
+				Self::V3(meta, vocabulary, name) => Meta(
+					uuid::Uuid::new_v3(vocabulary, name.as_bytes()),
+					meta.clone(),
+				),
 				#[cfg(feature = "uuid-generator-v4")]
 				Self::V4(meta) => Meta(uuid::Uuid::new_v4(), meta.clone()),
 				#[cfg(feature = "uuid-generator-v5")]
-				Self::V5(meta, namespace, name) => {
-					Meta(uuid::Uuid::new_v5(namespace, name.as_bytes()), meta.clone())
-				}
+				Self::V5(meta, vocabulary, name) => Meta(
+					uuid::Uuid::new_v5(vocabulary, name.as_bytes()),
+					meta.clone(),
+				),
 			}
 		}
 	}
@@ -246,8 +248,8 @@ pub mod generator {
 		feature = "uuid-generator-v4",
 		feature = "uuid-generator-v5"
 	))]
-	impl<T, B, M: Clone, N: IriNamespaceMut<T>> Generator<T, B, M, N> for Uuid<M> {
-		fn next(&mut self, namespace: &mut N) -> Meta<ValidReference<T, B>, M> {
+	impl<T, B, M: Clone, N: IriVocabularyMut<T>> Generator<T, B, M, N> for Uuid<M> {
+		fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M> {
 			unsafe {
 				let mut buffer = Vec::with_capacity(uuid::adapter::Urn::LENGTH);
 				let ptr = buffer.as_mut_ptr();
@@ -264,7 +266,7 @@ pub mod generator {
 				let buffer = Vec::from_raw_parts(ptr, len, capacity);
 				let p = iref::parsing::ParsedIriRef::new(&buffer).unwrap();
 				let iri = iref::IriBuf::from_raw_parts(buffer, p);
-				Meta(ValidReference::Id(namespace.insert(iri.as_iri())), meta)
+				Meta(ValidReference::Id(vocabulary.insert(iri.as_iri())), meta)
 			}
 		}
 	}
@@ -319,7 +321,7 @@ pub mod generator {
 }
 
 pub trait IdentifyAll<T, B, M> {
-	fn identify_all_in<N, G: Generator<T, B, M, N>>(&mut self, namespace: &mut N, generator: G)
+	fn identify_all_in<N, G: Generator<T, B, M, N>>(&mut self, vocabulary: &mut N, generator: G)
 	where
 		M: Clone;
 

@@ -10,7 +10,7 @@ use super::{
 #[derivative(Clone(bound = ""))]
 pub enum ArrayIter<'a, M, D> {
 	Owned(core::slice::Iter<'a, Meta<Context<D>, M>>),
-	Borrowed(core::slice::Iter<'a, Meta<ContextRef<'a, D>, M>>)
+	Borrowed(core::slice::Iter<'a, Meta<ContextRef<'a, D>, M>>),
 }
 
 impl<'a, D, M: Clone> Iterator for ArrayIter<'a, M, D> {
@@ -19,14 +19,16 @@ impl<'a, D, M: Clone> Iterator for ArrayIter<'a, M, D> {
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		match self {
 			Self::Owned(m) => m.size_hint(),
-			Self::Borrowed(m) => m.size_hint()
+			Self::Borrowed(m) => m.size_hint(),
 		}
 	}
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
-			Self::Owned(m) => m.next().map(|Meta(d, m)| Meta(d.as_context_ref(), m.clone())),
-			Self::Borrowed(m) => m.next().cloned()
+			Self::Owned(m) => m
+				.next()
+				.map(|Meta(d, m)| Meta(d.as_context_ref(), m.clone())),
+			Self::Borrowed(m) => m.next().cloned(),
 		}
 	}
 }
@@ -104,9 +106,7 @@ impl<'a, M, D> ValueRef<'a, M, D> {
 	}
 }
 
-impl<'a, M: Clone, D> IntoIterator
-	for ValueRef<'a, M, D>
-{
+impl<'a, M: Clone, D> IntoIterator for ValueRef<'a, M, D> {
 	type Item = Meta<ContextRef<'a, D>, M>;
 	type IntoIter = ContextEntryIter<'a, M, D>;
 
@@ -155,9 +155,7 @@ pub enum ContextEntryIter<'a, M, D = Definition<M>> {
 	Many(ArrayIter<'a, M, D>),
 }
 
-impl<'a, M: Clone, D> Iterator
-	for ContextEntryIter<'a, M, D>
-{
+impl<'a, M: Clone, D> Iterator for ContextEntryIter<'a, M, D> {
 	type Item = Meta<ContextRef<'a, D>, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -182,7 +180,10 @@ impl<'a, D> ContextRef<'a, D> {
 		matches!(self, Self::Definition(_))
 	}
 
-	pub fn sub_items<M>(&self) -> ContextSubFragments<'a, M, D> where D: AnyDefinition<M> {
+	pub fn sub_items<M>(&self) -> ContextSubFragments<'a, M, D>
+	where
+		D: AnyDefinition<M>,
+	{
 		match self {
 			Self::Definition(d) => ContextSubFragments::Definition(d.entries()),
 			_ => ContextSubFragments::None,

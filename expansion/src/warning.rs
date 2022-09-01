@@ -1,5 +1,6 @@
+use contextual::DisplayWithContext;
 use json_ld_context_processing::syntax::MalformedIri;
-use json_ld_core::{BlankIdNamespace, DisplayWithNamespace};
+use rdf_types::BlankIdVocabulary;
 use std::fmt;
 
 #[derive(Debug)]
@@ -29,8 +30,8 @@ impl<B: fmt::Display> fmt::Display for Warning<B> {
 	}
 }
 
-impl<B, N: BlankIdNamespace<B>> DisplayWithNamespace<N> for Warning<B> {
-	fn fmt_with(&self, namespace: &N, f: &mut fmt::Formatter) -> fmt::Result {
+impl<B, N: BlankIdVocabulary<B>> DisplayWithContext<N> for Warning<B> {
+	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::MalformedIri(s) => write!(f, "malformed IRI `{}`", s),
 			Self::EmptyTerm => write!(f, "empty term"),
@@ -38,7 +39,7 @@ impl<B, N: BlankIdNamespace<B>> DisplayWithNamespace<N> for Warning<B> {
 				write!(
 					f,
 					"blank node identifier `{}` used as property",
-					namespace.blank_id(b).unwrap()
+					vocabulary.blank_id(b).unwrap()
 				)
 			}
 			Self::MalformedLanguageTag(t, e) => write!(f, "invalid language tag `{}`: {}", t, e),

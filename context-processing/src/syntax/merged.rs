@@ -49,9 +49,7 @@ impl<'a, M, C: syntax::context::AnyValue<M>> Merged<'a, M, C> {
 		// 	.or_else(|| self.base.vocab())
 	}
 
-	pub fn language(
-		&self,
-	) -> Option<Entry<syntax::Nullable<syntax::LenientLanguageTag>, M>> {
+	pub fn language(&self) -> Option<Entry<syntax::Nullable<syntax::LenientLanguageTag>, M>> {
 		self.base
 			.language()
 			.or_else(|| self.imported().and_then(|i| i.language()))
@@ -78,9 +76,7 @@ impl<'a, M, C: syntax::context::AnyValue<M>> Merged<'a, M, C> {
 		// 	.or_else(|| self.base.protected())
 	}
 
-	pub fn type_(
-		&self,
-	) -> Option<Entry<syntax::context::definition::Type<M>, M>> {
+	pub fn type_(&self) -> Option<Entry<syntax::context::definition::Type<M>, M>> {
 		self.base
 			.type_()
 			.or_else(|| self.imported().and_then(|i| i.type_()))

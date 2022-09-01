@@ -1,11 +1,11 @@
 use crate::{expand_iri, ExpandedEntry, Warning, WarningHandler};
-use json_ld_context_processing::NamespaceMut;
 use json_ld_core::{
 	object::value::{Literal, LiteralString},
-	Context, Indexed, LangString, Object, Reference, ValidReference, Term, Value, IndexedObject,
+	Context, Indexed, IndexedObject, LangString, Object, Reference, Term, ValidReference, Value,
 };
 use json_ld_syntax::{Direction, Keyword, LenientLanguageTagBuf, Nullable};
 use locspan::{At, Meta};
+use rdf_types::VocabularyMut;
 use std::fmt;
 
 pub(crate) type ExpandedValue<T, B, M, W> = (Option<IndexedObject<T, B, M>>, W);
@@ -40,7 +40,7 @@ pub type ValueExpansionResult<T, B, M, W> =
 
 /// Expand a value object.
 pub(crate) fn expand_value<'e, T, B, M, N, C, W>(
-	namespace: &mut N,
+	vocabulary: &mut N,
 	input_type: Option<Meta<Term<T, B>, M>>,
 	type_scoped_context: &Context<T, B, C>,
 	expanded_entries: Vec<ExpandedEntry<'e, T, B, M>>,
@@ -48,7 +48,7 @@ pub(crate) fn expand_value<'e, T, B, M, N, C, W>(
 	mut warnings: W,
 ) -> ValueExpansionResult<T, B, M, W>
 where
-	N: NamespaceMut<T, B>,
+	N: VocabularyMut<T, B>,
 	T: Clone + PartialEq,
 	B: Clone + PartialEq,
 	M: Clone,
@@ -107,7 +107,7 @@ where
 				if let Some(value) = value.as_str() {
 					index = Some(json_ld_syntax::Entry::new(
 						key.into_metadata().clone(),
-						Meta(value.to_string(), value_metadata.clone())
+						Meta(value.to_string(), value_metadata.clone()),
 					))
 				} else {
 					return Err(InvalidValue::IndexValue.at(meta.clone()));
@@ -117,7 +117,7 @@ where
 			Term::Keyword(Keyword::Type) => {
 				if let Some(ty_value) = value.as_str() {
 					let Meta(expanded_ty, _) = expand_iri(
-						namespace,
+						vocabulary,
 						type_scoped_context,
 						Meta(Nullable::Some(ty_value.into()), value_metadata.clone()),
 						true,
@@ -156,10 +156,7 @@ where
 		return Ok((
 			Some(Meta(
 				Indexed::new(
-					Object::Value(Value::Json(Meta(
-						value_entry.clone(),
-						meta.clone(),
-					))),
+					Object::Value(Value::Json(Meta(value_entry.clone(), meta.clone()))),
 					index,
 				),
 				meta.clone(),
@@ -206,7 +203,7 @@ where
 
 					if let Some(error) = error {
 						warnings.handle(
-							namespace,
+							vocabulary,
 							Meta::new(
 								Warning::MalformedLanguageTag(language.to_string(), error),
 								language_metadata,

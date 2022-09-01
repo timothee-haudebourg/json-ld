@@ -95,7 +95,7 @@ impl Default for Options {
 pub trait Compact<I, B, M> {
 	fn compact_full<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
-		namespace: &'a mut N,
+		vocabulary: &'a mut N,
 		active_context: &'a Context<I, B, C>,
 		type_scoped_context: &'a Context<I, B, C>,
 		active_property: Option<Meta<&'a str, &'a M>>,
@@ -168,7 +168,7 @@ enum TypeLangValue<'a, I> {
 pub trait CompactIndexed<I, B, M> {
 	fn compact_indexed<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
-		namespace: &'a mut N,
+		vocabulary: &'a mut N,
 		meta: &'a M,
 		index: Option<&'a json_ld_syntax::Entry<String, M>>,
 		active_context: &'a Context<I, B, C>,
@@ -191,7 +191,7 @@ pub trait CompactIndexed<I, B, M> {
 impl<I, B, M, T: CompactIndexed<I, B, M>> Compact<I, B, M> for Meta<Indexed<T, M>, M> {
 	fn compact_full<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
-		namespace: &'a mut N,
+		vocabulary: &'a mut N,
 		active_context: &'a Context<I, B, C>,
 		type_scoped_context: &'a Context<I, B, C>,
 		active_property: Option<Meta<&'a str, &'a M>>,
@@ -210,7 +210,7 @@ impl<I, B, M, T: CompactIndexed<I, B, M>> Compact<I, B, M> for Meta<Indexed<T, M
 	{
 		let Meta(indexed, meta) = self;
 		indexed.inner().compact_indexed(
-			namespace,
+			vocabulary,
 			meta,
 			indexed.index_entry(),
 			active_context,
@@ -225,7 +225,7 @@ impl<I, B, M, T: CompactIndexed<I, B, M>> Compact<I, B, M> for Meta<Indexed<T, M
 impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 	fn compact_indexed<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
-		namespace: &'a mut N,
+		vocabulary: &'a mut N,
 		meta: &'a M,
 		index: Option<&'a json_ld_syntax::Entry<String, M>>,
 		active_context: &'a Context<I, B, C>,
@@ -248,7 +248,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 		match self.as_ref() {
 			Ref::Value(value) => async move {
 				compact_indexed_value_with(
-					namespace,
+					vocabulary,
 					Meta(value, meta),
 					index,
 					active_context,
@@ -296,7 +296,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 							active_context = Mown::Owned(
 								local_context
 									.process_with(
-										namespace,
+										vocabulary,
 										active_context.as_ref(),
 										loader,
 										active_property_definition.base_url().cloned(),
@@ -314,7 +314,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 
 				if list_container {
 					compact_collection_with(
-						namespace,
+						vocabulary,
 						Meta(list.iter(), meta),
 						active_context.as_ref(),
 						active_context.as_ref(),
@@ -326,7 +326,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 				} else {
 					let mut result = json_syntax::Object::default();
 					compact_property(
-						namespace,
+						vocabulary,
 						&mut result,
 						Term::Keyword(Keyword::List),
 						list,
@@ -359,7 +359,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 						if !index_container {
 							// Initialize alias by IRI compacting expanded property.
 							let alias = compact_key(
-								namespace,
+								vocabulary,
 								active_context.as_ref(),
 								Meta(&Term::Keyword(Keyword::Index), &index.key_metadata),
 								true,
@@ -446,7 +446,7 @@ fn value_value<I, M: Clone>(value: &Value<I, M>, meta: &M) -> json_syntax::MetaV
 }
 
 fn compact_collection_with<'a, T, O, I, B, M, C, N, L>(
-	namespace: &mut N,
+	vocabulary: &mut N,
 	Meta(items, meta): Meta<O, &M>,
 	active_context: &Context<I, B, C>,
 	type_scoped_context: &Context<I, B, C>,
@@ -472,7 +472,7 @@ where
 		for item in items {
 			let compacted_item = item
 				.compact_full(
-					namespace,
+					vocabulary,
 					active_context,
 					type_scoped_context,
 					active_property,

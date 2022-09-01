@@ -1,8 +1,10 @@
-use super::{Nest, IntoSyntax};
-use crate::{Container, Direction, LenientLanguageTagBuf, Nullable, Term, Type, IriNamespace, Namespace, BorrowWithNamespace};
+use super::{IntoSyntax, Nest};
+use crate::{Container, Direction, LenientLanguageTagBuf, Nullable, Term, Type};
+use contextual::WithContext;
 use json_ld_syntax::context::term_definition::Index;
-use locspan::{Meta, BorrowStripped, StrippedEq, StrippedPartialEq};
+use locspan::{BorrowStripped, Meta, StrippedEq, StrippedPartialEq};
 use locspan_derive::{StrippedEq, StrippedPartialEq};
+use rdf_types::{IriVocabulary, Vocabulary};
 
 // A term definition.
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq, Clone)]
@@ -65,56 +67,121 @@ impl<T, B, C> TermDefinition<T, B, C> {
 		ModuloProtectedField(self)
 	}
 
-	pub fn into_syntax_definition<M: Clone>(self, namespace: &impl Namespace<T, B>, meta: M) -> Meta<Nullable<json_ld_syntax::context::TermDefinition<M>>, M> where C: IntoSyntax<T, B, M> {
-		use json_ld_syntax::{Entry, context::{definition::Key, term_definition::{Id, Type as SyntaxType, TypeKeyword}}};
+	pub fn into_syntax_definition<M: Clone>(
+		self,
+		vocabulary: &impl Vocabulary<T, B>,
+		meta: M,
+	) -> Meta<Nullable<json_ld_syntax::context::TermDefinition<M>>, M>
+	where
+		C: IntoSyntax<T, B, M>,
+	{
+		use json_ld_syntax::{
+			context::{
+				definition::Key,
+				term_definition::{Id, Type as SyntaxType, TypeKeyword},
+			},
+			Entry,
+		};
 
-		fn term_into_id<T, B>(namespace: &impl Namespace<T, B>, term: Term<T, B>) -> Nullable<Id> {
+		fn term_into_id<T, B>(
+			vocabulary: &impl Vocabulary<T, B>,
+			term: Term<T, B>,
+		) -> Nullable<Id> {
 			match term {
 				Term::Null => Nullable::Null,
 				Term::Keyword(k) => Nullable::Some(Id::Keyword(k)),
-				Term::Ref(r) => Nullable::Some(Id::Term(r.with_namespace(namespace).to_string()))
+				Term::Ref(r) => Nullable::Some(Id::Term(r.with(vocabulary).to_string())),
 			}
 		}
 
-		fn term_into_key<T, B>(namespace: &impl Namespace<T, B>, term: Term<T, B>) -> Key {
+		fn term_into_key<T, B>(vocabulary: &impl Vocabulary<T, B>, term: Term<T, B>) -> Key {
 			match term {
 				Term::Null => panic!("invalid key"),
 				Term::Keyword(k) => k.to_string().into(),
-				Term::Ref(r) => r.with_namespace(namespace).to_string().into()
+				Term::Ref(r) => r.with(vocabulary).to_string().into(),
 			}
 		}
 
-		fn type_into_syntax<T>(namespace: &impl IriNamespace<T>, ty: Type<T>) -> SyntaxType {
+		fn type_into_syntax<T>(vocabulary: &impl IriVocabulary<T>, ty: Type<T>) -> SyntaxType {
 			match ty {
 				Type::Id => SyntaxType::Keyword(TypeKeyword::Id),
 				Type::Json => SyntaxType::Keyword(TypeKeyword::Json),
 				Type::None => SyntaxType::Keyword(TypeKeyword::None),
 				Type::Vocab => SyntaxType::Keyword(TypeKeyword::Vocab),
-				Type::Ref(t) => SyntaxType::Term(namespace.iri(&t).unwrap().to_string())
+				Type::Ref(t) => SyntaxType::Term(vocabulary.iri(&t).unwrap().to_string()),
 			}
 		}
 
 		let (id, reverse) = if self.reverse_property {
-			(None, self.value.map(|t| Entry::new(meta.clone(), Meta(term_into_key(namespace, t), meta.clone()))))
+			(
+				None,
+				self.value.map(|t| {
+					Entry::new(
+						meta.clone(),
+						Meta(term_into_key(vocabulary, t), meta.clone()),
+					)
+				}),
+			)
 		} else {
-			(self.value.map(|t| Entry::new(meta.clone(), Meta(term_into_id(namespace, t), meta.clone()))), None)
+			(
+				self.value.map(|t| {
+					Entry::new(
+						meta.clone(),
+						Meta(term_into_id(vocabulary, t), meta.clone()),
+					)
+				}),
+				None,
+			)
 		};
 
 		let container = self.container.into_syntax(meta.clone());
-		
+
 		let expanded = json_ld_syntax::context::term_definition::Expanded {
 			id,
-			type_: self.typ.map(|t| Entry::new(meta.clone(), Meta(Nullable::Some(type_into_syntax(namespace, t)), meta.clone()))),
-			context: self.context.map(|c| Entry::new(meta.clone(), Meta(Box::new(c.into_syntax(namespace, meta.clone())), meta.clone()))),
+			type_: self.typ.map(|t| {
+				Entry::new(
+					meta.clone(),
+					Meta(
+						Nullable::Some(type_into_syntax(vocabulary, t)),
+						meta.clone(),
+					),
+				)
+			}),
+			context: self.context.map(|c| {
+				Entry::new(
+					meta.clone(),
+					Meta(
+						Box::new(c.into_syntax(vocabulary, meta.clone())),
+						meta.clone(),
+					),
+				)
+			}),
 			reverse,
-			index: self.index.map(|i| Entry::new(meta.clone(), Meta(i, meta.clone()))),
-			language: self.language.map(|l| Entry::new(meta.clone(), Meta(l, meta.clone()))),
-			direction: self.direction.map(|d| Entry::new(meta.clone(), Meta(d, meta.clone()))),
-			container: container.map(|Meta(c, m)| Entry::new(meta.clone(), Meta(Nullable::Some(c), m))),
-			nest: self.nest.map(|n| Entry::new(meta.clone(), Meta(n, meta.clone()))),
-			prefix: if self.prefix { Some(Entry::new(meta.clone(), Meta(true, meta.clone()))) } else { None },
+			index: self
+				.index
+				.map(|i| Entry::new(meta.clone(), Meta(i, meta.clone()))),
+			language: self
+				.language
+				.map(|l| Entry::new(meta.clone(), Meta(l, meta.clone()))),
+			direction: self
+				.direction
+				.map(|d| Entry::new(meta.clone(), Meta(d, meta.clone()))),
+			container: container
+				.map(|Meta(c, m)| Entry::new(meta.clone(), Meta(Nullable::Some(c), m))),
+			nest: self
+				.nest
+				.map(|n| Entry::new(meta.clone(), Meta(n, meta.clone()))),
+			prefix: if self.prefix {
+				Some(Entry::new(meta.clone(), Meta(true, meta.clone())))
+			} else {
+				None
+			},
 			propagate: None,
-			protected: if self.protected { Some(Entry::new(meta.clone(), Meta(true, meta.clone()))) } else { None },
+			protected: if self.protected {
+				Some(Entry::new(meta.clone(), Meta(true, meta.clone())))
+			} else {
+				None
+			},
 		};
 
 		Meta(expanded.simplify(), meta)

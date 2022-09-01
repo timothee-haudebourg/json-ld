@@ -193,7 +193,12 @@ impl Container {
 		match slice.len() {
 			0 => None,
 			1 => Some(Meta(json_ld_syntax::Container::One(slice[0]), meta)),
-			_ => Some(Meta(json_ld_syntax::Container::Many(slice.iter().map(|k| Meta(*k, meta.clone())).collect()), meta)),
+			_ => Some(Meta(
+				json_ld_syntax::Container::Many(
+					slice.iter().map(|k| Meta(*k, meta.clone())).collect(),
+				),
+				meta,
+			)),
 		}
 	}
 }

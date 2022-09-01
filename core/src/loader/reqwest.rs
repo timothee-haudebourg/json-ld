@@ -43,7 +43,7 @@ where
 }
 
 pub struct Loader<J> {
-	namespace: HashMap<IriBuf, loader::Id>,
+	vocabulary: HashMap<IriBuf, loader::Id>,
 	cache: Vec<(J, IriBuf)>,
 	parser: Box<dyn 'static + Send + Sync + FnMut(&str) -> Result<J, Error>>,
 }
@@ -53,7 +53,7 @@ impl<J: Clone + Send> Loader<J> {
 		mut parser: impl 'static + Send + Sync + FnMut(&str) -> Result<J, E>,
 	) -> Self {
 		Self {
-			namespace: HashMap::new(),
+			vocabulary: HashMap::new(),
 			cache: Vec::new(),
 			parser: Box::new(move |s| {
 				parser(s).map_err(|e| Error::with_source(ErrorCode::LoadingDocumentFailed, e))
@@ -64,14 +64,14 @@ impl<J: Clone + Send> Loader<J> {
 	/// Allocate a identifier to the given IRI.
 	fn allocate(&mut self, iri: IriBuf, doc: J) -> loader::Id {
 		let id = loader::Id::new(self.cache.len());
-		self.namespace.insert(iri.clone(), id);
+		self.vocabulary.insert(iri.clone(), id);
 		self.cache.push((doc, iri));
 		id
 	}
 
 	pub async fn load(&mut self, url: Iri<'_>) -> Result<RemoteDocument<J>, Error> {
 		let url = IriBuf::from(url);
-		match self.namespace.get(&url) {
+		match self.vocabulary.get(&url) {
 			Some(id) => Ok(RemoteDocument::new(
 				self.cache[id.unwrap()].0.clone(),
 				url,
@@ -91,7 +91,7 @@ impl<J: Json + Clone + Send + Sync> crate::Loader for Loader<J> {
 
 	#[inline(always)]
 	fn id(&self, iri: Iri<'_>) -> Option<loader::Id> {
-		self.namespace.get(&IriBuf::from(iri)).cloned()
+		self.vocabulary.get(&IriBuf::from(iri)).cloned()
 	}
 
 	#[inline(always)]
@@ -102,7 +102,7 @@ impl<J: Json + Clone + Send + Sync> crate::Loader for Loader<J> {
 	fn load<'a>(&'a mut self, url: Iri<'_>) -> BoxFuture<'a, Result<RemoteDocument<J>, Error>> {
 		let url: IriBuf = url.into();
 		async move {
-			match self.namespace.get(&url) {
+			match self.vocabulary.get(&url) {
 				Some(id) => Ok(RemoteDocument::new(
 					self.cache[id.unwrap()].0.clone(),
 					url,

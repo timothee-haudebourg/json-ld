@@ -1,9 +1,10 @@
 use crate::object::{InvalidExpandedJson, TryFromJson};
-use crate::{DisplayWithNamespace, Namespace, NamespaceMut, Term};
+use crate::Term;
+use contextual::{AsRefWithContext, DisplayWithContext};
 use iref::{Iri, IriBuf};
 use locspan::Meta;
 use locspan_derive::*;
-use rdf_types::{BlankId, BlankIdBuf, InvalidBlankId};
+use rdf_types::{BlankId, BlankIdBuf, InvalidBlankId, Vocabulary, VocabularyMut};
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
@@ -26,16 +27,20 @@ pub enum Reference<I = IriBuf, B = BlankIdBuf> {
 
 impl<I, B, M> TryFromJson<I, B, M> for Reference<I, B> {
 	fn try_from_json_in(
-		namespace: &mut impl NamespaceMut<I, B>,
+		vocabulary: &mut impl VocabularyMut<I, B>,
 		Meta(value, meta): locspan::Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, locspan::Meta<InvalidExpandedJson<M>, M>> {
 		match value {
 			json_syntax::Value::String(s) => match Iri::new(s.as_str()) {
-				Ok(iri) => Ok(Meta(Self::Valid(ValidReference::Id(namespace.insert(iri))), meta)),
+				Ok(iri) => Ok(Meta(
+					Self::Valid(ValidReference::Id(vocabulary.insert(iri))),
+					meta,
+				)),
 				Err(_) => match BlankId::new(s.as_str()) {
-					Ok(blank_id) => {
-						Ok(Meta(Self::Valid(ValidReference::Blank(namespace.insert_blank_id(blank_id))), meta))
-					}
+					Ok(blank_id) => Ok(Meta(
+						Self::Valid(ValidReference::Blank(vocabulary.insert_blank_id(blank_id))),
+						meta,
+					)),
 					Err(_) => Ok(Meta(Self::Invalid(s.to_string()), meta)),
 				},
 			},
@@ -65,11 +70,11 @@ impl<I, B> Reference<I, B> {
 		Self::Valid(ValidReference::Blank(b))
 	}
 
-	pub fn from_string_in(namespace: &mut impl NamespaceMut<I, B>, s: String) -> Self {
+	pub fn from_string_in(vocabulary: &mut impl VocabularyMut<I, B>, s: String) -> Self {
 		match Iri::new(&s) {
-			Ok(iri) => Self::Valid(ValidReference::Id(namespace.insert(iri))),
+			Ok(iri) => Self::Valid(ValidReference::Id(vocabulary.insert(iri))),
 			Err(_) => match BlankId::new(&s) {
-				Ok(blank) => Self::Valid(ValidReference::Blank(namespace.insert_blank_id(blank))),
+				Ok(blank) => Self::Valid(ValidReference::Blank(vocabulary.insert_blank_id(blank))),
 				Err(_) => Self::Invalid(s),
 			},
 		}
@@ -130,11 +135,13 @@ impl<I: AsRef<str>, B: AsRef<str>> Reference<I, B> {
 	}
 }
 
-impl<'n, T, B, N: Namespace<T, B>> crate::namespace::WithNamespace<&'n Reference<T, B>, &'n N> {
-	pub fn as_str(&self) -> &'n str {
-		match self.0 {
-			Reference::Valid(ValidReference::Id(id)) => self.1.iri(id).unwrap().into_str(),
-			Reference::Valid(ValidReference::Blank(id)) => self.1.blank_id(id).unwrap().as_str(),
+impl<T, B, N: Vocabulary<T, B>> AsRefWithContext<str, N> for Reference<T, B> {
+	fn as_ref_with<'a>(&'a self, vocabulary: &'a N) -> &'a str {
+		match self {
+			Reference::Valid(ValidReference::Id(id)) => vocabulary.iri(id).unwrap().into_str(),
+			Reference::Valid(ValidReference::Blank(id)) => {
+				vocabulary.blank_id(id).unwrap().as_str()
+			}
 			Reference::Invalid(id) => id.as_str(),
 		}
 	}
@@ -163,7 +170,9 @@ impl<'a, T, B> From<&'a Reference<T, B>> for Reference<&'a T, &'a B> {
 	fn from(r: &'a Reference<T, B>) -> Reference<&'a T, &'a B> {
 		match r {
 			Reference::Valid(ValidReference::Id(id)) => Reference::Valid(ValidReference::Id(id)),
-			Reference::Valid(ValidReference::Blank(id)) => Reference::Valid(ValidReference::Blank(id)),
+			Reference::Valid(ValidReference::Blank(id)) => {
+				Reference::Valid(ValidReference::Blank(id))
+			}
 			Reference::Invalid(id) => Reference::Invalid(id.clone()),
 		}
 	}
@@ -218,11 +227,11 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for Reference<T, B> {
 	}
 }
 
-impl<T, B, N: Namespace<T, B>> DisplayWithNamespace<N> for Reference<T, B> {
-	fn fmt_with(&self, namespace: &N, f: &mut fmt::Formatter) -> fmt::Result {
+impl<T, B, N: Vocabulary<T, B>> DisplayWithContext<N> for Reference<T, B> {
+	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		use fmt::Display;
 		match self {
-			Reference::Valid(id) => id.fmt_with(namespace, f),
+			Reference::Valid(id) => id.fmt_with(vocabulary, f),
 			Reference::Invalid(id) => id.fmt(f),
 		}
 	}
@@ -285,7 +294,19 @@ impl<T, B> ToReference<T, B> for T {
 ///
 /// The memory layout of a valid node reference is designed to match
 /// the layout of a `Reference`.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, StrippedPartialEq, StrippedEq, StrippedHash, Debug)]
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+	StrippedPartialEq,
+	StrippedEq,
+	StrippedHash,
+	Debug,
+)]
 #[stripped(T, B)]
 pub enum ValidReference<T = IriBuf, B = BlankIdBuf> {
 	Id(#[stripped] T),
@@ -373,7 +394,7 @@ impl<'a, T, B> TryFrom<&'a mut Reference<T, B>> for &'a mut ValidReference<T, B>
 	fn try_from(r: &'a mut Reference<T, B>) -> Result<Self, Self::Error> {
 		match r {
 			Reference::Valid(r) => Ok(r),
-			Reference::Invalid(id) => Err(id)
+			Reference::Invalid(id) => Err(id),
 		}
 	}
 }
@@ -388,12 +409,12 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for ValidReference<T, B> {
 	}
 }
 
-impl<T, B, N: Namespace<T, B>> DisplayWithNamespace<N> for ValidReference<T, B> {
-	fn fmt_with(&self, namespace: &N, f: &mut fmt::Formatter) -> fmt::Result {
+impl<T, B, N: Vocabulary<T, B>> DisplayWithContext<N> for ValidReference<T, B> {
+	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		use fmt::Display;
 		match self {
-			Self::Id(i) => namespace.iri(i).unwrap().fmt(f),
-			Self::Blank(b) => namespace.blank_id(b).unwrap().fmt(f),
+			Self::Id(i) => vocabulary.iri(i).unwrap().fmt(f),
+			Self::Blank(b) => vocabulary.blank_id(b).unwrap().fmt(f),
 		}
 	}
 }

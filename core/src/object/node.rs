@@ -1,14 +1,14 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
-use crate::namespace::WithNamespace;
 use crate::{
-	id, object, utils, BorrowWithNamespace, Indexed, IndexedObject, Namespace, Object, Objects,
-	Reference, StrippedIndexedObject, Term, ToReference,
+	id, object, utils, Indexed, IndexedObject, Object, Objects, Reference, StrippedIndexedObject,
+	Term, ToReference,
 };
+use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
 use json_ld_syntax::{Entry, Keyword};
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedPartialEq};
-use rdf_types::BlankIdBuf;
+use rdf_types::{BlankIdBuf, Vocabulary, VocabularyMut};
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
@@ -184,26 +184,26 @@ impl<T, B, M> Node<T, B, M> {
 	/// Assigns an identifier to this node and every other node included in this one using the given `generator`.
 	pub fn identify_all_in<N, G: id::Generator<T, B, M, N>>(
 		&mut self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 	) where
 		M: Clone,
 	{
 		if self.id.is_none() {
-			let value = generator.next(namespace);
+			let value = generator.next(vocabulary);
 			self.id = Some(Entry::new(value.metadata().clone(), value.cast()))
 		}
 
 		for (_, objects) in self.properties_mut() {
 			for object in objects {
-				object.identify_all_in(namespace, generator);
+				object.identify_all_in(vocabulary, generator);
 			}
 		}
 
 		if let Some(reverse_properties) = self.reverse_properties_mut() {
 			for (_, nodes) in reverse_properties.iter_mut() {
 				for node in nodes {
-					node.identify_all_in(namespace, generator);
+					node.identify_all_in(vocabulary, generator);
 				}
 			}
 		}
@@ -667,20 +667,16 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
 	}
 }
 
-impl<'a, T, B, N: Namespace<T, B>> WithNamespace<EntryKeyRef<'a, T, B>, &'a N> {
-	pub fn into_str(self) -> &'a str {
-		match self.0 {
+impl<'a, T, B, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B> {
+	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
+		match self {
 			EntryKeyRef::Id => "@id",
 			EntryKeyRef::Type => "@type",
 			EntryKeyRef::Graph => "@graph",
 			EntryKeyRef::Included => "@included",
 			EntryKeyRef::Reverse => "@reverse",
-			EntryKeyRef::Property(p) => p.with_namespace(self.1).as_str(),
+			EntryKeyRef::Property(p) => p.with(vocabulary).as_str(),
 		}
-	}
-
-	pub fn as_str(&self) -> &'a str {
-		self.into_str()
 	}
 }
 
@@ -912,16 +908,14 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
 	}
 }
 
-impl<'a, T, B, N: Namespace<T, B>> WithNamespace<IndexedEntryKeyRef<'a, T, B>, &'a N> {
-	pub fn into_str(self) -> &'a str {
-		match self.0 {
+impl<'a, T, B, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N>
+	for IndexedEntryKeyRef<'a, T, B>
+{
+	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
+		match self {
 			IndexedEntryKeyRef::Index => "@index",
-			IndexedEntryKeyRef::Node(e) => e.into_with_namespace(self.1).into_str(),
+			IndexedEntryKeyRef::Node(e) => e.into_with(vocabulary).into_str(),
 		}
-	}
-
-	pub fn as_str(&self) -> &'a str {
-		self.into_str()
 	}
 }
 
@@ -1231,54 +1225,67 @@ impl<'a, T, B, M> Iterator for Nodes<'a, T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M>
-	for Node<T, B, M>
-{
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M> {
 	fn try_from_json_object_in(
-		namespace: &mut impl crate::NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		mut object: Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
-		let id = match object.remove_unique("@id").map_err(InvalidExpandedJson::duplicate_key)? {
+		let id = match object
+			.remove_unique("@id")
+			.map_err(InvalidExpandedJson::duplicate_key)?
+		{
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
-				Reference::try_from_json_in(namespace, entry.value)?,
+				Reference::try_from_json_in(vocabulary, entry.value)?,
 			)),
 			None => None,
 		};
 
-		let types = match object.remove_unique("@type").map_err(InvalidExpandedJson::duplicate_key)? {
+		let types = match object
+			.remove_unique("@type")
+			.map_err(InvalidExpandedJson::duplicate_key)?
+		{
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
-				Vec::try_from_json_in(namespace, entry.value)?,
+				Vec::try_from_json_in(vocabulary, entry.value)?,
 			)),
 			None => None,
 		};
 
-		let graph = match object.remove_unique("@graph").map_err(InvalidExpandedJson::duplicate_key)? {
+		let graph = match object
+			.remove_unique("@graph")
+			.map_err(InvalidExpandedJson::duplicate_key)?
+		{
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
-				HashSet::try_from_json_in(namespace, entry.value)?,
+				HashSet::try_from_json_in(vocabulary, entry.value)?,
 			)),
 			None => None,
 		};
 
-		let included = match object.remove_unique("@included").map_err(InvalidExpandedJson::duplicate_key)? {
+		let included = match object
+			.remove_unique("@included")
+			.map_err(InvalidExpandedJson::duplicate_key)?
+		{
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
-				HashSet::try_from_json_in(namespace, entry.value)?,
+				HashSet::try_from_json_in(vocabulary, entry.value)?,
 			)),
 			None => None,
 		};
 
-		let reverse_properties = match object.remove_unique("@reverse").map_err(InvalidExpandedJson::duplicate_key)? {
+		let reverse_properties = match object
+			.remove_unique("@reverse")
+			.map_err(InvalidExpandedJson::duplicate_key)?
+		{
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
-				ReverseProperties::try_from_json_in(namespace, entry.value)?,
+				ReverseProperties::try_from_json_in(vocabulary, entry.value)?,
 			)),
 			None => None,
 		};
 
-		let Meta(properties, meta) = Properties::try_from_json_object_in(namespace, object)?;
+		let Meta(properties, meta) = Properties::try_from_json_object_in(vocabulary, object)?;
 
 		Ok(Meta(
 			Self {

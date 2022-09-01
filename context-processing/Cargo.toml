@@ -15,8 +15,9 @@ readme = "README.md"
 json-ld-core = { path = "../core" }
 json-ld-syntax = { path = "../syntax" }
 iref = "2.2"
-rdf-types = "0.8.6"
+rdf-types = "0.9"
 futures = "^0.3"
 mown = "0.2.1"
 # cc-traits = "0.8.0"
 locspan = "0.7.3"
+contextual = "0.1.3"

@@ -1,15 +1,13 @@
 use async_std::task;
+use contextual::{DisplayWithContext, WithContext};
 use grdf::Dataset;
 use iref::IriBuf;
-use json_ld::{
-	BorrowWithNamespace, DisplayWithNamespace, Expand, IndexNamespace, IriNamespace,
-	IriNamespaceMut, ValidReference,
-};
+use json_ld::{Expand, ValidReference};
 use locspan::{Loc, Location, Span};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use rdf_types::{Quad, Triple};
+use rdf_types::{IndexVocabulary, IriVocabulary, IriVocabularyMut, Quad, Triple};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -128,24 +126,24 @@ struct TestSpec {
 struct InvalidIri(String);
 
 fn expand_iri(
-	namespace: &mut IndexNamespace,
+	vocabulary: &mut IndexVocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	iri: IriBuf,
 ) -> Result<IriIndex, InvalidIri> {
 	match iri.as_str().split_once(':') {
 		Some((prefix, suffix)) => match bindings.get(prefix) {
 			Some(prefix) => {
-				let mut result = namespace.iri(prefix).unwrap().to_string();
+				let mut result = vocabulary.iri(prefix).unwrap().to_string();
 				result.push_str(suffix);
 
 				match iref::Iri::new(&result) {
-					Ok(iri) => Ok(namespace.insert(iri)),
+					Ok(iri) => Ok(vocabulary.insert(iri)),
 					Err(_) => Err(InvalidIri(iri.to_string())),
 				}
 			}
-			None => Ok(namespace.insert(iri.as_iri())),
+			None => Ok(vocabulary.insert(iri.as_iri())),
 		},
-		None => Ok(namespace.insert(iri.as_iri())),
+		None => Ok(vocabulary.insert(iri.as_iri())),
 	}
 }
 
@@ -156,37 +154,37 @@ pub fn test_suite(
 	input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
 	let mut input = syn::parse_macro_input!(input as syn::ItemMod);
-	let mut namespace = json_ld::IndexNamespace::new();
+	let mut vocabulary = IndexVocabulary::new();
 
-	match task::block_on(derive_test_suite(&mut namespace, &mut input, args)) {
+	match task::block_on(derive_test_suite(&mut vocabulary, &mut input, args)) {
 		Ok(tokens) => quote! { #input #tokens }.into(),
 		Err(e) => {
 			proc_macro_error::abort_call_site!(
 				"test suite generation failed: {}",
-				e.with_namespace(&namespace)
+				e.with(&vocabulary)
 			)
 		}
 	}
 }
 
 async fn derive_test_suite(
-	namespace: &mut IndexNamespace,
+	vocabulary: &mut IndexVocabulary,
 	input: &mut syn::ItemMod,
 	args: proc_macro::TokenStream,
 ) -> Result<TokenStream, Error> {
 	let mut loader = FsLoader::default();
-	let spec = parse_input(namespace, &mut loader, input, args)?;
-	generate_test_suite(namespace, loader, spec).await
+	let spec = parse_input(vocabulary, &mut loader, input, args)?;
+	generate_test_suite(vocabulary, loader, spec).await
 }
 
 fn parse_input(
-	namespace: &mut IndexNamespace,
+	vocabulary: &mut IndexVocabulary,
 	loader: &mut FsLoader,
 	input: &mut syn::ItemMod,
 	args: proc_macro::TokenStream,
 ) -> Result<TestSpec, Error> {
 	let suite: IriArg = syn::parse(args)?;
-	let suite = namespace.insert(suite.iri.as_iri());
+	let suite = vocabulary.insert(suite.iri.as_iri());
 
 	let mut bindings: HashMap<String, IriIndex> = HashMap::new();
 
@@ -194,10 +192,10 @@ fn parse_input(
 	for attr in attrs {
 		if attr.path.is_ident("mount") {
 			let mount: MountAttribute = syn::parse2(attr.tokens)?;
-			loader.mount(namespace.insert(mount.prefix.as_iri()), mount.target)
+			loader.mount(vocabulary.insert(mount.prefix.as_iri()), mount.target)
 		} else if attr.path.is_ident("iri_prefix") {
 			let attr: PrefixBinding = syn::parse2(attr.tokens)?;
-			bindings.insert(attr.prefix, namespace.insert(attr.iri.as_iri()));
+			bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_iri()));
 		} else {
 			input.attrs.push(attr)
 		}
@@ -212,7 +210,7 @@ fn parse_input(
 					types.insert(
 						s.ident.clone(),
 						ty::Definition::Struct(parse_struct_type(
-							namespace,
+							vocabulary,
 							&mut bindings,
 							&mut type_map,
 							s,
@@ -223,7 +221,7 @@ fn parse_input(
 					types.insert(
 						e.ident.clone(),
 						ty::Definition::Enum(parse_enum_type(
-							namespace,
+							vocabulary,
 							&mut bindings,
 							&mut type_map,
 							e,
@@ -246,7 +244,7 @@ fn parse_input(
 }
 
 fn parse_struct_type(
-	namespace: &mut IndexNamespace,
+	vocabulary: &mut IndexVocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	type_map: &mut HashMap<IriIndex, syn::Ident>,
 	s: &mut syn::ItemStruct,
@@ -257,7 +255,7 @@ fn parse_struct_type(
 	for attr in attrs {
 		if attr.path.is_ident("iri") {
 			let attr: IriAttribute = syn::parse2(attr.tokens)?;
-			let iri = expand_iri(namespace, bindings, attr.iri)?;
+			let iri = expand_iri(vocabulary, bindings, attr.iri)?;
 			type_map.insert(iri, s.ident.clone());
 		} else {
 			s.attrs.push(attr)
@@ -279,7 +277,7 @@ fn parse_struct_type(
 		for attr in attrs {
 			if attr.path.is_ident("iri") {
 				let attr: IriAttribute = syn::parse2(attr.tokens)?;
-				iri = Some(expand_iri(namespace, bindings, attr.iri)?)
+				iri = Some(expand_iri(vocabulary, bindings, attr.iri)?)
 			} else {
 				field.attrs.push(attr)
 			}
@@ -319,7 +317,7 @@ fn parse_struct_type(
 }
 
 fn parse_enum_type(
-	namespace: &mut IndexNamespace,
+	vocabulary: &mut IndexVocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	type_map: &mut HashMap<IriIndex, syn::Ident>,
 	e: &mut syn::ItemEnum,
@@ -330,7 +328,7 @@ fn parse_enum_type(
 	for attr in attrs {
 		if attr.path.is_ident("iri") {
 			let attr: IriAttribute = syn::parse2(attr.tokens)?;
-			let iri = expand_iri(namespace, bindings, attr.iri)?;
+			let iri = expand_iri(vocabulary, bindings, attr.iri)?;
 			type_map.insert(iri, e.ident.clone());
 		} else {
 			e.attrs.push(attr)
@@ -344,7 +342,7 @@ fn parse_enum_type(
 		for attr in attrs {
 			if attr.path.is_ident("iri") {
 				let attr: IriAttribute = syn::parse2(attr.tokens)?;
-				iri = Some(expand_iri(namespace, bindings, attr.iri)?)
+				iri = Some(expand_iri(vocabulary, bindings, attr.iri)?)
 			} else {
 				variant.attrs.push(attr)
 			}
@@ -368,7 +366,7 @@ fn parse_enum_type(
 					for attr in attrs {
 						if attr.path.is_ident("iri") {
 							let attr: IriAttribute = syn::parse2(attr.tokens)?;
-							field_iri = Some(expand_iri(namespace, bindings, attr.iri)?)
+							field_iri = Some(expand_iri(vocabulary, bindings, attr.iri)?)
 						} else {
 							field.attrs.push(attr)
 						}
@@ -455,12 +453,8 @@ impl From<InvalidIri> for Error {
 	}
 }
 
-impl DisplayWithNamespace<json_ld::IndexNamespace> for Error {
-	fn fmt_with(
-		&self,
-		namespace: &json_ld::IndexNamespace,
-		f: &mut fmt::Formatter<'_>,
-	) -> fmt::Result {
+impl DisplayWithContext<IndexVocabulary> for Error {
+	fn fmt_with(&self, vocabulary: &IndexVocabulary, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use fmt::Display;
 		match self {
 			Self::Parse(e) => e.fmt(f),
@@ -468,45 +462,43 @@ impl DisplayWithNamespace<json_ld::IndexNamespace> for Error {
 			Self::Expand(e) => e.fmt(f),
 			Self::InvalidIri(i) => write!(f, "invalid IRI `{}`", i),
 			Self::InvalidValue(_, value) => {
-				write!(f, "invalid value {}", value.with_namespace(namespace))
+				write!(f, "invalid value {}", value.with(vocabulary))
 			}
 			Self::InvalidTypeField => write!(f, "invalid type field"),
-			Self::NoTypeVariants(r) => write!(
-				f,
-				"no type variants defined for `{}`",
-				r.with_namespace(namespace)
-			),
+			Self::NoTypeVariants(r) => {
+				write!(f, "no type variants defined for `{}`", r.with(vocabulary))
+			}
 			Self::MultipleTypeVariants(r) => write!(
 				f,
 				"multiple type variants defined for `{}`",
-				r.with_namespace(namespace)
+				r.with(vocabulary)
 			),
 		}
 	}
 }
 
 async fn generate_test_suite(
-	namespace: &mut json_ld::IndexNamespace,
+	vocabulary: &mut IndexVocabulary,
 	mut loader: FsLoader,
 	spec: TestSpec,
 ) -> Result<TokenStream, Error> {
 	use json_ld::{Loader, RdfQuads};
 
 	let json_ld = loader
-		.load_in(namespace, spec.suite)
+		.load_in(vocabulary, spec.suite)
 		.await
 		.map_err(Error::Load)?;
-		
+
 	let mut expanded_json_ld: json_ld::ExpandedDocument<IriIndex, BlankIdIndex, _> = json_ld
-		.expand_in(namespace, Some(&spec.suite), &mut loader)
+		.expand_in(vocabulary, Some(&spec.suite), &mut loader)
 		.await
 		.map_err(Error::Expand)?;
 
 	let mut generator =
 		json_ld::id::generator::Blank::new(Location::new(IriIndex::Index(0), Span::default()));
-	expanded_json_ld.identify_all_in(namespace, &mut generator);
+	expanded_json_ld.identify_all_in(vocabulary, &mut generator);
 
-	let rdf_quads = expanded_json_ld.rdf_quads_in(namespace, &mut generator, None);
+	let rdf_quads = expanded_json_ld.rdf_quads_in(vocabulary, &mut generator, None);
 	let dataset: grdf::HashDataset<_, _, _, _> = rdf_quads.map(quad_to_owned).collect();
 
 	let mut tests = HashMap::new();
@@ -528,7 +520,7 @@ async fn generate_test_suite(
 	for (test, type_id) in tests {
 		let ty = spec.types.get(type_id).unwrap();
 		let cons = ty.generate(
-			namespace,
+			vocabulary,
 			&spec,
 			&dataset,
 			ValidReference::Id(test),
@@ -537,7 +529,7 @@ async fn generate_test_suite(
 
 		let func_name = func_name(
 			&spec.prefix,
-			namespace.iri(&test).unwrap().fragment().unwrap().as_str(),
+			vocabulary.iri(&test).unwrap().fragment().unwrap().as_str(),
 		);
 		let func_id = quote::format_ident!("{}", func_name);
 

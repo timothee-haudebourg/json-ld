@@ -1,8 +1,9 @@
 use crate::{vocab, BlankIdIndex, Error, IriIndex, TestSpec, Vocab};
 use grdf::Dataset;
-use json_ld::{BlankIdNamespace, IndexNamespace, IriNamespace, ValidReference};
+use json_ld::ValidReference;
 use proc_macro2::TokenStream;
 use quote::quote;
+use rdf_types::{BlankIdVocabulary, IndexVocabulary, IriVocabulary};
 use std::collections::HashMap;
 
 mod parse;
@@ -57,7 +58,7 @@ impl Type {
 
 	pub(crate) fn generate(
 		&self,
-		namespace: &IndexNamespace,
+		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		value: &json_ld::rdf::Value<IriIndex, BlankIdIndex>,
@@ -82,10 +83,10 @@ impl Type {
 				let s = match value {
 					json_ld::rdf::Value::Literal(lit) => lit.string_literal().as_str(),
 					json_ld::rdf::Value::Reference(ValidReference::Id(i)) => {
-						namespace.iri(i).unwrap().into_str()
+						vocabulary.iri(i).unwrap().into_str()
 					}
 					json_ld::rdf::Value::Reference(ValidReference::Blank(i)) => {
-						namespace.blank_id(i).unwrap().as_str()
+						vocabulary.blank_id(i).unwrap().as_str()
 					}
 				};
 
@@ -93,7 +94,7 @@ impl Type {
 			}
 			Self::Iri => match value {
 				json_ld::rdf::Value::Reference(ValidReference::Id(i)) => {
-					let s = namespace.iri(i).unwrap().into_str();
+					let s = vocabulary.iri(i).unwrap().into_str();
 					Ok(quote! { ::static_iref::iri!(#s) })
 				}
 				_ => Err(Error::InvalidValue(self.clone(), value.clone())),
@@ -124,7 +125,7 @@ impl Type {
 				json_ld::rdf::Value::Reference(id) => {
 					let d = spec.types.get(r).unwrap();
 					let mod_id = &spec.id;
-					d.generate(namespace, spec, dataset, *id, quote! { #mod_id :: #r })
+					d.generate(vocabulary, spec, dataset, *id, quote! { #mod_id :: #r })
 				}
 				_ => Err(Error::InvalidValue(self.clone(), value.clone())),
 			},
@@ -135,7 +136,7 @@ impl Type {
 impl Struct {
 	pub(crate) fn generate(
 		&self,
-		namespace: &json_ld::IndexNamespace,
+		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		id: ValidReference<IriIndex, BlankIdIndex>,
@@ -155,7 +156,7 @@ impl Struct {
 				let ty_id = field.ty.as_reference().expect("not a reference");
 				let ty = spec.types.get(ty_id).expect("undefined type");
 				let mod_id = &spec.id;
-				ty.generate(namespace, spec, dataset, id, quote! { #mod_id :: #ty_id })?
+				ty.generate(vocabulary, spec, dataset, id, quote! { #mod_id :: #ty_id })?
 			} else {
 				let mut objects = dataset
 					.default_graph()
@@ -165,7 +166,7 @@ impl Struct {
 					let mut items = Vec::new();
 
 					for object in objects {
-						items.push(field.ty.generate(namespace, spec, dataset, object)?)
+						items.push(field.ty.generate(vocabulary, spec, dataset, object)?)
 					}
 
 					quote! {
@@ -173,7 +174,7 @@ impl Struct {
 					}
 				} else if field.required {
 					match objects.next() {
-						Some(object) => field.ty.generate(namespace, spec, dataset, object)?,
+						Some(object) => field.ty.generate(vocabulary, spec, dataset, object)?,
 						// None => return Err(Error::MissingRequiredValue(id, *field_iri))
 						None => {
 							quote! { ::core::default::Default::default() }
@@ -182,7 +183,7 @@ impl Struct {
 				} else {
 					match objects.next() {
 						Some(object) => {
-							let value = field.ty.generate(namespace, spec, dataset, object)?;
+							let value = field.ty.generate(vocabulary, spec, dataset, object)?;
 							quote! { Some(#value) }
 						}
 						None => quote! { None },
@@ -207,14 +208,14 @@ type OwnedDataset<'a> = grdf::HashDataset<
 impl Definition {
 	pub(crate) fn generate(
 		&self,
-		namespace: &json_ld::IndexNamespace,
+		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		id: ValidReference<IriIndex, BlankIdIndex>,
 		path: TokenStream,
 	) -> Result<TokenStream, Error> {
 		match self {
-			Self::Struct(s) => s.generate(namespace, spec, dataset, id, path),
+			Self::Struct(s) => s.generate(vocabulary, spec, dataset, id, path),
 			Self::Enum(e) => {
 				let mut variant = None;
 				let node_types = dataset.default_graph().objects(
@@ -239,7 +240,7 @@ impl Definition {
 					Some(variant) => {
 						let variant_id = &variant.id;
 						variant.data.generate(
-							namespace,
+							vocabulary,
 							spec,
 							dataset,
 							id,

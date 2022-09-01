@@ -1,15 +1,13 @@
 //! Nodes, lists and values.
-use crate::{
-	id, namespace::WithNamespace, BorrowWithNamespace, Indexed, LenientLanguageTag, Namespace,
-	NamespaceMut, Reference,
-};
+use crate::{id, Indexed, LenientLanguageTag, Reference};
+use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
 use json_ld_syntax::{Entry, Keyword};
 use json_syntax::Number;
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedHash, StrippedPartialEq};
 use locspan_derive::*;
-use rdf_types::BlankIdBuf;
+use rdf_types::{BlankIdBuf, Vocabulary, VocabularyMut};
 use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -130,16 +128,16 @@ impl<T, B, M> Object<T, B, M> {
 	/// Assigns an identifier to every node included in this object using the given `generator`.
 	pub fn identify_all_in<N, G: id::Generator<T, B, M, N>>(
 		&mut self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 	) where
 		M: Clone,
 	{
 		match self {
-			Object::Node(n) => n.identify_all_in(namespace, generator),
+			Object::Node(n) => n.identify_all_in(vocabulary, generator),
 			Object::List(l) => {
 				for object in l {
-					object.identify_all_in(namespace, generator)
+					object.identify_all_in(vocabulary, generator)
 				}
 			}
 			_ => (),
@@ -503,17 +501,13 @@ impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, M, N: Namespace<T, B>> WithNamespace<EntryKeyRef<'a, T, B, M>, &'a N> {
-	pub fn into_str(self) -> &'a str {
-		match self.0 {
+impl<'a, T, B, M, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B, M> {
+	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
+		match self {
 			EntryKeyRef::Value(e) => e.into_str(),
 			EntryKeyRef::List(_) => "@list",
-			EntryKeyRef::Node(e) => e.into_with_namespace(self.1).into_str(),
+			EntryKeyRef::Node(e) => e.into_with(vocabulary).into_str(),
 		}
-	}
-
-	pub fn as_str(&self) -> &'a str {
-		self.into_str()
 	}
 }
 
@@ -616,16 +610,14 @@ impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, M, N: Namespace<T, B>> WithNamespace<IndexedEntryKeyRef<'a, T, B, M>, &'a N> {
-	pub fn into_str(self) -> &'a str {
-		match self.0 {
+impl<'a, T, B, M, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N>
+	for IndexedEntryKeyRef<'a, T, B, M>
+{
+	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
+		match self {
 			IndexedEntryKeyRef::Index => "@value",
-			IndexedEntryKeyRef::Object(e) => e.into_with_namespace(self.1).into_str(),
+			IndexedEntryKeyRef::Object(e) => e.into_with(vocabulary).into_str(),
 		}
-	}
-
-	pub fn as_str(&self) -> &'a str {
-		self.into_str()
 	}
 }
 
@@ -696,31 +688,31 @@ impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
 
 pub trait TryFromJson<T, B, M>: Sized {
 	fn try_from_json_in(
-		namespace: &mut impl NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		value: Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>>;
 }
 
 pub trait TryFromJsonObject<T, B, M>: Sized {
 	fn try_from_json_object_in(
-		namespace: &mut impl NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		object: Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>>;
 }
 
 impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Stripped<V> {
 	fn try_from_json_in(
-		namespace: &mut impl NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		value: Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
-		let Meta(v, meta) = V::try_from_json_in(namespace, value)?;
+		let Meta(v, meta) = V::try_from_json_in(vocabulary, value)?;
 		Ok(Meta(Stripped(v), meta))
 	}
 }
 
 impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Vec<Meta<V, M>> {
 	fn try_from_json_in(
-		namespace: &mut impl NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -728,7 +720,7 @@ impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Vec<Meta<V, M>> 
 				let mut result = Vec::new();
 
 				for item in items {
-					result.push(V::try_from_json_in(namespace, item)?)
+					result.push(V::try_from_json_in(vocabulary, item)?)
 				}
 
 				Ok(Meta(result, meta))
@@ -742,7 +734,7 @@ impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T
 	for HashSet<Stripped<Meta<V, M>>>
 {
 	fn try_from_json_in(
-		namespace: &mut impl NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -750,7 +742,7 @@ impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T
 				let mut result = HashSet::new();
 
 				for item in items {
-					result.insert(Stripped(V::try_from_json_in(namespace, item)?));
+					result.insert(Stripped(V::try_from_json_in(vocabulary, item)?));
 				}
 
 				Ok(Meta(result, meta))
@@ -762,47 +754,57 @@ impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Object<T, B, M> {
 	fn try_from_json_in(
-		namespace: &mut impl NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
 			json_syntax::Value::Object(object) => {
-				Self::try_from_json_object_in(namespace, Meta(object, meta))
+				Self::try_from_json_object_in(vocabulary, Meta(object, meta))
 			}
 			_ => Err(Meta(InvalidExpandedJson::InvalidObject, meta)),
 		}
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M>
-	for Object<T, B, M>
-{
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Object<T, B, M> {
 	fn try_from_json_object_in(
-		namespace: &mut impl NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(mut object, meta): Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
-		match object.remove_unique("@context").map_err(InvalidExpandedJson::duplicate_key)? {
-			Some(entry) => Err(Meta(InvalidExpandedJson::NotExpanded, entry.key.into_metadata())),
+		match object
+			.remove_unique("@context")
+			.map_err(InvalidExpandedJson::duplicate_key)?
+		{
+			Some(entry) => Err(Meta(
+				InvalidExpandedJson::NotExpanded,
+				entry.key.into_metadata(),
+			)),
 			None => {
-				if let Some(value_entry) = object.remove_unique("@value").map_err(InvalidExpandedJson::duplicate_key)? {
+				if let Some(value_entry) = object
+					.remove_unique("@value")
+					.map_err(InvalidExpandedJson::duplicate_key)?
+				{
 					Ok(Meta(
 						Self::Value(Value::try_from_json_object_in(
-							namespace,
+							vocabulary,
 							object,
 							value_entry,
 						)?),
 						meta,
 					))
-				} else if let Some(list_entry) = object.remove_unique("@list").map_err(InvalidExpandedJson::duplicate_key)? {
+				} else if let Some(list_entry) = object
+					.remove_unique("@list")
+					.map_err(InvalidExpandedJson::duplicate_key)?
+				{
 					Ok(Meta(
 						Self::List(List::try_from_json_object_in(
-							namespace, object, list_entry,
+							vocabulary, object, list_entry,
 						)?),
 						meta,
 					))
 				} else {
 					let Meta(node, meta) =
-						Node::try_from_json_object_in(namespace, Meta(object, meta))?;
+						Node::try_from_json_object_in(vocabulary, Meta(object, meta))?;
 					Ok(Meta(Self::Node(node), meta))
 				}
 			}
@@ -827,8 +829,15 @@ pub enum InvalidExpandedJson<M> {
 }
 
 impl<M> InvalidExpandedJson<M> {
-	pub fn duplicate_key(json_syntax::object::Duplicate(a, b): json_syntax::object::Duplicate<json_syntax::object::Entry<M>>) -> Meta<Self, M> {
-		Meta(InvalidExpandedJson::DuplicateKey(a.key), b.key.into_metadata())
+	pub fn duplicate_key(
+		json_syntax::object::Duplicate(a, b): json_syntax::object::Duplicate<
+			json_syntax::object::Entry<M>,
+		>,
+	) -> Meta<Self, M> {
+		Meta(
+			InvalidExpandedJson::DuplicateKey(a.key),
+			b.key.into_metadata(),
+		)
 	}
 }
 

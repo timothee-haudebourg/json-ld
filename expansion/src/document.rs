@@ -1,9 +1,10 @@
 use super::expand_element;
 use crate::{ActiveProperty, Error, Loader, Options, WarningHandler};
 use json_ld_context_processing::{ContextLoader, Process};
-use json_ld_core::{NamespaceMut, Context, ExpandedDocument, Object, IndexedObject};
+use json_ld_core::{Context, ExpandedDocument, IndexedObject, Object};
 use json_syntax::Value;
 use locspan::Meta;
+use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
 /// Expand the given JSON-LD document.
@@ -12,7 +13,7 @@ use std::hash::Hash;
 /// but instead use the [`Document::expand`](crate::Document::expand) method on
 /// a `Value` instance.
 pub(crate) async fn expand<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
-	namespace: &'a mut N,
+	vocabulary: &'a mut N,
 	document: &'a Meta<Value<M>, M>,
 	active_context: Context<T, B, C>,
 	base_url: Option<&'a T>,
@@ -21,7 +22,7 @@ pub(crate) async fn expand<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T,
 	warnings: W,
 ) -> Result<ExpandedDocument<T, B, M>, Meta<Error<M, L::ContextError>, M>>
 where
-	N: Send + Sync + NamespaceMut<T, B>,
+	N: Send + Sync + VocabularyMut<T, B>,
 	T: Clone + Eq + Hash + Send + Sync,
 	B: Clone + Eq + Hash + Send + Sync,
 	M: Clone + Send + Sync,
@@ -33,7 +34,7 @@ where
 	W: 'a + Send + WarningHandler<B, N, M>,
 {
 	let (expanded, _) = expand_element(
-		namespace,
+		vocabulary,
 		&active_context,
 		ActiveProperty::None,
 		document,
@@ -62,9 +63,7 @@ where
 	}
 }
 
-pub(crate) fn filter_top_level_item<T, B, M>(
-	Meta(item, _): &IndexedObject<T, B, M>,
-) -> bool {
+pub(crate) fn filter_top_level_item<T, B, M>(Meta(item, _): &IndexedObject<T, B, M>) -> bool {
 	// Remove dangling values.
 	!matches!(item.inner(), Object::Value(_))
 }

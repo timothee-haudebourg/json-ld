@@ -2,22 +2,20 @@ use crate::{
 	expand_element, expand_iri, expand_literal, filter_top_level_item, ActiveProperty, Error,
 	Expanded, ExpandedEntry, LiteralValue, Loader, Options, Policy, Warning, WarningHandler,
 };
+use contextual::WithContext;
 use futures::future::{BoxFuture, FutureExt};
-use json_ld_context_processing::{
-	ContextLoader, NamespaceMut, Options as ProcessingOptions, Process,
-};
+use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
 use json_ld_core::{
 	object,
 	object::value::{Literal, LiteralString},
-	BorrowWithNamespace, Container, Context, Indexed, IndexedObject, LangString, Node, Object,
-	ProcessingMode, Reference, Term, Type, Value,
+	Container, Context, Indexed, IndexedObject, LangString, Node, Object, ProcessingMode,
+	Reference, Term, Type, Value,
 };
-use json_ld_syntax::{
-	ContainerKind, Keyword, LenientLanguageTagBuf, Nullable,
-};
+use json_ld_syntax::{ContainerKind, Keyword, LenientLanguageTagBuf, Nullable};
 use json_syntax::object::Entry;
 use locspan::{At, Meta, Stripped};
 use mown::Mown;
+use rdf_types::VocabularyMut;
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -36,7 +34,7 @@ pub(crate) fn node_id_of_term<T, B, M>(
 /// Expand a node object.
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn expand_node<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
-	namespace: &'a mut N,
+	vocabulary: &'a mut N,
 	active_context: &'a Context<T, B, C>,
 	type_scoped_context: &'a Context<T, B, C>,
 	active_property: ActiveProperty<'a, M>,
@@ -47,7 +45,7 @@ pub(crate) async fn expand_node<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoad
 	warnings: W,
 ) -> Result<(Option<Indexed<Node<T, B, M>, M>>, W), Meta<Error<M, L::ContextError>, M>>
 where
-	N: Send + Sync + NamespaceMut<T, B>,
+	N: Send + Sync + VocabularyMut<T, B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
@@ -63,7 +61,7 @@ where
 	// let mut has_value_object_entries = false;
 
 	let (result, has_value_object_entries, warnings) = expand_node_entries(
-		namespace,
+		vocabulary,
 		Indexed::new(Node::new(), None),
 		false,
 		active_context,
@@ -122,7 +120,7 @@ type NodeEntriesExpensionResult<T, B, M, L, W> =
 
 #[allow(clippy::too_many_arguments)]
 fn expand_node_entries<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
-	namespace: &'a mut N,
+	vocabulary: &'a mut N,
 	mut result: Indexed<Node<T, B, M>, M>,
 	mut has_value_object_entries: bool,
 	active_context: &'a Context<T, B, C>,
@@ -135,7 +133,7 @@ fn expand_node_entries<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>,
 	mut warnings: W,
 ) -> BoxFuture<'a, NodeEntriesExpensionResult<T, B, M, L, W>>
 where
-	N: Send + Sync + NamespaceMut<T, B>,
+	N: Send + Sync + VocabularyMut<T, B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
@@ -192,7 +190,7 @@ where
 								// false for vocab.
 								result.set_id(
 									node_id_of_term(expand_iri(
-										namespace,
+										vocabulary,
 										active_context,
 										Meta(
 											Nullable::Some(str_value.into()),
@@ -221,7 +219,7 @@ where
 							for ty in value {
 								if let Some(str_ty) = ty.as_str() {
 									if let Ok(ty) = expand_iri(
-										namespace,
+										vocabulary,
 										type_scoped_context,
 										Meta(Nullable::Some(str_ty.into()), ty.metadata().clone()),
 										true,
@@ -254,7 +252,7 @@ where
 							// `frame_expansion` and `ordered` flags, ensuring that
 							// `expanded_value` is an array of one or more maps.
 							let (expanded_value, w) = expand_element(
-								namespace,
+								vocabulary,
 								active_context,
 								ActiveProperty::Some(Meta("@graph", key_metadata)),
 								value,
@@ -292,7 +290,7 @@ where
 							// `value` for element, `base_url`, and the `frame_expansion`
 							// and `ordered` flags, ensuring that the result is an array.
 							let (expanded_value, w) = expand_element(
-								namespace,
+								vocabulary,
 								active_context,
 								ActiveProperty::Some(Meta("@included", key_metadata)),
 								value,
@@ -337,7 +335,7 @@ where
 							if let Some(index) = value.as_str() {
 								result.set_index(Some(json_ld_syntax::Entry::new(
 									key_metadata.clone(),
-									Meta(index.to_string(), value.metadata().clone())
+									Meta(index.to_string(), value.metadata().clone()),
 								)))
 							} else {
 								// If value is not a string, an invalid @index value
@@ -350,8 +348,7 @@ where
 							// If value is not a map, an invalid @reverse value error
 							// has been detected and processing is aborted.
 							if let Some(value) = value.as_object() {
-								let mut reverse_entries: Vec<&Entry<M>> =
-									value.iter().collect();
+								let mut reverse_entries: Vec<&Entry<M>> = value.iter().collect();
 
 								if options.ordered {
 									reverse_entries.sort_by_key(|entry| entry.key.value())
@@ -363,7 +360,7 @@ where
 								} in reverse_entries
 								{
 									match expand_iri(
-										namespace,
+										vocabulary,
 										active_context,
 										Meta(
 											Nullable::Some(reverse_key.as_str().into()),
@@ -383,13 +380,13 @@ where
 										}
 										Meta(Term::Ref(reverse_prop), _)
 											if reverse_prop
-												.with_namespace(namespace)
+												.with(&*vocabulary)
 												.as_str()
 												.contains(':') || options.policy
 												== Policy::Relaxed =>
 										{
 											let (reverse_expanded_value, w) = expand_element(
-												namespace,
+												vocabulary,
 												active_context,
 												ActiveProperty::Some(Meta(
 													reverse_key.as_ref(),
@@ -422,9 +419,7 @@ where
 											} else {
 												let mut reverse_expanded_nodes = Vec::new();
 												for Meta(object, meta) in reverse_expanded_value {
-													match object
-														.try_cast::<Node<T, B, M>>()
-													{
+													match object.try_cast::<Node<T, B, M>>() {
 														Ok(node) => reverse_expanded_nodes
 															.push(Meta(node, meta)),
 														Err(_) => {
@@ -490,7 +485,7 @@ where
 										Mown::Owned(
 											property_scoped_context
 												.process_with(
-													namespace,
+													vocabulary,
 													active_context,
 													loader,
 													property_scoped_base_url,
@@ -505,8 +500,7 @@ where
 
 								// Steps 13 and 14 again.
 								if let Some(nested_value) = nested_value.as_object() {
-									let mut nested_entries: Vec<&Entry<M>> =
-										Vec::new();
+									let mut nested_entries: Vec<&Entry<M>> = Vec::new();
 
 									for entry in nested_value.iter() {
 										nested_entries.push(entry)
@@ -524,7 +518,7 @@ where
 											     value,
 											 }| {
 												let Meta(expanded_key, _) = expand_iri(
-													namespace,
+													vocabulary,
 													active_context.as_ref(),
 													Meta(
 														Nullable::Some(key.as_str().into()),
@@ -545,7 +539,7 @@ where
 
 									let (new_result, new_has_value_object_entries, w) =
 										expand_node_entries(
-											namespace,
+											vocabulary,
 											result,
 											has_value_object_entries,
 											active_context.as_ref(),
@@ -581,7 +575,7 @@ where
 				}
 
 				Term::Ref(prop)
-					if prop.with_namespace(namespace).as_str().contains(':')
+					if prop.with(&*vocabulary).as_str().contains(':')
 						|| options.policy == Policy::Relaxed =>
 				{
 					let mut container_mapping = Mown::Owned(Container::new());
@@ -606,8 +600,7 @@ where
 
 					let mut expanded_value = if is_json {
 						Expanded::Object(Meta(
-							Object::Value(Value::Json(value.clone()))
-							.into(),
+							Object::Value(Value::Json(value.clone())).into(),
 							value.metadata().clone(),
 						))
 					} else {
@@ -661,7 +654,7 @@ where
 												// If language is @none, or expands to
 												// @none, remove @language from v.
 												let language = if expand_iri(
-													namespace,
+													vocabulary,
 													active_context,
 													Meta(
 														Nullable::Some(language.as_str().into()),
@@ -683,7 +676,7 @@ where
 
 													if let Some(error) = error {
 														warnings.handle(
-															namespace,
+															vocabulary,
 															Meta::new(
 																Warning::MalformedLanguageTag(
 																	language.to_string().clone(),
@@ -752,8 +745,7 @@ where
 								// is a map then value is expanded from a map as follows:
 
 								// Initialize expanded value to an empty array.
-								let mut expanded_value: Vec<IndexedObject<T, B, M>> =
-									Vec::new();
+								let mut expanded_value: Vec<IndexedObject<T, B, M>> = Vec::new();
 
 								// Initialize `index_key` to the key's index mapping in
 								// `active_context`, or @index, if it does not exist.
@@ -769,8 +761,7 @@ where
 
 								// For each key-value pair index-index value in value,
 								// ordered lexicographically by index if ordered is true:
-								let mut entries: Vec<&Entry<M>> =
-									Vec::with_capacity(value.len());
+								let mut entries: Vec<&Entry<M>> = Vec::with_capacity(value.len());
 								for entry in value.iter() {
 									entries.push(entry)
 								}
@@ -815,7 +806,7 @@ where
 												map_context = Mown::Owned(
 													local_context
 														.process_with(
-															namespace,
+															vocabulary,
 															map_context.as_ref(),
 															loader,
 															base_url,
@@ -834,7 +825,7 @@ where
 									// Initialize `expanded_index` to the result of IRI
 									// expanding index.
 									let expanded_index = match expand_iri(
-										namespace,
+										vocabulary,
 										active_context,
 										Meta(
 											Nullable::Some(index.as_str().into()),
@@ -859,7 +850,7 @@ where
 									// frameExpansion and ordered flags.
 									// And `true` for `from_map`.
 									let (expanded_index_value, w) = expand_element(
-										namespace,
+										vocabulary,
 										map_context.as_ref(),
 										ActiveProperty::Some(Meta(key, key_metadata)),
 										index_value,
@@ -906,7 +897,7 @@ where
 												// passing the active context, index key as
 												// active property, and index as value.
 												let re_expanded_index = expand_literal(
-													namespace,
+													vocabulary,
 													active_context,
 													ActiveProperty::Some(Meta(
 														index_key,
@@ -923,7 +914,7 @@ where
 												// Initialize expanded index key to the result
 												// of IRI expanding index key.
 												let expanded_index_key = match expand_iri(
-													namespace,
+													vocabulary,
 													active_context,
 													Meta(
 														Nullable::Some(index_key.into()),
@@ -969,7 +960,10 @@ where
 												// key-value pair (@index-index) to item.
 												item.set_index(Some(json_ld_syntax::Entry::new(
 													index_metadata.clone(),
-													Meta((*index).to_string(), index_metadata.clone())
+													Meta(
+														(*index).to_string(),
+														index_metadata.clone(),
+													),
 												)))
 											} else if container_mapping.contains(ContainerKind::Id)
 												&& item.id().is_none()
@@ -984,7 +978,7 @@ where
 												if let Object::Node(ref mut node) = **item {
 													node.set_id(
 														node_id_of_term(expand_iri(
-															namespace,
+															vocabulary,
 															active_context,
 															Meta(
 																Nullable::Some(
@@ -1044,7 +1038,7 @@ where
 								// algorithm recursively, passing active context, key for active property,
 								// value for element, base URL, and the frameExpansion and ordered flags.
 								let (e, w) = expand_element(
-									namespace,
+									vocabulary,
 									active_context,
 									ActiveProperty::Some(Meta(key, key_metadata)),
 									value,

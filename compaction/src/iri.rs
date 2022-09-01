@@ -9,7 +9,7 @@ pub struct IriConfusedWithPrefix;
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
 pub(crate) fn compact_iri<'a, I, B, M, C>(
-	namespace: &impl Namespace<I, B>,
+	vocabulary: &impl Namespace<I, B>,
 	active_context: &Context<I, B, C>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
@@ -21,11 +21,11 @@ where
 	B: Clone + Hash + Eq,
 	M: Clone
 {
-	compact_iri_full::<I, B, M, C, Object<I, B, M>>(namespace, active_context, var, None, vocab, reverse, options)
+	compact_iri_full::<I, B, M, C, Object<I, B, M>>(vocabulary, active_context, var, None, vocab, reverse, options)
 }
 
 pub(crate) fn compact_key<'a, I, B, M, C>(
-	namespace: &impl Namespace<I, B>,
+	vocabulary: &impl Namespace<I, B>,
 	active_context: &Context<I, B, C>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
@@ -37,14 +37,14 @@ where
 	B: Clone + Hash + Eq,
 	M: Clone
 {
-	Ok(compact_key(namespace, active_context, var, vocab, reverse, options)?.map(Meta::cast))
+	Ok(compact_key(vocabulary, active_context, var, vocab, reverse, options)?.map(Meta::cast))
 }
 
 /// Compact the given term considering the given value object.
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
 pub(crate) fn compact_iri_with<'a, I, B, M, C, O: object::Any<I, B, M>>(
-	namespace: &impl Namespace<I, B>,
+	vocabulary: &impl Namespace<I, B>,
 	active_context: &Context<I, B, C>,
 	var: Meta<&Term<I, B>, &M>,
 	value: &Indexed<O, M>,
@@ -57,14 +57,14 @@ where
 	B: Clone + Hash + Eq,
 	M: Clone
 {
-	compact_iri_full(namespace, active_context, var, Some(value), vocab, reverse, options)
+	compact_iri_full(vocabulary, active_context, var, Some(value), vocab, reverse, options)
 }
 
 /// Compact the given term.
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
 pub(crate) fn compact_iri_full<'a, I, B, M, C, O: object::Any<I, B, M>>(
-	namespace: &impl Namespace<I, B>,
+	vocabulary: &impl Namespace<I, B>,
 	active_context: &Context<I, B, C>,
 	Meta(var, meta): Meta<&Term<I, B>, &M>,
 	value: Option<&Indexed<O, M>>,
@@ -305,7 +305,7 @@ where
 									has_id_type = true;
 									let mut vocab = false;
 									let Meta(compacted_iri, _) = compact_iri::<_, _, M, _>(
-										namespace,
+										vocabulary,
 										active_context,
 										Meta(&id.clone().into_term(), meta),
 										true,
@@ -376,7 +376,7 @@ where
 			// If var begins with the vocabulary mapping's value but is longer, then initialize
 			// suffix to the substring of var that does not match. If suffix does not have a term
 			// definition in active context, then return suffix.
-			if let Some(suffix) = var.with_namespace(namespace).as_str().strip_prefix(vocab_mapping.with_namespace(namespace).as_str()) {
+			if let Some(suffix) = var.with(vocabulary).as_str().strip_prefix(vocab_mapping.with(vocabulary).as_str()) {
 				if !suffix.is_empty() && active_context.get(suffix).is_none() {
 					return Ok(Some(Meta(suffix.into(), meta.clone())));
 				}
@@ -398,7 +398,7 @@ where
 		// Continue with the next definition.
 		match definition.value.as_ref() {
 			Some(iri_mapping) if definition.prefix => {
-				if let Some(suffix) = var.with_namespace(namespace).as_str().strip_prefix(iri_mapping.with_namespace(namespace).as_str()) {
+				if let Some(suffix) = var.with(vocabulary).as_str().strip_prefix(iri_mapping.with(vocabulary).as_str()) {
 					if !suffix.is_empty() {
 						// Initialize candidate by concatenating definition key,
 						// a colon (:),
@@ -441,7 +441,7 @@ where
 	// and var has no IRI authority (preceded by double-forward-slash (//),
 	// an IRI confused with prefix error has been detected, and processing is aborted.
 	if let Some(iri) = var.as_iri() {
-		let iri = namespace.iri(iri).unwrap();
+		let iri = vocabulary.iri(iri).unwrap();
 		if active_context.contains_key(iri.scheme().as_str()) {
 			return Err(Meta(IriConfusedWithPrefix, meta.clone()));
 		}
@@ -452,14 +452,14 @@ where
 	// if it exists.
 	if !vocab {
 		if let Some(base_iri) = active_context.base_iri() {
-			let base_iri = namespace.iri(base_iri).unwrap();
+			let base_iri = vocabulary.iri(base_iri).unwrap();
 			if let Some(iri) = var.as_iri() {
-				let iri = namespace.iri(iri).unwrap();
+				let iri = vocabulary.iri(iri).unwrap();
 				return Ok(Some(Meta(iri.relative_to(base_iri).as_str().into(), meta.clone())));
 			}
 		}
 	}
 
 	// Finally, return var as is.
-	Ok(Some(Meta(var.with_namespace(namespace).to_string(), meta.clone())))
+	Ok(Some(Meta(var.with(vocabulary).to_string(), meta.clone())))
 }

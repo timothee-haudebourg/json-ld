@@ -1,7 +1,6 @@
 use super::{RdfDirection, ValidReference, Value};
-use crate::namespace::no_namespace_mut;
-use crate::IriNamespaceMut;
 use crate::{flattening::NodeMap, id, ExpandedDocument, FlattenedDocument, LdQuads};
+use rdf_types::vocabulary::{no_vocabulary_mut, IriVocabularyMut};
 use rdf_types::Triple;
 use std::borrow::Cow;
 use std::convert::TryInto;
@@ -24,14 +23,14 @@ struct Compound<'a, T, B, M> {
 
 /// Iterator over the RDF Quads of a JSON-LD document.
 pub struct Quads<'a, 'n, 'g, T, B, N, M, G: id::Generator<T, B, M, N>> {
-	namespace: &'n mut N,
+	vocabulary: &'n mut N,
 	generator: &'g mut G,
 	rdf_direction: Option<RdfDirection>,
 	compound_value: Option<Compound<'a, T, B, M>>,
 	quads: crate::quad::Quads<'a, T, B, M>,
 }
 
-impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriNamespaceMut<T>, M, G: id::Generator<T, B, M, N>>
+impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriVocabularyMut<T>, M, G: id::Generator<T, B, M, N>>
 	Iterator for Quads<'a, 'n, 'g, T, B, N, M, G>
 {
 	type Item = QuadRef<'a, T, B>;
@@ -40,7 +39,7 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriNamespaceMut<T>, M, G: id::Generator<
 		loop {
 			if let Some(compound_value) = &mut self.compound_value {
 				match compound_value.triples.next(
-					self.namespace,
+					self.vocabulary,
 					self.generator,
 					self.rdf_direction,
 				) {
@@ -72,7 +71,7 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriNamespaceMut<T>, M, G: id::Generator<
 
 					let rdf_property = match property {
 						crate::quad::PropertyRef::Type => {
-							Cow::Owned(ValidReference::Id(self.namespace.insert(super::RDF_TYPE)))
+							Cow::Owned(ValidReference::Id(self.vocabulary.insert(super::RDF_TYPE)))
 						}
 						crate::quad::PropertyRef::Ref(r) => match r.try_into() {
 							Ok(r) => Cow::Borrowed(r),
@@ -81,7 +80,7 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriNamespaceMut<T>, M, G: id::Generator<
 					};
 
 					if let Some(compound_value) =
-						object.rdf_value_in(self.namespace, self.generator, self.rdf_direction)
+						object.rdf_value_in(self.vocabulary, self.generator, self.rdf_direction)
 					{
 						if let Some(rdf_value_triples) = compound_value.triples {
 							self.compound_value = Some(Compound {
@@ -107,7 +106,7 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriNamespaceMut<T>, M, G: id::Generator<
 pub trait RdfQuads<T, B, M> {
 	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
-		namespace: &'n mut N,
+		vocabulary: &'n mut N,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'n, 'g, T, B, N, M, G>;
@@ -122,12 +121,12 @@ pub trait RdfQuads<T, B, M> {
 impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
 	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
-		namespace: &'n mut N,
+		vocabulary: &'n mut N,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'n, 'g, T, B, N, M, G> {
 		Quads {
-			namespace,
+			vocabulary,
 			generator,
 			rdf_direction,
 			compound_value: None,
@@ -141,7 +140,7 @@ impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
 		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'static, 'g, T, B, (), M, G> {
 		Quads {
-			namespace: no_namespace_mut(),
+			vocabulary: no_vocabulary_mut(),
 			generator,
 			rdf_direction,
 			compound_value: None,
@@ -153,12 +152,12 @@ impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
 impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
 	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
-		namespace: &'n mut N,
+		vocabulary: &'n mut N,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'n, 'g, T, B, N, M, G> {
 		Quads {
-			namespace,
+			vocabulary,
 			generator,
 			rdf_direction,
 			compound_value: None,
@@ -172,7 +171,7 @@ impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
 		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'static, 'g, T, B, (), M, G> {
 		Quads {
-			namespace: no_namespace_mut(),
+			vocabulary: no_vocabulary_mut(),
 			generator,
 			rdf_direction,
 			compound_value: None,
@@ -184,12 +183,12 @@ impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
 impl<T: Eq + Hash, B: Eq + Hash, M> RdfQuads<T, B, M> for NodeMap<T, B, M> {
 	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
-		namespace: &'n mut N,
+		vocabulary: &'n mut N,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'n, 'g, T, B, N, M, G> {
 		Quads {
-			namespace,
+			vocabulary,
 			generator,
 			rdf_direction,
 			compound_value: None,
@@ -203,7 +202,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> RdfQuads<T, B, M> for NodeMap<T, B, M> {
 		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'static, 'g, T, B, (), M, G> {
 		Quads {
-			namespace: no_namespace_mut(),
+			vocabulary: no_vocabulary_mut(),
 			generator,
 			rdf_direction,
 			compound_value: None,

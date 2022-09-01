@@ -23,7 +23,8 @@ proc-macro-error = "1.0"
 iref = "2.2"
 static-iref = "2.0"
 iref-enum = "2.1.0"
-rdf-types = "0.8.6"
-grdf = { version = "0.10", features = ["meta"] }
+rdf-types = "0.9"
+grdf = { version = "0.11", features = ["meta"] }
 locspan = "0.7.3"
+contextual = "0.1.3"
 async-std = "1.12.0"

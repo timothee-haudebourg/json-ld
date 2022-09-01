@@ -1,12 +1,13 @@
 use crate::{
-	id, object::value, Direction, DisplayWithNamespace, Indexed, IndexedObject, IriNamespace,
-	IriNamespaceMut, Namespace, Node, Object, Reference, ValidReference,
+	id, object::value, Direction, Indexed, IndexedObject, Node, Object, Reference, ValidReference,
 };
+use contextual::DisplayWithContext;
 use iref::{AsIri, Iri, IriBuf};
 use json_ld_syntax::Entry;
 use json_syntax::Print;
 use langtag::LanguageTagBuf;
 use locspan::Meta;
+use rdf_types::{IriVocabularyMut, Vocabulary};
 use smallvec::SmallVec;
 use static_iref::iri;
 use std::fmt;
@@ -89,11 +90,11 @@ pub struct CompoundLiteralTriples<T, B> {
 }
 
 impl<T: Clone, B: Clone> CompoundLiteralTriples<T, B> {
-	fn next(&mut self, namespace: &mut impl IriNamespaceMut<T>) -> Option<Triple<T, B>> {
+	fn next(&mut self, vocabulary: &mut impl IriVocabularyMut<T>) -> Option<Triple<T, B>> {
 		if let Some(value) = self.value.take() {
 			return Some(rdf_types::Triple(
 				self.id.clone(),
-				ValidReference::Id(namespace.insert(RDF_VALUE)),
+				ValidReference::Id(vocabulary.insert(RDF_VALUE)),
 				value,
 			));
 		}
@@ -101,7 +102,7 @@ impl<T: Clone, B: Clone> CompoundLiteralTriples<T, B> {
 		if let Some(direction) = self.direction.take() {
 			return Some(rdf_types::Triple(
 				self.id.clone(),
-				ValidReference::Id(namespace.insert(RDF_DIRECTION)),
+				ValidReference::Id(vocabulary.insert(RDF_DIRECTION)),
 				direction,
 			));
 		}
@@ -116,9 +117,9 @@ pub struct CompoundLiteral<T, B> {
 }
 
 impl<T: Clone, M> crate::object::Value<T, M> {
-	fn rdf_value_in<B, N: IriNamespaceMut<T>, G: id::Generator<T, B, M, N>>(
+	fn rdf_value_in<B, N: IriVocabularyMut<T>, G: id::Generator<T, B, M, N>>(
 		&self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundLiteral<T, B>> {
@@ -126,7 +127,7 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 			Self::Json(json) => Some(CompoundLiteral {
 				value: Value::Literal(Literal::TypedString(
 					json.compact_print().to_string().into(),
-					namespace.insert(RDF_JSON),
+					vocabulary.insert(RDF_JSON),
 				)),
 				triples: None,
 			}),
@@ -146,12 +147,12 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 						Some(RdfDirection::I18nDatatype) => Some(CompoundLiteral {
 							value: Value::Literal(Literal::TypedString(
 								string.to_string().into(),
-								namespace.insert(i18n(language, *direction).as_iri()),
+								vocabulary.insert(i18n(language, *direction).as_iri()),
 							)),
 							triples: None,
 						}),
 						Some(RdfDirection::CompoundLiteral) => {
-							let Meta(id, _) = generator.next(namespace);
+							let Meta(id, _) = generator.next(vocabulary);
 							Some(CompoundLiteral {
 								value: Value::Reference(id),
 								triples: None,
@@ -182,7 +183,7 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 						None => Some(CompoundLiteral {
 							value: Value::Literal(Literal::TypedString(
 								string.to_string().into(),
-								namespace.insert(XSD_STRING),
+								vocabulary.insert(XSD_STRING),
 							)),
 							triples: None,
 						}),
@@ -198,14 +199,14 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 							"false".to_string().into()
 						};
 
-						(lit, Some(namespace.insert(XSD_BOOLEAN)))
+						(lit, Some(vocabulary.insert(XSD_BOOLEAN)))
 					}
 					value::Literal::Null => ("null".to_string().into(), None),
 					value::Literal::Number(n) => {
 						let rdf_ty = if n.is_i64() {
-							namespace.insert(XSD_INTEGER)
+							vocabulary.insert(XSD_INTEGER)
 						} else {
-							namespace.insert(XSD_DOUBLE)
+							vocabulary.insert(XSD_DOUBLE)
 						};
 
 						(n.as_str().to_string().into(), Some(rdf_ty))
@@ -240,21 +241,19 @@ impl<T: Clone, B: Clone, M> Node<T, B, M> {
 }
 
 impl<T: Clone, B: Clone, M> Object<T, B, M> {
-	fn rdf_value_in<N: IriNamespaceMut<T>, G: id::Generator<T, B, M, N>>(
+	fn rdf_value_in<N: IriVocabularyMut<T>, G: id::Generator<T, B, M, N>>(
 		&self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundValue<T, B, M>> {
 		match self {
-			Self::Value(value) => {
-				value
-					.rdf_value_in(namespace, generator, rdf_direction)
-					.map(|compound_value| CompoundValue {
-						value: compound_value.value,
-						triples: compound_value.triples.map(CompoundValueTriples::Literal),
-					})
-			}
+			Self::Value(value) => value
+				.rdf_value_in(vocabulary, generator, rdf_direction)
+				.map(|compound_value| CompoundValue {
+					value: compound_value.value,
+					triples: compound_value.triples.map(CompoundValueTriples::Literal),
+				}),
 			Self::Node(node) => node.rdf_value().map(|value| CompoundValue {
 				value,
 				triples: None,
@@ -262,11 +261,11 @@ impl<T: Clone, B: Clone, M> Object<T, B, M> {
 			Self::List(list) => {
 				if list.is_empty() {
 					Some(CompoundValue {
-						value: Value::Reference(ValidReference::Id(namespace.insert(RDF_NIL))),
+						value: Value::Reference(ValidReference::Id(vocabulary.insert(RDF_NIL))),
 						triples: None,
 					})
 				} else {
-					let Meta(id, _) = generator.next(namespace);
+					let Meta(id, _) = generator.next(vocabulary);
 					Some(CompoundValue {
 						value: Value::Reference(Clone::clone(&id)),
 						triples: Some(CompoundValueTriples::List(ListTriples::new(
@@ -286,14 +285,14 @@ pub struct CompoundValue<'a, T, B, M> {
 }
 
 impl<'a, T: Clone, B: Clone, M> crate::quad::ObjectRef<'a, T, B, M> {
-	pub fn rdf_value_in<N: IriNamespaceMut<T>, G: id::Generator<T, B, M, N>>(
+	pub fn rdf_value_in<N: IriVocabularyMut<T>, G: id::Generator<T, B, M, N>>(
 		&self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundValue<'a, T, B, M>> {
 		match self {
-			Self::Object(object) => object.rdf_value_in(namespace, generator, rdf_direction),
+			Self::Object(object) => object.rdf_value_in(vocabulary, generator, rdf_direction),
 			Self::Node(node) => node.rdf_value().map(|value| CompoundValue {
 				value,
 				triples: None,
@@ -340,13 +339,13 @@ impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
 	/// Uses the given generator to assign as id to the list element.
 	fn next<N, G: id::Generator<T, B, M, N>>(
 		&mut self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 	) -> Option<ListNode<'a, '_, T, B, M>> {
 		if let Some(next) = self.iter.next() {
 			let id = match self.head_ref.take() {
 				Some(id) => id,
-				None => generator.next(namespace).into_value(),
+				None => generator.next(vocabulary).into_value(),
 			};
 
 			self.previous = Some(id);
@@ -368,21 +367,21 @@ pub enum CompoundValueTriples<'a, T, B, M> {
 impl<'a, T, B, M> CompoundValueTriples<'a, T, B, M> {
 	pub fn with<'n, N, G: id::Generator<T, B, M, N>>(
 		self,
-		namespace: &'n mut N,
+		vocabulary: &'n mut N,
 		generator: G,
 		rdf_direction: Option<RdfDirection>,
 	) -> CompoundValueTriplesWith<'a, 'n, T, B, N, M, G> {
 		CompoundValueTriplesWith {
-			namespace,
+			vocabulary,
 			generator,
 			rdf_direction,
 			inner: self,
 		}
 	}
 
-	pub fn next<N: IriNamespaceMut<T>, G: id::Generator<T, B, M, N>>(
+	pub fn next<N: IriVocabularyMut<T>, G: id::Generator<T, B, M, N>>(
 		&mut self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<Triple<T, B>>
@@ -391,14 +390,14 @@ impl<'a, T, B, M> CompoundValueTriples<'a, T, B, M> {
 		B: Clone,
 	{
 		match self {
-			Self::Literal(l) => l.next(namespace),
-			Self::List(l) => l.next(namespace, generator, rdf_direction),
+			Self::Literal(l) => l.next(vocabulary),
+			Self::List(l) => l.next(vocabulary, generator, rdf_direction),
 		}
 	}
 }
 
 pub struct CompoundValueTriplesWith<'a, 'n, T, B, N, M, G: id::Generator<T, B, M, N>> {
-	namespace: &'n mut N,
+	vocabulary: &'n mut N,
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
 	inner: CompoundValueTriples<'a, T, B, M>,
@@ -410,7 +409,7 @@ impl<
 		T: AsIri + Clone,
 		B: Clone,
 		M,
-		N: IriNamespaceMut<T>,
+		N: IriVocabularyMut<T>,
 		G: id::Generator<T, B, M, N>,
 	> Iterator for CompoundValueTriplesWith<'a, 'n, T, B, N, M, G>
 {
@@ -418,7 +417,7 @@ impl<
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.inner
-			.next(self.namespace, &mut self.generator, self.rdf_direction)
+			.next(self.vocabulary, &mut self.generator, self.rdf_direction)
 	}
 }
 
@@ -445,21 +444,21 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 
 	pub fn with<'n, N, G: id::Generator<T, B, M, N>>(
 		self,
-		namespace: &'n mut N,
+		vocabulary: &'n mut N,
 		generator: G,
 		rdf_direction: Option<RdfDirection>,
 	) -> ListTriplesWith<'a, 'n, T, B, N, M, G> {
 		ListTriplesWith {
-			namespace,
+			vocabulary,
 			generator,
 			rdf_direction,
 			inner: self,
 		}
 	}
 
-	pub fn next<N: IriNamespaceMut<T>, G: id::Generator<T, B, M, N>>(
+	pub fn next<N: IriVocabularyMut<T>, G: id::Generator<T, B, M, N>>(
 		&mut self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<Triple<T, B>>
@@ -473,7 +472,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 			}
 
 			match self.stack.last_mut() {
-				Some(ListItemTriples::CompoundLiteral(lit)) => match lit.next(namespace) {
+				Some(ListItemTriples::CompoundLiteral(lit)) => match lit.next(vocabulary) {
 					Some(triple) => break Some(triple),
 					None => {
 						self.stack.pop();
@@ -481,11 +480,11 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 				},
 				Some(ListItemTriples::NestedList(list)) => {
 					let previous = list.previous().cloned();
-					match list.next(namespace, generator) {
+					match list.next(vocabulary, generator) {
 						Some(node) => {
 							if let Some(compound_value) =
 								node.object
-									.rdf_value_in(namespace, generator, rdf_direction)
+									.rdf_value_in(vocabulary, generator, rdf_direction)
 							{
 								let id = node.id.clone();
 
@@ -502,14 +501,14 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 
 								self.pending = Some(rdf_types::Triple(
 									id.clone(),
-									ValidReference::Id(namespace.insert(RDF_FIRST)),
+									ValidReference::Id(vocabulary.insert(RDF_FIRST)),
 									compound_value.value,
 								));
 
 								if let Some(previous_id) = previous {
 									break Some(rdf_types::Triple(
 										previous_id,
-										ValidReference::Id(namespace.insert(RDF_REST)),
+										ValidReference::Id(vocabulary.insert(RDF_REST)),
 										Value::Reference(id),
 									));
 								}
@@ -520,8 +519,10 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 							if let Some(previous_id) = previous {
 								break Some(rdf_types::Triple(
 									previous_id,
-									ValidReference::Id(namespace.insert(RDF_REST)),
-									Value::Reference(ValidReference::Id(namespace.insert(RDF_NIL))),
+									ValidReference::Id(vocabulary.insert(RDF_REST)),
+									Value::Reference(ValidReference::Id(
+										vocabulary.insert(RDF_NIL),
+									)),
 								));
 							}
 						}
@@ -534,7 +535,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 }
 
 pub struct ListTriplesWith<'a, 'n, T, B, N, M, G: id::Generator<T, B, M, N>> {
-	namespace: &'n mut N,
+	vocabulary: &'n mut N,
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
 	inner: ListTriples<'a, T, B, M>,
@@ -545,7 +546,7 @@ impl<
 		'n,
 		T: AsIri + Clone,
 		B: Clone,
-		N: IriNamespaceMut<T>,
+		N: IriVocabularyMut<T>,
 		M,
 		G: id::Generator<T, B, M, N>,
 	> Iterator for ListTriplesWith<'a, 'n, T, B, N, M, G>
@@ -554,7 +555,7 @@ impl<
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.inner
-			.next(self.namespace, &mut self.generator, self.rdf_direction)
+			.next(self.vocabulary, &mut self.generator, self.rdf_direction)
 	}
 }
 
@@ -585,11 +586,11 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for Value<T, B> {
 	}
 }
 
-impl<T, B, N: Namespace<T, B>> DisplayWithNamespace<N> for Value<T, B> {
-	fn fmt_with(&self, namespace: &N, f: &mut fmt::Formatter) -> fmt::Result {
+impl<T, B, N: Vocabulary<T, B>> DisplayWithContext<N> for Value<T, B> {
+	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Self::Literal(lit) => lit.fmt_with(namespace, f),
-			Self::Reference(r) => r.fmt_with(namespace, f),
+			Self::Literal(lit) => lit.fmt_with(vocabulary, f),
+			Self::Reference(r) => r.fmt_with(vocabulary, f),
 		}
 	}
 }
@@ -599,16 +600,6 @@ impl<T: fmt::Display> Display for Literal<T> {
 		match self {
 			Self::String(s) => s.fmt(f),
 			Self::TypedString(s, ty) => write!(f, "{}^^{}", s, ty),
-			Self::LangString(s, t) => write!(f, "{}@{}", s, t),
-		}
-	}
-}
-
-impl<T, N: IriNamespace<T>> DisplayWithNamespace<N> for Literal<T> {
-	fn fmt_with(&self, namespace: &N, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::String(s) => s.fmt(f),
-			Self::TypedString(s, ty) => write!(f, "{}^^{}", s, namespace.iri(ty).unwrap()),
 			Self::LangString(s, t) => write!(f, "{}@{}", s, t),
 		}
 	}

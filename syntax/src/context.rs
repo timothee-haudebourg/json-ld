@@ -33,7 +33,7 @@ impl<M> Value<M> {
 
 	pub fn traverse(&self) -> Traverse<M, Self>
 	where
-		M: Clone + Send + Sync
+		M: Clone + Send + Sync,
 	{
 		match self {
 			Self::One(c) => Traverse::new(FragmentRef::Context(c.as_context_ref())),
@@ -184,7 +184,10 @@ impl<'a, M, C: AnyValue<M>> FragmentRef<'a, M, C> {
 		}
 	}
 
-	pub fn is_object(&self) -> bool where M: Clone {
+	pub fn is_object(&self) -> bool
+	where
+		M: Clone,
+	{
 		match self {
 			Self::Context(c) => c.is_object(),
 			Self::DefinitionFragment(i) => i.is_object(),
@@ -192,7 +195,10 @@ impl<'a, M, C: AnyValue<M>> FragmentRef<'a, M, C> {
 		}
 	}
 
-	pub fn sub_items(&self) -> SubFragments<'a, M, C> where M: Clone {
+	pub fn sub_items(&self) -> SubFragments<'a, M, C>
+	where
+		M: Clone,
+	{
 		match self {
 			Self::ContextArray(a) => SubFragments::ContextArray(a.clone()),
 			Self::Context(c) => SubFragments::Context(c.sub_items()),

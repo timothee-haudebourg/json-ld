@@ -1,7 +1,7 @@
 use iref_enum::IriEnum;
 
-pub type IriIndex = json_ld::namespace::IriIndex<Vocab>;
-pub type BlankIdIndex = json_ld::namespace::Index;
+pub type IriIndex = rdf_types::vocabulary::IriIndex<Vocab>;
+pub type BlankIdIndex = rdf_types::vocabulary::Index;
 
 #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Vocab {

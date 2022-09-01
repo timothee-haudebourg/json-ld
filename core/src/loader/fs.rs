@@ -1,8 +1,7 @@
 use super::Loader;
-use crate::namespace::Index;
-use crate::IriNamespace;
 use futures::future::{BoxFuture, FutureExt};
 use locspan::Meta;
+use rdf_types::{vocabulary::Index, IriVocabulary};
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
@@ -38,7 +37,7 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 }
 
 type DynParser<I, T, M, E> =
-	dyn 'static + Send + Sync + FnMut(&dyn IriNamespace<I>, &I, &str) -> Result<Meta<T, M>, E>;
+	dyn 'static + Send + Sync + FnMut(&dyn IriVocabulary<I>, &I, &str) -> Result<Meta<T, M>, E>;
 
 /// File-system loader.
 ///
@@ -61,11 +60,11 @@ impl<I, T, M, E> FsLoader<I, T, M, E> {
 		self.mount_points.insert(path.as_ref().into(), url);
 	}
 
-	pub fn filepath(&self, namespace: &impl IriNamespace<I>, url: &I) -> Option<PathBuf> {
-		let url = namespace.iri(url).unwrap();
+	pub fn filepath(&self, vocabulary: &impl IriVocabulary<I>, url: &I) -> Option<PathBuf> {
+		let url = vocabulary.iri(url).unwrap();
 		for (path, target_url) in &self.mount_points {
 			if let Some((suffix, _, _)) =
-				url.suffix(namespace.iri(target_url).unwrap().as_iri_ref())
+				url.suffix(vocabulary.iri(target_url).unwrap().as_iri_ref())
 			{
 				let mut filepath = path.clone();
 				for seg in suffix.as_path().segments() {
@@ -80,13 +79,15 @@ impl<I, T, M, E> FsLoader<I, T, M, E> {
 	}
 }
 
-impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M> for FsLoader<I, T, M, E> {
+impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M>
+	for FsLoader<I, T, M, E>
+{
 	type Output = T;
 	type Error = Error<E>;
 
 	fn load_in<'a>(
 		&'a mut self,
-		namespace: &'a (impl Sync + IriNamespace<I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<I>),
 		url: I,
 	) -> BoxFuture<'a, Result<Meta<T, M>, Self::Error>>
 	where
@@ -95,7 +96,7 @@ impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M> for 
 		async move {
 			match self.cache.get(&url) {
 				Some(t) => Ok(t.clone()),
-				None => match self.filepath(namespace, &url) {
+				None => match self.filepath(vocabulary, &url) {
 					Some(filepath) => {
 						let file = File::open(filepath).map_err(Error::IO)?;
 						let mut buf_reader = BufReader::new(file);
@@ -103,7 +104,7 @@ impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M> for 
 						buf_reader
 							.read_to_string(&mut contents)
 							.map_err(Error::IO)?;
-						let doc = (*self.parser)(namespace, &url, contents.as_str())
+						let doc = (*self.parser)(vocabulary, &url, contents.as_str())
 							.map_err(Error::Parse)?;
 						self.cache.insert(url, doc.clone());
 						Ok(doc)
@@ -121,7 +122,7 @@ impl<I, T, M, E> FsLoader<I, T, M, E> {
 		parser: impl 'static
 			+ Send
 			+ Sync
-			+ FnMut(&dyn IriNamespace<I>, &I, &str) -> Result<Meta<T, M>, E>,
+			+ FnMut(&dyn IriVocabulary<I>, &I, &str) -> Result<Meta<T, M>, E>,
 	) -> Self {
 		Self {
 			mount_points: HashMap::new(),
@@ -141,6 +142,8 @@ impl<I: Clone> Default
 {
 	fn default() -> Self {
 		use json_syntax::Parse;
-		Self::new(|_, file: &I, s| json_syntax::Value::parse_str(s, |span| locspan::Location::new(file.clone(), span)))
+		Self::new(|_, file: &I, s| {
+			json_syntax::Value::parse_str(s, |span| locspan::Location::new(file.clone(), span))
+		})
 	}
 }

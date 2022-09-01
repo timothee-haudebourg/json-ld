@@ -22,11 +22,11 @@ pub use direction::*;
 pub use entry::Entry;
 pub use expandable::*;
 pub use into_json::IntoJson;
+pub use json_syntax::*;
 pub use keyword::*;
 pub use lang::*;
 pub use nullable::*;
 pub use try_from_json::*;
-pub use json_syntax::*;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]);

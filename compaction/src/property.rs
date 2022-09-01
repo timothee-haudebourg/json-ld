@@ -6,7 +6,7 @@ use locspan::Meta;
 use crate::{Options, MetaError, Error, compact_iri, compact_key, compact_iri_with, compact_collection_with, add_value};
 
 async fn compact_property_list<I, B, M, C, N, L>(
-	namespace: &mut N,
+	vocabulary: &mut N,
 	Meta(list, meta): Meta<&[IndexedObject<I, B, M>], &M>,
 	expanded_index: Option<&json_ld_syntax::Entry<String, M>>,
 	nest_result: &mut json_syntax::Object<M>,
@@ -29,7 +29,7 @@ where
 {
 	// If expanded item is a list object:
 	let mut compacted_item = compact_collection_with(
-		namespace,
+		vocabulary,
 		Meta(list.iter(), meta),
 		active_context,
 		active_context,
@@ -54,7 +54,7 @@ where
 		// IRI compacting @list and the value is the original
 		// compacted item.
 		let key = compact_key(
-			namespace,
+			vocabulary,
 			active_context,
 			Meta(&Term::Keyword(Keyword::List), meta),
 			true,
@@ -72,7 +72,7 @@ where
 		// the result of IRI compacting @index and value is value.
 		if let Some(index) = expanded_index {
 			let key = compact_key(
-				namespace,
+				vocabulary,
 				active_context,
 				Meta(&Term::Keyword(Keyword::Index), &index.key_metadata),
 				true,
@@ -110,7 +110,7 @@ where
 }
 
 async fn compact_property_graph<I, B, M, C, N, L>(
-	namespace: &mut N,
+	vocabulary: &mut N,
 	Meta(node, meta): Meta<&Node<I, B, M>, &M>,
 	expanded_index: Option<&str>,
 	nest_result: &mut json_syntax::Object<M>,
@@ -327,7 +327,7 @@ where
 }
 
 fn select_nest_result<'a, I, B, M, C, N, E>(
-	namespace: &N,
+	vocabulary: &N,
 	result: &'a mut json_syntax::Object<M>,
 	active_context: &Context<I, B, C>,
 	item_active_property: &str,
@@ -403,7 +403,7 @@ where
 
 /// Compact the given property into the `result` compacted object.
 pub async fn compact_property<'a, T, O, I, B, M, C, N, L>(
-	namespace: &mut N,
+	vocabulary: &mut N,
 	result: &mut json_syntax::Object<M>,
 	expanded_property: Meta<Term<I, B>, M>,
 	expanded_value: O,
@@ -432,7 +432,7 @@ where
 		// Initialize `item_active_property` by IRI compacting `expanded_property`
 		// using `expanded_item` for value and `inside_reverse` for `reverse`.
 		let item_active_property = compact_iri_with(
-			namespace,
+			vocabulary,
 			active_context,
 			Meta(&expanded_property.0, &expanded_property.1),
 			expanded_item,
@@ -446,7 +446,7 @@ where
 		if let Some(item_active_property) = item_active_property {
 			let (nest_result, container, as_array) =
 				select_nest_result(
-					namespace,
+					vocabulary,
 					result,
 					active_context,
 					item_active_property.as_str(),

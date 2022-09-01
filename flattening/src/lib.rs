@@ -6,10 +6,10 @@ use crate::{
 use generic_json::{JsonClone, JsonHash};
 use std::collections::HashSet;
 
-mod namespace;
+mod vocabulary;
 mod node_map;
 
-pub use namespace::Namespace;
+pub use vocabulary::Namespace;
 pub use node_map::*;
 
 /// Flattening options.

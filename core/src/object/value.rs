@@ -1,10 +1,11 @@
-use crate::{object, Direction, IriNamespaceMut, LangString, LenientLanguageTag};
+use crate::{object, Direction, LangString, LenientLanguageTag};
 use derivative::Derivative;
 use iref::{Iri, IriBuf};
 use json_ld_syntax::Keyword;
 use json_syntax::{Number, NumberBuf};
 use locspan::Meta;
 use locspan_derive::*;
+use rdf_types::IriVocabularyMut;
 use std::{
 	cmp::Ordering,
 	fmt,
@@ -331,17 +332,20 @@ impl<T, M> Value<T, M> {
 	}
 
 	pub(crate) fn try_from_json_object_in(
-		namespace: &mut impl IriNamespaceMut<T>,
+		vocabulary: &mut impl IriVocabularyMut<T>,
 		mut object: json_syntax::Object<M>,
 		value_entry: json_syntax::object::Entry<M>,
 	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
-		match object.remove_unique("@type").map_err(InvalidExpandedJson::duplicate_key)? {
+		match object
+			.remove_unique("@type")
+			.map_err(InvalidExpandedJson::duplicate_key)?
+		{
 			Some(type_entry) => match type_entry.value {
 				Meta(json_syntax::Value::String(ty), ty_meta) => match ty.as_str() {
 					"@json" => Ok(Self::Json(value_entry.value)),
 					iri => match Iri::new(iri) {
 						Ok(iri) => {
-							let ty = namespace.insert(iri);
+							let ty = vocabulary.insert(iri);
 							let Meta(value, meta) = value_entry.value;
 							let lit = value.try_into().map_err(|e| Meta(e, meta))?;
 							Ok(Self::Literal(lit, Some(ty)))

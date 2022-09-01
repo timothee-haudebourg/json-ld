@@ -10,13 +10,13 @@ impl<T, B, M> IdentifyAll<T, B, M> for FlattenedDocument<T, B, M> {
 	#[inline(always)]
 	fn identify_all_in<N, G: id::Generator<T, B, M, N>>(
 		&mut self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		mut generator: G,
 	) where
 		M: Clone,
 	{
 		for node in self {
-			node.identify_all_in(namespace, &mut generator)
+			node.identify_all_in(vocabulary, &mut generator)
 		}
 	}
 

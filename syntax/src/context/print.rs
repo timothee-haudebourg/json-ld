@@ -6,13 +6,12 @@ use json_syntax::print::{string_literal, Options, PrecomputeSize, Print, PrintWi
 use std::{fmt, marker::PhantomData};
 
 impl<M: Clone + Send + Sync> Print for super::Value<M> {
-	fn fmt_with(
-		&self,
-		f: &mut fmt::Formatter,
-		options: &Options,
-		indent: usize
-	) -> fmt::Result {
-		let mut sizes = Vec::with_capacity(self.traverse().filter(|f| f.is_array() || f.is_object()).count());
+	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
+		let mut sizes = Vec::with_capacity(
+			self.traverse()
+				.filter(|f| f.is_array() || f.is_object())
+				.count(),
+		);
 		self.pre_compute_size(options, &mut sizes);
 		let mut index = 0;
 		self.fmt_with_size(f, options, indent, &sizes, &mut index)
@@ -46,10 +45,14 @@ where
 {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
-			Self::One(context) => (*context.value()).for_meta().pre_compute_size(options, sizes),
-			Self::Many(contexts) => {
-				json_syntax::print::pre_compute_array_size(contexts.clone().map(|c| c.into_value().for_meta()), options, sizes)
-			}
+			Self::One(context) => (*context.value())
+				.for_meta()
+				.pre_compute_size(options, sizes),
+			Self::Many(contexts) => json_syntax::print::pre_compute_array_size(
+				contexts.clone().map(|c| c.into_value().for_meta()),
+				options,
+				sizes,
+			),
 		}
 	}
 }
@@ -68,10 +71,17 @@ where
 		index: &mut usize,
 	) -> fmt::Result {
 		match self {
-			Self::One(context) => (*context.value()).for_meta().fmt_with_size(f, options, indent, sizes, index),
-			Self::Many(contexts) => {
-				json_syntax::print::print_array(contexts.clone().map(|c| c.into_value().for_meta()), f, options, indent, sizes, index)
-			}
+			Self::One(context) => (*context.value())
+				.for_meta()
+				.fmt_with_size(f, options, indent, sizes, index),
+			Self::Many(contexts) => json_syntax::print::print_array(
+				contexts.clone().map(|c| c.into_value().for_meta()),
+				f,
+				options,
+				indent,
+				sizes,
+				index,
+			),
 		}
 	}
 }
@@ -94,7 +104,9 @@ where
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self.0 {
 			ContextRef::Null => Size::Width(4),
-			ContextRef::IriRef(r) => Size::Width(json_syntax::print::printed_string_size(r.as_str())),
+			ContextRef::IriRef(r) => {
+				Size::Width(json_syntax::print::printed_string_size(r.as_str()))
+			}
 			ContextRef::Definition(d) => json_syntax::print::pre_compute_object_size(
 				d.entries().map(|entry| {
 					let (key, value) = entry.into_key_value();
@@ -138,7 +150,9 @@ where
 	}
 }
 
-impl<'a, M: Clone, C: AnyValue<M> + PrecomputeSize> PrecomputeSize for definition::EntryValueRef<'a, M, C> {
+impl<'a, M: Clone, C: AnyValue<M> + PrecomputeSize> PrecomputeSize
+	for definition::EntryValueRef<'a, M, C>
+{
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Base(v) => v.pre_compute_size(options, sizes),
@@ -155,7 +169,9 @@ impl<'a, M: Clone, C: AnyValue<M> + PrecomputeSize> PrecomputeSize for definitio
 	}
 }
 
-impl<'a, M: Clone, C: AnyValue<M> + PrintWithSize> PrintWithSize for definition::EntryValueRef<'a, M, C> {
+impl<'a, M: Clone, C: AnyValue<M> + PrintWithSize> PrintWithSize
+	for definition::EntryValueRef<'a, M, C>
+{
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -358,7 +374,9 @@ impl<'a, M: Clone, C: AnyValue<M> + PrintWithSize> PrintWithSize
 	}
 }
 
-impl<'a, M: Clone, C: AnyValue<M> + PrecomputeSize> PrecomputeSize for term_definition::ExpandedRef<'a, M, C> {
+impl<'a, M: Clone, C: AnyValue<M> + PrecomputeSize> PrecomputeSize
+	for term_definition::ExpandedRef<'a, M, C>
+{
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		json_syntax::print::pre_compute_object_size(
 			self.iter().map(|entry| (entry.key().as_str(), entry)),
@@ -368,7 +386,9 @@ impl<'a, M: Clone, C: AnyValue<M> + PrecomputeSize> PrecomputeSize for term_defi
 	}
 }
 
-impl<'a, M: Clone, C: AnyValue<M> + PrintWithSize> PrintWithSize for term_definition::ExpandedRef<'a, M, C> {
+impl<'a, M: Clone, C: AnyValue<M> + PrintWithSize> PrintWithSize
+	for term_definition::ExpandedRef<'a, M, C>
+{
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -388,7 +408,9 @@ impl<'a, M: Clone, C: AnyValue<M> + PrintWithSize> PrintWithSize for term_defini
 	}
 }
 
-impl<'a, M, C: AnyValue<M> + PrecomputeSize> PrecomputeSize for term_definition::EntryRef<'a, M, C> {
+impl<'a, M, C: AnyValue<M> + PrecomputeSize> PrecomputeSize
+	for term_definition::EntryRef<'a, M, C>
+{
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Id(v) => v.pre_compute_size(options, sizes),

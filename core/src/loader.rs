@@ -1,6 +1,6 @@
-use crate::IriNamespace;
 use futures::future::{BoxFuture, FutureExt};
-use locspan::{Meta, MapLocErr};
+use locspan::{MapLocErr, Meta};
+use rdf_types::IriVocabulary;
 use std::fmt;
 
 pub mod fs;
@@ -17,23 +17,20 @@ pub trait Loader<I, M> {
 	type Output;
 	type Error;
 
-	/// Loads the document behind the given IRI, inside the given namespace.
+	/// Loads the document behind the given IRI, inside the given vocabulary.
 	fn load_in<'a>(
 		&'a mut self,
-		namespace: &'a (impl Sync + IriNamespace<I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<I>),
 		url: I,
 	) -> BoxFuture<'a, LoadingResult<Self::Output, M, Self::Error>>
 	where
 		I: 'a;
 
 	/// Loads the document behind the given IRI.
-	fn load<'a>(
-		&'a mut self,
-		url: I,
-	) -> BoxFuture<'a, LoadingResult<Self::Output, M, Self::Error>>
+	fn load<'a>(&'a mut self, url: I) -> BoxFuture<'a, LoadingResult<Self::Output, M, Self::Error>>
 	where
 		I: 'a,
-		(): IriNamespace<I>,
+		(): IriVocabulary<I>,
 	{
 		self.load_in(&(), url)
 	}
@@ -46,7 +43,7 @@ pub trait ContextLoader<I, M> {
 
 	fn load_context_in<'a>(
 		&'a mut self,
-		namespace: &'a (impl Sync + IriNamespace<I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<I>),
 		url: I,
 	) -> BoxFuture<'a, LoadingResult<Self::Context, M, Self::ContextError>>
 	where
@@ -60,7 +57,7 @@ pub trait ContextLoader<I, M> {
 	where
 		I: 'a,
 		M: 'a,
-		(): IriNamespace<I>,
+		(): IriVocabulary<I>,
 	{
 		self.load_context_in(&(), url)
 	}
@@ -70,9 +67,7 @@ pub trait ExtractContext<M>: Sized {
 	type Context;
 	type Error;
 
-	fn extract_context(
-		value: Meta<Self, M>,
-	) -> Result<Meta<Self::Context, M>, Self::Error>;
+	fn extract_context(value: Meta<Self, M>) -> Result<Meta<Self::Context, M>, Self::Error>;
 }
 
 #[derive(Debug)]
@@ -80,12 +75,19 @@ pub enum ExtractContextError<M> {
 	Unexpected(json_syntax::Kind),
 	NoContext,
 	DuplicateContext(M),
-	Syntax(json_ld_syntax::context::InvalidContext)
+	Syntax(json_ld_syntax::context::InvalidContext),
 }
 
 impl<M> ExtractContextError<M> {
-	fn duplicate_context(json_syntax::object::Duplicate(a, b): json_syntax::object::Duplicate<json_syntax::object::Entry<M>>) -> Meta<Self, M> {
-		Meta(Self::DuplicateContext(a.key.into_metadata()), b.key.into_metadata())
+	fn duplicate_context(
+		json_syntax::object::Duplicate(a, b): json_syntax::object::Duplicate<
+			json_syntax::object::Entry<M>,
+		>,
+	) -> Meta<Self, M> {
+		Meta(
+			Self::DuplicateContext(a.key.into_metadata()),
+			b.key.into_metadata(),
+		)
 	}
 }
 
@@ -95,7 +97,7 @@ impl<M> fmt::Display for ExtractContextError<M> {
 			Self::Unexpected(k) => write!(f, "unexpected {}", k),
 			Self::NoContext => write!(f, "missing context"),
 			Self::DuplicateContext(_) => write!(f, "duplicate context"),
-			Self::Syntax(e) => e.fmt(f)
+			Self::Syntax(e) => e.fmt(f),
 		}
 	}
 }
@@ -108,11 +110,15 @@ impl<M: Clone> ExtractContext<M> for json_syntax::Value<M> {
 		Meta(value, meta): Meta<Self, M>,
 	) -> Result<Meta<Self::Context, M>, Self::Error> {
 		match value {
-			json_syntax::Value::Object(mut o) => match o.remove_unique("@context").map_err(ExtractContextError::duplicate_context)? {
+			json_syntax::Value::Object(mut o) => match o
+				.remove_unique("@context")
+				.map_err(ExtractContextError::duplicate_context)?
+			{
 				Some(context) => {
 					use json_ld_syntax::TryFromJson;
-					json_ld_syntax::context::Value::try_from_json(context.value).map_loc_err(ExtractContextError::Syntax)
-				},
+					json_ld_syntax::context::Value::try_from_json(context.value)
+						.map_loc_err(ExtractContextError::Syntax)
+				}
 				None => Err(Meta(ExtractContextError::NoContext, meta)),
 			},
 			other => Err(Meta(ExtractContextError::Unexpected(other.kind()), meta)),
@@ -144,14 +150,14 @@ where
 
 	fn load_context_in<'a>(
 		&'a mut self,
-		namespace: &'a (impl Sync + IriNamespace<I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<I>),
 		url: I,
 	) -> BoxFuture<'a, Result<Meta<Self::Context, M>, Self::ContextError>>
 	where
 		I: 'a,
-		M: 'a
+		M: 'a,
 	{
-		let load_document = self.load_in(namespace, url);
+		let load_document = self.load_in(vocabulary, url);
 		async move {
 			let doc = load_document
 				.await

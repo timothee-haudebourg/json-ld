@@ -3,8 +3,8 @@ use crate::{Error, Options, Process, ProcessingStack, Warning, WarningHandler};
 use futures::future::{BoxFuture, FutureExt};
 use iref::{Iri, IriRef};
 use json_ld_core::{
-	context::TermDefinition, Container, Context, ContextLoader, NamespaceMut, ProcessingMode,
-	Reference, ValidReference, Term, Type,
+	context::TermDefinition, Container, Context, ContextLoader, ProcessingMode, Reference, Term,
+	Type, ValidReference,
 };
 use json_ld_syntax::{
 	context::{
@@ -15,7 +15,7 @@ use json_ld_syntax::{
 	Nullable,
 };
 use locspan::{At, BorrowStripped, Meta};
-use rdf_types::BlankId;
+use rdf_types::{BlankId, VocabularyMut};
 use std::collections::HashMap;
 
 fn is_gen_delim(c: char) -> bool {
@@ -23,11 +23,11 @@ fn is_gen_delim(c: char) -> bool {
 }
 
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
-fn is_gen_delim_or_blank<T, B>(namespace: &impl NamespaceMut<T, B>, t: &Term<T, B>) -> bool {
+fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<T, B>, t: &Term<T, B>) -> bool {
 	match t {
 		Term::Ref(Reference::Valid(ValidReference::Blank(_))) => true,
 		Term::Ref(Reference::Valid(ValidReference::Id(id))) => {
-			if let Some(c) = namespace.iri(id).unwrap().as_str().chars().last() {
+			if let Some(c) = vocabulary.iri(id).unwrap().as_str().chars().last() {
 				is_gen_delim(c)
 			} else {
 				false
@@ -104,11 +104,11 @@ pub fn define<
 	B: Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
 	C: Process<T, B, M>,
-	N: Send + Sync + NamespaceMut<T, B>,
+	N: Send + Sync + VocabularyMut<T, B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	W: 'a + Send + WarningHandler<N, M>,
 >(
-	namespace: &'a mut N,
+	vocabulary: &'a mut N,
 	active_context: &'a mut Context<T, B, C>,
 	local_context: &'a Merged<'a, M, C>,
 	Meta(term, meta): Meta<KeyOrKeywordRef, M>,
@@ -192,7 +192,7 @@ where
 							// Set `typ` to the result of IRI expanding type, using local context,
 							// and defined.
 							let (typ, w) = expand_iri_with(
-								namespace,
+								vocabulary,
 								active_context,
 								Meta(type_.cast(), type_loc.clone()),
 								false,
@@ -240,7 +240,7 @@ where
 							// the form of a keyword, return; processors SHOULD generate a warning.
 							if reverse_value.is_keyword_like() {
 								warnings.handle(
-									namespace,
+									vocabulary,
 									Warning::KeywordLikeValue(reverse_value.to_string())
 										.at(reverse_loc),
 								);
@@ -254,7 +254,7 @@ where
 							// identifier, an invalid IRI mapping error has been detected and
 							// processing is aborted.
 							match expand_iri_with(
-								namespace,
+								vocabulary,
 								active_context,
 								Meta(Nullable::Some(reverse_value.as_str().into()), reverse_loc),
 								false,
@@ -339,7 +339,7 @@ where
 												Keyword::try_from(id_value.as_str()).is_err()
 											);
 											warnings.handle(
-												namespace,
+												vocabulary,
 												Warning::KeywordLikeValue(id_value.to_string())
 													.at(id_loc),
 											);
@@ -350,7 +350,7 @@ where
 										// of IRI expanding the value associated with the `@id` entry,
 										// using `local_context`, and `defined`.
 										definition.value = match expand_iri_with(
-											namespace,
+											vocabulary,
 											active_context,
 											Meta(Nullable::Some(id_value.into()), id_loc),
 											false,
@@ -397,7 +397,7 @@ where
 											// IRI mapping of definition, an invalid IRI mapping error
 											// has been detected and processing is aborted.
 											let (expanded_term, w) = expand_iri_with(
-												namespace,
+												vocabulary,
 												active_context,
 												Meta(Nullable::Some((&term).into()), meta.clone()),
 												false,
@@ -424,7 +424,7 @@ where
 										if !key.as_str().contains(':')
 											&& !key.as_str().contains('/') && simple_term
 											&& is_gen_delim_or_blank(
-												namespace,
+												vocabulary,
 												definition.value.as_ref().unwrap(),
 											) {
 											definition.prefix = true;
@@ -450,7 +450,7 @@ where
 										// Use this algorithm recursively passing `active_context`,
 										// `local_context`, the prefix as term, and `defined`.
 										warnings = define(
-											namespace,
+											vocabulary,
 											active_context,
 											local_context,
 											Meta(
@@ -477,7 +477,7 @@ where
 
 											if let Some(prefix_key) = &prefix_definition.value {
 												if let Some(prefix_iri) = prefix_key.as_iri() {
-													result = namespace
+													result = vocabulary
 														.iri(prefix_iri)
 														.unwrap()
 														.to_string()
@@ -488,7 +488,7 @@ where
 
 											if let Ok(iri) = Iri::new(result.as_str()) {
 												definition.value = Some(Term::Ref(Reference::id(
-													namespace.insert(iri),
+													vocabulary.insert(iri),
 												)))
 											} else {
 												return Err(Error::InvalidIriMapping);
@@ -500,13 +500,13 @@ where
 									if definition.value.is_none() {
 										if let Ok(blank_id) = BlankId::new(term.as_str()) {
 											definition.value = Some(Term::Ref(Reference::blank(
-												namespace.insert_blank_id(blank_id),
+												vocabulary.insert_blank_id(blank_id),
 											)))
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
 											match iri_ref.into_iri() {
 												Ok(iri) => {
 													definition.value = Some(Term::Ref(
-														Reference::id(namespace.insert(iri)),
+														Reference::id(vocabulary.insert(iri)),
 													))
 												}
 												Err(iri_ref) => {
@@ -515,7 +515,7 @@ where
 														// Set the IRI mapping of definition to the result of IRI expanding
 														// term.
 														match expand_iri_simple(
-															namespace,
+															vocabulary,
 															active_context,
 															Meta(
 																Nullable::Some(
@@ -530,7 +530,9 @@ where
 															&mut warnings,
 														) {
 															Meta(
-																Term::Ref(Reference::Valid(ValidReference::Id(id))),
+																Term::Ref(Reference::Valid(
+																	ValidReference::Id(id),
+																)),
 																_,
 															) => definition.value = Some(id.into()),
 															// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
@@ -548,21 +550,25 @@ where
 
 										// not a compact IRI, IRI, IRI reference or blank node id.
 										if definition.value.is_none() {
-											if let Some(vocabulary) = active_context.vocabulary() {
+											if let Some(context_vocabulary) =
+												active_context.vocabulary()
+											{
 												// Otherwise, if `active_context` has a vocabulary mapping, the IRI mapping
 												// of `definition` is set to the result of concatenating the value
 												// associated with the vocabulary mapping and `term`.
 												// If it does not have a vocabulary mapping, an invalid IRI mapping error
 												// been detected and processing is aborted.
-												if let Some(vocabulary_iri) = vocabulary.as_iri() {
-													let mut result = namespace
+												if let Some(vocabulary_iri) =
+													context_vocabulary.as_iri()
+												{
+													let mut result = vocabulary
 														.iri(vocabulary_iri)
 														.unwrap()
 														.to_string();
 													result.push_str(key.as_str());
 													if let Ok(iri) = Iri::new(result.as_str()) {
 														definition.value = Some(Term::<T, B>::from(
-															namespace.insert(iri),
+															vocabulary.insert(iri),
 														))
 													} else {
 														return Err(Error::InvalidIriMapping);
@@ -660,7 +666,7 @@ where
 							// Otherwise, an invalid term definition has been detected and processing
 							// is aborted.
 							match expand_iri_simple(
-								namespace,
+								vocabulary,
 								active_context,
 								Meta(Nullable::Some(index_value.as_str().into()), index_loc),
 								false,
@@ -696,7 +702,7 @@ where
 							// If any error is detected, an invalid scoped context error has been
 							// detected and processing is aborted.
 							let (_, w) = super::process_context(
-								namespace,
+								vocabulary,
 								active_context,
 								context,
 								remote_contexts.clone(),

@@ -8,7 +8,7 @@ use crate::{Options, compact_iri, MetaError, compact_key};
 
 /// Compact the given indexed value.
 pub async fn compact_indexed_value_with<I, B, M, C: Process<I, B, M>, N, L: Loader<I, M> + ContextLoader<I, M>>(
-	namespace: &mut N,
+	vocabulary: &mut N,
 	Meta(value, meta): Meta<&Value<I, M>, &M>,
 	index: Option<&Entry<String, M>>,
 	active_context: &Context<I, B, C>,
@@ -32,7 +32,7 @@ where
 			if let Some(local_context) = &active_property_definition.context {
 				active_context = Mown::Owned(local_context
 					.process_with(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						loader,
 						active_property_definition.base_url().cloned(),
@@ -118,7 +118,7 @@ where
 							return Ok(Meta(json_syntax::Value::String(s.as_str().into()), meta.clone()));
 						} else {
 							let compact_key = compact_key(
-								namespace,
+								vocabulary,
 								active_context.as_ref(),
 								Meta(&Term::Keyword(Keyword::Value), meta),
 								true,
@@ -134,7 +134,7 @@ where
 				}
 			} else {
 				let compact_key = compact_key(
-					namespace,
+					vocabulary,
 					active_context.as_ref(),
 					Meta(&Term::Keyword(Keyword::Value), meta),
 					true,
@@ -170,7 +170,7 @@ where
 
 				if let Some(ty) = ty {
 					let compact_key = crate::compact_key(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						Meta(&Term::Keyword(Keyword::Type), meta),
 						true,
@@ -178,7 +178,7 @@ where
 						options,
 					).map_err(Meta::cast)?;
 					let compact_ty = compact_iri(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						Meta(&Term::Ref(Reference::Id(ty.clone())), meta),
 						true,
@@ -207,7 +207,7 @@ where
 				return Ok(Meta(json_syntax::Value::String(ls.as_str().into()), meta.clone()));
 			} else {
 				let compact_key = compact_key(
-					namespace,
+					vocabulary,
 					active_context.as_ref(),
 					Meta(&Term::Keyword(Keyword::Value), meta),
 					true,
@@ -221,7 +221,7 @@ where
 
 				if let Some(language) = ls.language() {
 					let compact_key = crate::compact_key(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						Meta(&Term::Keyword(Keyword::Language), meta),
 						true,
@@ -236,7 +236,7 @@ where
 
 				if let Some(direction) = ls.direction() {
 					let compact_key = crate::compact_key(
-						namespace,
+						vocabulary,
 						active_context.as_ref(),
 						Meta(&Term::Keyword(Keyword::Direction), meta),
 						true,
@@ -255,7 +255,7 @@ where
 				return Ok(value.clone())
 			} else {
 				let compact_key = compact_key(
-					namespace,
+					vocabulary,
 					active_context.as_ref(),
 					Meta(&Term::Keyword(Keyword::Value), meta),
 					true,
@@ -268,7 +268,7 @@ where
 				);
 
 				let compact_key = crate::compact_key(
-					namespace,
+					vocabulary,
 					active_context.as_ref(),
 					Meta(&Term::Keyword(Keyword::Type), meta),
 					true,
@@ -277,7 +277,7 @@ where
 				).map_err(Meta::cast)?;
 				
 				let compact_ty = compact_iri(
-					namespace,
+					vocabulary,
 					active_context.as_ref(),
 					Meta(&Term::Keyword(Keyword::Json), meta),
 					true,
@@ -298,7 +298,7 @@ where
 	if !remove_index {
 		if let Some(index) = index {
 			let compact_key = compact_key(
-				namespace,
+				vocabulary,
 				active_context.as_ref(),
 				Meta(&Term::Keyword(Keyword::Index), &index.key_metadata),
 				true,

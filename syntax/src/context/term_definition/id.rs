@@ -50,7 +50,7 @@ impl Id {
 	pub fn into_string(self) -> String {
 		match self {
 			Self::Term(t) => t,
-			Self::Keyword(k) => k.to_string()
+			Self::Keyword(k) => k.to_string(),
 		}
 	}
 }

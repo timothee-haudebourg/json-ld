@@ -1,7 +1,8 @@
 use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
-use crate::{TryFromJson, IndexedObject};
-use crate::{id, namespace::Index, Indexed, Reference, StrippedIndexedObject};
+use crate::{id, Indexed, Reference, StrippedIndexedObject};
+use crate::{IndexedObject, TryFromJson};
 use locspan::{Location, Meta};
+use rdf_types::vocabulary::{Index, VocabularyMut};
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -63,7 +64,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	#[inline(always)]
 	pub fn identify_all_in<N, G: id::Generator<T, B, M, N>>(
 		&mut self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: &mut G,
 	) where
 		M: Clone,
@@ -74,7 +75,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		std::mem::swap(&mut self.0, &mut objects);
 
 		for mut object in objects {
-			object.identify_all_in(namespace, generator);
+			object.identify_all_in(vocabulary, generator);
 			self.0.insert(object);
 		}
 	}
@@ -107,11 +108,9 @@ impl<T: Hash + Eq, B: Hash + Eq, M> ExpandedDocument<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M>
-	for ExpandedDocument<T, B, M>
-{
+impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for ExpandedDocument<T, B, M> {
 	fn try_from_json_in(
-		namespace: &mut impl crate::NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -119,7 +118,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M>
 				let mut result = Self::new();
 
 				for item in items {
-					result.insert(Indexed::try_from_json_in(namespace, item)?);
+					result.insert(Indexed::try_from_json_in(vocabulary, item)?);
 				}
 
 				Ok(Meta(result, meta))
@@ -178,9 +177,7 @@ impl<T: Hash + Eq, B: Hash + Eq, M> FromIterator<IndexedObject<T, B, M>>
 	}
 }
 
-impl<T: Hash + Eq, B: Hash + Eq, M> Extend<IndexedObject<T, B, M>>
-	for ExpandedDocument<T, B, M>
-{
+impl<T: Hash + Eq, B: Hash + Eq, M> Extend<IndexedObject<T, B, M>> for ExpandedDocument<T, B, M> {
 	fn extend<I: IntoIterator<Item = IndexedObject<T, B, M>>>(&mut self, iter: I) {
 		self.0.extend(iter.into_iter().map(locspan::Stripped))
 	}

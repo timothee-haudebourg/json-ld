@@ -7,44 +7,27 @@ use derivative::Derivative;
 use iref::IriRef;
 use locspan::Meta;
 
-pub type BaseEntryRef<'a, M> = Entry<
-	Nullable<IriRef<'a>>,
-	M,
->;
+pub type BaseEntryRef<'a, M> = Entry<Nullable<IriRef<'a>>, M>;
 
-pub type ImportEntryRef<'a, M> =
-	Entry<IriRef<'a>, M>;
+pub type ImportEntryRef<'a, M> = Entry<IriRef<'a>, M>;
 
-pub type LanguageEntryRef<'a, M> = Entry<
-	Nullable<LenientLanguageTag<'a>>,
-	M,
->;
+pub type LanguageEntryRef<'a, M> = Entry<Nullable<LenientLanguageTag<'a>>, M>;
 
-pub type DirectionEntry<M> =
-	Entry<Nullable<Direction>, M>;
+pub type DirectionEntry<M> = Entry<Nullable<Direction>, M>;
 
-pub type PropagateEntry<M> =
-	Entry<bool, M>;
+pub type PropagateEntry<M> = Entry<bool, M>;
 
-pub type ProtectedEntry<M> =
-	Entry<bool, M>;
+pub type ProtectedEntry<M> = Entry<bool, M>;
 
-pub type TypeEntry<M> = Entry<
-	Type<M>,
-	M,
->;
+pub type TypeEntry<M> = Entry<Type<M>, M>;
 
-pub type VersionEntry<M> =
-	Entry<Version, M>;
+pub type VersionEntry<M> = Entry<Version, M>;
 
-pub type VocabEntryRef<'a, M> = Entry<
-	Nullable<VocabRef<'a>>,
-	M,
->;
+pub type VocabEntryRef<'a, M> = Entry<Nullable<VocabRef<'a>>, M>;
 
-pub enum BindingsIter<'a, M, C=context::Value<M>> {
+pub enum BindingsIter<'a, M, C = context::Value<M>> {
 	Map(indexmap::map::Iter<'a, Key, TermBinding<M, C>>),
-	Slice(core::slice::Iter<'a, (KeyRef<'a>, TermBindingRef<'a, M, C>)>)
+	Slice(core::slice::Iter<'a, (KeyRef<'a>, TermBindingRef<'a, M, C>)>),
 }
 
 impl<'a, M: Clone, C> Iterator for BindingsIter<'a, M, C> {
@@ -53,19 +36,19 @@ impl<'a, M: Clone, C> Iterator for BindingsIter<'a, M, C> {
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		match self {
 			Self::Map(m) => m.size_hint(),
-			Self::Slice(s) => s.size_hint()
+			Self::Slice(s) => s.size_hint(),
 		}
 	}
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
 			Self::Map(m) => m.next().map(|(k, v)| (k.into(), v.into())),
-			Self::Slice(s) => s.next().cloned()
+			Self::Slice(s) => s.next().cloned(),
 		}
 	}
 }
 
-impl<'a, M: Clone, C> ExactSizeIterator for BindingsIter<'a, M, C> {} 
+impl<'a, M: Clone, C> ExactSizeIterator for BindingsIter<'a, M, C> {}
 
 // /// Context definition reference.
 // pub struct DefinitionRef<'a, M, C> {
@@ -225,7 +208,7 @@ impl<'a, M: Clone, C> Iterator for Entries<'a, M, C> {
 	}
 }
 
-impl<'a, M: Clone, C> ExactSizeIterator for Entries<'a, M, C> where {}
+impl<'a, M: Clone, C> ExactSizeIterator for Entries<'a, M, C> {}
 
 pub enum EntryValueRef<'a, M, C> {
 	Base(Meta<Nullable<IriRef<'a>>, M>),
@@ -349,7 +332,10 @@ impl<'a, M, C> EntryRef<'a, M, C> {
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a, M, C> where M: Clone {
+	pub fn value(&self) -> EntryValueRef<'a, M, C>
+	where
+		M: Clone,
+	{
 		match self {
 			Self::Base(v) => EntryValueRef::Base(v.value.clone()),
 			Self::Import(v) => EntryValueRef::Import(v.value.clone()),
@@ -364,7 +350,10 @@ impl<'a, M, C> EntryRef<'a, M, C> {
 		}
 	}
 
-	pub fn key_value(&self) -> (Meta<EntryKeyRef<'a>, M>, EntryValueRef<'a, M, C>) where M: Clone {
+	pub fn key_value(&self) -> (Meta<EntryKeyRef<'a>, M>, EntryValueRef<'a, M, C>)
+	where
+		M: Clone,
+	{
 		match self {
 			Self::Base(v) => (
 				Meta(EntryKeyRef::Base, v.key_metadata.clone()),
@@ -532,9 +521,7 @@ impl<'a, M, C> TermBindingRef<'a, M, C> {
 	}
 }
 
-impl<'a, M: Clone, C> From<&'a TermBinding<M, C>>
-	for TermBindingRef<'a, M, C>
-{
+impl<'a, M: Clone, C> From<&'a TermBinding<M, C>> for TermBindingRef<'a, M, C> {
 	fn from(b: &'a TermBinding<M, C>) -> Self {
 		Self {
 			key_metadata: b.key_metadata.clone(),

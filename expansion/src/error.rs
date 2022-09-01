@@ -1,5 +1,5 @@
-use std::fmt;
 use locspan::Meta;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum Error<M, E> {
@@ -23,7 +23,11 @@ pub enum Error<M, E> {
 }
 
 impl<M: Clone, E> Error<M, E> {
-	pub fn duplicate_key_ref(json_syntax::object::Duplicate(a, b): json_syntax::object::Duplicate<&json_syntax::object::Entry<M>>) -> Meta<Self, M> {
+	pub fn duplicate_key_ref(
+		json_syntax::object::Duplicate(a, b): json_syntax::object::Duplicate<
+			&json_syntax::object::Entry<M>,
+		>,
+	) -> Meta<Self, M> {
 		Meta(Self::DuplicateKey(a.key.clone()), b.key.metadata().clone())
 	}
 }

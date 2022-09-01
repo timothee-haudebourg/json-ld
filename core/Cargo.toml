@@ -20,7 +20,7 @@ default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
 
 [dependencies]
 json-ld-syntax = { path = "../syntax" }
-json-syntax = "0.8.6"
+json-syntax = { version = "0.8.11", features = ["contextual"] }
 log = "^0.4"
 derivative = "^2.2"
 mown = "^0.2"
@@ -34,9 +34,10 @@ uuid = { version = "0.8", optional = true }
 smallvec = "*"
 permutohedron = { version = "0.2" }
 pretty_dtoa = "0.3"
-rdf-types = "0.8.6"
+rdf-types = { version = "0.9", features = ["contextual"] }
 locspan = "0.7.3"
 locspan-derive = "0.5.1"
+contextual = "0.1.3"
 
 [dev-dependencies]
 iref-enum = "2.1"

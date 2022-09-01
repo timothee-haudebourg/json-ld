@@ -1,11 +1,12 @@
 use crate::{expand_iri, node_id_of_term, ActiveProperty, WarningHandler};
 use json_ld_core::{
 	object::value::{Literal, LiteralString},
-	Context, LangString, NamespaceMut, Node, Object, Type, Value, IndexedObject,
+	Context, IndexedObject, LangString, Node, Object, Type, Value,
 };
 use json_ld_syntax::{context, Entry, LenientLanguageTag, Nullable};
 use json_syntax::Number;
 use locspan::{At, Meta};
+use rdf_types::VocabularyMut;
 use std::fmt;
 
 pub(crate) enum GivenLiteralValue<'a> {
@@ -78,7 +79,7 @@ pub(crate) type LiteralExpansionResult<T, B, M> =
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 pub(crate) fn expand_literal<T, B, M, N, C: context::AnyValue<M>>(
-	namespace: &mut N,
+	vocabulary: &mut N,
 	active_context: &Context<T, B, C>,
 	active_property: ActiveProperty<'_, M>,
 	Meta(value, meta): Meta<LiteralValue, &M>,
@@ -88,7 +89,7 @@ where
 	T: Clone,
 	B: Clone,
 	M: Clone,
-	N: NamespaceMut<T, B>,
+	N: VocabularyMut<T, B>,
 {
 	let active_property_definition = active_property.get_from(active_context);
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
@@ -106,7 +107,7 @@ where
 		Some(Type::Id) if value.is_string() => {
 			let mut node = Node::new();
 			let id = node_id_of_term(expand_iri(
-				namespace,
+				vocabulary,
 				active_context,
 				Meta(Nullable::Some(value.as_str().unwrap().into()), meta.clone()),
 				true,
@@ -125,7 +126,7 @@ where
 		Some(Type::Vocab) if value.is_string() => {
 			let mut node = Node::new();
 			let id = node_id_of_term(expand_iri(
-				namespace,
+				vocabulary,
 				active_context,
 				Meta(Nullable::Some(value.as_str().unwrap().into()), meta.clone()),
 				true,

@@ -1,14 +1,15 @@
 use super::{DefinedTerms, Merged};
-use crate::{Error, Options, ProcessingStack, Warning, WarningHandler, Process};
+use crate::{Error, Options, Process, ProcessingStack, Warning, WarningHandler};
+use contextual::WithContext;
 use iref::{Iri, IriRef};
-use json_ld_core::{BorrowWithNamespace, Context, ContextLoader, NamespaceMut, Reference, Term};
+use json_ld_core::{Context, ContextLoader, Reference, Term};
 use json_ld_syntax::{
 	self as syntax,
 	context::definition::{Key, KeyOrKeywordRef},
 	ExpandableRef, Nullable,
 };
 use locspan::Meta;
-use rdf_types::BlankId;
+use rdf_types::{BlankId, VocabularyMut};
 use std::future::Future;
 use syntax::{is_keyword_like, CompactIri};
 
@@ -27,11 +28,11 @@ pub fn expand_iri_with<
 	B: Clone + Send + Sync + PartialEq,
 	M: 'a + Clone + Send + Sync,
 	C,
-	N: Send + Sync + NamespaceMut<T, B>,
+	N: Send + Sync + VocabularyMut<T, B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	W: 'a + Send + WarningHandler<N, M>,
 >(
-	namespace: &'a mut N,
+	vocabulary: &'a mut N,
 	active_context: &'a mut Context<T, B, C>,
 	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, M>,
 	document_relative: bool,
@@ -62,7 +63,7 @@ where
 				// ensure that a term definition is created for value in active context during Context
 				// Processing.
 				warnings = super::define(
-					namespace,
+					vocabulary,
 					active_context,
 					local_context,
 					Meta(value.into(), loc.clone()),
@@ -98,7 +99,7 @@ where
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
 						return Ok((
-							Term::Ref(Reference::blank(namespace.insert_blank_id(blank_id))),
+							Term::Ref(Reference::blank(vocabulary.insert_blank_id(blank_id))),
 							warnings,
 						));
 					}
@@ -114,7 +115,7 @@ where
 						// This will ensure that a term definition is created for prefix in active context
 						// during Context Processing.
 						warnings = super::define(
-							namespace,
+							vocabulary,
 							active_context,
 							local_context,
 							Meta(
@@ -139,11 +140,11 @@ where
 							if term_definition.prefix {
 								if let Some(mapping) = &term_definition.value {
 									let mut result =
-										mapping.with_namespace(namespace).as_str().to_string();
+										mapping.with(&*vocabulary).as_str().to_string();
 									result.push_str(compact_iri.suffix());
 
 									return Ok((
-										Term::Ref(Reference::from_string_in(namespace, result)),
+										Term::Ref(Reference::from_string_in(vocabulary, result)),
 										warnings,
 									));
 								}
@@ -152,7 +153,7 @@ where
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Ok((Term::Ref(Reference::id(namespace.insert(iri))), warnings));
+						return Ok((Term::Ref(Reference::id(vocabulary.insert(iri))), warnings));
 					}
 				}
 
@@ -161,17 +162,17 @@ where
 				if vocab {
 					match active_context.vocabulary() {
 						Some(Term::Ref(mapping)) => {
-							let mut result = mapping.with_namespace(namespace).as_str().to_string();
+							let mut result = mapping.with(&*vocabulary).as_str().to_string();
 							result.push_str(value);
 
 							return Ok((
-								Term::Ref(Reference::from_string_in(namespace, result)),
+								Term::Ref(Reference::from_string_in(vocabulary, result)),
 								warnings,
 							));
 						}
 						Some(_) => {
 							return Ok(invalid_iri::<_, _, _, _, Warning, _>(
-								namespace,
+								vocabulary,
 								Meta(value.to_string(), loc),
 								warnings,
 							))
@@ -189,7 +190,7 @@ where
 				if document_relative {
 					if let Ok(iri_ref) = IriRef::new(value) {
 						if let Some(iri) =
-							super::resolve_iri(namespace, iri_ref, active_context.base_iri())
+							super::resolve_iri(vocabulary, iri_ref, active_context.base_iri())
 						{
 							return Ok((Term::from(iri), warnings));
 						}
@@ -198,7 +199,7 @@ where
 
 				// Return value as is.
 				Ok(invalid_iri::<_, _, _, _, Warning, _>(
-					namespace,
+					vocabulary,
 					Meta(value.to_string(), loc),
 					warnings,
 				))
@@ -215,11 +216,11 @@ fn invalid_iri<
 	W: From<MalformedIri>,
 	H: json_ld_core::warning::Handler<N, Meta<Warning, M>>,
 >(
-	namespace: &N,
+	vocabulary: &N,
 	Meta(value, loc): Meta<String, M>,
 	mut warnings: H,
 ) -> (Term<T, B>, H) {
-	warnings.handle(namespace, Meta(MalformedIri(value.clone()).into(), loc));
+	warnings.handle(vocabulary, Meta(MalformedIri(value.clone()).into(), loc));
 
 	(Term::Ref(Reference::Invalid(value)), warnings)
 }
@@ -230,12 +231,12 @@ pub fn expand_iri_simple<
 	T: Clone,
 	B: Clone,
 	M: Clone,
-	N: NamespaceMut<T, B>,
+	N: VocabularyMut<T, B>,
 	C,
 	W: From<MalformedIri>,
 	H: json_ld_core::warning::Handler<N, Meta<W, M>>,
 >(
-	namespace: &'a mut N,
+	vocabulary: &'a mut N,
 	active_context: &'a Context<T, B, C>,
 	Meta(value, meta): Meta<Nullable<ExpandableRef<'a>>, M>,
 	document_relative: bool,
@@ -272,7 +273,7 @@ pub fn expand_iri_simple<
 			if value.find(':').map(|i| i > 0).unwrap_or(false) {
 				if let Ok(blank_id) = BlankId::new(value) {
 					return Meta(
-						Term::Ref(Reference::blank(namespace.insert_blank_id(blank_id))),
+						Term::Ref(Reference::blank(vocabulary.insert_blank_id(blank_id))),
 						meta,
 					);
 				}
@@ -289,12 +290,11 @@ pub fn expand_iri_simple<
 					if let Some(term_definition) = active_context.get(&prefix_key) {
 						if term_definition.prefix {
 							if let Some(mapping) = &term_definition.value {
-								let mut result =
-									mapping.with_namespace(namespace).as_str().to_string();
+								let mut result = mapping.with(&*vocabulary).as_str().to_string();
 								result.push_str(compact_iri.suffix());
 
 								return Meta(
-									Term::Ref(Reference::from_string_in(namespace, result)),
+									Term::Ref(Reference::from_string_in(vocabulary, result)),
 									meta,
 								);
 							}
@@ -303,7 +303,7 @@ pub fn expand_iri_simple<
 				}
 
 				if let Ok(iri) = Iri::new(value) {
-					return Meta(Term::Ref(Reference::id(namespace.insert(iri))), meta);
+					return Meta(Term::Ref(Reference::id(vocabulary.insert(iri))), meta);
 				}
 			}
 
@@ -312,17 +312,17 @@ pub fn expand_iri_simple<
 			if vocab {
 				match active_context.vocabulary() {
 					Some(Term::Ref(mapping)) => {
-						let mut result = mapping.with_namespace(namespace).as_str().to_string();
+						let mut result = mapping.with(&*vocabulary).as_str().to_string();
 						result.push_str(value);
 
 						return Meta(
-							Term::Ref(Reference::from_string_in(namespace, result)),
+							Term::Ref(Reference::from_string_in(vocabulary, result)),
 							meta,
 						);
 					}
 					Some(_) => {
 						return invalid_iri_simple(
-							namespace,
+							vocabulary,
 							Meta(value.to_string(), meta),
 							warnings,
 						)
@@ -340,7 +340,7 @@ pub fn expand_iri_simple<
 			if document_relative {
 				if let Ok(iri_ref) = IriRef::new(value) {
 					if let Some(iri) =
-						super::resolve_iri(namespace, iri_ref, active_context.base_iri())
+						super::resolve_iri(vocabulary, iri_ref, active_context.base_iri())
 					{
 						return Meta(Term::from(iri), meta);
 					}
@@ -348,7 +348,7 @@ pub fn expand_iri_simple<
 			}
 
 			// Return value as is.
-			invalid_iri_simple(namespace, Meta(value.to_string(), meta), warnings)
+			invalid_iri_simple(vocabulary, Meta(value.to_string(), meta), warnings)
 		}
 	}
 }
@@ -361,12 +361,12 @@ fn invalid_iri_simple<
 	W: From<MalformedIri>,
 	H: json_ld_core::warning::Handler<N, Meta<W, M>>,
 >(
-	namespace: &N,
+	vocabulary: &N,
 	Meta(value, meta): Meta<String, M>,
 	warnings: &mut H,
 ) -> Meta<Term<T, B>, M> {
 	warnings.handle(
-		namespace,
+		vocabulary,
 		Meta(MalformedIri(value.clone()).into(), meta.clone()),
 	);
 	Meta(Term::Ref(Reference::Invalid(value)), meta)

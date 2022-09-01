@@ -1,9 +1,10 @@
 use crate::object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject};
+use json_ld_syntax::Entry;
 use locspan::Meta;
 use locspan_derive::*;
+use rdf_types::VocabularyMut;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
-use json_ld_syntax::Entry;
 
 /// Indexed objects.
 ///
@@ -100,12 +101,12 @@ impl<T, M> Indexed<T, M> {
 
 impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJson<T, B, M> for Indexed<O, M> {
 	fn try_from_json_in(
-		namespace: &mut impl crate::NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
 			json_syntax::Value::Object(object) => {
-				Self::try_from_json_object_in(namespace, Meta(object, meta))
+				Self::try_from_json_object_in(vocabulary, Meta(object, meta))
 			}
 			_ => Err(Meta(InvalidExpandedJson::InvalidObject, meta)),
 		}
@@ -114,18 +115,24 @@ impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJson<T, B, M> for Indexed<O,
 
 impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJsonObject<T, B, M> for Indexed<O, M> {
 	fn try_from_json_object_in(
-		namespace: &mut impl crate::NamespaceMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<T, B>,
 		Meta(mut object, meta): Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
-		let index = match object.remove_unique("@index").map_err(InvalidExpandedJson::duplicate_key)? {
+		let index = match object
+			.remove_unique("@index")
+			.map_err(InvalidExpandedJson::duplicate_key)?
+		{
 			Some(index_entry) => match index_entry.value {
-				Meta(json_syntax::Value::String(index), meta) => Some(Entry::new(index_entry.key.into_metadata(), Meta(index.to_string(), meta))),
+				Meta(json_syntax::Value::String(index), meta) => Some(Entry::new(
+					index_entry.key.into_metadata(),
+					Meta(index.to_string(), meta),
+				)),
 				Meta(_, meta) => return Err(Meta(InvalidExpandedJson::InvalidIndex, meta)),
 			},
 			None => None,
 		};
 
-		let Meta(value, meta) = O::try_from_json_object_in(namespace, Meta(object, meta))?;
+		let Meta(value, meta) = O::try_from_json_object_in(vocabulary, Meta(object, meta))?;
 		Ok(Meta(Self::new(value, index), meta))
 	}
 }

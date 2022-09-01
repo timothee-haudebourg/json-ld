@@ -18,7 +18,7 @@ pub use node_map::*;
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B, M> {
 	pub fn flatten_in<N, G: id::Generator<T, B, M, N>>(
 		self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: G,
 		ordered: bool,
 	) -> Result<FlattenedDocument<T, B, M>, ConflictingIndexes<T, B, M>>
@@ -27,17 +27,17 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B
 		B: AsRef<str>,
 	{
 		Ok(self
-			.generate_node_map_in(namespace, generator)?
+			.generate_node_map_in(vocabulary, generator)?
 			.flatten(ordered))
 	}
 
 	pub fn flatten_unordered_in<N, G: id::Generator<T, B, M, N>>(
 		self,
-		namespace: &mut N,
+		vocabulary: &mut N,
 		generator: G,
 	) -> Result<UnorderedFlattenedDocument<T, B, M>, ConflictingIndexes<T, B, M>> {
 		Ok(self
-			.generate_node_map_in(namespace, generator)?
+			.generate_node_map_in(vocabulary, generator)?
 			.flatten_unordered())
 	}
 }

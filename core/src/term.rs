@@ -1,5 +1,7 @@
-use crate::{BorrowWithNamespace, DisplayWithNamespace, Namespace, Reference, ValidReference};
+use crate::{Reference, ValidReference};
+use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
 use json_ld_syntax::Keyword;
+use rdf_types::vocabulary::Vocabulary;
 use std::fmt;
 
 // pub trait TermLike {
@@ -39,12 +41,12 @@ impl<I, B> Term<I, B> {
 	}
 }
 
-impl<T, B, N: Namespace<T, B>> DisplayWithNamespace<N> for Term<T, B> {
-	fn fmt_with(&self, namespace: &N, f: &mut fmt::Formatter) -> fmt::Result {
+impl<T, B, N: Vocabulary<T, B>> DisplayWithContext<N> for Term<T, B> {
+	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		use std::fmt::Display;
 		match self {
 			Self::Null => write!(f, "null"),
-			Self::Ref(id) => id.with_namespace(namespace).fmt(f),
+			Self::Ref(id) => id.with(vocabulary).fmt(f),
 			Self::Keyword(k) => k.fmt(f),
 		}
 	}
@@ -60,10 +62,10 @@ impl<T: AsRef<str>, B: AsRef<str>> Term<T, B> {
 	}
 }
 
-impl<'t, 'n, T, B, N: Namespace<T, B>> crate::namespace::WithNamespace<&'t Term<T, B>, &'n N> {
-	pub fn as_str(&self) -> &str {
-		match self.0 {
-			Term::Ref(p) => p.with_namespace(self.1).as_str(),
+impl<T, B, N: Vocabulary<T, B>> AsRefWithContext<str, N> for Term<T, B> {
+	fn as_ref_with<'a>(&'a self, vocabulary: &'a N) -> &'a str {
+		match self {
+			Term::Ref(p) => p.with(vocabulary).as_str(),
 			Term::Keyword(k) => k.into_str(),
 			Term::Null => "",
 		}

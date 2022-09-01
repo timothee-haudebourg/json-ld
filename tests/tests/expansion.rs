@@ -1,8 +1,7 @@
-use json_ld::{
-	BorrowWithNamespace, ContextLoader, Expand, IriNamespaceMut, Loader, Print, Process,
-	TryFromJson,
-};
+use contextual::WithContext;
+use json_ld::{ContextLoader, Expand, Loader, Print, Process, TryFromJson};
 use locspan::Meta;
+use rdf_types::IriVocabularyMut;
 use static_iref::iri;
 
 const STACK_SIZE: usize = 4 * 1024 * 1024;
@@ -96,26 +95,26 @@ impl expand::Test {
 			options.processing_mode = p
 		}
 
-		let mut namespace = json_ld::IndexNamespace::new();
+		let mut vocabulary = rdf_types::IndexVocabulary::new();
 		let mut loader: json_ld::FsLoader = json_ld::FsLoader::default();
 		loader.mount(
-			namespace.insert(iri!("https://w3c.github.io/json-ld-api").into()),
+			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api").into()),
 			"json-ld-api",
 		);
 
-		let input = namespace.insert(self.input);
+		let input = vocabulary.insert(self.input);
 		let base = self
 			.options
 			.base
-			.map(|i| namespace.insert(i))
+			.map(|i| vocabulary.insert(i))
 			.unwrap_or(input);
 
 		let context = match self.options.context {
 			Some(iri) => {
-				let i = namespace.insert(iri);
-				let ld_context = loader.load_context_in(&mut namespace, i).await.unwrap();
+				let i = vocabulary.insert(iri);
+				let ld_context = loader.load_context_in(&mut vocabulary, i).await.unwrap();
 				ld_context
-					.process(&mut namespace, &mut loader, Some(base))
+					.process(&mut vocabulary, &mut loader, Some(base))
 					.await
 					.unwrap()
 			}
@@ -124,10 +123,10 @@ impl expand::Test {
 
 		match self.desc {
 			expand::Description::Positive { expect } => {
-				let json_ld = loader.load_in(&mut namespace, input).await.unwrap();
+				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
 				let expanded: json_ld::ExpandedDocument = json_ld
 					.expand_full(
-						&mut namespace,
+						&mut vocabulary,
 						context,
 						Some(&base),
 						&mut loader,
@@ -137,23 +136,17 @@ impl expand::Test {
 					.await
 					.unwrap();
 
-				let expect_iri = namespace.insert(expect);
-				let expected = loader.load_in(&mut namespace, expect_iri).await.unwrap();
+				let expect_iri = vocabulary.insert(expect);
+				let expected = loader.load_in(&mut vocabulary, expect_iri).await.unwrap();
 				let Meta(expected, _) =
-					json_ld::ExpandedDocument::try_from_json_in(&mut namespace, expected).unwrap();
+					json_ld::ExpandedDocument::try_from_json_in(&mut vocabulary, expected).unwrap();
 
 				let success = expanded == expected;
 
 				if !success {
 					eprintln!("test failed");
-					eprintln!(
-						"output=\n{}",
-						expanded.with_namespace(&namespace).pretty_print()
-					);
-					eprintln!(
-						"expected=\n{}",
-						expected.with_namespace(&namespace).pretty_print()
-					);
+					eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
+					eprintln!("expected=\n{}", expected.with(&vocabulary).pretty_print());
 				}
 
 				assert!(success)
@@ -161,11 +154,11 @@ impl expand::Test {
 			expand::Description::Negative {
 				expected_error_code,
 			} => {
-				match loader.load_in(&mut namespace, input).await {
+				match loader.load_in(&mut vocabulary, input).await {
 					Ok(json_ld) => {
 						let result: Result<json_ld::ExpandedDocument, _> = json_ld
 							.expand_full(
-								&mut namespace,
+								&mut vocabulary,
 								context,
 								Some(&base),
 								&mut loader,
@@ -176,10 +169,7 @@ impl expand::Test {
 
 						match result {
 							Ok(expanded) => {
-								eprintln!(
-									"output=\n{}",
-									expanded.with_namespace(&namespace).pretty_print()
-								);
+								eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
 								panic!(
 									"expansion succeeded when it should have failed with `{}`",
 									expected_error_code

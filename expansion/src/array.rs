@@ -1,9 +1,10 @@
 use crate::{expand_element, ActiveProperty, Error, Expanded, Loader, Options, WarningHandler};
-use json_ld_context_processing::{ContextLoader, NamespaceMut, Process};
+use json_ld_context_processing::{ContextLoader, Process};
 use json_ld_core::{context::TermDefinition, object, Context, Object};
 use json_ld_syntax::ContainerKind;
 use json_syntax::{Array, Value};
 use locspan::Meta;
+use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
 #[allow(clippy::too_many_arguments)]
@@ -16,7 +17,7 @@ pub(crate) async fn expand_array<
 	L: Loader<T, M> + ContextLoader<T, M>,
 	W: Send + WarningHandler<B, N, M>,
 >(
-	namespace: &mut N,
+	vocabulary: &mut N,
 	active_context: &Context<T, B, C>,
 	active_property: ActiveProperty<'_, M>,
 	active_property_definition: Option<&TermDefinition<T, B, C>>,
@@ -28,7 +29,7 @@ pub(crate) async fn expand_array<
 	mut warnings: W,
 ) -> Result<(Expanded<T, B, M>, W), Meta<Error<M, L::ContextError>, M>>
 where
-	N: Send + Sync + NamespaceMut<T, B>,
+	N: Send + Sync + VocabularyMut<T, B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
@@ -55,7 +56,7 @@ where
 		// recursively, passing `active_context`, `active_property`, `item` as element,
 		// `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
 		let (e, w) = expand_element(
-			namespace,
+			vocabulary,
 			active_context,
 			active_property,
 			item,

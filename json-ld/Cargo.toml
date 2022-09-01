@@ -28,5 +28,5 @@ json-ld-expansion = { path = "../expansion" }
 async-std = { version = "1.12.0", features = ["attributes"] }
 iref = "2.2"
 static-iref = "2.0"
-rdf-types = "0.8.6"
+rdf-types = "0.9"
 locspan = "0.7.3"

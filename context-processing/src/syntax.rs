@@ -4,9 +4,10 @@ use crate::{
 };
 use futures::future::{BoxFuture, FutureExt};
 use iref::IriRef;
-use json_ld_core::{Context, IriNamespaceMut, NamespaceMut, ProcessingMode, Term};
+use json_ld_core::{Context, ProcessingMode, Term};
 use json_ld_syntax::{self as syntax, Entry, Nullable};
 use locspan::{At, Meta};
+use rdf_types::{IriVocabularyMut, VocabularyMut};
 
 mod define;
 mod iri;
@@ -17,12 +18,10 @@ pub use iri::*;
 pub use merged::*;
 use syntax::context::definition::KeyOrKeywordRef;
 
-impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> Process<T, B, M>
-	for C
-{
+impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> Process<T, B, M> for C {
 	fn process_full<'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'a self,
-		namespace: &'a mut N,
+		vocabulary: &'a mut N,
 		active_context: &'a Context<T, B, C>,
 		stack: ProcessingStack<T>,
 		loader: &'a mut L,
@@ -31,15 +30,15 @@ impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> Process<T, 
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<T, B, M, C, L::ContextError>>
 	where
-		N: Send + Sync + NamespaceMut<T, B>,
+		N: Send + Sync + VocabularyMut<T, B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		L::Context: Into<C>
+		L::Context: Into<C>,
 	{
 		async move {
 			Ok(process_context(
-				namespace,
+				vocabulary,
 				active_context,
 				self,
 				stack,
@@ -57,23 +56,24 @@ impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> Process<T, 
 
 /// Resolve `iri_ref` against the given base IRI.
 fn resolve_iri<I>(
-	namespace: &mut impl IriNamespaceMut<I>,
+	vocabulary: &mut impl IriVocabularyMut<I>,
 	iri_ref: IriRef,
 	base_iri: Option<&I>,
 ) -> Option<I> {
 	match base_iri {
 		Some(base_iri) => {
-			let result = iri_ref.resolved(namespace.iri(base_iri).unwrap());
-			Some(namespace.insert(result.as_iri()))
+			let result = iri_ref.resolved(vocabulary.iri(base_iri).unwrap());
+			Some(vocabulary.insert(result.as_iri()))
 		}
 		None => match iri_ref.into_iri() {
-			Ok(iri) => Some(namespace.insert(iri)),
+			Ok(iri) => Some(vocabulary.insert(iri)),
 			Err(_) => None,
 		},
 	}
 }
 
-type ContextProcessingResult<T, B, M, C, L, W> = Result<(Context<T, B, C>, W), MetaError<M, <L as ContextLoader<T, M>>::ContextError>>;
+type ContextProcessingResult<T, B, M, C, L, W> =
+	Result<(Context<T, B, C>, W), MetaError<M, <L as ContextLoader<T, M>>::ContextError>>;
 
 // This function tries to follow the recommended context processing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
@@ -81,7 +81,7 @@ type ContextProcessingResult<T, B, M, C, L, W> = Result<(Context<T, B, C>, W), M
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
 fn process_context<'a, T, B, M, C, N, L, W>(
-	namespace: &'a mut N,
+	vocabulary: &'a mut N,
 	active_context: &'a Context<T, B, C>,
 	local_context: &'a C,
 	mut remote_contexts: ProcessingStack<T>,
@@ -95,7 +95,7 @@ where
 	B: 'a + Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
 	C: Process<T, B, M>,
-	N: Send + Sync + NamespaceMut<T, B>,
+	N: Send + Sync + VocabularyMut<T, B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	L::Context: Into<C>,
 	W: 'a + Send + WarningHandler<N, M>,
@@ -109,7 +109,7 @@ where
 		// 2) If `local_context` is an object containing the member @propagate,
 		// its value MUST be boolean true or false, set `propagate` to that value.
 		let local_context_ref: syntax::context::ValueRef<'a, M, _> = local_context.as_value_ref();
-		
+
 		if let syntax::context::ValueRef::One(Meta(syntax::ContextRef::Definition(def), _)) =
 			local_context_ref
 		{
@@ -165,7 +165,7 @@ where
 					// Initialize `context` to the result of resolving context against base URL.
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
-					let context_iri = resolve_iri(namespace, iri_ref, base_url.as_ref())
+					let context_iri = resolve_iri(vocabulary, iri_ref, base_url.as_ref())
 						.ok_or_else(|| Error::LoadingDocumentFailed.at(context_meta.clone()))?;
 
 					// If the number of entries in the `remote_contexts` array exceeds a processor
@@ -190,10 +190,11 @@ where
 					// Set loaded context to the value of that entry.
 					if remote_contexts.push(context_iri.clone()) {
 						let loaded_context = loader
-							.load_context_in(namespace, context_iri.clone())
+							.load_context_in(vocabulary, context_iri.clone())
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(context_meta))?
-							.into_value().into();
+							.into_value()
+							.into();
 
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
@@ -205,7 +206,7 @@ where
 						};
 
 						let (r, w) = process_context(
-							namespace,
+							vocabulary,
 							&result,
 							&loaded_context,
 							remote_contexts.clone(),
@@ -247,12 +248,12 @@ where
 
 						// 5.6.3) Initialize import to the result of resolving the value of
 						// @import.
-						let import = resolve_iri(namespace, import_value, base_url.as_ref())
+						let import = resolve_iri(vocabulary, import_value, base_url.as_ref())
 							.ok_or_else(|| Error::InvalidImportValue.at(import_meta.clone()))?;
 
 						// 5.6.4) Dereference import.
 						let import_context = loader
-							.load_context_in(namespace, import)
+							.load_context_in(vocabulary, import)
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(import_meta.clone()))?
 							.into_value()
@@ -306,10 +307,10 @@ where
 									result.set_base_iri(None);
 								}
 								syntax::Nullable::Some(iri_ref) => match iri_ref.into_iri() {
-									Ok(iri) => result.set_base_iri(Some(namespace.insert(iri))),
+									Ok(iri) => result.set_base_iri(Some(vocabulary.insert(iri))),
 									Err(not_iri) => {
 										let resolved =
-											resolve_iri(namespace, not_iri, result.base_iri())
+											resolve_iri(vocabulary, not_iri, result.base_iri())
 												.ok_or_else(|| {
 													Error::InvalidBaseIri.at(base_meta)
 												})?;
@@ -341,7 +342,7 @@ where
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
 								match expand_iri_simple(
-									namespace,
+									vocabulary,
 									&result,
 									Meta(Nullable::Some(value.into()), vocab_meta.clone()),
 									true,
@@ -415,7 +416,7 @@ where
 					// (and the value of override protected)
 					if let Some(ty) = context.type_() {
 						warnings = define(
-							namespace,
+							vocabulary,
 							&mut result,
 							&context,
 							Meta(
@@ -436,7 +437,7 @@ where
 
 					for (key, binding) in context.bindings() {
 						warnings = define(
-							namespace,
+							vocabulary,
 							&mut result,
 							&context,
 							Meta(key.into(), binding.key_metadata().clone()),
