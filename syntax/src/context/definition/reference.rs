@@ -132,7 +132,7 @@ impl<'a, M: Clone, C> Iterator for Entries<'a, M, C> {
 	type Item = EntryRef<'a, M, C>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		let mut len = 0;
+		let mut len = self.bindings.len();
 
 		if self.base.is_some() {
 			len += 1
