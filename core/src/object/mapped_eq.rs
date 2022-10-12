@@ -331,7 +331,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::node::Properties<T, B, M
 				for (i, sel) in selected.iter_mut().enumerate() {
 					let (other_prop, other_objects) = other_vec.get(i).unwrap();
 					if !*sel
-						&& prop.mapped_eq(other_prop, f.clone())
+						&& prop.0.mapped_eq(other_prop.0, f.clone())
 						&& objects.unordered_mapped_eq(other_objects, f.clone())
 					{
 						*sel = true;
@@ -365,7 +365,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::node::ReverseProperties<
 				for (i, sel) in selected.iter_mut().enumerate() {
 					let (other_prop, other_nodes) = other_vec.get(i).unwrap();
 					if !*sel
-						&& prop.mapped_eq(other_prop, f.clone())
+						&& prop.0.mapped_eq(other_prop.0, f.clone())
 						&& nodes.unordered_mapped_eq(other_nodes, f.clone())
 					{
 						*sel = true;

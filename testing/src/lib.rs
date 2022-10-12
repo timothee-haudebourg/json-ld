@@ -3,7 +3,7 @@ use contextual::{DisplayWithContext, WithContext};
 use grdf::Dataset;
 use iref::IriBuf;
 use json_ld::{Expand, ValidReference};
-use locspan::{Loc, Location, Span};
+use locspan::{Loc, Location, Meta, Span};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
@@ -489,10 +489,11 @@ async fn generate_test_suite(
 		.await
 		.map_err(Error::Load)?;
 
-	let mut expanded_json_ld: json_ld::ExpandedDocument<IriIndex, BlankIdIndex, _> = json_ld
-		.expand_in(vocabulary, Some(&spec.suite), &mut loader)
-		.await
-		.map_err(Error::Expand)?;
+	let mut expanded_json_ld: Meta<json_ld::ExpandedDocument<IriIndex, BlankIdIndex, _>, _> =
+		json_ld
+			.expand_in(vocabulary, &mut loader)
+			.await
+			.map_err(Error::Expand)?;
 
 	let mut generator =
 		json_ld::id::generator::Blank::new(Location::new(IriIndex::Index(0), Span::default()));

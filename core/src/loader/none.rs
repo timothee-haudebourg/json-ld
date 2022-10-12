@@ -1,7 +1,6 @@
-use super::Loader;
+use super::{Loader, RemoteDocument};
 use contextual::{DisplayWithContext, WithContext};
 use futures::future::{BoxFuture, FutureExt};
-use locspan::Meta;
 use rdf_types::{vocabulary::Index, IriVocabulary};
 use std::fmt;
 use std::marker::PhantomData;
@@ -56,7 +55,7 @@ impl<I: Send, T, M> Loader<I, M> for NoLoader<I, T, M> {
 		&'a mut self,
 		_namespace: &impl IriVocabulary<I>,
 		url: I,
-	) -> BoxFuture<'a, Result<Meta<T, M>, Self::Error>>
+	) -> BoxFuture<'a, Result<RemoteDocument<I, T, M>, Self::Error>>
 	where
 		I: 'a,
 	{

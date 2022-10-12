@@ -517,7 +517,7 @@ fn extend_node_map_from_node<
 			.get_mut(&id)
 			.unwrap()
 			.properties_mut()
-			.insert_all_unique(property.clone(), flat_objects)
+			.insert_all_unique(property.cloned(), flat_objects)
 	}
 
 	if let Some(reverse_properties) = node.reverse_properties_entry() {
@@ -540,7 +540,7 @@ fn extend_node_map_from_node<
 					.unwrap();
 
 				flat_subject.properties_mut().insert_unique(
-					property.clone(),
+					property.cloned(),
 					Meta(
 						Indexed::new(
 							Object::Node(Node::with_id(Entry::new(

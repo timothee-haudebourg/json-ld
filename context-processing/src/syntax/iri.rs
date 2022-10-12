@@ -1,5 +1,5 @@
 use super::{DefinedTerms, Merged};
-use crate::{Error, Options, Process, ProcessingStack, Warning, WarningHandler};
+use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iref::{Iri, IriRef};
 use json_ld_core::{Context, ContextLoader, Reference, Term};
@@ -33,7 +33,7 @@ pub fn expand_iri_with<
 	W: 'a + Send + WarningHandler<N, M>,
 >(
 	vocabulary: &'a mut N,
-	active_context: &'a mut Context<T, B, C>,
+	active_context: &'a mut Context<T, B, C, M>,
 	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, M>,
 	document_relative: bool,
 	vocab: bool,
@@ -45,7 +45,7 @@ pub fn expand_iri_with<
 	mut warnings: W,
 ) -> impl 'a + Send + Future<Output = Result<(Term<T, B>, W), Error<L::ContextError>>>
 where
-	C: Process<T, B, M>,
+	C: ProcessMeta<T, B, M>,
 	L::Context: Into<C>,
 {
 	async move {
@@ -237,7 +237,7 @@ pub fn expand_iri_simple<
 	H: json_ld_core::warning::Handler<N, Meta<W, M>>,
 >(
 	vocabulary: &'a mut N,
-	active_context: &'a Context<T, B, C>,
+	active_context: &'a Context<T, B, C, M>,
 	Meta(value, meta): Meta<Nullable<ExpandableRef<'a>>, M>,
 	document_relative: bool,
 	vocab: bool,

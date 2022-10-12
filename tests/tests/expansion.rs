@@ -1,6 +1,6 @@
 use contextual::WithContext;
 use json_ld::{ContextLoader, Expand, Loader, Print, Process, TryFromJson};
-use locspan::Meta;
+use locspan::{BorrowStripped, Meta};
 use rdf_types::IriVocabularyMut;
 use static_iref::iri;
 
@@ -112,11 +112,16 @@ impl expand::Test {
 		let context = match self.options.context {
 			Some(iri) => {
 				let i = vocabulary.insert(iri);
-				let ld_context = loader.load_context_in(&mut vocabulary, i).await.unwrap();
+				let ld_context = loader
+					.load_context_in(&mut vocabulary, i)
+					.await
+					.unwrap()
+					.into_document();
 				ld_context
 					.process(&mut vocabulary, &mut loader, Some(base))
 					.await
 					.unwrap()
+					.into_processed()
 			}
 			None => json_ld::Context::new(Some(base)),
 		};
@@ -124,7 +129,7 @@ impl expand::Test {
 		match self.desc {
 			expand::Description::Positive { expect } => {
 				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
-				let expanded: json_ld::ExpandedDocument = json_ld
+				let expanded: Meta<json_ld::ExpandedDocument, _> = json_ld
 					.expand_full(
 						&mut vocabulary,
 						context,
@@ -137,11 +142,15 @@ impl expand::Test {
 					.unwrap();
 
 				let expect_iri = vocabulary.insert(expect);
-				let expected = loader.load_in(&mut vocabulary, expect_iri).await.unwrap();
-				let Meta(expected, _) =
+				let expected = loader
+					.load_in(&mut vocabulary, expect_iri)
+					.await
+					.unwrap()
+					.into_document();
+				let expected =
 					json_ld::ExpandedDocument::try_from_json_in(&mut vocabulary, expected).unwrap();
 
-				let success = expanded == expected;
+				let success = expanded.stripped() == expected.stripped();
 
 				if !success {
 					eprintln!("test failed");
@@ -156,7 +165,7 @@ impl expand::Test {
 			} => {
 				match loader.load_in(&mut vocabulary, input).await {
 					Ok(json_ld) => {
-						let result: Result<json_ld::ExpandedDocument, _> = json_ld
+						let result: Result<_, _> = json_ld
 							.expand_full(
 								&mut vocabulary,
 								context,

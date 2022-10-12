@@ -1,4 +1,4 @@
-use locspan::StrippedHash;
+use locspan::{Stripped, StrippedHash};
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
 
@@ -80,6 +80,21 @@ pub fn hash_map<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H
 	for entry in map {
 		let mut h = DefaultHasher::new();
 		entry.hash(&mut h);
+		hash = u64::wrapping_add(hash, h.finish());
+	}
+
+	hasher.write_u64(hash);
+}
+
+pub fn hash_map_stripped<K: Hash, V: StrippedHash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H) {
+	// See: https://github.com/rust-lang/rust/pull/48366
+	// Elements must be combined with a associative and commutative operation •.
+	// (u64, •, 0) must form a commutative monoid.
+	// This is satisfied by • = u64::wrapping_add.
+	let mut hash = 0;
+	for (k, v) in map {
+		let mut h = DefaultHasher::new();
+		(k, Stripped(v)).hash(&mut h);
 		hash = u64::wrapping_add(hash, h.finish());
 	}
 

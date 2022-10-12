@@ -3,7 +3,9 @@ use crate::{
 	GivenLiteralValue, LiteralValue, Loader, Options, Warning, WarningHandler,
 };
 use futures::future::{BoxFuture, FutureExt};
-use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
+use json_ld_context_processing::{
+	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
+};
 use json_ld_core::{object, Context, Indexed, Object, Reference, Term, ValidReference};
 use json_ld_syntax::{Keyword, Nullable};
 use json_syntax::{object::Entry, Value};
@@ -41,8 +43,8 @@ impl<'a, M> ActiveProperty<'a, M> {
 
 	pub fn get_from<'c, T, B, C>(
 		&self,
-		context: &'c Context<T, B, C>,
-	) -> Option<&'c json_ld_core::context::TermDefinition<T, B, C>> {
+		context: &'c Context<T, B, C, M>,
+	) -> Option<&'c json_ld_core::context::TermDefinition<T, B, C, M>> {
 		match self {
 			Self::Some(Meta(s, _)) => context.get(*s),
 			Self::None => None,
@@ -81,7 +83,7 @@ pub(crate) type ElementExpansionResult<T, B, M, L, W> =
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn expand_element<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	vocabulary: &'a mut N,
-	active_context: &'a Context<T, B, C>,
+	active_context: &'a Context<T, B, C, M>,
 	active_property: ActiveProperty<'a, M>,
 	Meta(element, meta): &'a Meta<Value<M>, M>,
 	base_url: Option<&'a T>,
@@ -95,7 +97,7 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
-	C: Process<T, B, M> + From<json_ld_syntax::context::Value<M>>,
+	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
 	L::Output: Into<Value<M>>,
 	L::Context: Into<C>,
@@ -162,7 +164,7 @@ where
 						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
 						false,
 						true,
-						&mut crate::ignore_warning,
+						&mut warnings,
 					) {
 						Meta(Term::Keyword(Keyword::Value), _) => {
 							preliminary_value_entry = Some(value.clone())
@@ -209,8 +211,9 @@ where
 								options.with_override(),
 							)
 							.await
-							.map_err(Meta::cast)?, // .err_at(|| active_property.as_ref().map(Meta::metadata).cloned().unwrap_or_default())?
-						                        // .into_inner(),
+							.map_err(Meta::cast)?
+							.into_processed(), // .err_at(|| active_property.as_ref().map(Meta::metadata).cloned().unwrap_or_default())?
+						                    // .into_inner(),
 					);
 				}
 
@@ -222,11 +225,10 @@ where
 					.map_err(Error::duplicate_key_ref)?
 				{
 					use json_ld_syntax::TryFromJson;
-					let local_context: C =
+					let local_context: Meta<C, M> =
 						json_ld_syntax::context::Value::try_from_json(local_context.clone())
 							.map_loc_err(Error::ContextSyntax)?
-							.into_value()
-							.into();
+							.map(Into::into);
 
 					active_context = Mown::Owned(
 						local_context
@@ -238,7 +240,8 @@ where
 								options.into(),
 							)
 							.await
-							.map_err(Meta::cast)?,
+							.map_err(Meta::cast)?
+							.into_processed(),
 					);
 				}
 
@@ -313,7 +316,8 @@ where
 											options.without_propagation(),
 										)
 										.await
-										.map_err(Meta::cast)?,
+										.map_err(Meta::cast)?
+										.into_processed(),
 								);
 							}
 						}
@@ -555,7 +559,8 @@ where
 					let result = property_scoped_context
 						.process_with(vocabulary, active_context, loader, base_url, options.into())
 						.await
-						.map_err(Meta::cast)?;
+						.map_err(Meta::cast)?
+						.into_processed();
 					Mown::Owned(result)
 				} else {
 					Mown::Borrowed(active_context)

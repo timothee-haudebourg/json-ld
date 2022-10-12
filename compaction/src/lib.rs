@@ -1,20 +1,30 @@
 //! Compaction algorithm and related types.
 use futures::future::{BoxFuture, FutureExt};
+use json_ld_context_processing::{
+	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
+};
+use json_ld_core::{
+	context::inverse::{LangSelection, TypeSelection},
+	object::Any,
+	Context, Indexed, Loader, ProcessingMode, Term, Value,
+};
+use json_ld_syntax::{ContainerKind, Keyword};
 use json_syntax::object::Entry;
-use std::hash::Hash;
-use locspan::Meta;
-use json_ld_context_processing::{ContextLoader, Process, Options as ProcessingOptions};
-use json_ld_core::{Term, Context, Loader, NamespaceMut, ProcessingMode, Value, Indexed, context::inverse::{TypeSelection, LangSelection}, object::Any};
-use json_ld_syntax::{Keyword, ContainerKind};
+use locspan::{Meta, Stripped};
 use mown::Mown;
+use rdf_types::{vocabulary, VocabularyMut};
+use std::collections::HashSet;
+use std::hash::Hash;
 
+mod document;
 mod iri;
-// mod node;
+mod node;
 mod property;
 mod value;
 
+pub use document::*;
 pub(crate) use iri::*;
-// use node::*;
+use node::*;
 use property::*;
 use value::*;
 
@@ -22,7 +32,8 @@ pub type MetaError<M, E> = Meta<Error<E>, M>;
 
 pub enum Error<E> {
 	IriConfusedWithPrefix,
-	ContextProcessing(json_ld_context_processing::Error<E>)
+	InvalidNestValue,
+	ContextProcessing(json_ld_context_processing::Error<E>),
 }
 
 impl<E> From<json_ld_context_processing::Error<E>> for Error<E> {
@@ -36,13 +47,6 @@ impl<E> From<IriConfusedWithPrefix> for Error<E> {
 		Self::IriConfusedWithPrefix
 	}
 }
-
-// fn optional_string<K: JsonBuild>(s: Option<String>, meta: K::MetaData) -> K {
-// 	match s {
-// 		Some(s) => K::string(s.as_str().into(), meta),
-// 		None => K::null(meta),
-// 	}
-// }
 
 /// Compaction options.
 #[derive(Clone, Copy)]
@@ -60,6 +64,15 @@ pub struct Options {
 	/// If set to `true`, properties are processed by lexical order.
 	/// If `false`, order is not considered in processing.
 	pub ordered: bool,
+}
+
+impl Options {
+	pub fn unordered(self) -> Self {
+		Self {
+			ordered: false,
+			..self
+		}
+	}
 }
 
 impl From<Options> for json_ld_context_processing::Options {
@@ -92,71 +105,129 @@ impl Default for Options {
 	}
 }
 
-pub trait Compact<I, B, M> {
-	fn compact_full<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+pub trait CompactFragmentMeta<I, B, M> {
+	fn compact_fragment_full_meta<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
+		meta: &'a M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, C>,
-		type_scoped_context: &'a Context<I, B, C>,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + NamespaceMut<I, B>,
+		N: Send + Sync + VocabularyMut<I, B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: Process<I, B, M>,
+		C: ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Output: Into<Value<M, C>>,
+		L::Context: Into<C>;
+}
+
+pub trait CompactFragment<I, B, M> {
+	fn compact_fragment_full<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+		&'a self,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
+		active_property: Option<Meta<&'a str, &'a M>>,
+		loader: &'a mut L,
+		options: Options,
+	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	where
+		N: Send + Sync + VocabularyMut<I, B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: ProcessMeta<I, B, M>,
+		L: Send + Sync,
 		L::Context: Into<C>;
 
-	// /// Compact a JSON-LD document into a `K` JSON value with the provided options.
-	// ///
-	// /// This calls [`compact_full`](Compact::compact_full) with `active_context`
-	// /// as type scoped context.
-	// #[inline(always)]
-	// fn compact_with<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
-	// 	&'a self,
-	// 	active_context: &'a Inversible<T, C>,
-	// 	loader: &'a mut L,
-	// 	options: Options,
-	// 	meta: M,
-	// ) -> BoxFuture<'a, Result<K, Error>>
-	// where
-	// 	Self: Sync,
-	// 	T: 'a + Sync + Send,
-	// 	C: Sync + Send,
-	// 	C::LocalContext: Send + Sync + From<L::Output>,
-	// 	L: Sync + Send,
-	// 	M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
-	// {
-	// 	async move {
-	// 		self.compact_full(active_context, active_context, None, loader, options, meta)
-	// 			.await
-	// 	}
-	// 	.boxed()
-	// }
+	#[inline(always)]
+	fn compact_fragment_in<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+		&'a self,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<I, B, C, M>,
+		loader: &'a mut L,
+	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	where
+		N: Send + Sync + VocabularyMut<I, B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: ProcessMeta<I, B, M>,
+		L: Send + Sync,
+		L::Output: Into<Value<M, C>>,
+		L::Context: Into<C>,
+	{
+		self.compact_fragment_full(
+			vocabulary,
+			active_context,
+			active_context,
+			None,
+			loader,
+			Options::default(),
+		)
+	}
 
-	// /// Compact a JSON-LD document into a `K` JSON value with the default options.
-	// #[inline(always)]
-	// fn compact<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
-	// 	&'a self,
-	// 	active_context: &'a Inversible<T, C>,
-	// 	loader: &'a mut L,
-	// 	meta: M,
-	// ) -> BoxFuture<'a, Result<K, Error>>
-	// where
-	// 	Self: Sync,
-	// 	T: 'a + Sync + Send,
-	// 	C: Sync + Send,
-	// 	C::LocalContext: Send + Sync + From<L::Output>,
-	// 	L: Sync + Send,
-	// 	M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
-	// {
-	// 	self.compact_with(active_context, loader, Options::default(), meta)
-	// }
+	#[inline(always)]
+	fn compact_fragment<'a, C, L: Loader<I, M> + ContextLoader<I, M>>(
+		&'a self,
+		active_context: &'a Context<I, B, C, M>,
+		loader: &'a mut L,
+	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	where
+		(): VocabularyMut<I, B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: ProcessMeta<I, B, M>,
+		L: Send + Sync,
+		L::Output: Into<Value<M, C>>,
+		L::Context: Into<C>,
+	{
+		self.compact_fragment_full(
+			vocabulary::no_vocabulary_mut(),
+			active_context,
+			active_context,
+			None,
+			loader,
+			Options::default(),
+		)
+	}
+}
+
+impl<T: CompactFragmentMeta<I, B, M>, I, B, M> CompactFragment<I, B, M> for Meta<T, M> {
+	fn compact_fragment_full<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+		&'a self,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
+		active_property: Option<Meta<&'a str, &'a M>>,
+		loader: &'a mut L,
+		options: Options,
+	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	where
+		N: Send + Sync + VocabularyMut<I, B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: ProcessMeta<I, B, M>,
+		L: Send + Sync,
+		L::Context: Into<C>,
+	{
+		self.0.compact_fragment_full_meta(
+			&self.1,
+			vocabulary,
+			active_context,
+			type_scoped_context,
+			active_property,
+			loader,
+			options,
+		)
+	}
 }
 
 enum TypeLangValue<'a, I> {
@@ -165,83 +236,80 @@ enum TypeLangValue<'a, I> {
 }
 
 /// Type that can be compacted with an index.
-pub trait CompactIndexed<I, B, M> {
-	fn compact_indexed<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+pub trait CompactIndexedFragment<I, B, M> {
+	fn compact_indexed_fragment<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
 		meta: &'a M,
 		index: Option<&'a json_ld_syntax::Entry<String, M>>,
-		active_context: &'a Context<I, B, C>,
-		type_scoped_context: &'a Context<I, B, C>,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + NamespaceMut<I, B>,
+		N: Send + Sync + VocabularyMut<I, B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: Process<I, B, M>,
+		C: ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Output: Into<Value<M, C>>,
 		L::Context: Into<C>;
 }
 
-impl<I, B, M, T: CompactIndexed<I, B, M>> Compact<I, B, M> for Meta<Indexed<T, M>, M> {
-	fn compact_full<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+impl<I, B, M, T: CompactIndexedFragment<I, B, M>> CompactFragmentMeta<I, B, M> for Indexed<T, M> {
+	fn compact_fragment_full_meta<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
+		meta: &'a M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, C>,
-		type_scoped_context: &'a Context<I, B, C>,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + NamespaceMut<I, B>,
+		N: Send + Sync + VocabularyMut<I, B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: Process<I, B, M>,
+		C: ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Output: Into<Value<M, C>>,
-		L::Context: Into<C>
+		L::Context: Into<C>,
 	{
-		let Meta(indexed, meta) = self;
-		indexed.inner().compact_indexed(
+		self.inner().compact_indexed_fragment(
 			vocabulary,
 			meta,
-			indexed.index_entry(),
+			self.index_entry(),
 			active_context,
 			type_scoped_context,
 			active_property,
 			loader,
-			options
+			options,
 		)
 	}
 }
 
-impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
-	fn compact_indexed<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
+	fn compact_indexed_fragment<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
 		meta: &'a M,
 		index: Option<&'a json_ld_syntax::Entry<String, M>>,
-		active_context: &'a Context<I, B, C>,
-		type_scoped_context: &'a Context<I, B, C>,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + NamespaceMut<I, B>,
+		N: Send + Sync + VocabularyMut<I, B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: Process<I, B, M>,
+		C: ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Output: Into<Value<M, C>>,
 		L::Context: Into<C>,
 	{
 		use json_ld_core::object::Ref;
@@ -254,21 +322,21 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 					active_context,
 					active_property,
 					loader,
-					options
+					options,
 				)
 				.await
 			}
 			.boxed(),
 			Ref::Node(node) => async move {
 				compact_indexed_node_with(
-					node,
+					vocabulary,
+					Meta(node, meta),
 					index,
 					active_context,
 					type_scoped_context,
 					active_property,
 					loader,
 					options,
-					meta,
 				)
 				.await
 			}
@@ -295,6 +363,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 						if let Some(local_context) = &active_property_definition.context {
 							active_context = Mown::Owned(
 								local_context
+									.value
 									.process_with(
 										vocabulary,
 										active_context.as_ref(),
@@ -302,7 +371,9 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 										active_property_definition.base_url().cloned(),
 										ProcessingOptions::from(options).with_override(),
 									)
-									.await.map_err(Meta::cast)?
+									.await
+									.map_err(Meta::cast)?
+									.into_processed(),
 							)
 						}
 
@@ -320,7 +391,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 						active_context.as_ref(),
 						active_property,
 						loader,
-						options
+						options,
 					)
 					.await
 				} else {
@@ -328,12 +399,15 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 					compact_property(
 						vocabulary,
 						&mut result,
-						Term::Keyword(Keyword::List),
+						Meta(
+							Term::Keyword(Keyword::List),
+							list.entry().key_metadata.clone(),
+						),
 						list,
 						active_context.as_ref(),
 						loader,
 						false,
-						options
+						options,
 					)
 					.await?;
 
@@ -365,12 +439,16 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexed<I, B, M> for T {
 								true,
 								false,
 								options,
-							).map_err(Meta::cast)?;
+							)
+							.map_err(Meta::cast)?;
 
 							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
 							result.insert(
 								alias.unwrap(),
-								Meta(json_syntax::Value::String(index.value.as_str().into()), index.value.metadata().clone())
+								Meta(
+									json_syntax::Value::String(index.value.as_str().into()),
+									index.value.metadata().clone(),
+								),
 							);
 						}
 					}
@@ -388,20 +466,34 @@ fn add_value<M: Clone>(
 	map: &mut json_syntax::Object<M>,
 	Meta(key, key_metadata): Meta<&str, &M>,
 	value: json_syntax::MetaValue<M>,
-	as_array: bool
+	as_array: bool,
 ) {
-	match map.get_unique(key).ok().unwrap().map(|entry| entry.value().is_array()) {
+	match map
+		.get_unique(key)
+		.ok()
+		.unwrap()
+		.map(|entry| entry.value().is_array())
+	{
 		Some(false) => {
-			let Entry { key, value: Meta(value, meta) } = map.remove_unique(key).ok().unwrap().unwrap();
+			let Entry {
+				key,
+				value: Meta(value, meta),
+			} = map.remove_unique(key).ok().unwrap().unwrap();
 			map.insert(
 				key,
-				Meta(json_syntax::Value::Array(vec![Meta(value, meta.clone())]), meta)
+				Meta(
+					json_syntax::Value::Array(vec![Meta(value, meta.clone())]),
+					meta,
+				),
 			);
 		}
 		None if as_array => {
 			map.insert(
 				Meta(key.into(), key_metadata.clone()),
-				Meta(json_syntax::Value::Array(Vec::new()), value.metadata().clone())
+				Meta(
+					json_syntax::Value::Array(Vec::new()),
+					value.metadata().clone(),
+				),
 			);
 		}
 		_ => (),
@@ -414,18 +506,12 @@ fn add_value<M: Clone>(
 			}
 		}
 		value => {
-			if let Some(mut array) = map.get_unique_mut(key).ok().unwrap() {
-				array
-					.as_array_mut()
-					.unwrap()
-					.push(value);
+			if let Some(array) = map.get_unique_mut(key).ok().unwrap() {
+				array.as_array_mut().unwrap().push(value);
 				return;
 			}
 
-			map.insert(
-				Meta(key.into(), key_metadata.clone()),
-				value
-			);
+			map.insert(Meta(key.into(), key_metadata.clone()), value);
 		}
 	}
 }
@@ -446,38 +532,37 @@ fn value_value<I, M: Clone>(value: &Value<I, M>, meta: &M) -> json_syntax::MetaV
 }
 
 fn compact_collection_with<'a, T, O, I, B, M, C, N, L>(
-	vocabulary: &mut N,
-	Meta(items, meta): Meta<O, &M>,
-	active_context: &Context<I, B, C>,
-	type_scoped_context: &Context<I, B, C>,
-	active_property: Option<Meta<&str, &M>>,
-	loader: &mut L,
-	options: Options
+	vocabulary: &'a mut N,
+	Meta(items, meta): Meta<O, &'a M>,
+	active_context: &'a Context<I, B, C, M>,
+	type_scoped_context: &'a Context<I, B, C, M>,
+	active_property: Option<Meta<&'a str, &'a M>>,
+	loader: &'a mut L,
+	options: Options,
 ) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 where
-	T: 'a + Compact<I, B, M> + Send + Sync,
-	O: Iterator<Item = &'a T> + Send,
-	N: Send + Sync + NamespaceMut<I, B>,
+	T: 'a + CompactFragment<I, B, M> + Send + Sync,
+	O: 'a + Iterator<Item = &'a T> + Send,
+	N: Send + Sync + VocabularyMut<I, B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
-	C: Process<I, B, M>,
+	C: ProcessMeta<I, B, M>,
 	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-	L::Output: Into<Value<M, C>>,
-	L::Context: Into<C>
+	L::Context: Into<C>,
 {
 	async move {
 		let mut result = Vec::new();
 
 		for item in items {
 			let compacted_item = item
-				.compact_full(
+				.compact_fragment_full(
 					vocabulary,
 					active_context,
 					type_scoped_context,
 					active_property,
 					loader,
-					options
+					options,
 				)
 				.await?;
 
@@ -507,7 +592,10 @@ where
 			|| stripped_active_property == Some("@set")
 			|| list_or_set
 		{
-			return Ok(Meta(json_syntax::Value::Array(result.into_iter().collect()), meta.clone()));
+			return Ok(Meta(
+				json_syntax::Value::Array(result.into_iter().collect()),
+				meta.clone(),
+			));
 		}
 
 		Ok(result.into_iter().next().unwrap())
@@ -515,89 +603,98 @@ where
 	.boxed()
 }
 
-// impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for HashSet<Indexed<Object<J, T>>> {
-// 	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
-// 		&'a self,
-// 		active_context: &'a Inversible<T, C>,
-// 		type_scoped_context: &'a Inversible<T, C>,
-// 		active_property: Option<&'a str>,
-// 		loader: &'a mut L,
-// 		options: Options,
-// 		meta: M,
-// 	) -> BoxFuture<'a, Result<K, Error>>
-// 	where
-// 		T: 'a,
-// 		C: Sync + Send,
-// 		C::LocalContext: Send + Sync + From<L::Output>,
-// 		L: Sync + Send,
-// 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
-// 	{
-// 		compact_collection_with(
-// 			self.iter(),
-// 			active_context,
-// 			type_scoped_context,
-// 			active_property,
-// 			loader,
-// 			options,
-// 			meta,
-// 		)
-// 	}
-// }
+impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, B, M>
+	for HashSet<T>
+{
+	fn compact_fragment_full_meta<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+		&'a self,
+		meta: &'a M,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
+		active_property: Option<Meta<&'a str, &'a M>>,
+		loader: &'a mut L,
+		options: Options,
+	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	where
+		N: Send + Sync + VocabularyMut<I, B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: ProcessMeta<I, B, M>,
+		L: Send + Sync,
+		L::Context: Into<C>,
+	{
+		compact_collection_with(
+			vocabulary,
+			Meta(self.iter(), meta),
+			active_context,
+			type_scoped_context,
+			active_property,
+			loader,
+			options,
+		)
+	}
+}
 
-// impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for Vec<Indexed<Object<J, T>>> {
-// 	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
-// 		&'a self,
-// 		active_context: &'a Inversible<T, C>,
-// 		type_scoped_context: &'a Inversible<T, C>,
-// 		active_property: Option<&'a str>,
-// 		loader: &'a mut L,
-// 		options: Options,
-// 		meta: M,
-// 	) -> BoxFuture<'a, Result<K, Error>>
-// 	where
-// 		T: 'a,
-// 		C: Sync + Send,
-// 		C::LocalContext: Send + Sync + From<L::Output>,
-// 		L: Sync + Send,
-// 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
-// 	{
-// 		compact_collection_with(
-// 			self.iter(),
-// 			active_context,
-// 			type_scoped_context,
-// 			active_property,
-// 			loader,
-// 			options,
-// 			meta,
-// 		)
-// 	}
-// }
+impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, B, M> for Vec<T> {
+	fn compact_fragment_full_meta<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+		&'a self,
+		meta: &'a M,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
+		active_property: Option<Meta<&'a str, &'a M>>,
+		loader: &'a mut L,
+		options: Options,
+	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	where
+		N: Send + Sync + VocabularyMut<I, B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: ProcessMeta<I, B, M>,
+		L: Send + Sync,
+		L::Context: Into<C>,
+	{
+		compact_collection_with(
+			vocabulary,
+			Meta(self.iter(), meta),
+			active_context,
+			type_scoped_context,
+			active_property,
+			loader,
+			options,
+		)
+	}
+}
 
-// impl<J: JsonSrc, T: Sync + Send + Id> Compact<J, T> for Vec<Indexed<Node<J, T>>> {
-// 	fn compact_full<'a, K: JsonFrom<J>, C: ContextMut<T>, L: Loader, M>(
-// 		&'a self,
-// 		active_context: &'a Inversible<T, C>,
-// 		type_scoped_context: &'a Inversible<T, C>,
-// 		active_property: Option<&'a str>,
-// 		loader: &'a mut L,
-// 		options: Options,
-// 		meta: M,
-// 	) -> BoxFuture<'a, Result<K, Error>>
-// 	where
-// 		T: 'a,
-// 		C: Sync + Send,
-// 		C::LocalContext: Send + Sync + From<L::Output>,
-// 		L: Sync + Send,
-// 		M: 'a + Send + Sync + Clone + Fn(Option<&J::MetaData>) -> K::MetaData,
-// 	{
-// 		compact_collection_with(
-// 			self.iter(),
-// 			active_context,
-// 			type_scoped_context,
-// 			active_property,
-// 			loader,
-// 			options,
-// 			meta,
-// 		)
-// 	}
-// }
+impl<T: CompactFragment<I, B, M>, I, B, M> CompactFragment<I, B, M> for Stripped<T> {
+	fn compact_fragment_full<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+		&'a self,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<I, B, C, M>,
+		type_scoped_context: &'a Context<I, B, C, M>,
+		active_property: Option<Meta<&'a str, &'a M>>,
+		loader: &'a mut L,
+		options: Options,
+	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	where
+		N: Send + Sync + VocabularyMut<I, B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: ProcessMeta<I, B, M>,
+		L: Send + Sync,
+		L::Context: Into<C>,
+	{
+		self.0.compact_fragment_full(
+			vocabulary,
+			active_context,
+			type_scoped_context,
+			active_property,
+			loader,
+			options,
+		)
+	}
+}

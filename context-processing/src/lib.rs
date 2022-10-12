@@ -4,9 +4,11 @@ use locspan::Meta;
 use rdf_types::VocabularyMut;
 use std::fmt;
 
+mod processed;
 mod stack;
 pub mod syntax;
 
+pub use processed::*;
 pub use stack::ProcessingStack;
 
 /// Warnings that can be raised during context processing.
@@ -89,87 +91,140 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 pub type MetaError<M, E> = Meta<Error<E>, M>;
 
 /// Result of context processing functions.
-pub type ProcessingResult<T, B, M, C, E> = Result<Context<T, B, C>, MetaError<M, E>>;
+pub type ProcessingResult<'a, T, B, M, C, E> = Result<Processed<'a, T, B, C, M>, MetaError<M, E>>;
 
 /// Context processing functions.
 // FIXME: unclear why the `'static` lifetime is now required.
-pub trait Process<T, B, M>:
+pub trait ProcessMeta<T, B, M>:
 	json_ld_syntax::IntoJson<M> + json_ld_syntax::context::AnyValue<M>
 {
 	/// Process the local context with specific options.
-	fn process_full<'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'a self,
+	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
+		self: &'l Self,
+		meta: &'l M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, Self>,
+		active_context: &'a Context<T, B, Self, M>,
 		stack: ProcessingStack<T>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
 		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<T, B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
 		L::Context: Into<Self>;
+}
+
+pub trait Process<T, B, M>: Send + Sync {
+	type Stripped: Send + Sync;
 
 	/// Process the local context with specific options.
-	fn process_with<'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'a self,
+	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
+		&'l self,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, Self>,
+		active_context: &'a Context<T, B, Self::Stripped, M>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
-	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
+		warnings: impl 'a + Send + WarningHandler<N, M>,
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<T, B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		L::Context: Into<Self>,
+		L::Context: Into<Self::Stripped>;
+
+	/// Process the local context with specific options.
+	fn process_with<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
+		&'l self,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<T, B, Self::Stripped, M>,
+		loader: &'a mut L,
+		base_url: Option<T>,
+		options: Options,
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
+	where
+		N: Send + Sync + VocabularyMut<T, B>,
+		T: Clone + PartialEq + Send + Sync,
+		B: Clone + PartialEq + Send + Sync,
+		M: 'a + Clone + Send + Sync,
+		L::Context: Into<Self::Stripped>,
 	{
 		self.process_full(
 			vocabulary,
 			active_context,
-			ProcessingStack::new(),
 			loader,
 			base_url,
 			options,
-			warning::print,
+			warning::Print,
 		)
 	}
 
 	/// Process the local context with the given initial active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	fn process<'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'a self,
+	fn process<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
+		&'l self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
 		base_url: Option<T>,
-	) -> BoxFuture<'a, ProcessingResult<T, B, M, Self, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<T, B>,
 		T: 'a + Clone + PartialEq + Send + Sync,
 		B: 'a + Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		L::Context: Into<Self>,
+		L::Context: Into<Self::Stripped>,
 	{
 		async move {
 			let active_context = Context::default();
 			self.process_full(
 				vocabulary,
 				&active_context,
-				ProcessingStack::new(),
 				loader,
 				base_url,
 				Options::default(),
-				warning::print,
+				warning::Print,
 			)
 			.await
 		}
 		.boxed()
+	}
+}
+
+impl<C: ProcessMeta<T, B, M>, T, B, M: Send + Sync> Process<T, B, M> for Meta<C, M> {
+	type Stripped = C;
+
+	/// Process the local context with specific options.
+	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
+		&'l self,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<T, B, Self::Stripped, M>,
+		loader: &'a mut L,
+		base_url: Option<T>,
+		options: Options,
+		warnings: impl 'a + Send + WarningHandler<N, M>,
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
+	where
+		N: Send + Sync + VocabularyMut<T, B>,
+		T: Clone + PartialEq + Send + Sync,
+		B: Clone + PartialEq + Send + Sync,
+		M: 'a + Clone,
+		L::Context: Into<Self::Stripped>,
+	{
+		self.value().process_meta(
+			self.metadata(),
+			vocabulary,
+			active_context,
+			ProcessingStack::new(),
+			loader,
+			base_url,
+			options,
+			warnings,
+		)
 	}
 }
 

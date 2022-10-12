@@ -1,7 +1,12 @@
-use std::hash::Hash;
-use locspan::Meta;
-use json_ld_core::{ProcessingMode, Context, Term, Indexed, Type, Object, Value, Container, Nullable, object, context::inverse::{Selection, LangSelection, TypeSelection}, Namespace, BorrowWithNamespace};
 use crate::{Options, TypeLangValue};
+use contextual::WithContext;
+use json_ld_core::{
+	context::inverse::{LangSelection, Selection, TypeSelection},
+	object, Container, Context, Indexed, Nullable, Object, ProcessingMode, Term, Type, Value,
+};
+use locspan::Meta;
+use rdf_types::Vocabulary;
+use std::hash::Hash;
 
 pub struct IriConfusedWithPrefix;
 
@@ -9,8 +14,8 @@ pub struct IriConfusedWithPrefix;
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
 pub(crate) fn compact_iri<'a, I, B, M, C>(
-	vocabulary: &impl Namespace<I, B>,
-	active_context: &Context<I, B, C>,
+	vocabulary: &impl Vocabulary<I, B>,
+	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
 	reverse: bool,
@@ -19,14 +24,22 @@ pub(crate) fn compact_iri<'a, I, B, M, C>(
 where
 	I: Clone + Hash + Eq,
 	B: Clone + Hash + Eq,
-	M: Clone
+	M: Clone,
 {
-	compact_iri_full::<I, B, M, C, Object<I, B, M>>(vocabulary, active_context, var, None, vocab, reverse, options)
+	compact_iri_full::<I, B, M, C, Object<I, B, M>>(
+		vocabulary,
+		active_context,
+		var,
+		None,
+		vocab,
+		reverse,
+		options,
+	)
 }
 
 pub(crate) fn compact_key<'a, I, B, M, C>(
-	vocabulary: &impl Namespace<I, B>,
-	active_context: &Context<I, B, C>,
+	vocabulary: &impl Vocabulary<I, B>,
+	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
 	reverse: bool,
@@ -35,17 +48,17 @@ pub(crate) fn compact_key<'a, I, B, M, C>(
 where
 	I: Clone + Hash + Eq,
 	B: Clone + Hash + Eq,
-	M: Clone
+	M: Clone,
 {
-	Ok(compact_key(vocabulary, active_context, var, vocab, reverse, options)?.map(Meta::cast))
+	Ok(compact_iri(vocabulary, active_context, var, vocab, reverse, options)?.map(Meta::cast))
 }
 
 /// Compact the given term considering the given value object.
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
 pub(crate) fn compact_iri_with<'a, I, B, M, C, O: object::Any<I, B, M>>(
-	vocabulary: &impl Namespace<I, B>,
-	active_context: &Context<I, B, C>,
+	vocabulary: &impl Vocabulary<I, B>,
+	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	value: &Indexed<O, M>,
 	vocab: bool,
@@ -55,17 +68,25 @@ pub(crate) fn compact_iri_with<'a, I, B, M, C, O: object::Any<I, B, M>>(
 where
 	I: Clone + Hash + Eq,
 	B: Clone + Hash + Eq,
-	M: Clone
+	M: Clone,
 {
-	compact_iri_full(vocabulary, active_context, var, Some(value), vocab, reverse, options)
+	compact_iri_full(
+		vocabulary,
+		active_context,
+		var,
+		Some(value),
+		vocab,
+		reverse,
+		options,
+	)
 }
 
 /// Compact the given term.
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
 pub(crate) fn compact_iri_full<'a, I, B, M, C, O: object::Any<I, B, M>>(
-	vocabulary: &impl Namespace<I, B>,
-	active_context: &Context<I, B, C>,
+	vocabulary: &impl Vocabulary<I, B>,
+	active_context: &Context<I, B, C, M>,
 	Meta(var, meta): Meta<&Term<I, B>, &M>,
 	value: Option<&Indexed<O, M>>,
 	vocab: bool,
@@ -75,7 +96,7 @@ pub(crate) fn compact_iri_full<'a, I, B, M, C, O: object::Any<I, B, M>>(
 where
 	I: Clone + Hash + Eq,
 	B: Clone + Hash + Eq,
-	M: Clone
+	M: Clone,
 {
 	if var.is_null() {
 		return Ok(None);
@@ -311,10 +332,9 @@ where
 										true,
 										false,
 										options,
-									)?.unwrap();
-									if let Some(def) =
-										active_context.get(compacted_iri.as_str())
-									{
+									)?
+									.unwrap();
+									if let Some(def) = active_context.get(compacted_iri.as_str()) {
 										if let Some(iri_mapping) = &def.value {
 											vocab = iri_mapping == id;
 										}
@@ -376,7 +396,11 @@ where
 			// If var begins with the vocabulary mapping's value but is longer, then initialize
 			// suffix to the substring of var that does not match. If suffix does not have a term
 			// definition in active context, then return suffix.
-			if let Some(suffix) = var.with(vocabulary).as_str().strip_prefix(vocab_mapping.with(vocabulary).as_str()) {
+			if let Some(suffix) = var
+				.with(vocabulary)
+				.as_str()
+				.strip_prefix(vocab_mapping.with(vocabulary).as_str())
+			{
 				if !suffix.is_empty() && active_context.get(suffix).is_none() {
 					return Ok(Some(Meta(suffix.into(), meta.clone())));
 				}
@@ -398,7 +422,11 @@ where
 		// Continue with the next definition.
 		match definition.value.as_ref() {
 			Some(iri_mapping) if definition.prefix => {
-				if let Some(suffix) = var.with(vocabulary).as_str().strip_prefix(iri_mapping.with(vocabulary).as_str()) {
+				if let Some(suffix) = var
+					.with(vocabulary)
+					.as_str()
+					.strip_prefix(iri_mapping.with(vocabulary).as_str())
+				{
 					if !suffix.is_empty() {
 						// Initialize candidate by concatenating definition key,
 						// a colon (:),
@@ -419,8 +447,7 @@ where
 								|| (candidate_def.is_some()
 									&& candidate_def
 										.and_then(|def| def.value.as_ref())
-										.map_or(false, |v| v == var)
-									&& value.is_none()))
+										.map_or(false, |v| v == var) && value.is_none()))
 						{
 							compact_iri = candidate
 						}
@@ -455,7 +482,10 @@ where
 			let base_iri = vocabulary.iri(base_iri).unwrap();
 			if let Some(iri) = var.as_iri() {
 				let iri = vocabulary.iri(iri).unwrap();
-				return Ok(Some(Meta(iri.relative_to(base_iri).as_str().into(), meta.clone())));
+				return Ok(Some(Meta(
+					iri.relative_to(base_iri).as_str().into(),
+					meta.clone(),
+				)));
 			}
 		}
 	}

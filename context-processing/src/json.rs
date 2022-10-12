@@ -32,8 +32,8 @@ use define::*;
 /// Json local context.
 pub trait JsonContext = JsonSendSync + JsonClone;
 
-impl<J: JsonContext, T: Id> Process<T> for J {
-	fn process_full<'a, C: Process<T>, L: Loader + Send + Sync>(
+impl<J: JsonContext, T: Id> ProcessMeta<T> for J {
+	fn process_full<'a, C: ProcessMeta<T>, L: Loader + Send + Sync>(
 		&'a self,
 		active_context: &'a Context<T, C>,
 		stack: ProcessingStack,
@@ -72,7 +72,7 @@ fn process_context<
 	'a,
 	J: JsonContext,
 	T: Id + Send + Sync,
-	C: Process<T>,
+	C: ProcessMeta<T>,
 	L: Loader + Send + Sync,
 >(
 	active_context: &'a C,

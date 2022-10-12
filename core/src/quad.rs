@@ -245,7 +245,7 @@ impl<'a, T, B, M> Iterator for Quads<'a, T, B, M> {
 							self.stack.push(QuadsFrame::NodePropertyObjects(
 								graph,
 								subject,
-								property,
+								property.0,
 								objects.iter(),
 							))
 						}
@@ -261,7 +261,7 @@ impl<'a, T, B, M> Iterator for Quads<'a, T, B, M> {
 							self.stack.push(QuadsFrame::NodeReversePropertySubjects(
 								graph,
 								object,
-								property,
+								property.0,
 								subjects.iter(),
 							))
 						}

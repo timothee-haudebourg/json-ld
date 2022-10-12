@@ -65,15 +65,15 @@ impl<'a, T, M> Entry<&'a T, M> {
 }
 
 impl<T, M> std::ops::Deref for Entry<T, M> {
-	type Target = T;
+	type Target = Meta<T, M>;
 
 	fn deref(&self) -> &Self::Target {
-		self.value.value()
+		&self.value
 	}
 }
 
 impl<T, M> std::ops::DerefMut for Entry<T, M> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
-		self.value.value_mut()
+		&mut self.value
 	}
 }

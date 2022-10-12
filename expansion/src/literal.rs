@@ -80,7 +80,7 @@ pub(crate) type LiteralExpansionResult<T, B, M> =
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 pub(crate) fn expand_literal<T, B, M, N, C: context::AnyValue<M>>(
 	vocabulary: &mut N,
-	active_context: &Context<T, B, C>,
+	active_context: &Context<T, B, C, M>,
 	active_property: ActiveProperty<'_, M>,
 	Meta(value, meta): Meta<LiteralValue, &M>,
 	warnings: &mut impl WarningHandler<B, N, M>,

@@ -163,8 +163,8 @@ impl<T, B, M> Node<T, B, M> {
 	///
 	/// This correspond to the `@id` field of the JSON object.
 	#[inline(always)]
-	pub fn id(&self) -> Option<&Reference<T, B>> {
-		self.id.as_ref().map(Entry::as_value).map(Meta::value)
+	pub fn id(&self) -> Option<&Meta<Reference<T, B>, M>> {
+		self.id.as_ref().map(Entry::as_value)
 	}
 
 	/// Get the identifier of the node.
@@ -341,6 +341,18 @@ impl<T, B, M> Node<T, B, M> {
 
 	/// If the node is a graph object, get the graph.
 	#[inline(always)]
+	pub fn graph(&self) -> Option<&Meta<Graph<T, B, M>, M>> {
+		self.graph.as_deref()
+	}
+
+	/// If the node is a graph object, get the mutable graph.
+	#[inline(always)]
+	pub fn graph_mut(&mut self) -> Option<&mut Meta<Graph<T, B, M>, M>> {
+		self.graph.as_deref_mut()
+	}
+
+	/// If the node is a graph object, get the graph.
+	#[inline(always)]
 	pub fn graph_entry(&self) -> Option<&GraphEntry<T, B, M>> {
 		self.graph.as_ref()
 	}
@@ -389,6 +401,12 @@ impl<T, B, M> Node<T, B, M> {
 	#[inline(always)]
 	pub fn properties_mut(&mut self) -> &mut Properties<T, B, M> {
 		&mut self.properties
+	}
+
+	/// Returns a reference to the properties of the node.
+	#[inline(always)]
+	pub fn reverse_properties(&self) -> Option<&Meta<ReverseProperties<T, B, M>, M>> {
+		self.reverse_properties.as_ref().map(Entry::as_value)
 	}
 
 	/// Returns a reference to the reverse properties of the node.
@@ -503,7 +521,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Reference<T, B>, value: IndexedObject<T, B, M>) {
+	pub fn insert(&mut self, prop: Meta<Reference<T, B>, M>, value: IndexedObject<T, B, M>) {
 		self.properties.insert(prop, value)
 	}
 
@@ -514,7 +532,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	#[inline(always)]
 	pub fn insert_all<Objects: Iterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,
-		prop: Reference<T, B>,
+		prop: Meta<Reference<T, B>, M>,
 		values: Objects,
 	) {
 		self.properties.insert_all(prop, values)
@@ -618,16 +636,16 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Indexed<Node<T, B, M>, M> {
 
 #[derive(Derivative, PartialEq, Eq)]
 #[derivative(Clone(bound = ""), Copy(bound = ""))]
-pub enum EntryKeyRef<'a, T, B> {
+pub enum EntryKeyRef<'a, T, B, M> {
 	Id,
 	Type,
 	Graph,
 	Included,
 	Reverse,
-	Property(&'a Reference<T, B>),
+	Property(Meta<&'a Reference<T, B>, &'a M>),
 }
 
-impl<'a, T, B> EntryKeyRef<'a, T, B> {
+impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
 	pub fn into_keyword(self) -> Option<Keyword> {
 		match self {
 			Self::Id => Some(Keyword::Id),
@@ -667,7 +685,7 @@ impl<'a, T, B> EntryKeyRef<'a, T, B> {
 	}
 }
 
-impl<'a, T, B, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B> {
+impl<'a, T, B, N: Vocabulary<T, B>, M> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B, M> {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
 		match self {
 			EntryKeyRef::Id => "@id",
@@ -675,7 +693,7 @@ impl<'a, T, B, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N> for EntryKeyR
 			EntryKeyRef::Graph => "@graph",
 			EntryKeyRef::Included => "@included",
 			EntryKeyRef::Reverse => "@reverse",
-			EntryKeyRef::Property(p) => p.with(vocabulary).as_str(),
+			EntryKeyRef::Property(p) => p.0.with(vocabulary).as_str(),
 		}
 	}
 }
@@ -683,7 +701,7 @@ impl<'a, T, B, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N> for EntryKeyR
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""), Copy(bound = ""))]
 pub enum EntryValueRef<'a, T, B, M> {
-	Id(&'a Reference<T, B>),
+	Id(Meta<&'a Reference<T, B>, &'a M>),
 	Type(&'a TypeEntryValue<T, B, M>),
 	Graph(&'a HashSet<StrippedIndexedObject<T, B, M>>),
 	Included(&'a HashSet<StrippedIndexedNode<T, B, M>>),
@@ -723,11 +741,14 @@ pub enum EntryRef<'a, T, B, M> {
 	Graph(&'a GraphEntry<T, B, M>),
 	Included(&'a IncludedEntry<T, B, M>),
 	Reverse(&'a Entry<ReverseProperties<T, B, M>, M>),
-	Property(&'a Reference<T, B>, &'a [StrippedIndexedObject<T, B, M>]),
+	Property(
+		Meta<&'a Reference<T, B>, &'a M>,
+		&'a [StrippedIndexedObject<T, B, M>],
+	),
 }
 
 impl<'a, T, B, M> EntryRef<'a, T, B, M> {
-	pub fn into_key(self) -> EntryKeyRef<'a, T, B> {
+	pub fn into_key(self) -> EntryKeyRef<'a, T, B, M> {
 		match self {
 			Self::Id(_) => EntryKeyRef::Id,
 			Self::Type(_) => EntryKeyRef::Type,
@@ -738,13 +759,13 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn key(&self) -> EntryKeyRef<'a, T, B> {
+	pub fn key(&self) -> EntryKeyRef<'a, T, B, M> {
 		self.into_key()
 	}
 
 	pub fn into_value(self) -> EntryValueRef<'a, T, B, M> {
 		match self {
-			Self::Id(v) => EntryValueRef::Id(v),
+			Self::Id(v) => EntryValueRef::Id(Meta(&v.value, &v.key_metadata)),
 			Self::Type(v) => EntryValueRef::Type(&v.value),
 			Self::Graph(v) => EntryValueRef::Graph(v),
 			Self::Included(v) => EntryValueRef::Included(v),
@@ -757,9 +778,12 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 		self.into_value()
 	}
 
-	pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B, M>) {
+	pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B, M>, EntryValueRef<'a, T, B, M>) {
 		match self {
-			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
+			Self::Id(v) => (
+				EntryKeyRef::Id,
+				EntryValueRef::Id(Meta(&v.value, &v.key_metadata)),
+			),
 			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(&v.value)),
 			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
 			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
@@ -768,14 +792,17 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B, M>) {
+	pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B, M>, EntryValueRef<'a, T, B, M>) {
 		match self {
-			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
+			Self::Id(v) => (
+				EntryKeyRef::Id,
+				EntryValueRef::Id(Meta(&v.value, &v.key_metadata)),
+			),
 			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(&v.value)),
 			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
 			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
 			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(v)),
-			Self::Property(k, v) => (EntryKeyRef::Property(k), EntryValueRef::Property(v)),
+			Self::Property(k, v) => (EntryKeyRef::Property(*k), EntryValueRef::Property(v)),
 		}
 	}
 }
@@ -871,12 +898,12 @@ impl<'a, T, B, M> ExactSizeIterator for IndexedEntries<'a, T, B, M> {}
 
 #[derive(Derivative, PartialEq, Eq)]
 #[derivative(Clone(bound = ""), Copy(bound = ""))]
-pub enum IndexedEntryKeyRef<'a, T, B> {
+pub enum IndexedEntryKeyRef<'a, T, B, M> {
 	Index,
-	Node(EntryKeyRef<'a, T, B>),
+	Node(EntryKeyRef<'a, T, B, M>),
 }
 
-impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
+impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
 	pub fn into_keyword(self) -> Option<Keyword> {
 		match self {
 			Self::Index => Some(Keyword::Index),
@@ -908,8 +935,8 @@ impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
 	}
 }
 
-impl<'a, T, B, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N>
-	for IndexedEntryKeyRef<'a, T, B>
+impl<'a, T, B, N: Vocabulary<T, B>, M> IntoRefWithContext<'a, str, N>
+	for IndexedEntryKeyRef<'a, T, B, M>
 {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
 		match self {
@@ -934,14 +961,14 @@ pub enum IndexedEntryRef<'a, T, B, M> {
 }
 
 impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
-	pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B> {
+	pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B, M> {
 		match self {
 			Self::Index(_) => IndexedEntryKeyRef::Index,
 			Self::Node(e) => IndexedEntryKeyRef::Node(e.key()),
 		}
 	}
 
-	pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B> {
+	pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B, M> {
 		self.into_key()
 	}
 
@@ -959,7 +986,7 @@ impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
 	pub fn into_key_value(
 		self,
 	) -> (
-		IndexedEntryKeyRef<'a, T, B>,
+		IndexedEntryKeyRef<'a, T, B, M>,
 		IndexedEntryValueRef<'a, T, B, M>,
 	) {
 		match self {
@@ -974,7 +1001,7 @@ impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
 	pub fn as_key_value(
 		&self,
 	) -> (
-		IndexedEntryKeyRef<'a, T, B>,
+		IndexedEntryKeyRef<'a, T, B, M>,
 		IndexedEntryValueRef<'a, T, B, M>,
 	) {
 		self.into_key_value()
@@ -987,17 +1014,17 @@ pub enum FragmentRef<'a, T, B, M> {
 	Entry(EntryRef<'a, T, B, M>),
 
 	/// Node object entry key.
-	Key(EntryKeyRef<'a, T, B>),
+	Key(EntryKeyRef<'a, T, B, M>),
 
 	/// Node object entry value.
 	Value(EntryValueRef<'a, T, B, M>),
 
 	/// "@type" entry value fragment.
-	TypeFragment(&'a Reference<T, B>),
+	TypeFragment(Meta<&'a Reference<T, B>, &'a M>),
 }
 
 impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
-	pub fn into_id(self) -> Option<&'a Reference<T, B>> {
+	pub fn into_id(self) -> Option<Meta<&'a Reference<T, B>, &'a M>> {
 		match self {
 			Self::Key(EntryKeyRef::Property(id)) => Some(id),
 			Self::Value(EntryValueRef::Id(id)) => Some(id),
@@ -1041,7 +1068,7 @@ impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
 pub enum SubFragments<'a, T, B, M> {
 	None,
 	Entry(
-		Option<EntryKeyRef<'a, T, B>>,
+		Option<EntryKeyRef<'a, T, B, M>>,
 		Option<EntryValueRef<'a, T, B, M>>,
 	),
 	Type(std::slice::Iter<'a, Meta<Reference<T, B>, M>>),
@@ -1066,7 +1093,7 @@ impl<'a, T, B, M> Iterator for SubFragments<'a, T, B, M> {
 				}),
 			Self::Type(l) => l
 				.next_back()
-				.map(|t| super::FragmentRef::NodeFragment(FragmentRef::TypeFragment(t))),
+				.map(|t| super::FragmentRef::NodeFragment(FragmentRef::TypeFragment(t.borrow()))),
 			Self::Graph(g) => g.next().map(|o| super::FragmentRef::IndexedObject(o)),
 			Self::Included(i) => i.next().map(|n| super::FragmentRef::IndexedNode(n)),
 			Self::Reverse(r) => r

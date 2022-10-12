@@ -23,10 +23,13 @@ json-ld-syntax = { path = "../syntax" }
 json-ld-core = { path = "../core" }
 json-ld-context-processing = { path = "../context-processing" }
 json-ld-expansion = { path = "../expansion" }
+json-ld-compaction = { path = "../compaction" }
+json-syntax = "0.8.13"
+futures = "^0.3"
+locspan = "0.7.9"
+rdf-types = "0.9"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }
 iref = "2.2"
 static-iref = "2.0"
-rdf-types = "0.9"
-locspan = "0.7.3"

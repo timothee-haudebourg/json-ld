@@ -4,7 +4,7 @@ pub mod inverse;
 
 use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Term};
 use contextual::WithContext;
-use locspan::Meta;
+use locspan::{BorrowStripped, Meta, StrippedPartialEq};
 use once_cell::sync::OnceCell;
 use rdf_types::Vocabulary;
 use std::borrow::Borrow;
@@ -17,18 +17,18 @@ pub use definition::*;
 pub use inverse::InverseContext;
 
 /// JSON-LD context.
-pub struct Context<T, B, L> {
+pub struct Context<T, B, L, M> {
 	original_base_url: Option<T>,
 	base_iri: Option<T>,
 	vocabulary: Option<Term<T, B>>,
 	default_language: Option<LenientLanguageTagBuf>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
-	definitions: HashMap<Key, TermDefinition<T, B, L>>,
+	definitions: HashMap<Key, TermDefinition<T, B, L, M>>,
 	inverse: OnceCell<InverseContext<T, B>>,
 }
 
-impl<T, B, L> Default for Context<T, B, L> {
+impl<T, B, L, M> Default for Context<T, B, L, M> {
 	fn default() -> Self {
 		Self {
 			original_base_url: None,
@@ -43,9 +43,9 @@ impl<T, B, L> Default for Context<T, B, L> {
 	}
 }
 
-pub type DefinitionEntryRef<'a, T, B, L> = (&'a Key, &'a TermDefinition<T, B, L>);
+pub type DefinitionEntryRef<'a, T, B, L, M> = (&'a Key, &'a TermDefinition<T, B, L, M>);
 
-impl<T, B, L> Context<T, B, L> {
+impl<T, B, L, M> Context<T, B, L, M> {
 	pub fn new(base_iri: Option<T>) -> Self
 	where
 		T: Clone,
@@ -62,7 +62,7 @@ impl<T, B, L> Context<T, B, L> {
 		}
 	}
 
-	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<&TermDefinition<T, B, L>>
+	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<&TermDefinition<T, B, L, M>>
 	where
 		Key: Borrow<Q>,
 		Q: Hash + Eq,
@@ -118,7 +118,7 @@ impl<T, B, L> Context<T, B, L> {
 
 	pub fn definitions<'a>(
 		&'a self,
-	) -> Box<dyn 'a + Iterator<Item = DefinitionEntryRef<'a, T, B, L>>> {
+	) -> Box<dyn 'a + Iterator<Item = DefinitionEntryRef<'a, T, B, L, M>>> {
 		Box::new(self.definitions.iter())
 	}
 
@@ -144,8 +144,8 @@ impl<T, B, L> Context<T, B, L> {
 	pub fn set(
 		&mut self,
 		key: Key,
-		definition: Option<TermDefinition<T, B, L>>,
-	) -> Option<TermDefinition<T, B, L>> {
+		definition: Option<TermDefinition<T, B, L, M>>,
+	) -> Option<TermDefinition<T, B, L, M>> {
 		self.inverse.take();
 		match definition {
 			Some(def) => self.definitions.insert(key, def),
@@ -178,13 +178,14 @@ impl<T, B, L> Context<T, B, L> {
 		self.previous_context = Some(Box::new(previous))
 	}
 
-	pub fn into_syntax_definition<M: Clone>(
+	pub fn into_syntax_definition(
 		self,
 		vocabulary: &impl Vocabulary<T, B>,
 		meta: M,
 	) -> Meta<json_ld_syntax::context::Definition<M>, M>
 	where
 		L: IntoSyntax<T, B, M>,
+		M: Clone,
 	{
 		use json_ld_syntax::{Entry, Nullable};
 
@@ -252,7 +253,7 @@ impl<T, B, M> IntoSyntax<T, B, M> for json_ld_syntax::context::Value<M> {
 	}
 }
 
-impl<T, B, M: Clone, L: IntoSyntax<T, B, M>> IntoSyntax<T, B, M> for Context<T, B, L> {
+impl<T, B, M: Clone, L: IntoSyntax<T, B, M>> IntoSyntax<T, B, M> for Context<T, B, L, M> {
 	fn into_syntax(
 		self,
 		vocabulary: &impl Vocabulary<T, B>,
@@ -266,7 +267,7 @@ impl<T, B, M: Clone, L: IntoSyntax<T, B, M>> IntoSyntax<T, B, M> for Context<T, 
 	}
 }
 
-impl<T: Clone, B: Clone, L: Clone> Clone for Context<T, B, L> {
+impl<T: Clone, B: Clone, L: Clone, M: Clone> Clone for Context<T, B, L, M> {
 	fn clone(&self) -> Self {
 		Self {
 			original_base_url: self.original_base_url.clone(),
@@ -281,13 +282,13 @@ impl<T: Clone, B: Clone, L: Clone> Clone for Context<T, B, L> {
 	}
 }
 
-impl<T: PartialEq, B: PartialEq, L: PartialEq> PartialEq for Context<T, B, L> {
-	fn eq(&self, other: &Self) -> bool {
+impl<T: PartialEq, B: PartialEq, L: PartialEq, M> StrippedPartialEq for Context<T, B, L, M> {
+	fn stripped_eq(&self, other: &Self) -> bool {
 		self.original_base_url == other.original_base_url
 			&& self.base_iri == other.base_iri
 			&& self.vocabulary == other.vocabulary
 			&& self.default_language == other.default_language
 			&& self.default_base_direction == other.default_base_direction
-			&& self.previous_context == other.previous_context
+			&& self.previous_context.stripped() == other.previous_context.stripped()
 	}
 }

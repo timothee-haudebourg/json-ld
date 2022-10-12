@@ -587,7 +587,7 @@ impl<T, B, M, N: Vocabulary<T, B>> PrecomputeSizeWithContext<N>
 	) -> Size {
 		pre_compute_object_size(
 			self.iter()
-				.map(|(k, v)| (k.into_with(vocabulary).as_str(), v.into_with(vocabulary))),
+				.map(|(k, v)| (k.0.into_with(vocabulary).as_str(), v.into_with(vocabulary))),
 			options,
 			sizes,
 		)
@@ -608,7 +608,7 @@ impl<T, B, M, N: Vocabulary<T, B>> PrintWithSizeAndContext<N>
 	) -> std::fmt::Result {
 		print_object(
 			self.iter()
-				.map(|(k, v)| (k.into_with(vocabulary).as_str(), v.into_with(vocabulary))),
+				.map(|(k, v)| (k.0.into_with(vocabulary).as_str(), v.into_with(vocabulary))),
 			f,
 			options,
 			indent,

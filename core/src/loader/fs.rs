@@ -1,4 +1,4 @@
-use super::Loader;
+use super::{Loader, RemoteDocument};
 use futures::future::{BoxFuture, FutureExt};
 use locspan::Meta;
 use rdf_types::{vocabulary::Index, IriVocabulary};
@@ -79,7 +79,7 @@ impl<I, T, M, E> FsLoader<I, T, M, E> {
 	}
 }
 
-impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M>
+impl<I: Clone + Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M>
 	for FsLoader<I, T, M, E>
 {
 	type Output = T;
@@ -89,13 +89,13 @@ impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M>
 		&'a mut self,
 		vocabulary: &'a (impl Sync + IriVocabulary<I>),
 		url: I,
-	) -> BoxFuture<'a, Result<Meta<T, M>, Self::Error>>
+	) -> BoxFuture<'a, Result<RemoteDocument<I, T, M>, Self::Error>>
 	where
 		I: 'a,
 	{
 		async move {
 			match self.cache.get(&url) {
-				Some(t) => Ok(t.clone()),
+				Some(t) => Ok(RemoteDocument::new(Some(url), t.clone())),
 				None => match self.filepath(vocabulary, &url) {
 					Some(filepath) => {
 						let file = File::open(filepath).map_err(Error::IO)?;
@@ -106,8 +106,8 @@ impl<I: Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M>
 							.map_err(Error::IO)?;
 						let doc = (*self.parser)(vocabulary, &url, contents.as_str())
 							.map_err(Error::Parse)?;
-						self.cache.insert(url, doc.clone());
-						Ok(doc)
+						self.cache.insert(url.clone(), doc.clone());
+						Ok(RemoteDocument::new(Some(url), doc))
 					}
 					None => Err(Error::NoMountPoint),
 				},

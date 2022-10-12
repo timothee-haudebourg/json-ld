@@ -4,7 +4,9 @@ use crate::{
 };
 use contextual::WithContext;
 use futures::future::{BoxFuture, FutureExt};
-use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
+use json_ld_context_processing::{
+	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
+};
 use json_ld_core::{
 	object,
 	object::value::{Literal, LiteralString},
@@ -35,8 +37,8 @@ pub(crate) fn node_id_of_term<T, B, M>(
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn expand_node<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	vocabulary: &'a mut N,
-	active_context: &'a Context<T, B, C>,
-	type_scoped_context: &'a Context<T, B, C>,
+	active_context: &'a Context<T, B, C, M>,
+	type_scoped_context: &'a Context<T, B, C, M>,
 	active_property: ActiveProperty<'a, M>,
 	expanded_entries: Vec<ExpandedEntry<'a, T, B, M>>,
 	base_url: Option<&'a T>,
@@ -49,7 +51,7 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
-	C: Process<T, B, M> + From<json_ld_syntax::context::Value<M>>,
+	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
 	L::Output: Into<json_syntax::Value<M>>,
 	L::Context: Into<C>,
@@ -123,8 +125,8 @@ fn expand_node_entries<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>,
 	vocabulary: &'a mut N,
 	mut result: Indexed<Node<T, B, M>, M>,
 	mut has_value_object_entries: bool,
-	active_context: &'a Context<T, B, C>,
-	type_scoped_context: &'a Context<T, B, C>,
+	active_context: &'a Context<T, B, C, M>,
+	type_scoped_context: &'a Context<T, B, C, M>,
 	active_property: ActiveProperty<'a, M>,
 	expanded_entries: Vec<ExpandedEntry<'a, T, B, M>>,
 	base_url: Option<&'a T>,
@@ -137,7 +139,7 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
-	C: Process<T, B, M> + From<json_ld_syntax::context::Value<M>>,
+	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
 	L::Output: Into<json_syntax::Value<M>>,
 	L::Context: Into<C>,
@@ -378,7 +380,7 @@ where
 										{
 											return Err(Error::KeyExpansionFailed.at(meta))
 										}
-										Meta(Term::Ref(reverse_prop), _)
+										Meta(Term::Ref(reverse_prop), meta)
 											if reverse_prop
 												.with(&*vocabulary)
 												.as_str()
@@ -413,7 +415,7 @@ where
 
 											if is_double_reversed {
 												result.insert_all(
-													reverse_prop,
+													Meta(reverse_prop, meta),
 													reverse_expanded_value.into_iter(),
 												)
 											} else {
@@ -439,7 +441,7 @@ where
 														reverse_value.metadata().clone(),
 													)
 													.insert_all(
-														reverse_prop,
+														Meta(reverse_prop, meta),
 														reverse_expanded_nodes.into_iter(),
 													)
 											}
@@ -484,6 +486,7 @@ where
 										let options: ProcessingOptions = options.into();
 										Mown::Owned(
 											property_scoped_context
+												.value
 												.process_with(
 													vocabulary,
 													active_context,
@@ -492,7 +495,8 @@ where
 													options.with_override(),
 												)
 												.await
-												.map_err(Meta::cast)?,
+												.map_err(Meta::cast)?
+												.into_processed(),
 										)
 									}
 									None => Mown::Borrowed(active_context),
@@ -813,7 +817,8 @@ where
 															options.into(),
 														)
 														.await
-														.map_err(Meta::cast)?,
+														.map_err(Meta::cast)?
+														.into_processed(),
 												)
 											}
 										}
@@ -936,7 +941,10 @@ where
 													item.value_mut().inner_mut()
 												{
 													node.insert(
-														expanded_index_key,
+														Meta(
+															expanded_index_key,
+															index_metadata.clone(),
+														),
 														re_expanded_index,
 													);
 												} else {
@@ -1124,12 +1132,18 @@ where
 									key_metadata.clone(),
 									value.metadata().clone(),
 								)
-								.insert_all(prop, reverse_expanded_nodes.into_iter());
+								.insert_all(
+									Meta(prop, key_metadata.clone()),
+									reverse_expanded_nodes.into_iter(),
+								);
 						} else {
 							// Otherwise, key is not a reverse property use add value
 							// to add expanded value to the expanded property entry in
 							// result using true for as array.
-							result.insert_all(prop, expanded_value.into_iter());
+							result.insert_all(
+								Meta(prop, key_metadata.clone()),
+								expanded_value.into_iter(),
+							);
 						}
 					}
 				}

@@ -1,6 +1,6 @@
 use crate::{
-	ContextLoader, Error, MetaError, Options, Process, ProcessingResult, ProcessingStack,
-	WarningHandler,
+	ContextLoader, Error, MetaError, Options, ProcessMeta, Processed, ProcessingResult,
+	ProcessingStack, WarningHandler,
 };
 use futures::future::{BoxFuture, FutureExt};
 use iref::IriRef;
@@ -18,17 +18,18 @@ pub use iri::*;
 pub use merged::*;
 use syntax::context::definition::KeyOrKeywordRef;
 
-impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> Process<T, B, M> for C {
-	fn process_full<'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'a self,
+impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> ProcessMeta<T, B, M> for C {
+	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
+		&'l self,
+		meta: &'l M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, C>,
+		active_context: &'a Context<T, B, C, M>,
 		stack: ProcessingStack<T>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
 		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<T, B, M, C, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, C, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<T, B>,
 		T: Clone + PartialEq + Send + Sync,
@@ -40,7 +41,7 @@ impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> Process<T, 
 			Ok(process_context(
 				vocabulary,
 				active_context,
-				self,
+				Meta(self, meta),
 				stack,
 				loader,
 				base_url,
@@ -72,29 +73,29 @@ fn resolve_iri<I>(
 	}
 }
 
-type ContextProcessingResult<T, B, M, C, L, W> =
-	Result<(Context<T, B, C>, W), MetaError<M, <L as ContextLoader<T, M>>::ContextError>>;
+type ContextProcessingResult<'a, T, B, M, C, L, W> =
+	Result<(Processed<'a, T, B, C, M>, W), MetaError<M, <L as ContextLoader<T, M>>::ContextError>>;
 
 // This function tries to follow the recommended context processing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'a, T, B, M, C, N, L, W>(
+fn process_context<'l: 'a, 'a, T, B, M, C, N, L, W>(
 	vocabulary: &'a mut N,
-	active_context: &'a Context<T, B, C>,
-	local_context: &'a C,
+	active_context: &'a Context<T, B, C, M>,
+	local_context: Meta<&'l C, &'l M>,
 	mut remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
 	base_url: Option<T>,
 	mut options: Options,
 	mut warnings: W,
-) -> BoxFuture<'a, ContextProcessingResult<T, B, M, C, L, W>>
+) -> BoxFuture<'a, ContextProcessingResult<'l, T, B, M, C, L, W>>
 where
 	T: 'a + Clone + PartialEq + Send + Sync,
 	B: 'a + Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
-	C: Process<T, B, M>,
+	C: ProcessMeta<T, B, M>,
 	N: Send + Sync + VocabularyMut<T, B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	L::Context: Into<C>,
@@ -193,8 +194,8 @@ where
 							.load_context_in(vocabulary, context_iri.clone())
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(context_meta))?
-							.into_value()
-							.into();
+							.into_document()
+							.map(Into::into);
 
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
@@ -208,7 +209,7 @@ where
 						let (r, w) = process_context(
 							vocabulary,
 							&result,
-							&loaded_context,
+							loaded_context.borrow(),
 							remote_contexts.clone(),
 							loader,
 							Some(context_iri),
@@ -217,7 +218,7 @@ where
 						)
 						.await?;
 
-						result = r;
+						result = r.into_processed();
 						warnings = w;
 					}
 				}
@@ -256,6 +257,7 @@ where
 							.load_context_in(vocabulary, import)
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(import_meta.clone()))?
+							.into_document()
 							.into_value()
 							.into();
 
@@ -456,7 +458,7 @@ where
 			}
 		}
 
-		Ok((result, warnings))
+		Ok((Processed::new(local_context, result), warnings))
 	}
 	.boxed()
 }

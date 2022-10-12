@@ -54,7 +54,7 @@ fn expand_iri<
 	'a,
 	J: JsonContext,
 	T: Id + Send + Sync,
-	C: Process<T>,
+	C: ProcessMeta<T>,
 	L: Loader + Send + Sync,
 >(
 	active_context: &'a mut Context<T, C>,

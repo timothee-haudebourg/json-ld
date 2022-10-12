@@ -25,9 +25,9 @@ pub use vocab::*;
 #[stripped_ignore(M)]
 #[derivative(Default(bound = ""))]
 pub struct Definition<M, C = super::Value<M>> {
-	#[stripped_option_deref]
+	#[stripped_option_deref2]
 	pub base: Option<Entry<Nullable<IriRefBuf>, M>>,
-	#[stripped_option_deref]
+	#[stripped_option_deref2]
 	pub import: Option<Entry<IriRefBuf, M>>,
 	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, M>>,
 	pub direction: Option<Entry<Nullable<Direction>, M>>,

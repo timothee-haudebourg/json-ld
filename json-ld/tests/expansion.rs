@@ -1,6 +1,6 @@
 use iref::IriBuf;
-use json_ld::{syntax::Parse, Expand};
-use locspan::Span;
+use json_ld::{syntax::Parse, Expand, RemoteDocument};
+use locspan::{Meta, Span};
 use rdf_types::BlankIdBuf;
 use static_iref::iri;
 
@@ -30,6 +30,9 @@ async fn expand() {
 		iri!("https://w3c.github.io/json-ld-api/tests/0020-in.jsonld").into();
 	let mut loader: json_ld::NoLoader<IriBuf, json_ld::syntax::Value<Span>, Span> =
 		json_ld::NoLoader::new();
-	let _: json_ld::ExpandedDocument<IriBuf, BlankIdBuf, _> =
-		json.expand(Some(&document_url), &mut loader).await.unwrap();
+	let _: Meta<json_ld::ExpandedDocument<IriBuf, BlankIdBuf, _>, _> =
+		RemoteDocument::new(Some(document_url), json)
+			.expand(&mut loader)
+			.await
+			.unwrap();
 }

@@ -28,6 +28,17 @@ pub trait Any<T, B, M = ()> {
 	fn as_ref(&self) -> Ref<T, B, M>;
 
 	#[inline]
+	fn id_entry<'a>(&'a self) -> Option<&'a Entry<Reference<T, B>, M>>
+	where
+		M: 'a,
+	{
+		match self.as_ref() {
+			Ref::Node(n) => n.id_entry(),
+			_ => None,
+		}
+	}
+
+	#[inline]
 	fn id<'a>(&'a self) -> Option<&'a Meta<Reference<T, B>, M>>
 	where
 		M: 'a,
@@ -464,7 +475,7 @@ impl<'a, T, B, M> ExactSizeIterator for IndexedEntries<'a, T, B, M> {}
 pub enum EntryKeyRef<'a, T, B, M> {
 	Value(value::EntryKey),
 	List(&'a M),
-	Node(node::EntryKeyRef<'a, T, B>),
+	Node(node::EntryKeyRef<'a, T, B, M>),
 }
 
 impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
@@ -994,7 +1005,7 @@ impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
 	pub fn into_id(self) -> Option<Reference<&'a T, &'a B>> {
 		match self {
 			Self::ValueFragment(i) => i.into_iri().map(Reference::id),
-			Self::NodeFragment(i) => i.into_id().map(Into::into),
+			Self::NodeFragment(i) => i.into_id().map(Meta::into_value).map(Into::into),
 			_ => None,
 		}
 	}

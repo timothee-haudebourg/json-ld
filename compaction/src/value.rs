@@ -1,45 +1,58 @@
-use std::hash::Hash;
-use json_ld_core::{NamespaceMut, Reference, Loader, ContextLoader, Context, Value, object, Type, Container, ContainerKind, Term};
+use crate::{compact_iri, compact_key, MetaError, Options};
+use json_ld_context_processing::{Options as ProcessingOptions, Process, ProcessMeta};
+use json_ld_core::{
+	object, Container, ContainerKind, Context, ContextLoader, Loader, Reference, Term, Type, Value,
+};
 use json_ld_syntax::{Entry, Keyword};
-use json_ld_context_processing::{Process, Options as ProcessingOptions};
-use mown::Mown;
 use locspan::Meta;
-use crate::{Options, compact_iri, MetaError, compact_key};
+use mown::Mown;
+use rdf_types::VocabularyMut;
+use std::hash::Hash;
 
 /// Compact the given indexed value.
-pub async fn compact_indexed_value_with<I, B, M, C: Process<I, B, M>, N, L: Loader<I, M> + ContextLoader<I, M>>(
+pub async fn compact_indexed_value_with<
+	I,
+	B,
+	M,
+	C: ProcessMeta<I, B, M>,
+	N,
+	L: Loader<I, M> + ContextLoader<I, M>,
+>(
 	vocabulary: &mut N,
 	Meta(value, meta): Meta<&Value<I, M>, &M>,
 	index: Option<&Entry<String, M>>,
-	active_context: &Context<I, B, C>,
+	active_context: &Context<I, B, C, M>,
 	active_property: Option<Meta<&str, &M>>,
 	loader: &mut L,
-	options: Options
+	options: Options,
 ) -> Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>
 where
-	N: Send + Sync + NamespaceMut<I, B>,
+	N: Send + Sync + VocabularyMut<I, B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
 	L: Send + Sync,
-	L::Output: Into<Value<M, C>>,
-	L::Context: Into<C>
+	L::Context: Into<C>,
 {
 	// If the term definition for active property in active context has a local context:
 	let mut active_context = Mown::Borrowed(active_context);
 	if let Some(Meta(active_property, _)) = active_property {
 		if let Some(active_property_definition) = active_context.get(active_property) {
 			if let Some(local_context) = &active_property_definition.context {
-				active_context = Mown::Owned(local_context
-					.process_with(
-						vocabulary,
-						active_context.as_ref(),
-						loader,
-						active_property_definition.base_url().cloned(),
-						ProcessingOptions::from(options).with_override(),
-					)
-					.await
-					.map_err(Meta::cast)?)
+				active_context = Mown::Owned(
+					local_context
+						.value
+						.process_with(
+							vocabulary,
+							active_context.as_ref(),
+							loader,
+							active_property_definition.base_url().cloned(),
+							ProcessingOptions::from(options).with_override(),
+						)
+						.await
+						.map_err(Meta::cast)?
+						.into_processed(),
+				)
 			}
 		}
 	}
@@ -111,11 +124,18 @@ where
 			if ty.clone().map(Type::Ref) == type_mapping && remove_index {
 				match lit {
 					Literal::Null => return Ok(Meta(json_syntax::Value::Null, meta.clone())),
-					Literal::Boolean(b) => return Ok(Meta(json_syntax::Value::Boolean(*b), meta.clone())),
-					Literal::Number(n) => return Ok(Meta(json_syntax::Value::Number(n.clone()), meta.clone())),
+					Literal::Boolean(b) => {
+						return Ok(Meta(json_syntax::Value::Boolean(*b), meta.clone()))
+					}
+					Literal::Number(n) => {
+						return Ok(Meta(json_syntax::Value::Number(n.clone()), meta.clone()))
+					}
 					Literal::String(s) => {
 						if ty.is_some() || (language.is_none() && direction.is_none()) {
-							return Ok(Meta(json_syntax::Value::String(s.as_str().into()), meta.clone()));
+							return Ok(Meta(
+								json_syntax::Value::String(s.as_str().into()),
+								meta.clone(),
+							));
 						} else {
 							let compact_key = compact_key(
 								vocabulary,
@@ -124,10 +144,11 @@ where
 								true,
 								false,
 								options,
-							).map_err(Meta::cast)?;
+							)
+							.map_err(Meta::cast)?;
 							result.insert(
 								compact_key.unwrap(),
-								Meta(json_syntax::Value::String(s.as_str().into()), meta.clone())
+								Meta(json_syntax::Value::String(s.as_str().into()), meta.clone()),
 							);
 						}
 					}
@@ -140,30 +161,31 @@ where
 					true,
 					false,
 					options,
-				).map_err(Meta::cast)?;
+				)
+				.map_err(Meta::cast)?;
 				match lit {
 					Literal::Null => {
 						result.insert(
 							compact_key.unwrap(),
-							Meta(json_syntax::Value::Null, meta.clone())
+							Meta(json_syntax::Value::Null, meta.clone()),
 						);
 					}
 					Literal::Boolean(b) => {
 						result.insert(
 							compact_key.unwrap(),
-							Meta(json_syntax::Value::Boolean(*b), meta.clone())
+							Meta(json_syntax::Value::Boolean(*b), meta.clone()),
 						);
 					}
 					Literal::Number(n) => {
 						result.insert(
 							compact_key.unwrap(),
-							Meta(json_syntax::Value::Number(n.clone()), meta.clone())
+							Meta(json_syntax::Value::Number(n.clone()), meta.clone()),
 						);
 					}
 					Literal::String(s) => {
 						result.insert(
 							compact_key.unwrap(),
-							Meta(json_syntax::Value::String(s.as_str().into()), meta.clone())
+							Meta(json_syntax::Value::String(s.as_str().into()), meta.clone()),
 						);
 					}
 				}
@@ -176,20 +198,22 @@ where
 						true,
 						false,
 						options,
-					).map_err(Meta::cast)?;
+					)
+					.map_err(Meta::cast)?;
 					let compact_ty = compact_iri(
 						vocabulary,
 						active_context.as_ref(),
-						Meta(&Term::Ref(Reference::Id(ty.clone())), meta),
+						Meta(&Term::Ref(Reference::id(ty.clone())), meta),
 						true,
 						false,
 						options,
-					).map_err(Meta::cast)?;
+					)
+					.map_err(Meta::cast)?;
 					result.insert(
 						compact_key.unwrap(),
 						match compact_ty {
 							Some(Meta(s, meta)) => Meta(json_syntax::Value::String(s.into()), meta),
-							None => Meta(json_syntax::Value::Null, meta.clone())
+							None => Meta(json_syntax::Value::Null, meta.clone()),
 						},
 					);
 				}
@@ -204,7 +228,10 @@ where
 			&& (ls_direction.is_none() || direction == ls_direction)
 			{
 				// || (ls.direction().is_none() && direction.is_none())) {
-				return Ok(Meta(json_syntax::Value::String(ls.as_str().into()), meta.clone()));
+				return Ok(Meta(
+					json_syntax::Value::String(ls.as_str().into()),
+					meta.clone(),
+				));
 			} else {
 				let compact_key = compact_key(
 					vocabulary,
@@ -213,10 +240,11 @@ where
 					true,
 					false,
 					options,
-				).map_err(Meta::cast)?;
+				)
+				.map_err(Meta::cast)?;
 				result.insert(
 					compact_key.unwrap(),
-					Meta(json_syntax::Value::String(ls.as_str().into()), meta.clone())
+					Meta(json_syntax::Value::String(ls.as_str().into()), meta.clone()),
 				);
 
 				if let Some(language) = ls.language() {
@@ -227,10 +255,14 @@ where
 						true,
 						false,
 						options,
-					).map_err(Meta::cast)?;
+					)
+					.map_err(Meta::cast)?;
 					result.insert(
 						compact_key.unwrap(),
-						Meta(json_syntax::Value::String(language.as_str().into()), meta.clone()),
+						Meta(
+							json_syntax::Value::String(language.as_str().into()),
+							meta.clone(),
+						),
 					);
 				}
 
@@ -242,17 +274,21 @@ where
 						true,
 						false,
 						options,
-					).map_err(Meta::cast)?;
+					)
+					.map_err(Meta::cast)?;
 					result.insert(
 						compact_key.unwrap(),
-						Meta(json_syntax::Value::String(direction.as_str().into()), meta.clone()),
+						Meta(
+							json_syntax::Value::String(direction.as_str().into()),
+							meta.clone(),
+						),
 					);
 				}
 			}
 		}
 		Value::Json(value) => {
 			if type_mapping == Some(Type::Json) && remove_index {
-				return Ok(value.clone())
+				return Ok(value.clone());
 			} else {
 				let compact_key = compact_key(
 					vocabulary,
@@ -261,11 +297,9 @@ where
 					true,
 					false,
 					options,
-				).map_err(Meta::cast)?;
-				result.insert(
-					compact_key.unwrap(),
-					value.clone(),
-				);
+				)
+				.map_err(Meta::cast)?;
+				result.insert(compact_key.unwrap(), value.clone());
 
 				let compact_key = crate::compact_key(
 					vocabulary,
@@ -274,8 +308,9 @@ where
 					true,
 					false,
 					options,
-				).map_err(Meta::cast)?;
-				
+				)
+				.map_err(Meta::cast)?;
+
 				let compact_ty = compact_iri(
 					vocabulary,
 					active_context.as_ref(),
@@ -283,12 +318,13 @@ where
 					true,
 					false,
 					options,
-				).map_err(Meta::cast)?;
+				)
+				.map_err(Meta::cast)?;
 				result.insert(
 					compact_key.unwrap(),
 					match compact_ty {
 						Some(Meta(s, meta)) => Meta(json_syntax::Value::String(s.into()), meta),
-						None => Meta(json_syntax::Value::Null, meta.clone())
+						None => Meta(json_syntax::Value::Null, meta.clone()),
 					},
 				);
 			}
@@ -304,10 +340,14 @@ where
 				true,
 				false,
 				options,
-			).map_err(Meta::cast)?;
+			)
+			.map_err(Meta::cast)?;
 			result.insert(
 				compact_key.unwrap(),
-				Meta(json_syntax::Value::String(index.value.as_str().into()), index.value.metadata().clone())
+				Meta(
+					json_syntax::Value::String(index.value.as_str().into()),
+					index.value.metadata().clone(),
+				),
 			);
 		}
 	}

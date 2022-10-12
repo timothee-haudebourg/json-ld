@@ -1,7 +1,7 @@
 use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
 use crate::{id, Indexed, Reference, StrippedIndexedObject};
 use crate::{IndexedObject, TryFromJson};
-use locspan::{Location, Meta};
+use locspan::{Location, Meta, StrippedEq, StrippedPartialEq};
 use rdf_types::vocabulary::{Index, VocabularyMut};
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -139,6 +139,15 @@ impl<T: Eq + Hash, B: Eq + Hash, M> PartialEq for ExpandedDocument<T, B, M> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash, M> Eq for ExpandedDocument<T, B, M> {}
+
+impl<T: Eq + Hash, B: Eq + Hash, M> StrippedPartialEq for ExpandedDocument<T, B, M> {
+	/// Comparison between two expanded documents.
+	fn stripped_eq(&self, other: &Self) -> bool {
+		self.0.eq(&other.0)
+	}
+}
+
+impl<T: Eq + Hash, B: Eq + Hash, M> StrippedEq for ExpandedDocument<T, B, M> {}
 
 impl<T, B, M> IntoIterator for ExpandedDocument<T, B, M> {
 	type IntoIter = IntoIter<T, B, M>;

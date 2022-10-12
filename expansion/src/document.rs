@@ -1,6 +1,6 @@
 use super::expand_element;
 use crate::{ActiveProperty, Error, Loader, Options, WarningHandler};
-use json_ld_context_processing::{ContextLoader, Process};
+use json_ld_context_processing::{ContextLoader, ProcessMeta};
 use json_ld_core::{Context, ExpandedDocument, IndexedObject, Object};
 use json_syntax::Value;
 use locspan::Meta;
@@ -15,18 +15,18 @@ use std::hash::Hash;
 pub(crate) async fn expand<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	vocabulary: &'a mut N,
 	document: &'a Meta<Value<M>, M>,
-	active_context: Context<T, B, C>,
+	active_context: Context<T, B, C, M>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
 	options: Options,
 	warnings: W,
-) -> Result<ExpandedDocument<T, B, M>, Meta<Error<M, L::ContextError>, M>>
+) -> Result<Meta<ExpandedDocument<T, B, M>, M>, Meta<Error<M, L::ContextError>, M>>
 where
 	N: Send + Sync + VocabularyMut<T, B>,
 	T: Clone + Eq + Hash + Send + Sync,
 	B: Clone + Eq + Hash + Send + Sync,
 	M: Clone + Send + Sync,
-	C: Process<T, B, M> + From<json_ld_syntax::context::Value<M>>,
+	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Send + Sync,
 	L::Output: Into<Value<M>>,
 	L::Context: Into<C>,
@@ -48,18 +48,21 @@ where
 	if expanded.len() == 1 {
 		let Meta(obj, meta) = expanded.into_iter().next().unwrap();
 		match obj.into_unnamed_graph() {
-			Ok(Meta(graph, _)) => Ok(ExpandedDocument::from(graph)),
+			Ok(Meta(graph, meta)) => Ok(Meta(ExpandedDocument::from(graph), meta)),
 			Err(obj) => {
-				let obj = Meta(obj, meta);
+				let obj = Meta(obj, meta.clone());
 				let mut result = ExpandedDocument::new();
 				if filter_top_level_item(&obj) {
 					result.insert(obj);
 				}
-				Ok(result)
+				Ok(Meta(result, meta))
 			}
 		}
 	} else {
-		Ok(expanded.into_iter().filter(filter_top_level_item).collect())
+		Ok(Meta(
+			expanded.into_iter().filter(filter_top_level_item).collect(),
+			document.metadata().clone(),
+		))
 	}
 }
 

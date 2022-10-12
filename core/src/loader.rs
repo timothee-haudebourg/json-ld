@@ -9,7 +9,54 @@ pub mod none;
 pub use fs::FsLoader;
 pub use none::NoLoader;
 
-pub type LoadingResult<O, M, E> = Result<Meta<O, M>, E>;
+pub type LoadingResult<I, O, M, E> = Result<RemoteDocument<I, O, M>, E>;
+
+pub struct RemoteDocument<I, T, M> {
+	/// Document URL.
+	url: Option<I>,
+
+	/// Document.
+	document: Meta<T, M>,
+}
+
+impl<I, T, M> RemoteDocument<I, T, M> {
+	pub fn new(url: Option<I>, document: Meta<T, M>) -> Self {
+		Self { url, document }
+	}
+
+	pub fn map<U, N>(self, f: impl Fn(Meta<T, M>) -> Meta<U, N>) -> RemoteDocument<I, U, N> {
+		RemoteDocument {
+			url: self.url,
+			document: f(self.document),
+		}
+	}
+
+	pub fn try_map<U, N, E>(
+		self,
+		f: impl Fn(Meta<T, M>) -> Result<Meta<U, N>, E>,
+	) -> Result<RemoteDocument<I, U, N>, E> {
+		Ok(RemoteDocument {
+			url: self.url,
+			document: f(self.document)?,
+		})
+	}
+
+	pub fn url(&self) -> Option<&I> {
+		self.url.as_ref()
+	}
+
+	pub fn document(&self) -> &Meta<T, M> {
+		&self.document
+	}
+
+	pub fn into_document(self) -> Meta<T, M> {
+		self.document
+	}
+
+	pub fn into_url(self) -> Option<I> {
+		self.url
+	}
+}
 
 /// JSON document loader.
 pub trait Loader<I, M> {
@@ -22,12 +69,15 @@ pub trait Loader<I, M> {
 		&'a mut self,
 		vocabulary: &'a (impl Sync + IriVocabulary<I>),
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<Self::Output, M, Self::Error>>
+	) -> BoxFuture<'a, LoadingResult<I, Self::Output, M, Self::Error>>
 	where
 		I: 'a;
 
 	/// Loads the document behind the given IRI.
-	fn load<'a>(&'a mut self, url: I) -> BoxFuture<'a, LoadingResult<Self::Output, M, Self::Error>>
+	fn load<'a>(
+		&'a mut self,
+		url: I,
+	) -> BoxFuture<'a, LoadingResult<I, Self::Output, M, Self::Error>>
 	where
 		I: 'a,
 		(): IriVocabulary<I>,
@@ -45,7 +95,7 @@ pub trait ContextLoader<I, M> {
 		&'a mut self,
 		vocabulary: &'a (impl Sync + IriVocabulary<I>),
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<Self::Context, M, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<I, Self::Context, M, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a;
@@ -53,7 +103,7 @@ pub trait ContextLoader<I, M> {
 	fn load_context<'a>(
 		&'a mut self,
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<Self::Context, M, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<I, Self::Context, M, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a,
@@ -152,7 +202,7 @@ where
 		&'a mut self,
 		vocabulary: &'a (impl Sync + IriVocabulary<I>),
 		url: I,
-	) -> BoxFuture<'a, Result<Meta<Self::Context, M>, Self::ContextError>>
+	) -> BoxFuture<'a, Result<RemoteDocument<I, Self::Context, M>, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a,
@@ -162,7 +212,8 @@ where
 			let doc = load_document
 				.await
 				.map_err(ContextLoaderError::LoadingDocumentFailed)?;
-			ExtractContext::extract_context(doc)
+
+			doc.try_map(ExtractContext::extract_context)
 				.map_err(ContextLoaderError::ContextExtractionFailed)
 		}
 		.boxed()

@@ -1,6 +1,7 @@
 use crate::CompactIri;
 use iref::Iri;
 use locspan_derive::StrippedPartialEq;
+use std::fmt;
 use std::hash::Hash;
 
 #[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
@@ -27,6 +28,12 @@ impl Index {
 impl PartialEq for Index {
 	fn eq(&self, other: &Self) -> bool {
 		self.0 == other.0
+	}
+}
+
+impl fmt::Display for Index {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		self.0.fmt(f)
 	}
 }
 

@@ -1,5 +1,5 @@
 use super::{expand_iri_simple, expand_iri_with, Merged};
-use crate::{Error, Options, Process, ProcessingStack, Warning, WarningHandler};
+use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandler};
 use futures::future::{BoxFuture, FutureExt};
 use iref::{Iri, IriRef};
 use json_ld_core::{
@@ -103,13 +103,13 @@ pub fn define<
 	T: Clone + PartialEq + Send + Sync,
 	B: Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
-	C: Process<T, B, M>,
+	C: ProcessMeta<T, B, M>,
 	N: Send + Sync + VocabularyMut<T, B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	W: 'a + Send + WarningHandler<N, M>,
 >(
 	vocabulary: &'a mut N,
-	active_context: &'a mut Context<T, B, C>,
+	active_context: &'a mut Context<T, B, C, M>,
 	local_context: &'a Merged<'a, M, C>,
 	Meta(term, meta): Meta<KeyOrKeywordRef, M>,
 	defined: &'a mut DefinedTerms<M>,
@@ -166,7 +166,7 @@ where
 
 						// Create a new term definition, `definition`, initializing `prefix` flag to
 						// `false`, `protected` to `protected`, and `reverse_property` to `false`.
-						let mut definition = TermDefinition::<T, B, C> {
+						let mut definition = TermDefinition::<T, B, C, M> {
 							protected,
 							..Default::default()
 						};
@@ -649,7 +649,7 @@ where
 						// If value contains the entry @index:
 						if let Some(Entry {
 							value: Meta(index_value, index_loc),
-							..
+							key_metadata,
 						}) = value.index
 						{
 							// If processing mode is json-ld-1.0 or container mapping does not include
@@ -668,7 +668,10 @@ where
 							match expand_iri_simple(
 								vocabulary,
 								active_context,
-								Meta(Nullable::Some(index_value.as_str().into()), index_loc),
+								Meta(
+									Nullable::Some(index_value.as_str().into()),
+									index_loc.clone(),
+								),
 								false,
 								true,
 								&mut warnings,
@@ -677,12 +680,16 @@ where
 								_ => return Err(Error::InvalidTermDefinition),
 							}
 
-							definition.index = Some(index_value.to_owned())
+							definition.index = Some(Entry::new(
+								key_metadata,
+								Meta(index_value.to_owned(), index_loc),
+							))
 						}
 
 						// If `value` contains the entry `@context`:
 						if let Some(Entry {
-							value: Meta(context, _context_loc),
+							key_metadata,
+							value: context,
 							..
 						}) = value.context
 						{
@@ -704,7 +711,7 @@ where
 							let (_, w) = super::process_context(
 								vocabulary,
 								active_context,
-								context,
+								context.borrow_metadata(),
 								remote_contexts.clone(),
 								loader,
 								base_url.clone(),
@@ -716,7 +723,8 @@ where
 							warnings = w;
 
 							// Set the local context of definition to context, and base URL to base URL.
-							definition.context = Some(context.clone());
+							definition.context =
+								Some(Entry::new(key_metadata, context.cloned_value()));
 							definition.base_url = base_url;
 						}
 
@@ -754,8 +762,8 @@ where
 
 						// If value contains the entry @nest:
 						if let Some(Entry {
-							value: Meta(nest_value, _nest_loc),
-							..
+							value: Meta(nest_value, nest_meta),
+							key_metadata,
 						}) = value.nest
 						{
 							// If processing mode is json-ld-1.0, an invalid term definition has been
@@ -764,7 +772,10 @@ where
 								return Err(Error::InvalidTermDefinition);
 							}
 
-							definition.nest = Some(nest_value.to_owned());
+							definition.nest = Some(Entry::new(
+								key_metadata,
+								Meta(nest_value.to_owned(), nest_meta),
+							));
 						}
 
 						// If value contains the entry @prefix:
