@@ -27,7 +27,7 @@ async fn compact_property_list<I, B, M, C, N, L>(
 	options: Options,
 ) -> Result<(), MetaError<M, L::ContextError>>
 where
-	N: Send + Sync + VocabularyMut<I, B>,
+	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
@@ -133,7 +133,7 @@ async fn compact_property_graph<I, B, M, C, N, L>(
 	options: Options,
 ) -> Result<(), MetaError<M, L::ContextError>>
 where
-	N: Send + Sync + VocabularyMut<I, B>,
+	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
@@ -466,7 +466,7 @@ pub async fn compact_property<'a, T, O, I, B, M, C, N, L>(
 where
 	T: 'a + object::Any<I, B, M> + Sync + Send,
 	O: IntoIterator<Item = &'a Meta<Indexed<T, M>, M>>,
-	N: Send + Sync + VocabularyMut<I, B>,
+	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: 'a + Clone + Send + Sync,

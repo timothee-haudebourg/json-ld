@@ -93,7 +93,7 @@ pub(crate) fn expand_element<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<
 	mut warnings: W,
 ) -> BoxFuture<'a, ElementExpansionResult<T, B, M, L, W>>
 where
-	N: Send + Sync + VocabularyMut<T, B>,
+	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,

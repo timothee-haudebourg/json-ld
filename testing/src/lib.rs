@@ -7,7 +7,7 @@ use locspan::{Loc, Location, Meta, Span};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use rdf_types::{IndexVocabulary, IriVocabulary, IriVocabularyMut, Quad, Triple};
+use rdf_types::{IriVocabulary, IriVocabularyMut, Quad, Triple};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -21,10 +21,10 @@ use ty::{Type, UnknownType};
 
 type FsLoader = json_ld::FsLoader<
 	IriIndex,
-	json_ld::syntax::Value<Location<IriIndex>>,
-	Location<IriIndex>,
-	json_ld::syntax::parse::MetaError<Location<IriIndex>>,
+	Location<IriIndex>
 >;
+
+type Vocabulary = rdf_types::IndexVocabulary<IriIndex, BlankIdIndex>;
 
 struct MountAttribute {
 	_paren: syn::token::Paren,
@@ -126,7 +126,7 @@ struct TestSpec {
 struct InvalidIri(String);
 
 fn expand_iri(
-	vocabulary: &mut IndexVocabulary,
+	vocabulary: &mut Vocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	iri: IriBuf,
 ) -> Result<IriIndex, InvalidIri> {
@@ -154,7 +154,7 @@ pub fn test_suite(
 	input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
 	let mut input = syn::parse_macro_input!(input as syn::ItemMod);
-	let mut vocabulary = IndexVocabulary::new();
+	let mut vocabulary = Vocabulary::new();
 
 	match task::block_on(derive_test_suite(&mut vocabulary, &mut input, args)) {
 		Ok(tokens) => quote! { #input #tokens }.into(),
@@ -168,7 +168,7 @@ pub fn test_suite(
 }
 
 async fn derive_test_suite(
-	vocabulary: &mut IndexVocabulary,
+	vocabulary: &mut Vocabulary,
 	input: &mut syn::ItemMod,
 	args: proc_macro::TokenStream,
 ) -> Result<TokenStream, Error> {
@@ -178,7 +178,7 @@ async fn derive_test_suite(
 }
 
 fn parse_input(
-	vocabulary: &mut IndexVocabulary,
+	vocabulary: &mut Vocabulary,
 	loader: &mut FsLoader,
 	input: &mut syn::ItemMod,
 	args: proc_macro::TokenStream,
@@ -244,7 +244,7 @@ fn parse_input(
 }
 
 fn parse_struct_type(
-	vocabulary: &mut IndexVocabulary,
+	vocabulary: &mut Vocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	type_map: &mut HashMap<IriIndex, syn::Ident>,
 	s: &mut syn::ItemStruct,
@@ -317,7 +317,7 @@ fn parse_struct_type(
 }
 
 fn parse_enum_type(
-	vocabulary: &mut IndexVocabulary,
+	vocabulary: &mut Vocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	type_map: &mut HashMap<IriIndex, syn::Ident>,
 	e: &mut syn::ItemEnum,
@@ -453,8 +453,8 @@ impl From<InvalidIri> for Error {
 	}
 }
 
-impl DisplayWithContext<IndexVocabulary> for Error {
-	fn fmt_with(&self, vocabulary: &IndexVocabulary, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl DisplayWithContext<Vocabulary> for Error {
+	fn fmt_with(&self, vocabulary: &Vocabulary, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use fmt::Display;
 		match self {
 			Self::Parse(e) => e.fmt(f),
@@ -478,7 +478,7 @@ impl DisplayWithContext<IndexVocabulary> for Error {
 }
 
 async fn generate_test_suite(
-	vocabulary: &mut IndexVocabulary,
+	vocabulary: &mut Vocabulary,
 	mut loader: FsLoader,
 	spec: TestSpec,
 ) -> Result<TokenStream, Error> {

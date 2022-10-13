@@ -75,7 +75,7 @@ impl<T, B, M> List<T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> List<T, B, M> {
 	pub(crate) fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		object: json_syntax::Object<M>,
 		list_entry: json_syntax::object::Entry<M>,
 	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {

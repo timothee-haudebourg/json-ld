@@ -14,7 +14,7 @@ readme = "README.md"
 [dependencies]
 iref = "2.2"
 langtag = "0.3.2"
-rdf-types = "0.9"
+rdf-types = "0.10"
 json-syntax = "0.8.13"
 locspan = "0.7.9"
 locspan-derive = "0.5.2"

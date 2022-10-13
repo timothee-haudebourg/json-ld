@@ -177,7 +177,7 @@ pub mod generator {
 		}
 	}
 
-	impl<T, B, M: Clone, N: BlankIdVocabularyMut<B>> Generator<T, B, M, N> for Blank<M> {
+	impl<T, B, M: Clone, N: BlankIdVocabularyMut<BlankId=B>> Generator<T, B, M, N> for Blank<M> {
 		fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M> {
 			Meta(
 				ValidReference::Blank(vocabulary.insert_blank_id(&self.next_blank_id())),
@@ -248,7 +248,7 @@ pub mod generator {
 		feature = "uuid-generator-v4",
 		feature = "uuid-generator-v5"
 	))]
-	impl<T, B, M: Clone, N: IriVocabularyMut<T>> Generator<T, B, M, N> for Uuid<M> {
+	impl<T, B, M: Clone, N: IriVocabularyMut<Iri=T>> Generator<T, B, M, N> for Uuid<M> {
 		fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M> {
 			unsafe {
 				let mut buffer = Vec::with_capacity(uuid::adapter::Urn::LENGTH);

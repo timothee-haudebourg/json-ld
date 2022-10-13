@@ -1,6 +1,7 @@
 use futures::future::{BoxFuture, FutureExt};
-use locspan::{MapLocErr, Meta};
-use rdf_types::IriVocabulary;
+use locspan::{MapLocErr, Meta, Location};
+use mown::Mown;
+use rdf_types::{IriVocabulary, vocabulary::Index};
 use std::fmt;
 
 pub mod fs;
@@ -9,9 +10,46 @@ pub mod none;
 pub use fs::FsLoader;
 pub use none::NoLoader;
 
-pub type LoadingResult<I, O, M, E> = Result<RemoteDocument<I, O, M>, E>;
+pub type LoadingResult<I, M, O, E> = Result<RemoteDocument<I, M, O>, E>;
 
-pub struct RemoteDocument<I, T, M> {
+#[derive(Clone)]
+pub enum RemoteDocumentReference<I = Index, M = Location<I>, T = json_syntax::Value<M>> {
+	Reference(I),
+	Loaded(RemoteDocument<I, M, T>)
+}
+
+impl<I, M, T> RemoteDocumentReference<I, M, T> {
+	pub async fn load_with<L: Loader<I, M>>(self, vocabulary: &(impl Sync + IriVocabulary<Iri=I>), loader: &mut L) -> LoadingResult<I, M, T, L::Error> where L::Output: Into<T> {
+		match self {
+			Self::Reference(r) => Ok(loader.load_in(vocabulary, r).await?.map(|m| m.map(Into::into))),
+			Self::Loaded(doc) => Ok(doc)
+		}
+	}
+
+	pub async fn loaded_with<L: Loader<I, M>>(&self, vocabulary: &(impl Sync + IriVocabulary<Iri=I>), loader: &mut L) -> Result<Mown<'_, RemoteDocument<I, M, T>>, L::Error> where I: Clone, L::Output: Into<T> {
+		match self {
+			Self::Reference(r) => Ok(Mown::Owned(loader.load_in(vocabulary, r.clone()).await?.map(|m| m.map(Into::into)))),
+			Self::Loaded(doc) => Ok(Mown::Borrowed(doc))
+		}
+	}
+
+	pub async fn load_context_with<L: ContextLoader<I, M>>(self, vocabulary: &(impl Sync + IriVocabulary<Iri=I>), loader: &mut L) -> LoadingResult<I, M, T, L::ContextError> where L::Context: Into<T> {
+		match self {
+			Self::Reference(r) => Ok(loader.load_context_in(vocabulary, r).await?.map(|m| m.map(Into::into))),
+			Self::Loaded(doc) => Ok(doc)
+		}
+	}
+
+	pub async fn loaded_context_with<L: ContextLoader<I, M>>(&self, vocabulary: &(impl Sync + IriVocabulary<Iri=I>), loader: &mut L) -> Result<Mown<'_, RemoteDocument<I, M, T>>, L::ContextError> where I: Clone, L::Context: Into<T> {
+		match self {
+			Self::Reference(r) => Ok(Mown::Owned(loader.load_context_in(vocabulary, r.clone()).await?.map(|m| m.map(Into::into)))),
+			Self::Loaded(doc) => Ok(Mown::Borrowed(doc))
+		}
+	}
+}
+
+#[derive(Clone)]
+pub struct RemoteDocument<I = Index, M = Location<I>, T = json_syntax::Value<M>> {
 	/// Document URL.
 	url: Option<I>,
 
@@ -19,12 +57,12 @@ pub struct RemoteDocument<I, T, M> {
 	document: Meta<T, M>,
 }
 
-impl<I, T, M> RemoteDocument<I, T, M> {
+impl<I, M, T> RemoteDocument<I, M, T> {
 	pub fn new(url: Option<I>, document: Meta<T, M>) -> Self {
 		Self { url, document }
 	}
 
-	pub fn map<U, N>(self, f: impl Fn(Meta<T, M>) -> Meta<U, N>) -> RemoteDocument<I, U, N> {
+	pub fn map<U, N>(self, f: impl Fn(Meta<T, M>) -> Meta<U, N>) -> RemoteDocument<I, N, U> {
 		RemoteDocument {
 			url: self.url,
 			document: f(self.document),
@@ -34,7 +72,7 @@ impl<I, T, M> RemoteDocument<I, T, M> {
 	pub fn try_map<U, N, E>(
 		self,
 		f: impl Fn(Meta<T, M>) -> Result<Meta<U, N>, E>,
-	) -> Result<RemoteDocument<I, U, N>, E> {
+	) -> Result<RemoteDocument<I, N, U>, E> {
 		Ok(RemoteDocument {
 			url: self.url,
 			document: f(self.document)?,
@@ -56,6 +94,10 @@ impl<I, T, M> RemoteDocument<I, T, M> {
 	pub fn into_url(self) -> Option<I> {
 		self.url
 	}
+
+	pub fn set_url(&mut self, url: Option<I>) {
+		self.url = url
+	}
 }
 
 /// JSON document loader.
@@ -67,9 +109,9 @@ pub trait Loader<I, M> {
 	/// Loads the document behind the given IRI, inside the given vocabulary.
 	fn load_in<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<Iri=I>),
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, Self::Output, M, Self::Error>>
+	) -> BoxFuture<'a, LoadingResult<I, M, Self::Output, Self::Error>>
 	where
 		I: 'a;
 
@@ -77,10 +119,10 @@ pub trait Loader<I, M> {
 	fn load<'a>(
 		&'a mut self,
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, Self::Output, M, Self::Error>>
+	) -> BoxFuture<'a, LoadingResult<I, M, Self::Output, Self::Error>>
 	where
 		I: 'a,
-		(): IriVocabulary<I>,
+		(): IriVocabulary<Iri=I>,
 	{
 		self.load_in(&(), url)
 	}
@@ -93,9 +135,9 @@ pub trait ContextLoader<I, M> {
 
 	fn load_context_in<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<Iri=I>),
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, Self::Context, M, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<I, M, Self::Context, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a;
@@ -103,11 +145,11 @@ pub trait ContextLoader<I, M> {
 	fn load_context<'a>(
 		&'a mut self,
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, Self::Context, M, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<I, M, Self::Context, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a,
-		(): IriVocabulary<I>,
+		(): IriVocabulary<Iri=I>,
 	{
 		self.load_context_in(&(), url)
 	}
@@ -200,9 +242,9 @@ where
 
 	fn load_context_in<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<Iri=I>),
 		url: I,
-	) -> BoxFuture<'a, Result<RemoteDocument<I, Self::Context, M>, Self::ContextError>>
+	) -> BoxFuture<'a, Result<RemoteDocument<I, M, Self::Context>, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a,

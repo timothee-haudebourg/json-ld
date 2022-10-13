@@ -101,7 +101,7 @@ impl<T, M> Indexed<T, M> {
 
 impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJson<T, B, M> for Indexed<O, M> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -115,7 +115,7 @@ impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJson<T, B, M> for Indexed<O,
 
 impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJsonObject<T, B, M> for Indexed<O, M> {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		Meta(mut object, meta): Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let index = match object

@@ -23,7 +23,7 @@ fn is_gen_delim(c: char) -> bool {
 }
 
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
-fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<T, B>, t: &Term<T, B>) -> bool {
+fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri=T, BlankId=B>, t: &Term<T, B>) -> bool {
 	match t {
 		Term::Ref(Reference::Valid(ValidReference::Blank(_))) => true,
 		Term::Ref(Reference::Valid(ValidReference::Id(id))) => {
@@ -104,7 +104,7 @@ pub fn define<
 	B: Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
 	C: ProcessMeta<T, B, M>,
-	N: Send + Sync + VocabularyMut<T, B>,
+	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	W: 'a + Send + WarningHandler<N, M>,
 >(

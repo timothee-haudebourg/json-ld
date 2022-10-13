@@ -41,7 +41,7 @@ impl<I, B> Term<I, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<T, B>> DisplayWithContext<N> for Term<T, B> {
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> DisplayWithContext<N> for Term<T, B> {
 	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		use std::fmt::Display;
 		match self {
@@ -62,7 +62,7 @@ impl<T: AsRef<str>, B: AsRef<str>> Term<T, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<T, B>> AsRefWithContext<str, N> for Term<T, B> {
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> AsRefWithContext<str, N> for Term<T, B> {
 	fn as_ref_with<'a>(&'a self, vocabulary: &'a N) -> &'a str {
 		match self {
 			Term::Ref(p) => p.with(vocabulary).as_str(),

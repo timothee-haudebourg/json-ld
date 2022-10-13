@@ -22,7 +22,7 @@ pub(crate) async fn expand<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T,
 	warnings: W,
 ) -> Result<Meta<ExpandedDocument<T, B, M>, M>, Meta<Error<M, L::ContextError>, M>>
 where
-	N: Send + Sync + VocabularyMut<T, B>,
+	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 	T: Clone + Eq + Hash + Send + Sync,
 	B: Clone + Eq + Hash + Send + Sync,
 	M: Clone + Send + Sync,

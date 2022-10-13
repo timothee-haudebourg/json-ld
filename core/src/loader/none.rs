@@ -13,9 +13,9 @@ use std::marker::PhantomData;
 /// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
 pub struct NoLoader<
 	I = Index,
-	T = json_syntax::Value<locspan::Location<I>>,
 	M = locspan::Location<I>,
->(PhantomData<(I, T, M)>);
+	T = json_ld_syntax::Value<M>,
+>(PhantomData<(I, M, T)>);
 
 #[derive(Debug)]
 pub struct CannotLoad<I>(I);
@@ -32,30 +32,30 @@ impl<I: DisplayWithContext<N>, N> DisplayWithContext<N> for CannotLoad<I> {
 	}
 }
 
-impl<I, T, M> NoLoader<I, T, M> {
+impl<I, M, T> NoLoader<I, M, T> {
 	#[inline(always)]
 	pub fn new() -> Self {
 		Self(PhantomData)
 	}
 }
 
-impl<I, T, M> Default for NoLoader<I, T, M> {
+impl<I, M, T> Default for NoLoader<I, M, T> {
 	#[inline(always)]
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl<I: Send, T, M> Loader<I, M> for NoLoader<I, T, M> {
+impl<I: Send, T, M> Loader<I, M> for NoLoader<I, M, T> {
 	type Output = T;
 	type Error = CannotLoad<I>;
 
 	#[inline(always)]
 	fn load_in<'a>(
 		&'a mut self,
-		_namespace: &impl IriVocabulary<I>,
+		_namespace: &impl IriVocabulary<Iri=I>,
 		url: I,
-	) -> BoxFuture<'a, Result<RemoteDocument<I, T, M>, Self::Error>>
+	) -> BoxFuture<'a, Result<RemoteDocument<I, M, T>, Self::Error>>
 	where
 		I: 'a,
 	{

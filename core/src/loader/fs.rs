@@ -36,8 +36,8 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 	}
 }
 
-type DynParser<I, T, M, E> =
-	dyn 'static + Send + Sync + FnMut(&dyn IriVocabulary<I>, &I, &str) -> Result<Meta<T, M>, E>;
+type DynParser<I, M, T, E> =
+	dyn 'static + Send + Sync + FnMut(&dyn IriVocabulary<Iri=I>, &I, &str) -> Result<Meta<T, M>, E>;
 
 /// File-system loader.
 ///
@@ -45,22 +45,22 @@ type DynParser<I, T, M, E> =
 /// attaching a directory to specific URLs.
 pub struct FsLoader<
 	I = Index,
-	T = json_syntax::Value<locspan::Location<I>>,
 	M = locspan::Location<I>,
-	E = json_syntax::parse::MetaError<locspan::Location<I>>,
+	T = json_ld_syntax::Value<M>,
+	E = json_ld_syntax::parse::MetaError<M>,
 > {
 	mount_points: HashMap<PathBuf, I>,
 	cache: HashMap<I, Meta<T, M>>,
-	parser: Box<DynParser<I, T, M, E>>,
+	parser: Box<DynParser<I, M, T, E>>,
 }
 
-impl<I, T, M, E> FsLoader<I, T, M, E> {
+impl<I, M, T, E> FsLoader<I, M, T, E> {
 	#[inline(always)]
 	pub fn mount<P: AsRef<Path>>(&mut self, url: I, path: P) {
 		self.mount_points.insert(path.as_ref().into(), url);
 	}
 
-	pub fn filepath(&self, vocabulary: &impl IriVocabulary<I>, url: &I) -> Option<PathBuf> {
+	pub fn filepath(&self, vocabulary: &impl IriVocabulary<Iri=I>, url: &I) -> Option<PathBuf> {
 		let url = vocabulary.iri(url).unwrap();
 		for (path, target_url) in &self.mount_points {
 			if let Some((suffix, _, _)) =
@@ -80,16 +80,16 @@ impl<I, T, M, E> FsLoader<I, T, M, E> {
 }
 
 impl<I: Clone + Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M>
-	for FsLoader<I, T, M, E>
+	for FsLoader<I, M, T, E>
 {
 	type Output = T;
 	type Error = Error<E>;
 
 	fn load_in<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<Iri=I>),
 		url: I,
-	) -> BoxFuture<'a, Result<RemoteDocument<I, T, M>, Self::Error>>
+	) -> BoxFuture<'a, Result<RemoteDocument<I, M, T>, Self::Error>>
 	where
 		I: 'a,
 	{
@@ -117,12 +117,12 @@ impl<I: Clone + Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I,
 	}
 }
 
-impl<I, T, M, E> FsLoader<I, T, M, E> {
+impl<I, M, T, E> FsLoader<I, M, T, E> {
 	pub fn new(
 		parser: impl 'static
 			+ Send
 			+ Sync
-			+ FnMut(&dyn IriVocabulary<I>, &I, &str) -> Result<Meta<T, M>, E>,
+			+ FnMut(&dyn IriVocabulary<Iri=I>, &I, &str) -> Result<Meta<T, M>, E>,
 	) -> Self {
 		Self {
 			mount_points: HashMap::new(),
@@ -135,9 +135,9 @@ impl<I, T, M, E> FsLoader<I, T, M, E> {
 impl<I: Clone> Default
 	for FsLoader<
 		I,
-		json_syntax::Value<locspan::Location<I>>,
 		locspan::Location<I>,
-		json_syntax::parse::MetaError<locspan::Location<I>>,
+		json_ld_syntax::Value<locspan::Location<I>>,
+		json_ld_syntax::parse::MetaError<locspan::Location<I>>,
 	>
 {
 	fn default() -> Self {

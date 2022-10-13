@@ -69,7 +69,7 @@ impl<T, B, C, M> TermDefinition<T, B, C, M> {
 
 	pub fn into_syntax_definition(
 		self,
-		vocabulary: &impl Vocabulary<T, B>,
+		vocabulary: &impl Vocabulary<Iri=T, BlankId=B>,
 		meta: M,
 	) -> Meta<Nullable<json_ld_syntax::context::TermDefinition<M>>, M>
 	where
@@ -82,7 +82,7 @@ impl<T, B, C, M> TermDefinition<T, B, C, M> {
 		};
 
 		fn term_into_id<T, B>(
-			vocabulary: &impl Vocabulary<T, B>,
+			vocabulary: &impl Vocabulary<Iri=T, BlankId=B>,
 			term: Term<T, B>,
 		) -> Nullable<Id> {
 			match term {
@@ -92,7 +92,7 @@ impl<T, B, C, M> TermDefinition<T, B, C, M> {
 			}
 		}
 
-		fn term_into_key<T, B>(vocabulary: &impl Vocabulary<T, B>, term: Term<T, B>) -> Key {
+		fn term_into_key<T, B>(vocabulary: &impl Vocabulary<Iri=T, BlankId=B>, term: Term<T, B>) -> Key {
 			match term {
 				Term::Null => panic!("invalid key"),
 				Term::Keyword(k) => k.to_string().into(),
@@ -100,7 +100,7 @@ impl<T, B, C, M> TermDefinition<T, B, C, M> {
 			}
 		}
 
-		fn type_into_syntax<T>(vocabulary: &impl IriVocabulary<T>, ty: Type<T>) -> SyntaxType {
+		fn type_into_syntax<T>(vocabulary: &impl IriVocabulary<Iri=T>, ty: Type<T>) -> SyntaxType {
 			match ty {
 				Type::Id => SyntaxType::Keyword(TypeKeyword::Id),
 				Type::Json => SyntaxType::Keyword(TypeKeyword::Json),

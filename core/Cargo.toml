@@ -34,7 +34,7 @@ uuid = { version = "0.8", optional = true }
 smallvec = "*"
 permutohedron = { version = "0.2" }
 pretty_dtoa = "0.3"
-rdf-types = { version = "0.9", features = ["contextual"] }
+rdf-types = { version = "0.10", features = ["contextual"] }
 locspan = "0.7.9"
 locspan-derive = "0.5.2"
 contextual = "0.1.3"

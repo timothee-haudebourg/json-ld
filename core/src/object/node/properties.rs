@@ -258,7 +258,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Properties<T, B, M> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -272,7 +272,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Properties<T, B, M>
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Properties<T, B, M> {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		Meta(object, meta): Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let mut result = Self::new();

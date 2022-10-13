@@ -28,7 +28,7 @@ pub fn expand_iri_with<
 	B: Clone + Send + Sync + PartialEq,
 	M: 'a + Clone + Send + Sync,
 	C,
-	N: Send + Sync + VocabularyMut<T, B>,
+	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	W: 'a + Send + WarningHandler<N, M>,
 >(
@@ -231,7 +231,7 @@ pub fn expand_iri_simple<
 	T: Clone,
 	B: Clone,
 	M: Clone,
-	N: VocabularyMut<T, B>,
+	N: VocabularyMut<Iri=T, BlankId=B>,
 	C,
 	W: From<MalformedIri>,
 	H: json_ld_core::warning::Handler<N, Meta<W, M>>,

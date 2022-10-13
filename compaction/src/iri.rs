@@ -14,7 +14,7 @@ pub struct IriConfusedWithPrefix;
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
 pub(crate) fn compact_iri<'a, I, B, M, C>(
-	vocabulary: &impl Vocabulary<I, B>,
+	vocabulary: &impl Vocabulary<Iri=I, BlankId=B>,
 	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
@@ -38,7 +38,7 @@ where
 }
 
 pub(crate) fn compact_key<'a, I, B, M, C>(
-	vocabulary: &impl Vocabulary<I, B>,
+	vocabulary: &impl Vocabulary<Iri=I, BlankId=B>,
 	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
@@ -57,7 +57,7 @@ where
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
 pub(crate) fn compact_iri_with<'a, I, B, M, C, O: object::Any<I, B, M>>(
-	vocabulary: &impl Vocabulary<I, B>,
+	vocabulary: &impl Vocabulary<Iri=I, BlankId=B>,
 	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	value: &Indexed<O, M>,
@@ -85,7 +85,7 @@ where
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
 pub(crate) fn compact_iri_full<'a, I, B, M, C, O: object::Any<I, B, M>>(
-	vocabulary: &impl Vocabulary<I, B>,
+	vocabulary: &impl Vocabulary<Iri=I, BlankId=B>,
 	active_context: &Context<I, B, C, M>,
 	Meta(var, meta): Meta<&Term<I, B>, &M>,
 	value: Option<&Indexed<O, M>>,

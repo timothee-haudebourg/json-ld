@@ -89,7 +89,7 @@ where
 	T: Clone,
 	B: Clone,
 	M: Clone,
-	N: VocabularyMut<T, B>,
+	N: VocabularyMut<Iri=T, BlankId=B>,
 {
 	let active_property_definition = active_property.get_from(active_context);
 	let active_property_type = if let Some(active_property_definition) = active_property_definition

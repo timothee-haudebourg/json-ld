@@ -30,7 +30,7 @@ impl<B: fmt::Display> fmt::Display for Warning<B> {
 	}
 }
 
-impl<B, N: BlankIdVocabulary<B>> DisplayWithContext<N> for Warning<B> {
+impl<B, N: BlankIdVocabulary<BlankId=B>> DisplayWithContext<N> for Warning<B> {
 	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::MalformedIri(s) => write!(f, "malformed IRI `{}`", s),

@@ -685,7 +685,7 @@ impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, N: Vocabulary<T, B>, M> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B, M> {
+impl<'a, T, B, N: Vocabulary<Iri=T, BlankId=B>, M> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B, M> {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
 		match self {
 			EntryKeyRef::Id => "@id",
@@ -935,7 +935,7 @@ impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, N: Vocabulary<T, B>, M> IntoRefWithContext<'a, str, N>
+impl<'a, T, B, N: Vocabulary<Iri=T, BlankId=B>, M> IntoRefWithContext<'a, str, N>
 	for IndexedEntryKeyRef<'a, T, B, M>
 {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
@@ -1254,7 +1254,7 @@ impl<'a, T, B, M> Iterator for Nodes<'a, T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M> {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		mut object: Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let id = match object

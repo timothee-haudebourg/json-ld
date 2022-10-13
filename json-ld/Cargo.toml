@@ -27,7 +27,7 @@ json-ld-compaction = { path = "../compaction" }
 json-syntax = "0.8.13"
 futures = "^0.3"
 locspan = "0.7.9"
-rdf-types = "0.9"
+rdf-types = "0.10"
 
 [dev-dependencies]
 async-std = { version = "1.12.0", features = ["attributes"] }

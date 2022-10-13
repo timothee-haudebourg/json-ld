@@ -48,7 +48,7 @@ pub(crate) fn expand_value<'e, T, B, M, N, C, W>(
 	mut warnings: W,
 ) -> ValueExpansionResult<T, B, M, W>
 where
-	N: VocabularyMut<T, B>,
+	N: VocabularyMut<Iri=T, BlankId=B>,
 	T: Clone + PartialEq,
 	B: Clone + PartialEq,
 	M: Clone,

@@ -30,7 +30,7 @@ pub struct Quads<'a, 'n, 'g, T, B, N, M, G: id::Generator<T, B, M, N>> {
 	quads: crate::quad::Quads<'a, T, B, M>,
 }
 
-impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriVocabularyMut<T>, M, G: id::Generator<T, B, M, N>>
+impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriVocabularyMut<Iri=T>, M, G: id::Generator<T, B, M, N>>
 	Iterator for Quads<'a, 'n, 'g, T, B, N, M, G>
 {
 	type Item = QuadRef<'a, T, B>;

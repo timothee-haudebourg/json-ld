@@ -117,7 +117,7 @@ pub trait CompactFragmentMeta<I, B, M> {
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -137,7 +137,7 @@ pub trait CompactFragment<I, B, M> {
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -153,7 +153,7 @@ pub trait CompactFragment<I, B, M> {
 		loader: &'a mut L,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -179,7 +179,7 @@ pub trait CompactFragment<I, B, M> {
 		loader: &'a mut L,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		(): VocabularyMut<I, B>,
+		(): VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -210,7 +210,7 @@ impl<T: CompactFragmentMeta<I, B, M>, I, B, M> CompactFragment<I, B, M> for Meta
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -249,7 +249,7 @@ pub trait CompactIndexedFragment<I, B, M> {
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -270,7 +270,7 @@ impl<I, B, M, T: CompactIndexedFragment<I, B, M>> CompactFragmentMeta<I, B, M> f
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -304,7 +304,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -543,7 +543,7 @@ fn compact_collection_with<'a, T, O, I, B, M, C, N, L>(
 where
 	T: 'a + CompactFragment<I, B, M> + Send + Sync,
 	O: 'a + Iterator<Item = &'a T> + Send,
-	N: Send + Sync + VocabularyMut<I, B>,
+	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
@@ -617,7 +617,7 @@ impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, 
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -649,7 +649,7 @@ impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, 
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -680,7 +680,7 @@ impl<T: CompactFragment<I, B, M>, I, B, M> CompactFragment<I, B, M> for Stripped
 		options: Options,
 	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
 	where
-		N: Send + Sync + VocabularyMut<I, B>,
+		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,

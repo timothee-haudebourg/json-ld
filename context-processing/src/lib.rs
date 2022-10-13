@@ -111,7 +111,7 @@ pub trait ProcessMeta<T, B, M>:
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -132,7 +132,7 @@ pub trait Process<T, B, M>: Send + Sync {
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -148,7 +148,7 @@ pub trait Process<T, B, M>: Send + Sync {
 		options: Options,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -173,7 +173,7 @@ pub trait Process<T, B, M>: Send + Sync {
 		base_url: Option<T>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: 'a + Clone + PartialEq + Send + Sync,
 		B: 'a + Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -209,7 +209,7 @@ impl<C: ProcessMeta<T, B, M>, T, B, M: Send + Sync> Process<T, B, M> for Meta<C,
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone,

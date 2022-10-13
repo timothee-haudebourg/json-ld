@@ -18,7 +18,7 @@ pub trait EmbedContext<I, B, C, M> {
 		options: crate::Options,
 	) -> Result<(), Meta<IriConfusedWithPrefix, M>>
 	where
-		N: Vocabulary<I, B>,
+		N: Vocabulary<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		M: Clone,
@@ -43,7 +43,7 @@ pub trait CompactMeta<I, B, M> {
 		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
 	>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<I, B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -69,7 +69,7 @@ pub trait Compact<I, B, M> {
 		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
 	>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<I, B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -95,7 +95,7 @@ impl<T: CompactMeta<I, B, M>, I, B, M> Compact<I, B, M> for Meta<T, M> {
 		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
 	>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<I, B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -126,7 +126,7 @@ impl<I, B, M> CompactMeta<I, B, M> for ExpandedDocument<I, B, M> {
 		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
 	>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<I, B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -178,7 +178,7 @@ impl<I, B, M> CompactMeta<I, B, M> for FlattenedDocument<I, B, M> {
 		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
 	>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<I, B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -219,7 +219,7 @@ impl<I, B, C, M> EmbedContext<I, B, C, M> for json_syntax::MetaValue<M> {
 		options: crate::Options,
 	) -> Result<(), Meta<IriConfusedWithPrefix, M>>
 	where
-		N: Vocabulary<I, B>,
+		N: Vocabulary<Iri=I, BlankId=B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		M: Clone,

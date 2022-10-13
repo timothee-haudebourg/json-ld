@@ -27,7 +27,7 @@ pub async fn compact_indexed_value_with<
 	options: Options,
 ) -> Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>
 where
-	N: Send + Sync + VocabularyMut<I, B>,
+	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,

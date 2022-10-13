@@ -512,7 +512,7 @@ impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, M, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B, M> {
+impl<'a, T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B, M> {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
 		match self {
 			EntryKeyRef::Value(e) => e.into_str(),
@@ -621,7 +621,7 @@ impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, M, N: Vocabulary<T, B>> IntoRefWithContext<'a, str, N>
+impl<'a, T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoRefWithContext<'a, str, N>
 	for IndexedEntryKeyRef<'a, T, B, M>
 {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
@@ -699,21 +699,21 @@ impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
 
 pub trait TryFromJson<T, B, M>: Sized {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		value: Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>>;
 }
 
 pub trait TryFromJsonObject<T, B, M>: Sized {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		object: Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>>;
 }
 
 impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Stripped<V> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		value: Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let Meta(v, meta) = V::try_from_json_in(vocabulary, value)?;
@@ -723,7 +723,7 @@ impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Stripped<V> {
 
 impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Vec<Meta<V, M>> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -745,7 +745,7 @@ impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T
 	for HashSet<Stripped<Meta<V, M>>>
 {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -765,7 +765,7 @@ impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Object<T, B, M> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -779,7 +779,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Object<T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Object<T, B, M> {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<T, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
 		Meta(mut object, meta): Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match object

@@ -332,7 +332,7 @@ impl<T, M> Value<T, M> {
 	}
 
 	pub(crate) fn try_from_json_object_in(
-		vocabulary: &mut impl IriVocabularyMut<T>,
+		vocabulary: &mut impl IriVocabularyMut<Iri=T>,
 		mut object: json_syntax::Object<M>,
 		value_entry: json_syntax::object::Entry<M>,
 	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {

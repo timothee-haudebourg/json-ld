@@ -37,12 +37,12 @@ pub type ExpansionResult<T, B, M, L> = Result<
 	Meta<Error<M, <L as ContextLoader<T, M>>::ContextError>, M>,
 >;
 
-pub trait WarningHandler<B, N: BlankIdVocabulary<B>, M>:
+pub trait WarningHandler<B, N: BlankIdVocabulary<BlankId=B>, M>:
 	json_ld_core::warning::Handler<N, Meta<Warning<B>, M>>
 {
 }
 
-impl<B, N: BlankIdVocabulary<B>, M, H> WarningHandler<B, N, M> for H where
+impl<B, N: BlankIdVocabulary<BlankId=B>, M, H> WarningHandler<B, N, M> for H where
 	H: json_ld_core::warning::Handler<N, Meta<Warning<B>, M>>
 {
 }
@@ -58,7 +58,7 @@ pub trait Expand<T, B, M> {
 		warnings: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: Clone + Send + Sync,
@@ -70,7 +70,7 @@ pub trait Expand<T, B, M> {
 
 	fn expand_in<'a, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
-		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<T, B>),
+		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<Iri=T, BlankId=B>),
 		loader: &'a mut L,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
@@ -104,7 +104,7 @@ pub trait Expand<T, B, M> {
 		L::Output: Into<Value<M>>,
 		L::Context: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
-		(): VocabularyMut<T, B>,
+		(): VocabularyMut<Iri=T, BlankId=B>,
 	{
 		self.expand_in(vocabulary::no_vocabulary_mut(), loader)
 	}
@@ -121,7 +121,7 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 		warnings: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -141,7 +141,7 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 	}
 }
 
-impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, Value<M>, M> {
+impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
 	fn expand_full<'a, N, C, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
@@ -152,7 +152,7 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, Value<M>, M> {
 		warnings: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -168,7 +168,7 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, Value<M>, M> {
 
 	fn expand_in<'a, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
-		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<T, B>),
+		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<Iri=T, BlankId=B>),
 		loader: &'a mut L,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where

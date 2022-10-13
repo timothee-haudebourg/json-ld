@@ -30,7 +30,7 @@ pub async fn compact_indexed_node_with<I, B, M, C, N, L>(
 	options: Options,
 ) -> Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>
 where
-	N: Send + Sync + VocabularyMut<I, B>,
+	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
@@ -418,7 +418,7 @@ fn compact_types<I, B, M, C, N, E>(
 	options: Options,
 ) -> Result<(), MetaError<M, E>>
 where
-	N: VocabularyMut<I, B>,
+	N: VocabularyMut<Iri=I, BlankId=B>,
 	I: Clone + Hash + Eq,
 	B: Clone + Hash + Eq,
 	M: Clone,

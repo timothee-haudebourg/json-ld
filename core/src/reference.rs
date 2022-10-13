@@ -27,7 +27,7 @@ pub enum Reference<I = IriBuf, B = BlankIdBuf> {
 
 impl<I, B, M> TryFromJson<I, B, M> for Reference<I, B> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<I, B>,
+		vocabulary: &mut impl VocabularyMut<Iri=I, BlankId=B>,
 		Meta(value, meta): locspan::Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, locspan::Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -70,7 +70,7 @@ impl<I, B> Reference<I, B> {
 		Self::Valid(ValidReference::Blank(b))
 	}
 
-	pub fn from_string_in(vocabulary: &mut impl VocabularyMut<I, B>, s: String) -> Self {
+	pub fn from_string_in(vocabulary: &mut impl VocabularyMut<Iri=I, BlankId=B>, s: String) -> Self {
 		match Iri::new(&s) {
 			Ok(iri) => Self::Valid(ValidReference::Id(vocabulary.insert(iri))),
 			Err(_) => match BlankId::new(&s) {
@@ -135,7 +135,7 @@ impl<I: AsRef<str>, B: AsRef<str>> Reference<I, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<T, B>> AsRefWithContext<str, N> for Reference<T, B> {
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> AsRefWithContext<str, N> for Reference<T, B> {
 	fn as_ref_with<'a>(&'a self, vocabulary: &'a N) -> &'a str {
 		match self {
 			Reference::Valid(ValidReference::Id(id)) => vocabulary.iri(id).unwrap().into_str(),
@@ -227,7 +227,7 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for Reference<T, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<T, B>> DisplayWithContext<N> for Reference<T, B> {
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> DisplayWithContext<N> for Reference<T, B> {
 	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		use fmt::Display;
 		match self {
@@ -409,7 +409,7 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for ValidReference<T, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<T, B>> DisplayWithContext<N> for ValidReference<T, B> {
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> DisplayWithContext<N> for ValidReference<T, B> {
 	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		use fmt::Display;
 		match self {

@@ -47,7 +47,7 @@ pub(crate) async fn expand_node<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoad
 	warnings: W,
 ) -> Result<(Option<Indexed<Node<T, B, M>, M>>, W), Meta<Error<M, L::ContextError>, M>>
 where
-	N: Send + Sync + VocabularyMut<T, B>,
+	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
@@ -135,7 +135,7 @@ fn expand_node_entries<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>,
 	mut warnings: W,
 ) -> BoxFuture<'a, NodeEntriesExpensionResult<T, B, M, L, W>>
 where
-	N: Send + Sync + VocabularyMut<T, B>,
+	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,

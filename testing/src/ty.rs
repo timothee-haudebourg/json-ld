@@ -1,9 +1,9 @@
-use crate::{vocab, BlankIdIndex, Error, IriIndex, TestSpec, Vocab};
+use crate::{vocab, BlankIdIndex, Error, IriIndex, TestSpec, Vocab, Vocabulary};
 use grdf::Dataset;
 use json_ld::ValidReference;
 use proc_macro2::TokenStream;
 use quote::quote;
-use rdf_types::{BlankIdVocabulary, IndexVocabulary, IriVocabulary};
+use rdf_types::{BlankIdVocabulary, IriVocabulary};
 use std::collections::HashMap;
 
 mod parse;
@@ -58,7 +58,7 @@ impl Type {
 
 	pub(crate) fn generate(
 		&self,
-		vocabulary: &IndexVocabulary,
+		vocabulary: &Vocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		value: &json_ld::rdf::Value<IriIndex, BlankIdIndex>,
@@ -136,7 +136,7 @@ impl Type {
 impl Struct {
 	pub(crate) fn generate(
 		&self,
-		vocabulary: &IndexVocabulary,
+		vocabulary: &Vocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		id: ValidReference<IriIndex, BlankIdIndex>,
@@ -208,7 +208,7 @@ type OwnedDataset<'a> = grdf::HashDataset<
 impl Definition {
 	pub(crate) fn generate(
 		&self,
-		vocabulary: &IndexVocabulary,
+		vocabulary: &Vocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		id: ValidReference<IriIndex, BlankIdIndex>,

@@ -31,7 +31,7 @@ impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> ProcessMeta
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, C, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<T, B>,
+		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -57,7 +57,7 @@ impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> ProcessMeta
 
 /// Resolve `iri_ref` against the given base IRI.
 fn resolve_iri<I>(
-	vocabulary: &mut impl IriVocabularyMut<I>,
+	vocabulary: &mut impl IriVocabularyMut<Iri=I>,
 	iri_ref: IriRef,
 	base_iri: Option<&I>,
 ) -> Option<I> {
@@ -96,7 +96,7 @@ where
 	B: 'a + Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
 	C: ProcessMeta<T, B, M>,
-	N: Send + Sync + VocabularyMut<T, B>,
+	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	L::Context: Into<C>,
 	W: 'a + Send + WarningHandler<N, M>,
