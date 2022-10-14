@@ -126,7 +126,8 @@ impl compact::Test {
 				let compacted = RemoteDocument::new(Some(input), compacted);
 				
 				let expect = vocabulary.insert(expect);
-				let expect = loader.load_in(&mut vocabulary, expect).await.unwrap();
+				let mut expect = loader.load_in(&mut vocabulary, expect).await.unwrap();
+				expect.set_url(Some(input));
 					
 				let expand_options: json_ld::Options = json_ld::Options::default();
 				let success = compacted.compare_full(&expect, &mut vocabulary, &mut loader, expand_options, ()).await.unwrap();
