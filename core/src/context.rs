@@ -7,11 +7,11 @@ use contextual::WithContext;
 use locspan::{BorrowStripped, Meta, StrippedPartialEq};
 use once_cell::sync::OnceCell;
 use rdf_types::Vocabulary;
+use json_ld_syntax::KeywordType;
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::hash::Hash;
 
-pub use json_ld_syntax::context::{definition::Key, term_definition::Nest};
+pub use json_ld_syntax::context::{definition::{Key, KeyRef, Type, KeyOrType}, term_definition::Nest};
 
 pub use definition::*;
 pub use inverse::InverseContext;
@@ -24,7 +24,7 @@ pub struct Context<T, B, L, M> {
 	default_language: Option<LenientLanguageTagBuf>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
-	definitions: HashMap<Key, TermDefinition<T, B, L, M>>,
+	definitions: Definitions<T, B, L, M>,
 	inverse: OnceCell<InverseContext<T, B>>,
 }
 
@@ -37,7 +37,7 @@ impl<T, B, L, M> Default for Context<T, B, L, M> {
 			default_language: None,
 			default_base_direction: None,
 			previous_context: None,
-			definitions: HashMap::new(),
+			definitions: Definitions::default(),
 			inverse: OnceCell::default(),
 		}
 	}
@@ -57,22 +57,36 @@ impl<T, B, L, M> Context<T, B, L, M> {
 			default_language: None,
 			default_base_direction: None,
 			previous_context: None,
-			definitions: HashMap::new(),
+			definitions: Definitions::default(),
 			inverse: OnceCell::default(),
 		}
 	}
 
-	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<&TermDefinition<T, B, L, M>>
+	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<TermDefinitionRef<T, B, L, M>>
 	where
 		Key: Borrow<Q>,
+		KeywordType: Borrow<Q>,
 		Q: Hash + Eq,
 	{
 		self.definitions.get(term)
 	}
 
+	pub fn get_normal<Q: ?Sized>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B, L, M>>
+	where
+		Key: Borrow<Q>,
+		Q: Hash + Eq,
+	{
+		self.definitions.get_normal(term)
+	}
+
+	pub fn get_type(&self) -> Option<&TypeTermDefinition> {
+		self.definitions.get_type()
+	}
+
 	pub fn contains_key<Q: ?Sized>(&self, term: &Q) -> bool
 	where
 		Key: Borrow<Q>,
+		KeywordType: Borrow<Q>,
 		Q: Hash + Eq,
 	{
 		self.definitions.contains_key(term)
@@ -116,16 +130,14 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		self.definitions.is_empty()
 	}
 
-	pub fn definitions<'a>(
-		&'a self,
-	) -> Box<dyn 'a + Iterator<Item = DefinitionEntryRef<'a, T, B, L, M>>> {
-		Box::new(self.definitions.iter())
+	pub fn definitions(&self) -> &Definitions<T, B, L, M> {
+		&self.definitions
 	}
 
 	/// Checks if the context has a protected definition.
 	pub fn has_protected_items(&self) -> bool {
-		for (_, definition) in self.definitions() {
-			if definition.protected {
+		for binding in self.definitions() {
+			if binding.definition().protected() {
 				return true;
 			}
 		}
@@ -141,16 +153,20 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		self.inverse.get_or_init(|| self.into())
 	}
 
-	pub fn set(
+	pub fn set_normal(
 		&mut self,
 		key: Key,
-		definition: Option<TermDefinition<T, B, L, M>>,
-	) -> Option<TermDefinition<T, B, L, M>> {
+		definition: Option<NormalTermDefinition<T, B, L, M>>,
+	) -> Option<NormalTermDefinition<T, B, L, M>> {
 		self.inverse.take();
-		match definition {
-			Some(def) => self.definitions.insert(key, def),
-			None => self.definitions.remove(&key),
-		}
+		self.definitions.set_normal(key, definition)
+	}
+
+	pub fn set_type(
+		&mut self,
+		type_: Option<TypeTermDefinition>
+	) -> Option<TypeTermDefinition> {
+		self.definitions.set_type(type_)
 	}
 
 	pub fn set_base_iri(&mut self, iri: Option<T>) {
@@ -189,6 +205,8 @@ impl<T, B, L, M> Context<T, B, L, M> {
 	{
 		use json_ld_syntax::{Entry, Nullable};
 
+		let (bindings, type_) = self.definitions.into_parts();
+
 		let definition = json_ld_syntax::context::Definition {
 			base: self.base_iri.map(|i| {
 				Entry::new(
@@ -208,7 +226,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 				.map(|d| Entry::new(meta.clone(), Meta(Nullable::Some(d), meta.clone()))),
 			propagate: None,
 			protected: None,
-			type_: None,
+			type_: type_.map(|t| Entry::new(meta.clone(), t.into_syntax_definition(meta.clone()))),
 			version: None,
 			vocab: self.vocabulary.map(|v| {
 				let vocab = match v {
@@ -219,8 +237,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 
 				Entry::new(meta.clone(), Meta(vocab, meta.clone()))
 			}),
-			bindings: self
-				.definitions
+			bindings: bindings
 				.into_iter()
 				.map(|(key, definition)| {
 					(

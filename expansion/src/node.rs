@@ -408,7 +408,7 @@ where
 												if let Some(reverse_key_definition) =
 													active_context.get(reverse_key.as_str())
 												{
-													reverse_key_definition.reverse_property
+													reverse_key_definition.reverse_property()
 												} else {
 													false
 												};
@@ -471,11 +471,11 @@ where
 								let property_scoped_context = match active_context.get(nesting_key)
 								{
 									Some(definition) => {
-										if let Some(base_url) = &definition.base_url {
+										if let Some(base_url) = definition.base_url() {
 											property_scoped_base_url = Some(base_url.clone());
 										}
 
-										definition.context.as_ref()
+										definition.context()
 									}
 									None => None,
 								};
@@ -582,22 +582,22 @@ where
 					if prop.with(&*vocabulary).as_str().contains(':')
 						|| options.policy == Policy::Relaxed =>
 				{
-					let mut container_mapping = Mown::Owned(Container::new());
+					let mut container_mapping = Container::new();
 
 					let key_definition = active_context.get(key);
 					let mut is_reverse_property = false;
 					let mut is_json = false;
 
 					if let Some(key_definition) = key_definition {
-						is_reverse_property = key_definition.reverse_property;
+						is_reverse_property = key_definition.reverse_property();
 
 						// Initialize container mapping to key's container mapping in active context.
-						container_mapping = Mown::Borrowed(&key_definition.container);
+						container_mapping = key_definition.container();
 
 						// If key's term definition in `active_context` has a type mapping of `@json`,
 						// set expanded value to a new map,
 						// set the entry `@value` to `value`, and set the entry `@type` to `@json`.
-						if key_definition.typ == Some(Type::Json) {
+						if key_definition.typ() == Some(&Type::Json) {
 							is_json = true;
 						}
 					}
@@ -621,7 +621,7 @@ where
 								// If key's term definition in active context has a
 								// direction mapping, update direction with that value.
 								if let Some(key_definition) = key_definition {
-									if let Some(key_direction) = key_definition.direction {
+									if let Some(key_direction) = key_definition.direction() {
 										direction = key_direction.option()
 									}
 								}
@@ -754,7 +754,7 @@ where
 								// Initialize `index_key` to the key's index mapping in
 								// `active_context`, or @index, if it does not exist.
 								let index_key = if let Some(key_definition) = key_definition {
-									if let Some(index) = &key_definition.index {
+									if let Some(index) = key_definition.index() {
 										index.as_str()
 									} else {
 										"@index"
@@ -805,8 +805,8 @@ where
 										if let Some(index_definition) =
 											map_context.get(index.as_str())
 										{
-											if let Some(local_context) = &index_definition.context {
-												let base_url = index_definition.base_url.clone();
+											if let Some(local_context) = index_definition.context() {
+												let base_url = index_definition.base_url().cloned();
 												map_context = Mown::Owned(
 													local_context
 														.process_with(

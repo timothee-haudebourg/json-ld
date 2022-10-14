@@ -80,7 +80,7 @@ where
 				if let Some(term_definition) = active_context.get(value) {
 					// If active context has a term definition for value, and the associated IRI mapping
 					// is a keyword, return that keyword.
-					if let Some(value) = &term_definition.value {
+					if let Some(value) = term_definition.value() {
 						if value.is_keyword() {
 							return Ok((value.clone(), warnings));
 						}
@@ -89,7 +89,7 @@ where
 					// If vocab is true and the active context has a term definition for value, return the
 					// associated IRI mapping.
 					if vocab {
-						return match &term_definition.value {
+						return match term_definition.value() {
 							Some(value) => Ok((value.clone(), warnings)),
 							None => Ok((Term::Null, warnings)),
 						};
@@ -136,7 +136,7 @@ where
 						// mapping and the prefix flag of the term definition is true, return the result
 						// of concatenating the IRI mapping associated with prefix and suffix.
 						let prefix_key = Key::from(compact_iri.prefix().to_string());
-						if let Some(term_definition) = active_context.get(&prefix_key) {
+						if let Some(term_definition) = active_context.get_normal(&prefix_key) {
 							if term_definition.prefix {
 								if let Some(mapping) = &term_definition.value {
 									let mut result =
@@ -254,7 +254,7 @@ pub fn expand_iri_simple<
 			if let Some(term_definition) = active_context.get(value) {
 				// If active context has a term definition for value, and the associated IRI mapping
 				// is a keyword, return that keyword.
-				if let Some(value) = &term_definition.value {
+				if let Some(value) = term_definition.value() {
 					if value.is_keyword() {
 						return Meta(value.clone(), meta);
 					}
@@ -263,7 +263,7 @@ pub fn expand_iri_simple<
 				// If vocab is true and the active context has a term definition for value, return the
 				// associated IRI mapping.
 				if vocab {
-					return match &term_definition.value {
+					return match term_definition.value() {
 						Some(value) => Meta(value.clone(), meta),
 						None => Meta(Term::Null, meta),
 					};
@@ -287,7 +287,7 @@ pub fn expand_iri_simple<
 					// mapping and the prefix flag of the term definition is true, return the result
 					// of concatenating the IRI mapping associated with prefix and suffix.
 					let prefix_key = Key::from(compact_iri.prefix().to_string());
-					if let Some(term_definition) = active_context.get(&prefix_key) {
+					if let Some(term_definition) = active_context.get_normal(&prefix_key) {
 						if term_definition.prefix {
 							if let Some(mapping) = &term_definition.value {
 								let mut result = mapping.with(&*vocabulary).as_str().to_string();

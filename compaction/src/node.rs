@@ -55,7 +55,7 @@ where
 	let mut active_context = Mown::Borrowed(active_context);
 	if let Some(active_property) = active_property {
 		if let Some(active_property_definition) = type_scoped_context.get(*active_property) {
-			if let Some(local_context) = &active_property_definition.context {
+			if let Some(local_context) = active_property_definition.context() {
 				active_context = Mown::Owned(
 					local_context
 						.process_with(
@@ -100,7 +100,7 @@ where
 		for term in &compacted_types {
 			if let Some(term_definition) = type_scoped_context.get(term.as_ref().unwrap().as_str())
 			{
-				if let Some(local_context) = &term_definition.context {
+				if let Some(local_context) = term_definition.context() {
 					let processing_options = ProcessingOptions::from(options).without_propagation();
 					active_context = Mown::Owned(
 						local_context
@@ -152,7 +152,7 @@ where
 			// @id entry using false for vocab.
 			let type_mapping = match active_property {
 				Some(prop) => match active_context.get(*prop) {
-					Some(def) => def.typ.as_ref(),
+					Some(def) => def.typ(),
 					None => None,
 				},
 				None => None,
@@ -237,7 +237,7 @@ where
 			// expanded value for element, and the compactArrays and ordered flags.
 			let active_property = "@reverse";
 			if let Some(active_property_definition) = active_context.get(active_property) {
-				if let Some(local_context) = &active_property_definition.context {
+				if let Some(local_context) = active_property_definition.context() {
 					active_context = Mown::Owned(
 						local_context
 							.value
@@ -279,10 +279,10 @@ where
 				// If the term definition for property in the active context indicates that
 				// property is a reverse property
 				if let Some(term_definition) = active_context.get(property.as_str()) {
-					if term_definition.reverse_property {
+					if term_definition.reverse_property() {
 						// Initialize as array to true if the container mapping for property in
 						// the active context includes @set, otherwise the negation of compactArrays.
-						let as_array = term_definition.container.contains(ContainerKind::Set)
+						let as_array = term_definition.container().contains(ContainerKind::Set)
 							|| !options.compact_arrays;
 
 						// Use add value to add value to the property entry in result using as array.
@@ -330,7 +330,7 @@ where
 		if let Some(active_property) = active_property {
 			if let Some(active_property_definition) = active_context.get(*active_property) {
 				if active_property_definition
-					.container
+					.container()
 					.contains(ContainerKind::Index)
 				{
 					// then the compacted result will be inside of an @index container,
@@ -489,7 +489,7 @@ where
 			// container mapping for alias in the active context includes @set,
 			// otherwise to the negation of compactArrays.
 			let container_mapping = match active_context.get(alias.as_str()) {
-				Some(def) => def.container,
+				Some(def) => def.container(),
 				None => Container::None,
 			};
 			let as_array = (options.processing_mode == ProcessingMode::JsonLd1_1

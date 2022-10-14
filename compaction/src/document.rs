@@ -257,7 +257,7 @@ impl<I, B, C, M> EmbedContext<I, B, C, M> for json_syntax::MetaValue<M> {
 		if let Some(mut obj) = obj {
 			let json_context = IntoJson::into_json(context.unprocessed().cloned());
 
-			if !obj.is_empty() && !json_context.is_null() {
+			if !obj.is_empty() && !json_context.is_null() && !json_context.is_empty_array_or_object() {
 				obj.insert(
 					Meta("@context".into(), json_context.metadata().clone()),
 					json_context,

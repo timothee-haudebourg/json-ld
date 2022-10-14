@@ -38,7 +38,7 @@ where
 	let mut active_context = Mown::Borrowed(active_context);
 	if let Some(Meta(active_property, _)) = active_property {
 		if let Some(active_property_definition) = active_context.get(active_property) {
-			if let Some(local_context) = &active_property_definition.context {
+			if let Some(local_context) = active_property_definition.context() {
 				active_context = Mown::Owned(
 					local_context
 						.value
@@ -83,7 +83,7 @@ where
 	// Initialize language to the language mapping for active property in active context,
 	// if any, otherwise to the default language of active context.
 	let language = match active_property_definition {
-		Some(def) => match def.language.as_ref() {
+		Some(def) => match def.language() {
 			Some(lang) => lang.as_ref().map(|l| l.as_ref()).option(),
 			None => active_context.default_language(),
 		},
@@ -93,7 +93,7 @@ where
 	// Initialize direction to the direction mapping for active property in active context,
 	// if any, otherwise to the default base direction of active context.
 	let direction = match active_property_definition {
-		Some(def) => match def.direction {
+		Some(def) => match def.direction() {
 			Some(dir) => dir.option(),
 			None => active_context.default_base_direction(),
 		},
@@ -106,12 +106,12 @@ where
 	// Otherwise, if value has an @type entry whose value matches the type mapping of
 	// active property, set result to the value associated with the @value entry of value.
 	let type_mapping: Option<Type<I>> = match active_property_definition {
-		Some(def) => def.typ.clone(),
+		Some(def) => def.typ().cloned(),
 		None => None,
 	};
 
 	let container_mapping = match active_property_definition {
-		Some(def) => def.container,
+		Some(def) => def.container(),
 		None => Container::None,
 	};
 

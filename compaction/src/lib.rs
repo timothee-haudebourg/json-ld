@@ -360,7 +360,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 					if let Some(active_property_definition) =
 						type_scoped_context.get(active_property.0)
 					{
-						if let Some(local_context) = &active_property_definition.context {
+						if let Some(local_context) = active_property_definition.context() {
 							active_context = Mown::Owned(
 								local_context
 									.value
@@ -378,7 +378,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 						}
 
 						list_container = active_property_definition
-							.container
+							.container()
 							.contains(ContainerKind::List);
 					}
 				}
@@ -420,7 +420,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 								active_context.get(active_property)
 							{
 								if active_property_definition
-									.container
+									.container()
 									.contains(ContainerKind::Index)
 								{
 									// then the compacted result will be inside of an @index container,
@@ -575,10 +575,10 @@ where
 		if let Some(Meta(active_property, _)) = active_property {
 			if let Some(active_property_definition) = active_context.get(active_property) {
 				list_or_set = active_property_definition
-					.container
+					.container()
 					.contains(ContainerKind::List)
 					|| active_property_definition
-						.container
+						.container()
 						.contains(ContainerKind::Set);
 			}
 		}

@@ -377,7 +377,7 @@ where
 {
 	let (nest_result, container) = match active_context.get(*item_active_property) {
 		Some(term_definition) => {
-			let nest_result = match &term_definition.nest {
+			let nest_result = match term_definition.nest() {
 				Some(nest_term) => {
 					// If nest term is not @nest,
 					// or a term in the active context that expands to @nest,
@@ -386,7 +386,7 @@ where
 					if *nest_term.value != Nest::Nest {
 						match active_context.get(nest_term.as_str()) {
 							Some(term_def)
-								if term_def.value == Some(Term::Keyword(Keyword::Nest)) => {}
+								if term_def.value() == Some(&Term::Keyword(Keyword::Nest)) => {}
 							_ => {
 								return Err(Meta(
 									Error::InvalidNestValue,
@@ -427,7 +427,7 @@ where
 				}
 			};
 
-			(nest_result, term_definition.container)
+			(nest_result, term_definition.container())
 		}
 		None => (result, Container::None),
 	};
@@ -612,7 +612,7 @@ where
 						// the term definition associated with `item_active_property`
 						// in active context, or @index (None in our case), if no such value exists.
 						let index_key = match active_context.get(item_active_property.as_str()) {
-							Some(def) if def.index.is_some() => def.index.as_ref(),
+							Some(def) if def.index().is_some() => def.index(),
 							_ => None,
 						};
 

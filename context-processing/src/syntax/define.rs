@@ -3,7 +3,7 @@ use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandle
 use futures::future::{BoxFuture, FutureExt};
 use iref::{Iri, IriRef};
 use json_ld_core::{
-	context::TermDefinition, Container, Context, ContextLoader, ProcessingMode, Reference, Term,
+	context::{NormalTermDefinition, TypeTermDefinition}, Container, Context, ContextLoader, ProcessingMode, Reference, Term,
 	Type, ValidReference,
 };
 use json_ld_syntax::{
@@ -139,12 +139,14 @@ where
 				// Done with `defined.begin`.
 				match value {
 					// If term is @type, ...
-					EntryValueRef::Type(_) => {
+					EntryValueRef::Type(d) => {
 						// ... and processing mode is json-ld-1.0, a keyword
 						// redefinition error has been detected and processing is aborted.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
 							return Err(Error::KeywordRedefinition);
 						}
+
+						let previous_definition = active_context.set_type(None);
 
 						// At this point, `value` MUST be a map with only either or both of the
 						// following entries:
@@ -153,12 +155,46 @@ where
 						// Any other value means that a keyword redefinition error has been detected
 						// and processing is aborted.
 						// Checked during parsing.
+						let mut definition = TypeTermDefinition {
+							container: *d.container.value(),
+							..Default::default()
+						};
+
+						if let Some(protected) = d.protected.as_ref() {
+							if options.processing_mode == ProcessingMode::JsonLd1_0 {
+								return Err(Error::InvalidTermDefinition);
+							}
+
+							definition.protected = *protected.value()
+						}
+
+						// If override protected is false and previous_definition exists and is protected;
+						if !options.override_protected {
+							if let Some(previous_definition) = previous_definition {
+								if previous_definition.protected {
+									// If `definition` is not the same as `previous_definition`
+									// (other than the value of protected), a protected term
+									// redefinition error has been detected, and processing is aborted.
+									if definition.modulo_protected_field().stripped()
+										!= previous_definition.modulo_protected_field().stripped()
+									{
+										return Err(Error::ProtectedTermRedefinition);
+									}
+
+									// Set `definition` to `previous definition` to retain the value of
+									// protected.
+									definition.protected = true;
+								}
+							}
+						}
+
+						active_context.set_type(Some(definition));
 					}
 					EntryValueRef::Definition(d) => {
 						let key = term.as_key().unwrap();
 						// Initialize `previous_definition` to any existing term definition for `term` in
 						// `active_context`, removing that term definition from active context.
-						let previous_definition = active_context.set(key.clone(), None);
+						let previous_definition = active_context.set_normal(key.clone(), None);
 
 						let simple_term =
 							!d.value().as_ref().map(|d| d.is_expanded()).unwrap_or(false);
@@ -166,7 +202,7 @@ where
 
 						// Create a new term definition, `definition`, initializing `prefix` flag to
 						// `false`, `protected` to `protected`, and `reverse_property` to `false`.
-						let mut definition = TermDefinition::<T, B, C, M> {
+						let mut definition = NormalTermDefinition::<T, B, C, M> {
 							protected,
 							..Default::default()
 						};
@@ -311,7 +347,7 @@ where
 							// Set the term definition of `term` in `active_context` to
 							// `definition` and the value associated with `defined`'s entry `term`
 							// to `true` and return.
-							active_context.set(key.to_owned(), Some(definition));
+							active_context.set_normal(key.to_owned(), Some(definition));
 							defined.end(&term);
 							return Ok(warnings);
 						}
@@ -475,7 +511,7 @@ where
 										{
 											let mut result = String::new();
 
-											if let Some(prefix_key) = &prefix_definition.value {
+											if let Some(prefix_key) = prefix_definition.value() {
 												if let Some(prefix_iri) = prefix_key.as_iri() {
 													result = vocabulary
 														.iri(prefix_iri)
@@ -838,7 +874,7 @@ where
 
 						// Set the term definition of `term` in `active_context` to `definition` and
 						// set the value associated with `defined`'s entry term to true.
-						active_context.set(key.to_owned(), Some(definition));
+						active_context.set_normal(key.to_owned(), Some(definition));
 					}
 					_ => {
 						// Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and

@@ -44,7 +44,7 @@ impl<'a, M> ActiveProperty<'a, M> {
 	pub fn get_from<'c, T, B, C>(
 		&self,
 		context: &'c Context<T, B, C, M>,
-	) -> Option<&'c json_ld_core::context::TermDefinition<T, B, C, M>> {
+	) -> Option<json_ld_core::context::TermDefinitionRef<'c, T, B, C, M>> {
 		match self {
 			Self::Some(Meta(s, _)) => context.get(*s),
 			Self::None => None,
@@ -116,11 +116,11 @@ where
 		// initialize property-scoped context to that local context.
 		let mut property_scoped_base_url = None;
 		let property_scoped_context = if let Some(definition) = active_property_definition {
-			if let Some(base_url) = &definition.base_url {
+			if let Some(base_url) = definition.base_url() {
 				property_scoped_base_url = Some(base_url.clone());
 			}
 
-			definition.context.as_ref()
+			definition.context()
 		} else {
 			None
 		};
@@ -299,12 +299,12 @@ where
 					// has a `local_context`,
 					for Meta(term, _) in sorted_value {
 						if let Some(term_definition) = type_scoped_context.get(term) {
-							if let Some(local_context) = &term_definition.context {
+							if let Some(local_context) = term_definition.context() {
 								// set `active_context` to the result of
 								// Context Processing algorithm, passing `active_context`, the value of the
 								// `term`'s local context as `local_context`, `base_url` from the term
 								// definition for value in `active_context`, and `false` for `propagate`.
-								let base_url = term_definition.base_url.clone();
+								let base_url = term_definition.base_url().cloned();
 								let options: ProcessingOptions = options.into();
 								active_context = Mown::Owned(
 									local_context
@@ -554,7 +554,7 @@ where
 					// FIXME it is unclear what we should use as `base_url` if there is no term definition for `active_context`.
 					let base_url = active_property
 						.get_from(active_context)
-						.and_then(|definition| definition.base_url.clone());
+						.and_then(|definition| definition.base_url().cloned());
 
 					let result = property_scoped_context
 						.process_with(vocabulary, active_context, loader, base_url, options.into())

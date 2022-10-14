@@ -94,7 +94,7 @@ where
 	let active_property_definition = active_property.get_from(active_context);
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
 	{
-		active_property_definition.typ.clone()
+		active_property_definition.typ().cloned()
 	} else {
 		None
 	};
@@ -167,7 +167,7 @@ where
 						// default language of `active_context`.
 						let language =
 							if let Some(active_property_definition) = active_property_definition {
-								if let Some(language) = &active_property_definition.language {
+								if let Some(language) = active_property_definition.language() {
 									language.as_ref().cloned().option()
 								} else {
 									active_context
@@ -185,8 +185,8 @@ where
 						// default base direction of `active_context`.
 						let direction =
 							if let Some(active_property_definition) = active_property_definition {
-								if let Some(direction) = &active_property_definition.direction {
-									(*direction).option()
+								if let Some(direction) = active_property_definition.direction() {
+									direction.option()
 								} else {
 									active_context.default_base_direction()
 								}

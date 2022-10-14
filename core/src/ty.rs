@@ -1,10 +1,11 @@
 use super::Term;
 use crate::{Reference, ValidReference};
 use json_ld_syntax::Keyword;
+use locspan_derive::{StrippedPartialEq, StrippedEq, StrippedHash};
 use std::convert::TryFrom;
 use std::fmt;
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash, Debug)]
 pub enum Type<I> {
 	Id,
 	Json,

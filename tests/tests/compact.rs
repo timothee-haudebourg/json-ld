@@ -1,7 +1,6 @@
 use contextual::WithContext;
-use json_ld::{Loader, Print, JsonLdProcessor, RemoteDocumentReference, RemoteDocument, ExpandedDocument};
-use locspan::{BorrowStripped, Meta};
-use rdf_types::IriVocabularyMut;
+use json_ld::{Loader, Print, JsonLdProcessor, RemoteDocumentReference, RemoteDocument};
+use rdf_types::{IriVocabularyMut, IndexVocabulary};
 use static_iref::iri;
 
 const STACK_SIZE: usize = 4 * 1024 * 1024;
@@ -65,6 +64,12 @@ mod compact {
 
 		#[iri("test:normative")]
 		pub normative: Option<bool>,
+
+		#[iri("test:compactToRelative")]
+		pub compact_to_relative: Option<bool>,
+
+		#[iri("test:compactArrays")]
+		pub compact_arrays: Option<bool>,
 	}
 }
 
@@ -93,7 +98,7 @@ impl compact::Test {
 			println!("{}", comment)
 		}
 
-		let mut vocabulary = rdf_types::IndexVocabulary::new();
+		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 		let mut loader: json_ld::FsLoader = json_ld::FsLoader::default();
 		loader.mount(
 			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api").into()),
@@ -108,6 +113,9 @@ impl compact::Test {
 		options.base = self.options.base.map(|iri| vocabulary.insert(iri));
 		options.expand_context = self.options.expand_context.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
 
+		options.compact_arrays = self.options.compact_arrays.unwrap_or(true);
+		options.compact_to_relative = self.options.compact_to_relative.unwrap_or(true);
+
 		let input = vocabulary.insert(self.input);
 		let context = RemoteDocumentReference::Reference(vocabulary.insert(self.context));
 
@@ -116,23 +124,17 @@ impl compact::Test {
 				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
 				let compacted = json_ld.compact_full(&mut vocabulary, context, &mut loader, options, ()).await.unwrap();
 				let compacted = RemoteDocument::new(Some(input), compacted);
-
-				let expand_options: json_ld::Options = json_ld::Options::default();
-				let expanded: Meta<ExpandedDocument, _> = compacted.expand_with(&mut vocabulary, &mut loader, expand_options).await.unwrap();
 				
 				let expect = vocabulary.insert(expect);
-				let mut expect = loader.load_in(&mut vocabulary, expect).await.unwrap();
-				expect.set_url(Some(input));
-				let expand_options: json_ld::Options = json_ld::Options::default();
-				let expected = expect.expand_with(&mut vocabulary, &mut loader, expand_options).await.unwrap();
+				let expect = loader.load_in(&mut vocabulary, expect).await.unwrap();
 					
-				let success = expanded.stripped() == expected.stripped();
+				let expand_options: json_ld::Options = json_ld::Options::default();
+				let success = compacted.compare_full(&expect, &mut vocabulary, &mut loader, expand_options, ()).await.unwrap();
 
 				if !success {
 					eprintln!("test failed");
 					eprintln!("output=\n{}", compacted.with(&vocabulary).document().pretty_print());
-					eprintln!("expanded=\n{}", expanded.with(&vocabulary).pretty_print());
-					eprintln!("expected=\n{}", expected.with(&vocabulary).pretty_print());
+					eprintln!("expected=\n{}", expect.document().with(&vocabulary).pretty_print());
 				}
 
 				assert!(success)

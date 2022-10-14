@@ -1,6 +1,6 @@
 use crate::{expand_element, ActiveProperty, Error, Expanded, Loader, Options, WarningHandler};
 use json_ld_context_processing::{ContextLoader, ProcessMeta};
-use json_ld_core::{context::TermDefinition, object, Context, Object};
+use json_ld_core::{context::TermDefinitionRef, object, Context, Object};
 use json_ld_syntax::ContainerKind;
 use json_syntax::{Array, Value};
 use locspan::Meta;
@@ -20,7 +20,7 @@ pub(crate) async fn expand_array<
 	vocabulary: &mut N,
 	active_context: &Context<T, B, C, M>,
 	active_property: ActiveProperty<'_, M>,
-	active_property_definition: Option<&TermDefinition<T, B, C, M>>,
+	active_property_definition: Option<TermDefinitionRef<'_, T, B, C, M>>,
 	Meta(element, meta): Meta<&Array<M>, &M>,
 	base_url: Option<&T>,
 	loader: &mut L,
@@ -47,7 +47,7 @@ where
 	// `expanded_item` is an array, set `expanded_item` to a new map containing
 	// the entry `@list` where the value is the original `expanded_item`.
 	if let Some(definition) = active_property_definition {
-		is_list = definition.container.contains(ContainerKind::List);
+		is_list = definition.container().contains(ContainerKind::List);
 	}
 
 	// For each item in element:

@@ -1,4 +1,5 @@
 use locspan_derive::StrippedPartialEq;
+use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -221,5 +222,20 @@ pub fn is_keyword_like(s: &str) -> bool {
 		true
 	} else {
 		false
+	}
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+pub struct KeywordType;
+
+impl KeywordType {
+	pub fn as_str(&self) -> &'static str {
+		"@type"
+	}
+}
+
+impl Borrow<str> for KeywordType {
+	fn borrow(&self) -> &str {
+		self.as_str()
 	}
 }

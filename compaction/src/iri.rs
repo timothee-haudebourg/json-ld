@@ -335,7 +335,7 @@ where
 									)?
 									.unwrap();
 									if let Some(def) = active_context.get(compacted_iri.as_str()) {
-										if let Some(iri_mapping) = &def.value {
+										if let Some(iri_mapping) = def.value() {
 											vocab = iri_mapping == id;
 										}
 									}
@@ -414,14 +414,16 @@ where
 	let mut compact_iri = String::new();
 
 	// For each term definition definition in active context:
-	for (key, definition) in active_context.definitions() {
+	for binding in active_context.definitions() {
+		let key = binding.key();
+		let definition = binding.definition();
 		// If the IRI mapping of definition is null, its IRI mapping equals var,
 		// its IRI mapping is not a substring at the beginning of var,
 		// or definition does not have a true prefix flag,
 		// definition's key cannot be used as a prefix.
 		// Continue with the next definition.
-		match definition.value.as_ref() {
-			Some(iri_mapping) if definition.prefix => {
+		match definition.value() {
+			Some(iri_mapping) if definition.prefix() => {
 				if let Some(suffix) = var
 					.with(vocabulary)
 					.as_str()
@@ -446,7 +448,7 @@ where
 							&& (candidate_def.is_none()
 								|| (candidate_def.is_some()
 									&& candidate_def
-										.and_then(|def| def.value.as_ref())
+										.and_then(|def| def.value())
 										.map_or(false, |v| v == var) && value.is_none()))
 						{
 							compact_iri = candidate
