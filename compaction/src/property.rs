@@ -910,7 +910,7 @@ where
 				nest_result,
 				item_active_property.borrow().map(String::as_str),
 				Meta(
-					json_syntax::Object::default().into(),
+					Vec::new().into(),
 					item_active_property.metadata().clone(),
 				),
 				true,
