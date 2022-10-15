@@ -11,6 +11,7 @@ const STACK_SIZE: usize = 4 * 1024 * 1024;
 #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
 #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
 #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
+#[ignore_test("#tp004", see="https://github.com/w3c/json-ld-api/issues/517")]
 mod compact {
 	use iref::Iri;
 

@@ -1,7 +1,7 @@
 use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
 use grdf::Dataset;
-use iref::IriBuf;
+use iref::{IriBuf, IriRefBuf};
 use json_ld::{Expand, ValidReference};
 use locspan::{Loc, Location, Meta, Span};
 use proc_macro2::TokenStream;
@@ -72,6 +72,7 @@ impl syn::parse::Parse for IriAttribute {
 		Ok(Self { _paren, iri })
 	}
 }
+
 struct IriArg {
 	iri: IriBuf,
 }
@@ -115,12 +116,44 @@ impl syn::parse::Parse for PrefixBinding {
 	}
 }
 
+struct IgnoreAttribute {
+	_paren: syn::token::Paren,
+	iri_ref: IriRefBuf,
+	_comma: syn::token::Comma,
+	_see: syn::Ident,
+	_eq: syn::token::Eq,
+	link: String
+}
+
+impl syn::parse::Parse for IgnoreAttribute {
+	fn parse(input: ParseStream) -> syn::Result<Self> {
+		let content;
+		let _paren = syn::parenthesized!(content in input);
+
+		let iri_ref: syn::LitStr = content.parse()?;
+		let iri_ref = IriRefBuf::from_string(iri_ref.value())
+			.map_err(|(_, s)| content.error(format!("invalid IRI reference `{}`", s)))?;
+
+		let _comma = content.parse()?;
+
+		let _see = content.parse()?;
+
+		let _eq = content.parse()?;
+
+		let link: syn::LitStr = content.parse()?;
+		let link = link.value();
+
+		Ok(Self { _paren, iri_ref, _comma, _see, _eq, link })
+	}
+}
+
 struct TestSpec {
 	id: syn::Ident,
 	prefix: String,
 	suite: IriIndex,
 	types: HashMap<syn::Ident, ty::Definition>,
 	type_map: HashMap<IriIndex, syn::Ident>,
+	ignore: HashMap<IriIndex, String>
 }
 
 struct InvalidIri(String);
@@ -184,9 +217,11 @@ fn parse_input(
 	args: proc_macro::TokenStream,
 ) -> Result<TestSpec, Error> {
 	let suite: IriArg = syn::parse(args)?;
-	let suite = vocabulary.insert(suite.iri.as_iri());
+	let base = suite.iri;
+	let suite = vocabulary.insert(base.as_iri());
 
 	let mut bindings: HashMap<String, IriIndex> = HashMap::new();
+	let mut ignore: HashMap<IriIndex, String> = HashMap::new();
 
 	let attrs = std::mem::take(&mut input.attrs);
 	for attr in attrs {
@@ -196,6 +231,10 @@ fn parse_input(
 		} else if attr.path.is_ident("iri_prefix") {
 			let attr: PrefixBinding = syn::parse2(attr.tokens)?;
 			bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_iri()));
+		} else if attr.path.is_ident("ignore_test") {
+			let attr: IgnoreAttribute = syn::parse2(attr.tokens)?;
+			let resolved = attr.iri_ref.resolved(base.as_iri());
+			ignore.insert(vocabulary.insert(resolved.as_iri()), attr.link);
 		} else {
 			input.attrs.push(attr)
 		}
@@ -240,6 +279,7 @@ fn parse_input(
 		suite,
 		types,
 		type_map,
+		ignore
 	})
 }
 
@@ -509,7 +549,14 @@ async fn generate_test_suite(
 			if *predicate == ValidReference::Id(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))) {
 				if let json_ld::rdf::Value::Reference(ValidReference::Id(ty)) = object {
 					if let Some(type_id) = spec.type_map.get(ty) {
-						tests.insert(*id, type_id);
+						match spec.ignore.get(&id) {
+							Some(link) => {
+								println!("    {} test `{}` (see {})", yansi::Paint::yellow("Ignoring").bold(), vocabulary.iri(&id).unwrap(), link);
+							}
+							None => {
+								tests.insert(*id, type_id);
+							}
+						}
 					}
 				}
 			}
