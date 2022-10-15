@@ -387,7 +387,7 @@ where
 			};
 
 			if let Some(term) = entry.select(&containers, &selection) {
-				return Ok(Some(Meta(disambiguate_keyword(term.to_string()), meta.clone())));
+				return Ok(Some(Meta(term.to_string(), meta.clone())));
 			}
 		}
 
@@ -403,7 +403,7 @@ where
 				.strip_prefix(vocab_mapping.with(vocabulary).as_str())
 			{
 				if !suffix.is_empty() && active_context.get(suffix).is_none() {
-					return Ok(Some(Meta(disambiguate_keyword(suffix.into()), meta.clone())));
+					return Ok(Some(Meta(suffix.into(), meta.clone())));
 				}
 			}
 		}
@@ -463,7 +463,7 @@ where
 
 	// If compact IRI is not null, return compact IRI.
 	if !compact_iri.is_empty() {
-		return Ok(Some(Meta(disambiguate_keyword(compact_iri.as_str().into()), meta.clone())));
+		return Ok(Some(Meta(compact_iri.as_str().into(), meta.clone())));
 	}
 
 	// To ensure that the IRI var is not confused with a compact IRI,
@@ -494,7 +494,7 @@ where
 	}
 
 	// Finally, return var as is.
-	Ok(Some(Meta(disambiguate_keyword(var.with(vocabulary).to_string()), meta.clone())))
+	Ok(Some(Meta(var.with(vocabulary).to_string(), meta.clone())))
 }
 
 fn disambiguate_keyword(s: String) -> String {
