@@ -7,7 +7,6 @@ pub mod flattening;
 pub mod id;
 mod indexed;
 mod lang_string;
-pub mod lexicon;
 pub mod loader;
 mod mode;
 pub mod object;
@@ -26,7 +25,6 @@ pub use flattening::*;
 pub use id::*;
 pub use indexed::*;
 pub use lang_string::*;
-pub use lexicon::Lexicon;
 pub use loader::*;
 pub use mode::*;
 pub use object::{
