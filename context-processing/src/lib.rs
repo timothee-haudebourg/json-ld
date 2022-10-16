@@ -96,7 +96,7 @@ pub type ProcessingResult<'a, T, B, M, C, E> = Result<Processed<'a, T, B, C, M>,
 /// Context processing functions.
 // FIXME: unclear why the `'static` lifetime is now required.
 pub trait ProcessMeta<T, B, M>:
-	json_ld_syntax::IntoJson<M> + json_ld_syntax::context::AnyValue<M>
+	json_ld_syntax::IntoJsonMeta<M> + json_ld_syntax::context::AnyValue<M>
 {
 	/// Process the local context with specific options.
 	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(

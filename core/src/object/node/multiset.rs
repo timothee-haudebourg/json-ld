@@ -11,7 +11,8 @@ impl BuildHasher for DeterministicHasherBuilder {
 	}
 }
 
-use locspan::{StrippedEq, StrippedHash, StrippedPartialEq};
+use json_ld_syntax::{IntoJsonWithContextMeta, IntoJsonWithContext};
+use locspan::{StrippedEq, StrippedHash, StrippedPartialEq, Meta};
 
 /// Multiset of values.
 #[derive(Clone)]
@@ -275,5 +276,11 @@ impl<T: StrippedHash, S: BuildHasher> StrippedHash for Multiset<T, S> {
 		}
 
 		state.write_u64(hash)
+	}
+}
+
+impl<T: IntoJsonWithContext<M, N>, S, M, N> IntoJsonWithContextMeta<M, N> for Multiset<T, S> {
+	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
+		Meta(json_syntax::Value::Array(self.into_iter().map(|item| item.into_json_with(vocabulary)).collect()), meta)
 	}
 }

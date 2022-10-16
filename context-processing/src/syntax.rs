@@ -18,7 +18,7 @@ pub use iri::*;
 pub use merged::*;
 use syntax::context::definition::KeyOrKeywordRef;
 
-impl<C: syntax::context::AnyValue<M> + syntax::IntoJson<M>, T, B, M> ProcessMeta<T, B, M> for C {
+impl<C: syntax::context::AnyValue<M> + syntax::IntoJsonMeta<M>, T, B, M> ProcessMeta<T, B, M> for C {
 	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		meta: &'l M,

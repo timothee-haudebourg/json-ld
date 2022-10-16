@@ -1,11 +1,11 @@
 use crate::{object, Direction, LangString, LenientLanguageTag};
 use derivative::Derivative;
 use iref::{Iri, IriBuf};
-use json_ld_syntax::Keyword;
+use json_ld_syntax::{Keyword, IntoJsonWithContextMeta};
 use json_syntax::{Number, NumberBuf};
 use locspan::Meta;
 use locspan_derive::*;
-use rdf_types::IriVocabularyMut;
+use rdf_types::{IriVocabularyMut, IriVocabulary};
 use std::{
 	cmp::Ordering,
 	fmt,
@@ -178,6 +178,16 @@ impl Literal {
 		match self {
 			Literal::Number(n) => Some(n),
 			_ => None,
+		}
+	}
+
+	pub fn into_json<M>(self) -> json_syntax::Value<M> {
+		match self {
+			Self::Null => json_syntax::Value::Null,
+			Self::Boolean(b) => json_syntax::Value::Boolean(b),
+			Self::Number(n) => json_syntax::Value::Number(n),
+			Self::String(LiteralString::Expanded(s)) => json_syntax::Value::String(s),
+			Self::String(LiteralString::Inferred(s)) => json_syntax::Value::String(s.into())
 		}
 	}
 }
@@ -653,73 +663,38 @@ impl<'a, T: 'a, M> Iterator for SubFragments<'a, T, M> {
 	}
 }
 
-// impl<J: JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K> for Value<T> {
-// 	fn as_json_with(
-// 		&self,
-// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-// 	) -> K {
-// 		let mut obj = <K as Json>::Object::default();
+impl<T, M: Clone, N: IriVocabulary<Iri=T>> IntoJsonWithContextMeta<M, N> for Value<T, M> {
+	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
+		let mut obj = json_syntax::Object::new();
 
-// 		match self {
-// 			Value::Literal(lit, ty) => {
-// 				match lit {
-// 					Literal::Null => obj.insert(
-// 						K::new_key(Keyword::Value.into_str(), meta(None)),
-// 						K::null(meta(None)),
-// 					),
-// 					Literal::Boolean(b) => obj.insert(
-// 						K::new_key(Keyword::Value.into_str(), meta(None)),
-// 						b.as_json_with(meta(None)),
-// 					),
-// 					Literal::Number(n) => obj.insert(
-// 						K::new_key(Keyword::Value.into_str(), meta(None)),
-// 						K::number(n.clone().into(), meta(None)),
-// 					),
-// 					Literal::String(s) => obj.insert(
-// 						K::new_key(Keyword::Value.into_str(), meta(None)),
-// 						s.as_json_with(meta(None)),
-// 					),
-// 				};
+		let value = match self {
+			Self::Literal(lit, ty) => {
+				if let Some(ty) = ty {
+					obj.insert(Meta("@type".into(), meta.clone()), Meta(vocabulary.iri(&ty).unwrap().as_str().into(), meta.clone()));
+				}
 
-// 				if let Some(ty) = ty {
-// 					obj.insert(
-// 						K::new_key(Keyword::Type.into_str(), meta(None)),
-// 						ty.as_json(meta(None)),
-// 					);
-// 				}
-// 			}
-// 			Value::LangString(str) => {
-// 				obj.insert(
-// 					K::new_key(Keyword::Value.into_str(), meta(None)),
-// 					str.as_str().as_json_with(meta(None)),
-// 				);
+				Meta(lit.into_json(), meta.clone())
+			}
+			Self::LangString(s) => {
+				if let Some(language) = s.language() {
+					obj.insert(Meta("@language".into(), meta.clone()), Meta(language.as_str().into(), meta.clone()));
+				}
 
-// 				if let Some(language) = str.language() {
-// 					obj.insert(
-// 						K::new_key(Keyword::Language.into_str(), meta(None)),
-// 						language.as_json_with(meta(None)),
-// 					);
-// 				}
+				if let Some(direction) = s.direction() {
+					obj.insert(Meta("@direction".into(), meta.clone()), Meta(direction.as_str().into(), meta.clone()));
+				}
 
-// 				if let Some(direction) = str.direction() {
-// 					obj.insert(
-// 						K::new_key(Keyword::Direction.into_str(), meta(None)),
-// 						direction.as_json_with(meta(None)),
-// 					);
-// 				}
-// 			}
-// 			Value::Json(json) => {
-// 				obj.insert(
-// 					K::new_key(Keyword::Value.into_str(), meta(None)),
-// 					json.as_json_with(meta.clone()),
-// 				);
-// 				obj.insert(
-// 					K::new_key(Keyword::Type.into_str(), meta(None)),
-// 					Keyword::Json.as_json_with(meta(None)),
-// 				);
-// 			}
-// 		}
+				Meta(s.as_str().into(), meta.clone())
+			}
+			Self::Json(json) => {
+				obj.insert(Meta("@type".into(), meta.clone()), Meta("@json".into(), meta.clone()));
 
-// 		K::object(obj, meta(None))
-// 	}
-// }
+				json
+			}
+		};
+
+		obj.insert(Meta("@value".into(), meta.clone()), value);
+
+		Meta(obj.into(), meta)
+	}
+}

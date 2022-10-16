@@ -1,5 +1,5 @@
 use crate::object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject};
-use json_ld_syntax::Entry;
+use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta};
 use locspan::Meta;
 use locspan_derive::*;
 use rdf_types::VocabularyMut;
@@ -171,6 +171,20 @@ impl<T, M> AsMut<T> for Indexed<T, M> {
 	#[inline(always)]
 	fn as_mut(&mut self) -> &mut T {
 		&mut self.value
+	}
+}
+
+impl<T: IntoJsonWithContextMeta<M, N>, M, N> IntoJsonWithContextMeta<M, N> for Indexed<T, M> {
+	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
+		let mut result = self.value.into_json_meta_with(meta, vocabulary);
+
+		if let Some(obj) = result.as_object_mut() {
+			if let Some(index) = self.index {
+				obj.insert(Meta("@index".into(), index.key_metadata), index.value.into_json());
+			}
+		}
+
+		result
 	}
 }
 

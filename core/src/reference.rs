@@ -1,7 +1,8 @@
 use crate::object::{InvalidExpandedJson, TryFromJson};
 use crate::Term;
-use contextual::{AsRefWithContext, DisplayWithContext};
+use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
 use iref::{Iri, IriBuf};
+use json_ld_syntax::IntoJsonWithContextMeta;
 use locspan::Meta;
 use locspan_derive::*;
 use rdf_types::{BlankId, BlankIdBuf, InvalidBlankId, Vocabulary, VocabularyMut};
@@ -246,6 +247,12 @@ impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Reference<T, B> {
 	}
 }
 
+impl<T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for Reference<T, B> {
+	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
+		Meta(self.into_with(context).to_string().into(), meta)
+	}
+}
+
 /// Types that can be converted into a borrowed node reference.
 ///
 /// This is a convenient trait is used to simplify the use of references.
@@ -426,6 +433,12 @@ impl<T: fmt::Display, B: fmt::Display> crate::rdf::Display for ValidReference<T,
 			Self::Id(id) => write!(f, "<{}>", id),
 			Self::Blank(b) => write!(f, "{}", b),
 		}
+	}
+}
+
+impl<T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for ValidReference<T, B> {
+	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
+		Meta(self.into_with(context).to_string().into(), meta)
 	}
 }
 

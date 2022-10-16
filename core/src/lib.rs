@@ -23,6 +23,7 @@ pub mod warning;
 pub use container::{Container, ContainerKind};
 pub use context::Context;
 pub use document::*;
+pub use flattening::*;
 pub use id::*;
 pub use indexed::*;
 pub use lang_string::*;

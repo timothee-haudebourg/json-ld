@@ -5,7 +5,9 @@ use crate::{
 	StrippedIndexedNode,
 };
 use json_ld_syntax::Entry;
+use rdf_types::Vocabulary;
 use locspan::{Meta, Stripped};
+use contextual::WithContext;
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -15,30 +17,79 @@ mod node_map;
 pub use environment::Environment;
 pub use node_map::*;
 
-impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B, M> {
-	pub fn flatten_in<N, G: id::Generator<T, B, M, N>>(
+pub trait FlattenMeta<I, B, M> {
+	fn flatten_meta<N, G: id::Generator<I, B, M, N>>(
+		self,
+		meta: M,
+		vocabulary: &mut N,
+		generator: G,
+		ordered: bool,
+	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B>;
+
+	fn flatten_unordered_meta<N, G: id::Generator<I, B, M, N>>(
+		self,
+		meta: M,
+		vocabulary: &mut N,
+		generator: G,
+	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>>;
+}
+
+pub trait Flatten<I, B, M> {
+	fn flatten_in<N, G: id::Generator<I, B, M, N>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
 		ordered: bool,
-	) -> Result<FlattenedDocument<T, B, M>, ConflictingIndexes<T, B, M>>
-	where
-		T: AsRef<str>,
-		B: AsRef<str>,
-	{
-		Ok(self
-			.generate_node_map_in(vocabulary, generator)?
-			.flatten(ordered))
-	}
+	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B>;
 
-	pub fn flatten_unordered_in<N, G: id::Generator<T, B, M, N>>(
+	fn flatten_unordered_in<N, G: id::Generator<I, B, M, N>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
-	) -> Result<UnorderedFlattenedDocument<T, B, M>, ConflictingIndexes<T, B, M>> {
-		Ok(self
+	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>>;
+}
+
+impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
+	fn flatten_in<N, G: id::Generator<I, B, M, N>>(
+		self,
+		vocabulary: &mut N,
+		generator: G,
+		ordered: bool,
+	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B> {
+		T::flatten_meta(self.0, self.1, vocabulary, generator, ordered)
+	}
+
+	fn flatten_unordered_in<N, G: id::Generator<I, B, M, N>>(
+		self,
+		vocabulary: &mut N,
+		generator: G,
+	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> {
+		T::flatten_unordered_meta(self.0, self.1, vocabulary, generator)
+	}
+}
+
+impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M> for ExpandedDocument<I, B, M> {
+	fn flatten_meta<N, G: id::Generator<I, B, M, N>>(
+		self,
+		meta: M,
+		vocabulary: &mut N,
+		generator: G,
+		ordered: bool,
+	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B> {
+		Ok(Meta(self
 			.generate_node_map_in(vocabulary, generator)?
-			.flatten_unordered())
+			.flatten_with(vocabulary, ordered), meta))
+	}
+
+	fn flatten_unordered_meta<N, G: id::Generator<I, B, M, N>>(
+		self,
+		meta: M,
+		vocabulary: &mut N,
+		generator: G,
+	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> {
+		Ok(Meta(self
+			.generate_node_map_in(vocabulary, generator)?
+			.flatten_unordered(), meta))
 	}
 }
 
@@ -64,16 +115,16 @@ fn filter_sub_graph<T, B, M>(
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
-	pub fn flatten(self, ordered: bool) -> Vec<IndexedNode<T, B, M>>
-	where
-		T: AsRef<str>,
-		B: AsRef<str>,
-	{
+	pub fn flatten(self, ordered: bool) -> Vec<IndexedNode<T, B, M>> where (): Vocabulary<Iri=T, BlankId=B> {
+		self.flatten_with(&(), ordered)
+	}
+
+	pub fn flatten_with<N>(self, vocabulary: &N, ordered: bool) -> Vec<IndexedNode<T, B, M>> where N: Vocabulary<Iri=T, BlankId=B> {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		let mut named_graphs: Vec<_> = named_graphs.into_iter().collect();
 		if ordered {
-			named_graphs.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
+			named_graphs.sort_by(|a, b| a.0.with(vocabulary).as_str().cmp(b.0.with(vocabulary).as_str()));
 		}
 
 		for (graph_id, graph) in named_graphs {
@@ -85,10 +136,14 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 			let mut nodes: Vec<_> = graph.into_nodes().collect();
 			if ordered {
 				nodes.sort_by(|a, b| {
-					a.id_entry()
-						.unwrap()
+					a.id()
+						.unwrap().0
+						.with(vocabulary)
 						.as_str()
-						.cmp(b.id_entry().unwrap().as_str())
+						.cmp(b.id()
+						.unwrap().0
+						.with(vocabulary)
+						.as_str())
 				});
 			}
 			entry.set_graph(Some(Entry::new(
@@ -111,10 +166,14 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 
 		if ordered {
 			nodes.sort_by(|a, b| {
-				a.id_entry()
-					.unwrap()
+				a.id()
+					.unwrap().0
+					.with(vocabulary)
 					.as_str()
-					.cmp(b.id_entry().unwrap().as_str())
+					.cmp(b.id()
+					.unwrap().0
+					.with(vocabulary)
+					.as_str())
 			});
 		}
 

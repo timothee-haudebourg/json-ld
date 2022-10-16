@@ -22,7 +22,7 @@ pub use context::{Context, ContextRef};
 pub use direction::*;
 pub use entry::Entry;
 pub use expandable::*;
-pub use into_json::IntoJson;
+pub use into_json::*;
 pub use json_syntax::*;
 pub use keyword::*;
 pub use lang::*;

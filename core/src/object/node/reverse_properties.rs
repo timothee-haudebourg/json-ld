@@ -4,8 +4,10 @@ use crate::{
 	IndexedNode, Reference, StrippedIndexedNode, ToReference,
 };
 use derivative::Derivative;
+use json_ld_syntax::IntoJsonWithContextMeta;
 use locspan::{BorrowStripped, Meta, Stripped};
-use rdf_types::VocabularyMut;
+use rdf_types::{Vocabulary, VocabularyMut};
+use contextual::WithContext;
 use std::{
 	borrow::Borrow,
 	collections::HashMap,
@@ -434,3 +436,15 @@ impl<'a, T, B, M> Iterator for IterMut<'a, T, B, M> {
 impl<'a, T, B, M> ExactSizeIterator for IterMut<'a, T, B, M> {}
 
 impl<'a, T, B, M> std::iter::FusedIterator for IterMut<'a, T, B, M> {}
+
+impl<T, B, M: Clone, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for ReverseProperties<T, B, M> {
+	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
+		let mut obj = json_syntax::Object::new();
+
+		for (Meta(prop, meta), nodes) in self {
+			obj.insert(Meta(prop.with(vocabulary).to_string().into(), meta.clone()), nodes.into_json_meta_with(meta, vocabulary));
+		}
+
+		Meta(obj.into(), meta)
+	}
+}

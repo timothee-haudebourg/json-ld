@@ -3,7 +3,7 @@ use crate::{id, Indexed, LenientLanguageTag, Reference};
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
-use json_ld_syntax::{Entry, Keyword};
+use json_ld_syntax::{Entry, Keyword, IntoJsonWithContextMeta};
 use json_syntax::Number;
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedHash, StrippedPartialEq};
 use locspan_derive::*;
@@ -1128,6 +1128,16 @@ impl<'a, T, B, M> Iterator for Traverse<'a, T, B, M> {
 				Some(item)
 			}
 			None => None,
+		}
+	}
+}
+
+impl<T, B, M: Clone, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for Object<T, B, M> {
+	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
+		match self {
+			Self::Value(v) => v.into_json_meta_with(meta, vocabulary),
+			Self::Node(n) => n.into_json_meta_with(meta, vocabulary),
+			Self::List(l) => l.into_json_meta_with(meta, vocabulary)
 		}
 	}
 }

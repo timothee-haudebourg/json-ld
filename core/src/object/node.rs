@@ -6,7 +6,7 @@ use crate::{
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
-use json_ld_syntax::{Entry, Keyword};
+use json_ld_syntax::{Entry, Keyword, IntoJson, IntoJsonWithContextMeta};
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedPartialEq};
 use rdf_types::{BlankIdBuf, Vocabulary, VocabularyMut};
 use std::collections::HashSet;
@@ -1325,5 +1325,46 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			},
 			meta,
 		))
+	}
+}
+
+impl<T, B, M: Clone, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for Node<T, B, M> {
+	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
+		let mut obj = json_syntax::Object::new();
+
+		if let Some(id) = self.id {
+			obj.insert(Meta("@id".into(), id.key_metadata), id.value.into_with(vocabulary).into_json());
+		}
+
+		if let Some(types) = self.types {
+			if !types.is_empty() {
+				// let value = if types.len() > 1 {
+				// 	types.value.into_with(vocabulary).into_json()
+				// } else {
+				// 	types.value.0.into_iter().next().unwrap().into_with(vocabulary).into_json()
+				// };
+				let value = types.value.into_with(vocabulary).into_json();
+
+				obj.insert(Meta("@type".into(), types.key_metadata), value);
+			}
+		}
+
+		if let Some(graph) = self.graph {
+			obj.insert(Meta("@graph".into(), graph.key_metadata), graph.value.into_with(vocabulary).into_json());
+		}
+
+		if let Some(included) = self.included {
+			obj.insert(Meta("@include".into(), included.key_metadata), included.value.into_with(vocabulary).into_json());
+		}
+
+		if let Some(reverse_properties) = self.reverse_properties {
+			obj.insert(Meta("@reverse".into(), reverse_properties.key_metadata), reverse_properties.value.into_with(vocabulary).into_json());
+		}
+
+		for (Meta(prop, meta), objects) in self.properties {
+			obj.insert(Meta(prop.with(vocabulary).to_string().into(), meta.clone()), objects.into_json_meta_with(meta, vocabulary));
+		}
+
+		Meta(obj.into(), meta)
 	}
 }

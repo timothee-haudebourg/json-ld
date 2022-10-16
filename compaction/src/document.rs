@@ -1,6 +1,6 @@
 use futures::FutureExt;
 use json_ld_core::{ExpandedDocument, FlattenedDocument, Term};
-use json_ld_syntax::{IntoJson, Keyword};
+use json_ld_syntax::{IntoJson, IntoJsonMeta, Keyword};
 use locspan::Meta;
 use rdf_types::Vocabulary;
 use std::hash::Hash;
@@ -22,7 +22,7 @@ pub trait EmbedContext<I, B, C, M> {
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		M: Clone,
-		C: Clone + IntoJson<M>;
+		C: Clone + IntoJsonMeta<M>;
 }
 
 pub trait CompactMeta<I, B, M> {
@@ -223,7 +223,7 @@ impl<I, B, C, M> EmbedContext<I, B, C, M> for json_syntax::MetaValue<M> {
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		M: Clone,
-		C: Clone + IntoJson<M>,
+		C: Clone + IntoJsonMeta<M>,
 	{
 		let value = self.value_mut().take();
 
