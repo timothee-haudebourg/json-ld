@@ -1,66 +1,6 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-/// Error type.
-///
-/// This is the type of all the errors that may occur during a JSON-LD document processing.
-/// Each error is described by an error code.
-/// See [`ErrorCode`] for more informations about all the different possible errors.
-#[derive(Debug)]
-pub struct Error {
-	/// Error code.
-	code: ErrorCode,
-
-	/// The lower-level source of this error, if any.
-	source: Option<Box<dyn std::error::Error + 'static>>,
-}
-
-impl Error {
-	/// Create a new error.
-	#[inline(always)]
-	pub fn new(code: ErrorCode) -> Error {
-		Error { code, source: None }
-	}
-
-	/// Create a new error with a given error source.
-	#[inline(always)]
-	pub fn with_source<S: std::error::Error + 'static>(code: ErrorCode, source: S) -> Error {
-		Error {
-			code,
-			source: Some(Box::new(source)),
-		}
-	}
-
-	/// Get the error code associated to the error.
-	#[inline(always)]
-	pub fn code(&self) -> ErrorCode {
-		self.code
-	}
-}
-
-impl std::error::Error for Error {
-	#[inline(always)]
-	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-		match &self.source {
-			Some(source) => Some(source.as_ref()),
-			None => None,
-		}
-	}
-}
-
-impl fmt::Display for Error {
-	#[inline(always)]
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self.code.as_str())
-	}
-}
-
-impl From<ErrorCode> for Error {
-	fn from(c: ErrorCode) -> Self {
-		Self::new(c)
-	}
-}
-
 /// Error code.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum ErrorCode {

@@ -1,7 +1,7 @@
 use contextual::WithContext;
-use json_ld::{ContextLoader, Expand, Loader, Print, Process, TryFromJson};
-use locspan::{BorrowStripped, Meta};
-use rdf_types::IriVocabularyMut;
+use json_ld::{Loader, Print, JsonLdProcessor, RemoteDocumentReference, TryFromJson};
+use locspan::BorrowStripped;
+use rdf_types::{IriVocabularyMut, IndexVocabulary};
 use static_iref::iri;
 
 const STACK_SIZE: usize = 4 * 1024 * 1024;
@@ -52,7 +52,7 @@ mod expand {
 		pub base: Option<Iri<'static>>,
 
 		#[iri("test:expandContext")]
-		pub context: Option<Iri<'static>>,
+		pub expand_context: Option<Iri<'static>>,
 
 		#[iri("test:processingMode")]
 		pub processing_mode: Option<json_ld::ProcessingMode>,
@@ -61,7 +61,7 @@ mod expand {
 		pub spec_version: Option<&'static str>,
 
 		#[iri("test:normative")]
-		pub normative: Option<bool>,
+		pub normative: Option<bool>
 	}
 }
 
@@ -90,57 +90,28 @@ impl expand::Test {
 			println!("{}", comment)
 		}
 
-		let mut options = json_ld::expansion::Options::default();
-		if let Some(p) = self.options.processing_mode {
-			options.processing_mode = p
-		}
-
-		let mut vocabulary = rdf_types::IndexVocabulary::new();
+		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 		let mut loader: json_ld::FsLoader = json_ld::FsLoader::default();
 		loader.mount(
 			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api").into()),
 			"json-ld-api",
 		);
 
-		let input = vocabulary.insert(self.input);
-		let base = self
-			.options
-			.base
-			.map(|i| vocabulary.insert(i))
-			.unwrap_or(input);
+		let mut options: json_ld::Options = json_ld::Options::default();
+		if let Some(p) = self.options.processing_mode {
+			options.processing_mode = p
+		}
 
-		let context = match self.options.context {
-			Some(iri) => {
-				let i = vocabulary.insert(iri);
-				let ld_context = loader
-					.load_context_in(&mut vocabulary, i)
-					.await
-					.unwrap()
-					.into_document();
-				ld_context
-					.process(&mut vocabulary, &mut loader, Some(base))
-					.await
-					.unwrap()
-					.into_processed()
-			}
-			None => json_ld::Context::new(Some(base)),
-		};
+		options.base = self.options.base.map(|iri| vocabulary.insert(iri));
+		options.expand_context = self.options.expand_context.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
+
+		let input = vocabulary.insert(self.input);
 
 		match self.desc {
 			expand::Description::Positive { expect } => {
 				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
-				let expanded: Meta<json_ld::ExpandedDocument, _> = json_ld
-					.expand_full(
-						&mut vocabulary,
-						context,
-						Some(&base),
-						&mut loader,
-						options,
-						(),
-					)
-					.await
-					.unwrap();
-
+				let expanded = json_ld.expand_full(&mut vocabulary, &mut loader, options, ()).await.unwrap();
+				
 				let expect_iri = vocabulary.insert(expect);
 				let expected = loader
 					.load_in(&mut vocabulary, expect_iri)
@@ -149,7 +120,7 @@ impl expand::Test {
 					.into_document();
 				let expected =
 					json_ld::ExpandedDocument::try_from_json_in(&mut vocabulary, expected).unwrap();
-
+					
 				let success = expanded.stripped() == expected.stripped();
 
 				if !success {
@@ -165,16 +136,7 @@ impl expand::Test {
 			} => {
 				match loader.load_in(&mut vocabulary, input).await {
 					Ok(json_ld) => {
-						let result: Result<_, _> = json_ld
-							.expand_full(
-								&mut vocabulary,
-								context,
-								Some(&base),
-								&mut loader,
-								options,
-								(),
-							)
-							.await;
+						let result: Result<_, _> = json_ld.expand_full(&mut vocabulary, &mut loader, options, ()).await;
 
 						match result {
 							Ok(expanded) => {
