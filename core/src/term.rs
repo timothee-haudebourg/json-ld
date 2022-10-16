@@ -1,4 +1,4 @@
-use crate::{Reference, ValidReference};
+use crate::{Id, ValidId};
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
 use json_ld_syntax::Keyword;
 use rdf_types::vocabulary::Vocabulary;
@@ -13,7 +13,7 @@ use std::fmt;
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Term<T, B> {
 	Null,
-	Ref(Reference<T, B>),
+	Ref(Id<T, B>),
 	Keyword(Keyword),
 }
 
@@ -24,7 +24,7 @@ impl<I, B> Term<I, B> {
 
 	pub fn into_id(self) -> Result<I, Self> {
 		match self {
-			Term::Ref(Reference::Valid(ValidReference::Id(id))) => Ok(id),
+			Term::Ref(Id::Valid(ValidId::Iri(id))) => Ok(id),
 			term => Err(term),
 		}
 	}
@@ -94,12 +94,12 @@ impl<'a, T, B> From<&'a Term<T, B>> for Term<&'a T, &'a B> {
 
 impl<T, B> From<T> for Term<T, B> {
 	fn from(id: T) -> Term<T, B> {
-		Term::Ref(Reference::Valid(ValidReference::Id(id)))
+		Term::Ref(Id::Valid(ValidId::Iri(id)))
 	}
 }
 
-impl<T, B> From<Reference<T, B>> for Term<T, B> {
-	fn from(prop: Reference<T, B>) -> Term<T, B> {
+impl<T, B> From<Id<T, B>> for Term<T, B> {
+	fn from(prop: Id<T, B>) -> Term<T, B> {
 		Term::Ref(prop)
 	}
 }

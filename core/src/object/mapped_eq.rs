@@ -1,4 +1,4 @@
-use crate::{Indexed, Reference, ValidReference};
+use crate::{Indexed, Id, ValidId};
 use locspan::BorrowStripped;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -227,7 +227,7 @@ impl<T: MappedEq, M> MappedEq for Indexed<T, M> {
 	}
 }
 
-impl<T: PartialEq, B: PartialEq> MappedEq for Reference<T, B> {
+impl<T: PartialEq, B: PartialEq> MappedEq for Id<T, B> {
 	type BlankId = B;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(
@@ -246,7 +246,7 @@ impl<T: PartialEq, B: PartialEq> MappedEq for Reference<T, B> {
 	}
 }
 
-impl<T: PartialEq, B: PartialEq> MappedEq for ValidReference<T, B> {
+impl<T: PartialEq, B: PartialEq> MappedEq for ValidId<T, B> {
 	type BlankId = B;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(
@@ -259,7 +259,7 @@ impl<T: PartialEq, B: PartialEq> MappedEq for ValidReference<T, B> {
 	{
 		match (self, other) {
 			(Self::Blank(a), Self::Blank(b)) => f(a) == b,
-			(Self::Id(a), Self::Id(b)) => a == b,
+			(Self::Iri(a), Self::Iri(b)) => a == b,
 			_ => false,
 		}
 	}

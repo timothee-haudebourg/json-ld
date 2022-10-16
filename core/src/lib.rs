@@ -14,7 +14,6 @@ pub mod object;
 pub mod print;
 pub mod quad;
 pub mod rdf;
-mod reference;
 mod term;
 mod ty;
 pub mod utils;
@@ -37,6 +36,5 @@ pub use object::{
 pub use print::Print;
 pub use quad::LdQuads;
 pub use rdf::RdfQuads;
-pub use reference::*;
 pub use term::*;
 pub use ty::*;

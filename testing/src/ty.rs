@@ -1,6 +1,6 @@
 use crate::{vocab, BlankIdIndex, Error, IriIndex, TestSpec, Vocab, Vocabulary};
 use grdf::Dataset;
-use json_ld::ValidReference;
+use json_ld::ValidId;
 use proc_macro2::TokenStream;
 use quote::quote;
 use rdf_types::{BlankIdVocabulary, IriVocabulary};
@@ -45,11 +45,11 @@ pub enum Type {
 }
 
 impl Type {
-	fn is_reference(&self) -> bool {
+	fn is_id(&self) -> bool {
 		matches!(self, Self::Ref(_))
 	}
 
-	fn as_reference(&self) -> Option<&syn::Ident> {
+	fn as_id(&self) -> Option<&syn::Ident> {
 		match self {
 			Self::Ref(r) => Some(r),
 			_ => None,
@@ -82,10 +82,10 @@ impl Type {
 			Self::String => {
 				let s = match value {
 					json_ld::rdf::Value::Literal(lit) => lit.string_literal().as_str(),
-					json_ld::rdf::Value::Reference(ValidReference::Id(i)) => {
+					json_ld::rdf::Value::Reference(ValidId::Iri(i)) => {
 						vocabulary.iri(i).unwrap().into_str()
 					}
-					json_ld::rdf::Value::Reference(ValidReference::Blank(i)) => {
+					json_ld::rdf::Value::Reference(ValidId::Blank(i)) => {
 						vocabulary.blank_id(i).unwrap().as_str()
 					}
 				};
@@ -93,7 +93,7 @@ impl Type {
 				Ok(quote! { #s })
 			}
 			Self::Iri => match value {
-				json_ld::rdf::Value::Reference(ValidReference::Id(i)) => {
+				json_ld::rdf::Value::Reference(ValidId::Iri(i)) => {
 					let s = vocabulary.iri(i).unwrap().into_str();
 					Ok(quote! { ::static_iref::iri!(#s) })
 				}
@@ -139,7 +139,7 @@ impl Struct {
 		vocabulary: &Vocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
-		id: ValidReference<IriIndex, BlankIdIndex>,
+		id: ValidId<IriIndex, BlankIdIndex>,
 		path: TokenStream,
 	) -> Result<TokenStream, Error> {
 		let mut fields = Vec::new();
@@ -147,20 +147,20 @@ impl Struct {
 		for (field_iri, field) in &self.fields {
 			let ident = &field.id;
 			let value = if *field_iri == IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))
-				&& field.ty.is_reference()
+				&& field.ty.is_id()
 			{
 				if field.multiple || !field.required {
 					return Err(Error::InvalidTypeField);
 				}
 
-				let ty_id = field.ty.as_reference().expect("not a reference");
+				let ty_id = field.ty.as_id().expect("not a reference");
 				let ty = spec.types.get(ty_id).expect("undefined type");
 				let mod_id = &spec.id;
 				ty.generate(vocabulary, spec, dataset, id, quote! { #mod_id :: #ty_id })?
 			} else {
 				let mut objects = dataset
 					.default_graph()
-					.objects(&id, &ValidReference::Id(*field_iri));
+					.objects(&id, &ValidId::Iri(*field_iri));
 
 				if field.multiple {
 					let mut items = Vec::new();
@@ -199,10 +199,10 @@ impl Struct {
 }
 
 type OwnedDataset<'a> = grdf::HashDataset<
-	ValidReference<IriIndex, BlankIdIndex>,
-	ValidReference<IriIndex, BlankIdIndex>,
+	ValidId<IriIndex, BlankIdIndex>,
+	ValidId<IriIndex, BlankIdIndex>,
 	json_ld::rdf::Value<IriIndex, BlankIdIndex>,
-	&'a ValidReference<IriIndex, BlankIdIndex>,
+	&'a ValidId<IriIndex, BlankIdIndex>,
 >;
 
 impl Definition {
@@ -211,7 +211,7 @@ impl Definition {
 		vocabulary: &Vocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
-		id: ValidReference<IriIndex, BlankIdIndex>,
+		id: ValidId<IriIndex, BlankIdIndex>,
 		path: TokenStream,
 	) -> Result<TokenStream, Error> {
 		match self {
@@ -220,12 +220,12 @@ impl Definition {
 				let mut variant = None;
 				let node_types = dataset.default_graph().objects(
 					&id,
-					&ValidReference::Id(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))),
+					&ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))),
 				);
 
 				for ty_iri in node_types {
 					match ty_iri {
-						json_ld::rdf::Value::Reference(ValidReference::Id(ty_iri)) => {
+						json_ld::rdf::Value::Reference(ValidId::Iri(ty_iri)) => {
 							if let Some(v) = e.variants.get(ty_iri) {
 								if variant.replace(v).is_some() {
 									return Err(Error::MultipleTypeVariants(id));

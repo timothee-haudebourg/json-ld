@@ -1,7 +1,7 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
 use crate::{
-	id, object, utils, Indexed, IndexedObject, Object, Objects, Reference, StrippedIndexedObject,
-	Term, ToReference,
+	id, object, utils, Indexed, IndexedObject, Object, Objects, Id, StrippedIndexedObject,
+	Term, IntoId,
 };
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
@@ -28,7 +28,7 @@ pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
-	pub id: Option<Entry<Reference<T, B>, M>>,
+	pub id: Option<Entry<Id<T, B>, M>>,
 
 	/// Types.
 	///
@@ -75,7 +75,7 @@ pub struct Node<T = IriBuf, B = BlankIdBuf, M = ()> {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
-	pub(crate) id: Option<Entry<Reference<T, B>, M>>,
+	pub(crate) id: Option<Entry<Id<T, B>, M>>,
 
 	/// Types.
 	///
@@ -126,7 +126,7 @@ impl<T, B, M> Node<T, B, M> {
 
 	/// Creates a new empty node with the given id.
 	#[inline(always)]
-	pub fn with_id(id: Entry<Reference<T, B>, M>) -> Self {
+	pub fn with_id(id: Entry<Id<T, B>, M>) -> Self {
 		Self {
 			id: Some(id),
 			types: None,
@@ -163,7 +163,7 @@ impl<T, B, M> Node<T, B, M> {
 	///
 	/// This correspond to the `@id` field of the JSON object.
 	#[inline(always)]
-	pub fn id(&self) -> Option<&Meta<Reference<T, B>, M>> {
+	pub fn id(&self) -> Option<&Meta<Id<T, B>, M>> {
 		self.id.as_ref().map(Entry::as_value)
 	}
 
@@ -171,13 +171,13 @@ impl<T, B, M> Node<T, B, M> {
 	///
 	/// This correspond to the `@id` field of the JSON object.
 	#[inline(always)]
-	pub fn id_entry(&self) -> Option<&Entry<Reference<T, B>, M>> {
+	pub fn id_entry(&self) -> Option<&Entry<Id<T, B>, M>> {
 		self.id.as_ref()
 	}
 
 	/// Sets the idntifier of this node.
 	#[inline(always)]
-	pub fn set_id(&mut self, id: Option<Entry<Reference<T, B>, M>>) {
+	pub fn set_id(&mut self, id: Option<Entry<Id<T, B>, M>>) {
 		self.id = id
 	}
 
@@ -245,7 +245,7 @@ impl<T, B, M> Node<T, B, M> {
 
 	/// Get the list of the node's types.
 	#[inline(always)]
-	pub fn types(&self) -> &[Meta<Reference<T, B>, M>] {
+	pub fn types(&self) -> &[Meta<Id<T, B>, M>] {
 		match self.types.as_ref() {
 			Some(entry) => &entry.value,
 			None => &[],
@@ -254,7 +254,7 @@ impl<T, B, M> Node<T, B, M> {
 
 	/// Returns a mutable reference to the node's types.
 	#[inline(always)]
-	pub fn types_mut(&mut self) -> &mut [Meta<Reference<T, B>, M>] {
+	pub fn types_mut(&mut self) -> &mut [Meta<Id<T, B>, M>] {
 		match self.types.as_mut() {
 			Some(entry) => &mut entry.value,
 			None => &mut [],
@@ -298,7 +298,7 @@ impl<T, B, M> Node<T, B, M> {
 	#[inline]
 	pub fn has_type<U>(&self, ty: &U) -> bool
 	where
-		Reference<T, B>: PartialEq<U>,
+		Id<T, B>: PartialEq<U>,
 	{
 		for self_ty in self.types() {
 			if self_ty.value() == ty {
@@ -500,7 +500,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 
 	/// Get all the objects associated to the node with the given property.
 	#[inline(always)]
-	pub fn get<'a, Q: ToReference<T, B>>(&self, prop: Q) -> Objects<T, B, M>
+	pub fn get<'a, Q: IntoId<T, B>>(&self, prop: Q) -> Objects<T, B, M>
 	where
 		T: 'a,
 	{
@@ -512,7 +512,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: ToReference<T, B>>(&self, prop: Q) -> Option<&IndexedObject<T, B, M>>
+	pub fn get_any<'a, Q: IntoId<T, B>>(&self, prop: Q) -> Option<&IndexedObject<T, B, M>>
 	where
 		T: 'a,
 	{
@@ -521,7 +521,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Meta<Reference<T, B>, M>, value: IndexedObject<T, B, M>) {
+	pub fn insert(&mut self, prop: Meta<Id<T, B>, M>, value: IndexedObject<T, B, M>) {
 		self.properties.insert(prop, value)
 	}
 
@@ -532,7 +532,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	#[inline(always)]
 	pub fn insert_all<Objects: Iterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,
-		prop: Meta<Reference<T, B>, M>,
+		prop: Meta<Id<T, B>, M>,
 		values: Objects,
 	) {
 		self.properties.insert_all(prop, values)
@@ -642,7 +642,7 @@ pub enum EntryKeyRef<'a, T, B, M> {
 	Graph,
 	Included,
 	Reverse,
-	Property(Meta<&'a Reference<T, B>, &'a M>),
+	Property(Meta<&'a Id<T, B>, &'a M>),
 }
 
 impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
@@ -701,7 +701,7 @@ impl<'a, T, B, N: Vocabulary<Iri=T, BlankId=B>, M> IntoRefWithContext<'a, str, N
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""), Copy(bound = ""))]
 pub enum EntryValueRef<'a, T, B, M> {
-	Id(Meta<&'a Reference<T, B>, &'a M>),
+	Id(Meta<&'a Id<T, B>, &'a M>),
 	Type(&'a TypeEntryValue<T, B, M>),
 	Graph(&'a HashSet<StrippedIndexedObject<T, B, M>>),
 	Included(&'a HashSet<StrippedIndexedNode<T, B, M>>),
@@ -736,13 +736,13 @@ impl<'a, T, B, M> EntryValueRef<'a, T, B, M> {
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""), Copy(bound = ""))]
 pub enum EntryRef<'a, T, B, M> {
-	Id(&'a Entry<Reference<T, B>, M>),
+	Id(&'a Entry<Id<T, B>, M>),
 	Type(&'a TypeEntry<T, B, M>),
 	Graph(&'a GraphEntry<T, B, M>),
 	Included(&'a IncludedEntry<T, B, M>),
 	Reverse(&'a Entry<ReverseProperties<T, B, M>, M>),
 	Property(
-		Meta<&'a Reference<T, B>, &'a M>,
+		Meta<&'a Id<T, B>, &'a M>,
 		&'a [StrippedIndexedObject<T, B, M>],
 	),
 }
@@ -807,15 +807,15 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 	}
 }
 
-pub type TypeEntryValue<T, B, M> = Meta<Vec<Meta<Reference<T, B>, M>>, M>;
-pub type TypeEntry<T, B, M> = Entry<Vec<Meta<Reference<T, B>, M>>, M>;
+pub type TypeEntryValue<T, B, M> = Meta<Vec<Meta<Id<T, B>, M>>, M>;
+pub type TypeEntry<T, B, M> = Entry<Vec<Meta<Id<T, B>, M>>, M>;
 pub type GraphEntry<T, B, M> = Entry<Graph<T, B, M>, M>;
 pub type IncludedEntry<T, B, M> = Entry<HashSet<StrippedIndexedNode<T, B, M>>, M>;
 
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct Entries<'a, T, B, M> {
-	id: Option<&'a Entry<Reference<T, B>, M>>,
+	id: Option<&'a Entry<Id<T, B>, M>>,
 	type_: Option<&'a TypeEntry<T, B, M>>,
 	graph: Option<&'a GraphEntry<T, B, M>>,
 	included: Option<&'a IncludedEntry<T, B, M>>,
@@ -1020,11 +1020,11 @@ pub enum FragmentRef<'a, T, B, M> {
 	Value(EntryValueRef<'a, T, B, M>),
 
 	/// "@type" entry value fragment.
-	TypeFragment(Meta<&'a Reference<T, B>, &'a M>),
+	TypeFragment(Meta<&'a Id<T, B>, &'a M>),
 }
 
 impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
-	pub fn into_id(self) -> Option<Meta<&'a Reference<T, B>, &'a M>> {
+	pub fn into_id(self) -> Option<Meta<&'a Id<T, B>, &'a M>> {
 		match self {
 			Self::Key(EntryKeyRef::Property(id)) => Some(id),
 			Self::Value(EntryValueRef::Id(id)) => Some(id),
@@ -1033,7 +1033,7 @@ impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn as_id(&self) -> Option<&'a Reference<T, B>> {
+	pub fn as_id(&self) -> Option<&'a Id<T, B>> {
 		match self {
 			Self::Key(EntryKeyRef::Property(id)) => Some(id),
 			Self::Value(EntryValueRef::Id(id)) => Some(id),
@@ -1071,7 +1071,7 @@ pub enum SubFragments<'a, T, B, M> {
 		Option<EntryKeyRef<'a, T, B, M>>,
 		Option<EntryValueRef<'a, T, B, M>>,
 	),
-	Type(std::slice::Iter<'a, Meta<Reference<T, B>, M>>),
+	Type(std::slice::Iter<'a, Meta<Id<T, B>, M>>),
 	Graph(std::collections::hash_set::Iter<'a, StrippedIndexedObject<T, B, M>>),
 	Included(std::collections::hash_set::Iter<'a, StrippedIndexedNode<T, B, M>>),
 	Reverse(reverse_properties::Iter<'a, T, B, M>),
@@ -1263,7 +1263,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 		{
 			Some(entry) => Some(Entry::new(
 				entry.key.into_metadata(),
-				Reference::try_from_json_in(vocabulary, entry.value)?,
+				Id::try_from_json_in(vocabulary, entry.value)?,
 			)),
 			None => None,
 		};

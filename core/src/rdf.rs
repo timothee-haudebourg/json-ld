@@ -1,5 +1,5 @@
 use crate::{
-	id, object::value, Direction, Indexed, IndexedObject, Node, Object, Reference, ValidReference,
+	id, object::value, Direction, Indexed, IndexedObject, Node, Object, Id, ValidId,
 };
 use contextual::DisplayWithContext;
 use iref::{AsIri, Iri, IriBuf};
@@ -66,13 +66,13 @@ pub const XSD_INTEGER: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#int
 pub const XSD_DOUBLE: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#double");
 pub const XSD_STRING: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#string");
 
-pub type Triple<T, B> = rdf_types::Triple<ValidReference<T, B>, ValidReference<T, B>, Value<T, B>>;
+pub type Triple<T, B> = rdf_types::Triple<ValidId<T, B>, ValidId<T, B>, Value<T, B>>;
 
-impl<T: Clone, B: Clone> Reference<T, B> {
+impl<T: Clone, B: Clone> Id<T, B> {
 	fn rdf_value(&self) -> Option<Value<T, B>> {
 		match self {
-			Reference::Valid(id) => Some(Value::Reference(id.clone())),
-			Reference::Invalid(_) => None,
+			Id::Valid(id) => Some(Value::Reference(id.clone())),
+			Id::Invalid(_) => None,
 		}
 	}
 }
@@ -84,7 +84,7 @@ pub enum RdfDirection {
 }
 
 pub struct CompoundLiteralTriples<T, B> {
-	id: ValidReference<T, B>,
+	id: ValidId<T, B>,
 	value: Option<Value<T, B>>,
 	direction: Option<Value<T, B>>,
 }
@@ -94,7 +94,7 @@ impl<T: Clone, B: Clone> CompoundLiteralTriples<T, B> {
 		if let Some(value) = self.value.take() {
 			return Some(rdf_types::Triple(
 				self.id.clone(),
-				ValidReference::Id(vocabulary.insert(RDF_VALUE)),
+				ValidId::Iri(vocabulary.insert(RDF_VALUE)),
 				value,
 			));
 		}
@@ -102,7 +102,7 @@ impl<T: Clone, B: Clone> CompoundLiteralTriples<T, B> {
 		if let Some(direction) = self.direction.take() {
 			return Some(rdf_types::Triple(
 				self.id.clone(),
-				ValidReference::Id(vocabulary.insert(RDF_DIRECTION)),
+				ValidId::Iri(vocabulary.insert(RDF_DIRECTION)),
 				direction,
 			));
 		}
@@ -236,7 +236,7 @@ impl<T: Clone, B: Clone, M> Node<T, B, M> {
 		self.id_entry()
 			.map(Entry::as_value)
 			.map(Meta::value)
-			.and_then(Reference::rdf_value)
+			.and_then(Id::rdf_value)
 	}
 }
 
@@ -261,7 +261,7 @@ impl<T: Clone, B: Clone, M> Object<T, B, M> {
 			Self::List(list) => {
 				if list.is_empty() {
 					Some(CompoundValue {
-						value: Value::Reference(ValidReference::Id(vocabulary.insert(RDF_NIL))),
+						value: Value::Reference(ValidId::Iri(vocabulary.insert(RDF_NIL))),
 						triples: None,
 					})
 				} else {
@@ -311,18 +311,18 @@ enum ListItemTriples<'a, T, B, M> {
 }
 
 struct NestedListTriples<'a, T, B, M> {
-	head_ref: Option<ValidReference<T, B>>,
-	previous: Option<ValidReference<T, B>>,
+	head_ref: Option<ValidId<T, B>>,
+	previous: Option<ValidId<T, B>>,
 	iter: std::slice::Iter<'a, IndexedObject<T, B, M>>,
 }
 
 struct ListNode<'a, 'i, T, B, M> {
-	id: &'i ValidReference<T, B>,
+	id: &'i ValidId<T, B>,
 	object: &'a Indexed<Object<T, B, M>, M>,
 }
 
 impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
-	fn new(list: &'a [IndexedObject<T, B, M>], head_ref: ValidReference<T, B>) -> Self {
+	fn new(list: &'a [IndexedObject<T, B, M>], head_ref: ValidId<T, B>) -> Self {
 		Self {
 			head_ref: Some(head_ref),
 			previous: None,
@@ -330,7 +330,7 @@ impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
 		}
 	}
 
-	fn previous(&self) -> Option<&ValidReference<T, B>> {
+	fn previous(&self) -> Option<&ValidId<T, B>> {
 		self.previous.as_ref()
 	}
 
@@ -430,7 +430,7 @@ pub struct ListTriples<'a, T, B, M> {
 }
 
 impl<'a, T, B, M> ListTriples<'a, T, B, M> {
-	pub fn new(list: &'a [IndexedObject<T, B, M>], head_ref: ValidReference<T, B>) -> Self {
+	pub fn new(list: &'a [IndexedObject<T, B, M>], head_ref: ValidId<T, B>) -> Self {
 		let mut stack = SmallVec::new();
 		stack.push(ListItemTriples::NestedList(NestedListTriples::new(
 			list, head_ref,
@@ -501,14 +501,14 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 
 								self.pending = Some(rdf_types::Triple(
 									id.clone(),
-									ValidReference::Id(vocabulary.insert(RDF_FIRST)),
+									ValidId::Iri(vocabulary.insert(RDF_FIRST)),
 									compound_value.value,
 								));
 
 								if let Some(previous_id) = previous {
 									break Some(rdf_types::Triple(
 										previous_id,
-										ValidReference::Id(vocabulary.insert(RDF_REST)),
+										ValidId::Iri(vocabulary.insert(RDF_REST)),
 										Value::Reference(id),
 									));
 								}
@@ -519,8 +519,8 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 							if let Some(previous_id) = previous {
 								break Some(rdf_types::Triple(
 									previous_id,
-									ValidReference::Id(vocabulary.insert(RDF_REST)),
-									Value::Reference(ValidReference::Id(
+									ValidId::Iri(vocabulary.insert(RDF_REST)),
+									Value::Reference(ValidId::Iri(
 										vocabulary.insert(RDF_NIL),
 									)),
 								));
@@ -574,7 +574,7 @@ fn i18n(language: Option<LanguageTagBuf>, direction: Direction) -> IriBuf {
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Value<T, B> {
 	Literal(Literal<T>),
-	Reference(ValidReference<T, B>),
+	Reference(ValidId<T, B>),
 }
 
 impl<T: fmt::Display, B: fmt::Display> fmt::Display for Value<T, B> {

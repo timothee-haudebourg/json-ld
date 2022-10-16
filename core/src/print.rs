@@ -5,7 +5,7 @@ use json_syntax::print::{
 };
 pub use json_syntax::print::{Options, Print, Printed};
 
-use crate::{object, ExpandedDocument, Indexed, Object, Reference};
+use crate::{object, ExpandedDocument, Indexed, Object, Id};
 use contextual::WithContext;
 use rdf_types::vocabulary::{IriVocabulary, Vocabulary};
 
@@ -72,7 +72,7 @@ impl<T, B, M, N: Vocabulary<Iri=T, BlankId=B>> PrintWithSizeAndContext<N> for Ex
 	}
 }
 
-impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> PrecomputeSizeWithContext<N> for Reference<T, B> {
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> PrecomputeSizeWithContext<N> for Id<T, B> {
 	fn contextual_pre_compute_size(
 		&self,
 		vocabulary: &N,
@@ -83,7 +83,7 @@ impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> PrecomputeSizeWithContext<N> for Ref
 	}
 }
 
-impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> PrintWithContext<N> for Reference<T, B> {
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> PrintWithContext<N> for Id<T, B> {
 	fn contextual_fmt_with(
 		&self,
 		vocabulary: &N,
@@ -95,7 +95,7 @@ impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> PrintWithContext<N> for Reference<T,
 	}
 }
 
-impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> PrintWithSizeAndContext<N> for Reference<T, B> {
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> PrintWithSizeAndContext<N> for Id<T, B> {
 	fn contextual_fmt_with_size(
 		&self,
 		vocabulary: &N,

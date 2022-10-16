@@ -3,8 +3,8 @@ use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandle
 use futures::future::{BoxFuture, FutureExt};
 use iref::{Iri, IriRef};
 use json_ld_core::{
-	context::{NormalTermDefinition, TypeTermDefinition}, Container, Context, ContextLoader, ProcessingMode, Reference, Term,
-	Type, ValidReference,
+	context::{NormalTermDefinition, TypeTermDefinition}, Container, Context, ContextLoader, ProcessingMode, Id, Term,
+	Type, ValidId,
 };
 use json_ld_syntax::{
 	context::{
@@ -25,8 +25,8 @@ fn is_gen_delim(c: char) -> bool {
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
 fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri=T, BlankId=B>, t: &Term<T, B>) -> bool {
 	match t {
-		Term::Ref(Reference::Valid(ValidReference::Blank(_))) => true,
-		Term::Ref(Reference::Valid(ValidReference::Id(id))) => {
+		Term::Ref(Id::Valid(ValidId::Blank(_))) => true,
+		Term::Ref(Id::Valid(ValidId::Iri(id))) => {
 			if let Some(c) = vocabulary.iri(id).unwrap().as_str().chars().last() {
 				is_gen_delim(c)
 			} else {
@@ -523,7 +523,7 @@ where
 											result.push_str(compact_iri.suffix());
 
 											if let Ok(iri) = Iri::new(result.as_str()) {
-												definition.value = Some(Term::Ref(Reference::id(
+												definition.value = Some(Term::Ref(Id::id(
 													vocabulary.insert(iri),
 												)))
 											} else {
@@ -535,14 +535,14 @@ where
 									// not a compact IRI
 									if definition.value.is_none() {
 										if let Ok(blank_id) = BlankId::new(term.as_str()) {
-											definition.value = Some(Term::Ref(Reference::blank(
+											definition.value = Some(Term::Ref(Id::blank(
 												vocabulary.insert_blank_id(blank_id),
 											)))
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
 											match iri_ref.into_iri() {
 												Ok(iri) => {
 													definition.value = Some(Term::Ref(
-														Reference::id(vocabulary.insert(iri)),
+														Id::id(vocabulary.insert(iri)),
 													))
 												}
 												Err(iri_ref) => {
@@ -566,8 +566,8 @@ where
 															&mut warnings,
 														) {
 															Meta(
-																Term::Ref(Reference::Valid(
-																	ValidReference::Id(id),
+																Term::Ref(Id::Valid(
+																	ValidId::Iri(id),
 																)),
 																_,
 															) => definition.value = Some(id.into()),
@@ -712,7 +712,7 @@ where
 								true,
 								&mut warnings,
 							) {
-								Meta(Term::Ref(Reference::Valid(ValidReference::Id(_))), _) => (),
+								Meta(Term::Ref(Id::Valid(ValidId::Iri(_))), _) => (),
 								_ => return Err(Error::InvalidTermDefinition),
 							}
 

@@ -1,4 +1,4 @@
-use crate::{Reference, ToReference, ValidReference};
+use crate::{Id, IntoId, ValidId};
 use iref::{AsIri, Iri, IriBuf};
 use std::fmt;
 use std::hash::Hash;
@@ -92,11 +92,11 @@ impl<V: Hash> Hash for Lexicon<V> {
 	}
 }
 
-impl<T, B> ToReference<Lexicon<T>, B> for T {
-	type Reference = Reference<Lexicon<T>, B>;
+impl<T, B> IntoId<Lexicon<T>, B> for T {
+	type Id = Id<Lexicon<T>, B>;
 
-	fn to_ref(self) -> Self::Reference {
-		Reference::Valid(ValidReference::Id(Lexicon::Id(self)))
+	fn to_ref(self) -> Self::Id {
+		Id::Valid(ValidId::Iri(Lexicon::Id(self)))
 	}
 }
 

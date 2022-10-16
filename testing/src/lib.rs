@@ -2,7 +2,7 @@ use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
 use grdf::Dataset;
 use iref::{IriBuf, IriRefBuf};
-use json_ld::{Expand, ValidReference};
+use json_ld::{Expand, ValidId};
 use locspan::{Loc, Location, Meta, Span};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
@@ -477,8 +477,8 @@ enum Error {
 	InvalidIri(String),
 	InvalidValue(Type, json_ld::rdf::Value<IriIndex, BlankIdIndex>),
 	InvalidTypeField,
-	NoTypeVariants(ValidReference<IriIndex, BlankIdIndex>),
-	MultipleTypeVariants(ValidReference<IriIndex, BlankIdIndex>),
+	NoTypeVariants(ValidId<IriIndex, BlankIdIndex>),
+	MultipleTypeVariants(ValidId<IriIndex, BlankIdIndex>),
 }
 
 impl From<syn::Error> for Error {
@@ -545,9 +545,9 @@ async fn generate_test_suite(
 	let mut tests = HashMap::new();
 
 	for Triple(subject, predicate, object) in dataset.default_graph() {
-		if let ValidReference::Id(id) = subject {
-			if *predicate == ValidReference::Id(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))) {
-				if let json_ld::rdf::Value::Reference(ValidReference::Id(ty)) = object {
+		if let ValidId::Iri(id) = subject {
+			if *predicate == ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))) {
+				if let json_ld::rdf::Value::Reference(ValidId::Iri(ty)) = object {
 					if let Some(type_id) = spec.type_map.get(ty) {
 						match spec.ignore.get(&id) {
 							Some(link) => {
@@ -571,7 +571,7 @@ async fn generate_test_suite(
 			vocabulary,
 			&spec,
 			&dataset,
-			ValidReference::Id(test),
+			ValidId::Iri(test),
 			quote! { #id :: #type_id },
 		)?;
 
@@ -630,10 +630,10 @@ fn func_name(prefix: &str, id: &str) -> String {
 }
 
 type OwnedQuad<'a> = rdf_types::Quad<
-	ValidReference<IriIndex, BlankIdIndex>,
-	ValidReference<IriIndex, BlankIdIndex>,
+	ValidId<IriIndex, BlankIdIndex>,
+	ValidId<IriIndex, BlankIdIndex>,
 	json_ld::rdf::Value<IriIndex, BlankIdIndex>,
-	&'a ValidReference<IriIndex, BlankIdIndex>,
+	&'a ValidId<IriIndex, BlankIdIndex>,
 >;
 
 fn quad_to_owned(

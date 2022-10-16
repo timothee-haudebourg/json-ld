@@ -2,7 +2,7 @@ use super::{DefinedTerms, Merged};
 use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iref::{Iri, IriRef};
-use json_ld_core::{Context, ContextLoader, Reference, Term};
+use json_ld_core::{Context, ContextLoader, Id, Term};
 use json_ld_syntax::{
 	self as syntax,
 	context::definition::{Key, KeyOrKeywordRef},
@@ -99,13 +99,13 @@ where
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
 						return Ok((
-							Term::Ref(Reference::blank(vocabulary.insert_blank_id(blank_id))),
+							Term::Ref(Id::blank(vocabulary.insert_blank_id(blank_id))),
 							warnings,
 						));
 					}
 
 					if value == "_:" {
-						return Ok((Term::Ref(Reference::Invalid("_:".to_string())), warnings));
+						return Ok((Term::Ref(Id::Invalid("_:".to_string())), warnings));
 					}
 
 					if let Ok(compact_iri) = CompactIri::new(value) {
@@ -144,7 +144,7 @@ where
 									result.push_str(compact_iri.suffix());
 
 									return Ok((
-										Term::Ref(Reference::from_string_in(vocabulary, result)),
+										Term::Ref(Id::from_string_in(vocabulary, result)),
 										warnings,
 									));
 								}
@@ -153,7 +153,7 @@ where
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Ok((Term::Ref(Reference::id(vocabulary.insert(iri))), warnings));
+						return Ok((Term::Ref(Id::id(vocabulary.insert(iri))), warnings));
 					}
 				}
 
@@ -166,7 +166,7 @@ where
 							result.push_str(value);
 
 							return Ok((
-								Term::Ref(Reference::from_string_in(vocabulary, result)),
+								Term::Ref(Id::from_string_in(vocabulary, result)),
 								warnings,
 							));
 						}
@@ -222,7 +222,7 @@ fn invalid_iri<
 ) -> (Term<T, B>, H) {
 	warnings.handle(vocabulary, Meta(MalformedIri(value.clone()).into(), loc));
 
-	(Term::Ref(Reference::Invalid(value)), warnings)
+	(Term::Ref(Id::Invalid(value)), warnings)
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
@@ -273,13 +273,13 @@ pub fn expand_iri_simple<
 			if value.find(':').map(|i| i > 0).unwrap_or(false) {
 				if let Ok(blank_id) = BlankId::new(value) {
 					return Meta(
-						Term::Ref(Reference::blank(vocabulary.insert_blank_id(blank_id))),
+						Term::Ref(Id::blank(vocabulary.insert_blank_id(blank_id))),
 						meta,
 					);
 				}
 
 				if value == "_:" {
-					return Meta(Term::Ref(Reference::Invalid("_:".to_string())), meta);
+					return Meta(Term::Ref(Id::Invalid("_:".to_string())), meta);
 				}
 
 				if let Ok(compact_iri) = CompactIri::new(value) {
@@ -294,7 +294,7 @@ pub fn expand_iri_simple<
 								result.push_str(compact_iri.suffix());
 
 								return Meta(
-									Term::Ref(Reference::from_string_in(vocabulary, result)),
+									Term::Ref(Id::from_string_in(vocabulary, result)),
 									meta,
 								);
 							}
@@ -303,7 +303,7 @@ pub fn expand_iri_simple<
 				}
 
 				if let Ok(iri) = Iri::new(value) {
-					return Meta(Term::Ref(Reference::id(vocabulary.insert(iri))), meta);
+					return Meta(Term::Ref(Id::id(vocabulary.insert(iri))), meta);
 				}
 			}
 
@@ -316,7 +316,7 @@ pub fn expand_iri_simple<
 						result.push_str(value);
 
 						return Meta(
-							Term::Ref(Reference::from_string_in(vocabulary, result)),
+							Term::Ref(Id::from_string_in(vocabulary, result)),
 							meta,
 						);
 					}
@@ -369,5 +369,5 @@ fn invalid_iri_simple<
 		vocabulary,
 		Meta(MalformedIri(value.clone()).into(), meta.clone()),
 	);
-	Meta(Term::Ref(Reference::Invalid(value)), meta)
+	Meta(Term::Ref(Id::Invalid(value)), meta)
 }

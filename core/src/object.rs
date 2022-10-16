@@ -1,5 +1,5 @@
 //! Nodes, lists and values.
-use crate::{id, Indexed, LenientLanguageTag, Reference};
+use crate::{id, Indexed, LenientLanguageTag, Id};
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
@@ -28,7 +28,7 @@ pub trait Any<T, B, M = ()> {
 	fn as_ref(&self) -> Ref<T, B, M>;
 
 	#[inline]
-	fn id_entry<'a>(&'a self) -> Option<&'a Entry<Reference<T, B>, M>>
+	fn id_entry<'a>(&'a self) -> Option<&'a Entry<Id<T, B>, M>>
 	where
 		M: 'a,
 	{
@@ -39,7 +39,7 @@ pub trait Any<T, B, M = ()> {
 	}
 
 	#[inline]
-	fn id<'a>(&'a self) -> Option<&'a Meta<Reference<T, B>, M>>
+	fn id<'a>(&'a self) -> Option<&'a Meta<Id<T, B>, M>>
 	where
 		M: 'a,
 	{
@@ -129,7 +129,7 @@ pub enum Object<T = IriBuf, B = BlankIdBuf, M = ()> {
 impl<T, B, M> Object<T, B, M> {
 	/// Identifier of the object, if it is a node object.
 	#[inline(always)]
-	pub fn id(&self) -> Option<&Meta<Reference<T, B>, M>> {
+	pub fn id(&self) -> Option<&Meta<Id<T, B>, M>> {
 		match self {
 			Object::Node(n) => n.id.as_ref().map(Entry::as_value),
 			_ => None,
@@ -916,7 +916,7 @@ impl<T, B, M> From<Node<T, B, M>> for Object<T, B, M> {
 /// Iterator through the types of an object.
 pub enum Types<'a, T, B, M> {
 	Value(Option<value::TypeRef<'a, T>>),
-	Node(std::slice::Iter<'a, Meta<Reference<T, B>, M>>),
+	Node(std::slice::Iter<'a, Meta<Id<T, B>, M>>),
 	List,
 }
 
@@ -1002,17 +1002,17 @@ impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn into_id(self) -> Option<Reference<&'a T, &'a B>> {
+	pub fn into_id(self) -> Option<Id<&'a T, &'a B>> {
 		match self {
-			Self::ValueFragment(i) => i.into_iri().map(Reference::id),
+			Self::ValueFragment(i) => i.into_iri().map(Id::id),
 			Self::NodeFragment(i) => i.into_id().map(Meta::into_value).map(Into::into),
 			_ => None,
 		}
 	}
 
-	pub fn as_id(&self) -> Option<Reference<&'a T, &'a B>> {
+	pub fn as_id(&self) -> Option<Id<&'a T, &'a B>> {
 		match self {
-			Self::ValueFragment(i) => i.as_iri().map(Reference::id),
+			Self::ValueFragment(i) => i.as_iri().map(Id::id),
 			Self::NodeFragment(i) => i.as_id().map(Into::into),
 			_ => None,
 		}

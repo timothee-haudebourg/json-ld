@@ -1,7 +1,7 @@
 use super::{Multiset, Objects};
 use crate::{
 	object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
-	IndexedObject, Reference, StrippedIndexedObject, ToReference,
+	IndexedObject, Id, StrippedIndexedObject, IntoId,
 };
 use derivative::Derivative;
 use locspan::{BorrowStripped, Meta, Stripped};
@@ -67,7 +67,7 @@ pub type PropertyObjects<T, B, M> = Multiset<StrippedIndexedObject<T, B, M>>;
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
-pub struct Properties<T, B, M = ()>(HashMap<Reference<T, B>, Entry<PropertyObjects<T, B, M>, M>>);
+pub struct Properties<T, B, M = ()>(HashMap<Id<T, B>, Entry<PropertyObjects<T, B, M>, M>>);
 
 impl<T, B, M> Properties<T, B, M> {
 	/// Creates an empty map.
@@ -113,13 +113,13 @@ impl<T, B, M> Properties<T, B, M> {
 impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	/// Checks if the given property is associated to any object.
 	#[inline(always)]
-	pub fn contains<Q: ToReference<T, B>>(&self, prop: Q) -> bool {
+	pub fn contains<Q: IntoId<T, B>>(&self, prop: Q) -> bool {
 		self.0.get(prop.to_ref().borrow()).is_some()
 	}
 
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
-	pub fn get<Q: ToReference<T, B>>(&self, prop: Q) -> Objects<T, B, M> {
+	pub fn get<Q: IntoId<T, B>>(&self, prop: Q) -> Objects<T, B, M> {
 		match self.0.get(prop.to_ref().borrow()) {
 			Some(values) => Objects::new(Some(values.iter())),
 			None => Objects::new(None),
@@ -130,7 +130,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	///
 	/// If multiple objects are found, there are no guaranties on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<Q: ToReference<T, B>>(&self, prop: Q) -> Option<&IndexedObject<T, B, M>> {
+	pub fn get_any<Q: IntoId<T, B>>(&self, prop: Q) -> Option<&IndexedObject<T, B, M>> {
 		match self.0.get(prop.to_ref().borrow()) {
 			Some(values) => values.iter().next().map(|o| &o.0),
 			None => None,
@@ -141,7 +141,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	#[inline(always)]
 	pub fn insert(
 		&mut self,
-		Meta(prop, meta): Meta<Reference<T, B>, M>,
+		Meta(prop, meta): Meta<Id<T, B>, M>,
 		value: IndexedObject<T, B, M>,
 	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
@@ -156,7 +156,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	#[inline(always)]
 	pub fn insert_unique(
 		&mut self,
-		Meta(prop, meta): Meta<Reference<T, B>, M>,
+		Meta(prop, meta): Meta<Id<T, B>, M>,
 		value: IndexedObject<T, B, M>,
 	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
@@ -173,7 +173,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	#[inline(always)]
 	pub fn insert_all<Objects: IntoIterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,
-		Meta(prop, meta): Meta<Reference<T, B>, M>,
+		Meta(prop, meta): Meta<Id<T, B>, M>,
 		values: Objects,
 	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
@@ -194,7 +194,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 		Objects: IntoIterator<Item = StrippedIndexedObject<T, B, M>>,
 	>(
 		&mut self,
-		Meta(prop, meta): Meta<Reference<T, B>, M>,
+		Meta(prop, meta): Meta<Id<T, B>, M>,
 		values: Objects,
 	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
@@ -223,7 +223,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	#[inline(always)]
 	pub fn insert_all_unique<Objects: IntoIterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,
-		prop: Meta<Reference<T, B>, M>,
+		prop: Meta<Id<T, B>, M>,
 		values: Objects,
 	) {
 		self.insert_all_unique_stripped(prop, values.into_iter().map(Stripped))
@@ -231,7 +231,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	pub fn extend_unique<I, O>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Meta<Reference<T, B>, M>, O)>,
+		I: IntoIterator<Item = (Meta<Id<T, B>, M>, O)>,
 		O: IntoIterator<Item = IndexedObject<T, B, M>>,
 	{
 		for (prop, values) in iter {
@@ -241,7 +241,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	pub fn extend_unique_stripped<I, O>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Meta<Reference<T, B>, M>, O)>,
+		I: IntoIterator<Item = (Meta<Id<T, B>, M>, O)>,
 		O: IntoIterator<Item = StrippedIndexedObject<T, B, M>>,
 	{
 		for (prop, values) in iter {
@@ -251,7 +251,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Removes and returns all the values associated to the given property.
 	#[inline(always)]
-	pub fn remove(&mut self, prop: &Reference<T, B>) -> Option<Entry<PropertyObjects<T, B, M>, M>> {
+	pub fn remove(&mut self, prop: &Id<T, B>) -> Option<Entry<PropertyObjects<T, B, M>, M>> {
 		self.0.remove(prop)
 	}
 }
@@ -279,7 +279,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Properties<T,
 
 		for entry in object {
 			let Meta(key, key_meta) = entry.key;
-			let prop = Reference::from_string_in(vocabulary, key.to_string());
+			let prop = Id::from_string_in(vocabulary, key.to_string());
 			let objects: Vec<IndexedObject<T, B, M>> =
 				Vec::try_from_json_in(vocabulary, entry.value)?.into_value();
 			result.insert_all(Meta(prop, key_meta), objects)
@@ -312,12 +312,12 @@ impl<T: Hash, B: Hash, M: Hash> Hash for Properties<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> Extend<(Meta<Reference<T, B>, M>, Vec<IndexedObject<T, B, M>>)>
+impl<T: Eq + Hash, B: Eq + Hash, M> Extend<(Meta<Id<T, B>, M>, Vec<IndexedObject<T, B, M>>)>
 	for Properties<T, B, M>
 {
 	fn extend<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Meta<Reference<T, B>, M>, Vec<IndexedObject<T, B, M>>)>,
+		I: IntoIterator<Item = (Meta<Id<T, B>, M>, Vec<IndexedObject<T, B, M>>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -327,19 +327,19 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Extend<(Meta<Reference<T, B>, M>, Vec<Indexe
 
 /// Tuple type representing a binding in a node object,
 /// associating a property to some objects.
-pub type Binding<T, B, M> = (Meta<Reference<T, B>, M>, PropertyObjects<T, B, M>);
+pub type Binding<T, B, M> = (Meta<Id<T, B>, M>, PropertyObjects<T, B, M>);
 
 /// Tuple type representing a reference to a binding in a node object,
 /// associating a property to some objects.
 pub type BindingRef<'a, T, B, M> = (
-	Meta<&'a Reference<T, B>, &'a M>,
+	Meta<&'a Id<T, B>, &'a M>,
 	&'a [StrippedIndexedObject<T, B, M>],
 );
 
 /// Tuple type representing a mutable reference to a binding in a node object,
 /// associating a property to some objects, with a mutable access to the objects.
 pub type BindingMut<'a, T, B, M> = (
-	Meta<&'a Reference<T, B>, &'a mut M>,
+	Meta<&'a Id<T, B>, &'a mut M>,
 	&'a mut PropertyObjects<T, B, M>,
 );
 
@@ -380,7 +380,7 @@ impl<'a, T, B, M> IntoIterator for &'a mut Properties<T, B, M> {
 /// It is created by the [`Properties::into_iter`] function.
 pub struct IntoIter<T, B, M> {
 	inner:
-		std::collections::hash_map::IntoIter<Reference<T, B>, Entry<PropertyObjects<T, B, M>, M>>,
+		std::collections::hash_map::IntoIter<Id<T, B>, Entry<PropertyObjects<T, B, M>, M>>,
 }
 
 impl<T, B, M> Iterator for IntoIter<T, B, M> {
@@ -410,7 +410,7 @@ impl<T, B, M> std::iter::FusedIterator for IntoIter<T, B, M> {}
 #[derivative(Clone(bound = ""))]
 pub struct Iter<'a, T, B, M> {
 	inner:
-		std::collections::hash_map::Iter<'a, Reference<T, B>, Entry<PropertyObjects<T, B, M>, M>>,
+		std::collections::hash_map::Iter<'a, Id<T, B>, Entry<PropertyObjects<T, B, M>, M>>,
 }
 
 impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
@@ -443,7 +443,7 @@ impl<'a, T, B, M> std::iter::FusedIterator for Iter<'a, T, B, M> {}
 pub struct IterMut<'a, T, B, M> {
 	inner: std::collections::hash_map::IterMut<
 		'a,
-		Reference<T, B>,
+		Id<T, B>,
 		Entry<PropertyObjects<T, B, M>, M>,
 	>,
 }

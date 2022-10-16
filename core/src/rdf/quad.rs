@@ -1,4 +1,4 @@
-use super::{RdfDirection, ValidReference, Value};
+use super::{RdfDirection, ValidId, Value};
 use crate::{flattening::NodeMap, id, ExpandedDocument, FlattenedDocument, LdQuads};
 use rdf_types::vocabulary::{no_vocabulary_mut, IriVocabularyMut};
 use rdf_types::Triple;
@@ -7,17 +7,17 @@ use std::convert::TryInto;
 use std::hash::Hash;
 
 pub type Quad<T, B> =
-	rdf_types::Quad<ValidReference<T, B>, ValidReference<T, B>, Value<T, B>, ValidReference<T, B>>;
+	rdf_types::Quad<ValidId<T, B>, ValidId<T, B>, Value<T, B>, ValidId<T, B>>;
 
 pub type QuadRef<'a, T, B> = rdf_types::Quad<
-	Cow<'a, ValidReference<T, B>>,
-	Cow<'a, ValidReference<T, B>>,
+	Cow<'a, ValidId<T, B>>,
+	Cow<'a, ValidId<T, B>>,
 	Value<T, B>,
-	&'a ValidReference<T, B>,
+	&'a ValidId<T, B>,
 >;
 
 struct Compound<'a, T, B, M> {
-	graph: Option<&'a ValidReference<T, B>>,
+	graph: Option<&'a ValidId<T, B>>,
 	triples: super::CompoundValueTriples<'a, T, B, M>,
 }
 
@@ -57,21 +57,21 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriVocabularyMut<Iri=T>, M, G: id::Gener
 
 			match self.quads.next() {
 				Some(crate::quad::QuadRef(graph, subject, property, object)) => {
-					let rdf_graph: Option<&'a ValidReference<T, B>> =
+					let rdf_graph: Option<&'a ValidId<T, B>> =
 						match graph.map(|r| r.try_into()) {
 							Some(Ok(r)) => Some(r),
 							None => None,
 							_ => continue,
 						};
 
-					let rdf_subject: &'a ValidReference<T, B> = match subject.try_into() {
+					let rdf_subject: &'a ValidId<T, B> = match subject.try_into() {
 						Ok(r) => r,
 						Err(_) => continue,
 					};
 
 					let rdf_property = match property {
 						crate::quad::PropertyRef::Type => {
-							Cow::Owned(ValidReference::Id(self.vocabulary.insert(super::RDF_TYPE)))
+							Cow::Owned(ValidId::Iri(self.vocabulary.insert(super::RDF_TYPE)))
 						}
 						crate::quad::PropertyRef::Ref(r) => match r.try_into() {
 							Ok(r) => Cow::Borrowed(r),

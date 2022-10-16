@@ -1,323 +1,458 @@
-use crate::ValidReference;
+use crate::object::{InvalidExpandedJson, TryFromJson};
+use crate::Term;
+use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
+use iref::{Iri, IriBuf};
+use json_ld_syntax::IntoJsonWithContextMeta;
 use locspan::Meta;
+use locspan_derive::*;
+use rdf_types::{BlankId, BlankIdBuf, InvalidBlankId, Vocabulary, VocabularyMut};
+use std::borrow::Borrow;
+use std::convert::TryFrom;
+use std::fmt;
 
-// /// Unique identifier types.
-// ///
-// /// While JSON-LD uses [Internationalized Resource Identifiers (IRIs)](https://en.wikipedia.org/wiki/Internationalized_resource_identifier)
-// /// to uniquely identify each node,
-// /// this crate does not imposes the internal representation of identifiers.
-// ///
-// /// Whatever type you choose, it must implement this trait to ensure that:
-// ///  - there is a low cost bijection with IRIs,
-// ///  - it can be cloned ([`Clone`]),
-// ///  - it can be compared ([`PartialEq`], [`Eq`]),
-// ///  - it can be hashed ([`Hash`]).
-// ///
-// /// # Using `enum` types
-// /// If you know in advance which IRIs will be used by your implementation,
-// /// one possibility is to use a `enum` type as identifier.
-// /// This can be done throught the use of the [`Lexicon`](`crate::Lexicon`) type along with the
-// /// [`iref-enum`](https://crates.io/crates/iref-enum) crate:
-// /// ```
-// /// use iref_enum::*;
-// /// use json_ld::Lexicon;
-// /// use serde_json::Value;
-// ///
-// /// /// Vocabulary used in the implementation.
-// /// #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
-// /// #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
-// /// #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
-// /// #[iri_prefix("vocab" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
-// /// pub enum Vocab {
-// ///   #[iri("rdfs:comment")] Comment,
-// ///
-// ///   #[iri("manifest:name")] Name,
-// ///   #[iri("manifest:entries")] Entries,
-// ///   #[iri("manifest:action")] Action,
-// ///   #[iri("manifest:result")] Result,
-// ///
-// ///   #[iri("vocab:PositiveEvaluationTest")] PositiveEvalTest,
-// ///   #[iri("vocab:NegativeEvaluationTest")] NegativeEvalTest,
-// ///   #[iri("vocab:option")] Option,
-// ///   #[iri("vocab:specVersion")] SpecVersion,
-// ///   #[iri("vocab:processingMode")] ProcessingMode,
-// ///   #[iri("vocab:expandContext")] ExpandContext,
-// ///   #[iri("vocab:base")] Base
-// /// }
-// ///
-// /// /// A fully functional identifier type.
-// /// pub type Id = Lexicon<Vocab>;
-// ///
-// /// fn handle_node(node: &json_ld::Node<Value, Id>) {
-// ///   for name in node.get(Vocab::Name) { // <- note that we can directly use `Vocab` here.
-// ///     println!("node name: {}", name.as_str().unwrap());
-// ///   }
-// /// }
-// /// ```
-// pub trait Id: AsIri + Clone + PartialEq + Eq + Hash {
-// 	/// Create an identifier from its IRI.
-// 	fn from_iri(iri: Iri) -> Self;
+pub mod generator;
 
-// 	fn from_iri_buf(iri_buf: IriBuf) -> Self {
-// 		Self::from_iri(iri_buf.as_iri())
-// 	}
-// }
+pub use generator::Generator;
 
-// impl Id for IriBuf {
-// 	#[inline(always)]
-// 	fn from_iri(iri: Iri) -> IriBuf {
-// 		iri.into()
-// 	}
-// }
-
-// impl<T: Id> TermLike for T {
-// 	#[inline(always)]
-// 	fn as_str(&self) -> &str {
-// 		self.as_iri().into_str()
-// 	}
-
-// 	#[inline(always)]
-// 	fn as_iri(&self) -> Option<Iri> {
-// 		Some(self.as_iri())
-// 	}
-// }
-
-/// Node identifier generator.
+/// Node identifier.
 ///
-/// When a JSON-LD document is flattened,
-/// unidentified blank nodes are assigned a blank node identifier.
-/// This trait is used to abstract how
-/// fresh identifiers are generated.
-pub trait Generator<T, B, M, N> {
-	/// Generates a new unique blank node identifier.
-	fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M>;
+/// Used to reference a node across a document or to a remote document.
+/// It can be an identifier (IRI), a blank node identifier for local blank nodes
+/// or an invalid reference (a string that is neither an IRI nor blank node identifier).
+#[derive(
+	Clone, PartialEq, Eq, Hash, PartialOrd, Ord, StrippedPartialEq, StrippedEq, StrippedHash,
+)]
+#[stripped(I, B)]
+pub enum Id<I = IriBuf, B = BlankIdBuf> {
+	Valid(ValidId<I, B>),
+
+	/// Invalid reference.
+	Invalid(#[stripped] String),
 }
 
-impl<'a, T, B, M, N, G: Generator<T, B, M, N>> Generator<T, B, M, N> for &'a mut G {
-	fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M> {
-		(*self).next(vocabulary)
+impl<I, B, M> TryFromJson<I, B, M> for Id<I, B> {
+	fn try_from_json_in(
+		vocabulary: &mut impl VocabularyMut<Iri=I, BlankId=B>,
+		Meta(value, meta): locspan::Meta<json_syntax::Value<M>, M>,
+	) -> Result<Meta<Self, M>, locspan::Meta<InvalidExpandedJson<M>, M>> {
+		match value {
+			json_syntax::Value::String(s) => match Iri::new(s.as_str()) {
+				Ok(iri) => Ok(Meta(
+					Self::Valid(ValidId::Iri(vocabulary.insert(iri))),
+					meta,
+				)),
+				Err(_) => match BlankId::new(s.as_str()) {
+					Ok(blank_id) => Ok(Meta(
+						Self::Valid(ValidId::Blank(vocabulary.insert_blank_id(blank_id))),
+						meta,
+					)),
+					Err(_) => Ok(Meta(Self::Invalid(s.to_string()), meta)),
+				},
+			},
+			_ => Err(Meta(InvalidExpandedJson::InvalidId, meta)),
+		}
 	}
 }
 
-/// Blank node identifiers built-in generators.
-pub mod generator {
-	use super::Generator;
-	use crate::ValidReference;
-	use locspan::Meta;
-	use rdf_types::{BlankIdBuf, BlankIdVocabularyMut, IriVocabularyMut};
+impl<I: From<IriBuf>, B: From<BlankIdBuf>> Id<I, B> {
+	pub fn from_string(s: String) -> Self {
+		match IriBuf::from_string(s) {
+			Ok(iri) => Self::Valid(ValidId::Iri(iri.into())),
+			Err((_, s)) => match BlankIdBuf::new(s) {
+				Ok(blank) => Self::Valid(ValidId::Blank(blank.into())),
+				Err(InvalidBlankId(s)) => Self::Invalid(s),
+			},
+		}
+	}
+}
 
-	/// Generates numbered blank node identifiers,
-	/// with an optional prefix.
+impl<I, B> Id<I, B> {
+	pub fn id(id: I) -> Self {
+		Self::Valid(ValidId::Iri(id))
+	}
+
+	pub fn blank(b: B) -> Self {
+		Self::Valid(ValidId::Blank(b))
+	}
+
+	pub fn from_string_in(vocabulary: &mut impl VocabularyMut<Iri=I, BlankId=B>, s: String) -> Self {
+		match Iri::new(&s) {
+			Ok(iri) => Self::Valid(ValidId::Iri(vocabulary.insert(iri))),
+			Err(_) => match BlankId::new(&s) {
+				Ok(blank) => Self::Valid(ValidId::Blank(vocabulary.insert_blank_id(blank))),
+				Err(_) => Self::Invalid(s),
+			},
+		}
+	}
+
+	/// Checks if this is a valid reference.
 	///
-	/// This generator can create `usize::MAX` unique blank node identifiers.
-	/// If [`Generator::next`] is called `usize::MAX + 1` times, it will panic.
-	#[derive(Default)]
-	pub struct Blank<M> {
-		metadata: M,
-
-		/// Prefix string.
-		prefix: String,
-
-		/// Number of already generated identifiers.
-		count: usize,
+	/// Returns `true` is this reference is a node identifier or a blank node identifier,
+	/// `false` otherwise.
+	#[inline(always)]
+	pub fn is_valid(&self) -> bool {
+		!matches!(self, Self::Invalid(_))
 	}
 
-	impl<M> Blank<M> {
-		/// Creates a new numbered generator with no prefix.
-		pub fn new(metadata: M) -> Self {
-			Self::new_full(metadata, String::new(), 0)
-		}
-
-		/// Creates a new numbered generator with no prefix,
-		/// starting with the given `offset` number.
-		///
-		/// The returned generator can create `usize::MAX - offset` unique blank node identifiers
-		/// before panicking.
-		pub fn new_with_offset(metadata: M, offset: usize) -> Self {
-			Self::new_full(metadata, String::new(), offset)
-		}
-
-		/// Creates a new numbered generator with the given prefix.
-		pub fn new_with_prefix(metadata: M, prefix: String) -> Self {
-			Self::new_full(metadata, prefix, 0)
-		}
-
-		/// Creates a new numbered generator with the given prefix,
-		/// starting with the given `offset` number.
-		///
-		/// The returned generator can create `usize::MAX - offset` unique blank node identifiers
-		/// before panicking.
-		pub fn new_full(metadata: M, prefix: String, offset: usize) -> Self {
-			Self {
-				metadata,
-				prefix,
-				count: offset,
-			}
-		}
-
-		pub fn metadata(&self) -> &M {
-			&self.metadata
-		}
-
-		/// Returns the prefix of this generator.
-		pub fn prefix(&self) -> &str {
-			&self.prefix
-		}
-
-		/// Returns the number of already generated identifiers.
-		pub fn count(&self) -> usize {
-			self.count
-		}
-
-		pub fn next_blank_id(&mut self) -> BlankIdBuf {
-			let id =
-				unsafe { BlankIdBuf::new_unchecked(format!("_:{}{}", self.prefix, self.count)) };
-			self.count += 1;
-			id
+	pub fn into_blank(self) -> Option<B> {
+		match self {
+			Self::Valid(ValidId::Blank(b)) => Some(b),
+			_ => None,
 		}
 	}
 
-	impl<T, B, M: Clone, N: BlankIdVocabularyMut<BlankId=B>> Generator<T, B, M, N> for Blank<M> {
-		fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M> {
-			Meta(
-				ValidReference::Blank(vocabulary.insert_blank_id(&self.next_blank_id())),
-				self.metadata.clone(),
-			)
-		}
-	}
-
-	/// Generates UUID blank node identifiers based on the [`uuid`](https://crates.io/crates/uuid) crate.
+	/// If the reference is a node identifier, returns the node IRI.
 	///
-	/// This is an enum type with different UUID versions supported
-	/// by the `uuid` library, so you can choose which kind of UUID
-	/// better fits your application.
-	/// Version 1 is not supported.
+	/// Returns `None` if it is a blank node reference.
+	#[inline(always)]
+	pub fn as_iri(&self) -> Option<&I> {
+		match self {
+			Id::Valid(ValidId::Iri(k)) => Some(k),
+			_ => None,
+		}
+	}
+
+	#[inline(always)]
+	pub fn into_term(self) -> Term<I, B> {
+		Term::Ref(self)
+	}
+
+	pub fn as_ref(&self) -> Ref<I, B> {
+		match self {
+			Self::Valid(ValidId::Iri(t)) => Ref::Iri(t),
+			Self::Valid(ValidId::Blank(id)) => Ref::Blank(id),
+			Self::Invalid(id) => Ref::Invalid(id.as_str()),
+		}
+	}
+}
+
+impl<I: AsRef<str>, B: AsRef<str>> Id<I, B> {
+	/// Get a string representation of the reference.
 	///
-	/// You need to enable the `uuid-generator` feature to
-	/// use this type.
-	/// You also need to enable the features of each version you need
-	/// in the `uuid` crate.
-	pub enum Uuid<M> {
-		/// UUIDv3.
-		///
-		/// You must provide a vocabulary UUID and a name.
-		/// See [uuid::Uuid::new_v3] for more information.
-		#[cfg(feature = "uuid-generator-v3")]
-		V3(M, uuid::Uuid, String),
-
-		/// UUIDv4.
-		///
-		/// See [uuid::Uuid::new_v4] for more information.
-		#[cfg(feature = "uuid-generator-v4")]
-		V4(M),
-
-		/// UUIDv5.
-		///
-		/// You must provide a vocabulary UUID and a name.
-		/// See [uuid::Uuid::new_v5] for more information.
-		#[cfg(feature = "uuid-generator-v5")]
-		V5(M, uuid::Uuid, String),
-	}
-
-	#[cfg(any(
-		feature = "uuid-generator-v3",
-		feature = "uuid-generator-v4",
-		feature = "uuid-generator-v5"
-	))]
-	impl<M: Clone> Uuid<M> {
-		pub fn next_uuid(&self) -> Meta<uuid::Uuid, M> {
-			match self {
-				#[cfg(feature = "uuid-generator-v3")]
-				Self::V3(meta, vocabulary, name) => Meta(
-					uuid::Uuid::new_v3(vocabulary, name.as_bytes()),
-					meta.clone(),
-				),
-				#[cfg(feature = "uuid-generator-v4")]
-				Self::V4(meta) => Meta(uuid::Uuid::new_v4(), meta.clone()),
-				#[cfg(feature = "uuid-generator-v5")]
-				Self::V5(meta, vocabulary, name) => Meta(
-					uuid::Uuid::new_v5(vocabulary, name.as_bytes()),
-					meta.clone(),
-				),
-			}
+	/// This will either return a string slice of an IRI, or a blank node identifier.
+	#[inline(always)]
+	pub fn as_str(&self) -> &str {
+		match self {
+			Id::Valid(ValidId::Iri(id)) => id.as_ref(),
+			Id::Valid(ValidId::Blank(id)) => id.as_ref(),
+			Id::Invalid(id) => id.as_str(),
 		}
 	}
+}
 
-	#[cfg(any(
-		feature = "uuid-generator-v3",
-		feature = "uuid-generator-v4",
-		feature = "uuid-generator-v5"
-	))]
-	impl<T, B, M: Clone, N: IriVocabularyMut<Iri=T>> Generator<T, B, M, N> for Uuid<M> {
-		fn next(&mut self, vocabulary: &mut N) -> Meta<ValidReference<T, B>, M> {
-			unsafe {
-				let mut buffer = Vec::with_capacity(uuid::adapter::Urn::LENGTH);
-				let ptr = buffer.as_mut_ptr();
-				let capacity = buffer.capacity();
-				std::mem::forget(buffer);
-				let Meta(uuid, meta) = self.next_uuid();
-				let len = uuid
-					.to_urn()
-					.encode_lower(std::slice::from_raw_parts_mut(
-						ptr,
-						uuid::adapter::Urn::LENGTH,
-					))
-					.len();
-				let buffer = Vec::from_raw_parts(ptr, len, capacity);
-				let p = iref::parsing::ParsedIriRef::new(&buffer).unwrap();
-				let iri = iref::IriBuf::from_raw_parts(buffer, p);
-				Meta(ValidReference::Id(vocabulary.insert(iri.as_iri())), meta)
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> AsRefWithContext<str, N> for Id<T, B> {
+	fn as_ref_with<'a>(&'a self, vocabulary: &'a N) -> &'a str {
+		match self {
+			Id::Valid(ValidId::Iri(id)) => vocabulary.iri(id).unwrap().into_str(),
+			Id::Valid(ValidId::Blank(id)) => {
+				vocabulary.blank_id(id).unwrap().as_str()
 			}
+			Id::Invalid(id) => id.as_str(),
+		}
+	}
+}
+
+impl<I: PartialEq, B> PartialEq<I> for Id<I, B> {
+	fn eq(&self, other: &I) -> bool {
+		match self {
+			Id::Valid(ValidId::Iri(id)) => id == other,
+			_ => false,
+		}
+	}
+}
+
+impl<T: PartialEq<str>, B: PartialEq<str>> PartialEq<str> for Id<T, B> {
+	fn eq(&self, other: &str) -> bool {
+		match self {
+			Id::Valid(ValidId::Iri(iri)) => iri == other,
+			Id::Valid(ValidId::Blank(blank)) => blank == other,
+			Id::Invalid(id) => id == other,
+		}
+	}
+}
+
+impl<'a, T, B> From<&'a Id<T, B>> for Id<&'a T, &'a B> {
+	fn from(r: &'a Id<T, B>) -> Id<&'a T, &'a B> {
+		match r {
+			Id::Valid(ValidId::Iri(id)) => Id::Valid(ValidId::Iri(id)),
+			Id::Valid(ValidId::Blank(id)) => {
+				Id::Valid(ValidId::Blank(id))
+			}
+			Id::Invalid(id) => Id::Invalid(id.clone()),
+		}
+	}
+}
+
+impl<T, B> From<T> for Id<T, B> {
+	#[inline(always)]
+	fn from(id: T) -> Id<T, B> {
+		Id::Valid(ValidId::Iri(id))
+	}
+}
+
+impl<T: PartialEq, B: PartialEq> PartialEq<Term<T, B>> for Id<T, B> {
+	#[inline]
+	fn eq(&self, term: &Term<T, B>) -> bool {
+		match term {
+			Term::Ref(prop) => self == prop,
+			_ => false,
+		}
+	}
+}
+
+impl<T: PartialEq, B: PartialEq> PartialEq<Id<T, B>> for Term<T, B> {
+	#[inline]
+	fn eq(&self, r: &Id<T, B>) -> bool {
+		match self {
+			Term::Ref(prop) => prop == r,
+			_ => false,
+		}
+	}
+}
+
+impl<T, B> TryFrom<Term<T, B>> for Id<T, B> {
+	type Error = Term<T, B>;
+
+	#[inline]
+	fn try_from(term: Term<T, B>) -> Result<Id<T, B>, Term<T, B>> {
+		match term {
+			Term::Ref(prop) => Ok(prop),
+			term => Err(term),
+		}
+	}
+}
+
+impl<T: fmt::Display, B: fmt::Display> fmt::Display for Id<T, B> {
+	#[inline]
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Id::Valid(id) => id.fmt(f),
+			Id::Invalid(id) => id.fmt(f),
+		}
+	}
+}
+
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> DisplayWithContext<N> for Id<T, B> {
+	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
+		use fmt::Display;
+		match self {
+			Id::Valid(id) => id.fmt_with(vocabulary, f),
+			Id::Invalid(id) => id.fmt(f),
+		}
+	}
+}
+
+impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Id<T, B> {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Id::Valid(id) => write!(f, "Id::Valid({:?})", id),
+			Id::Invalid(id) => write!(f, "Id::Invalid({:?})", id),
+		}
+	}
+}
+
+impl<T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for Id<T, B> {
+	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
+		Meta(self.into_with(context).to_string().into(), meta)
+	}
+}
+
+/// Types that can be converted into a borrowed node reference.
+///
+/// This is a convenient trait is used to simplify the use of references.
+/// For instance consider the [`Node::get`](crate::Node::get) method, used to get the objects associated to the
+/// given reference property for a given node.
+/// It essentially have the following signature:
+/// ```ignore
+/// fn get(&self, id: &Id<T, B>) -> Objects;
+/// ```
+/// However building a `Id` by hand can be tedious, especially while using [`Lexicon`](crate::Lexicon) and
+/// [`Vocab`](crate::Vocab). It can be as verbose as `node.get(&Id::Id(Lexicon::Id(MyVocab::Term)))`.
+/// Thanks to `IntoId` which is implemented by `Lexicon<V>` for any type `V` implementing `Vocab`,
+/// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct).
+/// The signature of `get` becomes:
+/// ```ignore
+/// fn get<R: IntoId<T>>(self, id: R) -> Objects;
+/// ```
+pub trait IntoId<T, B> {
+	/// The target type of the conversion, which can be borrowed as a `Id<T, B>`.
+	type Id: Borrow<Id<T, B>>;
+
+	/// Convert the value into a reference.
+	fn to_ref(self) -> Self::Id;
+}
+
+impl<'a, T, B> IntoId<T, B> for &'a Id<T, B> {
+	type Id = &'a Id<T, B>;
+
+	#[inline(always)]
+	fn to_ref(self) -> Self::Id {
+		self
+	}
+}
+
+impl<T, B> IntoId<T, B> for T {
+	type Id = Id<T, B>;
+
+	fn to_ref(self) -> Self::Id {
+		Id::Valid(ValidId::Iri(self))
+	}
+}
+
+/// Valid node identifier.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+	StrippedPartialEq,
+	StrippedEq,
+	StrippedHash,
+	Debug,
+)]
+#[stripped(T, B)]
+pub enum ValidId<T = IriBuf, B = BlankIdBuf> {
+	Iri(#[stripped] T),
+	Blank(#[stripped] B),
+}
+
+impl<T, B> ValidId<T, B> {
+	pub fn into_rdf_subject(self) -> rdf_types::Subject<T, B> {
+		match self {
+			Self::Iri(t) => rdf_types::Subject::Iri(t),
+			Self::Blank(b) => rdf_types::Subject::Blank(b),
 		}
 	}
 
-	#[cfg(any(
-		feature = "uuid-generator-v3",
-		feature = "uuid-generator-v4",
-		feature = "uuid-generator-v5"
-	))]
-	#[cfg(test)]
-	mod tests {
-		use super::*;
-
-		#[cfg(feature = "uuid-generator-v3")]
-		#[test]
-		fn uuidv3_iri() {
-			let mut uuid_gen = Uuid::V3(
-				(),
-				uuid::Uuid::parse_str("936DA01F9ABD4d9d80C702AF85C822A8").unwrap(),
-				"test".to_string(),
-			);
-			for _ in 0..100 {
-				let reference: ValidReference = uuid_gen.next(&mut ()).into_value();
-				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
-			}
-		}
-
-		#[cfg(feature = "uuid-generator-v4")]
-		#[test]
-		fn uuidv4_iri() {
-			let mut uuid_gen = Uuid::V4(());
-			for _ in 0..100 {
-				let reference: ValidReference = uuid_gen.next(&mut ()).into_value();
-				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
-			}
-		}
-
-		#[cfg(feature = "uuid-generator-v5")]
-		#[test]
-		fn uuidv5_iri() {
-			let mut uuid_gen = Uuid::V5(
-				(),
-				uuid::Uuid::parse_str("936DA01F9ABD4d9d80C702AF85C822A8").unwrap(),
-				"test".to_string(),
-			);
-			for _ in 0..100 {
-				let reference: ValidReference = uuid_gen.next(&mut ()).into_value();
-				assert!(iref::IriBuf::new(reference.as_str()).is_ok())
-			}
+	pub fn as_rdf_subject(&self) -> rdf_types::Subject<&T, &B> {
+		match self {
+			Self::Iri(t) => rdf_types::Subject::Iri(t),
+			Self::Blank(b) => rdf_types::Subject::Blank(b),
 		}
 	}
+}
+
+impl<I, B> ValidId<I, B> {
+	/// If the reference is a node identifier, returns the node IRI.
+	///
+	/// Returns `None` if it is a blank node reference.
+	#[inline(always)]
+	pub fn as_iri(&self) -> Option<&I> {
+		match self {
+			Self::Iri(k) => Some(k),
+			_ => None,
+		}
+	}
+
+	#[inline(always)]
+	pub fn into_term(self) -> Term<I, B> {
+		Term::Ref(self.into())
+	}
+}
+
+impl<T: AsRef<str>, B: AsRef<str>> ValidId<T, B> {
+	/// Get a string representation of the reference.
+	///
+	/// This will either return a string slice of an IRI, or a blank node identifier.
+	#[inline(always)]
+	pub fn as_str(&self) -> &str {
+		match self {
+			Self::Iri(id) => id.as_ref(),
+			Self::Blank(id) => id.as_ref(),
+		}
+	}
+}
+
+impl<T, B> From<ValidId<T, B>> for Id<T, B> {
+	fn from(r: ValidId<T, B>) -> Self {
+		Id::Valid(r)
+	}
+}
+
+impl<T, B> TryFrom<Id<T, B>> for ValidId<T, B> {
+	type Error = String;
+
+	fn try_from(r: Id<T, B>) -> Result<Self, Self::Error> {
+		match r {
+			Id::Valid(r) => Ok(r),
+			Id::Invalid(id) => Err(id),
+		}
+	}
+}
+
+impl<'a, T, B> TryFrom<&'a Id<T, B>> for &'a ValidId<T, B> {
+	type Error = &'a String;
+
+	fn try_from(r: &'a Id<T, B>) -> Result<Self, Self::Error> {
+		match r {
+			Id::Valid(r) => Ok(r),
+			Id::Invalid(id) => Err(id),
+		}
+	}
+}
+
+impl<'a, T, B> TryFrom<&'a mut Id<T, B>> for &'a mut ValidId<T, B> {
+	type Error = &'a mut String;
+
+	fn try_from(r: &'a mut Id<T, B>) -> Result<Self, Self::Error> {
+		match r {
+			Id::Valid(r) => Ok(r),
+			Id::Invalid(id) => Err(id),
+		}
+	}
+}
+
+impl<T: fmt::Display, B: fmt::Display> fmt::Display for ValidId<T, B> {
+	#[inline]
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Iri(id) => id.fmt(f),
+			Self::Blank(b) => b.fmt(f),
+		}
+	}
+}
+
+impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> DisplayWithContext<N> for ValidId<T, B> {
+	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
+		use fmt::Display;
+		match self {
+			Self::Iri(i) => vocabulary.iri(i).unwrap().fmt(f),
+			Self::Blank(b) => vocabulary.blank_id(b).unwrap().fmt(f),
+		}
+	}
+}
+
+impl<T: fmt::Display, B: fmt::Display> crate::rdf::Display for ValidId<T, B> {
+	#[inline]
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Iri(id) => write!(f, "<{}>", id),
+			Self::Blank(b) => write!(f, "{}", b),
+		}
+	}
+}
+
+impl<T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for ValidId<T, B> {
+	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
+		Meta(self.into_with(context).to_string().into(), meta)
+	}
+}
+
+/// Id to a reference.
+#[derive(Clone, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum Ref<'a, T = IriBuf, B = BlankIdBuf> {
+	/// Node identifier, essentially an IRI.
+	Iri(&'a T),
+
+	/// Blank node identifier.
+	Blank(&'a B),
+
+	/// Invalid reference.
+	Invalid(&'a str),
 }
 
 pub trait IdentifyAll<T, B, M> {

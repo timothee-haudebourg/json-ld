@@ -1,6 +1,6 @@
 use crate::{
 	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Indexed, IndexedNode,
-	IndexedObject, Node, Object, Reference, StrippedIndexedNode, StrippedIndexedObject,
+	IndexedObject, Node, Object, Id, StrippedIndexedNode, StrippedIndexedObject,
 };
 use locspan::Meta;
 use smallvec::SmallVec;
@@ -11,21 +11,21 @@ use std::hash::Hash;
 /// This is different from an RDF Quad since the object (last element) is a JSON-LD object.
 /// A JSON-LD Quad can correspond to multiple RDF Quads.
 pub struct QuadRef<'a, T, B, M>(
-	pub Option<&'a Reference<T, B>>,
-	pub &'a Reference<T, B>,
+	pub Option<&'a Id<T, B>>,
+	pub &'a Id<T, B>,
 	pub PropertyRef<'a, T, B>,
 	pub ObjectRef<'a, T, B, M>,
 );
 
 pub enum PropertyRef<'a, T, B> {
 	Type,
-	Ref(&'a Reference<T, B>),
+	Ref(&'a Id<T, B>),
 }
 
 pub enum ObjectRef<'a, T, B, M> {
 	Object(&'a Object<T, B, M>),
 	Node(&'a Node<T, B, M>),
-	Ref(&'a Reference<T, B>),
+	Ref(&'a Id<T, B>),
 }
 
 pub trait LdQuads<T, B, M> {
@@ -68,50 +68,50 @@ pub struct Quads<'a, T, B, M> {
 
 enum QuadsFrame<'a, T, B, M> {
 	NodeMapGraph(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
 		crate::flattening::NodeMapGraphNodes<'a, T, B, M>,
 	),
 	IndexedObjectSet(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
 		std::collections::hash_set::Iter<'a, StrippedIndexedObject<T, B, M>>,
 	),
 	IndexedNodeSet(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
 		std::collections::hash_set::Iter<'a, StrippedIndexedNode<T, B, M>>,
 	),
 	IndexedObjectSlice(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
 		std::slice::Iter<'a, IndexedObject<T, B, M>>,
 	),
 	IndexedNodeSlice(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
 		std::slice::Iter<'a, IndexedNode<T, B, M>>,
 	),
 	NodeTypes(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
-		&'a Reference<T, B>,
-		std::slice::Iter<'a, Meta<Reference<T, B>, M>>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
+		&'a Id<T, B>,
+		std::slice::Iter<'a, Meta<Id<T, B>, M>>,
 	),
 	NodeProperties(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
-		&'a Reference<T, B>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
+		&'a Id<T, B>,
 		object::node::properties::Iter<'a, T, B, M>,
 	),
 	NodeReverseProperties(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
 		&'a Node<T, B, M>,
 		object::node::reverse_properties::Iter<'a, T, B, M>,
 	),
 	NodePropertyObjects(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
-		&'a Reference<T, B>,
-		&'a Reference<T, B>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
+		&'a Id<T, B>,
+		&'a Id<T, B>,
 		std::slice::Iter<'a, StrippedIndexedObject<T, B, M>>,
 	),
 	NodeReversePropertySubjects(
-		Option<Meta<&'a Reference<T, B>, &'a M>>,
+		Option<Meta<&'a Id<T, B>, &'a M>>,
 		&'a Node<T, B, M>,
-		&'a Reference<T, B>,
+		&'a Id<T, B>,
 		std::slice::Iter<'a, StrippedIndexedNode<T, B, M>>,
 	),
 }
@@ -119,7 +119,7 @@ enum QuadsFrame<'a, T, B, M> {
 impl<'a, T, B, M> Quads<'a, T, B, M> {
 	fn push_object(
 		&mut self,
-		graph: Option<Meta<&'a Reference<T, B>, &'a M>>,
+		graph: Option<Meta<&'a Id<T, B>, &'a M>>,
 		object: &'a Indexed<Object<T, B, M>, M>,
 	) {
 		match object.inner() {
@@ -133,7 +133,7 @@ impl<'a, T, B, M> Quads<'a, T, B, M> {
 
 	fn push_node(
 		&mut self,
-		graph: Option<Meta<&'a Reference<T, B>, &'a M>>,
+		graph: Option<Meta<&'a Id<T, B>, &'a M>>,
 		node: &'a Node<T, B, M>,
 	) {
 		if let Some(id) = node.id_entry() {

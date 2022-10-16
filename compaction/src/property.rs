@@ -6,7 +6,7 @@ use json_ld_context_processing::ProcessMeta;
 use json_ld_core::{
 	context::Nest,
 	object::{self, List},
-	Container, ContainerKind, Context, ContextLoader, Indexed, Loader, Node, Object, Reference,
+	Container, ContainerKind, Context, ContextLoader, Indexed, Loader, Node, Object, Id,
 	Term,
 };
 use json_ld_syntax::Keyword;
@@ -643,7 +643,7 @@ where
 										vocabulary,
 										active_context,
 										Meta(
-											&Term::Ref(Reference::Invalid(index_key.to_string())),
+											&Term::Ref(Id::Invalid(index_key.to_string())),
 											index_key.metadata(),
 										),
 										true,

@@ -11,7 +11,7 @@ use json_ld_core::{
 	object,
 	object::value::{Literal, LiteralString},
 	Container, Context, Indexed, IndexedObject, LangString, Node, Object, ProcessingMode,
-	Reference, Term, Type, Value,
+	Id, Term, Type, Value,
 };
 use json_ld_syntax::{ContainerKind, Keyword, LenientLanguageTagBuf, Nullable};
 use json_syntax::object::Entry;
@@ -25,11 +25,11 @@ use std::hash::Hash;
 /// Return `None` if the term is `null`.
 pub(crate) fn node_id_of_term<T, B, M>(
 	Meta(term, meta): Meta<Term<T, B>, M>,
-) -> Option<Meta<Reference<T, B>, M>> {
+) -> Option<Meta<Id<T, B>, M>> {
 	match term {
 		Term::Null => None,
 		Term::Ref(prop) => Some(Meta(prop, meta)),
-		Term::Keyword(kw) => Some(Meta(Reference::Invalid(kw.into_str().to_string()), meta)),
+		Term::Keyword(kw) => Some(Meta(Id::Invalid(kw.into_str().to_string()), meta)),
 	}
 }
 
@@ -375,7 +375,7 @@ where
 										Meta(Term::Keyword(_), meta) => {
 											return Err(Error::InvalidReversePropertyMap.at(meta))
 										}
-										Meta(Term::Ref(Reference::Invalid(_)), meta)
+										Meta(Term::Ref(Id::Invalid(_)), meta)
 											if options.policy == Policy::Strictest =>
 										{
 											return Err(Error::KeyExpansionFailed.at(meta))
@@ -574,7 +574,7 @@ where
 					}
 				}
 
-				Term::Ref(Reference::Invalid(_)) if options.policy == Policy::Strictest => {
+				Term::Ref(Id::Invalid(_)) if options.policy == Policy::Strictest => {
 					return Err(Error::KeyExpansionFailed.at(key_metadata.clone()))
 				}
 
@@ -1018,7 +1018,7 @@ where
 												if let Ok(typ) = expanded_index
 													.clone()
 													.unwrap()
-													.try_cast::<Reference<T, B>>()
+													.try_cast::<Id<T, B>>()
 												{
 													if let Object::Node(ref mut node) = **item {
 														node.type_entry_or_default(

@@ -1,4 +1,4 @@
-use crate::{id, Reference, ValidReference};
+use crate::{id, Id, ValidId};
 use locspan::Meta;
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -8,7 +8,7 @@ pub struct Environment<'n, T, B, M, N, G> {
 	id: PhantomData<T>,
 	vocabulary: &'n mut N,
 	generator: G,
-	map: HashMap<B, Meta<ValidReference<T, B>, M>>,
+	map: HashMap<B, Meta<ValidId<T, B>, M>>,
 }
 
 impl<'n, T, B, M, N, G> Environment<'n, T, B, M, N, G> {
@@ -25,7 +25,7 @@ impl<'n, T, B, M, N, G> Environment<'n, T, B, M, N, G> {
 impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, M, N>>
 	Environment<'n, T, B, M, N, G>
 {
-	pub fn assign(&mut self, blank_id: B) -> Meta<ValidReference<T, B>, M> {
+	pub fn assign(&mut self, blank_id: B) -> Meta<ValidId<T, B>, M> {
 		use std::collections::hash_map::Entry;
 		match self.map.entry(blank_id) {
 			Entry::Occupied(entry) => entry.get().clone(),
@@ -39,10 +39,10 @@ impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, M, 
 
 	pub fn assign_node_id(
 		&mut self,
-		r: Option<&Meta<Reference<T, B>, M>>,
-	) -> Meta<Reference<T, B>, M> {
+		r: Option<&Meta<Id<T, B>, M>>,
+	) -> Meta<Id<T, B>, M> {
 		match r {
-			Some(Meta(Reference::Valid(ValidReference::Blank(id)), _)) => {
+			Some(Meta(Id::Valid(ValidId::Blank(id)), _)) => {
 				self.assign(id.clone()).cast()
 			}
 			Some(r) => r.clone(),
@@ -51,7 +51,7 @@ impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, M, 
 	}
 
 	#[allow(clippy::should_implement_trait)]
-	pub fn next(&mut self) -> Meta<ValidReference<T, B>, M> {
+	pub fn next(&mut self) -> Meta<ValidId<T, B>, M> {
 		self.generator.next(self.vocabulary)
 	}
 }

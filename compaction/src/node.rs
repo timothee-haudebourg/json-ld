@@ -5,7 +5,7 @@ use json_ld_context_processing::{
 };
 use json_ld_core::{
 	object::node::TypeEntry, Container, ContainerKind, Context, ContextLoader, Loader, Node,
-	Reference, Term, Type,
+	Id, Term, Type,
 };
 use json_ld_syntax::{Entry, Keyword};
 use locspan::{Meta, Stripped};
@@ -86,7 +86,7 @@ where
 			let compacted_ty = compact_iri(
 				vocabulary,
 				type_scoped_context,
-				ty.clone().map(Reference::into_term).borrow(),
+				ty.clone().map(Id::into_term).borrow(),
 				true,
 				false,
 				options,
@@ -135,7 +135,7 @@ where
 
 	// If expanded property is @id:
 	if let Some(id_entry) = node.id_entry() {
-		let id = id_entry.value.clone().map(Reference::into_term);
+		let id = id_entry.value.clone().map(Id::into_term);
 
 		if node.is_empty() {
 			// This captures step 7:
@@ -435,7 +435,7 @@ where
 					compact_iri(
 						vocabulary,
 						type_scoped_context,
-						types[0].clone().map(Reference::into_term).borrow(),
+						types[0].clone().map(Id::into_term).borrow(),
 						true,
 						false,
 						options,
@@ -450,7 +450,7 @@ where
 
 				// For each item expanded type in expanded value:
 				for ty in types.iter() {
-					let ty = ty.clone().map(Reference::into_term);
+					let ty = ty.clone().map(Id::into_term);
 
 					// Set term by IRI compacting expanded type using type-scoped context for active context.
 					let compacted_ty = compact_iri(

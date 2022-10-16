@@ -1,5 +1,5 @@
 use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
-use crate::{id, Indexed, Reference, StrippedIndexedObject};
+use crate::{id, Indexed, Id, StrippedIndexedObject};
 use crate::{IndexedObject, TryFromJson};
 use locspan::{Location, Meta, StrippedEq, StrippedPartialEq};
 use rdf_types::vocabulary::{Index, VocabularyMut};
@@ -96,7 +96,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		B: Eq + Hash,
 	{
 		self.traverse()
-			.filter_map(|f| f.into_id().and_then(Reference::into_blank))
+			.filter_map(|f| f.into_id().and_then(Id::into_blank))
 			.collect()
 	}
 }

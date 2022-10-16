@@ -1,7 +1,7 @@
 use crate::{compact_iri, compact_key, MetaError, Options};
 use json_ld_context_processing::{Options as ProcessingOptions, Process, ProcessMeta};
 use json_ld_core::{
-	object, Container, ContainerKind, Context, ContextLoader, Loader, Reference, Term, Type, Value,
+	object, Container, ContainerKind, Context, ContextLoader, Loader, Id, Term, Type, Value,
 };
 use json_ld_syntax::{Entry, Keyword};
 use locspan::Meta;
@@ -203,7 +203,7 @@ where
 					let compact_ty = compact_iri(
 						vocabulary,
 						active_context.as_ref(),
-						Meta(&Term::Ref(Reference::id(ty.clone())), meta),
+						Meta(&Term::Ref(Id::id(ty.clone())), meta),
 						true,
 						false,
 						options,

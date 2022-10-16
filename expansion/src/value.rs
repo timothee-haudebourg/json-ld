@@ -1,7 +1,7 @@
 use crate::{expand_iri, ExpandedEntry, Warning, WarningHandler};
 use json_ld_core::{
 	object::value::{Literal, LiteralString},
-	Context, Indexed, IndexedObject, LangString, Object, Reference, Term, ValidReference, Value,
+	Context, Indexed, IndexedObject, LangString, Object, Id, Term, ValidId, Value,
 };
 use json_ld_syntax::{Direction, Keyword, LenientLanguageTagBuf, Nullable, ErrorCode};
 use locspan::{At, Meta};
@@ -143,7 +143,7 @@ where
 						Term::Keyword(Keyword::Json) => {
 							is_json = true;
 						}
-						Term::Ref(Reference::Valid(ValidReference::Id(expanded_ty))) => {
+						Term::Ref(Id::Valid(ValidId::Iri(expanded_ty))) => {
 							is_json = false;
 							ty = Some(expanded_ty)
 						}

@@ -22,10 +22,10 @@ pub enum Type<T> {
 }
 
 impl<T> Type<T> {
-	pub fn as_reference(&self) -> Option<crate::reference::Ref<T>> {
+	pub fn as_id(&self) -> Option<crate::id::Ref<T>> {
 		match self {
 			Self::Json => None,
-			Self::Id(t) => Some(crate::reference::Ref::Id(t)),
+			Self::Id(t) => Some(crate::id::Ref::Iri(t)),
 		}
 	}
 }
@@ -46,10 +46,10 @@ impl<'a, T> TypeRef<'a, T> {
 		}
 	}
 
-	pub fn into_reference<B>(self) -> Option<crate::reference::Ref<'a, T, B>> {
+	pub fn into_reference<B>(self) -> Option<crate::id::Ref<'a, T, B>> {
 		match self {
 			Self::Json => None,
-			Self::Id(t) => Some(crate::reference::Ref::Id(t)),
+			Self::Id(t) => Some(crate::id::Ref::Iri(t)),
 		}
 	}
 }

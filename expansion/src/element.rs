@@ -6,7 +6,7 @@ use futures::future::{BoxFuture, FutureExt};
 use json_ld_context_processing::{
 	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
 };
-use json_ld_core::{object, Context, Indexed, Object, Reference, Term, ValidReference};
+use json_ld_core::{object, Context, Indexed, Object, Id, Term, ValidId};
 use json_ld_syntax::{Keyword, Nullable};
 use json_syntax::{object::Entry, Value};
 use locspan::{At, MapLocErr, Meta};
@@ -385,7 +385,7 @@ where
 							}
 						}
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
-						Term::Ref(Reference::Valid(ValidReference::Blank(id))) => {
+						Term::Ref(Id::Valid(ValidId::Blank(id))) => {
 							warnings.handle(
 								vocabulary,
 								Meta::new(
