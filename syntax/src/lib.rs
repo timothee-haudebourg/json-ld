@@ -15,6 +15,7 @@ mod nullable;
 mod print;
 mod try_from_json;
 mod compare;
+mod error;
 
 pub use compact_iri::*;
 pub use container::{Container, ContainerKind, ContainerRef};
@@ -29,6 +30,7 @@ pub use lang::*;
 pub use nullable::*;
 pub use try_from_json::*;
 pub use compare::*;
+pub use error::*;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]);

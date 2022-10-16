@@ -3,7 +3,7 @@ use json_ld_core::{
 	object::value::{Literal, LiteralString},
 	Context, IndexedObject, LangString, Node, Object, Type, Value,
 };
-use json_ld_syntax::{context, Entry, LenientLanguageTag, Nullable};
+use json_ld_syntax::{context, Entry, LenientLanguageTag, Nullable, ErrorCode};
 use json_syntax::Number;
 use locspan::{At, Meta};
 use rdf_types::VocabularyMut;
@@ -63,6 +63,14 @@ pub(crate) type ExpandedLiteral<T, B, M> = IndexedObject<T, B, M>;
 #[derive(Debug)]
 pub enum LiteralExpansionError {
 	InvalidTypeValue,
+}
+
+impl LiteralExpansionError {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::InvalidTypeValue => ErrorCode::InvalidTypeValue
+		}
+	}
 }
 
 impl fmt::Display for LiteralExpansionError {

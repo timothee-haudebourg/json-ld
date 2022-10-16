@@ -6,9 +6,9 @@ use json_ld_context_processing::{
 use json_ld_core::{
 	context::inverse::{LangSelection, TypeSelection},
 	object::Any,
-	Context, Indexed, Loader, ProcessingMode, Term, Value,
+	Context, Indexed, Loader, ProcessingMode, Term, Value
 };
-use json_ld_syntax::{ContainerKind, Keyword};
+use json_ld_syntax::{ContainerKind, Keyword, ErrorCode};
 use json_syntax::object::Entry;
 use locspan::{Meta, Stripped};
 use mown::Mown;
@@ -34,6 +34,16 @@ pub enum Error<E> {
 	IriConfusedWithPrefix,
 	InvalidNestValue,
 	ContextProcessing(json_ld_context_processing::Error<E>),
+}
+
+impl<E> Error<E> {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::IriConfusedWithPrefix => ErrorCode::IriConfusedWithPrefix,
+			Self::InvalidNestValue => ErrorCode::InvalidNestValue,
+			Self::ContextProcessing(e) => e.code()
+		}
+	}
 }
 
 impl<E> From<json_ld_context_processing::Error<E>> for Error<E> {

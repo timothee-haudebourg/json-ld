@@ -134,25 +134,20 @@ impl expand::Test {
 			expand::Description::Negative {
 				expected_error_code,
 			} => {
-				match loader.load_in(&mut vocabulary, input).await {
-					Ok(json_ld) => {
-						let result: Result<_, _> = json_ld.expand_full(&mut vocabulary, &mut loader, options, ()).await;
+				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
+				let result: Result<_, _> = json_ld.expand_full(&mut vocabulary, &mut loader, options, ()).await;
 
-						match result {
-							Ok(expanded) => {
-								eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-								panic!(
-									"expansion succeeded when it should have failed with `{}`",
-									expected_error_code
-								)
-							}
-							Err(_) => {
-								// ...
-							}
-						}
+				match result {
+					Ok(expanded) => {
+						eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
+						panic!(
+							"expansion succeeded when it should have failed with `{}`",
+							expected_error_code
+						)
 					}
-					Err(_) => {
-						// ...
+					Err(_e) => {
+						// TODO improve error codes.
+						// assert_eq!(e.code().as_str(), expected_error_code)
 					}
 				}
 			}

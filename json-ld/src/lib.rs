@@ -30,6 +30,7 @@ pub use compaction::Compact;
 pub use context_processing::Process;
 pub use expansion::Expand;
 
+use syntax::ErrorCode;
 use futures::{future::BoxFuture, FutureExt};
 use locspan::{Meta, Location, BorrowStripped};
 use rdf_types::vocabulary::Index;
@@ -128,6 +129,17 @@ pub enum ExpandError<M, E, C> {
 	ContextLoading(C),
 }
 
+impl<M, E, C> ExpandError<M, E, C> {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::Expansion(e) => e.code(),
+			Self::ContextProcessing(e) => e.code(),
+			Self::Loading(_) => ErrorCode::LoadingDocumentFailed,
+			Self::ContextLoading(_) => ErrorCode::LoadingRemoteContextFailed
+		}
+	}
+}
+
 impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for ExpandError<M, E, C> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
@@ -149,6 +161,18 @@ pub enum CompactError<M, E, C> {
 	ContextLoading(C)
 }
 
+impl<M, E, C> CompactError<M, E, C> {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::Expand(e) => e.code(),
+			Self::ContextProcessing(e) => e.code(),
+			Self::Compaction(e) => e.code(),
+			Self::Loading(_) => ErrorCode::LoadingDocumentFailed,
+			Self::ContextLoading(_) => ErrorCode::LoadingRemoteContextFailed
+		}
+	}
+}
+
 impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for CompactError<M, E, C> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
@@ -167,6 +191,18 @@ pub enum FlattenError<I, B, M, E, C> {
 	ConflictingIndexes(ConflictingIndexes<I, B, M>),
 	Loading(E),
 	ContextLoading(C)
+}
+
+impl<I, B, M, E, C> FlattenError<I, B, M, E, C> {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::Expand(e) => e.code(),
+			Self::Compact(e) => e.code(),
+			Self::ConflictingIndexes(_) => ErrorCode::ConflictingIndexes,
+			Self::Loading(_) => ErrorCode::LoadingDocumentFailed,
+			Self::ContextLoading(_) => ErrorCode::LoadingRemoteContextFailed
+		}
+	}
 }
 
 impl<I, B, M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for FlattenError<I, B, M, E, C> {

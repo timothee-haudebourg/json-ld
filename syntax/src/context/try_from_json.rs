@@ -3,7 +3,7 @@ use super::{
 	term_definition::{self, InvalidNest},
 	Context, Definition, Entry, TermDefinition, Value,
 };
-use crate::{Container, Keyword, Nullable, TryFromJson, TryFromStrippedJson};
+use crate::{Container, Keyword, Nullable, TryFromJson, TryFromStrippedJson, ErrorCode};
 use iref::IriRefBuf;
 use locspan::Meta;
 use std::fmt;
@@ -16,6 +16,19 @@ pub enum InvalidContext {
 	DuplicateKey,
 	InvalidTermDefinition,
 	InvalidNestValue(String),
+}
+
+impl InvalidContext {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::InvalidIriRef(_) => ErrorCode::InvalidIriMapping,
+			Self::Unexpected(_, _) => ErrorCode::InvalidContextEntry,
+			Self::InvalidDirection => ErrorCode::InvalidBaseDirection,
+			Self::DuplicateKey => ErrorCode::DuplicateKey,
+			Self::InvalidTermDefinition => ErrorCode::InvalidTermDefinition,
+			Self::InvalidNestValue(_) => ErrorCode::InvalidNestValue
+		}
+	}
 }
 
 impl fmt::Display for InvalidContext {

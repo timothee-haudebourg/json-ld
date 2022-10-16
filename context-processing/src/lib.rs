@@ -1,5 +1,6 @@
 use futures::future::{BoxFuture, FutureExt};
 pub use json_ld_core::{warning, Context, ContextLoader, ProcessingMode};
+use json_ld_syntax::ErrorCode;
 use locspan::Meta;
 use rdf_types::VocabularyMut;
 use std::fmt;
@@ -58,6 +59,33 @@ pub enum Error<E> {
 	InvalidScopedContext,
 	ProtectedTermRedefinition,
 	ContextLoadingFailed(E),
+}
+
+impl<E> Error<E> {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::InvalidContextNullification => ErrorCode::InvalidContextNullification,
+			Self::LoadingDocumentFailed => ErrorCode::LoadingDocumentFailed,
+			Self::ProcessingModeConflict => ErrorCode::ProcessingModeConflict,
+			Self::InvalidContextEntry => ErrorCode::InvalidContextEntry,
+			Self::InvalidImportValue => ErrorCode::InvalidImportValue,
+			Self::InvalidRemoteContext => ErrorCode::InvalidRemoteContext,
+			Self::InvalidBaseIri => ErrorCode::InvalidBaseIri,
+			Self::InvalidVocabMapping => ErrorCode::InvalidVocabMapping,
+			Self::CyclicIriMapping => ErrorCode::CyclicIriMapping,
+			Self::InvalidTermDefinition => ErrorCode::InvalidTermDefinition,
+			Self::KeywordRedefinition => ErrorCode::KeywordRedefinition,
+			Self::InvalidProtectedValue => ErrorCode::InvalidPropagateValue,
+			Self::InvalidTypeMapping => ErrorCode::InvalidTypeMapping,
+			Self::InvalidReverseProperty => ErrorCode::InvalidReverseProperty,
+			Self::InvalidIriMapping => ErrorCode::InvalidIriMapping,
+			Self::InvalidKeywordAlias => ErrorCode::InvalidKeywordAlias,
+			Self::InvalidContainerMapping => ErrorCode::InvalidContainerMapping,
+			Self::InvalidScopedContext => ErrorCode::InvalidScopedContext,
+			Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
+			Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
+		}
+	}
 }
 
 impl<E: fmt::Display> fmt::Display for Error<E> {

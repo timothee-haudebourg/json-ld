@@ -1,3 +1,4 @@
+use json_ld_syntax::ErrorCode;
 use locspan::Meta;
 use std::fmt;
 
@@ -20,6 +21,30 @@ pub enum Error<M, E> {
 	DuplicateKey(Meta<json_syntax::object::Key, M>),
 	Literal(crate::LiteralExpansionError),
 	Value(crate::InvalidValue),
+}
+
+impl<M, E> Error<M, E> {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::ContextSyntax(e) => e.code(),
+			Self::ContextProcessing(e) => e.code(),
+			Self::InvalidIndexValue => ErrorCode::InvalidIndexValue,
+			Self::InvalidSetOrListObject => ErrorCode::InvalidSetOrListObject,
+			Self::InvalidReversePropertyMap => ErrorCode::InvalidReversePropertyMap,
+			Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
+			Self::KeyExpansionFailed => ErrorCode::KeyExpansionFailed,
+			Self::InvalidReversePropertyValue => ErrorCode::InvalidReversePropertyValue,
+			Self::InvalidLanguageMapValue => ErrorCode::InvalidLanguageMapValue,
+			Self::CollidingKeywords => ErrorCode::CollidingKeywords,
+			Self::InvalidIdValue => ErrorCode::InvalidIdValue,
+			Self::InvalidIncludedValue => ErrorCode::InvalidIncludedValue,
+			Self::InvalidReverseValue => ErrorCode::InvalidReverseValue,
+			Self::InvalidNestValue => ErrorCode::InvalidNestValue,
+			Self::DuplicateKey(_) => ErrorCode::DuplicateKey,
+			Self::Literal(e) => e.code(),
+			Self::Value(e) => e.code()
+		}
+	}
 }
 
 impl<M: Clone, E> Error<M, E> {

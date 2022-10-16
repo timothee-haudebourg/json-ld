@@ -168,6 +168,9 @@ pub enum ErrorCode {
 
 	/// An attempt was made to redefine a protected term.
 	ProtectedTermRedefinition,
+
+	/// Duplicate key in JSON object.
+	DuplicateKey
 }
 
 impl ErrorCode {
@@ -226,6 +229,7 @@ impl ErrorCode {
 			MultipleContextLinkHeaders => "multiple context link headers",
 			ProcessingModeConflict => "processing mode conflict",
 			ProtectedTermRedefinition => "protected term redefinition",
+			DuplicateKey => "duplicate key"
 		}
 	}
 }

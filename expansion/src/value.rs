@@ -3,7 +3,7 @@ use json_ld_core::{
 	object::value::{Literal, LiteralString},
 	Context, Indexed, IndexedObject, LangString, Object, Reference, Term, ValidReference, Value,
 };
-use json_ld_syntax::{Direction, Keyword, LenientLanguageTagBuf, Nullable};
+use json_ld_syntax::{Direction, Keyword, LenientLanguageTagBuf, Nullable, ErrorCode};
 use locspan::{At, Meta};
 use rdf_types::VocabularyMut;
 use std::fmt;
@@ -19,6 +19,20 @@ pub enum InvalidValue {
 	ValueObject,
 	ValueObjectValue,
 	LanguageTaggedValue,
+}
+
+impl InvalidValue {
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::LanguageTaggedString => ErrorCode::InvalidLanguageTaggedString,
+			Self::BaseDirection => ErrorCode::InvalidBaseDirection,
+			Self::IndexValue => ErrorCode::InvalidIndexValue,
+			Self::TypedValue => ErrorCode::InvalidTypedValue,
+			Self::ValueObject => ErrorCode::InvalidValueObject,
+			Self::ValueObjectValue => ErrorCode::InvalidValueObjectValue,
+			Self::LanguageTaggedValue => ErrorCode::InvalidLanguageTaggedValue,
+		}
+	}
 }
 
 impl fmt::Display for InvalidValue {
