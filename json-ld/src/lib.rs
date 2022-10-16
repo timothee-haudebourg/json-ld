@@ -12,11 +12,6 @@
 //! JSON-LD brings these two technologies together, adding semantics to JSON
 //! to create a lightweight data serialization format that can organize data and
 //! help Web applications to inter-operate at a large scale.
-//!
-//! This crate aims to provide a set of types to build and process expanded
-//! JSON-LD documents.
-//! It can expand, compact and flatten JSON-LD documents backed by various
-//! JSON implementations thanks to the [`generic-json`] crate.
 pub use json_ld_compaction as compaction;
 pub use json_ld_context_processing as context_processing;
 pub use json_ld_core::*;
