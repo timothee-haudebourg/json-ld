@@ -12,7 +12,7 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [features]
-reqwest-loader = ["json-ld-core/reqwest-loader"]
+# reqwest = ["json-ld-core/reqwest"]
 uuid-generator-v3 = ["json-ld-core/uuid-generator-v3"]
 uuid-generator-v4 = ["json-ld-core/uuid-generator-v4"]
 uuid-generator-v5 = ["json-ld-core/uuid-generator-v5"]

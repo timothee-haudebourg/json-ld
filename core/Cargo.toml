@@ -12,7 +12,6 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [features]
-reqwest-loader = ["reqwest"]
 uuid-generator-v3 = ["uuid", "uuid/v3"]
 uuid-generator-v4 = ["uuid", "uuid/v4"]
 uuid-generator-v5 = ["uuid", "uuid/v5"]

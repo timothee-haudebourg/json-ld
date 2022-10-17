@@ -10,6 +10,12 @@ pub mod none;
 pub use fs::FsLoader;
 pub use none::NoLoader;
 
+// #[cfg(feature="reqwest")]
+// pub mod reqwest;
+
+// #[cfg(feature="reqwest")]
+// pub use self::reqwest::ReqwestLoader;
+
 pub type LoadingResult<I, M, O, E> = Result<RemoteDocument<I, M, O>, E>;
 
 #[derive(Clone)]
