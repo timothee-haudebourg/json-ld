@@ -112,6 +112,11 @@ impl<B, N: BlankIdVocabulary<BlankId=B>, M, H> WarningHandler<B, N, M> for H whe
 /// # }
 /// ```
 pub trait Expand<T, B, M> {
+	/// Returns the default base URL passed to the expansion algorithm
+	/// and used to initialize the default empty context when calling
+	/// [`Expand::expand`] or [`Expand::expand_with`].
+	fn default_base_url(&self) -> Option<&T>;
+
 	/// Expand the document with full options.
 	/// 
 	/// The `vocabulary` is used to interpret identifiers.
@@ -146,6 +151,8 @@ pub trait Expand<T, B, M> {
 	/// 
 	/// The given `loader` is used to load remote documents (such as contexts)
 	/// imported by the input and required during expansion.
+	/// The expansion algorithm is called with an empty initial context with
+	/// a base URL given by [`Expand::default_base_url`].
 	fn expand_with<'a, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<Iri=T, BlankId=B>),
@@ -162,8 +169,8 @@ pub trait Expand<T, B, M> {
 	{
 		self.expand_full(
 			vocabulary,
-			Context::<T, B, L::Context, M>::new(None),
-			None,
+			Context::<T, B, L::Context, M>::new(self.default_base_url().cloned()),
+			self.default_base_url(),
 			loader,
 			Options::default(),
 			(),
@@ -174,6 +181,8 @@ pub trait Expand<T, B, M> {
 	/// 
 	/// The given `loader` is used to load remote documents (such as contexts)
 	/// imported by the input and required during expansion.
+	/// The expansion algorithm is called with an empty initial context with
+	/// a base URL given by [`Expand::default_base_url`].
 	fn expand<'a, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		loader: &'a mut L,
@@ -192,7 +201,12 @@ pub trait Expand<T, B, M> {
 	}
 }
 
+/// Value expansion without base URL.
 impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
+	fn default_base_url(&self) -> Option<&T> {
+		None
+	}
+
 	fn expand_full<'a, N, C, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
@@ -223,7 +237,15 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 	}
 }
 
+/// Remote document expansion.
+/// 
+/// The default base URL given to the expansion algorithm is the URL of
+/// the remote document.
 impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
+	fn default_base_url(&self) -> Option<&T> {
+		self.url()
+	}
+
 	fn expand_full<'a, N, C, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
@@ -246,29 +268,5 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
 	{
 		self.document()
 			.expand_full(vocabulary, context, base_url, loader, options, warnings_handler)
-	}
-
-	fn expand_with<'a, L: Loader<T, M> + ContextLoader<T, M>>(
-		&'a self,
-		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<Iri=T, BlankId=B>),
-		loader: &'a mut L,
-	) -> BoxFuture<ExpansionResult<T, B, M, L>>
-	where
-		T: 'a + Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		M: 'a + Clone + Send + Sync,
-		L: Send + Sync,
-		L::Output: Into<Value<M>>,
-		L::Context: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
-		L::ContextError: Send,
-	{
-		self.document().expand_full(
-			vocabulary,
-			Context::<T, B, L::Context, M>::new(self.url().cloned()),
-			self.url(),
-			loader,
-			Options::default(),
-			(),
-		)
 	}
 }
