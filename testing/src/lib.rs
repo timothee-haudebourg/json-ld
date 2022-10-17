@@ -1,3 +1,5 @@
+//! This library provides the `test_suite` derive macro
+//! that can generate Rust test suites from a JSON-LD document.
 use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
 use grdf::Dataset;

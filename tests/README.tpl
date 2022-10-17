@@ -1,6 +1,6 @@
-# JSON-LD core types
+# JSON-LD test suite.
 
-
+{{readme}}
 
 ## License
 

@@ -1,4 +1,4 @@
-# JSON-LD core types
+# JSON-LD context processing algorithm
 
 
 

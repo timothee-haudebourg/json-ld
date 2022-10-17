@@ -1,6 +1,11 @@
-# JSON-LD core types
+# JSON-LD compaction algorithm
 
+This library implements the [JSON-LD compaction algorithm](https://www.w3.org/TR/json-ld-api/#compaction-algorithms)
+for the [`json-ld` crate](https://crates.io/crates/json-ld).
 
+## Usage
+
+The compaction algorithm is provided by the [`Compact`] trait.
 
 ## License
 

@@ -1,6 +1,6 @@
-# JSON-LD core types
+# JSON-LD syntax library.
 
-
+{{readme}}
 
 ## License
 

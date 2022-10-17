@@ -12,6 +12,7 @@ readme = "README.md"
 
 [lib]
 proc-macro = true
+path = "src/lib.rs"
 
 [dependencies]
 json-ld = { path = "../json-ld" }

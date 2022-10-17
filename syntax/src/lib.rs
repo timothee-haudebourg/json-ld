@@ -1,3 +1,5 @@
+//! This library provide functions to parse JSON-LD contexts
+//! and print JSON-LD documents.
 mod number;
 
 pub use number::*;

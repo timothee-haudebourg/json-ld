@@ -1,6 +1,6 @@
-# JSON-LD core types
+# JSON-LD compaction algorithm
 
-
+{{readme}}
 
 ## License
 

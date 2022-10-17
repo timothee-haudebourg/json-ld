@@ -2,9 +2,14 @@
 name = "json-ld-tests"
 version = "0.1.0"
 edition = "2021"
+authors = ["Timothée Haudebourg <author@haudebourg.net>"]
+description = "Testing library for the `json-ld` library"
+categories = ["web-programming", "database", "data-structures"]
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+repository = "https://github.com/timothee-haudebourg/json-ld"
+license = "MIT/Apache-2.0"
+readme = "README.md"
 exclude = [ "/json-ld-api" ]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 json-ld = { path = "../json-ld" }

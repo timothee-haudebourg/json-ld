@@ -1,6 +1,6 @@
-# JSON-LD core types
+# Tests generator for the Rust `json-ld` library
 
-
+{{readme}}
 
 ## License
 

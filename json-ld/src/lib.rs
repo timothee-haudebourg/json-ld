@@ -12,6 +12,14 @@
 //! JSON-LD brings these two technologies together, adding semantics to JSON
 //! to create a lightweight data serialization format that can organize data and
 //! help Web applications to inter-operate at a large scale.
+//!
+//! # State of the crate
+//! 
+//! This new version of the crate includes many breaking changes
+//! that are not yet documented. Some functions may still be renamed,
+//! which is why the latest release is still flagged as `beta`.
+//! Don't hesitate to contact me for any question about how to use this new API
+//! while I write the documentation.
 pub use json_ld_compaction as compaction;
 pub use json_ld_context_processing as context_processing;
 pub use json_ld_core::*;
