@@ -1,4 +1,9 @@
-//! Compaction algorithm and related types.
+//! This library implements the [JSON-LD compaction algorithm](https://www.w3.org/TR/json-ld-api/#compaction-algorithms)
+//! for the [`json-ld` crate](https://crates.io/crates/json-ld).
+//! 
+//! # Usage
+//! 
+//! The compaction algorithm is provided by the [`Compact`] trait.
 use futures::future::{BoxFuture, FutureExt};
 use json_ld_context_processing::{
 	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
@@ -156,7 +161,7 @@ pub trait CompactFragment<I, B, M> {
 		L::Context: Into<C>;
 
 	#[inline(always)]
-	fn compact_fragment_in<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
+	fn compact_fragment_with<'a, N, C, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
 		active_context: &'a Context<I, B, C, M>,

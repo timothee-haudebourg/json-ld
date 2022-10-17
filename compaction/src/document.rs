@@ -2,7 +2,7 @@ use futures::FutureExt;
 use json_ld_core::{ExpandedDocument, FlattenedDocument, Term};
 use json_ld_syntax::{IntoJson, IntoJsonMeta, Keyword};
 use locspan::Meta;
-use rdf_types::Vocabulary;
+use rdf_types::{Vocabulary, vocabulary};
 use std::hash::Hash;
 
 use crate::{
@@ -10,7 +10,14 @@ use crate::{
 	CompactFragmentMeta,
 };
 
+/// Context embeding method.
+/// 
+/// This trait provides the `embed_context` method that can be used
+/// to include a JSON-LD context to a JSON-LD document.
+/// It is used at the end of compaction algorithm to embed to
+/// context used to compact the document into the compacted output.
 pub trait EmbedContext<I, B, C, M> {
+	/// Embeds the given context into the document.
 	fn embed_context<N>(
 		&mut self,
 		vocabulary: &N,
@@ -25,7 +32,9 @@ pub trait EmbedContext<I, B, C, M> {
 		C: Clone + IntoJsonMeta<M>;
 }
 
+/// Compaction with metadata.
 pub trait CompactMeta<I, B, M> {
+	/// Compacts the input document with full options.
 	fn compact_full_meta<
 		'a,
 		N,
@@ -52,7 +61,9 @@ pub trait CompactMeta<I, B, M> {
 		L::Context: Into<C>;
 }
 
+/// Compaction function.
 pub trait Compact<I, B, M> {
+	/// Compacts the input document with full options.
 	fn compact_full<
 		'a,
 		N,
@@ -76,6 +87,59 @@ pub trait Compact<I, B, M> {
 		C: json_ld_context_processing::ProcessMeta<I, B, M>,
 		L: Send + Sync,
 		L::Context: Into<C>;
+
+	/// Compacts the input document with the given `vocabulary` to
+	/// interpret identifiers.
+	fn compact_with<
+		'a,
+		N,
+		C,
+		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
+	>(
+		&'a self,
+		vocabulary: &'a mut N,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		loader: &'a mut L,
+	) -> futures::future::BoxFuture<
+		'a,
+		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
+	>
+	where
+		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: json_ld_context_processing::ProcessMeta<I, B, M>,
+		L: Send + Sync,
+		L::Context: Into<C>
+	{
+		self.compact_full(vocabulary, context, loader, crate::Options::default())
+	}
+
+	/// Compacts the input document.
+	fn compact<
+		'a,
+		C,
+		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
+	>(
+		&'a self,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		loader: &'a mut L,
+	) -> futures::future::BoxFuture<
+		'a,
+		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
+	>
+	where
+		(): Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		C: json_ld_context_processing::ProcessMeta<I, B, M>,
+		L: Send + Sync,
+		L::Context: Into<C>
+	{
+		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader)
+	}
 }
 
 impl<T: CompactMeta<I, B, M>, I, B, M> Compact<I, B, M> for Meta<T, M> {
