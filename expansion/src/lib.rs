@@ -1,3 +1,9 @@
+/// This library implements the [JSON-LD expansion algorithm](https://www.w3.org/TR/json-ld-api/#expansion-algorithms)
+/// for the [`json-ld` crate](https://crates.io/crates/json-ld).
+/// 
+/// # Usage
+/// 
+/// The expansion algorithm is provided by the [`Expand`] trait.
 use std::hash::Hash;
 
 use futures::future::{BoxFuture, FutureExt};
@@ -47,6 +53,62 @@ impl<B, N: BlankIdVocabulary<BlankId=B>, M, H> WarningHandler<B, N, M> for H whe
 {
 }
 
+/// Document expansion.
+/// 
+/// This trait provides the functions necessary to expand
+/// a JSON-LD document into an [`ExpandedDocument`].
+/// It is implemented by [`json_syntax::MetaValue`] representing
+/// a JSON object (ith its metadata) and [`RemoteDocument`].
+/// 
+/// # Example
+/// 
+/// ```
+/// # mod json_ld { pub use json_ld_syntax as syntax; pub use json_ld_core::{RemoteDocument, ExpandedDocument, NoLoader}; pub use json_ld_expansion::Expand; };
+/// 
+/// use iref::IriBuf;
+/// use rdf_types::BlankIdBuf;
+/// use static_iref::iri;
+/// use locspan::{Meta, Span};
+/// use json_ld::{syntax::Parse, RemoteDocument, Expand};
+/// 
+/// # #[async_std::test]
+/// # async fn example() {
+/// // Parse the input JSON(-LD) document.
+/// // Each fragment of the parsed value will be annotated (the metadata) with its
+/// // [`Span`] in the input text.
+/// let json = json_ld::syntax::Value::parse_str(
+/// 	r##"
+/// 	{
+/// 		"@graph": [
+/// 			{
+/// 				"http://example.org/vocab#a": {
+/// 					"@graph": [
+/// 						{
+/// 							"http://example.org/vocab#b": "Chapter One"
+/// 						}
+/// 					]
+/// 				}
+/// 			}
+/// 		]
+/// 	}
+/// 	"##,
+/// 	|span| span, // the metadata only consists of the `span`.
+/// )
+/// .unwrap();
+/// 
+/// // Prepare a dummy document loader using [`json_ld::NoLoader`],
+/// // since we won't need to load any remote document while expanding this one.
+/// let mut loader: json_ld::NoLoader<IriBuf, Span, json_ld::syntax::Value<Span>> =
+/// 	json_ld::NoLoader::new();
+/// 
+/// // The `expand` method returns an [`json_ld::ExpandedDocument`] (with the metadata).
+/// let _: Meta<json_ld::ExpandedDocument<IriBuf, BlankIdBuf, _>, _> =
+/// 	json
+/// 		.expand(&mut loader)
+/// 		.await
+/// 		.unwrap();
+/// # }
+/// ```
 pub trait Expand<T, B, M> {
 	fn expand_full<'a, N, C, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
