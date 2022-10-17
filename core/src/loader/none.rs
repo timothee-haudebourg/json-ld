@@ -51,7 +51,7 @@ impl<I: Send, T, M> Loader<I, M> for NoLoader<I, M, T> {
 	type Error = CannotLoad<I>;
 
 	#[inline(always)]
-	fn load_in<'a>(
+	fn load_with<'a>(
 		&'a mut self,
 		_namespace: &impl IriVocabulary<Iri=I>,
 		url: I,

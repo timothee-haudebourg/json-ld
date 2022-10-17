@@ -117,7 +117,7 @@ pub struct CompoundLiteral<T, B> {
 }
 
 impl<T: Clone, M> crate::object::Value<T, M> {
-	fn rdf_value_in<B, N: IriVocabularyMut<Iri=T>, G: id::Generator<T, B, M, N>>(
+	fn rdf_value_with<B, N: IriVocabularyMut<Iri=T>, G: id::Generator<T, B, M, N>>(
 		&self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -241,7 +241,7 @@ impl<T: Clone, B: Clone, M> Node<T, B, M> {
 }
 
 impl<T: Clone, B: Clone, M> Object<T, B, M> {
-	fn rdf_value_in<N: IriVocabularyMut<Iri=T>, G: id::Generator<T, B, M, N>>(
+	fn rdf_value_with<N: IriVocabularyMut<Iri=T>, G: id::Generator<T, B, M, N>>(
 		&self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -249,7 +249,7 @@ impl<T: Clone, B: Clone, M> Object<T, B, M> {
 	) -> Option<CompoundValue<T, B, M>> {
 		match self {
 			Self::Value(value) => value
-				.rdf_value_in(vocabulary, generator, rdf_direction)
+				.rdf_value_with(vocabulary, generator, rdf_direction)
 				.map(|compound_value| CompoundValue {
 					value: compound_value.value,
 					triples: compound_value.triples.map(CompoundValueTriples::Literal),
@@ -285,14 +285,14 @@ pub struct CompoundValue<'a, T, B, M> {
 }
 
 impl<'a, T: Clone, B: Clone, M> crate::quad::ObjectRef<'a, T, B, M> {
-	pub fn rdf_value_in<N: IriVocabularyMut<Iri=T>, G: id::Generator<T, B, M, N>>(
+	pub fn rdf_value_with<N: IriVocabularyMut<Iri=T>, G: id::Generator<T, B, M, N>>(
 		&self,
 		vocabulary: &mut N,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundValue<'a, T, B, M>> {
 		match self {
-			Self::Object(object) => object.rdf_value_in(vocabulary, generator, rdf_direction),
+			Self::Object(object) => object.rdf_value_with(vocabulary, generator, rdf_direction),
 			Self::Node(node) => node.rdf_value().map(|value| CompoundValue {
 				value,
 				triples: None,
@@ -484,7 +484,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 						Some(node) => {
 							if let Some(compound_value) =
 								node.object
-									.rdf_value_in(vocabulary, generator, rdf_direction)
+									.rdf_value_with(vocabulary, generator, rdf_direction)
 							{
 								let id = node.id.clone();
 

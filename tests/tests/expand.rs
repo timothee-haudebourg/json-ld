@@ -109,12 +109,12 @@ impl expand::Test {
 
 		match self.desc {
 			expand::Description::Positive { expect } => {
-				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
+				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 				let expanded = json_ld.expand_full(&mut vocabulary, &mut loader, options, ()).await.unwrap();
 				
 				let expect_iri = vocabulary.insert(expect);
 				let expected = loader
-					.load_in(&mut vocabulary, expect_iri)
+					.load_with(&mut vocabulary, expect_iri)
 					.await
 					.unwrap()
 					.into_document();
@@ -134,7 +134,7 @@ impl expand::Test {
 			expand::Description::Negative {
 				expected_error_code,
 			} => {
-				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
+				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 				let result: Result<_, _> = json_ld.expand_full(&mut vocabulary, &mut loader, options, ()).await;
 
 				match result {

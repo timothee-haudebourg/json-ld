@@ -525,21 +525,21 @@ async fn generate_test_suite(
 	use json_ld::{Loader, RdfQuads};
 
 	let json_ld = loader
-		.load_in(vocabulary, spec.suite)
+		.load_with(vocabulary, spec.suite)
 		.await
 		.map_err(Error::Load)?;
 
 	let mut expanded_json_ld: Meta<json_ld::ExpandedDocument<IriIndex, BlankIdIndex, _>, _> =
 		json_ld
-			.expand_in(vocabulary, &mut loader)
+			.expand_with(vocabulary, &mut loader)
 			.await
 			.map_err(Error::Expand)?;
 
 	let mut generator =
 		json_ld::id::generator::Blank::new(Location::new(IriIndex::Index(0), Span::default()));
-	expanded_json_ld.identify_all_in(vocabulary, &mut generator);
+	expanded_json_ld.identify_all_with(vocabulary, &mut generator);
 
-	let rdf_quads = expanded_json_ld.rdf_quads_in(vocabulary, &mut generator, None);
+	let rdf_quads = expanded_json_ld.rdf_quads_with(vocabulary, &mut generator, None);
 	let dataset: grdf::HashDataset<_, _, _, _> = rdf_quads.map(quad_to_owned).collect();
 
 	let mut tests = HashMap::new();

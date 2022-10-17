@@ -43,6 +43,8 @@ pub type ExpansionResult<T, B, M, L> = Result<
 	Meta<Error<M, <L as ContextLoader<T, M>>::ContextError>, M>,
 >;
 
+/// Handler for the possible warnings emmited during the expansion
+/// of a JSON-LD document.
 pub trait WarningHandler<B, N: BlankIdVocabulary<BlankId=B>, M>:
 	json_ld_core::warning::Handler<N, Meta<Warning<B>, M>>
 {
@@ -110,6 +112,15 @@ impl<B, N: BlankIdVocabulary<BlankId=B>, M, H> WarningHandler<B, N, M> for H whe
 /// # }
 /// ```
 pub trait Expand<T, B, M> {
+	/// Expand the document with full options.
+	/// 
+	/// The `vocabulary` is used to interpret identifiers.
+	/// The `context` is used as initial context.
+	/// The `base_url` is the initial base URL used to resolve relative IRI references.
+	/// The given `loader` is used to load remote documents (such as contexts)
+	/// imported by the input and required during expansion.
+	/// The `options` are used to tweak the expansion algorithm.
+	/// The `warning_handler` is called each time a warning is emitted during expansion.
 	fn expand_full<'a, N, C, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
@@ -117,7 +128,7 @@ pub trait Expand<T, B, M> {
 		base_url: Option<&'a T>,
 		loader: &'a mut L,
 		options: Options,
-		warnings: impl 'a + Send + WarningHandler<B, N, M>,
+		warnings_handler: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
 		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
@@ -130,7 +141,12 @@ pub trait Expand<T, B, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send;
 
-	fn expand_in<'a, L: Loader<T, M> + ContextLoader<T, M>>(
+	/// Expand the inupt JSON-LD document with the given `vocabulary`
+	/// to interpret identifiers.
+	/// 
+	/// The given `loader` is used to load remote documents (such as contexts)
+	/// imported by the input and required during expansion.
+	fn expand_with<'a, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<Iri=T, BlankId=B>),
 		loader: &'a mut L,
@@ -154,6 +170,10 @@ pub trait Expand<T, B, M> {
 		)
 	}
 
+	/// Expand the input JSON-LD document.
+	/// 
+	/// The given `loader` is used to load remote documents (such as contexts)
+	/// imported by the input and required during expansion.
 	fn expand<'a, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		loader: &'a mut L,
@@ -168,7 +188,7 @@ pub trait Expand<T, B, M> {
 		L::ContextError: Send,
 		(): VocabularyMut<Iri=T, BlankId=B>,
 	{
-		self.expand_in(vocabulary::no_vocabulary_mut(), loader)
+		self.expand_with(vocabulary::no_vocabulary_mut(), loader)
 	}
 }
 
@@ -180,7 +200,7 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 		base_url: Option<&'a T>,
 		loader: &'a mut L,
 		options: Options,
-		warnings: impl 'a + Send + WarningHandler<B, N, M>,
+		warnings_handler: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
 		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
@@ -195,7 +215,7 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 	{
 		async move {
 			document::expand(
-				vocabulary, self, context, base_url, loader, options, warnings,
+				vocabulary, self, context, base_url, loader, options, warnings_handler,
 			)
 			.await
 		}
@@ -211,7 +231,7 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
 		base_url: Option<&'a T>,
 		loader: &'a mut L,
 		options: Options,
-		warnings: impl 'a + Send + WarningHandler<B, N, M>,
+		warnings_handler: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
 		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
@@ -225,10 +245,10 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
 		L::ContextError: Send,
 	{
 		self.document()
-			.expand_full(vocabulary, context, base_url, loader, options, warnings)
+			.expand_full(vocabulary, context, base_url, loader, options, warnings_handler)
 	}
 
-	fn expand_in<'a, L: Loader<T, M> + ContextLoader<T, M>>(
+	fn expand_with<'a, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<Iri=T, BlankId=B>),
 		loader: &'a mut L,

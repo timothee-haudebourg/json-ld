@@ -191,7 +191,7 @@ where
 					// Set loaded context to the value of that entry.
 					if remote_contexts.push(context_iri.clone()) {
 						let loaded_context = loader
-							.load_context_in(vocabulary, context_iri.clone())
+							.load_context_with(vocabulary, context_iri.clone())
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(context_meta))?
 							.into_document()
@@ -254,7 +254,7 @@ where
 
 						// 5.6.4) Dereference import.
 						let import_context = loader
-							.load_context_in(vocabulary, import)
+							.load_context_with(vocabulary, import)
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(import_meta.clone()))?
 							.into_document()

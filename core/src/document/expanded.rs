@@ -62,7 +62,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	pub fn identify_all_in<N, G: id::Generator<T, B, M, N>>(
+	pub fn identify_all_with<N, G: id::Generator<T, B, M, N>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -75,7 +75,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		std::mem::swap(&mut self.0, &mut objects);
 
 		for mut object in objects {
-			object.identify_all_in(vocabulary, generator);
+			object.identify_all_with(vocabulary, generator);
 			self.0.insert(object);
 		}
 	}
@@ -87,7 +87,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Eq + Hash,
 		B: Eq + Hash,
 	{
-		self.identify_all_in(&mut (), generator)
+		self.identify_all_with(&mut (), generator)
 	}
 
 	/// Returns the set of all blank identifiers in the given document.

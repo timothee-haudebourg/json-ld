@@ -176,7 +176,7 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 			.await
 			.map_err(FlattenError::Expand)?;
 
-			let flattened_output = Flatten::flatten_in(
+			let flattened_output = Flatten::flatten_with(
 				expanded_input,
 				vocabulary,
 				generator,

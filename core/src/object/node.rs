@@ -182,7 +182,7 @@ impl<T, B, M> Node<T, B, M> {
 	}
 
 	/// Assigns an identifier to this node and every other node included in this one using the given `generator`.
-	pub fn identify_all_in<N, G: id::Generator<T, B, M, N>>(
+	pub fn identify_all_with<N, G: id::Generator<T, B, M, N>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -196,14 +196,14 @@ impl<T, B, M> Node<T, B, M> {
 
 		for (_, objects) in self.properties_mut() {
 			for object in objects {
-				object.identify_all_in(vocabulary, generator);
+				object.identify_all_with(vocabulary, generator);
 			}
 		}
 
 		if let Some(reverse_properties) = self.reverse_properties_mut() {
 			for (_, nodes) in reverse_properties.iter_mut() {
 				for node in nodes {
-					node.identify_all_in(vocabulary, generator);
+					node.identify_all_with(vocabulary, generator);
 				}
 			}
 		}
@@ -214,7 +214,7 @@ impl<T, B, M> Node<T, B, M> {
 	where
 		M: Clone,
 	{
-		self.identify_all_in(&mut (), generator)
+		self.identify_all_with(&mut (), generator)
 	}
 
 	/// Get the node's as an IRI if possible.

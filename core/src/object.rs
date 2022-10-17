@@ -137,7 +137,7 @@ impl<T, B, M> Object<T, B, M> {
 	}
 
 	/// Assigns an identifier to every node included in this object using the given `generator`.
-	pub fn identify_all_in<N, G: id::Generator<T, B, M, N>>(
+	pub fn identify_all_with<N, G: id::Generator<T, B, M, N>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -145,10 +145,10 @@ impl<T, B, M> Object<T, B, M> {
 		M: Clone,
 	{
 		match self {
-			Object::Node(n) => n.identify_all_in(vocabulary, generator),
+			Object::Node(n) => n.identify_all_with(vocabulary, generator),
 			Object::List(l) => {
 				for object in l {
-					object.identify_all_in(vocabulary, generator)
+					object.identify_all_with(vocabulary, generator)
 				}
 			}
 			_ => (),
@@ -159,7 +159,7 @@ impl<T, B, M> Object<T, B, M> {
 	where
 		M: Clone,
 	{
-		self.identify_all_in(&mut (), generator)
+		self.identify_all_with(&mut (), generator)
 	}
 
 	pub fn types(&self) -> Types<T, B, M> {

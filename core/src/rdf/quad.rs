@@ -80,7 +80,7 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriVocabularyMut<Iri=T>, M, G: id::Gener
 					};
 
 					if let Some(compound_value) =
-						object.rdf_value_in(self.vocabulary, self.generator, self.rdf_direction)
+						object.rdf_value_with(self.vocabulary, self.generator, self.rdf_direction)
 					{
 						if let Some(rdf_value_triples) = compound_value.triples {
 							self.compound_value = Some(Compound {
@@ -104,7 +104,7 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriVocabularyMut<Iri=T>, M, G: id::Gener
 }
 
 pub trait RdfQuads<T, B, M> {
-	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
 		vocabulary: &'n mut N,
 		generator: &'g mut G,
@@ -119,7 +119,7 @@ pub trait RdfQuads<T, B, M> {
 }
 
 impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
-	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
 		vocabulary: &'n mut N,
 		generator: &'g mut G,
@@ -150,7 +150,7 @@ impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
 }
 
 impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
-	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
 		vocabulary: &'n mut N,
 		generator: &'g mut G,
@@ -181,7 +181,7 @@ impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash, M> RdfQuads<T, B, M> for NodeMap<T, B, M> {
-	fn rdf_quads_in<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, M, N>>(
 		&self,
 		vocabulary: &'n mut N,
 		generator: &'g mut G,

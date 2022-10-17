@@ -67,7 +67,7 @@ impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Clone + Send, E> Lo
 	type Output = T;
 	type Error = Error<E>;
 
-	fn load_in<'a>(
+	fn load_with<'a>(
 		&'a mut self,
 		vocabulary: &'a (impl Sync + IriVocabulary<Iri=I>),
 		url: I,

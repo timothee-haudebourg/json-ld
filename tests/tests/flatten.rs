@@ -121,13 +121,13 @@ impl flatten::Test {
 
 		match self.desc {
 			flatten::Description::Positive { expect } => {
-				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
+				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 				let mut generator = json_ld::generator::Blank::new_with_prefix(locspan::Location::new(input, locspan::Span::default()), "b".to_string());
 				let flattened = json_ld.flatten_full(&mut vocabulary, &mut generator, context, &mut loader, options, ()).await.unwrap();
 				let flattened = RemoteDocument::new(Some(input), flattened);
 				
 				let expect = vocabulary.insert(expect);
-				let mut expect = loader.load_in(&mut vocabulary, expect).await.unwrap();
+				let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
 				expect.set_url(Some(input));
 					
 				let expand_options: json_ld::Options = json_ld::Options::default();
@@ -144,7 +144,7 @@ impl flatten::Test {
 			flatten::Description::Negative {
 				expected_error_code,
 			} => {
-				match loader.load_in(&mut vocabulary, input).await {
+				match loader.load_with(&mut vocabulary, input).await {
 					Ok(json_ld) => {
 						let mut generator = json_ld::generator::Blank::new_with_prefix(locspan::Location::new(input, locspan::Span::default()), "b".to_string());
 						let result = json_ld.flatten_full(&mut vocabulary, &mut generator, context, &mut loader, options, ()).await;

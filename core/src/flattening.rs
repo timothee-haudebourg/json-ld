@@ -35,14 +35,14 @@ pub trait FlattenMeta<I, B, M> {
 }
 
 pub trait Flatten<I, B, M> {
-	fn flatten_in<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_with<N, G: id::Generator<I, B, M, N>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
 		ordered: bool,
 	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B>;
 
-	fn flatten_unordered_in<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_unordered_with<N, G: id::Generator<I, B, M, N>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
@@ -50,7 +50,7 @@ pub trait Flatten<I, B, M> {
 }
 
 impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
-	fn flatten_in<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_with<N, G: id::Generator<I, B, M, N>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
@@ -59,7 +59,7 @@ impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
 		T::flatten_meta(self.0, self.1, vocabulary, generator, ordered)
 	}
 
-	fn flatten_unordered_in<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_unordered_with<N, G: id::Generator<I, B, M, N>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
@@ -77,7 +77,7 @@ impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M> 
 		ordered: bool,
 	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B> {
 		Ok(Meta(self
-			.generate_node_map_in(vocabulary, generator)?
+			.generate_node_map_with(vocabulary, generator)?
 			.flatten_with(vocabulary, ordered), meta))
 	}
 
@@ -88,7 +88,7 @@ impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M> 
 		generator: G,
 	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> {
 		Ok(Meta(self
-			.generate_node_map_in(vocabulary, generator)?
+			.generate_node_map_with(vocabulary, generator)?
 			.flatten_unordered(), meta))
 	}
 }

@@ -122,12 +122,12 @@ impl compact::Test {
 
 		match self.desc {
 			compact::Description::Positive { expect } => {
-				let json_ld = loader.load_in(&mut vocabulary, input).await.unwrap();
+				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 				let compacted = json_ld.compact_full(&mut vocabulary, context, &mut loader, options, ()).await.unwrap();
 				let compacted = RemoteDocument::new(Some(input), compacted);
 				
 				let expect = vocabulary.insert(expect);
-				let mut expect = loader.load_in(&mut vocabulary, expect).await.unwrap();
+				let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
 				expect.set_url(Some(input));
 					
 				let expand_options: json_ld::Options = json_ld::Options::default();
@@ -144,7 +144,7 @@ impl compact::Test {
 			compact::Description::Negative {
 				expected_error_code,
 			} => {
-				match loader.load_in(&mut vocabulary, input).await {
+				match loader.load_with(&mut vocabulary, input).await {
 					Ok(json_ld) => {
 						let result: Result<_, _> = json_ld.compact_full(&mut vocabulary, context, &mut loader, options, ()).await;
 
