@@ -4,7 +4,7 @@ use json_ld_core::{
 	context::inverse::{LangSelection, Selection, TypeSelection},
 	object, Container, Context, Indexed, Nullable, Object, ProcessingMode, Term, Type, Value,
 };
-use json_ld_syntax::{is_keyword_like, is_keyword};
+use json_ld_syntax::{is_keyword, is_keyword_like};
 use locspan::Meta;
 use rdf_types::Vocabulary;
 use std::hash::Hash;
@@ -14,8 +14,8 @@ pub struct IriConfusedWithPrefix;
 /// Compact the given term without considering any value.
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
-pub(crate) fn compact_iri<'a, I, B, M, C>(
-	vocabulary: &impl Vocabulary<Iri=I, BlankId=B>,
+pub(crate) fn compact_iri<I, B, M, C>(
+	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
 	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
@@ -38,8 +38,8 @@ where
 	)
 }
 
-pub(crate) fn compact_key<'a, I, B, M, C>(
-	vocabulary: &impl Vocabulary<Iri=I, BlankId=B>,
+pub(crate) fn compact_key<I, B, M, C>(
+	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
 	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
@@ -57,8 +57,8 @@ where
 /// Compact the given term considering the given value object.
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
-pub(crate) fn compact_iri_with<'a, I, B, M, C, O: object::Any<I, B, M>>(
-	vocabulary: &impl Vocabulary<Iri=I, BlankId=B>,
+pub(crate) fn compact_iri_with<I, B, M, C, O: object::Any<I, B, M>>(
+	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
 	active_context: &Context<I, B, C, M>,
 	var: Meta<&Term<I, B>, &M>,
 	value: &Indexed<O, M>,
@@ -85,8 +85,8 @@ where
 /// Compact the given term.
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
-pub(crate) fn compact_iri_full<'a, I, B, M, C, O: object::Any<I, B, M>>(
-	vocabulary: &impl Vocabulary<Iri=I, BlankId=B>,
+pub(crate) fn compact_iri_full<I, B, M, C, O: object::Any<I, B, M>>(
+	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
 	active_context: &Context<I, B, C, M>,
 	Meta(var, meta): Meta<&Term<I, B>, &M>,
 	value: Option<&Indexed<O, M>>,

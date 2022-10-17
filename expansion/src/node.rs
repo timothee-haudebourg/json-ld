@@ -10,8 +10,8 @@ use json_ld_context_processing::{
 use json_ld_core::{
 	object,
 	object::value::{Literal, LiteralString},
-	Container, Context, Indexed, IndexedObject, LangString, Node, Object, ProcessingMode,
-	Id, Term, Type, Value,
+	Container, Context, Id, Indexed, IndexedObject, LangString, Node, Object, ProcessingMode, Term,
+	Type, Value,
 };
 use json_ld_syntax::{ContainerKind, Keyword, LenientLanguageTagBuf, Nullable};
 use json_syntax::object::Entry;
@@ -47,7 +47,7 @@ pub(crate) async fn expand_node<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoad
 	warnings: W,
 ) -> Result<(Option<Indexed<Node<T, B, M>, M>>, W), Meta<Error<M, L::ContextError>, M>>
 where
-	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
@@ -135,7 +135,7 @@ fn expand_node_entries<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>,
 	mut warnings: W,
 ) -> BoxFuture<'a, NodeEntriesExpensionResult<T, B, M, L, W>>
 where
-	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
@@ -805,7 +805,8 @@ where
 										if let Some(index_definition) =
 											map_context.get(index.as_str())
 										{
-											if let Some(local_context) = index_definition.context() {
+											if let Some(local_context) = index_definition.context()
+											{
 												let base_url = index_definition.base_url().cloned();
 												map_context = Mown::Owned(
 													local_context
@@ -886,7 +887,7 @@ where
 												item_metadata.clone(),
 												Meta(graph, item_metadata.clone()),
 											)));
-											item = Meta(Object::Node(node).into(), item_metadata);
+											item = Meta(Object::node(node).into(), item_metadata);
 										}
 
 										if expanded_index.is_some() {
@@ -1105,7 +1106,7 @@ where
 										ev_metadata.clone(),
 										Meta(graph, ev_metadata.clone()),
 									)));
-									Meta(Object::Node(node).into(), ev_metadata)
+									Meta(Object::node(node).into(), ev_metadata)
 								})
 								.collect(),
 						);

@@ -1,8 +1,8 @@
 //! This library implements the [JSON-LD compaction algorithm](https://www.w3.org/TR/json-ld-api/#compaction-algorithms)
 //! for the [`json-ld` crate](https://crates.io/crates/json-ld).
-//! 
+//!
 //! # Usage
-//! 
+//!
 //! The compaction algorithm is provided by the [`Compact`] trait.
 use futures::future::{BoxFuture, FutureExt};
 use json_ld_context_processing::{
@@ -11,9 +11,9 @@ use json_ld_context_processing::{
 use json_ld_core::{
 	context::inverse::{LangSelection, TypeSelection},
 	object::Any,
-	Context, Indexed, Loader, ProcessingMode, Term, Value
+	Context, Indexed, Loader, ProcessingMode, Term, Value,
 };
-use json_ld_syntax::{ContainerKind, Keyword, ErrorCode};
+use json_ld_syntax::{ContainerKind, ErrorCode, Keyword};
 use json_syntax::object::Entry;
 use locspan::{Meta, Stripped};
 use mown::Mown;
@@ -46,7 +46,7 @@ impl<E> Error<E> {
 		match self {
 			Self::IriConfusedWithPrefix => ErrorCode::IriConfusedWithPrefix,
 			Self::InvalidNestValue => ErrorCode::InvalidNestValue,
-			Self::ContextProcessing(e) => e.code()
+			Self::ContextProcessing(e) => e.code(),
 		}
 	}
 }
@@ -62,6 +62,9 @@ impl<E> From<IriConfusedWithPrefix> for Error<E> {
 		Self::IriConfusedWithPrefix
 	}
 }
+
+pub type CompactFragmentResult<I, M, L> =
+	Result<json_syntax::MetaValue<M>, MetaError<M, <L as ContextLoader<I, M>>::ContextError>>;
 
 /// Compaction options.
 #[derive(Clone, Copy)]
@@ -130,9 +133,9 @@ pub trait CompactFragmentMeta<I, B, M> {
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -150,9 +153,9 @@ pub trait CompactFragment<I, B, M> {
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -166,9 +169,9 @@ pub trait CompactFragment<I, B, M> {
 		vocabulary: &'a mut N,
 		active_context: &'a Context<I, B, C, M>,
 		loader: &'a mut L,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -192,9 +195,9 @@ pub trait CompactFragment<I, B, M> {
 		&'a self,
 		active_context: &'a Context<I, B, C, M>,
 		loader: &'a mut L,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		(): VocabularyMut<Iri=I, BlankId=B>,
+		(): VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -223,9 +226,9 @@ impl<T: CompactFragmentMeta<I, B, M>, I, B, M> CompactFragment<I, B, M> for Meta
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -262,9 +265,9 @@ pub trait CompactIndexedFragment<I, B, M> {
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -283,9 +286,9 @@ impl<I, B, M, T: CompactIndexedFragment<I, B, M>> CompactFragmentMeta<I, B, M> f
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -317,9 +320,9 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -554,11 +557,11 @@ fn compact_collection_with<'a, T, O, I, B, M, C, N, L>(
 	active_property: Option<Meta<&'a str, &'a M>>,
 	loader: &'a mut L,
 	options: Options,
-) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 where
 	T: 'a + CompactFragment<I, B, M> + Send + Sync,
 	O: 'a + Iterator<Item = &'a T> + Send,
-	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
@@ -630,9 +633,9 @@ impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, 
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -662,9 +665,9 @@ impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, 
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -693,9 +696,9 @@ impl<T: CompactFragment<I, B, M>, I, B, M> CompactFragment<I, B, M> for Stripped
 		active_property: Option<Meta<&'a str, &'a M>>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,

@@ -6,8 +6,7 @@ use json_ld_context_processing::ProcessMeta;
 use json_ld_core::{
 	context::Nest,
 	object::{self, List},
-	Container, ContainerKind, Context, ContextLoader, Indexed, Loader, Node, Object, Id,
-	Term,
+	Container, ContainerKind, Context, ContextLoader, Id, Indexed, Loader, Node, Object, Term,
 };
 use json_ld_syntax::Keyword;
 use locspan::Meta;
@@ -27,7 +26,7 @@ async fn compact_property_list<I, B, M, C, N, L>(
 	options: Options,
 ) -> Result<(), MetaError<M, L::ContextError>>
 where
-	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
@@ -50,8 +49,7 @@ where
 	// If compacted item is not an array,
 	// then set `compacted_item` to an array containing only `compacted_item`.
 	if !compacted_item.is_array() {
-		let mut array = json_syntax::Array::default();
-		array.push(compacted_item);
+		let array = vec![compacted_item];
 		compacted_item = Meta(json_syntax::Value::Array(array), meta.clone())
 	}
 
@@ -133,7 +131,7 @@ async fn compact_property_graph<I, B, M, C, N, L>(
 	options: Options,
 ) -> Result<(), MetaError<M, L::ContextError>>
 where
-	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
@@ -466,7 +464,7 @@ pub async fn compact_property<'a, T, O, I, B, M, C, N, L>(
 where
 	T: 'a + object::Any<I, B, M> + Sync + Send,
 	O: IntoIterator<Item = &'a Meta<Indexed<T, M>, M>>,
-	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
@@ -816,7 +814,7 @@ where
 							// entry for @id from `expanded_item` for `element`.
 							if let Some(map) = compacted_item.as_object() {
 								if map.len() == 1 && map.get_unique("@id").ok().unwrap().is_some() {
-									let obj = Object::Node(Node::with_id(
+									let obj = Object::node(Node::with_id(
 										expanded_item.id_entry().unwrap().clone(),
 									));
 									compacted_item = obj
@@ -887,7 +885,7 @@ where
 			vocabulary,
 			active_context,
 			expanded_property.borrow(),
-			&Indexed::new(Object::Node(Node::new()), None),
+			&Indexed::new(Object::node(Node::new()), None),
 			true,
 			inside_reverse,
 			options,
@@ -909,10 +907,7 @@ where
 			add_value(
 				nest_result,
 				item_active_property.borrow().map(String::as_str),
-				Meta(
-					Vec::new().into(),
-					item_active_property.metadata().clone(),
-				),
+				Meta(Vec::new().into(), item_active_property.metadata().clone()),
 				true,
 			)
 		}

@@ -4,8 +4,8 @@ use json_ld_context_processing::{
 	Options as ProcessingOptions, Process, ProcessMeta, ProcessingMode,
 };
 use json_ld_core::{
-	object::node::TypeEntry, Container, ContainerKind, Context, ContextLoader, Loader, Node,
-	Id, Term, Type,
+	object::node::TypeEntry, Container, ContainerKind, Context, ContextLoader, Id, Loader, Node,
+	Term, Type,
 };
 use json_ld_syntax::{Entry, Keyword};
 use locspan::{Meta, Stripped};
@@ -30,7 +30,7 @@ pub async fn compact_indexed_node_with<I, B, M, C, N, L>(
 	options: Options,
 ) -> Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>
 where
-	N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
@@ -213,10 +213,7 @@ where
 		// Add an entry alias to result whose value is set to compacted value and continue
 		// to the next expanded property.
 		if let Some(key) = alias {
-			result.insert(
-				key.clone().cast(),
-				optional_string(compacted_value, id.metadata()),
-			);
+			result.insert(key.cast(), optional_string(compacted_value, id.metadata()));
 		}
 	}
 
@@ -418,7 +415,7 @@ fn compact_types<I, B, M, C, N, E>(
 	options: Options,
 ) -> Result<(), MetaError<M, E>>
 where
-	N: VocabularyMut<Iri=I, BlankId=B>,
+	N: VocabularyMut<Iri = I, BlankId = B>,
 	I: Clone + Hash + Eq,
 	B: Clone + Hash + Eq,
 	M: Clone,

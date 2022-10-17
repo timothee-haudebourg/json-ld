@@ -42,7 +42,7 @@ impl<M, E> Error<M, E> {
 			Self::InvalidNestValue => ErrorCode::InvalidNestValue,
 			Self::DuplicateKey(_) => ErrorCode::DuplicateKey,
 			Self::Literal(e) => e.code(),
-			Self::Value(e) => e.code()
+			Self::Value(e) => e.code(),
 		}
 	}
 }

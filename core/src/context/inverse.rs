@@ -331,21 +331,26 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq, L, M> From<&'a Context<T, B
 										// Otherwise, if term definition has both a language mapping
 										// and a direction mapping:
 										match (language, direction) {
-											(Nullable::Some(language), Nullable::Some(direction)) => {
-												lang_map.set(
-													Nullable::Some((
-														Some(language.as_ref()),
-														Some(*direction),
-													)),
-													term,
-												)
-											}
-											(Nullable::Some(language), Nullable::Null) => lang_map.set(
-												Nullable::Some((Some(language.as_ref()), None)),
+											(
+												Nullable::Some(language),
+												Nullable::Some(direction),
+											) => lang_map.set(
+												Nullable::Some((
+													Some(language.as_ref()),
+													Some(*direction),
+												)),
 												term,
 											),
+											(Nullable::Some(language), Nullable::Null) => lang_map
+												.set(
+													Nullable::Some((Some(language.as_ref()), None)),
+													term,
+												),
 											(Nullable::Null, Nullable::Some(direction)) => lang_map
-												.set(Nullable::Some((None, Some(*direction))), term),
+												.set(
+													Nullable::Some((None, Some(*direction))),
+													term,
+												),
 											(Nullable::Null, Nullable::Null) => {
 												lang_map.set(Nullable::Null, term)
 											}
@@ -366,8 +371,10 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq, L, M> From<&'a Context<T, B
 										// Otherwise, if term definition has a direction mapping (might
 										// be null):
 										match direction {
-											Nullable::Some(direction) => lang_map
-												.set(Nullable::Some((None, Some(*direction))), term),
+											Nullable::Some(direction) => lang_map.set(
+												Nullable::Some((None, Some(*direction))),
+												term,
+											),
 											Nullable::Null => {
 												lang_map.set(Nullable::Some((None, None)), term)
 											}

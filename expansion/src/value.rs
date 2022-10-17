@@ -1,9 +1,9 @@
 use crate::{expand_iri, ExpandedEntry, Warning, WarningHandler};
 use json_ld_core::{
 	object::value::{Literal, LiteralString},
-	Context, Indexed, IndexedObject, LangString, Object, Id, Term, ValidId, Value,
+	Context, Id, Indexed, IndexedObject, LangString, Object, Term, ValidId, Value,
 };
-use json_ld_syntax::{Direction, Keyword, LenientLanguageTagBuf, Nullable, ErrorCode};
+use json_ld_syntax::{Direction, ErrorCode, Keyword, LenientLanguageTagBuf, Nullable};
 use locspan::{At, Meta};
 use rdf_types::VocabularyMut;
 use std::fmt;
@@ -62,7 +62,7 @@ pub(crate) fn expand_value<'e, T, B, M, N, C, W>(
 	mut warnings: W,
 ) -> ValueExpansionResult<T, B, M, W>
 where
-	N: VocabularyMut<Iri=T, BlankId=B>,
+	N: VocabularyMut<Iri = T, BlankId = B>,
 	T: Clone + PartialEq,
 	B: Clone + PartialEq,
 	M: Clone,

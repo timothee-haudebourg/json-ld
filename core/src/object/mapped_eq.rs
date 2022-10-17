@@ -1,4 +1,4 @@
-use crate::{Indexed, Id, ValidId};
+use crate::{Id, Indexed, ValidId};
 use locspan::BorrowStripped;
 use std::collections::HashSet;
 use std::hash::Hash;

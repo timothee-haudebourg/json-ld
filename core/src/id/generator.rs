@@ -83,14 +83,13 @@ impl<M> Blank<M> {
 	}
 
 	pub fn next_blank_id(&mut self) -> BlankIdBuf {
-		let id =
-			unsafe { BlankIdBuf::new_unchecked(format!("_:{}{}", self.prefix, self.count)) };
+		let id = unsafe { BlankIdBuf::new_unchecked(format!("_:{}{}", self.prefix, self.count)) };
 		self.count += 1;
 		id
 	}
 }
 
-impl<T, B, M: Clone, N: BlankIdVocabularyMut<BlankId=B>> Generator<T, B, M, N> for Blank<M> {
+impl<T, B, M: Clone, N: BlankIdVocabularyMut<BlankId = B>> Generator<T, B, M, N> for Blank<M> {
 	fn next(&mut self, vocabulary: &mut N) -> Meta<ValidId<T, B>, M> {
 		Meta(
 			ValidId::Blank(vocabulary.insert_blank_id(&self.next_blank_id())),
@@ -161,7 +160,7 @@ impl<M: Clone> Uuid<M> {
 	feature = "uuid-generator-v4",
 	feature = "uuid-generator-v5"
 ))]
-impl<T, B, M: Clone, N: IriVocabularyMut<Iri=T>> Generator<T, B, M, N> for Uuid<M> {
+impl<T, B, M: Clone, N: IriVocabularyMut<Iri = T>> Generator<T, B, M, N> for Uuid<M> {
 	fn next(&mut self, vocabulary: &mut N) -> Meta<ValidId<T, B>, M> {
 		unsafe {
 			let mut buffer = Vec::with_capacity(uuid::adapter::Urn::LENGTH);

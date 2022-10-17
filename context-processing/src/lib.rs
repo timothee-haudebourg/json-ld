@@ -128,7 +128,7 @@ pub trait ProcessMeta<T, B, M>:
 {
 	/// Process the local context with specific options.
 	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		self: &'l Self,
+		&'l self,
 		meta: &'l M,
 		vocabulary: &'a mut N,
 		active_context: &'a Context<T, B, Self, M>,
@@ -139,7 +139,7 @@ pub trait ProcessMeta<T, B, M>:
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -150,6 +150,7 @@ pub trait Process<T, B, M>: Send + Sync {
 	type Stripped: Send + Sync;
 
 	/// Process the local context with specific options.
+	#[allow(clippy::type_complexity)]
 	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		vocabulary: &'a mut N,
@@ -160,13 +161,14 @@ pub trait Process<T, B, M>: Send + Sync {
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
 		L::Context: Into<Self::Stripped>;
 
 	/// Process the local context with specific options.
+	#[allow(clippy::type_complexity)]
 	fn process_with<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		vocabulary: &'a mut N,
@@ -176,7 +178,7 @@ pub trait Process<T, B, M>: Send + Sync {
 		options: Options,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -194,6 +196,7 @@ pub trait Process<T, B, M>: Send + Sync {
 
 	/// Process the local context with the given initial active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
+	#[allow(clippy::type_complexity)]
 	fn process<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		vocabulary: &'a mut N,
@@ -201,7 +204,7 @@ pub trait Process<T, B, M>: Send + Sync {
 		base_url: Option<T>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: 'a + Clone + PartialEq + Send + Sync,
 		B: 'a + Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -237,7 +240,7 @@ impl<C: ProcessMeta<T, B, M>, T, B, M: Send + Sync> Process<T, B, M> for Meta<C,
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone,

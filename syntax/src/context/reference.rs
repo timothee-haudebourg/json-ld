@@ -185,7 +185,7 @@ impl<'a, D> ContextRef<'a, D> {
 		D: AnyDefinition<M>,
 	{
 		match self {
-			Self::Definition(d) => ContextSubFragments::Definition(d.entries()),
+			Self::Definition(d) => ContextSubFragments::Definition(Box::new(d.entries())),
 			_ => ContextSubFragments::None,
 		}
 	}

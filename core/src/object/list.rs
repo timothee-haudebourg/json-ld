@@ -1,11 +1,11 @@
 use super::{Any, InvalidExpandedJson, MappedEq};
 use crate::{IndexedObject, TryFromJson};
+use contextual::WithContext;
 use derivative::Derivative;
 use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta};
 use locspan::{Meta, StrippedEq, StrippedPartialEq};
 use locspan_derive::StrippedHash;
-use rdf_types::{VocabularyMut, Vocabulary};
-use contextual::WithContext;
+use rdf_types::{Vocabulary, VocabularyMut};
 use std::hash::Hash;
 
 #[allow(clippy::derive_hash_xor_eq)]
@@ -76,7 +76,7 @@ impl<T, B, M> List<T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> List<T, B, M> {
 	pub(crate) fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		object: json_syntax::Object<M>,
 		list_entry: json_syntax::object::Entry<M>,
 	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
@@ -160,11 +160,16 @@ pub enum FragmentRef<'a, T, B, M> {
 	Value(EntryValueRef<'a, T, B, M>),
 }
 
-impl<T, B, M: Clone, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for List<T, B, M> {
+impl<T, B, M: Clone, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N>
+	for List<T, B, M>
+{
 	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
 		let mut obj = json_syntax::Object::new();
 
-		obj.insert(Meta("@list".into(), self.entry.key_metadata), self.entry.value.into_with(vocabulary).into_json());
+		obj.insert(
+			Meta("@list".into(), self.entry.key_metadata),
+			self.entry.value.into_with(vocabulary).into_json(),
+		);
 
 		Meta(obj.into(), meta)
 	}

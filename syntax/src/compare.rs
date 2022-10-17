@@ -1,4 +1,4 @@
-use json_syntax::{Value, MetaValue};
+use json_syntax::{MetaValue, Value};
 use locspan::Stripped;
 
 /// JSON-LD comparison.
@@ -34,11 +34,11 @@ impl<M> Compare for Value<M> {
 						for (other, selected) in b.iter().zip(selected.iter_mut()) {
 							if !*selected && item.compare(other) {
 								*selected = true;
-								continue 'next_item
+								continue 'next_item;
 							}
 						}
 
-						return false
+						return false;
 					}
 
 					true
@@ -52,10 +52,10 @@ impl<M> Compare for Value<M> {
 						match b.get_unique(&*entry.key).ok().expect("invalid JSON-LD") {
 							Some(value) => {
 								if !entry.value.compare(value) {
-									return false
+									return false;
 								}
 							}
-							None => return false
+							None => return false,
 						}
 					}
 
@@ -64,7 +64,7 @@ impl<M> Compare for Value<M> {
 					false
 				}
 			}
-			_ => false
+			_ => false,
 		}
 	}
 }

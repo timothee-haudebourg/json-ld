@@ -239,14 +239,14 @@ impl<'a> fmt::Display for KeyOrKeywordRef<'a> {
 
 pub enum KeyOrType {
 	Key(Key),
-	Type
+	Type,
 }
 
 impl KeyOrType {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Key(k) => k.as_str(),
-			Self::Type => "@type"
+			Self::Type => "@type",
 		}
 	}
 }
@@ -258,21 +258,21 @@ impl fmt::Display for KeyOrType {
 }
 pub enum KeyOrTypeRef<'a> {
 	Key(KeyRef<'a>),
-	Type
+	Type,
 }
 
 impl<'a> KeyOrTypeRef<'a> {
 	pub fn as_str(&self) -> &'a str {
 		match self {
 			Self::Key(k) => k.as_str(),
-			Self::Type => "@type"
+			Self::Type => "@type",
 		}
 	}
 
 	pub fn to_owned(&self) -> KeyOrType {
 		match self {
 			Self::Key(k) => KeyOrType::Key(KeyRef::to_owned(*k)),
-			Self::Type => KeyOrType::Type
+			Self::Type => KeyOrType::Type,
 		}
 	}
 }

@@ -1,9 +1,9 @@
 //! Nodes, lists and values.
-use crate::{id, Indexed, LenientLanguageTag, Id};
+use crate::{id, Id, Indexed, LenientLanguageTag};
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
-use json_ld_syntax::{Entry, Keyword, IntoJsonWithContextMeta};
+use json_ld_syntax::{Entry, IntoJsonWithContextMeta, Keyword};
 use json_syntax::Number;
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedHash, StrippedPartialEq};
 use locspan_derive::*;
@@ -120,13 +120,19 @@ pub enum Object<T = IriBuf, B = BlankIdBuf, M = ()> {
 	Value(Value<T, M>),
 
 	/// Node object.
-	Node(Node<T, B, M>),
+	Node(Box<Node<T, B, M>>),
 
 	/// List object.
 	List(List<T, B, M>),
 }
 
 impl<T, B, M> Object<T, B, M> {
+	/// Creates a new node object from a node.
+	#[inline(always)]
+	pub fn node(n: Node<T, B, M>) -> Self {
+		Self::Node(Box::new(n))
+	}
+
 	/// Identifier of the object, if it is a node object.
 	#[inline(always)]
 	pub fn id(&self) -> Option<&Meta<Id<T, B>, M>> {
@@ -225,7 +231,7 @@ impl<T, B, M> Object<T, B, M> {
 	#[inline(always)]
 	pub fn into_node(self) -> Option<Node<T, B, M>> {
 		match self {
-			Self::Node(n) => Some(n),
+			Self::Node(n) => Some(*n),
 			_ => None,
 		}
 	}
@@ -393,7 +399,7 @@ impl<T, B, M> Indexed<Object<T, B, M>, M> {
 		match obj {
 			Object::Node(n) => match n.into_unnamed_graph() {
 				Ok(g) => Ok(g.value),
-				Err(n) => Err(Indexed::new(Object::Node(n), index)),
+				Err(n) => Err(Indexed::new(Object::node(n), index)),
 			},
 			obj => Err(Indexed::new(obj, index)),
 		}
@@ -421,13 +427,7 @@ impl<'a, T, B, M> Iterator for Entries<'a, T, B, M> {
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let len = match self {
 			Self::Value(v) => v.len(),
-			Self::List(l) => {
-				if l.is_some() {
-					1
-				} else {
-					0
-				}
-			}
+			Self::List(l) => usize::from(l.is_some()),
 			Self::Node(n) => n.len(),
 		};
 
@@ -456,7 +456,7 @@ impl<'a, T, B, M> Iterator for IndexedEntries<'a, T, B, M> {
 	type Item = IndexedEntryRef<'a, T, B, M>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		let len = self.inner.len() + if self.index.is_some() { 1 } else { 0 };
+		let len = self.inner.len() + usize::from(self.index.is_some());
 		(len, Some(len))
 	}
 
@@ -512,7 +512,9 @@ impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B, M> {
+impl<'a, T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, N>
+	for EntryKeyRef<'a, T, B, M>
+{
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
 		match self {
 			EntryKeyRef::Value(e) => e.into_str(),
@@ -621,7 +623,7 @@ impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoRefWithContext<'a, str, N>
+impl<'a, T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, N>
 	for IndexedEntryKeyRef<'a, T, B, M>
 {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
@@ -699,21 +701,21 @@ impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
 
 pub trait TryFromJson<T, B, M>: Sized {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		value: Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>>;
 }
 
 pub trait TryFromJsonObject<T, B, M>: Sized {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		object: Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>>;
 }
 
 impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Stripped<V> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		value: Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let Meta(v, meta) = V::try_from_json_in(vocabulary, value)?;
@@ -723,7 +725,7 @@ impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Stripped<V> {
 
 impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Vec<Meta<V, M>> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -745,7 +747,7 @@ impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T
 	for HashSet<Stripped<Meta<V, M>>>
 {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -765,7 +767,7 @@ impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Object<T, B, M> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -779,7 +781,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Object<T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Object<T, B, M> {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		Meta(mut object, meta): Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match object
@@ -816,7 +818,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Object<T, B, 
 				} else {
 					let Meta(node, meta) =
 						Node::try_from_json_object_in(vocabulary, Meta(object, meta))?;
-					Ok(Meta(Self::Node(node), meta))
+					Ok(Meta(Self::node(node), meta))
 				}
 			}
 		}
@@ -873,7 +875,7 @@ impl<T, B, M> From<Value<T, M>> for Object<T, B, M> {
 impl<T, B, M> From<Node<T, B, M>> for Object<T, B, M> {
 	#[inline(always)]
 	fn from(node: Node<T, B, M>) -> Self {
-		Self::Node(node)
+		Self::node(node)
 	}
 }
 
@@ -1004,7 +1006,7 @@ impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
 
 	pub fn into_id(self) -> Option<Id<&'a T, &'a B>> {
 		match self {
-			Self::ValueFragment(i) => i.into_iri().map(Id::id),
+			Self::ValueFragment(i) => i.into_iri().map(Id::iri),
 			Self::NodeFragment(i) => i.into_id().map(Meta::into_value).map(Into::into),
 			_ => None,
 		}
@@ -1012,7 +1014,7 @@ impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
 
 	pub fn as_id(&self) -> Option<Id<&'a T, &'a B>> {
 		match self {
-			Self::ValueFragment(i) => i.as_iri().map(Id::id),
+			Self::ValueFragment(i) => i.as_iri().map(Id::iri),
 			Self::NodeFragment(i) => i.as_id().map(Into::into),
 			_ => None,
 		}
@@ -1132,12 +1134,14 @@ impl<'a, T, B, M> Iterator for Traverse<'a, T, B, M> {
 	}
 }
 
-impl<T, B, M: Clone, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for Object<T, B, M> {
+impl<T, B, M: Clone, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N>
+	for Object<T, B, M>
+{
 	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
 		match self {
 			Self::Value(v) => v.into_json_meta_with(meta, vocabulary),
 			Self::Node(n) => n.into_json_meta_with(meta, vocabulary),
-			Self::List(l) => l.into_json_meta_with(meta, vocabulary)
+			Self::List(l) => l.into_json_meta_with(meta, vocabulary),
 		}
 	}
 }

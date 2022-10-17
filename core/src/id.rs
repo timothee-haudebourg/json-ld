@@ -32,7 +32,7 @@ pub enum Id<I = IriBuf, B = BlankIdBuf> {
 
 impl<I, B, M> TryFromJson<I, B, M> for Id<I, B> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<Iri=I, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>,
 		Meta(value, meta): locspan::Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, locspan::Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -67,15 +67,18 @@ impl<I: From<IriBuf>, B: From<BlankIdBuf>> Id<I, B> {
 }
 
 impl<I, B> Id<I, B> {
-	pub fn id(id: I) -> Self {
-		Self::Valid(ValidId::Iri(id))
+	pub fn iri(iri: I) -> Self {
+		Self::Valid(ValidId::Iri(iri))
 	}
 
 	pub fn blank(b: B) -> Self {
 		Self::Valid(ValidId::Blank(b))
 	}
 
-	pub fn from_string_in(vocabulary: &mut impl VocabularyMut<Iri=I, BlankId=B>, s: String) -> Self {
+	pub fn from_string_in(
+		vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>,
+		s: String,
+	) -> Self {
 		match Iri::new(&s) {
 			Ok(iri) => Self::Valid(ValidId::Iri(vocabulary.insert(iri))),
 			Err(_) => match BlankId::new(&s) {
@@ -140,13 +143,11 @@ impl<I: AsRef<str>, B: AsRef<str>> Id<I, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> AsRefWithContext<str, N> for Id<T, B> {
+impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> AsRefWithContext<str, N> for Id<T, B> {
 	fn as_ref_with<'a>(&'a self, vocabulary: &'a N) -> &'a str {
 		match self {
 			Id::Valid(ValidId::Iri(id)) => vocabulary.iri(id).unwrap().into_str(),
-			Id::Valid(ValidId::Blank(id)) => {
-				vocabulary.blank_id(id).unwrap().as_str()
-			}
+			Id::Valid(ValidId::Blank(id)) => vocabulary.blank_id(id).unwrap().as_str(),
 			Id::Invalid(id) => id.as_str(),
 		}
 	}
@@ -175,9 +176,7 @@ impl<'a, T, B> From<&'a Id<T, B>> for Id<&'a T, &'a B> {
 	fn from(r: &'a Id<T, B>) -> Id<&'a T, &'a B> {
 		match r {
 			Id::Valid(ValidId::Iri(id)) => Id::Valid(ValidId::Iri(id)),
-			Id::Valid(ValidId::Blank(id)) => {
-				Id::Valid(ValidId::Blank(id))
-			}
+			Id::Valid(ValidId::Blank(id)) => Id::Valid(ValidId::Blank(id)),
 			Id::Invalid(id) => Id::Invalid(id.clone()),
 		}
 	}
@@ -232,7 +231,7 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for Id<T, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> DisplayWithContext<N> for Id<T, B> {
+impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for Id<T, B> {
 	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		use fmt::Display;
 		match self {
@@ -251,7 +250,7 @@ impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Id<T, B> {
 	}
 }
 
-impl<T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for Id<T, B> {
+impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N> for Id<T, B> {
 	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
 		Meta(self.into_with(context).to_string().into(), meta)
 	}
@@ -415,7 +414,7 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for ValidId<T, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<Iri=T, BlankId=B>> DisplayWithContext<N> for ValidId<T, B> {
+impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for ValidId<T, B> {
 	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		use fmt::Display;
 		match self {
@@ -435,7 +434,7 @@ impl<T: fmt::Display, B: fmt::Display> crate::rdf::Display for ValidId<T, B> {
 	}
 }
 
-impl<T, B, M, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for ValidId<T, B> {
+impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N> for ValidId<T, B> {
 	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
 		Meta(self.into_with(context).to_string().into(), meta)
 	}

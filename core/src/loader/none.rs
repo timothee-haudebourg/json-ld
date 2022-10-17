@@ -11,11 +11,9 @@ use std::marker::PhantomData;
 /// Can be useful when you know that you will never need to load remote resource.
 ///
 /// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
-pub struct NoLoader<
-	I = Index,
-	M = locspan::Location<I>,
-	T = json_ld_syntax::Value<M>,
->(PhantomData<(I, M, T)>);
+pub struct NoLoader<I = Index, M = locspan::Location<I>, T = json_ld_syntax::Value<M>>(
+	PhantomData<(I, M, T)>,
+);
 
 #[derive(Debug)]
 pub struct CannotLoad<I>(I);
@@ -53,7 +51,7 @@ impl<I: Send, T, M> Loader<I, M> for NoLoader<I, M, T> {
 	#[inline(always)]
 	fn load_with<'a>(
 		&'a mut self,
-		_namespace: &impl IriVocabulary<Iri=I>,
+		_namespace: &impl IriVocabulary<Iri = I>,
 		url: I,
 	) -> BoxFuture<'a, Result<RemoteDocument<I, M, T>, Self::Error>>
 	where

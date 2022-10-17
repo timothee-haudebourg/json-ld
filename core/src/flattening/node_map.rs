@@ -1,7 +1,5 @@
 use super::Environment;
-use crate::{
-	id, object, ExpandedDocument, Indexed, IndexedNode, IndexedObject, Node, Object, Id,
-};
+use crate::{id, object, ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object};
 use derivative::Derivative;
 use json_ld_syntax::Entry;
 use locspan::{BorrowStripped, Meta, Stripped};
@@ -91,10 +89,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMap<T, B, M> {
 		}
 	}
 
-	pub fn graph_mut(
-		&mut self,
-		id: Option<&Id<T, B>>,
-	) -> Option<&mut NodeMapGraph<T, B, M>> {
+	pub fn graph_mut(&mut self, id: Option<&Id<T, B>>) -> Option<&mut NodeMapGraph<T, B, M>> {
 		match id {
 			Some(id) => self.graphs.get_mut(id).map(NamedNodeMapGraph::as_graph_mut),
 			None => Some(&mut self.default_graph),
@@ -132,10 +127,7 @@ pub struct Iter<'a, T, B, M> {
 }
 
 impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
-	type Item = (
-		Option<Meta<&'a Id<T, B>, &'a M>>,
-		&'a NodeMapGraph<T, B, M>,
-	);
+	type Item = (Option<Meta<&'a Id<T, B>, &'a M>>, &'a NodeMapGraph<T, B, M>);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
@@ -149,10 +141,7 @@ impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
 }
 
 impl<'a, T, B, M> IntoIterator for &'a NodeMap<T, B, M> {
-	type Item = (
-		Option<Meta<&'a Id<T, B>, &'a M>>,
-		&'a NodeMapGraph<T, B, M>,
-	);
+	type Item = (Option<Meta<&'a Id<T, B>, &'a M>>, &'a NodeMapGraph<T, B, M>);
 	type IntoIter = Iter<'a, T, B, M>;
 
 	fn into_iter(self) -> Self::IntoIter {
@@ -426,7 +415,7 @@ fn extend_node_map<
 				element.index_entry(),
 				active_graph,
 			)?;
-			Ok(Meta(flat_node.map_inner(Object::Node), meta.clone()))
+			Ok(Meta(flat_node.map_inner(Object::node), meta.clone()))
 		}
 	}
 }
@@ -543,7 +532,7 @@ fn extend_node_map_from_node<
 					property.cloned(),
 					Meta(
 						Indexed::new(
-							Object::Node(Node::with_id(Entry::new(
+							Object::node(Node::with_id(Entry::new(
 								id.metadata().clone(),
 								id.clone(),
 							))),

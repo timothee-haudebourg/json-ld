@@ -1,4 +1,4 @@
-use json_ld_syntax::{Nullable, context::definition::TypeContainer};
+use json_ld_syntax::{context::definition::TypeContainer, Nullable};
 use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
 
@@ -220,7 +220,7 @@ impl From<ContainerKind> for Container {
 impl From<TypeContainer> for Container {
 	fn from(c: TypeContainer) -> Self {
 		match c {
-			TypeContainer::Set => Container::Set
+			TypeContainer::Set => Container::Set,
 		}
 	}
 }

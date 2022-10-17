@@ -11,13 +11,29 @@ pub trait IntoJsonWithContextMeta<M, N>: Sized {
 
 impl<T: IntoJsonWithContext<M, N>, M, N> IntoJsonWithContextMeta<M, N> for Vec<T> {
 	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
-		Meta(json_syntax::Value::Array(self.into_iter().map(|item| item.into_json_with(context)).collect()), meta)
+		Meta(
+			json_syntax::Value::Array(
+				self.into_iter()
+					.map(|item| item.into_json_with(context))
+					.collect(),
+			),
+			meta,
+		)
 	}
 }
 
-impl<T: IntoJsonWithContext<M, N>, M, N> IntoJsonWithContextMeta<M, N> for std::collections::HashSet<T> {
+impl<T: IntoJsonWithContext<M, N>, M, N> IntoJsonWithContextMeta<M, N>
+	for std::collections::HashSet<T>
+{
 	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
-		Meta(json_syntax::Value::Array(self.into_iter().map(|item| item.into_json_with(context)).collect()), meta)
+		Meta(
+			json_syntax::Value::Array(
+				self.into_iter()
+					.map(|item| item.into_json_with(context))
+					.collect(),
+			),
+			meta,
+		)
 	}
 }
 
@@ -329,7 +345,7 @@ impl<M> IntoJsonMeta<M> for context::TermDefinition<M> {
 	fn into_json_meta(self, meta: M) -> Meta<json_syntax::Value<M>, M> {
 		match self {
 			Self::Simple(s) => context::term_definition::Simple::into_json_meta(s, meta),
-			Self::Expanded(e) => context::term_definition::Expanded::into_json_meta(e, meta),
+			Self::Expanded(e) => context::term_definition::Expanded::into_json_meta(*e, meta),
 		}
 	}
 }

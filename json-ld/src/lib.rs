@@ -14,7 +14,7 @@
 //! help Web applications to inter-operate at a large scale.
 //!
 //! # State of the crate
-//! 
+//!
 //! This new version of the crate includes many breaking changes
 //! that are not yet documented. Some functions may still be renamed,
 //! which is why the latest release is still flagged as `beta`.

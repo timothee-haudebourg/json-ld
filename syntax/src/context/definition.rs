@@ -202,7 +202,7 @@ impl<'a, M, C> FragmentRef<'a, M, C> {
 		M: Clone,
 	{
 		match self {
-			Self::Entry(e) => SubItems::Entry(Some(e.key()), Some(e.value())),
+			Self::Entry(e) => SubItems::Entry(Some(e.key()), Some(Box::new(e.value()))),
 			Self::Key(_) => SubItems::None,
 			Self::Value(v) => SubItems::Value(v.sub_items()),
 			Self::TermDefinitionFragment(f) => SubItems::TermDefinitionFragment(f.sub_fragments()),
@@ -212,7 +212,7 @@ impl<'a, M, C> FragmentRef<'a, M, C> {
 
 pub enum EntryValueSubItems<'a, M, C> {
 	None,
-	TermDefinitionFragment(term_definition::Entries<'a, M, C>),
+	TermDefinitionFragment(Box<term_definition::Entries<'a, M, C>>),
 }
 
 impl<'a, M, C> Iterator for EntryValueSubItems<'a, M, C> {
@@ -230,7 +230,10 @@ impl<'a, M, C> Iterator for EntryValueSubItems<'a, M, C> {
 
 pub enum SubItems<'a, M, C> {
 	None,
-	Entry(Option<EntryKeyRef<'a>>, Option<EntryValueRef<'a, M, C>>),
+	Entry(
+		Option<EntryKeyRef<'a>>,
+		Option<Box<EntryValueRef<'a, M, C>>>,
+	),
 	Value(EntryValueSubItems<'a, M, C>),
 	TermDefinitionFragment(term_definition::SubFragments<'a, M, C>),
 }
@@ -244,7 +247,7 @@ impl<'a, M, C> Iterator for SubItems<'a, M, C> {
 			Self::Entry(k, v) => k
 				.take()
 				.map(FragmentRef::Key)
-				.or_else(|| v.take().map(FragmentRef::Value)),
+				.or_else(|| v.take().map(|v| FragmentRef::Value(*v))),
 			Self::Value(d) => d.next(),
 			Self::TermDefinitionFragment(d) => d.next().map(FragmentRef::TermDefinitionFragment),
 		}

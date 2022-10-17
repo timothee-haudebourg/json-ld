@@ -1,12 +1,17 @@
-use crate::{RemoteDocumentReference, Loader, ContextLoader, RemoteDocument, Context, id::Generator, Flatten};
-use crate::syntax;
+use super::{
+	compact_expanded_full, CompactError, CompactResult, CompareResult, ExpandError, ExpandResult,
+	FlattenError, FlattenResult, JsonLdProcessor, Options,
+};
 use crate::context_processing::{self, Process, ProcessMeta};
 use crate::expansion::{self, Expand};
-use super::{JsonLdProcessor, Options, ExpandResult, ExpandError, CompactError, FlattenError, compact_expanded_full};
+use crate::syntax;
+use crate::{
+	id::Generator, Context, ContextLoader, Flatten, Loader, RemoteDocument, RemoteDocumentReference,
+};
+use contextual::WithContext;
 use futures::future::{BoxFuture, FutureExt};
 use locspan::BorrowStripped;
 use rdf_types::VocabularyMut;
-use contextual::WithContext;
 use std::hash::Hash;
 
 impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>> {
@@ -20,28 +25,38 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 			+ Send
 			+ context_processing::WarningHandler<N, M>
 			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<Result<bool, ExpandError<M, L::Error, L::ContextError>>>
+	) -> BoxFuture<CompareResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
 		L::Context: Into<C>,
-		L::ContextError: Send
+		L::ContextError: Send,
 	{
 		async move {
 			if json_ld_syntax::Compare::compare(self.document(), other.document()) {
-				let a = JsonLdProcessor::expand_full(self, vocabulary, loader, options.clone(), &mut warnings).await?;
-				let b = JsonLdProcessor::expand_full(other, vocabulary, loader, options, &mut warnings).await?;
+				let a = JsonLdProcessor::expand_full(
+					self,
+					vocabulary,
+					loader,
+					options.clone(),
+					&mut warnings,
+				)
+				.await?;
+				let b =
+					JsonLdProcessor::expand_full(other, vocabulary, loader, options, &mut warnings)
+						.await?;
 				Ok(a.stripped() == b.stripped())
 			} else {
 				Ok(false)
 			}
-		}.boxed()
+		}
+		.boxed()
 	}
 
 	fn expand_full<'a, B, C, N, L>(
@@ -53,12 +68,12 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 			+ Send
 			+ context_processing::WarningHandler<N, M>
 			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<ExpandResult<I, B, M, L::Error, L::ContextError>>
+	) -> BoxFuture<ExpandResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
@@ -71,7 +86,10 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 
 			let active_context = match options.expand_context.take() {
 				Some(expand_context) => expand_context
-					.load_context_with(vocabulary, loader).await.map_err(ExpandError::ContextLoading)?.into_document()
+					.load_context_with(vocabulary, loader)
+					.await
+					.map_err(ExpandError::ContextLoading)?
+					.into_document()
 					.process_full(
 						vocabulary,
 						&active_context,
@@ -92,12 +110,13 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 				.expand_full(
 					vocabulary,
 					active_context,
-					self.url().or_else(|| options.base.as_ref()),
+					self.url().or(options.base.as_ref()),
 					loader,
 					options.expansion_options(),
 					warnings,
 				)
-				.await.map_err(ExpandError::Expansion)
+				.await
+				.map_err(ExpandError::Expansion)
 		}
 		.boxed()
 	}
@@ -112,12 +131,12 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 			+ Send
 			+ context_processing::WarningHandler<N, M>
 			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, CompactError<M, L::Error, L::ContextError>>>
+	) -> BoxFuture<'a, CompactResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
@@ -136,7 +155,16 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 			.await
 			.map_err(CompactError::Expand)?;
 
-			compact_expanded_full(&expanded_input, self.url(), vocabulary, context, loader, options, warnings).await
+			compact_expanded_full(
+				&expanded_input,
+				self.url(),
+				vocabulary,
+				context,
+				loader,
+				options,
+				warnings,
+			)
+			.await
 		}
 		.boxed()
 	}
@@ -152,18 +180,18 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 			+ Send
 			+ context_processing::WarningHandler<N, M>
 			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, FlattenError<I, B, M, L::Error, L::ContextError>>>
+	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
 		L::Context: Into<C>,
-		L::ContextError: Send
+		L::ContextError: Send,
 	{
 		async move {
 			let expanded_input = JsonLdProcessor::expand_full(
@@ -176,22 +204,28 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 			.await
 			.map_err(FlattenError::Expand)?;
 
-			let flattened_output = Flatten::flatten_with(
-				expanded_input,
-				vocabulary,
-				generator,
-				options.ordered
-			).map_err(FlattenError::ConflictingIndexes)?;
+			let flattened_output =
+				Flatten::flatten_with(expanded_input, vocabulary, generator, options.ordered)
+					.map_err(FlattenError::ConflictingIndexes)?;
 
 			match context {
-				Some(context) => {
-					compact_expanded_full(&flattened_output, self.url(), vocabulary, context, loader, options, warnings).await.map_err(FlattenError::Compact)
-				}
-				None => {
-					Ok(json_ld_syntax::IntoJson::into_json(flattened_output.into_with(vocabulary)))
-				}
+				Some(context) => compact_expanded_full(
+					&flattened_output,
+					self.url(),
+					vocabulary,
+					context,
+					loader,
+					options,
+					warnings,
+				)
+				.await
+				.map_err(FlattenError::Compact),
+				None => Ok(json_ld_syntax::IntoJson::into_json(
+					flattened_output.into_with(vocabulary),
+				)),
 			}
-		}.boxed()
+		}
+		.boxed()
 	}
 }
 
@@ -206,23 +240,37 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 			+ Send
 			+ context_processing::WarningHandler<N, M>
 			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<Result<bool, ExpandError<M, L::Error, L::ContextError>>>
+	) -> BoxFuture<CompareResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
 		L::Context: Into<C>,
-		L::ContextError: Send
+		L::ContextError: Send,
 	{
 		async move {
-			let a = self.loaded_with(vocabulary, loader).await.map_err(ExpandError::Loading)?;
-			let b = other.loaded_with(vocabulary, loader).await.map_err(ExpandError::Loading)?;
-			JsonLdProcessor::compare_full(a.as_ref(), b.as_ref(), vocabulary, loader, options, warnings).await
+			let a = self
+				.loaded_with(vocabulary, loader)
+				.await
+				.map_err(ExpandError::Loading)?;
+			let b = other
+				.loaded_with(vocabulary, loader)
+				.await
+				.map_err(ExpandError::Loading)?;
+			JsonLdProcessor::compare_full(
+				a.as_ref(),
+				b.as_ref(),
+				vocabulary,
+				loader,
+				options,
+				warnings,
+			)
+			.await
 		}
 		.boxed()
 	}
@@ -236,12 +284,12 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 			+ Send
 			+ context_processing::WarningHandler<N, M>
 			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<ExpandResult<I, B, M, L::Error, L::ContextError>>
+	) -> BoxFuture<ExpandResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
@@ -250,7 +298,10 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		L::ContextError: Send,
 	{
 		async move {
-			let doc = self.loaded_with(vocabulary, loader).await.map_err(ExpandError::Loading)?;
+			let doc = self
+				.loaded_with(vocabulary, loader)
+				.await
+				.map_err(ExpandError::Loading)?;
 			JsonLdProcessor::expand_full(doc.as_ref(), vocabulary, loader, options, warnings).await
 		}
 		.boxed()
@@ -266,12 +317,12 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 			+ Send
 			+ context_processing::WarningHandler<N, M>
 			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, CompactError<M, L::Error, L::ContextError>>>
+	) -> BoxFuture<'a, CompactResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
@@ -280,8 +331,19 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		L::ContextError: Send,
 	{
 		async move {
-			let doc = self.loaded_with(vocabulary, loader).await.map_err(CompactError::Loading)?;
-			JsonLdProcessor::compact_full(doc.as_ref(), vocabulary, context, loader, options, warnings).await
+			let doc = self
+				.loaded_with(vocabulary, loader)
+				.await
+				.map_err(CompactError::Loading)?;
+			JsonLdProcessor::compact_full(
+				doc.as_ref(),
+				vocabulary,
+				context,
+				loader,
+				options,
+				warnings,
+			)
+			.await
 		}
 		.boxed()
 	}
@@ -297,22 +359,34 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 			+ Send
 			+ context_processing::WarningHandler<N, M>
 			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, Result<json_syntax::MetaValue<M>, FlattenError<I, B, M, L::Error, L::ContextError>>>
+	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
-		N: Send + Sync + VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
 		L::Context: Into<C>,
-		L::ContextError: Send
+		L::ContextError: Send,
 	{
 		async move {
-			let doc = self.loaded_with(vocabulary, loader).await.map_err(FlattenError::Loading)?;
-			JsonLdProcessor::flatten_full(doc.as_ref(), vocabulary, generator, context, loader, options, warnings).await
+			let doc = self
+				.loaded_with(vocabulary, loader)
+				.await
+				.map_err(FlattenError::Loading)?;
+			JsonLdProcessor::flatten_full(
+				doc.as_ref(),
+				vocabulary,
+				generator,
+				context,
+				loader,
+				options,
+				warnings,
+			)
+			.await
 		}
 		.boxed()
 	}

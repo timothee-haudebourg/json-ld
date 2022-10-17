@@ -3,7 +3,7 @@ use json_ld_core::{
 	object::value::{Literal, LiteralString},
 	Context, IndexedObject, LangString, Node, Object, Type, Value,
 };
-use json_ld_syntax::{context, Entry, LenientLanguageTag, Nullable, ErrorCode};
+use json_ld_syntax::{context, Entry, ErrorCode, LenientLanguageTag, Nullable};
 use json_syntax::Number;
 use locspan::{At, Meta};
 use rdf_types::VocabularyMut;
@@ -68,7 +68,7 @@ pub enum LiteralExpansionError {
 impl LiteralExpansionError {
 	pub fn code(&self) -> ErrorCode {
 		match self {
-			Self::InvalidTypeValue => ErrorCode::InvalidTypeValue
+			Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
 		}
 	}
 }
@@ -97,7 +97,7 @@ where
 	T: Clone,
 	B: Clone,
 	M: Clone,
-	N: VocabularyMut<Iri=T, BlankId=B>,
+	N: VocabularyMut<Iri = T, BlankId = B>,
 {
 	let active_property_definition = active_property.get_from(active_context);
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
@@ -124,7 +124,7 @@ where
 			));
 
 			node.set_id(id.map(|id| Entry::new(id.metadata().clone(), id)));
-			Ok(Meta(Object::Node(node).into(), meta.clone()))
+			Ok(Meta(Object::node(node).into(), meta.clone()))
 		}
 
 		// If `active_property` has a type mapping in active context that is `@vocab`, and the
@@ -143,7 +143,7 @@ where
 			));
 
 			node.set_id(id.map(|id| Entry::new(id.metadata().clone(), id)));
-			Ok(Meta(Object::Node(node).into(), meta.clone()))
+			Ok(Meta(Object::node(node).into(), meta.clone()))
 		}
 
 		_ => {

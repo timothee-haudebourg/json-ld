@@ -37,14 +37,9 @@ impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, M, 
 		}
 	}
 
-	pub fn assign_node_id(
-		&mut self,
-		r: Option<&Meta<Id<T, B>, M>>,
-	) -> Meta<Id<T, B>, M> {
+	pub fn assign_node_id(&mut self, r: Option<&Meta<Id<T, B>, M>>) -> Meta<Id<T, B>, M> {
 		match r {
-			Some(Meta(Id::Valid(ValidId::Blank(id)), _)) => {
-				self.assign(id.clone()).cast()
-			}
+			Some(Meta(Id::Valid(ValidId::Blank(id)), _)) => self.assign(id.clone()).cast(),
 			Some(r) => r.clone(),
 			None => self.next().cast(),
 		}

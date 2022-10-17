@@ -29,7 +29,7 @@ use super::AnyValue;
 #[stripped_ignore(M)]
 pub enum TermDefinition<M, C = context::Value<M>> {
 	Simple(Simple),
-	Expanded(Expanded<M, C>),
+	Expanded(Box<Expanded<M, C>>),
 }
 
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
@@ -130,7 +130,7 @@ impl<M, C> Expanded<M, C> {
 				id_value.unwrap().into_string(),
 			)))
 		} else {
-			Nullable::Some(TermDefinition::Expanded(self))
+			Nullable::Some(TermDefinition::Expanded(Box::new(self)))
 		}
 	}
 }
@@ -178,7 +178,7 @@ impl<'a, M: Clone, C> From<&'a TermDefinition<M, C>> for TermDefinitionRef<'a, M
 	fn from(d: &'a TermDefinition<M, C>) -> Self {
 		match d {
 			TermDefinition::Simple(s) => Self::Simple(SimpleRef(s.as_str())),
-			TermDefinition::Expanded(e) => Self::Expanded(e.into()),
+			TermDefinition::Expanded(e) => Self::Expanded((&**e).into()),
 		}
 	}
 }

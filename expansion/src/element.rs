@@ -6,7 +6,7 @@ use futures::future::{BoxFuture, FutureExt};
 use json_ld_context_processing::{
 	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
 };
-use json_ld_core::{object, Context, Indexed, Object, Id, Term, ValidId};
+use json_ld_core::{object, Context, Id, Indexed, Object, Term, ValidId};
 use json_ld_syntax::{Keyword, Nullable};
 use json_syntax::{object::Entry, Value};
 use locspan::{At, MapLocErr, Meta};
@@ -93,7 +93,7 @@ pub(crate) fn expand_element<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<
 	mut warnings: W,
 ) -> BoxFuture<'a, ElementExpansionResult<T, B, M, L, W>>
 where
-	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,

@@ -29,7 +29,7 @@ pub(crate) async fn expand_array<
 	mut warnings: W,
 ) -> Result<(Expanded<T, B, M>, W), Meta<Error<M, L::ContextError>, M>>
 where
-	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,

@@ -62,7 +62,7 @@ impl Type {
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		value: &json_ld::rdf::Value<IriIndex, BlankIdIndex>,
-	) -> Result<TokenStream, Error> {
+	) -> Result<TokenStream, Box<Error>> {
 		match self {
 			Self::Bool => {
 				let b = match value {
@@ -72,9 +72,11 @@ impl Type {
 					)) => match s.as_str() {
 						"true" => true,
 						"false" => false,
-						_ => return Err(Error::InvalidValue(self.clone(), value.clone())),
+						_ => {
+							return Err(Box::new(Error::InvalidValue(self.clone(), value.clone())))
+						}
 					},
-					_ => return Err(Error::InvalidValue(self.clone(), value.clone())),
+					_ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 				};
 
 				Ok(quote! { #b })
@@ -97,7 +99,7 @@ impl Type {
 					let s = vocabulary.iri(i).unwrap().into_str();
 					Ok(quote! { ::static_iref::iri!(#s) })
 				}
-				_ => Err(Error::InvalidValue(self.clone(), value.clone())),
+				_ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 			},
 			Self::ProcessingMode => {
 				let s = match value {
@@ -106,7 +108,7 @@ impl Type {
 						s,
 						IriIndex::Iri(Vocab::Xsd(vocab::Xsd::String)),
 					)) => s.as_str(),
-					_ => return Err(Error::InvalidValue(self.clone(), value.clone())),
+					_ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 				};
 
 				match json_ld::ProcessingMode::try_from(s) {
@@ -118,7 +120,7 @@ impl Type {
 							Ok(quote! { ::json_ld::ProcessingMode::JsonLd1_1 })
 						}
 					},
-					Err(_) => Err(Error::InvalidValue(self.clone(), value.clone())),
+					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 				}
 			}
 			Self::Ref(r) => match value {
@@ -127,7 +129,7 @@ impl Type {
 					let mod_id = &spec.id;
 					d.generate(vocabulary, spec, dataset, *id, quote! { #mod_id :: #r })
 				}
-				_ => Err(Error::InvalidValue(self.clone(), value.clone())),
+				_ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 			},
 		}
 	}
@@ -141,55 +143,54 @@ impl Struct {
 		dataset: &OwnedDataset,
 		id: ValidId<IriIndex, BlankIdIndex>,
 		path: TokenStream,
-	) -> Result<TokenStream, Error> {
+	) -> Result<TokenStream, Box<Error>> {
 		let mut fields = Vec::new();
 
 		for (field_iri, field) in &self.fields {
 			let ident = &field.id;
-			let value = if *field_iri == IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))
-				&& field.ty.is_id()
-			{
-				if field.multiple || !field.required {
-					return Err(Error::InvalidTypeField);
-				}
-
-				let ty_id = field.ty.as_id().expect("not a reference");
-				let ty = spec.types.get(ty_id).expect("undefined type");
-				let mod_id = &spec.id;
-				ty.generate(vocabulary, spec, dataset, id, quote! { #mod_id :: #ty_id })?
-			} else {
-				let mut objects = dataset
-					.default_graph()
-					.objects(&id, &ValidId::Iri(*field_iri));
-
-				if field.multiple {
-					let mut items = Vec::new();
-
-					for object in objects {
-						items.push(field.ty.generate(vocabulary, spec, dataset, object)?)
+			let value =
+				if *field_iri == IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type)) && field.ty.is_id() {
+					if field.multiple || !field.required {
+						return Err(Box::new(Error::InvalidTypeField));
 					}
 
-					quote! {
-						&[ #(#items),* ]
-					}
-				} else if field.required {
-					match objects.next() {
-						Some(object) => field.ty.generate(vocabulary, spec, dataset, object)?,
-						// None => return Err(Error::MissingRequiredValue(id, *field_iri))
-						None => {
-							quote! { ::core::default::Default::default() }
-						}
-					}
+					let ty_id = field.ty.as_id().expect("not a reference");
+					let ty = spec.types.get(ty_id).expect("undefined type");
+					let mod_id = &spec.id;
+					ty.generate(vocabulary, spec, dataset, id, quote! { #mod_id :: #ty_id })?
 				} else {
-					match objects.next() {
-						Some(object) => {
-							let value = field.ty.generate(vocabulary, spec, dataset, object)?;
-							quote! { Some(#value) }
+					let mut objects = dataset
+						.default_graph()
+						.objects(&id, &ValidId::Iri(*field_iri));
+
+					if field.multiple {
+						let mut items = Vec::new();
+
+						for object in objects {
+							items.push(field.ty.generate(vocabulary, spec, dataset, object)?)
 						}
-						None => quote! { None },
+
+						quote! {
+							&[ #(#items),* ]
+						}
+					} else if field.required {
+						match objects.next() {
+							Some(object) => field.ty.generate(vocabulary, spec, dataset, object)?,
+							// None => return Err(Error::MissingRequiredValue(id, *field_iri))
+							None => {
+								quote! { ::core::default::Default::default() }
+							}
+						}
+					} else {
+						match objects.next() {
+							Some(object) => {
+								let value = field.ty.generate(vocabulary, spec, dataset, object)?;
+								quote! { Some(#value) }
+							}
+							None => quote! { None },
+						}
 					}
-				}
-			};
+				};
 
 			fields.push(quote! { #ident: #value })
 		}
@@ -213,7 +214,7 @@ impl Definition {
 		dataset: &OwnedDataset,
 		id: ValidId<IriIndex, BlankIdIndex>,
 		path: TokenStream,
-	) -> Result<TokenStream, Error> {
+	) -> Result<TokenStream, Box<Error>> {
 		match self {
 			Self::Struct(s) => s.generate(vocabulary, spec, dataset, id, path),
 			Self::Enum(e) => {
@@ -228,7 +229,7 @@ impl Definition {
 						json_ld::rdf::Value::Reference(ValidId::Iri(ty_iri)) => {
 							if let Some(v) = e.variants.get(ty_iri) {
 								if variant.replace(v).is_some() {
-									return Err(Error::MultipleTypeVariants(id));
+									return Err(Box::new(Error::MultipleTypeVariants(id)));
 								}
 							}
 						}
@@ -247,7 +248,7 @@ impl Definition {
 							quote! { #path :: #variant_id },
 						)
 					}
-					None => Err(Error::NoTypeVariants(id)),
+					None => Err(Box::new(Error::NoTypeVariants(id))),
 				}
 			}
 		}

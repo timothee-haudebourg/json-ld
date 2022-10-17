@@ -1,7 +1,7 @@
 use super::{Multiset, Objects};
 use crate::{
 	object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
-	IndexedObject, Id, StrippedIndexedObject, IntoId,
+	Id, IndexedObject, IntoId, StrippedIndexedObject,
 };
 use derivative::Derivative;
 use locspan::{BorrowStripped, Meta, Stripped};
@@ -67,7 +67,7 @@ pub type PropertyObjects<T, B, M> = Multiset<StrippedIndexedObject<T, B, M>>;
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
-pub struct Properties<T, B, M = ()>(HashMap<Id<T, B>, Entry<PropertyObjects<T, B, M>, M>>);
+pub struct Properties<T, B, M = ()>(HashMap<Id<T, B>, PropertyEntry<T, B, M>>);
 
 impl<T, B, M> Properties<T, B, M> {
 	/// Creates an empty map.
@@ -139,11 +139,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Associate the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(
-		&mut self,
-		Meta(prop, meta): Meta<Id<T, B>, M>,
-		value: IndexedObject<T, B, M>,
-	) {
+	pub fn insert(&mut self, Meta(prop, meta): Meta<Id<T, B>, M>, value: IndexedObject<T, B, M>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(Stripped(value));
 		} else {
@@ -251,14 +247,14 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Removes and returns all the values associated to the given property.
 	#[inline(always)]
-	pub fn remove(&mut self, prop: &Id<T, B>) -> Option<Entry<PropertyObjects<T, B, M>, M>> {
+	pub fn remove(&mut self, prop: &Id<T, B>) -> Option<PropertyEntry<T, B, M>> {
 		self.0.remove(prop)
 	}
 }
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Properties<T, B, M> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
@@ -272,7 +268,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for Properties<T, B, M>
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Properties<T, B, M> {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		Meta(object, meta): Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let mut result = Self::new();
@@ -379,8 +375,7 @@ impl<'a, T, B, M> IntoIterator for &'a mut Properties<T, B, M> {
 ///
 /// It is created by the [`Properties::into_iter`] function.
 pub struct IntoIter<T, B, M> {
-	inner:
-		std::collections::hash_map::IntoIter<Id<T, B>, Entry<PropertyObjects<T, B, M>, M>>,
+	inner: std::collections::hash_map::IntoIter<Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<T, B, M> Iterator for IntoIter<T, B, M> {
@@ -409,8 +404,7 @@ impl<T, B, M> std::iter::FusedIterator for IntoIter<T, B, M> {}
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct Iter<'a, T, B, M> {
-	inner:
-		std::collections::hash_map::Iter<'a, Id<T, B>, Entry<PropertyObjects<T, B, M>, M>>,
+	inner: std::collections::hash_map::Iter<'a, Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
@@ -436,16 +430,14 @@ impl<'a, T, B, M> ExactSizeIterator for Iter<'a, T, B, M> {}
 
 impl<'a, T, B, M> std::iter::FusedIterator for Iter<'a, T, B, M> {}
 
+pub type PropertyEntry<T, B, M> = Entry<PropertyObjects<T, B, M>, M>;
+
 /// Iterator over the properties of a node, giving a mutable reference
 /// to the associated objects.
 ///
 /// It is created by the [`Properties::iter_mut`] function.
 pub struct IterMut<'a, T, B, M> {
-	inner: std::collections::hash_map::IterMut<
-		'a,
-		Id<T, B>,
-		Entry<PropertyObjects<T, B, M>, M>,
-	>,
+	inner: std::collections::hash_map::IterMut<'a, Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for IterMut<'a, T, B, M> {

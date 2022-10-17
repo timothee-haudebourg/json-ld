@@ -4,14 +4,17 @@ pub mod inverse;
 
 use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Term};
 use contextual::WithContext;
+use json_ld_syntax::KeywordType;
 use locspan::{BorrowStripped, Meta, StrippedPartialEq};
 use once_cell::sync::OnceCell;
 use rdf_types::Vocabulary;
-use json_ld_syntax::KeywordType;
 use std::borrow::Borrow;
 use std::hash::Hash;
 
-pub use json_ld_syntax::context::{definition::{Key, KeyRef, Type, KeyOrType}, term_definition::Nest};
+pub use json_ld_syntax::context::{
+	definition::{Key, KeyOrType, KeyRef, Type},
+	term_definition::Nest,
+};
 
 pub use definition::*;
 pub use inverse::InverseContext;
@@ -162,10 +165,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		self.definitions.set_normal(key, definition)
 	}
 
-	pub fn set_type(
-		&mut self,
-		type_: Option<TypeTermDefinition>
-	) -> Option<TypeTermDefinition> {
+	pub fn set_type(&mut self, type_: Option<TypeTermDefinition>) -> Option<TypeTermDefinition> {
 		self.definitions.set_type(type_)
 	}
 
@@ -196,7 +196,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 
 	pub fn into_syntax_definition(
 		self,
-		vocabulary: &impl Vocabulary<Iri=T, BlankId=B>,
+		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
 		meta: M,
 	) -> Meta<json_ld_syntax::context::Definition<M>, M>
 	where
@@ -255,7 +255,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 pub trait IntoSyntax<T, B, M> {
 	fn into_syntax(
 		self,
-		vocabulary: &impl Vocabulary<Iri=T, BlankId=B>,
+		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
 		meta: M,
 	) -> json_ld_syntax::context::Value<M>;
 }
@@ -263,7 +263,7 @@ pub trait IntoSyntax<T, B, M> {
 impl<T, B, M> IntoSyntax<T, B, M> for json_ld_syntax::context::Value<M> {
 	fn into_syntax(
 		self,
-		_namespace: &impl Vocabulary<Iri=T, BlankId=B>,
+		_namespace: &impl Vocabulary<Iri = T, BlankId = B>,
 		_meta: M,
 	) -> json_ld_syntax::context::Value<M> {
 		self
@@ -273,7 +273,7 @@ impl<T, B, M> IntoSyntax<T, B, M> for json_ld_syntax::context::Value<M> {
 impl<T, B, M: Clone, L: IntoSyntax<T, B, M>> IntoSyntax<T, B, M> for Context<T, B, L, M> {
 	fn into_syntax(
 		self,
-		vocabulary: &impl Vocabulary<Iri=T, BlankId=B>,
+		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
 		meta: M,
 	) -> json_ld_syntax::context::Value<M> {
 		let Meta(definition, meta) = self.into_syntax_definition(vocabulary, meta);

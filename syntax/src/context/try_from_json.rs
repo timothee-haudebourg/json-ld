@@ -3,7 +3,7 @@ use super::{
 	term_definition::{self, InvalidNest},
 	Context, Definition, Entry, TermDefinition, Value,
 };
-use crate::{Container, Keyword, Nullable, TryFromJson, TryFromStrippedJson, ErrorCode};
+use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson, TryFromStrippedJson};
 use iref::IriRefBuf;
 use locspan::Meta;
 use std::fmt;
@@ -26,7 +26,7 @@ impl InvalidContext {
 			Self::InvalidDirection => ErrorCode::InvalidBaseDirection,
 			Self::DuplicateKey => ErrorCode::DuplicateKey,
 			Self::InvalidTermDefinition => ErrorCode::InvalidTermDefinition,
-			Self::InvalidNestValue(_) => ErrorCode::InvalidNestValue
+			Self::InvalidNestValue(_) => ErrorCode::InvalidNestValue,
 		}
 	}
 }
@@ -142,7 +142,7 @@ impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
 					}
 				}
 
-				Ok(Meta(Self::Expanded(def), meta))
+				Ok(Meta(Self::Expanded(Box::new(def)), meta))
 			}
 			unexpected => Err(Meta(
 				InvalidContext::Unexpected(

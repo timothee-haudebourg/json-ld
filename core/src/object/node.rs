@@ -1,12 +1,12 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
 use crate::{
-	id, object, utils, Indexed, IndexedObject, Object, Objects, Id, StrippedIndexedObject,
-	Term, IntoId,
+	id, object, utils, Id, Indexed, IndexedObject, IntoId, Object, Objects, StrippedIndexedObject,
+	Term,
 };
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
-use json_ld_syntax::{Entry, Keyword, IntoJson, IntoJsonWithContextMeta};
+use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta, Keyword};
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedPartialEq};
 use rdf_types::{BlankIdBuf, Vocabulary, VocabularyMut};
 use std::collections::HashSet;
@@ -446,6 +446,7 @@ impl<T, B, M> Node<T, B, M> {
 	///
 	/// The unnamed graph is returned as a set of indexed objects.
 	/// Fails and returns itself if the node is *not* an unnamed graph.
+	#[allow(clippy::result_large_err)]
 	#[inline(always)]
 	pub fn into_unnamed_graph(self) -> Result<Entry<Graph<T, B, M>, M>, Self> {
 		if self.is_unnamed_graph() {
@@ -685,7 +686,9 @@ impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, N: Vocabulary<Iri=T, BlankId=B>, M> IntoRefWithContext<'a, str, N> for EntryKeyRef<'a, T, B, M> {
+impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, str, N>
+	for EntryKeyRef<'a, T, B, M>
+{
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
 		match self {
 			EntryKeyRef::Id => "@id",
@@ -882,7 +885,7 @@ impl<'a, T, B, M> Iterator for IndexedEntries<'a, T, B, M> {
 	type Item = IndexedEntryRef<'a, T, B, M>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
-		let len = self.inner.len() + if self.index.is_some() { 1 } else { 0 };
+		let len = self.inner.len() + usize::from(self.index.is_some());
 		(len, Some(len))
 	}
 
@@ -935,7 +938,7 @@ impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, N: Vocabulary<Iri=T, BlankId=B>, M> IntoRefWithContext<'a, str, N>
+impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, str, N>
 	for IndexedEntryKeyRef<'a, T, B, M>
 {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
@@ -1117,7 +1120,7 @@ impl<T, B, M> TryFrom<Object<T, B, M>> for Node<T, B, M> {
 	#[inline(always)]
 	fn try_from(obj: Object<T, B, M>) -> Result<Node<T, B, M>, Object<T, B, M>> {
 		match obj {
-			Object::Node(node) => Ok(node),
+			Object::Node(node) => Ok(*node),
 			obj => Err(obj),
 		}
 	}
@@ -1254,7 +1257,7 @@ impl<'a, T, B, M> Iterator for Nodes<'a, T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M> {
 	fn try_from_json_object_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		mut object: Meta<json_syntax::Object<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		let id = match object
@@ -1328,12 +1331,17 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 	}
 }
 
-impl<T, B, M: Clone, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M, N> for Node<T, B, M> {
+impl<T, B, M: Clone, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N>
+	for Node<T, B, M>
+{
 	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
 		let mut obj = json_syntax::Object::new();
 
 		if let Some(id) = self.id {
-			obj.insert(Meta("@id".into(), id.key_metadata), id.value.into_with(vocabulary).into_json());
+			obj.insert(
+				Meta("@id".into(), id.key_metadata),
+				id.value.into_with(vocabulary).into_json(),
+			);
 		}
 
 		if let Some(types) = self.types {
@@ -1350,19 +1358,31 @@ impl<T, B, M: Clone, N: Vocabulary<Iri=T, BlankId=B>> IntoJsonWithContextMeta<M,
 		}
 
 		if let Some(graph) = self.graph {
-			obj.insert(Meta("@graph".into(), graph.key_metadata), graph.value.into_with(vocabulary).into_json());
+			obj.insert(
+				Meta("@graph".into(), graph.key_metadata),
+				graph.value.into_with(vocabulary).into_json(),
+			);
 		}
 
 		if let Some(included) = self.included {
-			obj.insert(Meta("@include".into(), included.key_metadata), included.value.into_with(vocabulary).into_json());
+			obj.insert(
+				Meta("@include".into(), included.key_metadata),
+				included.value.into_with(vocabulary).into_json(),
+			);
 		}
 
 		if let Some(reverse_properties) = self.reverse_properties {
-			obj.insert(Meta("@reverse".into(), reverse_properties.key_metadata), reverse_properties.value.into_with(vocabulary).into_json());
+			obj.insert(
+				Meta("@reverse".into(), reverse_properties.key_metadata),
+				reverse_properties.value.into_with(vocabulary).into_json(),
+			);
 		}
 
 		for (Meta(prop, meta), objects) in self.properties {
-			obj.insert(Meta(prop.with(vocabulary).to_string().into(), meta.clone()), objects.into_json_meta_with(meta, vocabulary));
+			obj.insert(
+				Meta(prop.with(vocabulary).to_string().into(), meta.clone()),
+				objects.into_json_meta_with(meta, vocabulary),
+			);
 		}
 
 		Meta(obj.into(), meta)

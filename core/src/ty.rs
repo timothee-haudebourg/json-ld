@@ -1,7 +1,7 @@
 use super::Term;
 use crate::{Id, ValidId};
 use json_ld_syntax::Keyword;
-use locspan_derive::{StrippedPartialEq, StrippedEq, StrippedHash};
+use locspan_derive::{StrippedEq, StrippedHash, StrippedPartialEq};
 use std::convert::TryFrom;
 use std::fmt;
 

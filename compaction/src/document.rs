@@ -1,8 +1,9 @@
 use futures::FutureExt;
+use json_ld_context_processing::ContextLoader;
 use json_ld_core::{ExpandedDocument, FlattenedDocument, Term};
 use json_ld_syntax::{IntoJson, IntoJsonMeta, Keyword};
 use locspan::Meta;
-use rdf_types::{Vocabulary, vocabulary};
+use rdf_types::{vocabulary, Vocabulary};
 use std::hash::Hash;
 
 use crate::{
@@ -10,8 +11,13 @@ use crate::{
 	CompactFragmentMeta,
 };
 
+pub type CompactDocumentResult<I, M, L> = Result<
+	json_syntax::MetaValue<M>,
+	crate::MetaError<M, <L as ContextLoader<I, M>>::ContextError>,
+>;
+
 /// Context embeding method.
-/// 
+///
 /// This trait provides the `embed_context` method that can be used
 /// to include a JSON-LD context to a JSON-LD document.
 /// It is used at the end of compaction algorithm to embed to
@@ -25,7 +31,7 @@ pub trait EmbedContext<I, B, C, M> {
 		options: crate::Options,
 	) -> Result<(), Meta<IriConfusedWithPrefix, M>>
 	where
-		N: Vocabulary<Iri=I, BlankId=B>,
+		N: Vocabulary<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		M: Clone,
@@ -47,12 +53,9 @@ pub trait CompactMeta<I, B, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<
-		'a,
-		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
-	>
+	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -75,12 +78,9 @@ pub trait Compact<I, B, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<
-		'a,
-		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
-	>
+	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -100,18 +100,15 @@ pub trait Compact<I, B, M> {
 		vocabulary: &'a mut N,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
-	) -> futures::future::BoxFuture<
-		'a,
-		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
-	>
+	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
 		C: json_ld_context_processing::ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Context: Into<C>
+		L::Context: Into<C>,
 	{
 		self.compact_full(vocabulary, context, loader, crate::Options::default())
 	}
@@ -125,18 +122,15 @@ pub trait Compact<I, B, M> {
 		&'a self,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
-	) -> futures::future::BoxFuture<
-		'a,
-		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
-	>
+	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
-		(): Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		(): Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
 		C: json_ld_context_processing::ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Context: Into<C>
+		L::Context: Into<C>,
 	{
 		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader)
 	}
@@ -154,12 +148,9 @@ impl<T: CompactMeta<I, B, M>, I, B, M> Compact<I, B, M> for Meta<T, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<
-		'a,
-		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
-	>
+	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -185,12 +176,9 @@ impl<I, B, M> CompactMeta<I, B, M> for ExpandedDocument<I, B, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<
-		'a,
-		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
-	>
+	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -237,12 +225,9 @@ impl<I, B, M> CompactMeta<I, B, M> for FlattenedDocument<I, B, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<
-		'a,
-		Result<json_syntax::MetaValue<M>, crate::MetaError<M, L::ContextError>>,
-	>
+	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
-		N: Send + Sync + rdf_types::VocabularyMut<Iri=I, BlankId=B>,
+		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
@@ -283,7 +268,7 @@ impl<I, B, C, M> EmbedContext<I, B, C, M> for json_syntax::MetaValue<M> {
 		options: crate::Options,
 	) -> Result<(), Meta<IriConfusedWithPrefix, M>>
 	where
-		N: Vocabulary<Iri=I, BlankId=B>,
+		N: Vocabulary<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		M: Clone,
@@ -321,7 +306,10 @@ impl<I, B, C, M> EmbedContext<I, B, C, M> for json_syntax::MetaValue<M> {
 		if let Some(mut obj) = obj {
 			let json_context = IntoJson::into_json(context.unprocessed().cloned());
 
-			if !obj.is_empty() && !json_context.is_null() && !json_context.is_empty_array_or_object() {
+			if !obj.is_empty()
+				&& !json_context.is_null()
+				&& !json_context.is_empty_array_or_object()
+			{
 				obj.insert(
 					Meta("@context".into(), json_context.metadata().clone()),
 					json_context,

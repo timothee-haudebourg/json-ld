@@ -1,6 +1,6 @@
 use crate::{
-	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Indexed, IndexedNode,
-	IndexedObject, Node, Object, Id, StrippedIndexedNode, StrippedIndexedObject,
+	flattening::NodeMap, object, ExpandedDocument, FlattenedDocument, Id, Indexed, IndexedNode,
+	IndexedObject, Node, Object, StrippedIndexedNode, StrippedIndexedObject,
 };
 use locspan::Meta;
 use smallvec::SmallVec;
@@ -131,11 +131,7 @@ impl<'a, T, B, M> Quads<'a, T, B, M> {
 		}
 	}
 
-	fn push_node(
-		&mut self,
-		graph: Option<Meta<&'a Id<T, B>, &'a M>>,
-		node: &'a Node<T, B, M>,
-	) {
+	fn push_node(&mut self, graph: Option<Meta<&'a Id<T, B>, &'a M>>, node: &'a Node<T, B, M>) {
 		if let Some(id) = node.id_entry() {
 			if let Some(graph) = node.graph_entry() {
 				self.stack.push(QuadsFrame::IndexedObjectSet(

@@ -1,11 +1,11 @@
 use crate::{object, Direction, LangString, LenientLanguageTag};
 use derivative::Derivative;
 use iref::{Iri, IriBuf};
-use json_ld_syntax::{Keyword, IntoJsonWithContextMeta};
+use json_ld_syntax::{IntoJsonWithContextMeta, Keyword};
 use json_syntax::{Number, NumberBuf};
 use locspan::Meta;
 use locspan_derive::*;
-use rdf_types::{IriVocabularyMut, IriVocabulary};
+use rdf_types::{IriVocabulary, IriVocabularyMut};
 use std::{
 	cmp::Ordering,
 	fmt,
@@ -187,7 +187,7 @@ impl Literal {
 			Self::Boolean(b) => json_syntax::Value::Boolean(b),
 			Self::Number(n) => json_syntax::Value::Number(n),
 			Self::String(LiteralString::Expanded(s)) => json_syntax::Value::String(s),
-			Self::String(LiteralString::Inferred(s)) => json_syntax::Value::String(s.into())
+			Self::String(LiteralString::Inferred(s)) => json_syntax::Value::String(s.into()),
 		}
 	}
 }
@@ -342,7 +342,7 @@ impl<T, M> Value<T, M> {
 	}
 
 	pub(crate) fn try_from_json_object_in(
-		vocabulary: &mut impl IriVocabularyMut<Iri=T>,
+		vocabulary: &mut impl IriVocabularyMut<Iri = T>,
 		mut object: json_syntax::Object<M>,
 		value_entry: json_syntax::object::Entry<M>,
 	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
@@ -663,31 +663,43 @@ impl<'a, T: 'a, M> Iterator for SubFragments<'a, T, M> {
 	}
 }
 
-impl<T, M: Clone, N: IriVocabulary<Iri=T>> IntoJsonWithContextMeta<M, N> for Value<T, M> {
+impl<T, M: Clone, N: IriVocabulary<Iri = T>> IntoJsonWithContextMeta<M, N> for Value<T, M> {
 	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
 		let mut obj = json_syntax::Object::new();
 
 		let value = match self {
 			Self::Literal(lit, ty) => {
 				if let Some(ty) = ty {
-					obj.insert(Meta("@type".into(), meta.clone()), Meta(vocabulary.iri(&ty).unwrap().as_str().into(), meta.clone()));
+					obj.insert(
+						Meta("@type".into(), meta.clone()),
+						Meta(vocabulary.iri(&ty).unwrap().as_str().into(), meta.clone()),
+					);
 				}
 
 				Meta(lit.into_json(), meta.clone())
 			}
 			Self::LangString(s) => {
 				if let Some(language) = s.language() {
-					obj.insert(Meta("@language".into(), meta.clone()), Meta(language.as_str().into(), meta.clone()));
+					obj.insert(
+						Meta("@language".into(), meta.clone()),
+						Meta(language.as_str().into(), meta.clone()),
+					);
 				}
 
 				if let Some(direction) = s.direction() {
-					obj.insert(Meta("@direction".into(), meta.clone()), Meta(direction.as_str().into(), meta.clone()));
+					obj.insert(
+						Meta("@direction".into(), meta.clone()),
+						Meta(direction.as_str().into(), meta.clone()),
+					);
 				}
 
 				Meta(s.as_str().into(), meta.clone())
 			}
 			Self::Json(json) => {
-				obj.insert(Meta("@type".into(), meta.clone()), Meta("@json".into(), meta.clone()));
+				obj.insert(
+					Meta("@type".into(), meta.clone()),
+					Meta("@json".into(), meta.clone()),
+				);
 
 				json
 			}

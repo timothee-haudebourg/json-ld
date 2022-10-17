@@ -28,7 +28,7 @@ pub fn expand_iri_with<
 	B: Clone + Send + Sync + PartialEq,
 	M: 'a + Clone + Send + Sync,
 	C,
-	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	W: 'a + Send + WarningHandler<N, M>,
 >(
@@ -153,7 +153,7 @@ where
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Ok((Term::Ref(Id::id(vocabulary.insert(iri))), warnings));
+						return Ok((Term::Ref(Id::iri(vocabulary.insert(iri))), warnings));
 					}
 				}
 
@@ -231,7 +231,7 @@ pub fn expand_iri_simple<
 	T: Clone,
 	B: Clone,
 	M: Clone,
-	N: VocabularyMut<Iri=T, BlankId=B>,
+	N: VocabularyMut<Iri = T, BlankId = B>,
 	C,
 	W: From<MalformedIri>,
 	H: json_ld_core::warning::Handler<N, Meta<W, M>>,
@@ -303,7 +303,7 @@ pub fn expand_iri_simple<
 				}
 
 				if let Ok(iri) = Iri::new(value) {
-					return Meta(Term::Ref(Id::id(vocabulary.insert(iri))), meta);
+					return Meta(Term::Ref(Id::iri(vocabulary.insert(iri))), meta);
 				}
 			}
 
@@ -315,10 +315,7 @@ pub fn expand_iri_simple<
 						let mut result = mapping.with(&*vocabulary).as_str().to_string();
 						result.push_str(value);
 
-						return Meta(
-							Term::Ref(Id::from_string_in(vocabulary, result)),
-							meta,
-						);
+						return Meta(Term::Ref(Id::from_string_in(vocabulary, result)), meta);
 					}
 					Some(_) => {
 						return invalid_iri_simple(

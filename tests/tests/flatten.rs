@@ -1,6 +1,6 @@
 use contextual::WithContext;
-use json_ld::{Loader, Print, JsonLdProcessor, RemoteDocumentReference, RemoteDocument};
-use rdf_types::{IriVocabularyMut, IndexVocabulary};
+use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
+use rdf_types::{IndexVocabulary, IriVocabularyMut};
 use static_iref::iri;
 
 const STACK_SIZE: usize = 4 * 1024 * 1024;
@@ -111,32 +111,59 @@ impl flatten::Test {
 		}
 
 		options.base = self.options.base.map(|iri| vocabulary.insert(iri));
-		options.expand_context = self.options.expand_context.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
+		options.expand_context = self
+			.options
+			.expand_context
+			.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
 
 		options.compact_arrays = self.options.compact_arrays.unwrap_or(true);
 		options.compact_to_relative = self.options.compact_to_relative.unwrap_or(true);
 
 		let input = vocabulary.insert(self.input);
-		let context = self.context.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
+		let context = self
+			.context
+			.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
 
 		match self.desc {
 			flatten::Description::Positive { expect } => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
-				let mut generator = json_ld::generator::Blank::new_with_prefix(locspan::Location::new(input, locspan::Span::default()), "b".to_string());
-				let flattened = json_ld.flatten_full(&mut vocabulary, &mut generator, context, &mut loader, options, ()).await.unwrap();
+				let mut generator = json_ld::generator::Blank::new_with_prefix(
+					locspan::Location::new(input, locspan::Span::default()),
+					"b".to_string(),
+				);
+				let flattened = json_ld
+					.flatten_full(
+						&mut vocabulary,
+						&mut generator,
+						context,
+						&mut loader,
+						options,
+						(),
+					)
+					.await
+					.unwrap();
 				let flattened = RemoteDocument::new(Some(input), flattened);
-				
+
 				let expect = vocabulary.insert(expect);
 				let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
 				expect.set_url(Some(input));
-					
+
 				let expand_options: json_ld::Options = json_ld::Options::default();
-				let success = flattened.compare_full(&expect, &mut vocabulary, &mut loader, expand_options, ()).await.unwrap();
+				let success = flattened
+					.compare_full(&expect, &mut vocabulary, &mut loader, expand_options, ())
+					.await
+					.unwrap();
 
 				if !success {
 					eprintln!("test failed");
-					eprintln!("output=\n{}", flattened.with(&vocabulary).document().pretty_print());
-					eprintln!("expected=\n{}", expect.document().with(&vocabulary).pretty_print());
+					eprintln!(
+						"output=\n{}",
+						flattened.with(&vocabulary).document().pretty_print()
+					);
+					eprintln!(
+						"expected=\n{}",
+						expect.document().with(&vocabulary).pretty_print()
+					);
 				}
 
 				assert!(success)
@@ -146,8 +173,20 @@ impl flatten::Test {
 			} => {
 				match loader.load_with(&mut vocabulary, input).await {
 					Ok(json_ld) => {
-						let mut generator = json_ld::generator::Blank::new_with_prefix(locspan::Location::new(input, locspan::Span::default()), "b".to_string());
-						let result = json_ld.flatten_full(&mut vocabulary, &mut generator, context, &mut loader, options, ()).await;
+						let mut generator = json_ld::generator::Blank::new_with_prefix(
+							locspan::Location::new(input, locspan::Span::default()),
+							"b".to_string(),
+						);
+						let result = json_ld
+							.flatten_full(
+								&mut vocabulary,
+								&mut generator,
+								context,
+								&mut loader,
+								options,
+								(),
+							)
+							.await;
 
 						match result {
 							Ok(expanded) => {

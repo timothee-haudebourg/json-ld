@@ -36,8 +36,10 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 	}
 }
 
-type DynParser<I, M, T, E> =
-	dyn 'static + Send + Sync + FnMut(&dyn IriVocabulary<Iri=I>, &I, &str) -> Result<Meta<T, M>, E>;
+type DynParser<I, M, T, E> = dyn 'static
+	+ Send
+	+ Sync
+	+ FnMut(&dyn IriVocabulary<Iri = I>, &I, &str) -> Result<Meta<T, M>, E>;
 
 /// File-system loader.
 ///
@@ -60,7 +62,7 @@ impl<I, M, T, E> FsLoader<I, M, T, E> {
 		self.mount_points.insert(path.as_ref().into(), url);
 	}
 
-	pub fn filepath(&self, vocabulary: &impl IriVocabulary<Iri=I>, url: &I) -> Option<PathBuf> {
+	pub fn filepath(&self, vocabulary: &impl IriVocabulary<Iri = I>, url: &I) -> Option<PathBuf> {
 		let url = vocabulary.iri(url).unwrap();
 		for (path, target_url) in &self.mount_points {
 			if let Some((suffix, _, _)) =
@@ -87,7 +89,7 @@ impl<I: Clone + Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I,
 
 	fn load_with<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<Iri=I>),
+		vocabulary: &'a (impl Sync + IriVocabulary<Iri = I>),
 		url: I,
 	) -> BoxFuture<'a, Result<RemoteDocument<I, M, T>, Self::Error>>
 	where
@@ -122,7 +124,7 @@ impl<I, M, T, E> FsLoader<I, M, T, E> {
 		parser: impl 'static
 			+ Send
 			+ Sync
-			+ FnMut(&dyn IriVocabulary<Iri=I>, &I, &str) -> Result<Meta<T, M>, E>,
+			+ FnMut(&dyn IriVocabulary<Iri = I>, &I, &str) -> Result<Meta<T, M>, E>,
 	) -> Self {
 		Self {
 			mount_points: HashMap::new(),

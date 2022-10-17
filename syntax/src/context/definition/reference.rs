@@ -235,7 +235,7 @@ impl<'a, M: Clone, C> EntryValueRef<'a, M, C> {
 	pub fn sub_items(&self) -> EntryValueSubItems<'a, M, C> {
 		match self {
 			Self::Definition(Meta(Nullable::Some(TermDefinitionRef::Expanded(e)), _)) => {
-				EntryValueSubItems::TermDefinitionFragment(e.iter())
+				EntryValueSubItems::TermDefinitionFragment(Box::new(e.iter()))
 			}
 			_ => EntryValueSubItems::None,
 		}

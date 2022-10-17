@@ -1,8 +1,8 @@
 //! This library implements the [JSON-LD expansion algorithm](https://www.w3.org/TR/json-ld-api/#expansion-algorithms)
 //! for the [`json-ld` crate](https://crates.io/crates/json-ld).
-//! 
+//!
 //! # Usage
-//! 
+//!
 //! The expansion algorithm is provided by the [`Expand`] trait.
 use std::hash::Hash;
 
@@ -45,70 +45,70 @@ pub type ExpansionResult<T, B, M, L> = Result<
 
 /// Handler for the possible warnings emmited during the expansion
 /// of a JSON-LD document.
-pub trait WarningHandler<B, N: BlankIdVocabulary<BlankId=B>, M>:
+pub trait WarningHandler<B, N: BlankIdVocabulary<BlankId = B>, M>:
 	json_ld_core::warning::Handler<N, Meta<Warning<B>, M>>
 {
 }
 
-impl<B, N: BlankIdVocabulary<BlankId=B>, M, H> WarningHandler<B, N, M> for H where
+impl<B, N: BlankIdVocabulary<BlankId = B>, M, H> WarningHandler<B, N, M> for H where
 	H: json_ld_core::warning::Handler<N, Meta<Warning<B>, M>>
 {
 }
 
 /// Document expansion.
-/// 
+///
 /// This trait provides the functions necessary to expand
 /// a JSON-LD document into an [`ExpandedDocument`].
 /// It is implemented by [`json_syntax::MetaValue`] representing
 /// a JSON object (ith its metadata) and [`RemoteDocument`].
-/// 
+///
 /// # Example
-/// 
+///
 /// ```
 /// # mod json_ld { pub use json_ld_syntax as syntax; pub use json_ld_core::{RemoteDocument, ExpandedDocument, NoLoader}; pub use json_ld_expansion::Expand; };
-/// 
+///
 /// use iref::IriBuf;
 /// use rdf_types::BlankIdBuf;
 /// use static_iref::iri;
 /// use locspan::{Meta, Span};
 /// use json_ld::{syntax::Parse, RemoteDocument, Expand};
-/// 
+///
 /// # #[async_std::test]
 /// # async fn example() {
 /// // Parse the input JSON(-LD) document.
 /// // Each fragment of the parsed value will be annotated (the metadata) with its
 /// // [`Span`] in the input text.
 /// let json = json_ld::syntax::Value::parse_str(
-/// 	r##"
-/// 	{
-/// 		"@graph": [
-/// 			{
-/// 				"http://example.org/vocab#a": {
-/// 					"@graph": [
-/// 						{
-/// 							"http://example.org/vocab#b": "Chapter One"
-/// 						}
-/// 					]
-/// 				}
-/// 			}
-/// 		]
-/// 	}
-/// 	"##,
-/// 	|span| span, // the metadata only consists of the `span`.
+///   r##"
+///   {
+///     "@graph": [
+///       {
+///         "http://example.org/vocab#a": {
+///           "@graph": [
+///             {
+///               "http://example.org/vocab#b": "Chapter One"
+///             }
+///           ]
+///         }
+///       }
+///     ]
+///   }
+///   "##,
+///   |span| span, // the metadata only consists of the `span`.
 /// )
 /// .unwrap();
-/// 
+///
 /// // Prepare a dummy document loader using [`json_ld::NoLoader`],
 /// // since we won't need to load any remote document while expanding this one.
 /// let mut loader: json_ld::NoLoader<IriBuf, Span, json_ld::syntax::Value<Span>> =
-/// 	json_ld::NoLoader::new();
-/// 
+///   json_ld::NoLoader::new();
+///
 /// // The `expand` method returns an [`json_ld::ExpandedDocument`] (with the metadata).
 /// let _: Meta<json_ld::ExpandedDocument<IriBuf, BlankIdBuf, _>, _> =
-/// 	json
-/// 		.expand(&mut loader)
-/// 		.await
-/// 		.unwrap();
+///   json
+///     .expand(&mut loader)
+///     .await
+///     .unwrap();
 /// # }
 /// ```
 pub trait Expand<T, B, M> {
@@ -118,7 +118,7 @@ pub trait Expand<T, B, M> {
 	fn default_base_url(&self) -> Option<&T>;
 
 	/// Expand the document with full options.
-	/// 
+	///
 	/// The `vocabulary` is used to interpret identifiers.
 	/// The `context` is used as initial context.
 	/// The `base_url` is the initial base URL used to resolve relative IRI references.
@@ -136,7 +136,7 @@ pub trait Expand<T, B, M> {
 		warnings_handler: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: Clone + Send + Sync,
@@ -148,14 +148,14 @@ pub trait Expand<T, B, M> {
 
 	/// Expand the inupt JSON-LD document with the given `vocabulary`
 	/// to interpret identifiers.
-	/// 
+	///
 	/// The given `loader` is used to load remote documents (such as contexts)
 	/// imported by the input and required during expansion.
 	/// The expansion algorithm is called with an empty initial context with
 	/// a base URL given by [`Expand::default_base_url`].
 	fn expand_with<'a, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
-		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<Iri=T, BlankId=B>),
+		vocabulary: &'a mut (impl Send + Sync + VocabularyMut<Iri = T, BlankId = B>),
 		loader: &'a mut L,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
@@ -178,7 +178,7 @@ pub trait Expand<T, B, M> {
 	}
 
 	/// Expand the input JSON-LD document.
-	/// 
+	///
 	/// The given `loader` is used to load remote documents (such as contexts)
 	/// imported by the input and required during expansion.
 	/// The expansion algorithm is called with an empty initial context with
@@ -195,7 +195,7 @@ pub trait Expand<T, B, M> {
 		L::Output: Into<Value<M>>,
 		L::Context: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
-		(): VocabularyMut<Iri=T, BlankId=B>,
+		(): VocabularyMut<Iri = T, BlankId = B>,
 	{
 		self.expand_with(vocabulary::no_vocabulary_mut(), loader)
 	}
@@ -217,7 +217,7 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 		warnings_handler: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -229,7 +229,13 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 	{
 		async move {
 			document::expand(
-				vocabulary, self, context, base_url, loader, options, warnings_handler,
+				vocabulary,
+				self,
+				context,
+				base_url,
+				loader,
+				options,
+				warnings_handler,
 			)
 			.await
 		}
@@ -238,7 +244,7 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 }
 
 /// Remote document expansion.
-/// 
+///
 /// The default base URL given to the expansion algorithm is the URL of
 /// the remote document.
 impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
@@ -256,7 +262,7 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
 		warnings_handler: impl 'a + Send + WarningHandler<B, N, M>,
 	) -> BoxFuture<ExpansionResult<T, B, M, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -266,7 +272,13 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
 		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
-		self.document()
-			.expand_full(vocabulary, context, base_url, loader, options, warnings_handler)
+		self.document().expand_full(
+			vocabulary,
+			context,
+			base_url,
+			loader,
+			options,
+			warnings_handler,
+		)
 	}
 }

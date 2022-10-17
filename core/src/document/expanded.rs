@@ -1,5 +1,5 @@
 use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
-use crate::{id, Indexed, Id, StrippedIndexedObject};
+use crate::{id, Id, Indexed, StrippedIndexedObject};
 use crate::{IndexedObject, TryFromJson};
 use locspan::{Location, Meta, StrippedEq, StrippedPartialEq};
 use rdf_types::vocabulary::{Index, VocabularyMut};
@@ -110,7 +110,7 @@ impl<T: Hash + Eq, B: Hash + Eq, M> ExpandedDocument<T, B, M> {
 
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for ExpandedDocument<T, B, M> {
 	fn try_from_json_in(
-		vocabulary: &mut impl VocabularyMut<Iri=T, BlankId=B>,
+		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {

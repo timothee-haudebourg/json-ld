@@ -4,10 +4,10 @@ use crate::{
 	id, ExpandedDocument, FlattenedDocument, IndexedNode, IndexedObject, Object,
 	StrippedIndexedNode,
 };
-use json_ld_syntax::Entry;
-use rdf_types::Vocabulary;
-use locspan::{Meta, Stripped};
 use contextual::WithContext;
+use json_ld_syntax::Entry;
+use locspan::{Meta, Stripped};
+use rdf_types::Vocabulary;
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -17,6 +17,12 @@ mod node_map;
 pub use environment::Environment;
 pub use node_map::*;
 
+pub type FlattenResult<I, B, M> =
+	Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>>;
+
+pub type FlattenUnorderedResult<I, B, M> =
+	Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>>;
+
 pub trait FlattenMeta<I, B, M> {
 	fn flatten_meta<N, G: id::Generator<I, B, M, N>>(
 		self,
@@ -24,14 +30,16 @@ pub trait FlattenMeta<I, B, M> {
 		vocabulary: &mut N,
 		generator: G,
 		ordered: bool,
-	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B>;
+	) -> FlattenResult<I, B, M>
+	where
+		N: Vocabulary<Iri = I, BlankId = B>;
 
 	fn flatten_unordered_meta<N, G: id::Generator<I, B, M, N>>(
 		self,
 		meta: M,
 		vocabulary: &mut N,
 		generator: G,
-	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>>;
+	) -> FlattenUnorderedResult<I, B, M>;
 }
 
 pub trait Flatten<I, B, M> {
@@ -40,13 +48,15 @@ pub trait Flatten<I, B, M> {
 		vocabulary: &mut N,
 		generator: G,
 		ordered: bool,
-	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B>;
+	) -> FlattenResult<I, B, M>
+	where
+		N: Vocabulary<Iri = I, BlankId = B>;
 
 	fn flatten_unordered_with<N, G: id::Generator<I, B, M, N>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
-	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>>;
+	) -> FlattenUnorderedResult<I, B, M>;
 }
 
 impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
@@ -55,7 +65,10 @@ impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
 		vocabulary: &mut N,
 		generator: G,
 		ordered: bool,
-	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B> {
+	) -> FlattenResult<I, B, M>
+	where
+		N: Vocabulary<Iri = I, BlankId = B>,
+	{
 		T::flatten_meta(self.0, self.1, vocabulary, generator, ordered)
 	}
 
@@ -63,22 +76,29 @@ impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
 		self,
 		vocabulary: &mut N,
 		generator: G,
-	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> {
+	) -> FlattenUnorderedResult<I, B, M> {
 		T::flatten_unordered_meta(self.0, self.1, vocabulary, generator)
 	}
 }
 
-impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M> for ExpandedDocument<I, B, M> {
+impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M>
+	for ExpandedDocument<I, B, M>
+{
 	fn flatten_meta<N, G: id::Generator<I, B, M, N>>(
 		self,
 		meta: M,
 		vocabulary: &mut N,
 		generator: G,
 		ordered: bool,
-	) -> Result<Meta<FlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> where N: Vocabulary<Iri=I, BlankId=B> {
-		Ok(Meta(self
-			.generate_node_map_with(vocabulary, generator)?
-			.flatten_with(vocabulary, ordered), meta))
+	) -> FlattenResult<I, B, M>
+	where
+		N: Vocabulary<Iri = I, BlankId = B>,
+	{
+		Ok(Meta(
+			self.generate_node_map_with(vocabulary, generator)?
+				.flatten_with(vocabulary, ordered),
+			meta,
+		))
 	}
 
 	fn flatten_unordered_meta<N, G: id::Generator<I, B, M, N>>(
@@ -86,10 +106,12 @@ impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M> 
 		meta: M,
 		vocabulary: &mut N,
 		generator: G,
-	) -> Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>> {
-		Ok(Meta(self
-			.generate_node_map_with(vocabulary, generator)?
-			.flatten_unordered(), meta))
+	) -> FlattenUnorderedResult<I, B, M> {
+		Ok(Meta(
+			self.generate_node_map_with(vocabulary, generator)?
+				.flatten_unordered(),
+			meta,
+		))
 	}
 }
 
@@ -110,21 +132,31 @@ fn filter_sub_graph<T, B, M>(
 		node.set_graph(None);
 		node.set_included(None);
 		node.set_reverse_properties(None);
-		Some(Meta(node.map_inner(Object::Node), meta))
+		Some(Meta(node.map_inner(Object::node), meta))
 	}
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
-	pub fn flatten(self, ordered: bool) -> Vec<IndexedNode<T, B, M>> where (): Vocabulary<Iri=T, BlankId=B> {
+	pub fn flatten(self, ordered: bool) -> Vec<IndexedNode<T, B, M>>
+	where
+		(): Vocabulary<Iri = T, BlankId = B>,
+	{
 		self.flatten_with(&(), ordered)
 	}
 
-	pub fn flatten_with<N>(self, vocabulary: &N, ordered: bool) -> Vec<IndexedNode<T, B, M>> where N: Vocabulary<Iri=T, BlankId=B> {
+	pub fn flatten_with<N>(self, vocabulary: &N, ordered: bool) -> Vec<IndexedNode<T, B, M>>
+	where
+		N: Vocabulary<Iri = T, BlankId = B>,
+	{
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		let mut named_graphs: Vec<_> = named_graphs.into_iter().collect();
 		if ordered {
-			named_graphs.sort_by(|a, b| a.0.with(vocabulary).as_str().cmp(b.0.with(vocabulary).as_str()));
+			named_graphs.sort_by(|a, b| {
+				a.0.with(vocabulary)
+					.as_str()
+					.cmp(b.0.with(vocabulary).as_str())
+			});
 		}
 
 		for (graph_id, graph) in named_graphs {
@@ -137,13 +169,11 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 			if ordered {
 				nodes.sort_by(|a, b| {
 					a.id()
-						.unwrap().0
+						.unwrap()
+						.0
 						.with(vocabulary)
 						.as_str()
-						.cmp(b.id()
-						.unwrap().0
-						.with(vocabulary)
-						.as_str())
+						.cmp(b.id().unwrap().0.with(vocabulary).as_str())
 				});
 			}
 			entry.set_graph(Some(Entry::new(
@@ -167,13 +197,11 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 		if ordered {
 			nodes.sort_by(|a, b| {
 				a.id()
-					.unwrap().0
+					.unwrap()
+					.0
 					.with(vocabulary)
 					.as_str()
-					.cmp(b.id()
-					.unwrap().0
-					.with(vocabulary)
-					.as_str())
+					.cmp(b.id().unwrap().0.with(vocabulary).as_str())
 			});
 		}
 

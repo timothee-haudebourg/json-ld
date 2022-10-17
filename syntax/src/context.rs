@@ -202,14 +202,14 @@ impl<'a, M, C: AnyValue<M>> FragmentRef<'a, M, C> {
 		match self {
 			Self::ContextArray(a) => SubFragments::ContextArray(a.clone()),
 			Self::Context(c) => SubFragments::Context(c.sub_items()),
-			Self::DefinitionFragment(d) => SubFragments::Definition(d.sub_items()),
+			Self::DefinitionFragment(d) => SubFragments::Definition(Box::new(d.sub_items())),
 		}
 	}
 }
 
 pub enum ContextSubFragments<'a, M, D: AnyDefinition<M>> {
 	None,
-	Definition(definition::Entries<'a, M, D::ContextValue>),
+	Definition(Box<definition::Entries<'a, M, D::ContextValue>>),
 }
 
 impl<'a, M: 'a + Clone, D: AnyDefinition<M>> Iterator for ContextSubFragments<'a, M, D> {
@@ -228,7 +228,7 @@ impl<'a, M: 'a + Clone, D: AnyDefinition<M>> Iterator for ContextSubFragments<'a
 pub enum SubFragments<'a, M, C: AnyValue<M>> {
 	ContextArray(ArrayIter<'a, M, C::Definition>),
 	Context(ContextSubFragments<'a, M, C::Definition>),
-	Definition(definition::SubItems<'a, M, C>),
+	Definition(Box<definition::SubItems<'a, M, C>>),
 }
 
 impl<'a, M: Clone, C: AnyValue<M>> Iterator for SubFragments<'a, M, C> {

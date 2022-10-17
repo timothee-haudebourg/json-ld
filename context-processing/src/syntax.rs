@@ -18,7 +18,9 @@ pub use iri::*;
 pub use merged::*;
 use syntax::context::definition::KeyOrKeywordRef;
 
-impl<C: syntax::context::AnyValue<M> + syntax::IntoJsonMeta<M>, T, B, M> ProcessMeta<T, B, M> for C {
+impl<C: syntax::context::AnyValue<M> + syntax::IntoJsonMeta<M>, T, B, M> ProcessMeta<T, B, M>
+	for C
+{
 	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		meta: &'l M,
@@ -31,7 +33,7 @@ impl<C: syntax::context::AnyValue<M> + syntax::IntoJsonMeta<M>, T, B, M> Process
 		warnings: impl 'a + Send + WarningHandler<N, M>,
 	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, C, L::ContextError>>
 	where
-		N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
@@ -57,7 +59,7 @@ impl<C: syntax::context::AnyValue<M> + syntax::IntoJsonMeta<M>, T, B, M> Process
 
 /// Resolve `iri_ref` against the given base IRI.
 fn resolve_iri<I>(
-	vocabulary: &mut impl IriVocabularyMut<Iri=I>,
+	vocabulary: &mut impl IriVocabularyMut<Iri = I>,
 	iri_ref: IriRef,
 	base_iri: Option<&I>,
 ) -> Option<I> {
@@ -96,7 +98,7 @@ where
 	B: 'a + Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
 	C: ProcessMeta<T, B, M>,
-	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	L::Context: Into<C>,
 	W: 'a + Send + WarningHandler<N, M>,

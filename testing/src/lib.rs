@@ -21,10 +21,7 @@ use vocab::{BlankIdIndex, IriIndex, Vocab};
 mod ty;
 use ty::{Type, UnknownType};
 
-type FsLoader = json_ld::FsLoader<
-	IriIndex,
-	Location<IriIndex>
->;
+type FsLoader = json_ld::FsLoader<IriIndex, Location<IriIndex>>;
 
 type Vocabulary = rdf_types::IndexVocabulary<IriIndex, BlankIdIndex>;
 
@@ -124,7 +121,7 @@ struct IgnoreAttribute {
 	_comma: syn::token::Comma,
 	_see: syn::Ident,
 	_eq: syn::token::Eq,
-	link: String
+	link: String,
 }
 
 impl syn::parse::Parse for IgnoreAttribute {
@@ -145,7 +142,14 @@ impl syn::parse::Parse for IgnoreAttribute {
 		let link: syn::LitStr = content.parse()?;
 		let link = link.value();
 
-		Ok(Self { _paren, iri_ref, _comma, _see, _eq, link })
+		Ok(Self {
+			_paren,
+			iri_ref,
+			_comma,
+			_see,
+			_eq,
+			link,
+		})
 	}
 }
 
@@ -155,7 +159,7 @@ struct TestSpec {
 	suite: IriIndex,
 	types: HashMap<syn::Ident, ty::Definition>,
 	type_map: HashMap<IriIndex, syn::Ident>,
-	ignore: HashMap<IriIndex, String>
+	ignore: HashMap<IriIndex, String>,
 }
 
 struct InvalidIri(String);
@@ -196,7 +200,7 @@ pub fn test_suite(
 		Err(e) => {
 			proc_macro_error::abort_call_site!(
 				"test suite generation failed: {}",
-				e.with(&vocabulary)
+				(*e).with(&vocabulary)
 			)
 		}
 	}
@@ -206,7 +210,7 @@ async fn derive_test_suite(
 	vocabulary: &mut Vocabulary,
 	input: &mut syn::ItemMod,
 	args: proc_macro::TokenStream,
-) -> Result<TokenStream, Error> {
+) -> Result<TokenStream, Box<Error>> {
 	let mut loader = FsLoader::default();
 	let spec = parse_input(vocabulary, &mut loader, input, args)?;
 	generate_test_suite(vocabulary, loader, spec).await
@@ -217,8 +221,8 @@ fn parse_input(
 	loader: &mut FsLoader,
 	input: &mut syn::ItemMod,
 	args: proc_macro::TokenStream,
-) -> Result<TestSpec, Error> {
-	let suite: IriArg = syn::parse(args)?;
+) -> Result<TestSpec, Box<Error>> {
+	let suite: IriArg = syn::parse(args).map_err(|e| Box::new(e.into()))?;
 	let base = suite.iri;
 	let suite = vocabulary.insert(base.as_iri());
 
@@ -228,13 +232,13 @@ fn parse_input(
 	let attrs = std::mem::take(&mut input.attrs);
 	for attr in attrs {
 		if attr.path.is_ident("mount") {
-			let mount: MountAttribute = syn::parse2(attr.tokens)?;
+			let mount: MountAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
 			loader.mount(vocabulary.insert(mount.prefix.as_iri()), mount.target)
 		} else if attr.path.is_ident("iri_prefix") {
-			let attr: PrefixBinding = syn::parse2(attr.tokens)?;
+			let attr: PrefixBinding = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
 			bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_iri()));
 		} else if attr.path.is_ident("ignore_test") {
-			let attr: IgnoreAttribute = syn::parse2(attr.tokens)?;
+			let attr: IgnoreAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
 			let resolved = attr.iri_ref.resolved(base.as_iri());
 			ignore.insert(vocabulary.insert(resolved.as_iri()), attr.link);
 		} else {
@@ -281,7 +285,7 @@ fn parse_input(
 		suite,
 		types,
 		type_map,
-		ignore
+		ignore,
 	})
 }
 
@@ -290,14 +294,14 @@ fn parse_struct_type(
 	bindings: &mut HashMap<String, IriIndex>,
 	type_map: &mut HashMap<IriIndex, syn::Ident>,
 	s: &mut syn::ItemStruct,
-) -> Result<ty::Struct, Error> {
+) -> Result<ty::Struct, Box<Error>> {
 	let mut fields = HashMap::new();
 
 	let attrs = std::mem::take(&mut s.attrs);
 	for attr in attrs {
 		if attr.path.is_ident("iri") {
-			let attr: IriAttribute = syn::parse2(attr.tokens)?;
-			let iri = expand_iri(vocabulary, bindings, attr.iri)?;
+			let attr: IriAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+			let iri = expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?;
 			type_map.insert(iri, s.ident.clone());
 		} else {
 			s.attrs.push(attr)
@@ -318,8 +322,11 @@ fn parse_struct_type(
 		let attrs = std::mem::take(&mut field.attrs);
 		for attr in attrs {
 			if attr.path.is_ident("iri") {
-				let attr: IriAttribute = syn::parse2(attr.tokens)?;
-				iri = Some(expand_iri(vocabulary, bindings, attr.iri)?)
+				let attr: IriAttribute =
+					syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+				iri = Some(
+					expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?,
+				)
 			} else {
 				field.attrs.push(attr)
 			}
@@ -363,14 +370,14 @@ fn parse_enum_type(
 	bindings: &mut HashMap<String, IriIndex>,
 	type_map: &mut HashMap<IriIndex, syn::Ident>,
 	e: &mut syn::ItemEnum,
-) -> Result<ty::Enum, Error> {
+) -> Result<ty::Enum, Box<Error>> {
 	let mut variants = HashMap::new();
 
 	let attrs = std::mem::take(&mut e.attrs);
 	for attr in attrs {
 		if attr.path.is_ident("iri") {
-			let attr: IriAttribute = syn::parse2(attr.tokens)?;
-			let iri = expand_iri(vocabulary, bindings, attr.iri)?;
+			let attr: IriAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+			let iri = expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?;
 			type_map.insert(iri, e.ident.clone());
 		} else {
 			e.attrs.push(attr)
@@ -383,8 +390,11 @@ fn parse_enum_type(
 		let attrs = std::mem::take(&mut variant.attrs);
 		for attr in attrs {
 			if attr.path.is_ident("iri") {
-				let attr: IriAttribute = syn::parse2(attr.tokens)?;
-				iri = Some(expand_iri(vocabulary, bindings, attr.iri)?)
+				let attr: IriAttribute =
+					syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+				iri = Some(
+					expand_iri(vocabulary, bindings, attr.iri).map_err(|e| Box::new(e.into()))?,
+				)
 			} else {
 				variant.attrs.push(attr)
 			}
@@ -407,8 +417,12 @@ fn parse_enum_type(
 					let attrs = std::mem::take(&mut field.attrs);
 					for attr in attrs {
 						if attr.path.is_ident("iri") {
-							let attr: IriAttribute = syn::parse2(attr.tokens)?;
-							field_iri = Some(expand_iri(vocabulary, bindings, attr.iri)?)
+							let attr: IriAttribute =
+								syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
+							field_iri = Some(
+								expand_iri(vocabulary, bindings, attr.iri)
+									.map_err(|e| Box::new(e.into()))?,
+							)
 						} else {
 							field.attrs.push(attr)
 						}
@@ -523,7 +537,7 @@ async fn generate_test_suite(
 	vocabulary: &mut Vocabulary,
 	mut loader: FsLoader,
 	spec: TestSpec,
-) -> Result<TokenStream, Error> {
+) -> Result<TokenStream, Box<Error>> {
 	use json_ld::{Loader, RdfQuads};
 
 	let json_ld = loader
@@ -551,9 +565,14 @@ async fn generate_test_suite(
 			if *predicate == ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))) {
 				if let json_ld::rdf::Value::Reference(ValidId::Iri(ty)) = object {
 					if let Some(type_id) = spec.type_map.get(ty) {
-						match spec.ignore.get(&id) {
+						match spec.ignore.get(id) {
 							Some(link) => {
-								println!("    {} test `{}` (see {})", yansi::Paint::yellow("Ignoring").bold(), vocabulary.iri(&id).unwrap(), link);
+								println!(
+									"    {} test `{}` (see {})",
+									yansi::Paint::yellow("Ignoring").bold(),
+									vocabulary.iri(id).unwrap(),
+									link
+								);
 							}
 							None => {
 								tests.insert(*id, type_id);

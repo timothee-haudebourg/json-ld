@@ -3,8 +3,8 @@ use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandle
 use futures::future::{BoxFuture, FutureExt};
 use iref::{Iri, IriRef};
 use json_ld_core::{
-	context::{NormalTermDefinition, TypeTermDefinition}, Container, Context, ContextLoader, ProcessingMode, Id, Term,
-	Type, ValidId,
+	context::{NormalTermDefinition, TypeTermDefinition},
+	Container, Context, ContextLoader, Id, ProcessingMode, Term, Type, ValidId,
 };
 use json_ld_syntax::{
 	context::{
@@ -23,7 +23,10 @@ fn is_gen_delim(c: char) -> bool {
 }
 
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
-fn is_gen_delim_or_blank<T, B>(vocabulary: &impl VocabularyMut<Iri=T, BlankId=B>, t: &Term<T, B>) -> bool {
+fn is_gen_delim_or_blank<T, B>(
+	vocabulary: &impl VocabularyMut<Iri = T, BlankId = B>,
+	t: &Term<T, B>,
+) -> bool {
 	match t {
 		Term::Ref(Id::Valid(ValidId::Blank(_))) => true,
 		Term::Ref(Id::Valid(ValidId::Iri(id))) => {
@@ -104,7 +107,7 @@ pub fn define<
 	B: Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
 	C: ProcessMeta<T, B, M>,
-	N: Send + Sync + VocabularyMut<Iri=T, BlankId=B>,
+	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	W: 'a + Send + WarningHandler<N, M>,
 >(
@@ -523,9 +526,8 @@ where
 											result.push_str(compact_iri.suffix());
 
 											if let Ok(iri) = Iri::new(result.as_str()) {
-												definition.value = Some(Term::Ref(Id::id(
-													vocabulary.insert(iri),
-												)))
+												definition.value =
+													Some(Term::Ref(Id::iri(vocabulary.insert(iri))))
 											} else {
 												return Err(Error::InvalidIriMapping);
 											}
@@ -541,9 +543,9 @@ where
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
 											match iri_ref.into_iri() {
 												Ok(iri) => {
-													definition.value = Some(Term::Ref(
-														Id::id(vocabulary.insert(iri)),
-													))
+													definition.value = Some(Term::Ref(Id::iri(
+														vocabulary.insert(iri),
+													)))
 												}
 												Err(iri_ref) => {
 													if iri_ref.as_str().contains('/') {
@@ -566,9 +568,9 @@ where
 															&mut warnings,
 														) {
 															Meta(
-																Term::Ref(Id::Valid(
-																	ValidId::Iri(id),
-																)),
+																Term::Ref(Id::Valid(ValidId::Iri(
+																	id,
+																))),
 																_,
 															) => definition.value = Some(id.into()),
 															// If the resulting IRI mapping is not an IRI, an invalid IRI mapping

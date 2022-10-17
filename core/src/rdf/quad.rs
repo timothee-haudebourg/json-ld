@@ -6,15 +6,10 @@ use std::borrow::Cow;
 use std::convert::TryInto;
 use std::hash::Hash;
 
-pub type Quad<T, B> =
-	rdf_types::Quad<ValidId<T, B>, ValidId<T, B>, Value<T, B>, ValidId<T, B>>;
+pub type Quad<T, B> = rdf_types::Quad<ValidId<T, B>, ValidId<T, B>, Value<T, B>, ValidId<T, B>>;
 
-pub type QuadRef<'a, T, B> = rdf_types::Quad<
-	Cow<'a, ValidId<T, B>>,
-	Cow<'a, ValidId<T, B>>,
-	Value<T, B>,
-	&'a ValidId<T, B>,
->;
+pub type QuadRef<'a, T, B> =
+	rdf_types::Quad<Cow<'a, ValidId<T, B>>, Cow<'a, ValidId<T, B>>, Value<T, B>, &'a ValidId<T, B>>;
 
 struct Compound<'a, T, B, M> {
 	graph: Option<&'a ValidId<T, B>>,
@@ -30,8 +25,16 @@ pub struct Quads<'a, 'n, 'g, T, B, N, M, G: id::Generator<T, B, M, N>> {
 	quads: crate::quad::Quads<'a, T, B, M>,
 }
 
-impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriVocabularyMut<Iri=T>, M, G: id::Generator<T, B, M, N>>
-	Iterator for Quads<'a, 'n, 'g, T, B, N, M, G>
+impl<
+		'a,
+		'n,
+		'g,
+		T: Clone,
+		B: Clone,
+		N: IriVocabularyMut<Iri = T>,
+		M,
+		G: id::Generator<T, B, M, N>,
+	> Iterator for Quads<'a, 'n, 'g, T, B, N, M, G>
 {
 	type Item = QuadRef<'a, T, B>;
 
@@ -57,12 +60,11 @@ impl<'a, 'n, 'g, T: Clone, B: Clone, N: IriVocabularyMut<Iri=T>, M, G: id::Gener
 
 			match self.quads.next() {
 				Some(crate::quad::QuadRef(graph, subject, property, object)) => {
-					let rdf_graph: Option<&'a ValidId<T, B>> =
-						match graph.map(|r| r.try_into()) {
-							Some(Ok(r)) => Some(r),
-							None => None,
-							_ => continue,
-						};
+					let rdf_graph: Option<&'a ValidId<T, B>> = match graph.map(|r| r.try_into()) {
+						Some(Ok(r)) => Some(r),
+						None => None,
+						_ => continue,
+					};
 
 					let rdf_subject: &'a ValidId<T, B> = match subject.try_into() {
 						Ok(r) => r,
