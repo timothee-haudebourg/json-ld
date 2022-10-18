@@ -1,6 +1,6 @@
 [package]
 name = "json-ld-syntax"
-version = "0.1.0"
+version = "0.7.0-beta"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2021"
 categories = ["web-programming", "database", "data-structures"]

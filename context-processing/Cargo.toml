@@ -1,6 +1,6 @@
 [package]
 name = "json-ld-context-processing"
-version = "0.1.0"
+version = "0.7.0-beta"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2021"
 categories = ["web-programming", "database", "data-structures"]
@@ -12,8 +12,8 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-json-ld-core = { path = "../core" }
-json-ld-syntax = { path = "../syntax" }
+json-ld-core = { path = "../core", version = "0.7.0-beta" }
+json-ld-syntax = { path = "../syntax", version = "0.7.0-beta" }
 iref = "2.2"
 rdf-types = "0.10"
 futures = "^0.3"

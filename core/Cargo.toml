@@ -1,6 +1,6 @@
 [package]
 name = "json-ld-core"
-version = "0.6.1"
+version = "0.7.0-beta"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2021"
 categories = ["web-programming", "database", "data-structures"]
@@ -18,7 +18,7 @@ uuid-generator-v5 = ["uuid", "uuid/v5"]
 default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
 
 [dependencies]
-json-ld-syntax = { path = "../syntax" }
+json-ld-syntax = { path = "../syntax", version = "0.7.0-beta" }
 json-syntax = { version = "0.8.11", features = ["contextual"] }
 log = "^0.4"
 derivative = "^2.2"
