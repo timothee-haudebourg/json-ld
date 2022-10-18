@@ -4,7 +4,7 @@
 //!
 //! To run the tests for the first time use the following commands in
 //! a shell:
-//! ```
+//! ```text
 //! git submodules update
 //! cargo test
 //! ```
