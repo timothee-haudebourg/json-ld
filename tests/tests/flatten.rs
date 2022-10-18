@@ -127,7 +127,7 @@ impl flatten::Test {
 		match self.desc {
 			flatten::Description::Positive { expect } => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
-				
+
 				// Note: try it 10 times to reduce the chances of false negative
 				// with flatten_tin03. TODO proper fix.
 				for i in 0..10 {
@@ -159,7 +159,7 @@ impl flatten::Test {
 						.unwrap();
 
 					if success {
-						break
+						break;
 					} else {
 						if i == 9 {
 							eprintln!("test failed");
