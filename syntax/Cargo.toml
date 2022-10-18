@@ -1,0 +1,26 @@
+[package]
+name = "json-ld-syntax"
+version = "0.1.0"
+authors = ["Timothée Haudebourg <author@haudebourg.net>"]
+edition = "2021"
+categories = ["web-programming", "database", "data-structures"]
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+description = "A JSON-LD context processing implementation"
+repository = "https://github.com/timothee-haudebourg/json-ld"
+documentation = "https://docs.rs/json-ld-context-processing"
+license = "MIT/Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+iref = "2.2"
+langtag = "0.3.2"
+rdf-types = "0.10"
+json-syntax = "0.8.13"
+locspan = "0.7.9"
+locspan-derive = "0.5.2"
+hashbrown = "0.12.1"
+derivative = "2.2.0"
+indexmap = "1.9.1" # TODO remove indexmap
+smallvec = "1.9"
+decoded-char = "0.1.0"
+contextual = "0.1.3"

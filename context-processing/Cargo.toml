@@ -1,0 +1,23 @@
+[package]
+name = "json-ld-context-processing"
+version = "0.1.0"
+authors = ["Timothée Haudebourg <author@haudebourg.net>"]
+edition = "2021"
+categories = ["web-programming", "database", "data-structures"]
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+description = "A JSON-LD context processing implementation"
+repository = "https://github.com/timothee-haudebourg/json-ld"
+documentation = "https://docs.rs/json-ld-context-processing"
+license = "MIT/Apache-2.0"
+readme = "README.md"
+
+[dependencies]
+json-ld-core = { path = "../core" }
+json-ld-syntax = { path = "../syntax" }
+iref = "2.2"
+rdf-types = "0.10"
+futures = "^0.3"
+mown = "0.2.1"
+# cc-traits = "0.8.0"
+locspan = "0.7.9"
+contextual = "0.1.3"
