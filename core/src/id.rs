@@ -5,12 +5,24 @@ use iref::{Iri, IriBuf};
 use json_ld_syntax::IntoJsonWithContextMeta;
 use locspan::Meta;
 use locspan_derive::*;
-use rdf_types::{BlankId, BlankIdBuf, InvalidBlankId, Vocabulary, VocabularyMut};
+use rdf_types::{
+	BlankId, BlankIdBuf, BlankIdVocabulary, InvalidBlankId, IriVocabulary, Vocabulary,
+	VocabularyMut,
+};
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
 
 pub use rdf_types::MetaGenerator as Generator;
+
+pub type ValidVocabularyId<V> =
+	ValidId<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>;
+
+pub type MetaValidVocabularyId<V, M> = Meta<ValidVocabularyId<V>, M>;
+
+pub type VocabularyId<V> = Id<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>;
+
+pub type MetaVocabularyId<V, M> = Meta<VocabularyId<V>, M>;
 
 /// Node identifier.
 ///

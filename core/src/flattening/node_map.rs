@@ -3,7 +3,7 @@ use crate::{id, object, ExpandedDocument, Id, Indexed, IndexedNode, IndexedObjec
 use derivative::Derivative;
 use json_ld_syntax::Entry;
 use locspan::{BorrowStripped, Meta, Stripped};
-use rdf_types::Vocabulary;
+use rdf_types::{BlankIdVocabulary, IriVocabulary, Vocabulary};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
@@ -369,13 +369,18 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B
 	}
 }
 
+pub type ExtendNodeMapResult<V, M> = Result<
+	IndexedObject<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId, M>,
+	ConflictingIndexes<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId, M>,
+>;
+
 /// Extends the `NodeMap` with the given `element` of an expanded JSON-LD document.
 fn extend_node_map<N: Vocabulary, M: Clone, G: id::Generator<N, M>>(
 	env: &mut Environment<M, N, G>,
 	node_map: &mut NodeMap<N::Iri, N::BlankId, M>,
 	Meta(element, meta): &IndexedObject<N::Iri, N::BlankId, M>,
 	active_graph: Option<&Id<N::Iri, N::BlankId>>,
-) -> Result<IndexedObject<N::Iri, N::BlankId, M>, ConflictingIndexes<N::Iri, N::BlankId, M>>
+) -> ExtendNodeMapResult<N, M>
 where
 	N::Iri: Clone + Eq + Hash,
 	N::BlankId: Clone + Eq + Hash,

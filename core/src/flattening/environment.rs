@@ -1,4 +1,4 @@
-use crate::{id, Id, ValidId};
+use crate::{id, Id, MetaValidVocabularyId, MetaVocabularyId, ValidId};
 use locspan::Meta;
 use rdf_types::Vocabulary;
 use std::collections::HashMap;
@@ -7,7 +7,7 @@ use std::hash::Hash;
 pub struct Environment<'n, M, N: Vocabulary, G> {
 	vocabulary: &'n mut N,
 	generator: G,
-	map: HashMap<N::BlankId, Meta<ValidId<N::Iri, N::BlankId>, M>>,
+	map: HashMap<N::BlankId, MetaValidVocabularyId<N, M>>,
 }
 
 impl<'n, M, N: Vocabulary, G> Environment<'n, M, N, G> {
@@ -39,7 +39,7 @@ where
 
 	pub fn assign_node_id(
 		&mut self,
-		r: Option<&Meta<Id<V::Iri, V::BlankId>, M>>,
+		r: Option<&MetaVocabularyId<V, M>>,
 	) -> Meta<Id<V::Iri, V::BlankId>, M> {
 		match r {
 			Some(Meta(Id::Valid(ValidId::Blank(id)), _)) => self.assign(id.clone()).cast(),
