@@ -10,9 +10,7 @@ use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
 
-pub mod generator;
-
-pub use generator::Generator;
+pub use rdf_types::MetaGenerator as Generator;
 
 /// Node identifier.
 ///
@@ -298,72 +296,7 @@ impl<T, B> IntoId<T, B> for T {
 	}
 }
 
-/// Valid node identifier.
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Hash,
-	StrippedPartialEq,
-	StrippedEq,
-	StrippedHash,
-	Debug,
-)]
-#[stripped(T, B)]
-pub enum ValidId<T = IriBuf, B = BlankIdBuf> {
-	Iri(#[stripped] T),
-	Blank(#[stripped] B),
-}
-
-impl<T, B> ValidId<T, B> {
-	pub fn into_rdf_subject(self) -> rdf_types::Subject<T, B> {
-		match self {
-			Self::Iri(t) => rdf_types::Subject::Iri(t),
-			Self::Blank(b) => rdf_types::Subject::Blank(b),
-		}
-	}
-
-	pub fn as_rdf_subject(&self) -> rdf_types::Subject<&T, &B> {
-		match self {
-			Self::Iri(t) => rdf_types::Subject::Iri(t),
-			Self::Blank(b) => rdf_types::Subject::Blank(b),
-		}
-	}
-}
-
-impl<I, B> ValidId<I, B> {
-	/// If the reference is a node identifier, returns the node IRI.
-	///
-	/// Returns `None` if it is a blank node reference.
-	#[inline(always)]
-	pub fn as_iri(&self) -> Option<&I> {
-		match self {
-			Self::Iri(k) => Some(k),
-			_ => None,
-		}
-	}
-
-	#[inline(always)]
-	pub fn into_term(self) -> Term<I, B> {
-		Term::Ref(self.into())
-	}
-}
-
-impl<T: AsRef<str>, B: AsRef<str>> ValidId<T, B> {
-	/// Get a string representation of the reference.
-	///
-	/// This will either return a string slice of an IRI, or a blank node identifier.
-	#[inline(always)]
-	pub fn as_str(&self) -> &str {
-		match self {
-			Self::Iri(id) => id.as_ref(),
-			Self::Blank(id) => id.as_ref(),
-		}
-	}
-}
+pub use rdf_types::Subject as ValidId;
 
 impl<T, B> From<ValidId<T, B>> for Id<T, B> {
 	fn from(r: ValidId<T, B>) -> Self {
@@ -404,26 +337,6 @@ impl<'a, T, B> TryFrom<&'a mut Id<T, B>> for &'a mut ValidId<T, B> {
 	}
 }
 
-impl<T: fmt::Display, B: fmt::Display> fmt::Display for ValidId<T, B> {
-	#[inline]
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::Iri(id) => id.fmt(f),
-			Self::Blank(b) => b.fmt(f),
-		}
-	}
-}
-
-impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for ValidId<T, B> {
-	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
-		use fmt::Display;
-		match self {
-			Self::Iri(i) => vocabulary.iri(i).unwrap().fmt(f),
-			Self::Blank(b) => vocabulary.blank_id(b).unwrap().fmt(f),
-		}
-	}
-}
-
 impl<T: fmt::Display, B: fmt::Display> crate::rdf::Display for ValidId<T, B> {
 	#[inline]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -431,12 +344,6 @@ impl<T: fmt::Display, B: fmt::Display> crate::rdf::Display for ValidId<T, B> {
 			Self::Iri(id) => write!(f, "<{}>", id),
 			Self::Blank(b) => write!(f, "{}", b),
 		}
-	}
-}
-
-impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N> for ValidId<T, B> {
-	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
-		Meta(self.into_with(context).to_string().into(), meta)
 	}
 }
 
@@ -455,11 +362,11 @@ pub enum Ref<'a, T = IriBuf, B = BlankIdBuf> {
 }
 
 pub trait IdentifyAll<T, B, M> {
-	fn identify_all_with<N, G: Generator<T, B, M, N>>(&mut self, vocabulary: &mut N, generator: G)
+	fn identify_all_with<N, G: Generator<T, B, N, M>>(&mut self, vocabulary: &mut N, generator: G)
 	where
 		M: Clone;
 
-	fn identify_all<G: Generator<T, B, M, ()>>(&mut self, generator: G)
+	fn identify_all<G: Generator<T, B, (), M>>(&mut self, generator: G)
 	where
 		M: Clone;
 }

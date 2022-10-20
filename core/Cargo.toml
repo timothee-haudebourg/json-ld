@@ -1,6 +1,6 @@
 [package]
 name = "json-ld-core"
-version = "0.7.0-beta"
+version = "0.8.0-beta"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2021"
 categories = ["web-programming", "database", "data-structures"]
@@ -11,14 +11,8 @@ documentation = "https://docs.rs/json-ld"
 license = "MIT/Apache-2.0"
 readme = "README.md"
 
-[features]
-uuid-generator-v3 = ["uuid", "uuid/v3"]
-uuid-generator-v4 = ["uuid", "uuid/v4"]
-uuid-generator-v5 = ["uuid", "uuid/v5"]
-default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
-
 [dependencies]
-json-ld-syntax = { path = "../syntax", version = "0.7.0-beta" }
+json-ld-syntax = { path = "../syntax", version = "0.8.0-beta" }
 json-syntax = { version = "0.8.11", features = ["contextual"] }
 log = "^0.4"
 derivative = "^2.2"
@@ -27,16 +21,15 @@ iref = "2.2"
 static-iref = "2.0"
 futures = "^0.3"
 once_cell = "^1.4"
-reqwest = { version = "^0.11", optional = true }
 langtag = "0.3"
-uuid = { version = "0.8", optional = true }
 smallvec = "1.10.0"
 permutohedron = { version = "0.2" }
 pretty_dtoa = "0.3"
-rdf-types = { version = "0.10", features = ["contextual"] }
+rdf-types = { version = "0.11", features = ["contextual", "meta"] }
 locspan = "0.7.9"
 locspan-derive = "0.5.2"
 contextual = "0.1.3"
+# reqwest = { version = "^0.11", optional = true }
 
 [dev-dependencies]
 iref-enum = "2.1"

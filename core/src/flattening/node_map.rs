@@ -354,7 +354,7 @@ impl<'a, T, B, M> IntoIterator for &'a NodeMapGraph<T, B, M> {
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B, M> {
-	pub fn generate_node_map_with<N, G: id::Generator<T, B, M, N>>(
+	pub fn generate_node_map_with<N, G: id::Generator<T, B, N, M>>(
 		&self,
 		vocabulary: &mut N,
 		generator: G,
@@ -374,7 +374,7 @@ fn extend_node_map<
 	B: Clone + Eq + Hash,
 	N,
 	M: Clone,
-	G: id::Generator<T, B, M, N>,
+	G: id::Generator<T, B, N, M>,
 >(
 	env: &mut Environment<T, B, M, N, G>,
 	node_map: &mut NodeMap<T, B, M>,
@@ -428,7 +428,7 @@ fn extend_node_map_from_node<
 	B: Clone + Eq + Hash,
 	N,
 	M: Clone,
-	G: id::Generator<T, B, M, N>,
+	G: id::Generator<T, B, N, M>,
 >(
 	env: &mut Environment<T, B, M, N, G>,
 	node_map: &mut NodeMap<T, B, M>,

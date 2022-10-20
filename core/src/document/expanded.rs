@@ -62,7 +62,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	pub fn identify_all_with<N, G: id::Generator<T, B, M, N>>(
+	pub fn identify_all_with<N, G: id::Generator<T, B, N, M>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -81,7 +81,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	pub fn identify_all<G: id::Generator<T, B, M, ()>>(&mut self, generator: &mut G)
+	pub fn identify_all<G: id::Generator<T, B, (), M>>(&mut self, generator: &mut G)
 	where
 		M: Clone,
 		T: Eq + Hash,

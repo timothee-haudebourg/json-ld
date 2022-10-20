@@ -22,7 +22,7 @@ impl<'n, T, B, M, N, G> Environment<'n, T, B, M, N, G> {
 	}
 }
 
-impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, M, N>>
+impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, N, M>>
 	Environment<'n, T, B, M, N, G>
 {
 	pub fn assign(&mut self, blank_id: B) -> Meta<ValidId<T, B>, M> {

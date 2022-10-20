@@ -17,7 +17,7 @@ struct Compound<'a, T, B, M> {
 }
 
 /// Iterator over the RDF Quads of a JSON-LD document.
-pub struct Quads<'a, 'n, 'g, T, B, N, M, G: id::Generator<T, B, M, N>> {
+pub struct Quads<'a, 'n, 'g, T, B, N, M, G: id::Generator<T, B, N, M>> {
 	vocabulary: &'n mut N,
 	generator: &'g mut G,
 	rdf_direction: Option<RdfDirection>,
@@ -33,7 +33,7 @@ impl<
 		B: Clone,
 		N: IriVocabularyMut<Iri = T>,
 		M,
-		G: id::Generator<T, B, M, N>,
+		G: id::Generator<T, B, N, M>,
 	> Iterator for Quads<'a, 'n, 'g, T, B, N, M, G>
 {
 	type Item = QuadRef<'a, T, B>;
@@ -106,14 +106,14 @@ impl<
 }
 
 pub trait RdfQuads<T, B, M> {
-	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, N, M>>(
 		&self,
 		vocabulary: &'n mut N,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Quads<'_, 'n, 'g, T, B, N, M, G>;
 
-	fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
+	fn rdf_quads<'g, G: id::Generator<T, B, (), M>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
@@ -121,7 +121,7 @@ pub trait RdfQuads<T, B, M> {
 }
 
 impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
-	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, N, M>>(
 		&self,
 		vocabulary: &'n mut N,
 		generator: &'g mut G,
@@ -136,7 +136,7 @@ impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
 		}
 	}
 
-	fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
+	fn rdf_quads<'g, G: id::Generator<T, B, (), M>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
@@ -152,7 +152,7 @@ impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
 }
 
 impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
-	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, N, M>>(
 		&self,
 		vocabulary: &'n mut N,
 		generator: &'g mut G,
@@ -167,7 +167,7 @@ impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
 		}
 	}
 
-	fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
+	fn rdf_quads<'g, G: id::Generator<T, B, (), M>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
@@ -183,7 +183,7 @@ impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash, M> RdfQuads<T, B, M> for NodeMap<T, B, M> {
-	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, M, N>>(
+	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, N, M>>(
 		&self,
 		vocabulary: &'n mut N,
 		generator: &'g mut G,
@@ -198,7 +198,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> RdfQuads<T, B, M> for NodeMap<T, B, M> {
 		}
 	}
 
-	fn rdf_quads<'g, G: id::Generator<T, B, M, ()>>(
+	fn rdf_quads<'g, G: id::Generator<T, B, (), M>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,

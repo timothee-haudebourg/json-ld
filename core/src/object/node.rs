@@ -182,7 +182,7 @@ impl<T, B, M> Node<T, B, M> {
 	}
 
 	/// Assigns an identifier to this node and every other node included in this one using the given `generator`.
-	pub fn identify_all_with<N, G: id::Generator<T, B, M, N>>(
+	pub fn identify_all_with<N, G: id::Generator<T, B, N, M>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -210,7 +210,7 @@ impl<T, B, M> Node<T, B, M> {
 	}
 
 	/// Assigns an identifier to this node and every other node included in this one using the given `generator`.
-	pub fn identify_all<G: id::Generator<T, B, M, ()>>(&mut self, generator: &mut G)
+	pub fn identify_all<G: id::Generator<T, B, (), M>>(&mut self, generator: &mut G)
 	where
 		M: Clone,
 	{

@@ -24,7 +24,7 @@ pub type FlattenUnorderedResult<I, B, M> =
 	Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>>;
 
 pub trait FlattenMeta<I, B, M> {
-	fn flatten_meta<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_meta<N, G: id::Generator<I, B, N, M>>(
 		self,
 		meta: M,
 		vocabulary: &mut N,
@@ -34,7 +34,7 @@ pub trait FlattenMeta<I, B, M> {
 	where
 		N: Vocabulary<Iri = I, BlankId = B>;
 
-	fn flatten_unordered_meta<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_unordered_meta<N, G: id::Generator<I, B, N, M>>(
 		self,
 		meta: M,
 		vocabulary: &mut N,
@@ -43,7 +43,7 @@ pub trait FlattenMeta<I, B, M> {
 }
 
 pub trait Flatten<I, B, M> {
-	fn flatten_with<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_with<N, G: id::Generator<I, B, N, M>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
@@ -52,7 +52,7 @@ pub trait Flatten<I, B, M> {
 	where
 		N: Vocabulary<Iri = I, BlankId = B>;
 
-	fn flatten_unordered_with<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_unordered_with<N, G: id::Generator<I, B, N, M>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
@@ -60,7 +60,7 @@ pub trait Flatten<I, B, M> {
 }
 
 impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
-	fn flatten_with<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_with<N, G: id::Generator<I, B, N, M>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
@@ -72,7 +72,7 @@ impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
 		T::flatten_meta(self.0, self.1, vocabulary, generator, ordered)
 	}
 
-	fn flatten_unordered_with<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_unordered_with<N, G: id::Generator<I, B, N, M>>(
 		self,
 		vocabulary: &mut N,
 		generator: G,
@@ -84,7 +84,7 @@ impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
 impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M>
 	for ExpandedDocument<I, B, M>
 {
-	fn flatten_meta<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_meta<N, G: id::Generator<I, B, N, M>>(
 		self,
 		meta: M,
 		vocabulary: &mut N,
@@ -101,7 +101,7 @@ impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M>
 		))
 	}
 
-	fn flatten_unordered_meta<N, G: id::Generator<I, B, M, N>>(
+	fn flatten_unordered_meta<N, G: id::Generator<I, B, N, M>>(
 		self,
 		meta: M,
 		vocabulary: &mut N,

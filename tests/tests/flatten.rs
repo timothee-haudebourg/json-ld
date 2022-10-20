@@ -131,10 +131,9 @@ impl flatten::Test {
 				// Note: try it 10 times to reduce the chances of false negative
 				// with flatten_tin03. TODO proper fix.
 				for i in 0..10 {
-					let mut generator = json_ld::generator::Blank::new_with_prefix(
-						locspan::Location::new(input, locspan::Span::default()),
-						"b".to_string(),
-					);
+					let mut generator =
+						rdf_types::generator::Blank::new_with_prefix("b".to_string())
+							.with_metadata(locspan::Location::new(input, locspan::Span::default()));
 					let flattened = json_ld
 						.flatten_full(
 							&mut vocabulary,
@@ -182,10 +181,12 @@ impl flatten::Test {
 			} => {
 				match loader.load_with(&mut vocabulary, input).await {
 					Ok(json_ld) => {
-						let mut generator = json_ld::generator::Blank::new_with_prefix(
-							locspan::Location::new(input, locspan::Span::default()),
-							"b".to_string(),
-						);
+						let mut generator =
+							rdf_types::generator::Blank::new_with_prefix("b".to_string())
+								.with_metadata(locspan::Location::new(
+									input,
+									locspan::Span::default(),
+								));
 						let result = json_ld
 							.flatten_full(
 								&mut vocabulary,

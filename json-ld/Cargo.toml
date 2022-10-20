@@ -1,6 +1,6 @@
 [package]
 name = "json-ld"
-version = "0.7.0-beta"
+version = "0.8.0-beta"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2018"
 categories = ["web-programming", "database", "data-structures"]
@@ -13,21 +13,17 @@ readme = "README.md"
 
 [features]
 # reqwest = ["json-ld-core/reqwest"]
-uuid-generator-v3 = ["json-ld-core/uuid-generator-v3"]
-uuid-generator-v4 = ["json-ld-core/uuid-generator-v4"]
-uuid-generator-v5 = ["json-ld-core/uuid-generator-v5"]
-default = ["uuid-generator-v3", "uuid-generator-v4", "uuid-generator-v5"]
 
 [dependencies]
-json-ld-syntax = { path = "../syntax", version = "0.7.0-beta" }
-json-ld-core = { path = "../core", version = "0.7.0-beta" }
-json-ld-context-processing = { path = "../context-processing", version = "0.7.0-beta" }
-json-ld-expansion = { path = "../expansion", version = "0.7.0-beta" }
-json-ld-compaction = { path = "../compaction", version = "0.7.0-beta" }
+json-ld-syntax = { path = "../syntax", version = "0.8.0-beta" }
+json-ld-core = { path = "../core", version = "0.8.0-beta" }
+json-ld-context-processing = { path = "../context-processing", version = "0.8.0-beta" }
+json-ld-expansion = { path = "../expansion", version = "0.8.0-beta" }
+json-ld-compaction = { path = "../compaction", version = "0.8.0-beta" }
 json-syntax = "0.8.13"
 futures = "^0.3"
 locspan = "0.7.9"
-rdf-types = "0.10"
+rdf-types = "0.11"
 contextual = "0.1.3"
 
 [dev-dependencies]

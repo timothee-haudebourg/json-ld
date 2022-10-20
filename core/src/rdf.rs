@@ -115,7 +115,7 @@ pub struct CompoundLiteral<T, B> {
 }
 
 impl<T: Clone, M> crate::object::Value<T, M> {
-	fn rdf_value_with<B, N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, M, N>>(
+	fn rdf_value_with<B, N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, N, M>>(
 		&self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -239,7 +239,7 @@ impl<T: Clone, B: Clone, M> Node<T, B, M> {
 }
 
 impl<T: Clone, B: Clone, M> Object<T, B, M> {
-	fn rdf_value_with<N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, M, N>>(
+	fn rdf_value_with<N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, N, M>>(
 		&self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -283,7 +283,7 @@ pub struct CompoundValue<'a, T, B, M> {
 }
 
 impl<'a, T: Clone, B: Clone, M> crate::quad::ObjectRef<'a, T, B, M> {
-	pub fn rdf_value_with<N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, M, N>>(
+	pub fn rdf_value_with<N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, N, M>>(
 		&self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -335,7 +335,7 @@ impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
 	/// Pull the next object of the list.
 	///
 	/// Uses the given generator to assign as id to the list element.
-	fn next<N, G: id::Generator<T, B, M, N>>(
+	fn next<N, G: id::Generator<T, B, N, M>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -367,7 +367,7 @@ impl<'a, T, B, M> CompoundValueTriples<'a, T, B, M> {
 		Self::Literal(Box::new(l))
 	}
 
-	pub fn with<'n, N, G: id::Generator<T, B, M, N>>(
+	pub fn with<'n, N, G: id::Generator<T, B, N, M>>(
 		self,
 		vocabulary: &'n mut N,
 		generator: G,
@@ -381,7 +381,7 @@ impl<'a, T, B, M> CompoundValueTriples<'a, T, B, M> {
 		}
 	}
 
-	pub fn next<N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, M, N>>(
+	pub fn next<N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, N, M>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -398,7 +398,7 @@ impl<'a, T, B, M> CompoundValueTriples<'a, T, B, M> {
 	}
 }
 
-pub struct CompoundValueTriplesWith<'a, 'n, T, B, N, M, G: id::Generator<T, B, M, N>> {
+pub struct CompoundValueTriplesWith<'a, 'n, T, B, N, M, G: id::Generator<T, B, N, M>> {
 	vocabulary: &'n mut N,
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
@@ -412,7 +412,7 @@ impl<
 		B: Clone,
 		M,
 		N: IriVocabularyMut<Iri = T>,
-		G: id::Generator<T, B, M, N>,
+		G: id::Generator<T, B, N, M>,
 	> Iterator for CompoundValueTriplesWith<'a, 'n, T, B, N, M, G>
 {
 	type Item = Triple<T, B>;
@@ -444,7 +444,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 		}
 	}
 
-	pub fn with<'n, N, G: id::Generator<T, B, M, N>>(
+	pub fn with<'n, N, G: id::Generator<T, B, N, M>>(
 		self,
 		vocabulary: &'n mut N,
 		generator: G,
@@ -458,7 +458,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 		}
 	}
 
-	pub fn next<N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, M, N>>(
+	pub fn next<N: IriVocabularyMut<Iri = T>, G: id::Generator<T, B, N, M>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
@@ -534,7 +534,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 	}
 }
 
-pub struct ListTriplesWith<'a, 'n, T, B, N, M, G: id::Generator<T, B, M, N>> {
+pub struct ListTriplesWith<'a, 'n, T, B, N, M, G: id::Generator<T, B, N, M>> {
 	vocabulary: &'n mut N,
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
@@ -548,7 +548,7 @@ impl<
 		B: Clone,
 		N: IriVocabularyMut<Iri = T>,
 		M,
-		G: id::Generator<T, B, M, N>,
+		G: id::Generator<T, B, N, M>,
 	> Iterator for ListTriplesWith<'a, 'n, T, B, N, M, G>
 {
 	type Item = Triple<T, B>;

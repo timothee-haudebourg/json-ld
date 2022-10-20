@@ -8,7 +8,7 @@ pub type FlattenedDocument<T, B, M> = Vec<IndexedNode<T, B, M>>;
 
 impl<T, B, M> IdentifyAll<T, B, M> for FlattenedDocument<T, B, M> {
 	#[inline(always)]
-	fn identify_all_with<N, G: id::Generator<T, B, M, N>>(
+	fn identify_all_with<N, G: id::Generator<T, B, N, M>>(
 		&mut self,
 		vocabulary: &mut N,
 		mut generator: G,
@@ -21,7 +21,7 @@ impl<T, B, M> IdentifyAll<T, B, M> for FlattenedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	fn identify_all<G: id::Generator<T, B, M, ()>>(&mut self, generator: G)
+	fn identify_all<G: id::Generator<T, B, (), M>>(&mut self, generator: G)
 	where
 		M: Clone,
 	{

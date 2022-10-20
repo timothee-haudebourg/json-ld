@@ -551,8 +551,8 @@ async fn generate_test_suite(
 			.await
 			.map_err(Error::Expand)?;
 
-	let mut generator =
-		json_ld::id::generator::Blank::new(Location::new(IriIndex::Index(0), Span::default()));
+	let mut generator = rdf_types::generator::Blank::new()
+		.with_metadata(Location::new(IriIndex::Index(0), Span::default()));
 	expanded_json_ld.identify_all_with(vocabulary, &mut generator);
 
 	let rdf_quads = expanded_json_ld.rdf_quads_with(vocabulary, &mut generator, None);

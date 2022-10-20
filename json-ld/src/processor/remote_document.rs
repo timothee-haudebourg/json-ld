@@ -172,7 +172,7 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 	fn flatten_full<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut (impl Send + Generator<I, B, M, N>),
+		generator: &'a mut (impl Send + Generator<I, B, N, M>),
 		context: Option<RemoteDocumentReference<I, M, C>>,
 		loader: &'a mut L,
 		options: Options<I, M, C>,
@@ -351,7 +351,7 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 	fn flatten_full<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut (impl Send + Generator<I, B, M, N>),
+		generator: &'a mut (impl Send + Generator<I, B, N, M>),
 		context: Option<RemoteDocumentReference<I, M, C>>,
 		loader: &'a mut L,
 		options: Options<I, M, C>,
