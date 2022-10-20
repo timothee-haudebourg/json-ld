@@ -3,6 +3,7 @@ use crate::{id, object, ExpandedDocument, Id, Indexed, IndexedNode, IndexedObjec
 use derivative::Derivative;
 use json_ld_syntax::Entry;
 use locspan::{BorrowStripped, Meta, Stripped};
+use rdf_types::Vocabulary;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
@@ -354,13 +355,13 @@ impl<'a, T, B, M> IntoIterator for &'a NodeMapGraph<T, B, M> {
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B, M> {
-	pub fn generate_node_map_with<N, G: id::Generator<T, B, N, M>>(
+	pub fn generate_node_map_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&self,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
 	) -> Result<NodeMap<T, B, M>, ConflictingIndexes<T, B, M>> {
 		let mut node_map: NodeMap<T, B, M> = NodeMap::new();
-		let mut env: Environment<T, B, M, N, G> = Environment::new(vocabulary, generator);
+		let mut env: Environment<M, V, G> = Environment::new(vocabulary, generator);
 		for object in self {
 			extend_node_map(&mut env, &mut node_map, object, None)?;
 		}
@@ -369,18 +370,16 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> ExpandedDocument<T, B
 }
 
 /// Extends the `NodeMap` with the given `element` of an expanded JSON-LD document.
-fn extend_node_map<
-	T: Clone + Eq + Hash,
-	B: Clone + Eq + Hash,
-	N,
-	M: Clone,
-	G: id::Generator<T, B, N, M>,
->(
-	env: &mut Environment<T, B, M, N, G>,
-	node_map: &mut NodeMap<T, B, M>,
-	Meta(element, meta): &IndexedObject<T, B, M>,
-	active_graph: Option<&Id<T, B>>,
-) -> Result<IndexedObject<T, B, M>, ConflictingIndexes<T, B, M>> {
+fn extend_node_map<N: Vocabulary, M: Clone, G: id::Generator<N, M>>(
+	env: &mut Environment<M, N, G>,
+	node_map: &mut NodeMap<N::Iri, N::BlankId, M>,
+	Meta(element, meta): &IndexedObject<N::Iri, N::BlankId, M>,
+	active_graph: Option<&Id<N::Iri, N::BlankId>>,
+) -> Result<IndexedObject<N::Iri, N::BlankId, M>, ConflictingIndexes<N::Iri, N::BlankId, M>>
+where
+	N::Iri: Clone + Eq + Hash,
+	N::BlankId: Clone + Eq + Hash,
+{
 	match element.inner() {
 		Object::Value(value) => {
 			let flat_value = value.clone();
@@ -423,19 +422,17 @@ fn extend_node_map<
 type ExtendNodeMapFromNodeResult<T, B, M> =
 	Result<Indexed<Node<T, B, M>, M>, ConflictingIndexes<T, B, M>>;
 
-fn extend_node_map_from_node<
-	T: Clone + Eq + Hash,
-	B: Clone + Eq + Hash,
-	N,
-	M: Clone,
-	G: id::Generator<T, B, N, M>,
->(
-	env: &mut Environment<T, B, M, N, G>,
-	node_map: &mut NodeMap<T, B, M>,
-	node: &Node<T, B, M>,
+fn extend_node_map_from_node<N: Vocabulary, M: Clone, G: id::Generator<N, M>>(
+	env: &mut Environment<M, N, G>,
+	node_map: &mut NodeMap<N::Iri, N::BlankId, M>,
+	node: &Node<N::Iri, N::BlankId, M>,
 	index: Option<&Entry<String, M>>,
-	active_graph: Option<&Id<T, B>>,
-) -> ExtendNodeMapFromNodeResult<T, B, M> {
+	active_graph: Option<&Id<N::Iri, N::BlankId>>,
+) -> ExtendNodeMapFromNodeResult<N::Iri, N::BlankId, M>
+where
+	N::Iri: Clone + Eq + Hash,
+	N::BlankId: Clone + Eq + Hash,
+{
 	let id = env.assign_node_id(node.id_entry().map(Entry::as_value));
 
 	{

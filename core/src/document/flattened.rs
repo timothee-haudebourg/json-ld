@@ -1,3 +1,5 @@
+use rdf_types::Vocabulary;
+
 use crate::{id, IdentifyAll, IndexedNode, StrippedIndexedNode};
 use std::collections::HashSet;
 
@@ -8,9 +10,9 @@ pub type FlattenedDocument<T, B, M> = Vec<IndexedNode<T, B, M>>;
 
 impl<T, B, M> IdentifyAll<T, B, M> for FlattenedDocument<T, B, M> {
 	#[inline(always)]
-	fn identify_all_with<N, G: id::Generator<T, B, N, M>>(
+	fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&mut self,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		mut generator: G,
 	) where
 		M: Clone,
@@ -21,9 +23,10 @@ impl<T, B, M> IdentifyAll<T, B, M> for FlattenedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	fn identify_all<G: id::Generator<T, B, (), M>>(&mut self, generator: G)
+	fn identify_all<G: id::Generator<(), M>>(&mut self, generator: G)
 	where
 		M: Clone,
+		(): Vocabulary<Iri = T, BlankId = B>,
 	{
 		self.identify_all_with(&mut (), generator)
 	}

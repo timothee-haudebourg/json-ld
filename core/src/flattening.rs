@@ -24,59 +24,66 @@ pub type FlattenUnorderedResult<I, B, M> =
 	Result<Meta<UnorderedFlattenedDocument<I, B, M>, M>, ConflictingIndexes<I, B, M>>;
 
 pub trait FlattenMeta<I, B, M> {
-	fn flatten_meta<N, G: id::Generator<I, B, N, M>>(
+	fn flatten_meta<V, G: id::Generator<V, M>>(
 		self,
 		meta: M,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
 		ordered: bool,
 	) -> FlattenResult<I, B, M>
 	where
-		N: Vocabulary<Iri = I, BlankId = B>;
+		V: Vocabulary<Iri = I, BlankId = B>;
 
-	fn flatten_unordered_meta<N, G: id::Generator<I, B, N, M>>(
+	fn flatten_unordered_meta<V, G: id::Generator<V, M>>(
 		self,
 		meta: M,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
-	) -> FlattenUnorderedResult<I, B, M>;
+	) -> FlattenUnorderedResult<I, B, M>
+	where
+		V: Vocabulary<Iri = I, BlankId = B>;
 }
 
 pub trait Flatten<I, B, M> {
-	fn flatten_with<N, G: id::Generator<I, B, N, M>>(
+	fn flatten_with<V, G: id::Generator<V, M>>(
 		self,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
 		ordered: bool,
 	) -> FlattenResult<I, B, M>
 	where
-		N: Vocabulary<Iri = I, BlankId = B>;
+		V: Vocabulary<Iri = I, BlankId = B>;
 
-	fn flatten_unordered_with<N, G: id::Generator<I, B, N, M>>(
+	fn flatten_unordered_with<V, G: id::Generator<V, M>>(
 		self,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
-	) -> FlattenUnorderedResult<I, B, M>;
+	) -> FlattenUnorderedResult<I, B, M>
+	where
+		V: Vocabulary<Iri = I, BlankId = B>;
 }
 
 impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
-	fn flatten_with<N, G: id::Generator<I, B, N, M>>(
+	fn flatten_with<V, G: id::Generator<V, M>>(
 		self,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
 		ordered: bool,
 	) -> FlattenResult<I, B, M>
 	where
-		N: Vocabulary<Iri = I, BlankId = B>,
+		V: Vocabulary<Iri = I, BlankId = B>,
 	{
 		T::flatten_meta(self.0, self.1, vocabulary, generator, ordered)
 	}
 
-	fn flatten_unordered_with<N, G: id::Generator<I, B, N, M>>(
+	fn flatten_unordered_with<V, G: id::Generator<V, M>>(
 		self,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
-	) -> FlattenUnorderedResult<I, B, M> {
+	) -> FlattenUnorderedResult<I, B, M>
+	where
+		V: Vocabulary<Iri = I, BlankId = B>,
+	{
 		T::flatten_unordered_meta(self.0, self.1, vocabulary, generator)
 	}
 }
@@ -84,15 +91,15 @@ impl<T: FlattenMeta<I, B, M>, I, B, M> Flatten<I, B, M> for Meta<T, M> {
 impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M>
 	for ExpandedDocument<I, B, M>
 {
-	fn flatten_meta<N, G: id::Generator<I, B, N, M>>(
+	fn flatten_meta<V, G: id::Generator<V, M>>(
 		self,
 		meta: M,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
 		ordered: bool,
 	) -> FlattenResult<I, B, M>
 	where
-		N: Vocabulary<Iri = I, BlankId = B>,
+		V: Vocabulary<Iri = I, BlankId = B>,
 	{
 		Ok(Meta(
 			self.generate_node_map_with(vocabulary, generator)?
@@ -101,12 +108,15 @@ impl<I: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> FlattenMeta<I, B, M>
 		))
 	}
 
-	fn flatten_unordered_meta<N, G: id::Generator<I, B, N, M>>(
+	fn flatten_unordered_meta<V, G: id::Generator<V, M>>(
 		self,
 		meta: M,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: G,
-	) -> FlattenUnorderedResult<I, B, M> {
+	) -> FlattenUnorderedResult<I, B, M>
+	where
+		V: Vocabulary<Iri = I, BlankId = B>,
+	{
 		Ok(Meta(
 			self.generate_node_map_with(vocabulary, generator)?
 				.flatten_unordered(),
@@ -144,9 +154,9 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 		self.flatten_with(&(), ordered)
 	}
 
-	pub fn flatten_with<N>(self, vocabulary: &N, ordered: bool) -> Vec<IndexedNode<T, B, M>>
+	pub fn flatten_with<V>(self, vocabulary: &V, ordered: bool) -> Vec<IndexedNode<T, B, M>>
 	where
-		N: Vocabulary<Iri = T, BlankId = B>,
+		V: Vocabulary<Iri = T, BlankId = B>,
 	{
 		let (mut default_graph, named_graphs) = self.into_parts();
 

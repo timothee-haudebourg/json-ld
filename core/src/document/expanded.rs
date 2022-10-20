@@ -3,6 +3,7 @@ use crate::{id, Id, Indexed, StrippedIndexedObject};
 use crate::{IndexedObject, TryFromJson};
 use locspan::{Location, Meta, StrippedEq, StrippedPartialEq};
 use rdf_types::vocabulary::{Index, VocabularyMut};
+use rdf_types::Vocabulary;
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -62,9 +63,9 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	pub fn identify_all_with<N, G: id::Generator<T, B, N, M>>(
+	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&mut self,
-		vocabulary: &mut N,
+		vocabulary: &mut V,
 		generator: &mut G,
 	) where
 		M: Clone,
@@ -81,11 +82,12 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	pub fn identify_all<G: id::Generator<T, B, (), M>>(&mut self, generator: &mut G)
+	pub fn identify_all<G: id::Generator<(), M>>(&mut self, generator: &mut G)
 	where
 		M: Clone,
 		T: Eq + Hash,
 		B: Eq + Hash,
+		(): Vocabulary<Iri = T, BlankId = B>,
 	{
 		self.identify_all_with(&mut (), generator)
 	}

@@ -18,7 +18,7 @@ json-ld-context-processing = { path = "../context-processing", version = "0.8.0-
 json-syntax = "0.8.13"
 langtag = "0.3"
 iref = "2.2"
-rdf-types = "0.11"
+rdf-types = "0.12"
 futures = "^0.3"
 mown = "0.2.1"
 locspan = { version = "0.7.9", features = ["contextual"] }

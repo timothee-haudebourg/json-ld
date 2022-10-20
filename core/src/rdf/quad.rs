@@ -1,7 +1,7 @@
 use super::{RdfDirection, ValidId, Value};
 use crate::{flattening::NodeMap, id, ExpandedDocument, FlattenedDocument, LdQuads};
 use rdf_types::vocabulary::{no_vocabulary_mut, IriVocabularyMut};
-use rdf_types::Triple;
+use rdf_types::{Triple, Vocabulary};
 use std::borrow::Cow;
 use std::convert::TryInto;
 use std::hash::Hash;
@@ -17,26 +17,21 @@ struct Compound<'a, T, B, M> {
 }
 
 /// Iterator over the RDF Quads of a JSON-LD document.
-pub struct Quads<'a, 'n, 'g, T, B, N, M, G: id::Generator<T, B, N, M>> {
+pub struct Quads<'a, 'n, 'g, N: Vocabulary, M, G: id::Generator<N, M>> {
 	vocabulary: &'n mut N,
 	generator: &'g mut G,
 	rdf_direction: Option<RdfDirection>,
-	compound_value: Option<Compound<'a, T, B, M>>,
-	quads: crate::quad::Quads<'a, T, B, M>,
+	compound_value: Option<Compound<'a, N::Iri, N::BlankId, M>>,
+	quads: crate::quad::Quads<'a, N::Iri, N::BlankId, M>,
 }
 
-impl<
-		'a,
-		'n,
-		'g,
-		T: Clone,
-		B: Clone,
-		N: IriVocabularyMut<Iri = T>,
-		M,
-		G: id::Generator<T, B, N, M>,
-	> Iterator for Quads<'a, 'n, 'g, T, B, N, M, G>
+impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut, M, G: id::Generator<N, M>> Iterator
+	for Quads<'a, 'n, 'g, N, M, G>
+where
+	N::Iri: Clone,
+	N::BlankId: Clone,
 {
-	type Item = QuadRef<'a, T, B>;
+	type Item = QuadRef<'a, N::Iri, N::BlankId>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
@@ -60,13 +55,14 @@ impl<
 
 			match self.quads.next() {
 				Some(crate::quad::QuadRef(graph, subject, property, object)) => {
-					let rdf_graph: Option<&'a ValidId<T, B>> = match graph.map(|r| r.try_into()) {
-						Some(Ok(r)) => Some(r),
-						None => None,
-						_ => continue,
-					};
+					let rdf_graph: Option<&'a ValidId<N::Iri, N::BlankId>> =
+						match graph.map(|r| r.try_into()) {
+							Some(Ok(r)) => Some(r),
+							None => None,
+							_ => continue,
+						};
 
-					let rdf_subject: &'a ValidId<T, B> = match subject.try_into() {
+					let rdf_subject: &'a ValidId<N::Iri, N::BlankId> = match subject.try_into() {
 						Ok(r) => r,
 						Err(_) => continue,
 					};
@@ -106,27 +102,29 @@ impl<
 }
 
 pub trait RdfQuads<T, B, M> {
-	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, N, M>>(
+	fn rdf_quads_with<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&self,
-		vocabulary: &'n mut N,
+		vocabulary: &'n mut V,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'n, 'g, T, B, N, M, G>;
+	) -> Quads<'_, 'n, 'g, V, M, G>;
 
-	fn rdf_quads<'g, G: id::Generator<T, B, (), M>>(
+	fn rdf_quads<'g, G: id::Generator<(), M>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'static, 'g, T, B, (), M, G>;
+	) -> Quads<'_, 'static, 'g, (), M, G>
+	where
+		(): Vocabulary<Iri = T, BlankId = B>;
 }
 
 impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
-	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, N, M>>(
+	fn rdf_quads_with<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&self,
-		vocabulary: &'n mut N,
+		vocabulary: &'n mut V,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'n, 'g, T, B, N, M, G> {
+	) -> Quads<'_, 'n, 'g, V, M, G> {
 		Quads {
 			vocabulary,
 			generator,
@@ -136,11 +134,14 @@ impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
 		}
 	}
 
-	fn rdf_quads<'g, G: id::Generator<T, B, (), M>>(
+	fn rdf_quads<'g, G: id::Generator<(), M>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'static, 'g, T, B, (), M, G> {
+	) -> Quads<'_, 'static, 'g, (), M, G>
+	where
+		(): Vocabulary<Iri = T, BlankId = B>,
+	{
 		Quads {
 			vocabulary: no_vocabulary_mut(),
 			generator,
@@ -152,12 +153,12 @@ impl<T, B, M> RdfQuads<T, B, M> for ExpandedDocument<T, B, M> {
 }
 
 impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
-	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, N, M>>(
+	fn rdf_quads_with<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&self,
-		vocabulary: &'n mut N,
+		vocabulary: &'n mut V,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'n, 'g, T, B, N, M, G> {
+	) -> Quads<'_, 'n, 'g, V, M, G> {
 		Quads {
 			vocabulary,
 			generator,
@@ -167,11 +168,14 @@ impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
 		}
 	}
 
-	fn rdf_quads<'g, G: id::Generator<T, B, (), M>>(
+	fn rdf_quads<'g, G: id::Generator<(), M>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'static, 'g, T, B, (), M, G> {
+	) -> Quads<'_, 'static, 'g, (), M, G>
+	where
+		(): Vocabulary<Iri = T, BlankId = B>,
+	{
 		Quads {
 			vocabulary: no_vocabulary_mut(),
 			generator,
@@ -183,12 +187,12 @@ impl<T, B, M> RdfQuads<T, B, M> for FlattenedDocument<T, B, M> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash, M> RdfQuads<T, B, M> for NodeMap<T, B, M> {
-	fn rdf_quads_with<'n, 'g, N, G: id::Generator<T, B, N, M>>(
+	fn rdf_quads_with<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&self,
-		vocabulary: &'n mut N,
+		vocabulary: &'n mut V,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'n, 'g, T, B, N, M, G> {
+	) -> Quads<'_, 'n, 'g, V, M, G> {
 		Quads {
 			vocabulary,
 			generator,
@@ -198,11 +202,14 @@ impl<T: Eq + Hash, B: Eq + Hash, M> RdfQuads<T, B, M> for NodeMap<T, B, M> {
 		}
 	}
 
-	fn rdf_quads<'g, G: id::Generator<T, B, (), M>>(
+	fn rdf_quads<'g, G: id::Generator<(), M>>(
 		&self,
 		generator: &'g mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'static, 'g, T, B, (), M, G> {
+	) -> Quads<'_, 'static, 'g, (), M, G>
+	where
+		(): Vocabulary<Iri = T, BlankId = B>,
+	{
 		Quads {
 			vocabulary: no_vocabulary_mut(),
 			generator,

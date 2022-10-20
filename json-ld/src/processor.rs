@@ -367,7 +367,7 @@ pub trait JsonLdProcessor<I, M> {
 	fn flatten_full<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut (impl Send + Generator<I, B, N, M>),
+		generator: &'a mut (impl Send + Generator<N, M>),
 		context: Option<RemoteDocumentReference<I, M, C>>,
 		loader: &'a mut L,
 		options: Options<I, M, C>,

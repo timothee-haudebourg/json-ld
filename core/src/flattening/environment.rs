@@ -1,20 +1,18 @@
 use crate::{id, Id, ValidId};
 use locspan::Meta;
+use rdf_types::Vocabulary;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::marker::PhantomData;
 
-pub struct Environment<'n, T, B, M, N, G> {
-	id: PhantomData<T>,
+pub struct Environment<'n, M, N: Vocabulary, G> {
 	vocabulary: &'n mut N,
 	generator: G,
-	map: HashMap<B, Meta<ValidId<T, B>, M>>,
+	map: HashMap<N::BlankId, Meta<ValidId<N::Iri, N::BlankId>, M>>,
 }
 
-impl<'n, T, B, M, N, G> Environment<'n, T, B, M, N, G> {
+impl<'n, M, N: Vocabulary, G> Environment<'n, M, N, G> {
 	pub fn new(vocabulary: &'n mut N, generator: G) -> Self {
 		Self {
-			id: PhantomData,
 			vocabulary,
 			generator,
 			map: HashMap::new(),
@@ -22,10 +20,12 @@ impl<'n, T, B, M, N, G> Environment<'n, T, B, M, N, G> {
 	}
 }
 
-impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, N, M>>
-	Environment<'n, T, B, M, N, G>
+impl<'n, M: Clone, V: Vocabulary, G: id::Generator<V, M>> Environment<'n, M, V, G>
+where
+	V::Iri: Clone,
+	V::BlankId: Clone + Hash + Eq,
 {
-	pub fn assign(&mut self, blank_id: B) -> Meta<ValidId<T, B>, M> {
+	pub fn assign(&mut self, blank_id: V::BlankId) -> Meta<ValidId<V::Iri, V::BlankId>, M> {
 		use std::collections::hash_map::Entry;
 		match self.map.entry(blank_id) {
 			Entry::Occupied(entry) => entry.get().clone(),
@@ -37,7 +37,10 @@ impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, N, 
 		}
 	}
 
-	pub fn assign_node_id(&mut self, r: Option<&Meta<Id<T, B>, M>>) -> Meta<Id<T, B>, M> {
+	pub fn assign_node_id(
+		&mut self,
+		r: Option<&Meta<Id<V::Iri, V::BlankId>, M>>,
+	) -> Meta<Id<V::Iri, V::BlankId>, M> {
 		match r {
 			Some(Meta(Id::Valid(ValidId::Blank(id)), _)) => self.assign(id.clone()).cast(),
 			Some(r) => r.clone(),
@@ -46,7 +49,7 @@ impl<'n, T: Clone, B: Clone + Hash + Eq, M: Clone, N, G: id::Generator<T, B, N, 
 	}
 
 	#[allow(clippy::should_implement_trait)]
-	pub fn next(&mut self) -> Meta<ValidId<T, B>, M> {
+	pub fn next(&mut self) -> Meta<ValidId<V::Iri, V::BlankId>, M> {
 		self.generator.next(self.vocabulary)
 	}
 }

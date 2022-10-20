@@ -362,11 +362,15 @@ pub enum Ref<'a, T = IriBuf, B = BlankIdBuf> {
 }
 
 pub trait IdentifyAll<T, B, M> {
-	fn identify_all_with<N, G: Generator<T, B, N, M>>(&mut self, vocabulary: &mut N, generator: G)
-	where
+	fn identify_all_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N, M>>(
+		&mut self,
+		vocabulary: &mut N,
+		generator: G,
+	) where
 		M: Clone;
 
-	fn identify_all<G: Generator<T, B, (), M>>(&mut self, generator: G)
+	fn identify_all<G: Generator<(), M>>(&mut self, generator: G)
 	where
-		M: Clone;
+		M: Clone,
+		(): Vocabulary<Iri = T, BlankId = B>;
 }

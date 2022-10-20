@@ -17,9 +17,9 @@ json-ld-testing = { path = "../testing", version = "0.8.0-beta" }
 iref = "2.2"
 static-iref = "2.0"
 iref-enum = "2.1.0"
-rdf-types = "0.11"
+rdf-types = "0.12"
 locspan = "0.7.9"
 async-std = { version = "1.12", features = ["attributes"] }
 log = "0.4.17"
-grdf = { version = "0.13", features = ["meta"] }
+grdf = { version = "0.14", features = ["meta"] }
 contextual = "0.1.3"
