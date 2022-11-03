@@ -14,8 +14,8 @@ use std::hash::Hash;
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
-#[stripped_ignore(M)]
-#[stripped(T, B)]
+#[locspan(ignore(M))]
+#[locspan(stripped(T, B))]
 /// List object.
 pub struct List<T, B, M> {
 	entry: Entry<Vec<IndexedObject<T, B, M>>, M>,

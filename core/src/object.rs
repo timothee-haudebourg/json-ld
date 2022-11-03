@@ -113,8 +113,8 @@ pub type StrippedIndexedObject<T, B, M> = Stripped<IndexedObject<T, B, M>>;
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
-#[stripped_ignore(M)]
-#[stripped(T, B)]
+#[locspan(ignore(M))]
+#[locspan(stripped(T, B))]
 pub enum Object<T = IriBuf, B = BlankIdBuf, M = ()> {
 	/// Value object.
 	Value(Value<T, M>),

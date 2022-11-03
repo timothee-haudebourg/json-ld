@@ -7,8 +7,8 @@ use std::hash::Hash;
 
 #[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum Id {
-	Term(#[stripped] String),
-	Keyword(#[stripped] Keyword),
+	Term(#[locspan(stripped)] String),
+	Keyword(#[locspan(stripped)] Keyword),
 }
 
 impl Id {

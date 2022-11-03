@@ -5,8 +5,8 @@ use std::hash::Hash;
 
 #[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum Type {
-	Term(#[stripped] String),
-	Keyword(#[stripped] TypeKeyword),
+	Term(#[locspan(stripped)] String),
+	Keyword(#[locspan(stripped)] TypeKeyword),
 }
 
 impl Type {

@@ -26,14 +26,14 @@ use super::AnyValue;
 
 /// Term definition.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub enum TermDefinition<M, C = context::Value<M>> {
 	Simple(Simple),
 	Expanded(Box<Expanded<M, C>>),
 }
 
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
-pub struct Simple(#[stripped] pub(crate) String);
+pub struct Simple(#[locspan(stripped)] pub(crate) String);
 
 impl Simple {
 	pub fn as_iri(&self) -> Option<Iri> {
@@ -59,7 +59,7 @@ impl Simple {
 
 /// Expanded term definition.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 #[derivative(Default(bound = ""))]
 pub struct Expanded<M, C = context::Value<M>> {
 	pub id: Option<Entry<Nullable<Id>, M>>,

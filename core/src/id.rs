@@ -32,12 +32,12 @@ pub type MetaVocabularyId<V, M> = Meta<VocabularyId<V>, M>;
 #[derive(
 	Clone, PartialEq, Eq, Hash, PartialOrd, Ord, StrippedPartialEq, StrippedEq, StrippedHash,
 )]
-#[stripped(I, B)]
+#[locspan(stripped(I, B))]
 pub enum Id<I = IriBuf, B = BlankIdBuf> {
 	Valid(ValidId<I, B>),
 
 	/// Invalid reference.
-	Invalid(#[stripped] String),
+	Invalid(#[locspan(stripped)] String),
 }
 
 impl<I, B, M> TryFromJson<I, B, M> for Id<I, B> {

@@ -15,9 +15,9 @@ use std::ops::Deref;
 	Hash,
 	Debug,
 )]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub struct Entry<T, M> {
-	#[stripped_ignore]
+	#[locspan(ignore)]
 	pub key_metadata: M,
 	pub value: Meta<T, M>,
 }

@@ -1,6 +1,6 @@
 [package]
 name = "json-ld-tests"
-version = "0.9.0-beta"
+version = "0.9.1-beta"
 edition = "2021"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 description = "Testing library for the `json-ld` library"
@@ -12,12 +12,12 @@ readme = "README.md"
 exclude = [ "/json-ld-api" ]
 
 [dependencies]
-json-ld = { path = "../json-ld", version = "0.9.0-beta" }
-json-ld-testing = { path = "../testing", version = "0.9.0-beta" }
+json-ld = { path = "../json-ld", version = "0.9.1-beta" }
+json-ld-testing = { path = "../testing", version = "0.9.1-beta" }
 iref = "2.2"
 static-iref = "2.0"
 iref-enum = "2.1.0"
-rdf-types = "0.12"
+rdf-types = "0.12.3"
 locspan = "0.7.9"
 async-std = { version = "1.12", features = ["attributes"] }
 log = "0.4.17"

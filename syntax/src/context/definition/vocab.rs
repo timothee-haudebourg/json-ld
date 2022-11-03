@@ -4,7 +4,7 @@ use locspan_derive::StrippedPartialEq;
 use rdf_types::BlankId;
 
 #[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct Vocab(#[stripped] String);
+pub struct Vocab(#[locspan(stripped)] String);
 
 impl Vocab {
 	pub fn as_iri(&self) -> Option<Iri> {

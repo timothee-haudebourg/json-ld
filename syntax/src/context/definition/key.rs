@@ -8,7 +8,7 @@ use std::hash::Hash;
 
 /// Context key.
 #[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
-pub struct Key(#[stripped] String);
+pub struct Key(#[locspan(stripped)] String);
 
 impl Key {
 	pub fn as_iri(&self) -> Option<Iri> {

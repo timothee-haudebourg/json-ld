@@ -208,14 +208,14 @@ impl Literal {
 	StrippedOrd,
 	StrippedHash,
 )]
-#[stripped_ignore(M)]
-#[stripped(T)]
+#[locspan(ignore(M))]
+#[locspan(stripped(T), fixed(T))]
 pub enum Value<T = IriBuf, M = ()> {
 	/// Typed literal value.
-	Literal(#[stripped] Literal, #[stripped] Option<T>),
+	Literal(#[locspan(stripped)] Literal, #[locspan(stripped)] Option<T>),
 
 	/// Language tagged string.
-	LangString(#[stripped] LangString),
+	LangString(#[locspan(stripped)] LangString),
 
 	/// JSON literal value.
 	Json(Meta<json_syntax::Value<M>, M>),

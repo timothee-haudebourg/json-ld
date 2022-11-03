@@ -255,7 +255,7 @@ impl TypeTermDefinition {
 }
 
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq, Clone)]
-#[stripped(T, B)]
+#[locspan(stripped(T, B), fixed(T, B))]
 pub enum TermDefinition<T, B, C, M> {
 	Type(TypeTermDefinition),
 	Normal(NormalTermDefinition<T, B, C, M>),
@@ -359,7 +359,7 @@ impl<T, B, C, M> TermDefinition<T, B, C, M> {
 }
 
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq)]
-#[stripped(T, B)]
+#[locspan(stripped(T, B), fixed(T, B))]
 pub enum TermDefinitionRef<'a, T, B, C, M> {
 	Type(&'a TypeTermDefinition),
 	Normal(&'a NormalTermDefinition<T, B, C, M>),
@@ -468,53 +468,53 @@ impl<'a, T, B, C, M> Copy for TermDefinitionRef<'a, T, B, C, M> {}
 
 // A term definition.
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq, Clone)]
-#[stripped(T, B)]
+#[locspan(stripped(T, B), fixed(T, B))]
 pub struct NormalTermDefinition<T, B, C, M> {
 	// IRI mapping.
-	#[stripped]
+	#[locspan(stripped)]
 	pub value: Option<Term<T, B>>,
 
 	// Prefix flag.
-	#[stripped]
+	#[locspan(stripped)]
 	pub prefix: bool,
 
 	// Protected flag.
-	#[stripped]
+	#[locspan(stripped)]
 	pub protected: bool,
 
 	// Reverse property flag.
-	#[stripped]
+	#[locspan(stripped)]
 	pub reverse_property: bool,
 
 	// Optional base URL.
-	#[stripped]
+	#[locspan(stripped)]
 	pub base_url: Option<T>,
 
 	// Optional context.
 	pub context: Option<Entry<C, M>>,
 
 	// Container mapping.
-	#[stripped]
+	#[locspan(stripped)]
 	pub container: Container,
 
 	// Optional direction mapping.
-	#[stripped]
+	#[locspan(stripped)]
 	pub direction: Option<Nullable<Direction>>,
 
 	// Optional index mapping.
-	#[stripped_option_deref2]
+	#[locspan(unwrap_deref2_stripped)]
 	pub index: Option<Entry<Index, M>>,
 
 	// Optional language mapping.
-	#[stripped]
+	#[locspan(stripped)]
 	pub language: Option<Nullable<LenientLanguageTagBuf>>,
 
 	// Optional nest value.
-	#[stripped_option_deref2]
+	#[locspan(unwrap_deref2_stripped)]
 	pub nest: Option<Entry<Nest, M>>,
 
 	// Optional type mapping.
-	#[stripped]
+	#[locspan(stripped)]
 	pub typ: Option<Type<T>>,
 }
 
@@ -666,11 +666,11 @@ impl<T, B, C, M> Default for NormalTermDefinition<T, B, C, M> {
 
 pub struct ModuloProtected<T>(T);
 
-impl<'a, 'b, T: PartialEq, B: PartialEq, C: StrippedPartialEq, M>
-	StrippedPartialEq<ModuloProtected<&'b NormalTermDefinition<T, B, C, M>>>
+impl<'a, 'b, T: PartialEq, B: PartialEq, C: StrippedPartialEq<E>, M, E, N>
+	StrippedPartialEq<ModuloProtected<&'b NormalTermDefinition<T, B, E, N>>>
 	for ModuloProtected<&'a NormalTermDefinition<T, B, C, M>>
 {
-	fn stripped_eq(&self, other: &ModuloProtected<&'b NormalTermDefinition<T, B, C, M>>) -> bool {
+	fn stripped_eq(&self, other: &ModuloProtected<&'b NormalTermDefinition<T, B, E, N>>) -> bool {
 		// NOTE we ignore the `protected` flag.
 		self.0.prefix == other.0.prefix
 			&& self.0.reverse_property == other.0.reverse_property

@@ -22,12 +22,12 @@ pub use vocab::*;
 
 /// Context definition.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 #[derivative(Default(bound = ""))]
 pub struct Definition<M, C = super::Value<M>> {
-	#[stripped_option_deref2]
+	#[locspan(unwrap_deref2_stripped)]
 	pub base: Option<Entry<Nullable<IriRefBuf>, M>>,
-	#[stripped_option_deref2]
+	#[locspan(unwrap_deref2_stripped)]
 	pub import: Option<Entry<IriRefBuf, M>>,
 	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, M>>,
 	pub direction: Option<Entry<Nullable<Direction>, M>>,
@@ -119,8 +119,8 @@ impl<M, C> FromIterator<(Meta<Key, M>, Meta<Nullable<TermDefinition<M, C>>, M>)>
 	}
 }
 
-impl<M, C: locspan::StrippedPartialEq> locspan::StrippedPartialEq for Bindings<M, C> {
-	fn stripped_eq(&self, other: &Self) -> bool {
+impl<M, C: locspan::StrippedPartialEq<D>, N, D> locspan::StrippedPartialEq<Bindings<N, D>> for Bindings<M, C> {
+	fn stripped_eq(&self, other: &Bindings<N, D>) -> bool {
 		self.len() == other.len()
 			&& self
 				.iter()
@@ -130,9 +130,9 @@ impl<M, C: locspan::StrippedPartialEq> locspan::StrippedPartialEq for Bindings<M
 
 /// Term binding.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub struct TermBinding<M, C = super::Value<M>> {
-	#[stripped_ignore]
+	#[locspan(ignore)]
 	pub key_metadata: M,
 	pub definition: Meta<Nullable<TermDefinition<M, C>>, M>,
 }

@@ -8,7 +8,7 @@ pub enum Nest {
 	Nest,
 
 	/// Must not be a keyword.
-	Term(#[stripped] String),
+	Term(#[locspan(stripped)] String),
 }
 
 impl Nest {

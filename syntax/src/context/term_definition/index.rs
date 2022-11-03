@@ -5,7 +5,7 @@ use std::fmt;
 use std::hash::Hash;
 
 #[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
-pub struct Index(#[stripped] String);
+pub struct Index(#[locspan(stripped)] String);
 
 impl Index {
 	pub fn as_iri(&self) -> Option<Iri> {

@@ -110,7 +110,7 @@ impl<M> From<ContainerKind> for Container<M> {
 	Hash,
 	Debug,
 )]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub enum Container<M> {
 	One(ContainerKind),
 	Many(Vec<Meta<ContainerKind, M>>),

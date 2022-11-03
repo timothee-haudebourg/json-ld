@@ -17,7 +17,7 @@ pub use try_from_json::InvalidContext;
 
 /// Context entry.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub enum Value<M> {
 	One(Meta<Context<Definition<M, Self>>, M>),
 	Many(Vec<Meta<Context<Definition<M, Self>>, M>>),
@@ -116,10 +116,10 @@ impl<'a, M> From<Meta<iref::Iri<'a>, M>> for Value<M> {
 
 /// Context.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub enum Context<D> {
 	Null,
-	IriRef(#[stripped] IriRefBuf),
+	IriRef(#[locspan(stripped)] IriRefBuf),
 	Definition(D),
 }
 

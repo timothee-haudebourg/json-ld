@@ -15,9 +15,9 @@ use std::{
 };
 
 #[derive(Derivative, Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub struct Entry<T, M> {
-	#[stripped_ignore]
+	#[locspan(ignore)]
 	pub key_metadata: M,
 	pub value: T,
 }

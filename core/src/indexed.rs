@@ -15,7 +15,7 @@ use std::ops::{Deref, DerefMut};
 #[derive(
 	Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, StrippedPartialEq, StrippedEq, StrippedHash,
 )]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub struct Indexed<T, M> {
 	/// Index.
 	index: Option<Entry<String, M>>,

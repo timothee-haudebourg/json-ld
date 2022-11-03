@@ -5,8 +5,8 @@ use std::fmt;
 /// Language tag buffer that may not be well-formed.
 #[derive(Clone, PartialEq, StrippedPartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum LenientLanguageTagBuf {
-	WellFormed(#[stripped] LanguageTagBuf),
-	Malformed(#[stripped] String),
+	WellFormed(#[locspan(stripped)] LanguageTagBuf),
+	Malformed(#[locspan(stripped)] String),
 }
 
 impl LenientLanguageTagBuf {
@@ -83,8 +83,8 @@ impl fmt::Display for LenientLanguageTagBuf {
 /// Language tag that may not be well-formed.
 #[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, Hash, Debug)]
 pub enum LenientLanguageTag<'a> {
-	WellFormed(#[stripped] LanguageTag<'a>),
-	Malformed(#[stripped] &'a str),
+	WellFormed(#[locspan(stripped)] LanguageTag<'a>),
+	Malformed(#[locspan(stripped)] &'a str),
 }
 
 impl<'a> LenientLanguageTag<'a> {

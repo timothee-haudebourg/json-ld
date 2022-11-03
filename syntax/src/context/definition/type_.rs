@@ -3,7 +3,7 @@ use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
 #[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-#[stripped_ignore(M)]
+#[locspan(ignore(M))]
 pub struct Type<M> {
 	pub container: Entry<TypeContainer, M>,
 	pub protected: Option<Entry<bool, M>>,
