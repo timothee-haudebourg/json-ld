@@ -119,7 +119,9 @@ impl<M, C> FromIterator<(Meta<Key, M>, Meta<Nullable<TermDefinition<M, C>>, M>)>
 	}
 }
 
-impl<M, C: locspan::StrippedPartialEq<D>, N, D> locspan::StrippedPartialEq<Bindings<N, D>> for Bindings<M, C> {
+impl<M, C: locspan::StrippedPartialEq<D>, N, D> locspan::StrippedPartialEq<Bindings<N, D>>
+	for Bindings<M, C>
+{
 	fn stripped_eq(&self, other: &Bindings<N, D>) -> bool {
 		self.len() == other.len()
 			&& self
