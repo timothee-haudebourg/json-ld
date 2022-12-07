@@ -1,4 +1,4 @@
-.PHONY: readme clean
+.PHONY: readme clean syntax/README.md core/README.md context-processing/README.md expansion/README.md compaction/README.md testing/README.md tests/README.md json-ld/README.md README.md
 
 readme: syntax/README.md core/README.md context-processing/README.md expansion/README.md compaction/README.md testing/README.md tests/README.md README.md
 

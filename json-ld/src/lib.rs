@@ -23,8 +23,8 @@
 //!
 //! ## Introduction
 //!
-//! Before diving into the processing function usage, here are some must-know
-//! design choices of this library.
+//! Before diving into the various processing functions usage, here are some
+//! must-know design choices of this library.
 //!
 //! ### Code mapping and metadata
 //!
