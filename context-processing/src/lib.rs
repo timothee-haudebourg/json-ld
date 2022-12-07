@@ -30,6 +30,12 @@ impl fmt::Display for Warning {
 	}
 }
 
+impl<N> contextual::DisplayWithContext<N> for Warning {
+	fn fmt_with(&self, _: &N, f: &mut fmt::Formatter) -> fmt::Result {
+		fmt::Display::fmt(self, f)
+	}
+}
+
 /// Located warning.
 pub type MetaWarning<M> = Meta<Warning, M>;
 

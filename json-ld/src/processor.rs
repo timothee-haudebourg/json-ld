@@ -15,6 +15,7 @@ use std::hash::Hash;
 
 mod remote_document;
 
+/// JSON-LD Processor options.
 #[derive(Clone)]
 pub struct Options<I = Index, M = Location<I>, C = json_ld_syntax::context::Value<M>> {
 	/// The base IRI to use when expanding or compacting the document.
@@ -53,6 +54,9 @@ pub struct Options<I = Index, M = Location<I>, C = json_ld_syntax::context::Valu
 }
 
 impl<I, M, C> Options<I, M, C> {
+	/// Returns these options with the `ordered` flag set to `false`.
+	///
+	/// This means entries will not be ordered by keys before being processed.
 	pub fn unordered(self) -> Self {
 		Self {
 			ordered: false,
@@ -60,6 +64,7 @@ impl<I, M, C> Options<I, M, C> {
 		}
 	}
 
+	/// Builds options for the context processing algorithm from these options.
 	pub fn context_processing_options(&self) -> context_processing::Options {
 		context_processing::Options {
 			processing_mode: self.processing_mode,
@@ -67,6 +72,7 @@ impl<I, M, C> Options<I, M, C> {
 		}
 	}
 
+	/// Builds options for the expansion algorithm from these options.
 	pub fn expansion_options(&self) -> expansion::Options {
 		expansion::Options {
 			processing_mode: self.processing_mode,
@@ -75,6 +81,7 @@ impl<I, M, C> Options<I, M, C> {
 		}
 	}
 
+	/// Builds options for the compaction algorithm from these options.
 	pub fn compaction_options(&self) -> compaction::Options {
 		compaction::Options {
 			processing_mode: self.processing_mode,
@@ -98,14 +105,23 @@ impl<I, M, C> Default for Options<I, M, C> {
 	}
 }
 
+/// Error that can be raised by the [`JsonLdProcessor::expand`] function.
 pub enum ExpandError<M, E, C> {
+	/// Document expansion failed.
 	Expansion(Meta<expansion::Error<M, C>, M>),
+
+	/// Context processing failed.
 	ContextProcessing(Meta<context_processing::Error<C>, M>),
+
+	/// Remote document loading failed with the given precise error.
 	Loading(E),
+
+	/// Remote context loading failed with the given precise error.
 	ContextLoading(C),
 }
 
 impl<M, E, C> ExpandError<M, E, C> {
+	/// Returns the code of this error.
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::Expansion(e) => e.code(),
@@ -127,20 +143,32 @@ impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for ExpandError<M, E, C> {
 	}
 }
 
+/// Error that can be raised by the [`JsonLdProcessor::expand`] function.
 pub type ExpandResult<I, B, M, L> = Result<
 	Meta<ExpandedDocument<I, B, M>, M>,
 	ExpandError<M, <L as Loader<I, M>>::Error, <L as ContextLoader<I, M>>::ContextError>,
 >;
 
+/// Error that can be raised by the [`JsonLdProcessor::compact`] function.
 pub enum CompactError<M, E, C> {
+	/// Document expansion failed.
 	Expand(ExpandError<M, E, C>),
+
+	/// Context processing failed.
 	ContextProcessing(Meta<context_processing::Error<C>, M>),
+
+	/// Document compaction failed.
 	Compaction(Meta<compaction::Error<C>, M>),
+
+	/// Remote document loading failed.
 	Loading(E),
+
+	/// Remote context loading failed.
 	ContextLoading(C),
 }
 
 impl<M, E, C> CompactError<M, E, C> {
+	/// Returns the code of this error.
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::Expand(e) => e.code(),
@@ -164,11 +192,13 @@ impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for CompactError<M, E, C> {
 	}
 }
 
+/// Result of the [`JsonLdProcessor::compact`] function.
 pub type CompactResult<I, M, L> = Result<
 	json_syntax::MetaValue<M>,
 	CompactError<M, <L as Loader<I, M>>::Error, <L as ContextLoader<I, M>>::ContextError>,
 >;
 
+/// Error that can be raised by the [`JsonLdProcessor::flatten`] function.
 pub enum FlattenError<I, B, M, E, C> {
 	Expand(ExpandError<M, E, C>),
 	Compact(CompactError<M, E, C>),
@@ -178,6 +208,7 @@ pub enum FlattenError<I, B, M, E, C> {
 }
 
 impl<I, B, M, E, C> FlattenError<I, B, M, E, C> {
+	/// Returns the code of this error.
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::Expand(e) => e.code(),
@@ -201,11 +232,13 @@ impl<I, B, M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for FlattenError<I, B, M,
 	}
 }
 
+/// Result of the [`JsonLdProcessor::flatten`] function.
 pub type FlattenResult<I, B, M, L> = Result<
 	json_syntax::MetaValue<M>,
 	FlattenError<I, B, M, <L as Loader<I, M>>::Error, <L as ContextLoader<I, M>>::ContextError>,
 >;
 
+/// Result of the [`JsonLdProcessor::compare`] function.
 pub type CompareResult<I, M, L> = Result<
 	bool,
 	ExpandError<M, <L as Loader<I, M>>::Error, <L as ContextLoader<I, M>>::ContextError>,
@@ -213,18 +246,84 @@ pub type CompareResult<I, M, L> = Result<
 
 /// Application Programming Interface.
 ///
-/// The [`JsonLdProcessor`] interface is the high-level programming structure that
+/// The `JsonLdProcessor` interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.
 ///
 /// It is notably implemented for the [`RemoteDocument<I, M, json_syntax::Value<M>>`](crate::RemoteDocument)
 /// and [`RemoteDocumentReference<I, M, json_syntax::Value<M>>`] types.
 ///
-/// [`JsonLdProcessor`]: https://www.w3.org/TR/json-ld-api/#the-jsonldprocessor-interface
+/// # Methods naming
 ///
-/// ## Example
+/// Each processing function is declined in four variants depending on your
+/// needs, with the following suffix convention:
 ///
-/// ...
+///   - `_full`: function with all the possible options. This is the only way
+///     to specify a custom warning handler.
+///   - `_with`: allows passing a custom [`Vocabulary`].
+///   - `_using`: allows passing custom [`Options`].
+///   - `_with_using`: allows passing both a custom [`Vocabulary`] and
+///     custom [`Options`].
+///   - no suffix: minimum parameters. No custom vocabulary: [`IriBuf`] and
+///     [`BlankIdBuf`] must be used as IRI and blank node id respectively.
+///
+/// [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
+/// [`BlankIdBuf`]: rdf_types::BlankIdBuf
+/// [`Vocabulary`]: rdf_types::Vocabulary
+///
+/// # Example
+///
+/// ```
+/// use static_iref::iri;
+/// use json_ld::{JsonLdProcessor, RemoteDocumentReference};
+///
+/// # #[async_std::main]
+/// # async fn main() {
+/// let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
+///
+/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+/// // the local `example` directory. No HTTP query.
+/// let mut loader = json_ld::FsLoader::default();
+/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+///
+/// let expanded = input.expand(&mut loader)
+///   .await
+///   .expect("expansion failed");
+/// # }
+/// ```
 pub trait JsonLdProcessor<I, M> {
+	/// Compare this document against `other` with a custom vocabulary using the
+	/// given `options` and warnings handler.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// use locspan::Meta;
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input1 = RemoteDocumentReference::iri(iri);
+	/// let input2 = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///  
+	/// assert!(input1.compare_full(
+	///   &input2,
+	///   &mut vocabulary,
+	///   &mut loader,
+	///   Options::<_, _>::default(),
+	///   warning::PrintWith
+	/// ).await.expect("comparison failed"));
+	/// # }
+	/// ```
 	fn compare_full<'a, B, C, N, L>(
 		&'a self,
 		other: &'a Self,
@@ -248,6 +347,254 @@ pub trait JsonLdProcessor<I, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send;
 
+	/// Compare this document against `other` with a custom vocabulary using the
+	/// given `options`.
+	///
+	/// Warnings are ignored.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
+	/// use rdf_types::IriVocabularyMut;
+	/// use locspan::Meta;
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input1 = RemoteDocumentReference::iri(iri);
+	/// let input2 = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///  
+	/// assert!(input1.compare_with_using(
+	///   &input2,
+	///   &mut vocabulary,
+	///   &mut loader,
+	///   Options::<_, _>::default()
+	/// ).await.expect("comparison failed"));
+	/// # }
+	/// ```
+	fn compare_with_using<'a, B, C, N, L>(
+		&'a self,
+		other: &'a Self,
+		vocabulary: &'a mut N,
+		loader: &'a mut L,
+		options: Options<I, M, C>,
+	) -> BoxFuture<CompareResult<I, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send,
+	{
+		self.compare_full(other, vocabulary, loader, options, ())
+	}
+
+	/// Compare this document against `other` with a custom vocabulary.
+	///
+	/// Default options are used.
+	/// Warnings are ignored.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
+	/// use rdf_types::IriVocabularyMut;
+	/// use locspan::Meta;
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input1 = RemoteDocumentReference::iri(iri);
+	/// let input2 = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///  
+	/// assert!(input1.compare_with(
+	///   &input2,
+	///   &mut vocabulary,
+	///   &mut loader
+	/// ).await.expect("comparison failed"));
+	/// # }
+	/// ```
+	fn compare_with<'a, B, N, L>(
+		&'a self,
+		other: &'a Self,
+		vocabulary: &'a mut N,
+		loader: &'a mut L,
+	) -> BoxFuture<CompareResult<I, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<json_ld_syntax::context::Value<M>>,
+		L::ContextError: Send,
+	{
+		self.compare_with_using(other, vocabulary, loader, Options::default())
+	}
+
+	/// Compare this document against `other` using the given `options`.
+	///
+	/// Warnings are ignored.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
+	/// use locspan::Meta;
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input1 = RemoteDocumentReference::iri(iri.clone());
+	/// let input2 = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///  
+	/// assert!(input1.compare_using(
+	///   &input2,
+	///   &mut loader,
+	///   Options::<_, _>::default()
+	/// ).await.expect("comparison failed"));
+	/// # }
+	/// ```
+	fn compare_using<'a, B, C, L>(
+		&'a self,
+		other: &'a Self,
+		loader: &'a mut L,
+		options: Options<I, M, C>,
+	) -> BoxFuture<CompareResult<I, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send,
+	{
+		self.compare_with_using(
+			other,
+			rdf_types::vocabulary::no_vocabulary_mut(),
+			loader,
+			options,
+		)
+	}
+
+	/// Compare this document against `other` with a custom vocabulary.
+	///
+	/// Default options are used.
+	/// Warnings are ignored.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
+	/// use locspan::Meta;
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input1 = RemoteDocumentReference::iri(iri.clone());
+	/// let input2 = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///  
+	/// assert!(input1.compare(
+	///   &input2,
+	///   &mut loader
+	/// ).await.expect("comparison failed"));
+	/// # }
+	/// ```
+	fn compare<'a, B, L>(
+		&'a self,
+		other: &'a Self,
+		loader: &'a mut L,
+	) -> BoxFuture<CompareResult<I, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<json_ld_syntax::context::Value<M>>,
+		L::ContextError: Send,
+	{
+		self.compare_with(other, rdf_types::vocabulary::no_vocabulary_mut(), loader)
+	}
+
+	/// Expand the document with the given `vocabulary` and `loader`, using
+	/// the given `options` and warning handler.
+	///
+	/// On success, the result is an [`ExpandedDocument`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let expanded = input
+	///   .expand_full(
+	///     &mut vocabulary,
+	///     &mut loader,
+	///     Options::<_, _>::default(),
+	///     warning::PrintWith
+	///   )
+	///   .await
+	///   .expect("expansion failed");
+	/// # }
+	/// ```
 	fn expand_full<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
@@ -270,7 +617,43 @@ pub trait JsonLdProcessor<I, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send;
 
-	fn expand_with<'a, B, C, N, L>(
+	/// Expand the document with the given `vocabulary` and `loader`, using
+	/// the given `options`.
+	///
+	/// Warnings are ignored.
+	/// On success, the result is an [`ExpandedDocument`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let expanded = input
+	///   .expand_with_using(
+	///     &mut vocabulary,
+	///     &mut loader,
+	///     Options::<_, _>::default()
+	///   )
+	///   .await
+	///   .expect("expansion failed");
+	/// # }
+	/// ```
+	fn expand_with_using<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
@@ -291,7 +674,91 @@ pub trait JsonLdProcessor<I, M> {
 		self.expand_full(vocabulary, loader, options, ())
 	}
 
-	fn expand<'a, B, C, L>(
+	/// Expand the document with the given `vocabulary` and `loader`.
+	///
+	/// Default options are used.
+	/// Warnings are ignored.
+	/// On success, the result is an [`ExpandedDocument`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let expanded = input
+	///   .expand_with(
+	///     &mut vocabulary,
+	///     &mut loader
+	///   )
+	///   .await
+	///   .expect("expansion failed");
+	/// # }
+	/// ```
+	fn expand_with<'a, B, N, L>(
+		&'a self,
+		vocabulary: &'a mut N,
+		loader: &'a mut L,
+	) -> BoxFuture<ExpandResult<I, B, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<json_ld_syntax::context::Value<M>>,
+		L::ContextError: Send,
+	{
+		self.expand_with_using(vocabulary, loader, Options::default())
+	}
+
+	/// Expand the document with the given `loader` using the given `options`.
+	///
+	/// Warnings are ignored.
+	/// On success, the result is an [`ExpandedDocument`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///
+	/// let expanded = input
+	///   .expand_using(
+	///     &mut loader,
+	///     Options::<_, _>::default()
+	///   )
+	///   .await
+	///   .expect("expansion failed");
+	/// # }
+	/// ```
+	fn expand_using<'a, B, C, L>(
 		&'a self,
 		loader: &'a mut L,
 		options: Options<I, M, C>,
@@ -308,9 +775,93 @@ pub trait JsonLdProcessor<I, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
-		self.expand_with(vocabulary::no_vocabulary_mut(), loader, options)
+		self.expand_with_using(vocabulary::no_vocabulary_mut(), loader, options)
 	}
 
+	/// Expand the document with the given `loader`.
+	///
+	/// Default options are used.
+	/// Warnings are ignored.
+	/// On success, the result is an [`ExpandedDocument`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///
+	/// let expanded = input
+	///   .expand(&mut loader)
+	///   .await
+	///   .expect("expansion failed");
+	/// # }
+	/// ```
+	fn expand<'a, B, L>(&'a self, loader: &'a mut L) -> BoxFuture<ExpandResult<I, B, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<json_ld_syntax::context::Value<M>>,
+		L::ContextError: Send,
+	{
+		self.expand_with(vocabulary::no_vocabulary_mut(), loader)
+	}
+
+	/// Compact the document relative to `context` with the given `vocabulary`
+	/// and `loader`, using the given `options` and warning handler.
+	///
+	/// On success, the result is an [`syntax::Value`] wrapped inside a
+	/// [`Meta`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// let context_iri_index = vocabulary.insert(iri!("https://example.com/context.jsonld"));
+	/// let context = RemoteDocumentReference::context_iri(context_iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let compact = input
+	///   .compact_full(
+	///     &mut vocabulary,
+	///     context,
+	///     &mut loader,
+	///     Options::<_, _>::default(),
+	///     warning::PrintWith
+	///   )
+	///   .await
+	///   .expect("compaction failed");
+	/// # }
+	/// ```
 	fn compact_full<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
@@ -334,7 +885,48 @@ pub trait JsonLdProcessor<I, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send;
 
-	fn compact_with<'a, B, C, N, L>(
+	/// Compact the document relative to `context` with the given `vocabulary`
+	/// and `loader`, using the given `options`.
+	///
+	/// Warnings are ignored.
+	/// On success, the result is an [`syntax::Value`] wrapped inside a
+	/// [`Meta`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// let context_iri_index = vocabulary.insert(iri!("https://example.com/context.jsonld"));
+	/// let context = RemoteDocumentReference::context_iri(context_iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let compact = input
+	///   .compact_with_using(
+	///     &mut vocabulary,
+	///     context,
+	///     &mut loader,
+	///     Options::<_, _>::default()
+	///   )
+	///   .await
+	///   .expect("compaction failed");
+	/// # }
+	/// ```
+	fn compact_with_using<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		context: RemoteDocumentReference<I, M, C>,
@@ -356,7 +948,105 @@ pub trait JsonLdProcessor<I, M> {
 		self.compact_full(vocabulary, context, loader, options, ())
 	}
 
-	fn compact<'a, B, C, L>(
+	/// Compact the document relative to `context` with the given `vocabulary`
+	/// and `loader`.
+	///
+	/// Default options are used.
+	/// Warnings are ignored.
+	/// On success, the result is an [`syntax::Value`] wrapped inside a
+	/// [`Meta`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// let context_iri_index = vocabulary.insert(iri!("https://example.com/context.jsonld"));
+	/// let context = RemoteDocumentReference::context_iri(context_iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let compact = input
+	///   .compact_with(
+	///     &mut vocabulary,
+	///     context,
+	///     &mut loader
+	///   )
+	///   .await
+	///   .expect("compaction failed");
+	/// # }
+	/// ```
+	fn compact_with<'a, B, C, N, L>(
+		&'a self,
+		vocabulary: &'a mut N,
+		context: RemoteDocumentReference<I, M, C>,
+		loader: &'a mut L,
+	) -> BoxFuture<'a, CompactResult<I, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send,
+	{
+		self.compact_with_using(vocabulary, context, loader, Options::default())
+	}
+
+	/// Compact the document relative to `context` with the given `loader`,
+	/// using the given `options`.
+	///
+	/// Warnings are ignored.
+	/// On success, the result is an [`syntax::Value`] wrapped inside a
+	/// [`Meta`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input = RemoteDocumentReference::iri(iri);
+	///
+	/// let context_iri = iri!("https://example.com/context.jsonld").to_owned();
+	/// let context = RemoteDocumentReference::context_iri(context_iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///
+	/// let compact = input
+	///   .compact_using(
+	///     context,
+	///     &mut loader,
+	///     Options::<_, _>::default()
+	///   )
+	///   .await
+	///   .expect("compaction failed");
+	/// # }
+	/// ```
+	fn compact_using<'a, B, C, L>(
 		&'a self,
 		context: RemoteDocumentReference<I, M, C>,
 		loader: &'a mut L,
@@ -374,9 +1064,119 @@ pub trait JsonLdProcessor<I, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
-		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader, options)
+		self.compact_with_using(vocabulary::no_vocabulary_mut(), context, loader, options)
 	}
 
+	/// Compact the document relative to `context` with the given `loader`.
+	///
+	/// Default options are used.
+	/// Warnings are ignored.
+	/// On success, the result is an [`syntax::Value`] wrapped inside a
+	/// [`Meta`].
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input = RemoteDocumentReference::iri(iri);
+	///
+	/// let context_iri = iri!("https://example.com/context.jsonld").to_owned();
+	/// let context = RemoteDocumentReference::context_iri(context_iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///
+	/// let compact = input
+	///   .compact(
+	///     context,
+	///     &mut loader
+	///   )
+	///   .await
+	///   .expect("compaction failed");
+	/// # }
+	/// ```
+	fn compact<'a, B, C, L>(
+		&'a self,
+		context: RemoteDocumentReference<I, M, C>,
+		loader: &'a mut L,
+	) -> BoxFuture<'a, CompactResult<I, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send,
+	{
+		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader)
+	}
+
+	/// Flatten the document with the given `vocabulary`, `generator`
+	/// and `loader`, using the given `options` and warning handler.
+	///
+	/// An optional `context` can be given to compact the document.
+	///
+	/// Flattening requires assigning an identifier to nested anonymous nodes,
+	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// as parameter. This generator is in charge of creating new fresh identifiers
+	/// (with their metadata). The most common generator is
+	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	///
+	/// On success, the result is a
+	/// [`FlattenedDocument`](crate::FlattenedDocument), which is a list of
+	/// indexed nodes.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
+	/// );
+	///
+	/// let nodes = input
+	///   .flatten_full(
+	///     &mut vocabulary,
+	///     &mut generator,
+	///     None,
+	///     &mut loader,
+	///     Options::<_, _>::default(),
+	///     warning::PrintWith
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	/// # }
+	/// ```
 	fn flatten_full<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
@@ -401,7 +1201,59 @@ pub trait JsonLdProcessor<I, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send;
 
-	fn flatten_with<'a, B, C, N, L>(
+	/// Flatten the document with the given `vocabulary`, `generator`
+	/// and `loader`, using the given `options`.
+	///
+	/// Flattening requires assigning an identifier to nested anonymous nodes,
+	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// as parameter. This generator is in charge of creating new fresh identifiers
+	/// (with their metadata). The most common generator is
+	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	///
+	/// Warnings are ignored.
+	/// On success, the result is a
+	/// [`FlattenedDocument`](crate::FlattenedDocument), which is a list of
+	/// indexed nodes.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
+	/// );
+	///
+	/// let nodes = input
+	///   .flatten_with_using(
+	///     &mut vocabulary,
+	///     &mut generator,
+	///     &mut loader,
+	///     Options::<_, _>::default()
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	/// # }
+	/// ```
+	fn flatten_with_using<'a, B, C, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut (impl Send + Generator<N, M>),
@@ -423,7 +1275,125 @@ pub trait JsonLdProcessor<I, M> {
 		self.flatten_full(vocabulary, generator, None, loader, options, ())
 	}
 
-	fn flatten<'a, B, C, L>(
+	/// Flatten the document with the given `vocabulary`, `generator`
+	/// and `loader`.
+	///
+	/// Flattening requires assigning an identifier to nested anonymous nodes,
+	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// as parameter. This generator is in charge of creating new fresh identifiers
+	/// (with their metadata). The most common generator is
+	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	///
+	/// Default options are used.
+	/// Warnings are ignored.
+	/// On success, the result is a
+	/// [`FlattenedDocument`](crate::FlattenedDocument), which is a list of
+	/// indexed nodes.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::IriVocabularyMut;
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
+	/// );
+	///
+	/// let nodes = input
+	///   .flatten_with(
+	///     &mut vocabulary,
+	///     &mut generator,
+	///     &mut loader
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	/// # }
+	/// ```
+	fn flatten_with<'a, B, N, L>(
+		&'a self,
+		vocabulary: &'a mut N,
+		generator: &'a mut (impl Send + Generator<N, M>),
+		loader: &'a mut L,
+	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<json_ld_syntax::context::Value<M>>,
+		L::ContextError: Send,
+	{
+		self.flatten_with_using(vocabulary, generator, loader, Options::default())
+	}
+
+	/// Flatten the document with the given `generator`, `loader` and using the
+	/// given `options`.
+	///
+	/// Flattening requires assigning an identifier to nested anonymous nodes,
+	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// as parameter. This generator is in charge of creating new fresh identifiers
+	/// (with their metadata). The most common generator is
+	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	///
+	/// Warnings are ignored.
+	/// On success, the result is a
+	/// [`FlattenedDocument`](crate::FlattenedDocument), which is a list of
+	/// indexed nodes.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(iri!("https://example.com/").to_owned(), Span::default())
+	/// );
+	///
+	/// let nodes = input
+	///   .flatten_using(
+	///     &mut generator,
+	///     &mut loader,
+	///     Options::<_, _>::default()
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	/// # }
+	/// ```
+	fn flatten_using<'a, B, C, L>(
 		&'a self,
 		generator: &'a mut (impl Send + Generator<(), M>),
 		loader: &'a mut L,
@@ -441,14 +1411,71 @@ pub trait JsonLdProcessor<I, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
-		self.flatten_full(
-			vocabulary::no_vocabulary_mut(),
-			generator,
-			None,
-			loader,
-			options,
-			(),
-		)
+		self.flatten_with_using(vocabulary::no_vocabulary_mut(), generator, loader, options)
+	}
+
+	/// Flatten the document with the given `generator` and `loader`.
+	///
+	/// Flattening requires assigning an identifier to nested anonymous nodes,
+	/// which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+	/// as parameter. This generator is in charge of creating new fresh identifiers
+	/// (with their metadata). The most common generator is
+	/// [`rdf_types::generator::Blank`] that creates blank node identifiers.
+	///
+	/// Default options are used.
+	/// Warnings are ignored.
+	/// On success, the result is a
+	/// [`FlattenedDocument`](crate::FlattenedDocument), which is a list of
+	/// indexed nodes.
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input = RemoteDocumentReference::iri(iri);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(iri!("https://example.com/").to_owned(), Span::default())
+	/// );
+	///
+	/// let nodes = input
+	///   .flatten(
+	///     &mut generator,
+	///     &mut loader
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	/// # }
+	/// ```
+	fn flatten<'a, B, L>(
+		&'a self,
+		generator: &'a mut (impl Send + Generator<(), M>),
+		loader: &'a mut L,
+	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<json_ld_syntax::context::Value<M>>,
+		L::ContextError: Send,
+	{
+		self.flatten_with(vocabulary::no_vocabulary_mut(), generator, loader)
 	}
 }
 

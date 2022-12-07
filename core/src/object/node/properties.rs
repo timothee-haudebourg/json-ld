@@ -1,15 +1,14 @@
 use super::{Multiset, Objects};
 use crate::{
 	object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
-	Id, IndexedObject, IntoId, StrippedIndexedObject,
+	Id, IndexedObject, StrippedIndexedObject,
 };
 use derivative::Derivative;
+use hashbrown::HashMap;
 use locspan::{BorrowStripped, Meta, Stripped};
 use locspan_derive::{StrippedEq, StrippedHash, StrippedPartialEq};
 use rdf_types::VocabularyMut;
 use std::{
-	borrow::Borrow,
-	collections::HashMap,
 	hash::{Hash, Hasher},
 	ops,
 };
@@ -113,14 +112,17 @@ impl<T, B, M> Properties<T, B, M> {
 impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	/// Checks if the given property is associated to any object.
 	#[inline(always)]
-	pub fn contains<Q: IntoId<T, B>>(&self, prop: Q) -> bool {
-		self.0.get(prop.to_ref().borrow()).is_some()
+	pub fn contains<Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(&self, prop: &Q) -> bool {
+		self.0.get(prop).is_some()
 	}
 
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
-	pub fn get<Q: IntoId<T, B>>(&self, prop: Q) -> Objects<T, B, M> {
-		match self.0.get(prop.to_ref().borrow()) {
+	pub fn get<Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+		&self,
+		prop: &Q,
+	) -> Objects<T, B, M> {
+		match self.0.get(prop) {
 			Some(values) => Objects::new(Some(values.iter())),
 			None => Objects::new(None),
 		}
@@ -130,8 +132,11 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	///
 	/// If multiple objects are found, there are no guaranties on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<Q: IntoId<T, B>>(&self, prop: Q) -> Option<&IndexedObject<T, B, M>> {
-		match self.0.get(prop.to_ref().borrow()) {
+	pub fn get_any<Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+		&self,
+		prop: &Q,
+	) -> Option<&IndexedObject<T, B, M>> {
+		match self.0.get(prop) {
 			Some(values) => values.iter().next().map(|o| &o.0),
 			None => None,
 		}
@@ -375,7 +380,7 @@ impl<'a, T, B, M> IntoIterator for &'a mut Properties<T, B, M> {
 ///
 /// It is created by the [`Properties::into_iter`] function.
 pub struct IntoIter<T, B, M> {
-	inner: std::collections::hash_map::IntoIter<Id<T, B>, PropertyEntry<T, B, M>>,
+	inner: hashbrown::hash_map::IntoIter<Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<T, B, M> Iterator for IntoIter<T, B, M> {
@@ -404,7 +409,7 @@ impl<T, B, M> std::iter::FusedIterator for IntoIter<T, B, M> {}
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct Iter<'a, T, B, M> {
-	inner: std::collections::hash_map::Iter<'a, Id<T, B>, PropertyEntry<T, B, M>>,
+	inner: hashbrown::hash_map::Iter<'a, Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
@@ -437,7 +442,7 @@ pub type PropertyEntry<T, B, M> = Entry<PropertyObjects<T, B, M>, M>;
 ///
 /// It is created by the [`Properties::iter_mut`] function.
 pub struct IterMut<'a, T, B, M> {
-	inner: std::collections::hash_map::IterMut<'a, Id<T, B>, PropertyEntry<T, B, M>>,
+	inner: hashbrown::hash_map::IterMut<'a, Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for IterMut<'a, T, B, M> {

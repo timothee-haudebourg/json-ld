@@ -20,8 +20,28 @@ pub type LoadingResult<I, M, O, E> = Result<RemoteDocument<I, M, O>, E>;
 
 #[derive(Clone)]
 pub enum RemoteDocumentReference<I = Index, M = Location<I>, T = json_syntax::Value<M>> {
-	Reference(I),
+	Iri(I),
 	Loaded(RemoteDocument<I, M, T>),
+}
+
+impl<I, M> RemoteDocumentReference<I, M, json_syntax::Value<M>> {
+	/// Creates an IRI to a `json_syntax::Value<M>` JSON document.
+	///
+	/// This method can replace `RemoteDocumentReference::Iri` to help the type
+	/// inference in the case where `T = json_syntax::Value<M>`.
+	pub fn iri(iri: I) -> Self {
+		Self::Iri(iri)
+	}
+}
+
+impl<I, M> RemoteDocumentReference<I, M, json_ld_syntax::context::Value<M>> {
+	/// Creates an IRI to a `json_ld_syntax::context::Value<M>` JSON-LD context document.
+	///
+	/// This method can replace `RemoteDocumentReference::Iri` to help the type
+	/// inference in the case where `T = json_ld_syntax::context::Value<M>`.
+	pub fn context_iri(iri: I) -> Self {
+		Self::Iri(iri)
+	}
 }
 
 impl<I, M, T> RemoteDocumentReference<I, M, T> {
@@ -34,7 +54,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		L::Output: Into<T>,
 	{
 		match self {
-			Self::Reference(r) => Ok(loader
+			Self::Iri(r) => Ok(loader
 				.load_with(vocabulary, r)
 				.await?
 				.map(|m| m.map(Into::into))),
@@ -52,7 +72,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		L::Output: Into<T>,
 	{
 		match self {
-			Self::Reference(r) => Ok(Mown::Owned(
+			Self::Iri(r) => Ok(Mown::Owned(
 				loader
 					.load_with(vocabulary, r.clone())
 					.await?
@@ -71,7 +91,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		L::Context: Into<T>,
 	{
 		match self {
-			Self::Reference(r) => Ok(loader
+			Self::Iri(r) => Ok(loader
 				.load_context_with(vocabulary, r)
 				.await?
 				.map(|m| m.map(Into::into))),
@@ -89,7 +109,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		L::Context: Into<T>,
 	{
 		match self {
-			Self::Reference(r) => Ok(Mown::Owned(
+			Self::Iri(r) => Ok(Mown::Owned(
 				loader
 					.load_context_with(vocabulary, r.clone())
 					.await?
@@ -100,20 +120,25 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 	}
 }
 
+/// Remote document.
+///
+/// Stores the content of a loaded remote document along with its original URL.
 #[derive(Clone)]
 pub struct RemoteDocument<I = Index, M = Location<I>, T = json_syntax::Value<M>> {
 	/// Document URL.
 	url: Option<I>,
 
-	/// Document.
+	/// Document content.
 	document: Meta<T, M>,
 }
 
 impl<I, M, T> RemoteDocument<I, M, T> {
+	/// Creates a new remote document.
 	pub fn new(url: Option<I>, document: Meta<T, M>) -> Self {
 		Self { url, document }
 	}
 
+	/// Maps the content of the remote document.
 	pub fn map<U, N>(self, f: impl Fn(Meta<T, M>) -> Meta<U, N>) -> RemoteDocument<I, N, U> {
 		RemoteDocument {
 			url: self.url,
@@ -121,6 +146,7 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 		}
 	}
 
+	/// Tries to map the content of the remote document.
 	pub fn try_map<U, N, E>(
 		self,
 		f: impl Fn(Meta<T, M>) -> Result<Meta<U, N>, E>,
@@ -131,34 +157,41 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 		})
 	}
 
+	/// Returns a reference the original URL of the document.
 	pub fn url(&self) -> Option<&I> {
 		self.url.as_ref()
 	}
 
+	/// Returns a reference to the content of the document.
 	pub fn document(&self) -> &Meta<T, M> {
 		&self.document
 	}
 
+	/// Drops the original URL and returns the content of the document.
 	pub fn into_document(self) -> Meta<T, M> {
 		self.document
 	}
 
+	/// Drops the content and returns the original URL of the document.
 	pub fn into_url(self) -> Option<I> {
 		self.url
 	}
 
+	/// Sets the URL of the document.
 	pub fn set_url(&mut self, url: Option<I>) {
 		self.url = url
 	}
 }
 
-/// JSON document loader.
+/// Document loader.
 pub trait Loader<I, M> {
 	/// The type of documents that can be loaded.
 	type Output;
+
+	/// Error type.
 	type Error;
 
-	/// Loads the document behind the given IRI, inside the given vocabulary.
+	/// Loads the document behind the given IRI, using the given vocabulary.
 	fn load_with<'a>(
 		&'a mut self,
 		vocabulary: &'a (impl Sync + IriVocabulary<Iri = I>),
@@ -180,11 +213,18 @@ pub trait Loader<I, M> {
 	}
 }
 
+/// Context document loader.
+///
+/// This is a particular loader able to extract a local context from a loaded
+/// JSON-LD document.
 pub trait ContextLoader<I, M> {
 	/// Output of the loader, a context.
 	type Context;
+
+	/// Error type.
 	type ContextError;
 
+	/// Loads the context behind the given IRI, using the given vocabulary.
 	fn load_context_with<'a>(
 		&'a mut self,
 		vocabulary: &'a (impl Sync + IriVocabulary<Iri = I>),
@@ -194,6 +234,7 @@ pub trait ContextLoader<I, M> {
 		I: 'a,
 		M: 'a;
 
+	/// Loads the context behind the given IRI.
 	fn load_context<'a>(
 		&'a mut self,
 		url: I,
@@ -207,18 +248,36 @@ pub trait ContextLoader<I, M> {
 	}
 }
 
+/// Context extraction method.
+///
+/// Implemented by documents containing a JSON-LD context definition, providing
+/// a method to extract this context.
 pub trait ExtractContext<M>: Sized {
+	/// Context definition type.
 	type Context;
+
+	/// Error type.
+	///
+	/// May be raised if the inner context is missing or invalid.
 	type Error;
 
+	/// Extract the context definition.
 	fn extract_context(value: Meta<Self, M>) -> Result<Meta<Self::Context, M>, Self::Error>;
 }
 
+/// Context extraction error.
 #[derive(Debug)]
 pub enum ExtractContextError<M> {
+	/// Unexpected JSON value.
 	Unexpected(json_syntax::Kind),
+
+	/// No context definition found.
 	NoContext,
+
+	/// Multiple context definitions found.
 	DuplicateContext(M),
+
+	/// JSON syntax error.
 	Syntax(json_ld_syntax::context::InvalidContext),
 }
 

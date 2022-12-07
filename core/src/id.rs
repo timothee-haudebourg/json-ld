@@ -3,15 +3,15 @@ use crate::Term;
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
 use iref::{Iri, IriBuf};
 use json_ld_syntax::IntoJsonWithContextMeta;
-use locspan::Meta;
+use locspan::{Meta, StrippedHash};
 use locspan_derive::*;
 use rdf_types::{
 	BlankId, BlankIdBuf, BlankIdVocabulary, InvalidBlankId, IriVocabulary, Vocabulary,
 	VocabularyMut,
 };
-use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
+use std::hash::Hash;
 
 pub use rdf_types::MetaGenerator as Generator;
 
@@ -29,9 +29,16 @@ pub type MetaVocabularyId<V, M> = Meta<VocabularyId<V>, M>;
 /// Used to reference a node across a document or to a remote document.
 /// It can be an identifier (IRI), a blank node identifier for local blank nodes
 /// or an invalid reference (a string that is neither an IRI nor blank node identifier).
-#[derive(
-	Clone, PartialEq, Eq, Hash, PartialOrd, Ord, StrippedPartialEq, StrippedEq, StrippedHash,
-)]
+///
+/// # `Hash` implementation
+///
+/// It is guaranteed that the `Hash` implementation of `Id` is *transparent*,
+/// meaning that the hash of `Id::Valid(id)` the same as `id`, and the hash of
+/// `Id::Invalid(id)` is the same as `id`.
+///
+/// This may be useful to define custom [`hashbrown::Equivalent<Id<I, B>>`]
+/// implementation.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, StrippedPartialEq, StrippedEq)]
 #[locspan(stripped(I, B))]
 pub enum Id<I = IriBuf, B = BlankIdBuf> {
 	/// Valid node identifier.
@@ -39,6 +46,25 @@ pub enum Id<I = IriBuf, B = BlankIdBuf> {
 
 	/// Invalid reference.
 	Invalid(#[locspan(stripped)] String),
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl<I: Hash, B: Hash> Hash for Id<I, B> {
+	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		match self {
+			Self::Valid(id) => id.hash(state),
+			Self::Invalid(id) => id.hash(state),
+		}
+	}
+}
+
+impl<I: Hash, B: Hash> StrippedHash for Id<I, B> {
+	fn stripped_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+		match self {
+			Self::Valid(id) => id.stripped_hash(state),
+			Self::Invalid(id) => id.stripped_hash(state),
+		}
+	}
 }
 
 impl<I, B, M> TryFromJson<I, B, M> for Id<I, B> {
@@ -264,47 +290,6 @@ impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Id<T, B> {
 impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N> for Id<T, B> {
 	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
 		Meta(self.into_with(context).to_string().into(), meta)
-	}
-}
-
-/// Types that can be converted into a borrowed node reference.
-///
-/// This is a convenient trait is used to simplify the use of references.
-/// For instance consider the [`Node::get`](crate::Node::get) method, used to get the objects associated to the
-/// given reference property for a given node.
-/// It essentially have the following signature:
-/// ```ignore
-/// fn get(&self, id: &Id<T, B>) -> Objects;
-/// ```
-/// However building a `Id` by hand can be tedious.
-/// Thanks to `IntoId`, any type implementing this trait can be used instead of
-/// a full `Id`.
-/// The signature of `get` becomes:
-/// ```ignore
-/// fn get<R: IntoId<T>>(self, id: R) -> Objects;
-/// ```
-pub trait IntoId<T, B> {
-	/// The target type of the conversion, which can be borrowed as a `Id<T, B>`.
-	type Id: Borrow<Id<T, B>>;
-
-	/// Convert the value into a reference.
-	fn to_ref(self) -> Self::Id;
-}
-
-impl<'a, T, B> IntoId<T, B> for &'a Id<T, B> {
-	type Id = &'a Id<T, B>;
-
-	#[inline(always)]
-	fn to_ref(self) -> Self::Id {
-		self
-	}
-}
-
-impl<T, B> IntoId<T, B> for T {
-	type Id = Id<T, B>;
-
-	fn to_ref(self) -> Self::Id {
-		Id::Valid(ValidId::Iri(self))
 	}
 }
 

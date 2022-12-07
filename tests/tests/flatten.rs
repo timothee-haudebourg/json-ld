@@ -114,7 +114,7 @@ impl flatten::Test {
 		options.expand_context = self
 			.options
 			.expand_context
-			.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
+			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
 
 		options.compact_arrays = self.options.compact_arrays.unwrap_or(true);
 		options.compact_to_relative = self.options.compact_to_relative.unwrap_or(true);
@@ -122,7 +122,7 @@ impl flatten::Test {
 		let input = vocabulary.insert(self.input);
 		let context = self
 			.context
-			.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
+			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
 
 		match self.desc {
 			flatten::Description::Positive { expect } => {

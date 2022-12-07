@@ -115,13 +115,13 @@ impl compact::Test {
 		options.expand_context = self
 			.options
 			.expand_context
-			.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
+			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
 
 		options.compact_arrays = self.options.compact_arrays.unwrap_or(true);
 		options.compact_to_relative = self.options.compact_to_relative.unwrap_or(true);
 
 		let input = vocabulary.insert(self.input);
-		let context = RemoteDocumentReference::Reference(vocabulary.insert(self.context));
+		let context = RemoteDocumentReference::Iri(vocabulary.insert(self.context));
 
 		match self.desc {
 			compact::Description::Positive { expect } => {

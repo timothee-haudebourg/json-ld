@@ -1,5 +1,5 @@
 use locspan::{Stripped, StrippedHash};
-use std::collections::{hash_map::DefaultHasher, HashMap};
+use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 /// Hash a set of items.
@@ -71,7 +71,10 @@ where
 ///
 /// Note that this function not particularly strong and does
 /// not protect against DoS attacks.
-pub fn hash_map<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H) {
+pub fn hash_map<'a, K: 'a + Hash, V: 'a + Hash, H: Hasher>(
+	map: impl 'a + IntoIterator<Item = (&'a K, &'a V)>,
+	hasher: &mut H,
+) {
 	// See: https://github.com/rust-lang/rust/pull/48366
 	// Elements must be combined with a associative and commutative operation •.
 	// (u64, •, 0) must form a commutative monoid.
@@ -86,7 +89,10 @@ pub fn hash_map<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H
 	hasher.write_u64(hash);
 }
 
-pub fn hash_map_stripped<K: Hash, V: StrippedHash, H: Hasher>(map: &HashMap<K, V>, hasher: &mut H) {
+pub fn hash_map_stripped<'a, K: 'a + Hash, V: 'a + StrippedHash, H: Hasher>(
+	map: impl 'a + IntoIterator<Item = (&'a K, &'a V)>,
+	hasher: &mut H,
+) {
 	// See: https://github.com/rust-lang/rust/pull/48366
 	// Elements must be combined with a associative and commutative operation •.
 	// (u64, •, 0) must form a commutative monoid.

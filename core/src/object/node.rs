@@ -1,7 +1,6 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
 use crate::{
-	id, object, utils, Id, Indexed, IndexedObject, IntoId, Object, Objects, StrippedIndexedObject,
-	Term,
+	id, object, utils, Id, Indexed, IndexedObject, Object, Objects, StrippedIndexedObject, Term,
 };
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
@@ -502,7 +501,10 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 
 	/// Get all the objects associated to the node with the given property.
 	#[inline(always)]
-	pub fn get<'a, Q: IntoId<T, B>>(&self, prop: Q) -> Objects<T, B, M>
+	pub fn get<'a, Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+		&self,
+		prop: &Q,
+	) -> Objects<T, B, M>
 	where
 		T: 'a,
 	{
@@ -514,7 +516,10 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: IntoId<T, B>>(&self, prop: Q) -> Option<&IndexedObject<T, B, M>>
+	pub fn get_any<'a, Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+		&self,
+		prop: &Q,
+	) -> Option<&IndexedObject<T, B, M>>
 	where
 		T: 'a,
 	{

@@ -18,6 +18,8 @@
 //! The entry point for this library is the [`JsonLdProcessor`] trait
 //! that provides an access to all the JSON-LD transformation algorithms
 //! (context processing, expansion, compaction, etc.).
+//! If you want to explore and/or transform [`ExpandedDocument`]s, you may also
+//! want to check out the [`Object`] type representing a JSON object.
 //!
 //! [`JsonLdProcessor`]: crate::JsonLdProcessor
 //!
@@ -129,7 +131,7 @@
 //!
 //! // Expand the "remote" document.
 //! let expanded = input
-//!   .expand(&mut loader, Options::<_, _>::default())
+//!   .expand(&mut loader)
 //!   .await
 //!   .expect("expansion failed");
 //!
@@ -145,18 +147,18 @@
 //!
 //! ```
 //! use static_iref::iri;
-//! use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::{Value, Parse}};
+//! use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
 //!
 //! # #[async_std::main]
 //! # async fn main() {
-//! let input = RemoteDocumentReference::Reference(iri!("https://example.com/sample.jsonld").to_owned());
+//! let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
 //!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
 //!
-//! let expanded = input.expand(&mut loader, Options::<_, _>::default())
+//! let expanded = input.expand(&mut loader)
 //!   .await
 //!   .expect("expansion failed");
 //! # }
@@ -169,7 +171,7 @@
 //!
 //! ```
 //! # use static_iref::iri;
-//! # use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::{Value, Parse}};
+//! # use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
 //! use rdf_types::IriVocabularyMut;
 //! # #[async_std::main]
 //! # async fn main() {
@@ -178,7 +180,7 @@
 //! let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
 //!
 //! let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
-//! let input = RemoteDocumentReference::Reference(iri_index);
+//! let input = RemoteDocumentReference::iri(iri_index);
 //!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
@@ -186,7 +188,7 @@
 //! loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
 //!
 //! let expanded = input
-//!   .expand_with(&mut vocabulary, &mut loader, Options::<_, _>::default())
+//!   .expand_with(&mut vocabulary, &mut loader)
 //!   .await
 //!   .expect("expansion failed");
 //! # }
@@ -220,9 +222,9 @@
 //!
 //! # #[async_std::main]
 //! # async fn main() {
-//! let input = RemoteDocumentReference::Reference(iri!("https://example.com/sample.jsonld").to_owned());
+//! let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
 //!
-//! let context = RemoteDocumentReference::Reference(iri!("https://example.com/context.jsonld").to_owned());
+//! let context = RemoteDocumentReference::context_iri(iri!("https://example.com/context.jsonld").to_owned());
 //!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
@@ -230,7 +232,7 @@
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
 //!
 //! let compact = input
-//!   .compact(context, &mut loader, Options::<_, _>::default())
+//!   .compact(context, &mut loader)
 //!   .await
 //!   .expect("compaction failed");
 //!
@@ -278,7 +280,7 @@
 //!
 //! # #[async_std::main]
 //! # async fn main() {
-//! let input = RemoteDocumentReference::Reference(iri!("https://example.com/sample.jsonld").to_owned());
+//! let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
 //!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
@@ -291,7 +293,7 @@
 //! );
 //!
 //! let nodes = input
-//!   .flatten(&mut generator, &mut loader, Options::<_, _>::default())
+//!   .flatten(&mut generator, &mut loader)
 //!   .await
 //!   .expect("flattening failed");
 //!

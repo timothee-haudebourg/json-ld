@@ -106,7 +106,7 @@ impl expand::Test {
 		options.expand_context = self
 			.options
 			.expand_context
-			.map(|iri| RemoteDocumentReference::Reference(vocabulary.insert(iri)));
+			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
 
 		let input = vocabulary.insert(self.input);
 
