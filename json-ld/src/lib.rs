@@ -18,16 +18,16 @@
 //! The entry point for this library is the [`JsonLdProcessor`] trait
 //! that provides an access to all the JSON-LD transformation algorithms
 //! (context processing, expansion, compaction, etc.).
-//! 
+//!
 //! [`JsonLdProcessor`]: crate::JsonLdProcessor
-//! 
+//!
 //! ## Introduction
-//! 
+//!
 //! Before diving into the processing function usage, here are some must-know
 //! design choices of this library.
-//! 
+//!
 //! ### Code mapping and metadata
-//! 
+//!
 //! One important feature of this library is the preservation of the code
 //! mapping information extracted from any source JSON document through the
 //! diverse transformation algorithms. This is done using:
@@ -38,35 +38,35 @@
 //!   - The [`json_syntax`](https://crates.io/crates/json-syntax) library that
 //!     parse JSON documents while preserving the code mapping information
 //!     using the [`Meta`] type.
-//! 
+//!
 //! This is particularly useful to provide useful error messages that can
 //! pinpoint the source of the error in the original source file.
-//! 
+//!
 //! #### Example
-//! 
+//!
 //! Here is a example usage of the [`Meta`] that may come in handy when using
 //! this library.
-//! 
+//!
 //! ```
 //! use locspan::Meta;
-//! 
+//!
 //! // build a value associated with its metadata.
 //! let value_with_metadata = Meta("value", "metadata");
-//! 
+//!
 //! // get a reference to the value.
 //! let value = value_with_metadata.value();
-//! 
+//!
 //! // get a reference to the metadata.
 //! let metadata = value_with_metadata.metadata();
-//! 
+//!
 //! // deconstruct.
 //! let Meta(value, metadata) = value_with_metadata;
 //! ```
-//! 
+//!
 //! [`Meta`]: https://docs.rs/locspan/latest/locspan/struct.Meta.html
-//! 
+//!
 //! ### IRIs and Blank Node Identifiers
-//! 
+//!
 //! This library gives you the opportunity to use any datatype you want to
 //! represent IRIs an Blank Node Identifiers. Most types have them
 //! parameterized.
@@ -77,45 +77,45 @@
 //! [`rdf_types::IndexVocabulary`] that maps each index back/to its
 //! original IRI/Blank identifier representation can be passed to every
 //! function.
-//! 
+//!
 //! You can also use your own index type, with your own
 //! [`rdf_types::Vocabulary`] implementation.
-//! 
+//!
 //! [`rdf_types::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
 //! [`rdf_types::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
 //! [`rdf_types::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
-//! 
+//!
 //! ## Expansion
-//! 
+//!
 //! If you want to expand a JSON-LD document, first describe the document to
 //! be expanded using either [`RemoteDocument`] or [`RemoteDocumentReference`]:
 //!   - [`RemoteDocument`] wraps the JSON representation of the document
 //!     alongside its remote URL.
 //!   - [`RemoteDocumentReference`] may represent only an URL, letting
 //!     some loader fetching the remote document by dereferencing the URL.
-//! 
+//!
 //! After that, you can simply use the [`JsonLdProcessor::expand`] function on
 //! the remote document.
-//! 
+//!
 //! [`RemoteDocument`]: crate::RemoteDocument
 //! [`RemoteDocumentReference`]: crate::RemoteDocumentReference
 //! [`JsonLdProcessor::expand`]: JsonLdProcessor::expand
-//! 
+//!
 //! ### Example
-//! 
+//!
 //! ```
 //! use iref::IriBuf;
 //! use static_iref::iri;
 //! use locspan::Span;
 //! use json_ld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
-//! 
+//!
 //! # #[async_std::main]
 //! # async fn main() {
 //! // Create a "remote" document by parsing a file manually.
 //! let input = RemoteDocument::new(
 //!   // We use `IriBuf` as IRI type.
 //!   Some(iri!("https://example.com/sample.jsonld").to_owned()),
-//! 
+//!
 //!   // Parse the file.
 //!   Value::parse_str(
 //!     &std::fs::read_to_string("examples/sample.jsonld")
@@ -123,16 +123,16 @@
 //!     |span| span // keep the source `Span` of each element as metadata.
 //!   ).expect("unable to parse file")
 //! );
-//! 
+//!
 //! // Use `NoLoader` as we won't need to load any remote document.
 //! let mut loader = json_ld::NoLoader::<IriBuf, Span>::new();
-//! 
+//!
 //! // Expand the "remote" document.
 //! let expanded = input
 //!   .expand(&mut loader, Options::<_, _>::default())
 //!   .await
 //!   .expect("expansion failed");
-//! 
+//!
 //! for node in expanded.into_value() {
 //!   if let Some(id) = node.id() {
 //!     println!("node id: {}", id);
@@ -140,33 +140,33 @@
 //! }
 //! # }
 //! ```
-//! 
+//!
 //! Here is another example using `RemoteDocumentReference`.
-//! 
+//!
 //! ```
 //! use static_iref::iri;
 //! use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::{Value, Parse}};
-//! 
+//!
 //! # #[async_std::main]
 //! # async fn main() {
 //! let input = RemoteDocumentReference::Reference(iri!("https://example.com/sample.jsonld").to_owned());
-//! 
+//!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
-//! 
+//!
 //! let expanded = input.expand(&mut loader, Options::<_, _>::default())
 //!   .await
 //!   .expect("expansion failed");
 //! # }
 //! ```
-//! 
+//!
 //! Lastly, the same example replacing [`IriBuf`] with the lightweight
 //! [`rdf_types::vocabulary::Index`] type.
-//! 
+//!
 //! [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
-//! 
+//!
 //! ```
 //! # use static_iref::iri;
 //! # use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::{Value, Parse}};
@@ -176,24 +176,24 @@
 //! // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 //! // to an actual `IriBuf`.
 //! let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
-//! 
+//!
 //! let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 //! let input = RemoteDocumentReference::Reference(iri_index);
-//! 
+//!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
-//! 
+//!
 //! let expanded = input
 //!   .expand_with(&mut vocabulary, &mut loader, Options::<_, _>::default())
 //!   .await
 //!   .expect("expansion failed");
 //! # }
 //! ```
-//! 
+//!
 //! ## Compaction
-//! 
+//!
 //! The JSON-LD Compaction is a transformation that consists in applying a
 //! context to a given JSON-LD document reducing its size.
 //! There are two ways to get a compact JSON-LD document with this library
@@ -203,43 +203,43 @@
 //!     (or [`JsonLdProcessor::compact_with`]) method.
 //!   - Otherwise to compact an [`ExpandedDocument`] you can use the
 //!     [`Compact::compact`] method.
-//! 
+//!
 //! [`JsonLdProcessor::compact`]: crate::JsonLdProcessor::compact
 //! [`JsonLdProcessor::compact_with`]: crate::JsonLdProcessor::compact_with
 //! [`ExpandedDocument`]: crate::ExpandedDocument
 //! [`Compact::compact`]: crate::Compact::compact
-//! 
+//!
 //! ### Example
-//! 
+//!
 //! Here is an example compaction an arbitrary [`RemoteDocumentReference`]
 //! using [`JsonLdProcessor::compact`].
-//! 
+//!
 //! ```
 //! use static_iref::iri;
 //! use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
-//! 
+//!
 //! # #[async_std::main]
 //! # async fn main() {
 //! let input = RemoteDocumentReference::Reference(iri!("https://example.com/sample.jsonld").to_owned());
-//! 
+//!
 //! let context = RemoteDocumentReference::Reference(iri!("https://example.com/context.jsonld").to_owned());
-//! 
+//!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
-//! 
+//!
 //! let compact = input
 //!   .compact(context, &mut loader, Options::<_, _>::default())
 //!   .await
 //!   .expect("compaction failed");
-//! 
+//!
 //! println!("output: {}", compact.pretty_print());
 //! # }
 //! ```
-//! 
+//!
 //! ## Flattening
-//! 
+//!
 //! The JSON-LD Flattening is a transformation that consists in moving nested
 //! nodes out. The result is a list of all the nodes declared in the document.
 //! There are two ways to flatten JSON-LD document with this library
@@ -251,13 +251,13 @@
 //!   - Otherwise to compact an [`ExpandedDocument`] you can use the
 //!     [`Flatten::flatten`] (or [`Flatten::flatten_with`]) method.
 //!     This will return the list of nodes as a [`FlattenedDocument`].
-//! 
+//!
 //! Flattening requires assigning an identifier to nested anonymous nodes,
 //! which is why the flattening functions take an [`rdf_types::MetaGenerator`]
 //! as parameter. This generator is in charge of creating new fresh identifiers
 //! (with their metadata). The most common generator is
 //! [`rdf_types::generator::Blank`] that creates blank node identifiers.
-//! 
+//!
 //! [`JsonLdProcessor::flatten`]: crate::JsonLdProcessor::flatten
 //! [`JsonLdProcessor::flatten_with`]: crate::JsonLdProcessor::flatten_with
 //! [`Flatten::flatten`]: crate::Flatten::flatten
@@ -265,36 +265,36 @@
 //! [`FlattenedDocument`]: crate::FlattenedDocument
 //! [`rdf_types::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
 //! [`rdf_types::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
-//! 
+//!
 //! ### Example
-//! 
+//!
 //! Here is an example compaction an arbitrary [`RemoteDocumentReference`]
 //! using [`JsonLdProcessor::flatten`].
-//! 
+//!
 //! ```
 //! use static_iref::iri;
 //! use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
 //! use locspan::{Location, Span};
-//! 
+//!
 //! # #[async_std::main]
 //! # async fn main() {
 //! let input = RemoteDocumentReference::Reference(iri!("https://example.com/sample.jsonld").to_owned());
-//! 
+//!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
-//! 
+//!
 //! let mut generator = rdf_types::generator::Blank::new().with_metadata(
 //!   // Each blank id will be associated to the document URL with a dummy span.
 //!   Location::new(iri!("https://example.com/").to_owned(), Span::default())
 //! );
-//! 
+//!
 //! let nodes = input
 //!   .flatten(&mut generator, &mut loader, Options::<_, _>::default())
 //!   .await
 //!   .expect("flattening failed");
-//! 
+//!
 //! println!("output: {}", nodes.pretty_print());
 //! # }
 //! ```

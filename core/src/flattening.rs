@@ -62,16 +62,16 @@ pub trait Flatten<I, B, M> {
 	where
 		V: Vocabulary<Iri = I, BlankId = B>;
 
-	fn flatten<G: id::Generator<(), M>>(
-		self,
-		generator: G,
-		ordered: bool,
-	) -> FlattenResult<I, B, M>
+	fn flatten<G: id::Generator<(), M>>(self, generator: G, ordered: bool) -> FlattenResult<I, B, M>
 	where
 		(): Vocabulary<Iri = I, BlankId = B>,
-		Self: Sized
+		Self: Sized,
 	{
-		self.flatten_with(rdf_types::vocabulary::no_vocabulary_mut(), generator, ordered)
+		self.flatten_with(
+			rdf_types::vocabulary::no_vocabulary_mut(),
+			generator,
+			ordered,
+		)
 	}
 
 	fn flatten_unordered<G: id::Generator<(), M>>(
@@ -80,7 +80,7 @@ pub trait Flatten<I, B, M> {
 	) -> FlattenUnorderedResult<I, B, M>
 	where
 		(): Vocabulary<Iri = I, BlankId = B>,
-		Self: Sized
+		Self: Sized,
 	{
 		self.flatten_unordered_with(rdf_types::vocabulary::no_vocabulary_mut(), generator)
 	}

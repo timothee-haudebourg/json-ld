@@ -212,17 +212,17 @@ pub type CompareResult<I, M, L> = Result<
 >;
 
 /// Application Programming Interface.
-/// 
+///
 /// The [`JsonLdProcessor`] interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.
-/// 
+///
 /// It is notably implemented for the [`RemoteDocument<I, M, json_syntax::Value<M>>`](crate::RemoteDocument)
 /// and [`RemoteDocumentReference<I, M, json_syntax::Value<M>>`] types.
-/// 
+///
 /// [`JsonLdProcessor`]: https://www.w3.org/TR/json-ld-api/#the-jsonldprocessor-interface
-/// 
+///
 /// ## Example
-/// 
+///
 /// ...
 pub trait JsonLdProcessor<I, M> {
 	fn compare_full<'a, B, C, N, L>(
@@ -406,7 +406,7 @@ pub trait JsonLdProcessor<I, M> {
 		vocabulary: &'a mut N,
 		generator: &'a mut (impl Send + Generator<N, M>),
 		loader: &'a mut L,
-		options: Options<I, M, C>
+		options: Options<I, M, C>,
 	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
@@ -418,7 +418,7 @@ pub trait JsonLdProcessor<I, M> {
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
 		L::Context: Into<C>,
-		L::ContextError: Send
+		L::ContextError: Send,
 	{
 		self.flatten_full(vocabulary, generator, None, loader, options, ())
 	}
@@ -427,7 +427,7 @@ pub trait JsonLdProcessor<I, M> {
 		&'a self,
 		generator: &'a mut (impl Send + Generator<(), M>),
 		loader: &'a mut L,
-		options: Options<I, M, C>
+		options: Options<I, M, C>,
 	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
@@ -439,9 +439,16 @@ pub trait JsonLdProcessor<I, M> {
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
 		L::Context: Into<C>,
-		L::ContextError: Send
+		L::ContextError: Send,
 	{
-		self.flatten_full(vocabulary::no_vocabulary_mut(), generator, None, loader, options, ())
+		self.flatten_full(
+			vocabulary::no_vocabulary_mut(),
+			generator,
+			None,
+			loader,
+			options,
+			(),
+		)
 	}
 }
 
