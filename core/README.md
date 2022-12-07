@@ -1,6 +1,10 @@
 # JSON-LD core types
 
-<!-- cargo-rdme -->
+<!-- cargo-rdme start -->
+
+JSON-LD core types.
+
+<!-- cargo-rdme end -->
 
 ## License
 

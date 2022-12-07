@@ -1,6 +1,10 @@
 # JSON-LD context processing algorithm
 
-<!-- cargo-rdme -->
+<!-- cargo-rdme start -->
+
+JSON-LD context processing types and algorithms.
+
+<!-- cargo-rdme end -->
 
 ## License
 

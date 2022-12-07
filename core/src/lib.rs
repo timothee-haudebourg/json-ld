@@ -1,3 +1,4 @@
+//! JSON-LD core types.
 pub use json_ld_syntax::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable};
 
 mod container;

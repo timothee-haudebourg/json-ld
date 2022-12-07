@@ -29,6 +29,8 @@ The entry point for this library is the [`JsonLdProcessor`] trait
 that provides an access to all the JSON-LD transformation algorithms
 (context processing, expansion, compaction, etc.).
 
+[`JsonLdProcessor`]: crate::JsonLdProcessor
+
 ### Introduction
 
 Before diving into the processing function usage, here are some must-know
@@ -89,6 +91,10 @@ function.
 You can also use your own index type, with your own
 [`rdf_types::Vocabulary`] implementation.
 
+[`rdf_types::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
+[`rdf_types::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
+[`rdf_types::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
+
 ### Expansion
 
 If you want to expand a JSON-LD document, first describe the document to
@@ -100,6 +106,10 @@ be expanded using either [`RemoteDocument`] or [`RemoteDocumentReference`]:
 
 After that, you can simply use the [`JsonLdProcessor::expand`] function on
 the remote document.
+
+[`RemoteDocument`]: crate::RemoteDocument
+[`RemoteDocumentReference`]: crate::RemoteDocumentReference
+[`JsonLdProcessor::expand`]: JsonLdProcessor::expand
 
 #### Example
 
@@ -193,6 +203,11 @@ depending on your starting point:
   - Otherwise to compact an [`ExpandedDocument`] you can use the
     [`Compact::compact`] method.
 
+[`JsonLdProcessor::compact`]: crate::JsonLdProcessor::compact
+[`JsonLdProcessor::compact_with`]: crate::JsonLdProcessor::compact_with
+[`ExpandedDocument`]: crate::ExpandedDocument
+[`Compact::compact`]: crate::Compact::compact
+
 #### Example
 
 Here is an example compaction an arbitrary [`RemoteDocumentReference`]
@@ -238,6 +253,14 @@ which is why the flattening functions take an [`rdf_types::MetaGenerator`]
 as parameter. This generator is in charge of creating new fresh identifiers
 (with their metadata). The most common generator is
 [`rdf_types::generator::Blank`] that creates blank node identifiers.
+
+[`JsonLdProcessor::flatten`]: crate::JsonLdProcessor::flatten
+[`JsonLdProcessor::flatten_with`]: crate::JsonLdProcessor::flatten_with
+[`Flatten::flatten`]: crate::Flatten::flatten
+[`Flatten::flatten_with`]: crate::Flatten::flatten_with
+[`FlattenedDocument`]: crate::FlattenedDocument
+[`rdf_types::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
+[`rdf_types::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
 
 #### Example
 

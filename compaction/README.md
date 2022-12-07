@@ -1,6 +1,15 @@
 # JSON-LD compaction algorithm
 
-<!-- cargo-rdme -->
+<!-- cargo-rdme start -->
+
+This library implements the [JSON-LD compaction algorithm](https://www.w3.org/TR/json-ld-api/#compaction-algorithms)
+for the [`json-ld` crate](https://crates.io/crates/json-ld).
+
+## Usage
+
+The compaction algorithm is provided by the [`Compact`] trait.
+
+<!-- cargo-rdme end -->
 
 ## License
 

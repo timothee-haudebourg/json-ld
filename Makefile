@@ -1,4 +1,4 @@
-.PHONY: readme json-ld/README.md clean
+.PHONY: readme clean
 
 readme: syntax/README.md core/README.md context-processing/README.md expansion/README.md compaction/README.md testing/README.md tests/README.md README.md
 
@@ -30,12 +30,4 @@ README.md: json-ld/README.md
 	cp json-ld/README.md .
 
 clean:
-	make -C syntax clean
-	make -C core clean
-	make -C context-processing clean
-	make -C expansion clean
-	make -C compaction clean
-	make -C json-ld clean
-	make -C testing clean
-	make -C tests clean
-	rm README
+	rm README.md

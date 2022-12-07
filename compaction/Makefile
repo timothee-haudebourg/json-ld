@@ -4,6 +4,3 @@ readme: README.md
 
 README.md: src/lib.rs
 	cargo rdme
-
-clean:
-	rm README.md
