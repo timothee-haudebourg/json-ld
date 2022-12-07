@@ -14,7 +14,7 @@ impl BuildHasher for DeterministicHasherBuilder {
 use json_ld_syntax::{IntoJsonWithContext, IntoJsonWithContextMeta};
 use locspan::{Meta, StrippedEq, StrippedHash, StrippedPartialEq};
 
-/// Multiset of values.
+/// Multi-set of values.
 #[derive(Clone)]
 pub struct Multiset<T, S = DeterministicHasherBuilder> {
 	data: Vec<T>,

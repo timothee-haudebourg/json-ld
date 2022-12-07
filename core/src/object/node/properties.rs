@@ -13,11 +13,15 @@ use std::{
 	ops,
 };
 
+/// Property set entry.
 #[derive(Derivative, Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
 #[locspan(ignore(M))]
 pub struct Entry<T, M> {
+	/// Property key metadata.
 	#[locspan(ignore)]
 	pub key_metadata: M,
+
+	/// Property value.
 	pub value: T,
 }
 
