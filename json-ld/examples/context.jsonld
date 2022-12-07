@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"@base": "https://example.org/",
+		"id": "@id"
+	}
+}

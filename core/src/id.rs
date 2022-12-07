@@ -34,6 +34,7 @@ pub type MetaVocabularyId<V, M> = Meta<VocabularyId<V>, M>;
 )]
 #[locspan(stripped(I, B))]
 pub enum Id<I = IriBuf, B = BlankIdBuf> {
+	/// Valid node identifier.
 	Valid(ValidId<I, B>),
 
 	/// Invalid reference.
@@ -275,10 +276,9 @@ impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N>
 /// ```ignore
 /// fn get(&self, id: &Id<T, B>) -> Objects;
 /// ```
-/// However building a `Id` by hand can be tedious, especially while using [`Lexicon`](crate::Lexicon) and
-/// [`Vocab`](crate::Vocab). It can be as verbose as `node.get(&Id::Id(Lexicon::Id(MyVocab::Term)))`.
-/// Thanks to `IntoId` which is implemented by `Lexicon<V>` for any type `V` implementing `Vocab`,
-/// it is simplified into `node.get(MyVocab::Term)` (while the first syntax remains correct).
+/// However building a `Id` by hand can be tedious.
+/// Thanks to `IntoId`, any type implementing this trait can be used instead of
+/// a full `Id`.
 /// The signature of `get` becomes:
 /// ```ignore
 /// fn get<R: IntoId<T>>(self, id: R) -> Objects;

@@ -184,7 +184,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Associate all the given objects to the node through the given property, unless it is already.
 	///
-	/// The [equivalence operator](Object::equivalent) is used to remove equivalent objects.
+	/// The [equivalence operator](crate::Object::equivalent) is used to remove equivalent objects.
 	#[inline(always)]
 	pub fn insert_all_unique_stripped<
 		Objects: IntoIterator<Item = StrippedIndexedObject<T, B, M>>,
@@ -215,7 +215,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Associate all the given objects to the node through the given property, unless it is already.
 	///
-	/// The [equivalence operator](Object::equivalent) is used to remove equivalent objects.
+	/// The [equivalence operator](crate::Object::equivalent) is used to remove equivalent objects.
 	#[inline(always)]
 	pub fn insert_all_unique<Objects: IntoIterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,

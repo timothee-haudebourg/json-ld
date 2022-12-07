@@ -211,6 +211,19 @@ pub type CompareResult<I, M, L> = Result<
 	ExpandError<M, <L as Loader<I, M>>::Error, <L as ContextLoader<I, M>>::ContextError>,
 >;
 
+/// Application Programming Interface.
+/// 
+/// The [`JsonLdProcessor`] interface is the high-level programming structure that
+/// developers use to access the JSON-LD transformation methods.
+/// 
+/// It is notably implemented for the [`RemoteDocument<I, M, json_syntax::Value<M>>`](crate::RemoteDocument)
+/// and [`RemoteDocumentReference<I, M, json_syntax::Value<M>>`] types.
+/// 
+/// [`JsonLdProcessor`]: https://www.w3.org/TR/json-ld-api/#the-jsonldprocessor-interface
+/// 
+/// ## Example
+/// 
+/// ...
 pub trait JsonLdProcessor<I, M> {
 	fn compare_full<'a, B, C, N, L>(
 		&'a self,
@@ -387,6 +400,49 @@ pub trait JsonLdProcessor<I, M> {
 		L::Error: Send,
 		L::Context: Into<C>,
 		L::ContextError: Send;
+
+	fn flatten_with<'a, B, C, N, L>(
+		&'a self,
+		vocabulary: &'a mut N,
+		generator: &'a mut (impl Send + Generator<N, M>),
+		loader: &'a mut L,
+		options: Options<I, M, C>
+	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send
+	{
+		self.flatten_full(vocabulary, generator, None, loader, options, ())
+	}
+
+	fn flatten<'a, B, C, L>(
+		&'a self,
+		generator: &'a mut (impl Send + Generator<(), M>),
+		loader: &'a mut L,
+		options: Options<I, M, C>
+	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
+	where
+		I: Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send
+	{
+		self.flatten_full(vocabulary::no_vocabulary_mut(), generator, None, loader, options, ())
+	}
 }
 
 async fn compact_expanded_full<'a, T, I, B, M, C, N, L>(

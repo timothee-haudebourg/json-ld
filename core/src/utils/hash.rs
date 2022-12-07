@@ -2,10 +2,10 @@ use locspan::{Stripped, StrippedHash};
 use std::collections::{hash_map::DefaultHasher, HashMap};
 use std::hash::{Hash, Hasher};
 
-/// Hash a [`HashSet`].
+/// Hash a set of items.
 ///
 /// The standard library does not provide (yet) a `Hash` implementation
-/// for the [`HashSet`] type. This can be used instead.
+/// for set types. This can be used instead.
 ///
 /// Note that this function not particularly strong and does
 /// not protect against DoS attacks.
@@ -45,7 +45,7 @@ where
 	hasher.write_u64(hash);
 }
 
-/// Hash an optional [`HashSet`].
+/// Hash an optional set of items.
 pub fn hash_set_opt<S: IntoIterator, H: Hasher>(set_opt: Option<S>, hasher: &mut H)
 where
 	S::Item: Hash,

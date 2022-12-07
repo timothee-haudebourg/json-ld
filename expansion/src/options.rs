@@ -52,7 +52,7 @@ pub enum Policy {
 	/// Relaxed policy.
 	///
 	/// Undefined keys are always kept in the expanded document
-	/// using the [`Reference::Invalid`](crate::Reference::Invalid) variant.
+	/// using the [`Id::Invalid`](json_ld_core::Id::Invalid) variant.
 	Relaxed,
 
 	/// Standard policy.

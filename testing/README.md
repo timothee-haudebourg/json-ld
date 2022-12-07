@@ -1,7 +1,6 @@
 # Tests generator for the Rust `json-ld` library
 
-This library provides the `test_suite` derive macro
-that can generate Rust test suites from a JSON-LD document.
+<!-- cargo-rdme -->
 
 ## License
 

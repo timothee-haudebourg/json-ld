@@ -1,7 +1,6 @@
 # JSON-LD syntax library.
 
-This library provide functions to parse JSON-LD contexts
-and print JSON-LD documents.
+<!-- cargo-rdme -->
 
 ## License
 
