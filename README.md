@@ -27,14 +27,12 @@ help Web applications to inter-operate at a large scale.
 
 - [Design](#design)
   - [Code mapping and metadata](#code-mapping-and-metadata)
-  - [IRIs and Blank Node Identifiers](#iris-and-blank-node-identifiers) 
+  - [IRIs and Blank Node Identifiers](#iris-and-blank-node-identifiers)
 - [Usage](#usage)
   - [Expansion](#expansion)
   - [Compaction](#compaction)
   - [Flattening](#flattening)
-- [Sponsor](#sponsor)
-- [License](#license)
-  - [Contribution](#contribution)
+
 
 ## Design
 
@@ -100,6 +98,30 @@ You can also use your own index type, with your own
 [`rdf_types::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
 [`rdf_types::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
 
+#### Displaying vocabulary-dependent values
+
+Since using vocabularies separates IRIs and Blank ids from their textual
+representation, it complicates displaying data using them.
+Fortunately many types defined by `json-ld` implement the
+[`contextual::DisplayWithContext`] trait that allow displaying value with
+a "context", which here would be the vocabulary.
+By importing the [`contextual::WithContext`] which provides the `with`
+method you can display such value like this:
+```rust
+use static_iref::iri;
+use rdf_types::IriVocabularyMut;
+use contextual::WithContext;
+
+let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+let i = vocabulary.insert(iri!("https://docs.rs/contextual"));
+let value = rdf_types::Subject::Iri(i);
+
+println!("{}", value.with(&vocabulary))
+```
+
+[`contextual::DisplayWithContext`]: https://docs.rs/contextual/latest/contextual/trait.DisplayWithContext.html
+[`contextual::WithContext`]: https://docs.rs/contextual/latest/contextual/trait.WithContext.html
+
 ## Usage
 
 The entry point for this library is the [`JsonLdProcessor`] trait
@@ -140,9 +162,14 @@ let input = RemoteDocument::new(
   Some(iri!("https://example.com/sample.jsonld").to_owned()),
 
   // Parse the file.
-  Value::parse_str(
-    &std::fs::read_to_string("examples/sample.jsonld")
-      .expect("unable to read file"),
+  Value::parse_str(r#"
+    {
+      "@context": {
+        "name": "http://xmlns.com/foaf/0.1/name"
+      },
+      "@id": "https://www.rust-lang.org",
+      "name": "Rust Programming Language"
+    }"#,
     |span| span // keep the source `Span` of each element as metadata.
   ).expect("unable to parse file")
 );
@@ -156,9 +183,14 @@ let expanded = input
   .await
   .expect("expansion failed");
 
-for node in expanded.into_value() {
-  if let Some(id) = node.id() {
-    println!("node id: {}", id);
+for object in expanded.into_value() {
+  if let Some(id) = object.id() {
+    let name = object.as_node().unwrap()
+      .get_any(&iri!("http://xmlns.com/foaf/0.1/name")).unwrap()
+      .as_str().unwrap();
+
+    println!("id: {id}");
+    println!("name: {name}");
   }
 }
 ```
@@ -187,7 +219,8 @@ Lastly, the same example replacing [`IriBuf`] with the lightweight
 [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
 
 ```rust
-use rdf_types::IriVocabularyMut;
+use rdf_types::{IriVocabularyMut, Subject};
+use contextual::WithContext;
 // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 // to an actual `IriBuf`.
 let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
@@ -204,6 +237,21 @@ let expanded = input
   .expand_with(&mut vocabulary, &mut loader)
   .await
   .expect("expansion failed");
+
+// `foaf:name` property identifier.
+let name_id = Subject::Iri(vocabulary.insert(iri!("http://xmlns.com/foaf/0.1/name")));
+
+for object in expanded.into_value() {
+  if let Some(id) = object.id() {
+    let name = object.as_node().unwrap()
+      .get_any(&name_id).unwrap()
+      .as_value().unwrap()
+      .as_str().unwrap();
+
+    println!("id: {}", id.with(&vocabulary));
+    println!("name: {name}");
+  }
+}
 ```
 
 ### Compaction
