@@ -22,6 +22,7 @@
 //!   - [Expansion](#expansion)
 //!   - [Compaction](#compaction)
 //!   - [Flattening](#flattening)
+//! <!-- toc -->
 //!
 //! # Design
 //!
