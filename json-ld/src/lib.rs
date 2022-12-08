@@ -12,23 +12,23 @@
 //! JSON-LD brings these two technologies together, adding semantics to JSON
 //! to create a lightweight data serialization format that can organize data and
 //! help Web applications to inter-operate at a large scale.
+//! 
+//! # Table of Contents
+//! 
+//! - [Design](#design)
+//!   - [Code mapping and metadata](#code-mapping-and-metadata)
+//!   - [IRIs and Blank Node Identifiers](#iris-and-blank-node-identifiers) 
+//! - [Usage](#usage)
+//!   - [Expansion](#expansion)
+//!   - [Compaction](#compaction)
+//!   - [Flattening](#flattening)
 //!
-//! # Usage
-//!
-//! The entry point for this library is the [`JsonLdProcessor`] trait
-//! that provides an access to all the JSON-LD transformation algorithms
-//! (context processing, expansion, compaction, etc.).
-//! If you want to explore and/or transform [`ExpandedDocument`]s, you may also
-//! want to check out the [`Object`] type representing a JSON object.
-//!
-//! [`JsonLdProcessor`]: crate::JsonLdProcessor
-//!
-//! ## Introduction
+//! # Design
 //!
 //! Before diving into the various processing functions usage, here are some
 //! must-know design choices of this library.
 //!
-//! ### Code mapping and metadata
+//! ## Code mapping and metadata
 //!
 //! One important feature of this library is the preservation of the code
 //! mapping information extracted from any source JSON document through the
@@ -44,7 +44,7 @@
 //! This is particularly useful to provide useful error messages that can
 //! pinpoint the source of the error in the original source file.
 //!
-//! #### Example
+//! ### Example
 //!
 //! Here is a example usage of the [`Meta`] that may come in handy when using
 //! this library.
@@ -67,7 +67,7 @@
 //!
 //! [`Meta`]: https://docs.rs/locspan/latest/locspan/struct.Meta.html
 //!
-//! ### IRIs and Blank Node Identifiers
+//! ## IRIs and Blank Node Identifiers
 //!
 //! This library gives you the opportunity to use any datatype you want to
 //! represent IRIs an Blank Node Identifiers. Most types have them
@@ -87,6 +87,16 @@
 //! [`rdf_types::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
 //! [`rdf_types::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
 //!
+//! # Usage
+//! 
+//! The entry point for this library is the [`JsonLdProcessor`] trait
+//! that provides an access to all the JSON-LD transformation algorithms
+//! (context processing, expansion, compaction, etc.).
+//! If you want to explore and/or transform [`ExpandedDocument`]s, you may also
+//! want to check out the [`Object`] type representing a JSON object.
+//!
+//! [`JsonLdProcessor`]: crate::JsonLdProcessor
+//! 
 //! ## Expansion
 //!
 //! If you want to expand a JSON-LD document, first describe the document to
