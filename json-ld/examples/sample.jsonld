@@ -1,3 +1,7 @@
 {
-	"@id": "https://example.org/TimotheeHaudebourg"
+	"@context": {
+		"name": "http://xmlns.com/foaf/0.1/name"
+	},
+	"@id": "https://example.org/timothee-haudebourg",
+	"name": "Timothée Haudebourg"
 }
