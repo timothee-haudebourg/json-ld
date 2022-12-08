@@ -1,10 +1,10 @@
 # A JSON-LD implementation for Rust
 
-<table><tr>
-	<td><a href="https://docs.rs/json-ld">Documentation</a></td>
-	<td><a href="https://crates.io/crates/json-ld">Crate informations</a></td>
-	<td><a href="https://github.com/timothee-haudebourg/json-ld">Repository</a></td>
-</tr></table>
+[![CI](https://github.com/timothee-haudebourg/json-ld/workflows/Continuous%20Integration/badge.svg)](https://github.com/timothee-haudebourg/json-ld/actions)
+[![Crate informations](https://img.shields.io/crates/v/json-ld.svg?style=flat-square)](https://crates.io/crates/json-ld)
+[![License](https://img.shields.io/crates/l/json-ld.svg?style=flat-square)](https://github.com/timothee-haudebourg/json-ld#license)
+[![Documentation](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/json-ld)
+
 
 <!-- cargo-rdme start -->
 
