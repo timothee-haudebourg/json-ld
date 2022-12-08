@@ -198,6 +198,7 @@ impl<T> InverseDefinition<T> {
 	}
 }
 
+/// Inverse context.
 pub struct InverseContext<T, B> {
 	map: HashMap<Term<T, B>, InverseDefinition<T>>,
 }
@@ -288,8 +289,8 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq, L, M> From<&'a Context<T, B
 
 		let mut definitions: Vec<_> = context.definitions().iter().collect();
 		definitions.sort_by(|a, b| {
-			let a = a.key().as_str();
-			let b = b.key().as_str();
+			let a = a.term().as_str();
+			let b = b.term().as_str();
 			let ord = a.len().cmp(&b.len());
 			if ord == Ordering::Equal {
 				a.cmp(b)

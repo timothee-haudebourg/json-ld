@@ -18,9 +18,15 @@ pub use none::NoLoader;
 
 pub type LoadingResult<I, M, O, E> = Result<RemoteDocument<I, M, O>, E>;
 
+/// Remote document, loaded or not.
+///
+/// Either an IRI or the actual document content.
 #[derive(Clone)]
 pub enum RemoteDocumentReference<I = Index, M = Location<I>, T = json_syntax::Value<M>> {
+	/// IRI to the remote document.
 	Iri(I),
+
+	/// Remote document content.
 	Loaded(RemoteDocument<I, M, T>),
 }
 
@@ -45,6 +51,10 @@ impl<I, M> RemoteDocumentReference<I, M, json_ld_syntax::context::Value<M>> {
 }
 
 impl<I, M, T> RemoteDocumentReference<I, M, T> {
+	/// Loads the remote document with the given `vocabulary` and `loader`.
+	///
+	/// If the document is already [`Self::Loaded`], simply returns the inner
+	/// [`RemoteDocument`].
 	pub async fn load_with<L: Loader<I, M>>(
 		self,
 		vocabulary: &(impl Sync + IriVocabulary<Iri = I>),
@@ -62,6 +72,12 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		}
 	}
 
+	/// Loads the remote document with the given `vocabulary` and `loader`.
+	///
+	/// For [`Self::Iri`] returns an owned [`RemoteDocument`] with
+	/// [`Mown::Owned`].
+	/// For [`Self::Loaded`] returns a reference to the inner [`RemoteDocument`]
+	/// with [`Mown::Borrowed`].
 	pub async fn loaded_with<L: Loader<I, M>>(
 		&self,
 		vocabulary: &(impl Sync + IriVocabulary<Iri = I>),
@@ -82,6 +98,11 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		}
 	}
 
+	/// Loads the remote context definition with the given `vocabulary` and
+	/// `loader`.
+	///
+	/// If the document is already [`Self::Loaded`], simply returns the inner
+	/// [`RemoteDocument`].
 	pub async fn load_context_with<L: ContextLoader<I, M>>(
 		self,
 		vocabulary: &(impl Sync + IriVocabulary<Iri = I>),
@@ -99,6 +120,13 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		}
 	}
 
+	/// Loads the remote context definition with the given `vocabulary` and
+	/// `loader`.
+	///
+	/// For [`Self::Iri`] returns an owned [`RemoteDocument`] with
+	/// [`Mown::Owned`].
+	/// For [`Self::Loaded`] returns a reference to the inner [`RemoteDocument`]
+	/// with [`Mown::Borrowed`].
 	pub async fn loaded_context_with<L: ContextLoader<I, M>>(
 		&self,
 		vocabulary: &(impl Sync + IriVocabulary<Iri = I>),
@@ -184,6 +212,19 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 }
 
 /// Document loader.
+///
+/// A document loader is required by most processing functions to fetch remote
+/// documents identified by an IRI.
+///
+/// This library provides a few default loader implementations:
+///   - [`NoLoader`] dummy loader that always fail. Perfect if you are certain
+///     that the processing will not require any loading.
+///   - [`FsLoader`] that redirect registered IRI prefixes to a local directory
+///     on the file system. This way no network calls are performed and the
+///     loaded content can be trusted.
+//   - `ReqwestLoader` that actually download the remote documents using the
+//     [`reqwest`](https://crates.io/crates/reqwest) library.
+//     This requires the `reqwest` feature to be enabled.
 pub trait Loader<I, M> {
 	/// The type of documents that can be loaded.
 	type Output;
@@ -215,8 +256,11 @@ pub trait Loader<I, M> {
 
 /// Context document loader.
 ///
-/// This is a particular loader able to extract a local context from a loaded
+/// This is a subclass of loaders able to extract a local context from a loaded
 /// JSON-LD document.
+///
+/// It is implemented for any loader where the output type implements
+/// [`ExtractContext`].
 pub trait ContextLoader<I, M> {
 	/// Output of the loader, a context.
 	type Context;

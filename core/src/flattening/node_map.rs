@@ -7,6 +7,9 @@ use rdf_types::{BlankIdVocabulary, IriVocabulary, Vocabulary};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
+/// Conflicting indexes error.
+///
+/// Raised when a single node is declared with two different indexes.
 #[derive(Clone, Debug)]
 pub struct ConflictingIndexes<T, B, M> {
 	pub node_id: Meta<Id<T, B>, M>,
@@ -19,6 +22,7 @@ pub type Parts<T, B, M> = (
 	HashMap<Id<T, B>, NamedNodeMapGraph<T, B, M>>,
 );
 
+/// Node identifier to node definition map.
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct NodeMap<T, B, M> {

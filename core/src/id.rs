@@ -154,7 +154,7 @@ impl<I, B> Id<I, B> {
 
 	#[inline(always)]
 	pub fn into_term(self) -> Term<I, B> {
-		Term::Ref(self)
+		Term::Id(self)
 	}
 
 	pub fn as_ref(&self) -> Ref<I, B> {
@@ -230,7 +230,7 @@ impl<T: PartialEq, B: PartialEq> PartialEq<Term<T, B>> for Id<T, B> {
 	#[inline]
 	fn eq(&self, term: &Term<T, B>) -> bool {
 		match term {
-			Term::Ref(prop) => self == prop,
+			Term::Id(prop) => self == prop,
 			_ => false,
 		}
 	}
@@ -240,7 +240,7 @@ impl<T: PartialEq, B: PartialEq> PartialEq<Id<T, B>> for Term<T, B> {
 	#[inline]
 	fn eq(&self, r: &Id<T, B>) -> bool {
 		match self {
-			Term::Ref(prop) => prop == r,
+			Term::Id(prop) => prop == r,
 			_ => false,
 		}
 	}
@@ -252,7 +252,7 @@ impl<T, B> TryFrom<Term<T, B>> for Id<T, B> {
 	#[inline]
 	fn try_from(term: Term<T, B>) -> Result<Id<T, B>, Term<T, B>> {
 		match term {
-			Term::Ref(prop) => Ok(prop),
+			Term::Id(prop) => Ok(prop),
 			term => Err(term),
 		}
 	}
@@ -330,16 +330,6 @@ impl<'a, T, B> TryFrom<&'a mut Id<T, B>> for &'a mut ValidId<T, B> {
 		match r {
 			Id::Valid(r) => Ok(r),
 			Id::Invalid(id) => Err(id),
-		}
-	}
-}
-
-impl<T: fmt::Display, B: fmt::Display> crate::rdf::Display for ValidId<T, B> {
-	#[inline]
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::Iri(id) => write!(f, "<{}>", id),
-			Self::Blank(b) => write!(f, "{}", b),
 		}
 	}
 }

@@ -143,7 +143,7 @@ where
 						Term::Keyword(Keyword::Json) => {
 							is_json = true;
 						}
-						Term::Ref(Id::Valid(ValidId::Iri(expanded_ty))) => {
+						Term::Id(Id::Valid(ValidId::Iri(expanded_ty))) => {
 							is_json = false;
 							ty = Some(expanded_ty)
 						}

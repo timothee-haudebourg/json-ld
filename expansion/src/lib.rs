@@ -146,7 +146,7 @@ pub trait Expand<T, B, M> {
 		L::Context: Into<C>,
 		L::ContextError: Send;
 
-	/// Expand the inupt JSON-LD document with the given `vocabulary`
+	/// Expand the input JSON-LD document with the given `vocabulary`
 	/// to interpret identifiers.
 	///
 	/// The given `loader` is used to load remote documents (such as contexts)

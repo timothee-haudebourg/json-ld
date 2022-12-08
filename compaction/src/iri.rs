@@ -161,7 +161,7 @@ where
 												)))
 											}
 											Value::Literal(_, Some(ty)) => {
-												item_type = Some(Type::Ref(ty.clone()))
+												item_type = Some(Type::Iri(ty.clone()))
 											}
 											Value::Literal(_, None) => {
 												item_lang_dir = Some(Nullable::Null)
@@ -416,7 +416,7 @@ where
 
 	// For each term definition definition in active context:
 	for binding in active_context.definitions() {
-		let key = binding.key();
+		let key = binding.term();
 		let definition = binding.definition();
 		// If the IRI mapping of definition is null, its IRI mapping equals var,
 		// its IRI mapping is not a substring at the beginning of var,
@@ -472,7 +472,7 @@ where
 	// an IRI confused with prefix error has been detected, and processing is aborted.
 	if let Some(iri) = var.as_iri() {
 		let iri = vocabulary.iri(iri).unwrap();
-		if active_context.contains_key(iri.scheme().as_str()) {
+		if active_context.contains_term(iri.scheme().as_str()) {
 			return Err(Meta(IriConfusedWithPrefix, meta.clone()));
 		}
 	}

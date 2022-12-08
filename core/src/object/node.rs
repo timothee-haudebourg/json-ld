@@ -494,7 +494,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 			Term::Keyword(Keyword::Graph) => self.graph.is_some(),
 			Term::Keyword(Keyword::Included) => self.included.is_some(),
 			Term::Keyword(Keyword::Reverse) => self.reverse_properties.is_some(),
-			Term::Ref(prop) => self.properties.contains(prop),
+			Term::Id(prop) => self.properties.contains(prop),
 			_ => false,
 		}
 	}

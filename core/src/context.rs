@@ -49,6 +49,7 @@ impl<T, B, L, M> Default for Context<T, B, L, M> {
 pub type DefinitionEntryRef<'a, T, B, L, M> = (&'a Key, &'a TermDefinition<T, B, L, M>);
 
 impl<T, B, L, M> Context<T, B, L, M> {
+	/// Create a new context with the given base IRI.
 	pub fn new(base_iri: Option<T>) -> Self
 	where
 		T: Clone,
@@ -65,6 +66,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		}
 	}
 
+	/// Returns a reference to the given `term` definition, if any.
 	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<TermDefinitionRef<T, B, L, M>>
 	where
 		Key: Borrow<Q>,
@@ -74,6 +76,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		self.definitions.get(term)
 	}
 
+	/// Returns a reference to the given `term` normal definition, if any.
 	pub fn get_normal<Q: ?Sized>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B, L, M>>
 	where
 		Key: Borrow<Q>,
@@ -82,27 +85,32 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		self.definitions.get_normal(term)
 	}
 
+	/// Returns a reference to the `@type` definition, if any.
 	pub fn get_type(&self) -> Option<&TypeTermDefinition> {
 		self.definitions.get_type()
 	}
 
-	pub fn contains_key<Q: ?Sized>(&self, term: &Q) -> bool
+	/// Checks if the given `term` is defined.
+	pub fn contains_term<Q: ?Sized>(&self, term: &Q) -> bool
 	where
 		Key: Borrow<Q>,
 		KeywordType: Borrow<Q>,
 		Q: Hash + Eq,
 	{
-		self.definitions.contains_key(term)
+		self.definitions.contains_term(term)
 	}
 
+	/// Returns the original base URL of the context.
 	pub fn original_base_url(&self) -> Option<&T> {
 		self.original_base_url.as_ref()
 	}
 
+	/// Returns the base IRI of the context.
 	pub fn base_iri(&self) -> Option<&T> {
 		self.base_iri.as_ref()
 	}
 
+	/// Returns the `@vocab` value, if any.
 	pub fn vocabulary(&self) -> Option<&Term<T, B>> {
 		match &self.vocabulary {
 			Some(v) => Some(v),
@@ -110,14 +118,17 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		}
 	}
 
+	/// Returns the default `@language` value.
 	pub fn default_language(&self) -> Option<LenientLanguageTag> {
 		self.default_language.as_ref().map(|tag| tag.as_ref())
 	}
 
+	/// Returns the default `@direction` value.
 	pub fn default_base_direction(&self) -> Option<Direction> {
 		self.default_base_direction
 	}
 
+	/// Returns a reference to the previous context.
 	pub fn previous_context(&self) -> Option<&Self> {
 		match &self.previous_context {
 			Some(c) => Some(c),
@@ -125,14 +136,17 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		}
 	}
 
+	/// Returns the number of terms defined.
 	pub fn len(&self) -> usize {
 		self.definitions.len()
 	}
 
+	/// Checks if no terms are defined.
 	pub fn is_empty(&self) -> bool {
 		self.definitions.is_empty()
 	}
 
+	/// Returns a handle to the term definitions.
 	pub fn definitions(&self) -> &Definitions<T, B, L, M> {
 		&self.definitions
 	}
@@ -148,6 +162,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		false
 	}
 
+	/// Returns the inverse of this context.
 	pub fn inverse(&self) -> &InverseContext<T, B>
 	where
 		T: Clone + Hash + Eq,
@@ -156,6 +171,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		self.inverse.get_or_init(|| self.into())
 	}
 
+	/// Sets the normal definition for the given term `key`.
 	pub fn set_normal(
 		&mut self,
 		key: Key,
@@ -165,35 +181,42 @@ impl<T, B, L, M> Context<T, B, L, M> {
 		self.definitions.set_normal(key, definition)
 	}
 
+	/// Sets the `@type` definition.
 	pub fn set_type(&mut self, type_: Option<TypeTermDefinition>) -> Option<TypeTermDefinition> {
 		self.definitions.set_type(type_)
 	}
 
+	/// Sets the base IRI.
 	pub fn set_base_iri(&mut self, iri: Option<T>) {
 		self.inverse.take();
 		self.base_iri = iri
 	}
 
+	/// Sets the `@vocab` value.
 	pub fn set_vocabulary(&mut self, vocab: Option<Term<T, B>>) {
 		self.inverse.take();
 		self.vocabulary = vocab;
 	}
 
+	/// Sets the default `@language` value.
 	pub fn set_default_language(&mut self, lang: Option<LenientLanguageTagBuf>) {
 		self.inverse.take();
 		self.default_language = lang;
 	}
 
+	/// Sets the default `@direction` value.
 	pub fn set_default_base_direction(&mut self, dir: Option<Direction>) {
 		self.inverse.take();
 		self.default_base_direction = dir;
 	}
 
+	/// Sets the previous context.
 	pub fn set_previous_context(&mut self, previous: Self) {
 		self.inverse.take();
 		self.previous_context = Some(Box::new(previous))
 	}
 
+	/// Converts this context into its syntactic definition.
 	pub fn into_syntax_definition(
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
@@ -231,7 +254,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 			vocab: self.vocabulary.map(|v| {
 				let vocab = match v {
 					Term::Null => Nullable::Null,
-					Term::Ref(r) => Nullable::Some(r.with(vocabulary).to_string().into()),
+					Term::Id(r) => Nullable::Some(r.with(vocabulary).to_string().into()),
 					Term::Keyword(_) => panic!("invalid vocab"),
 				};
 
@@ -252,6 +275,7 @@ impl<T, B, L, M> Context<T, B, L, M> {
 	}
 }
 
+/// Context fragment to syntax method.
 pub trait IntoSyntax<T, B, M> {
 	fn into_syntax(
 		self,

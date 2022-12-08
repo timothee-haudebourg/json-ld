@@ -353,8 +353,8 @@ where
 									true,
 									&mut warnings,
 								) {
-									Meta(Term::Ref(vocab), _) => {
-										result.set_vocabulary(Some(Term::Ref(vocab)))
+									Meta(Term::Id(vocab), _) => {
+										result.set_vocabulary(Some(Term::Id(vocab)))
 									}
 									_ => return Err(Error::InvalidVocabMapping.at(vocab_meta)),
 								}

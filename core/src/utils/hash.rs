@@ -64,10 +64,10 @@ where
 	}
 }
 
-/// Hash a [`HashMap`].
+/// Hash a map.
 ///
 /// The standard library does not provide (yet) a `Hash` implementation
-/// for the [`HashMap`] type. This can be used instead.
+/// for unordered map types. This can be used instead.
 ///
 /// Note that this function not particularly strong and does
 /// not protect against DoS attacks.

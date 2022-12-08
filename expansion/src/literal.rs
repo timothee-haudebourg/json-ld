@@ -220,7 +220,7 @@ where
 				}
 
 				Some(t) => {
-					if let Ok(t) = t.into_ref() {
+					if let Ok(t) = t.into_iri() {
 						ty = Some(t)
 					} else {
 						return Err(LiteralExpansionError::InvalidTypeValue.at(meta.clone()));

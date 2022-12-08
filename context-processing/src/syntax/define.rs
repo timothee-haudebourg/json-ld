@@ -28,8 +28,8 @@ fn is_gen_delim_or_blank<T, B>(
 	t: &Term<T, B>,
 ) -> bool {
 	match t {
-		Term::Ref(Id::Valid(ValidId::Blank(_))) => true,
-		Term::Ref(Id::Valid(ValidId::Iri(id))) => {
+		Term::Id(Id::Valid(ValidId::Blank(_))) => true,
+		Term::Id(Id::Valid(ValidId::Iri(id))) => {
 			if let Some(c) = vocabulary.iri(id).unwrap().as_str().chars().last() {
 				is_gen_delim(c)
 			} else {
@@ -307,8 +307,8 @@ where
 							)
 							.await?
 							{
-								(Term::Ref(mapping), w) if mapping.is_valid() => {
-									definition.value = Some(Term::Ref(mapping));
+								(Term::Id(mapping), w) if mapping.is_valid() => {
+									definition.value = Some(Term::Id(mapping));
 									warnings = w
 								}
 								_ => return Err(Error::InvalidIriMapping),
@@ -408,7 +408,7 @@ where
 												// been detected and processing is aborted.
 												return Err(Error::InvalidKeywordAlias);
 											}
-											(Term::Ref(prop), _) if !prop.is_valid() => {
+											(Term::Id(prop), _) if !prop.is_valid() => {
 												// If the resulting IRI mapping is neither a keyword,
 												// nor an IRI, nor a blank node identifier, an
 												// invalid IRI mapping error has been detected and processing
@@ -527,7 +527,7 @@ where
 
 											if let Ok(iri) = Iri::new(result.as_str()) {
 												definition.value =
-													Some(Term::Ref(Id::iri(vocabulary.insert(iri))))
+													Some(Term::Id(Id::iri(vocabulary.insert(iri))))
 											} else {
 												return Err(Error::InvalidIriMapping);
 											}
@@ -537,13 +537,13 @@ where
 									// not a compact IRI
 									if definition.value.is_none() {
 										if let Ok(blank_id) = BlankId::new(term.as_str()) {
-											definition.value = Some(Term::Ref(Id::blank(
+											definition.value = Some(Term::Id(Id::blank(
 												vocabulary.insert_blank_id(blank_id),
 											)))
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
 											match iri_ref.into_iri() {
 												Ok(iri) => {
-													definition.value = Some(Term::Ref(Id::iri(
+													definition.value = Some(Term::Id(Id::iri(
 														vocabulary.insert(iri),
 													)))
 												}
@@ -568,7 +568,7 @@ where
 															&mut warnings,
 														) {
 															Meta(
-																Term::Ref(Id::Valid(ValidId::Iri(
+																Term::Id(Id::Valid(ValidId::Iri(
 																	id,
 																))),
 																_,
@@ -714,7 +714,7 @@ where
 								true,
 								&mut warnings,
 							) {
-								Meta(Term::Ref(Id::Valid(ValidId::Iri(_))), _) => (),
+								Meta(Term::Id(Id::Valid(ValidId::Iri(_))), _) => (),
 								_ => return Err(Error::InvalidTermDefinition),
 							}
 

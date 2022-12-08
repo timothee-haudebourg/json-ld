@@ -5,49 +5,13 @@ use json_ld_syntax::Entry;
 use json_syntax::Print;
 use langtag::LanguageTagBuf;
 use locspan::Meta;
-use rdf_types::{IriVocabularyMut, Vocabulary};
+use rdf_types::{IriVocabularyMut, RdfDisplay, Vocabulary};
 use smallvec::SmallVec;
 use static_iref::iri;
 use std::fmt;
 
 mod quad;
 pub use quad::*;
-
-/// RDF display.
-pub trait Display {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result;
-
-	fn rdf_display(&self) -> Displayed<Self> {
-		Displayed(self)
-	}
-}
-
-pub struct Displayed<'a, T: ?Sized>(&'a T);
-
-impl<'a, T: ?Sized + Display> fmt::Display for Displayed<'a, T> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		self.0.fmt(f)
-	}
-}
-
-impl Display for String {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "\"")?;
-
-		for c in self.chars() {
-			match c {
-				'\"' => write!(f, "\\\"")?,
-				'\\' => write!(f, "\\\\")?,
-				'\t' => write!(f, "\\t")?,
-				'\r' => write!(f, "\\r")?,
-				'\n' => write!(f, "\\n")?,
-				c => std::fmt::Display::fmt(&c, f)?,
-			}
-		}
-
-		write!(f, "\"")
-	}
-}
 
 pub const RDF_TYPE: Iri<'static> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
 pub const RDF_FIRST: Iri<'static> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#first");
@@ -64,6 +28,7 @@ pub const XSD_INTEGER: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#int
 pub const XSD_DOUBLE: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#double");
 pub const XSD_STRING: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#string");
 
+/// JSON-LD to RDF triple.
 pub type Triple<T, B> = rdf_types::Triple<ValidId<T, B>, ValidId<T, B>, Value<T, B>>;
 
 impl<T: Clone, B: Clone> Id<T, B> {
@@ -75,15 +40,43 @@ impl<T: Clone, B: Clone> Id<T, B> {
 	}
 }
 
+/// Direction representation method.
+///
+/// Used by the RDF serializer to decide how to encode
+/// [`Direction`](crate::Direction)s.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum RdfDirection {
+	/// Encode direction in the string value type IRI using the
+	/// `https://www.w3.org/ns/i18n#` prefix.
+	///
+	/// If a language tag is present the IRI will be of the form
+	/// `https://www.w3.org/ns/i18n#language_direction` or simply
+	/// `https://www.w3.org/ns/i18n#direction` otherwise where `direction` is
+	/// either `rtl` or `ltr`.
 	I18nDatatype,
+
+	/// Encode the direction using a compound literal value.
+	///
+	/// In this case the direction tagged string is encoded with a fresh blank
+	/// node identifier `_:b` and the following triples:
+	/// ```nquads
+	/// _:b http://www.w3.org/1999/02/22-rdf-syntax-ns#value value@language
+	/// _:b http://www.w3.org/1999/02/22-rdf-syntax-ns#direction direction
+	/// ```
+	/// where `direction` is either `rtl` or `ltr`.
 	CompoundLiteral,
 }
 
+/// Iterator over the triples of a compound literal representing a language
+/// tagged string with direction.
 pub struct CompoundLiteralTriples<T, B> {
+	/// Compound literal identifier.
 	id: ValidId<T, B>,
+
+	/// String value.
 	value: Option<Value<T, B>>,
+
+	/// Direction value.
 	direction: Option<Value<T, B>>,
 }
 
@@ -109,6 +102,7 @@ impl<T: Clone, B: Clone> CompoundLiteralTriples<T, B> {
 	}
 }
 
+/// Compound literal.
 pub struct CompoundLiteral<T, B> {
 	value: Value<T, B>,
 	triples: Option<CompoundLiteralTriples<T, B>>,
@@ -575,7 +569,7 @@ pub enum Value<T, B> {
 	Reference(ValidId<T, B>),
 }
 
-impl<T: fmt::Display, B: fmt::Display> fmt::Display for Value<T, B> {
+impl<T: RdfDisplay + fmt::Display, B: fmt::Display> fmt::Display for Value<T, B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Literal(lit) => lit.rdf_display().fmt(f),
@@ -589,16 +583,6 @@ impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for Value<
 		match self {
 			Self::Literal(lit) => lit.fmt_with(vocabulary, f),
 			Self::Reference(r) => r.fmt_with(vocabulary, f),
-		}
-	}
-}
-
-impl<T: fmt::Display> Display for Literal<T> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::String(s) => s.fmt(f),
-			Self::TypedString(s, ty) => write!(f, "{}^^{}", s, ty),
-			Self::LangString(s, t) => write!(f, "{}@{}", s, t),
 		}
 	}
 }

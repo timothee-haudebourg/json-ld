@@ -42,7 +42,7 @@ impl<'a, T> TypeRef<'a, T> {
 	pub fn as_syntax_type(&self) -> crate::Type<&'a T> {
 		match self {
 			Self::Json => crate::Type::Json,
-			Self::Id(id) => crate::Type::Ref(id),
+			Self::Id(id) => crate::Type::Iri(id),
 		}
 	}
 

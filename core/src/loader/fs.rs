@@ -9,10 +9,16 @@ use std::hash::Hash;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
+/// Loading error.
 #[derive(Debug)]
 pub enum Error<E> {
+	/// No mount point found for the given IRI.
 	NoMountPoint,
+
+	/// IO error.
 	IO(std::io::Error),
+
+	/// Parse error.
 	Parse(E),
 }
 
@@ -36,6 +42,7 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 	}
 }
 
+/// Dynamic parser type.
 type DynParser<I, M, T, E> = dyn 'static
 	+ Send
 	+ Sync
@@ -57,11 +64,16 @@ pub struct FsLoader<
 }
 
 impl<I, M, T, E> FsLoader<I, M, T, E> {
+	/// Bind the given IRI prefix to the given path.
+	///
+	/// Any document with an IRI matching the given prefix will be loaded from
+	/// the referenced local directory.
 	#[inline(always)]
 	pub fn mount<P: AsRef<Path>>(&mut self, url: I, path: P) {
 		self.mount_points.insert(path.as_ref().into(), url);
 	}
 
+	/// Returns the local file path associated to the given `url` if any.
 	pub fn filepath(&self, vocabulary: &impl IriVocabulary<Iri = I>, url: &I) -> Option<PathBuf> {
 		let url = vocabulary.iri(url).unwrap();
 		for (path, target_url) in &self.mount_points {
@@ -120,6 +132,7 @@ impl<I: Clone + Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I,
 }
 
 impl<I, M, T, E> FsLoader<I, M, T, E> {
+	/// Creates a new file system loader with the given content `parser`.
 	pub fn new(
 		parser: impl 'static
 			+ Send

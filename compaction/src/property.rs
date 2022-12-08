@@ -641,7 +641,7 @@ where
 										vocabulary,
 										active_context,
 										Meta(
-											&Term::Ref(Id::Invalid(index_key.to_string())),
+											&Term::Id(Id::Invalid(index_key.to_string())),
 											index_key.metadata(),
 										),
 										true,

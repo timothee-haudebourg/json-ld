@@ -24,6 +24,7 @@ pub use node::{Graph, IndexedNode, Node, Nodes, StrippedIndexedNode};
 pub use typ::{Type, TypeRef};
 pub use value::{Literal, LiteralString, Value};
 
+/// Abstract object.
 pub trait Any<T, B, M = ()> {
 	fn as_ref(&self) -> Ref<T, B, M>;
 
@@ -98,6 +99,7 @@ pub enum Ref<'a, T, B, M = ()> {
 	List(&'a List<T, B, M>),
 }
 
+/// Indexed object.
 pub type IndexedObject<T, B, M> = Meta<Indexed<Object<T, B, M>, M>, M>;
 
 /// Indexed object, without regard for its metadata.
@@ -107,6 +109,10 @@ pub type StrippedIndexedObject<T, B, M> = Stripped<IndexedObject<T, B, M>>;
 ///
 /// JSON-LD connects together multiple kinds of data objects.
 /// Objects may be nodes, values or lists of objects.
+///
+/// You can get an `Object` by expanding a JSON-LD document using the
+/// expansion algorithm or by converting an already expanded JSON document
+/// using [`TryFromJson`].
 #[allow(clippy::derive_hash_xor_eq)]
 #[derive(Derivative, Clone, Hash, StrippedHash)]
 #[derivative(
@@ -161,6 +167,8 @@ impl<T, B, M> Object<T, B, M> {
 		}
 	}
 
+	/// Use the given `generator` to assign an identifier to all nodes that
+	/// don't have one.
 	pub fn identify_all<G: id::Generator<(), M>>(&mut self, generator: &mut G)
 	where
 		M: Clone,
@@ -169,6 +177,7 @@ impl<T, B, M> Object<T, B, M> {
 		self.identify_all_with(&mut (), generator)
 	}
 
+	/// Returns an iterator over the types of the object.
 	pub fn types(&self) -> Types<T, B, M> {
 		match self {
 			Self::Value(value) => Types::Value(value.typ()),
@@ -316,6 +325,14 @@ impl<T, B, M> Object<T, B, M> {
 		}
 	}
 
+	/// Returns an iterator over all fragments of this object, including the
+	/// object itself.
+	///
+	/// Fragments include:
+	///   - objects
+	///   - key-value pairs,
+	///   - keys
+	///   - values
 	pub fn traverse(&self) -> Traverse<T, B, M> {
 		Traverse::new(Some(FragmentRef::Object(self)))
 	}
@@ -344,6 +361,8 @@ impl<T, B, M> Object<T, B, M> {
 		}
 	}
 
+	/// Returns an iterator over the entries of JSON representation of the
+	/// object.
 	pub fn entries(&self) -> Entries<T, B, M> {
 		match self {
 			Self::Value(value) => Entries::Value(value.entries()),
@@ -700,6 +719,10 @@ impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
 	}
 }
 
+/// Try to convert from a JSON value directly into an expanded JSON-LD document
+/// without going through the expansion algorithm.
+///
+/// The input JSON value must be in expanded JSON-LD form.
 pub trait TryFromJson<T, B, M>: Sized {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
@@ -707,6 +730,10 @@ pub trait TryFromJson<T, B, M>: Sized {
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>>;
 }
 
+/// Try to convert from a JSON object directly into an expanded JSON-LD object
+/// without going through the expansion algorithm.
+///
+/// The input JSON object must be in expanded JSON-LD form.
 pub trait TryFromJsonObject<T, B, M>: Sized {
 	fn try_from_json_object_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
@@ -826,6 +853,10 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Object<T, B, 
 	}
 }
 
+/// Invalid expanded JSON object error.
+///
+/// This can be raised when trying to directly convert a JSON value into an
+/// expanded JSON-LD object without using the expansion algorithm.
 #[derive(Debug)]
 pub enum InvalidExpandedJson<M> {
 	InvalidObject,
@@ -880,42 +911,6 @@ impl<T, B, M> From<Node<T, B, M>> for Object<T, B, M> {
 	}
 }
 
-// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T> AsJson<J, K> for Object<T, B, M> {
-// 	fn as_json_with(
-// 		&self,
-// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-// 	) -> K {
-// 		match self {
-// 			Object::Value(v) => v.as_json_with(meta),
-// 			Object::Node(n) => n.as_json_with(meta),
-// 			Object::List(items) => {
-// 				let mut obj = <K as Json>::Object::default();
-// 				obj.insert(
-// 					K::new_key(Keyword::List.into_str(), meta(None)),
-// 					items.as_json_with(meta.clone()),
-// 				);
-// 				K::object(obj, meta(None))
-// 			}
-// 		}
-// 	}
-// }
-
-// impl<J: JsonHash + JsonClone, K: JsonFrom<J>, T> AsJson<J, K>
-// 	for HashSet<Indexed<Object<T, B, M>>>
-// {
-// 	#[inline(always)]
-// 	fn as_json_with(
-// 		&self,
-// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-// 	) -> K {
-// 		let array = self
-// 			.iter()
-// 			.map(|value| value.as_json_with(meta.clone()))
-// 			.collect();
-// 		K::array(array, meta(None))
-// 	}
-// }
-
 /// Iterator through the types of an object.
 pub enum Types<'a, T, B, M> {
 	Value(Option<value::TypeRef<'a, T>>),
@@ -959,7 +954,7 @@ impl<'a, T, B, M> Iterator for Objects<'a, T, B, M> {
 	}
 }
 
-/// JSON-LD object fragment.
+/// Object fragment.
 pub enum FragmentRef<'a, T, B, M> {
 	/// "@index" entry.
 	IndexEntry(&'a str),
@@ -982,6 +977,7 @@ pub enum FragmentRef<'a, T, B, M> {
 	/// Indexed node object.
 	IndexedNode(&'a IndexedNode<T, B, M>),
 
+	/// Indexed node list.
 	IndexedNodeList(&'a [StrippedIndexedNode<T, B, M>]),
 
 	/// Value object fragment.

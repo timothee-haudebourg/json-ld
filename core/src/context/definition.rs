@@ -15,24 +15,34 @@ use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::Hash;
 
+/// Term binding.
 pub enum Binding<T, B, L, M> {
+	/// Normal term definition.
 	Normal(Key, NormalTermDefinition<T, B, L, M>),
+
+	/// `@type` term definition.
 	Type(TypeTermDefinition),
 }
 
+/// Term binding reference.
 pub enum BindingRef<'a, T, B, L, M> {
+	/// Normal term definition.
 	Normal(&'a Key, &'a NormalTermDefinition<T, B, L, M>),
+
+	/// `@type` term definition.
 	Type(&'a TypeTermDefinition),
 }
 
 impl<'a, T, B, L, M> BindingRef<'a, T, B, L, M> {
-	pub fn key(&self) -> KeyOrTypeRef<'a> {
+	/// Returns a reference to the bound term.
+	pub fn term(&self) -> KeyOrTypeRef<'a> {
 		match self {
 			Self::Normal(key, _) => KeyOrTypeRef::Key(KeyRef::from(*key)),
 			Self::Type(_) => KeyOrTypeRef::Type,
 		}
 	}
 
+	/// Returns a reference to the bound term definition.
 	pub fn definition(&self) -> TermDefinitionRef<'a, T, B, L, M> {
 		match self {
 			Self::Normal(_, d) => TermDefinitionRef::Normal(d),
@@ -41,6 +51,7 @@ impl<'a, T, B, L, M> BindingRef<'a, T, B, L, M> {
 	}
 }
 
+/// Context term definitions.
 #[derive(Clone)]
 pub struct Definitions<T, B, L, M> {
 	normal: HashMap<Key, NormalTermDefinition<T, B, L, M>>,
@@ -67,6 +78,7 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 		(self.normal, self.type_)
 	}
 
+	/// Returns the number of defined terms.
 	pub fn len(&self) -> usize {
 		if self.type_.is_some() {
 			self.normal.len() + 1
@@ -75,48 +87,53 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 		}
 	}
 
+	/// Checks if no terms are defined.
 	pub fn is_empty(&self) -> bool {
 		self.type_.is_none() && self.normal.is_empty()
 	}
 
-	pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<TermDefinitionRef<T, B, L, M>>
+	/// Returns a reference to the definition of the given `term`, if any.
+	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<TermDefinitionRef<T, B, L, M>>
 	where
 		Q: Hash + Eq,
 		Key: Borrow<Q>,
 		KeywordType: Borrow<Q>,
 	{
-		if KeywordType.borrow() == key {
+		if KeywordType.borrow() == term {
 			self.type_.as_ref().map(TermDefinitionRef::Type)
 		} else {
-			self.normal.get(key).map(TermDefinitionRef::Normal)
+			self.normal.get(term).map(TermDefinitionRef::Normal)
 		}
 	}
 
-	pub fn get_normal<Q: ?Sized>(&self, key: &Q) -> Option<&NormalTermDefinition<T, B, L, M>>
+	/// Returns a reference to the normal definition of the given `term`, if any.
+	pub fn get_normal<Q: ?Sized>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B, L, M>>
 	where
 		Q: Hash + Eq,
 		Key: Borrow<Q>,
 	{
-		self.normal.get(key)
+		self.normal.get(term)
 	}
 
+	/// Returns a reference to the `@type` definition, if any.
 	pub fn get_type(&self) -> Option<&TypeTermDefinition> {
 		self.type_.as_ref()
 	}
 
-	pub fn contains_key<Q: ?Sized>(&self, key: &Q) -> bool
+	pub fn contains_term<Q: ?Sized>(&self, term: &Q) -> bool
 	where
 		Q: Hash + Eq,
 		Key: Borrow<Q>,
 		KeywordType: Borrow<Q>,
 	{
-		if KeywordType.borrow() == key {
+		if KeywordType.borrow() == term {
 			self.type_.is_some()
 		} else {
-			self.normal.contains_key(key)
+			self.normal.contains_key(term)
 		}
 	}
 
+	/// Inserts the given `binding`.
 	pub fn insert(&mut self, binding: Binding<T, B, L, M>) -> Option<TermDefinition<T, B, L, M>> {
 		match binding {
 			Binding::Normal(key, definition) => self
@@ -126,29 +143,33 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 		}
 	}
 
+	/// Defines the given normal term.
 	pub fn insert_normal(
 		&mut self,
-		key: Key,
+		term: Key,
 		definition: NormalTermDefinition<T, B, L, M>,
 	) -> Option<NormalTermDefinition<T, B, L, M>> {
-		self.normal.insert(key, definition)
+		self.normal.insert(term, definition)
 	}
 
+	/// Inserts the given `@type` definition.
 	pub fn insert_type(&mut self, definition: TypeTermDefinition) -> Option<TypeTermDefinition> {
 		std::mem::replace(&mut self.type_, Some(definition))
 	}
 
+	/// Sets the given `term` normal definition.
 	pub fn set_normal(
 		&mut self,
-		key: Key,
+		term: Key,
 		definition: Option<NormalTermDefinition<T, B, L, M>>,
 	) -> Option<NormalTermDefinition<T, B, L, M>> {
 		match definition {
-			Some(d) => self.normal.insert(key, d),
-			None => self.normal.remove(&key),
+			Some(d) => self.normal.insert(term, d),
+			None => self.normal.remove(&term),
 		}
 	}
 
+	/// Sets the given `@type` definition.
 	pub fn set_type(
 		&mut self,
 		definition: Option<TypeTermDefinition>,
@@ -156,6 +177,7 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 		std::mem::replace(&mut self.type_, definition)
 	}
 
+	/// Returns an iterator over the term definitions.
 	pub fn iter(&self) -> Iter<T, B, L, M> {
 		Iter {
 			type_: self.type_.as_ref(),
@@ -217,9 +239,16 @@ impl<T, B, L, M> IntoIterator for Definitions<T, B, L, M> {
 	}
 }
 
+/// `@type` term definition.
+///
+/// Such definition compared to a [`NormalTermDefinition`] can only contain
+/// a `@container` and `@protected` value.
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq, Clone)]
 pub struct TypeTermDefinition {
+	/// Type container.
 	pub container: TypeContainer,
+
+	/// Protection flag.
 	pub protected: bool,
 }
 
@@ -254,10 +283,14 @@ impl TypeTermDefinition {
 	}
 }
 
+/// Term definition.
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq, Clone)]
 #[locspan(stripped(T, B), fixed(T, B))]
 pub enum TermDefinition<T, B, C, M> {
+	/// `@type` term definition.
 	Type(TypeTermDefinition),
+
+	/// Normal term definition.
 	Normal(NormalTermDefinition<T, B, C, M>),
 }
 
@@ -358,10 +391,14 @@ impl<T, B, C, M> TermDefinition<T, B, C, M> {
 	}
 }
 
+/// Term definition reference.
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq)]
 #[locspan(stripped(T, B), fixed(T, B))]
 pub enum TermDefinitionRef<'a, T, B, C, M> {
+	/// `@type` definition.
 	Type(&'a TypeTermDefinition),
+
+	/// Normal definition.
 	Normal(&'a NormalTermDefinition<T, B, C, M>),
 }
 
@@ -545,7 +582,7 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 			match term {
 				Term::Null => Nullable::Null,
 				Term::Keyword(k) => Nullable::Some(Id::Keyword(k)),
-				Term::Ref(r) => Nullable::Some(Id::Term(r.with(vocabulary).to_string())),
+				Term::Id(r) => Nullable::Some(Id::Term(r.with(vocabulary).to_string())),
 			}
 		}
 
@@ -556,7 +593,7 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 			match term {
 				Term::Null => panic!("invalid key"),
 				Term::Keyword(k) => k.to_string().into(),
-				Term::Ref(r) => r.with(vocabulary).to_string().into(),
+				Term::Id(r) => r.with(vocabulary).to_string().into(),
 			}
 		}
 
@@ -569,7 +606,7 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 				Type::Json => SyntaxType::Keyword(TypeKeyword::Json),
 				Type::None => SyntaxType::Keyword(TypeKeyword::None),
 				Type::Vocab => SyntaxType::Keyword(TypeKeyword::Vocab),
-				Type::Ref(t) => SyntaxType::Term(vocabulary.iri(&t).unwrap().to_string()),
+				Type::Iri(t) => SyntaxType::Term(vocabulary.iri(&t).unwrap().to_string()),
 			}
 		}
 
@@ -664,6 +701,7 @@ impl<T, B, C, M> Default for NormalTermDefinition<T, B, C, M> {
 	}
 }
 
+/// Wrapper to consider a term definition without the `@protected` flag.
 pub struct ModuloProtected<T>(T);
 
 impl<'a, 'b, T: PartialEq, B: PartialEq, C: StrippedPartialEq<E>, M, E, N>

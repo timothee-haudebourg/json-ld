@@ -28,7 +28,7 @@ pub(crate) fn node_id_of_term<T, B, M>(
 ) -> Option<Meta<Id<T, B>, M>> {
 	match term {
 		Term::Null => None,
-		Term::Ref(prop) => Some(Meta(prop, meta)),
+		Term::Id(prop) => Some(Meta(prop, meta)),
 		Term::Keyword(kw) => Some(Meta(Id::Invalid(kw.into_str().to_string()), meta)),
 	}
 }
@@ -375,12 +375,12 @@ where
 										Meta(Term::Keyword(_), meta) => {
 											return Err(Error::InvalidReversePropertyMap.at(meta))
 										}
-										Meta(Term::Ref(Id::Invalid(_)), meta)
+										Meta(Term::Id(Id::Invalid(_)), meta)
 											if options.policy == Policy::Strictest =>
 										{
 											return Err(Error::KeyExpansionFailed.at(meta))
 										}
-										Meta(Term::Ref(reverse_prop), meta)
+										Meta(Term::Id(reverse_prop), meta)
 											if reverse_prop
 												.with(&*vocabulary)
 												.as_str()
@@ -574,11 +574,11 @@ where
 					}
 				}
 
-				Term::Ref(Id::Invalid(_)) if options.policy == Policy::Strictest => {
+				Term::Id(Id::Invalid(_)) if options.policy == Policy::Strictest => {
 					return Err(Error::KeyExpansionFailed.at(key_metadata.clone()))
 				}
 
-				Term::Ref(prop)
+				Term::Id(prop)
 					if prop.with(&*vocabulary).as_str().contains(':')
 						|| options.policy == Policy::Relaxed =>
 				{
@@ -932,7 +932,7 @@ where
 												)
 												.into_value()
 												{
-													Term::Ref(prop) => prop,
+													Term::Id(prop) => prop,
 													_ => continue,
 												};
 
@@ -1149,7 +1149,7 @@ where
 					}
 				}
 
-				Term::Ref(_) => {
+				Term::Id(_) => {
 					if options.policy.is_strict() {
 						return Err(Error::KeyExpansionFailed.at(key_metadata.clone()));
 					}

@@ -5,63 +5,84 @@ use locspan_derive::{StrippedEq, StrippedHash, StrippedPartialEq};
 use std::convert::TryFrom;
 use std::fmt;
 
+/// Object type.
+///
+/// This is the value of a `@type` entry.
 #[derive(Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash, Debug)]
 pub enum Type<I> {
+	/// `@id`.
+	///
+	/// The value must be interpreted as an IRI.
 	Id,
+
+	/// `@json`.
+	///
+	/// The value is an arbitrary JSON value.
 	Json,
+
+	/// `@none`
 	None,
+
+	/// `@vocab`
 	Vocab,
-	Ref(I),
+
+	/// IRI type.
+	Iri(I),
 }
 
 impl<I> Type<I> {
-	pub fn into_ref(self) -> Result<I, Type<I>> {
+	/// Turns this type into an IRI if possible.
+	pub fn into_iri(self) -> Result<I, Type<I>> {
 		match self {
-			Type::Ref(id) => Ok(id),
+			Type::Iri(id) => Ok(id),
 			typ => Err(typ),
 		}
 	}
 
+	/// Maps the IRI of this type.
 	pub fn map<U, F: FnOnce(&I) -> U>(&self, f: F) -> Type<U> {
 		match self {
 			Type::Id => Type::Id,
 			Type::Json => Type::Json,
 			Type::None => Type::None,
 			Type::Vocab => Type::Vocab,
-			Type::Ref(t) => Type::Ref(f(t)),
+			Type::Iri(t) => Type::Iri(f(t)),
 		}
 	}
 }
 
 impl<'a, I: Clone> Type<&'a I> {
+	/// Clones the referenced IRI.
 	pub fn cloned(self) -> Type<I> {
 		match self {
 			Type::Id => Type::Id,
 			Type::Json => Type::Json,
 			Type::None => Type::None,
 			Type::Vocab => Type::Vocab,
-			Type::Ref(t) => Type::Ref(t.clone()),
+			Type::Iri(t) => Type::Iri(t.clone()),
 		}
 	}
 }
 
 impl<I> Type<I> {
+	/// Returns a reference to the type IRI if any.
 	pub fn as_iri(&self) -> Option<&I> {
 		match self {
-			Type::Ref(id) => Some(id),
+			Type::Iri(id) => Some(id),
 			_ => None,
 		}
 	}
 }
 
 impl<I: AsRef<str>> Type<I> {
+	/// Returns a JSON-LD string representation of the type.
 	pub fn as_str(&self) -> &str {
 		match self {
 			Type::Id => "@id",
 			Type::Json => "@json",
 			Type::None => "@none",
 			Type::Vocab => "@vocab",
-			Type::Ref(id) => id.as_ref(),
+			Type::Iri(id) => id.as_ref(),
 		}
 	}
 }
@@ -73,7 +94,7 @@ impl<'a, I> From<&'a Type<I>> for Type<&'a I> {
 			Type::Json => Type::Json,
 			Type::None => Type::None,
 			Type::Vocab => Type::Vocab,
-			Type::Ref(id) => Type::Ref(id),
+			Type::Iri(id) => Type::Iri(id),
 		}
 	}
 }
@@ -85,7 +106,7 @@ impl<I, B> From<Type<I>> for Term<I, B> {
 			Type::Json => Term::Keyword(Keyword::Json),
 			Type::None => Term::Keyword(Keyword::None),
 			Type::Vocab => Term::Keyword(Keyword::Vocab),
-			Type::Ref(id) => Term::Ref(Id::Valid(ValidId::Iri(id))),
+			Type::Iri(id) => Term::Id(Id::Valid(ValidId::Iri(id))),
 		}
 	}
 }
@@ -99,23 +120,11 @@ impl<I, B> TryFrom<Term<I, B>> for Type<I> {
 			Term::Keyword(Keyword::Json) => Ok(Type::Json),
 			Term::Keyword(Keyword::None) => Ok(Type::None),
 			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			Term::Ref(Id::Valid(ValidId::Iri(id))) => Ok(Type::Ref(id)),
+			Term::Id(Id::Valid(ValidId::Iri(id))) => Ok(Type::Iri(id)),
 			term => Err(term),
 		}
 	}
 }
-
-// impl<K: JsonBuild, I: utils::AsAnyJson<K>> utils::AsAnyJson<K> for Type<I> {
-// 	fn as_json_with(&self, meta: K::MetaData) -> K {
-// 		match self {
-// 			Type::Id => "@id".as_json_with(meta),
-// 			Type::Json => "@json".as_json_with(meta),
-// 			Type::None => "@none".as_json_with(meta),
-// 			Type::Vocab => "@vocab".as_json_with(meta),
-// 			Type::Ref(id) => id.as_json_with(meta),
-// 		}
-// 	}
-// }
 
 impl<I: fmt::Display> fmt::Display for Type<I> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -124,24 +133,7 @@ impl<I: fmt::Display> fmt::Display for Type<I> {
 			Type::Json => write!(f, "@json"),
 			Type::None => write!(f, "@none"),
 			Type::Vocab => write!(f, "@vocab"),
-			Type::Ref(id) => id.fmt(f),
+			Type::Iri(id) => id.fmt(f),
 		}
 	}
 }
-
-// pub type NodeType<I> = Type<Reference<I>>;
-
-// impl<I: Id> TryFrom<Term<I>> for NodeType<I> {
-// 	type Error = Term<I>;
-
-// 	fn try_from(term: Term<I>) -> Result<NodeType<I>, Term<I>> {
-// 		match term {
-// 			Term::Keyword(Keyword::Id) => Ok(Type::Id),
-// 			Term::Keyword(Keyword::Json) => Ok(Type::Json),
-// 			Term::Keyword(Keyword::None) => Ok(Type::None),
-// 			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-// 			Term::Ref(prop) => Ok(Type::Ref(prop)),
-// 			term => Err(term),
-// 		}
-// 	}
-// }

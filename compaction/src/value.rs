@@ -121,7 +121,7 @@ where
 	match value {
 		Value::Literal(lit, ty) => {
 			use object::value::Literal;
-			if ty.clone().map(Type::Ref) == type_mapping && remove_index {
+			if ty.clone().map(Type::Iri) == type_mapping && remove_index {
 				match lit {
 					Literal::Null => return Ok(Meta(json_syntax::Value::Null, meta.clone())),
 					Literal::Boolean(b) => {
@@ -203,7 +203,7 @@ where
 					let compact_ty = compact_iri(
 						vocabulary,
 						active_context.as_ref(),
-						Meta(&Term::Ref(Id::iri(ty.clone())), meta),
+						Meta(&Term::Id(Id::iri(ty.clone())), meta),
 						true,
 						false,
 						options,

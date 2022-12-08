@@ -385,7 +385,7 @@ where
 							}
 						}
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
-						Term::Ref(Id::Valid(ValidId::Blank(id))) => {
+						Term::Id(Id::Valid(ValidId::Blank(id))) => {
 							warnings.handle(
 								vocabulary,
 								Meta::new(
