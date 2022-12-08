@@ -58,11 +58,56 @@ impl<I: Hash, B: Hash> Hash for Id<I, B> {
 	}
 }
 
+impl<'a, I: PartialEq, B: PartialEq> hashbrown::Equivalent<Id<I, B>> for ValidId<I, B> {
+	fn equivalent(&self, key: &Id<I, B>) -> bool {
+		match key {
+			Id::Valid(id) => self == id,
+			_ => false
+		}
+	}
+}
+
 impl<I: Hash, B: Hash> StrippedHash for Id<I, B> {
 	fn stripped_hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		match self {
 			Self::Valid(id) => id.stripped_hash(state),
 			Self::Invalid(id) => id.stripped_hash(state),
+		}
+	}
+}
+
+impl<'a, B> hashbrown::Equivalent<Id<IriBuf, B>> for iref::Iri<'a> {
+	fn equivalent(&self, key: &Id<IriBuf, B>) -> bool {
+		match key {
+			Id::Valid(ValidId::Iri(iri)) => self == iri,
+			_ => false
+		}
+	}
+}
+
+impl<'a, B> hashbrown::Equivalent<Id<IriBuf, B>> for iref::IriBuf {
+	fn equivalent(&self, key: &Id<IriBuf, B>) -> bool {
+		match key {
+			Id::Valid(ValidId::Iri(iri)) => self == iri,
+			_ => false
+		}
+	}
+}
+
+impl<'a, I> hashbrown::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankId {
+	fn equivalent(&self, key: &Id<I, BlankIdBuf>) -> bool {
+		match key {
+			Id::Valid(ValidId::Blank(b)) => self == b,
+			_ => false
+		}
+	}
+}
+
+impl<'a, I> hashbrown::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankIdBuf {
+	fn equivalent(&self, key: &Id<I, BlankIdBuf>) -> bool {
+		match key {
+			Id::Valid(ValidId::Blank(b)) => self == b,
+			_ => false
 		}
 	}
 }
