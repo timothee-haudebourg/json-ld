@@ -143,6 +143,17 @@ impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for ExpandError<M, E, C> {
 	}
 }
 
+impl<M, E: fmt::Display, C> fmt::Display for ExpandError<M, E, C> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Expansion(e) => e.fmt(f),
+			Self::ContextProcessing(e) => e.fmt(f),
+			Self::Loading(e) => e.fmt(f),
+			Self::ContextLoading(e) => e.fmt(f),
+		}
+	}
+}
+
 /// Error that can be raised by the [`JsonLdProcessor::expand`] function.
 pub type ExpandResult<I, B, M, L> = Result<
 	Meta<ExpandedDocument<I, B, M>, M>,
@@ -192,6 +203,18 @@ impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for CompactError<M, E, C> {
 	}
 }
 
+impl<M, E: fmt::Display, C> fmt::Display for CompactError<M, E, C> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Expand(e) => e.fmt(f),
+			Self::ContextProcessing(e) => e.fmt(f),
+			Self::Compaction(e) => e.fmt(f),
+			Self::Loading(e) => e.fmt(f),
+			Self::ContextLoading(e) => e.fmt(f),
+		}
+	}
+}
+
 /// Result of the [`JsonLdProcessor::compact`] function.
 pub type CompactResult<I, M, L> = Result<
 	json_syntax::MetaValue<M>,
@@ -221,6 +244,18 @@ impl<I, B, M, E, C> FlattenError<I, B, M, E, C> {
 }
 
 impl<I, B, M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for FlattenError<I, B, M, E, C> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Expand(e) => e.fmt(f),
+			Self::Compact(e) => e.fmt(f),
+			Self::ConflictingIndexes(e) => e.fmt(f),
+			Self::Loading(e) => e.fmt(f),
+			Self::ContextLoading(e) => e.fmt(f),
+		}
+	}
+}
+
+impl<I, B, M, E: fmt::Display, C> fmt::Display for FlattenError<I, B, M, E, C> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Expand(e) => e.fmt(f),

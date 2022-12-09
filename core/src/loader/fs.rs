@@ -5,7 +5,6 @@ use rdf_types::{vocabulary::Index, IriVocabulary};
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
-use std::hash::Hash;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
@@ -52,6 +51,9 @@ type DynParser<I, M, T, E> = dyn 'static
 ///
 /// This is a special JSON-LD document loader that can load document from the file system by
 /// attaching a directory to specific URLs.
+///
+/// Loaded documents are not cached: a new file system read is made each time
+/// an URL is loaded even if it has already been queried before.
 pub struct FsLoader<
 	I = Index,
 	M = locspan::Location<I>,
@@ -59,7 +61,6 @@ pub struct FsLoader<
 	E = json_ld_syntax::parse::MetaError<M>,
 > {
 	mount_points: HashMap<PathBuf, I>,
-	cache: HashMap<I, Meta<T, M>>,
 	parser: Box<DynParser<I, M, T, E>>,
 }
 
@@ -93,38 +94,36 @@ impl<I, M, T, E> FsLoader<I, M, T, E> {
 	}
 }
 
-impl<I: Clone + Eq + Hash + Send, T: Clone + Send, M: Clone + Send, E> Loader<I, M>
-	for FsLoader<I, M, T, E>
-{
+impl<I: Send, T: Send, M: Send, E> Loader<I, M> for FsLoader<I, M, T, E> {
 	type Output = T;
 	type Error = Error<E>;
 
 	fn load_with<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<Iri = I>),
+		vocabulary: &'a mut (impl Sync + Send + IriVocabulary<Iri = I>),
 		url: I,
 	) -> BoxFuture<'a, Result<RemoteDocument<I, M, T>, Self::Error>>
 	where
 		I: 'a,
 	{
 		async move {
-			match self.cache.get(&url) {
-				Some(t) => Ok(RemoteDocument::new(Some(url), t.clone())),
-				None => match self.filepath(vocabulary, &url) {
-					Some(filepath) => {
-						let file = File::open(filepath).map_err(Error::IO)?;
-						let mut buf_reader = BufReader::new(file);
-						let mut contents = String::new();
-						buf_reader
-							.read_to_string(&mut contents)
-							.map_err(Error::IO)?;
-						let doc = (*self.parser)(vocabulary, &url, contents.as_str())
-							.map_err(Error::Parse)?;
-						self.cache.insert(url.clone(), doc.clone());
-						Ok(RemoteDocument::new(Some(url), doc))
-					}
-					None => Err(Error::NoMountPoint),
-				},
+			match self.filepath(vocabulary, &url) {
+				Some(filepath) => {
+					let file = File::open(filepath).map_err(Error::IO)?;
+					let mut buf_reader = BufReader::new(file);
+					let mut contents = String::new();
+					buf_reader
+						.read_to_string(&mut contents)
+						.map_err(Error::IO)?;
+					let doc = (*self.parser)(vocabulary, &url, contents.as_str())
+						.map_err(Error::Parse)?;
+					Ok(RemoteDocument::new(
+						Some(url),
+						Some("application/ld+json".parse().unwrap()),
+						doc,
+					))
+				}
+				None => Err(Error::NoMountPoint),
 			}
 		}
 		.boxed()
@@ -141,7 +140,6 @@ impl<I, M, T, E> FsLoader<I, M, T, E> {
 	) -> Self {
 		Self {
 			mount_points: HashMap::new(),
-			cache: HashMap::new(),
 			parser: Box::new(parser),
 		}
 	}

@@ -130,7 +130,7 @@ impl compact::Test {
 					.compact_full(&mut vocabulary, context, &mut loader, options, ())
 					.await
 					.unwrap();
-				let compacted = RemoteDocument::new(Some(input), compacted);
+				let compacted = RemoteDocument::new(Some(input), None, compacted);
 
 				let expect = vocabulary.insert(expect);
 				let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();

@@ -153,6 +153,9 @@
 //!   // We use `IriBuf` as IRI type.
 //!   Some(iri!("https://example.com/sample.jsonld").to_owned()),
 //!
+//!   // Optional content type.
+//!   Some("application/ld+json".parse().unwrap()),
+//!   
 //!   // Parse the file.
 //!   Value::parse_str(r#"
 //!     {

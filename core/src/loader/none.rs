@@ -51,7 +51,7 @@ impl<I: Send, T, M> Loader<I, M> for NoLoader<I, M, T> {
 	#[inline(always)]
 	fn load_with<'a>(
 		&'a mut self,
-		_namespace: &impl IriVocabulary<Iri = I>,
+		_namespace: &mut impl IriVocabulary<Iri = I>,
 		url: I,
 	) -> BoxFuture<'a, Result<RemoteDocument<I, M, T>, Self::Error>>
 	where

@@ -31,7 +31,7 @@ async fn expand() {
 	let mut loader: json_ld::NoLoader<IriBuf, Span, json_ld::syntax::Value<Span>> =
 		json_ld::NoLoader::new();
 	let _: Meta<json_ld::ExpandedDocument<IriBuf, BlankIdBuf, _>, _> =
-		RemoteDocument::new(Some(document_url), json)
+		RemoteDocument::new(Some(document_url), None, json)
 			.expand(&mut loader)
 			.await
 			.unwrap();

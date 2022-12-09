@@ -199,12 +199,3 @@ impl<T, B, M> From<HashSet<StrippedIndexedObject<T, B, M>>> for ExpandedDocument
 		Self(set)
 	}
 }
-
-// impl<F, J: JsonHash + JsonClone, K: JsonFrom<J>, T: Id> AsJson<J, K> for ExpandedDocument<T, B, M> {
-// 	fn as_json_with(
-// 		&self,
-// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-// 	) -> K {
-// 		self.0.as_json_with(meta)
-// 	}
-// }

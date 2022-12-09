@@ -1,7 +1,11 @@
 use futures::future::{BoxFuture, FutureExt};
+use hashbrown::HashSet;
+use iref::Iri;
 use locspan::{Location, MapLocErr, Meta};
+use mime::Mime;
 use mown::Mown;
-use rdf_types::{vocabulary::Index, IriVocabulary};
+use rdf_types::{vocabulary::Index, IriVocabulary, IriVocabularyMut};
+use static_iref::iri;
 use std::fmt;
 
 pub mod fs;
@@ -10,11 +14,11 @@ pub mod none;
 pub use fs::FsLoader;
 pub use none::NoLoader;
 
-// #[cfg(feature="reqwest")]
-// pub mod reqwest;
+#[cfg(feature = "reqwest")]
+pub mod reqwest;
 
-// #[cfg(feature="reqwest")]
-// pub use self::reqwest::ReqwestLoader;
+#[cfg(feature = "reqwest")]
+pub use self::reqwest::ReqwestLoader;
 
 pub type LoadingResult<I, M, O, E> = Result<RemoteDocument<I, M, O>, E>;
 
@@ -57,7 +61,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 	/// [`RemoteDocument`].
 	pub async fn load_with<L: Loader<I, M>>(
 		self,
-		vocabulary: &(impl Sync + IriVocabulary<Iri = I>),
+		vocabulary: &mut (impl Sync + Send + IriVocabularyMut<Iri = I>),
 		loader: &mut L,
 	) -> LoadingResult<I, M, T, L::Error>
 	where
@@ -80,7 +84,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 	/// with [`Mown::Borrowed`].
 	pub async fn loaded_with<L: Loader<I, M>>(
 		&self,
-		vocabulary: &(impl Sync + IriVocabulary<Iri = I>),
+		vocabulary: &mut (impl Sync + Send + IriVocabularyMut<Iri = I>),
 		loader: &mut L,
 	) -> Result<Mown<'_, RemoteDocument<I, M, T>>, L::Error>
 	where
@@ -105,7 +109,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 	/// [`RemoteDocument`].
 	pub async fn load_context_with<L: ContextLoader<I, M>>(
 		self,
-		vocabulary: &(impl Sync + IriVocabulary<Iri = I>),
+		vocabulary: &mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		loader: &mut L,
 	) -> LoadingResult<I, M, T, L::ContextError>
 	where
@@ -129,7 +133,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 	/// with [`Mown::Borrowed`].
 	pub async fn loaded_context_with<L: ContextLoader<I, M>>(
 		&self,
-		vocabulary: &(impl Sync + IriVocabulary<Iri = I>),
+		vocabulary: &mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		loader: &mut L,
 	) -> Result<Mown<'_, RemoteDocument<I, M, T>>, L::ContextError>
 	where
@@ -153,23 +157,73 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 /// Stores the content of a loaded remote document along with its original URL.
 #[derive(Clone)]
 pub struct RemoteDocument<I = Index, M = Location<I>, T = json_syntax::Value<M>> {
-	/// Document URL.
+	/// The final URL of the loaded document, after eventual redirection.
 	url: Option<I>,
 
-	/// Document content.
+	/// The HTTP `Content-Type` header value of the loaded document, exclusive
+	/// of any optional parameters.
+	content_type: Option<Mime>,
+
+	/// If available, the value of the HTTP `Link Header` [RFC8288] using the
+	/// `http://www.w3.org/ns/json-ld#context` link relation in the response.
+	///
+	/// If the response's `Content-Type` is `application/ld+json`, the HTTP
+	/// `Link Header` is ignored. If multiple HTTP `Link Headers` using the
+	/// `http://www.w3.org/ns/json-ld#context` link relation are found, the
+	/// loader fails with a `multiple context link headers` error.
+	context_url: Option<I>,
+
+	profile: HashSet<Profile<I>>,
+
+	/// The retrieved document.
 	document: Meta<T, M>,
 }
 
 impl<I, M, T> RemoteDocument<I, M, T> {
 	/// Creates a new remote document.
-	pub fn new(url: Option<I>, document: Meta<T, M>) -> Self {
-		Self { url, document }
+	///
+	/// `url` is the final URL of the loaded document, after eventual
+	/// redirection.
+	/// `content_type` is the HTTP `Content-Type` header value of the loaded
+	/// document, exclusive of any optional parameters.
+	pub fn new(url: Option<I>, content_type: Option<Mime>, document: Meta<T, M>) -> Self {
+		Self::new_full(url, content_type, None, HashSet::new(), document)
+	}
+
+	/// Creates a new remote document.
+	///
+	/// `url` is the final URL of the loaded document, after eventual
+	/// redirection.
+	/// `content_type` is the HTTP `Content-Type` header value of the loaded
+	/// document, exclusive of any optional parameters.
+	/// `context_url` is the value of the HTTP `Link Header` [RFC8288] using the
+	/// `http://www.w3.org/ns/json-ld#context` link relation in the response,
+	/// if any.
+	/// `profile` is the value of any profile parameter retrieved as part of the
+	/// original contentType.
+	pub fn new_full(
+		url: Option<I>,
+		content_type: Option<Mime>,
+		context_url: Option<I>,
+		profile: HashSet<Profile<I>>,
+		document: Meta<T, M>,
+	) -> Self {
+		Self {
+			url,
+			content_type,
+			context_url,
+			profile,
+			document,
+		}
 	}
 
 	/// Maps the content of the remote document.
 	pub fn map<U, N>(self, f: impl Fn(Meta<T, M>) -> Meta<U, N>) -> RemoteDocument<I, N, U> {
 		RemoteDocument {
 			url: self.url,
+			content_type: self.content_type,
+			context_url: self.context_url,
+			profile: self.profile,
 			document: f(self.document),
 		}
 	}
@@ -181,13 +235,34 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 	) -> Result<RemoteDocument<I, N, U>, E> {
 		Ok(RemoteDocument {
 			url: self.url,
+			content_type: self.content_type,
+			context_url: self.context_url,
+			profile: self.profile,
 			document: f(self.document)?,
 		})
 	}
 
-	/// Returns a reference the original URL of the document.
+	/// Returns a reference to the final URL of the loaded document, after eventual redirection.
 	pub fn url(&self) -> Option<&I> {
 		self.url.as_ref()
+	}
+
+	/// Returns the HTTP `Content-Type` header value of the loaded document,
+	/// exclusive of any optional parameters.
+	pub fn content_type(&self) -> Option<&Mime> {
+		self.content_type.as_ref()
+	}
+
+	/// Returns the value of the HTTP `Link Header` [RFC8288] using the
+	/// `http://www.w3.org/ns/json-ld#context` link relation in the response,
+	/// if any.
+	///
+	/// If the response's `Content-Type` is `application/ld+json`, the HTTP
+	/// `Link Header` is ignored. If multiple HTTP `Link Headers` using the
+	/// `http://www.w3.org/ns/json-ld#context` link relation are found, the
+	/// loader fails with a `multiple context link headers` error.
+	pub fn context_url(&self) -> Option<&I> {
+		self.context_url.as_ref()
 	}
 
 	/// Returns a reference to the content of the document.
@@ -211,6 +286,85 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 	}
 }
 
+/// Standard `profile` parameter values defined for the `application/ld+json`.
+///
+/// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum StandardProfile {
+	/// To request or specify expanded JSON-LD document form.
+	Expanded,
+
+	/// To request or specify compacted JSON-LD document form.
+	Compacted,
+
+	/// To request or specify a JSON-LD context document.
+	Context,
+
+	/// To request or specify flattened JSON-LD document form.
+	Flattened,
+
+	// /// To request or specify a JSON-LD frame document.
+	// Frame,
+	/// To request or specify a JSON-LD framed document.
+	Framed,
+}
+
+impl StandardProfile {
+	pub fn from_iri(iri: Iri) -> Option<Self> {
+		if iri == iri!("http://www.w3.org/ns/json-ld#expanded") {
+			Some(Self::Expanded)
+		} else if iri == iri!("http://www.w3.org/ns/json-ld#compacted") {
+			Some(Self::Compacted)
+		} else if iri == iri!("http://www.w3.org/ns/json-ld#context") {
+			Some(Self::Context)
+		} else if iri == iri!("http://www.w3.org/ns/json-ld#flattened") {
+			Some(Self::Flattened)
+		} else if iri == iri!("http://www.w3.org/ns/json-ld#framed") {
+			Some(Self::Framed)
+		} else {
+			None
+		}
+	}
+
+	pub fn iri(&self) -> Iri<'static> {
+		match self {
+			Self::Expanded => iri!("http://www.w3.org/ns/json-ld#expanded"),
+			Self::Compacted => iri!("http://www.w3.org/ns/json-ld#compacted"),
+			Self::Context => iri!("http://www.w3.org/ns/json-ld#context"),
+			Self::Flattened => iri!("http://www.w3.org/ns/json-ld#flattened"),
+			Self::Framed => iri!("http://www.w3.org/ns/json-ld#framed"),
+		}
+	}
+}
+
+/// Value for the `profile` parameter defined for the `application/ld+json`.
+///
+/// Standard values defined by the JSON-LD specification are defined by the
+/// [`StandardProfile`] type.
+///
+/// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Profile<I> {
+	Standard(StandardProfile),
+	Custom(I),
+}
+
+impl<I> Profile<I> {
+	pub fn new(iri: Iri, vocabulary: &mut impl IriVocabularyMut<Iri = I>) -> Self {
+		match StandardProfile::from_iri(iri) {
+			Some(p) => Self::Standard(p),
+			None => Self::Custom(vocabulary.insert(iri)),
+		}
+	}
+
+	pub fn iri<'a>(&'a self, vocabulary: &'a impl IriVocabulary<Iri = I>) -> Iri<'a> {
+		match self {
+			Self::Standard(s) => s.iri(),
+			Self::Custom(c) => vocabulary.iri(c).unwrap(),
+		}
+	}
+}
+
 /// Document loader.
 ///
 /// A document loader is required by most processing functions to fetch remote
@@ -222,9 +376,9 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 ///   - [`FsLoader`] that redirect registered IRI prefixes to a local directory
 ///     on the file system. This way no network calls are performed and the
 ///     loaded content can be trusted.
-//   - `ReqwestLoader` that actually download the remote documents using the
-//     [`reqwest`](https://crates.io/crates/reqwest) library.
-//     This requires the `reqwest` feature to be enabled.
+///   - `ReqwestLoader` that actually download the remote documents using the
+///     [`reqwest`](https://crates.io/crates/reqwest) library.
+///     This requires the `reqwest` feature to be enabled.
 pub trait Loader<I, M> {
 	/// The type of documents that can be loaded.
 	type Output;
@@ -235,7 +389,7 @@ pub trait Loader<I, M> {
 	/// Loads the document behind the given IRI, using the given vocabulary.
 	fn load_with<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<Iri = I>),
+		vocabulary: &'a mut (impl Sync + Send + IriVocabularyMut<Iri = I>),
 		url: I,
 	) -> BoxFuture<'a, LoadingResult<I, M, Self::Output, Self::Error>>
 	where
@@ -250,7 +404,7 @@ pub trait Loader<I, M> {
 		I: 'a,
 		(): IriVocabulary<Iri = I>,
 	{
-		self.load_with(&(), url)
+		self.load_with(rdf_types::vocabulary::no_vocabulary_mut(), url)
 	}
 }
 
@@ -271,7 +425,7 @@ pub trait ContextLoader<I, M> {
 	/// Loads the context behind the given IRI, using the given vocabulary.
 	fn load_context_with<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<Iri = I>),
+		vocabulary: &'a mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		url: I,
 	) -> BoxFuture<'a, LoadingResult<I, M, Self::Context, Self::ContextError>>
 	where
@@ -288,7 +442,7 @@ pub trait ContextLoader<I, M> {
 		M: 'a,
 		(): IriVocabulary<Iri = I>,
 	{
-		self.load_context_with(&(), url)
+		self.load_context_with(rdf_types::vocabulary::no_vocabulary_mut(), url)
 	}
 }
 
@@ -397,7 +551,7 @@ where
 
 	fn load_context_with<'a>(
 		&'a mut self,
-		vocabulary: &'a (impl Sync + IriVocabulary<Iri = I>),
+		vocabulary: &'a mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		url: I,
 	) -> BoxFuture<'a, Result<RemoteDocument<I, M, Self::Context>, Self::ContextError>>
 	where

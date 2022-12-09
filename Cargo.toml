@@ -7,5 +7,6 @@ members = [
 	"compaction",
 	"testing",
 	"tests",
-	"json-ld"
+	"json-ld",
+	"cli"
 ]

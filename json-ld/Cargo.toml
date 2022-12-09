@@ -12,7 +12,7 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [features]
-# reqwest = ["json-ld-core/reqwest"]
+reqwest = ["json-ld-core/reqwest"]
 
 [dependencies]
 json-ld-syntax = { path = "../syntax", version = "0.9.1-beta" }

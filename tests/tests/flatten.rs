@@ -145,7 +145,7 @@ impl flatten::Test {
 						)
 						.await
 						.unwrap();
-					let flattened = RemoteDocument::new(Some(input), flattened);
+					let flattened = RemoteDocument::new(Some(input), None, flattened);
 
 					let expect = vocabulary.insert(expect);
 					let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();

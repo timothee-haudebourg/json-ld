@@ -82,10 +82,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 		L::ContextError: Send,
 	{
 		async move {
-			let active_context = Context::new(options.base.clone().or_else(|| self.url().cloned()));
+			let mut active_context =
+				Context::new(options.base.clone().or_else(|| self.url().cloned()));
 
-			let active_context = match options.expand_context.take() {
-				Some(expand_context) => expand_context
+			if let Some(expand_context) = options.expand_context.take() {
+				active_context = expand_context
 					.load_context_with(vocabulary, loader)
 					.await
 					.map_err(ExpandError::ContextLoading)?
@@ -100,11 +101,27 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 					)
 					.await
 					.map_err(ExpandError::ContextProcessing)?
-					.into_processed(),
-				None => active_context,
+					.into_processed()
 			};
 
-			// TODO remote contextUrl
+			if let Some(context_url) = self.context_url() {
+				active_context = RemoteDocumentReference::Iri(context_url.clone())
+					.load_context_with(vocabulary, loader)
+					.await
+					.map_err(ExpandError::ContextLoading)?
+					.into_document()
+					.process_full(
+						vocabulary,
+						&active_context,
+						loader,
+						Some(context_url.clone()),
+						options.context_processing_options(),
+						&mut warnings,
+					)
+					.await
+					.map_err(ExpandError::ContextProcessing)?
+					.into_processed()
+			}
 
 			self.document()
 				.expand_full(
