@@ -1,6 +1,6 @@
 [package]
 name = "json-ld-core"
-version = "0.9.1-beta"
+version = "0.9.1"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 edition = "2021"
 categories = ["web-programming", "database", "data-structures"]
@@ -16,7 +16,7 @@ default = []
 reqwest = ["bytes", "dep:reqwest"]
 
 [dependencies]
-json-ld-syntax = { path = "../syntax", version = "0.9.1-beta" }
+json-ld-syntax = { path = "../syntax", version = "0.9.1" }
 json-syntax = { version = "0.8.14", features = ["contextual"] }
 log = "^0.4"
 derivative = "^2.2"

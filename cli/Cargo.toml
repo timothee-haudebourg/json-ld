@@ -1,6 +1,6 @@
 [package]
 name = "json-ld-cli"
-version = "0.9.1-beta"
+version = "0.9.1"
 edition = "2021"
 authors = ["Timothée Haudebourg <author@haudebourg.net>"]
 description = "Command line interface for JSON-LD"
@@ -11,8 +11,8 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-json-ld = { path = "../json-ld", version = "0.9.1-beta", features = ["reqwest"] }
-json-ld-testing = { path = "../testing", version = "0.9.1-beta" }
+json-ld = { path = "../json-ld", version = "0.9.1", features = ["reqwest"] }
+json-ld-testing = { path = "../testing", version = "0.9.1" }
 iref = "2.2"
 static-iref = "2.0"
 rdf-types = "0.12.3"
