@@ -9,7 +9,8 @@ Test suite for the [`json-ld` crate](https://crates.io/crates/json-ld).
 To run the tests for the first time use the following commands in
 a shell:
 ```text
-git submodules update
+git submodule init
+git submodule update
 cargo test
 ```
 
