@@ -42,7 +42,7 @@
 //!     parse JSON documents while preserving the code mapping information
 //!     using the [`Meta`] type.
 //!
-//! This is particularly useful to provide useful error messages that can
+//! This is particularly useful to provide error messages that can
 //! pinpoint the source of the error in the original source file.
 //!
 //! ### Example
