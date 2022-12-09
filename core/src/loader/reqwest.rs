@@ -89,7 +89,7 @@ type DynParser<I, M, T, E> = dyn 'static
 	+ FnMut(&dyn IriVocabulary<Iri = I>, &I, Bytes) -> Result<Meta<T, M>, E>;
 
 /// `reqwest`-based loader.
-/// 
+///
 /// Only works with the [`tokio`](https://tokio.rs/) runtime.
 ///
 /// The loader will follow indirections and `Link` headers.
