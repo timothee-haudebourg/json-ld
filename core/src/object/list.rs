@@ -1,11 +1,11 @@
 use super::{Any, InvalidExpandedJson, MappedEq};
-use crate::{IndexedObject, TryFromJson};
+use crate::{IndexedObject, Relabel, TryFromJson};
 use contextual::WithContext;
 use derivative::Derivative;
 use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta};
 use locspan::{Meta, StrippedEq, StrippedPartialEq};
 use locspan_derive::StrippedHash;
-use rdf_types::{Vocabulary, VocabularyMut};
+use rdf_types::{Subject, Vocabulary, VocabularyMut};
 use std::hash::Hash;
 
 #[allow(clippy::derive_hash_xor_eq)]
@@ -71,6 +71,39 @@ impl<T, B, M> List<T, B, M> {
 
 	pub fn as_mut_slice(&mut self) -> &mut [IndexedObject<T, B, M>] {
 		self.entry.as_mut_slice()
+	}
+
+	/// Puts this list object literals into canonical form using the given
+	/// `buffer`.
+	///
+	/// The buffer is used to compute the canonical form of numbers.
+	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
+		for object in self {
+			object.canonicalize_with(buffer)
+		}
+	}
+
+	/// Puts this list object literals into canonical form.
+	pub fn canonicalize(&mut self) {
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonicalize_with(&mut buffer)
+	}
+}
+
+impl<T, B, M> Relabel<T, B, M> for List<T, B, M> {
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: rdf_types::MetaGenerator<N, M>>(
+		&mut self,
+		vocabulary: &mut N,
+		generator: &mut G,
+		relabeling: &mut hashbrown::HashMap<B, Meta<Subject<T, B>, M>>,
+	) where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+	{
+		for object in self {
+			object.relabel_with(vocabulary, generator, relabeling)
+		}
 	}
 }
 

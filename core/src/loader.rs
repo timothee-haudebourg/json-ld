@@ -164,13 +164,15 @@ pub struct RemoteDocument<I = Index, M = Location<I>, T = json_syntax::Value<M>>
 	/// of any optional parameters.
 	content_type: Option<Mime>,
 
-	/// If available, the value of the HTTP `Link Header` [RFC8288] using the
+	/// If available, the value of the HTTP `Link Header` [RFC 8288] using the
 	/// `http://www.w3.org/ns/json-ld#context` link relation in the response.
 	///
 	/// If the response's `Content-Type` is `application/ld+json`, the HTTP
 	/// `Link Header` is ignored. If multiple HTTP `Link Headers` using the
 	/// `http://www.w3.org/ns/json-ld#context` link relation are found, the
 	/// loader fails with a `multiple context link headers` error.
+	///
+	/// [RFC 8288]: https://www.rfc-editor.org/rfc/rfc8288
 	context_url: Option<I>,
 
 	profile: HashSet<Profile<I>>,
@@ -196,11 +198,13 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 	/// redirection.
 	/// `content_type` is the HTTP `Content-Type` header value of the loaded
 	/// document, exclusive of any optional parameters.
-	/// `context_url` is the value of the HTTP `Link Header` [RFC8288] using the
+	/// `context_url` is the value of the HTTP `Link Header` [RFC 8288] using the
 	/// `http://www.w3.org/ns/json-ld#context` link relation in the response,
 	/// if any.
 	/// `profile` is the value of any profile parameter retrieved as part of the
 	/// original contentType.
+	///
+	/// [RFC 8288]: https://www.rfc-editor.org/rfc/rfc8288
 	pub fn new_full(
 		url: Option<I>,
 		content_type: Option<Mime>,
@@ -253,7 +257,7 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 		self.content_type.as_ref()
 	}
 
-	/// Returns the value of the HTTP `Link Header` [RFC8288] using the
+	/// Returns the value of the HTTP `Link Header` [RFC 8288] using the
 	/// `http://www.w3.org/ns/json-ld#context` link relation in the response,
 	/// if any.
 	///
@@ -261,6 +265,8 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 	/// `Link Header` is ignored. If multiple HTTP `Link Headers` using the
 	/// `http://www.w3.org/ns/json-ld#context` link relation are found, the
 	/// loader fails with a `multiple context link headers` error.
+	///
+	/// [RFC 8288]: https://www.rfc-editor.org/rfc/rfc8288
 	pub fn context_url(&self) -> Option<&I> {
 		self.context_url.as_ref()
 	}

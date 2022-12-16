@@ -1,7 +1,7 @@
 [workspace]
 members = [
-	"core",
 	"syntax",
+	"core",
 	"context-processing",
 	"expansion",
 	"compaction",
@@ -10,3 +10,39 @@ members = [
 	"json-ld",
 	"cli"
 ]
+
+[workspace.package]
+version = "0.9.1"
+edition = "2021"
+authors = ["Timothée Haudebourg <timothee@haudebourg.net>"]
+categories = ["web-programming", "database", "data-structures"]
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+repository = "https://github.com/timothee-haudebourg/json-ld"
+license = "MIT/Apache-2.0"
+
+[workspace.dependencies]
+json-ld = { path = "json-ld", version = "0.9.1" }
+json-ld-syntax = { path = "syntax", version = "0.9.1" }
+json-ld-core = { path = "core", version = "0.9.1" }
+json-ld-context-processing = { path = "context-processing", version = "0.9.1" }
+json-ld-expansion = { path = "expansion", version = "0.9.1" }
+json-ld-compaction = { path = "compaction", version = "0.9.1" }
+json-ld-testing = { path = "testing", version = "0.9.1" }
+json-syntax = "0.8.17"
+iref = "2.2"
+static-iref = "2"
+langtag = "0.3"
+rdf-types = "0.12.9"
+contextual = "0.1.4"
+locspan = "0.7.12"
+locspan-derive = "0.6"
+derivative = "2.2"
+futures = "0.3"
+mown = "0.2.2"
+hashbrown = "0.13.1"
+smallvec = "1.10"
+log = "0.4.17"
+
+iref-enum = "2.1"
+grdf = "0.14"
+async-std = "1.12"

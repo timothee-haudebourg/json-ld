@@ -1,6 +1,7 @@
 use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
-use crate::{id, Id, Indexed, StrippedIndexedObject};
+use crate::{id, Id, Indexed, Relabel, StrippedIndexedObject};
 use crate::{IndexedObject, TryFromJson};
+use hashbrown::HashMap;
 use locspan::{Location, Meta, StrippedEq, StrippedPartialEq};
 use rdf_types::vocabulary::{Index, VocabularyMut};
 use rdf_types::Vocabulary;
@@ -62,6 +63,8 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		self.traverse().filter(f).count()
 	}
 
+	/// Give an identifier (`@id`) to every nodes using the given generator to
+	/// generate fresh identifiers for anonymous nodes.
 	#[inline(always)]
 	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&mut self,
@@ -81,6 +84,8 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		}
 	}
 
+	/// Give an identifier (`@id`) to every nodes using the given generator to
+	/// generate fresh identifiers for anonymous nodes.
 	#[inline(always)]
 	pub fn identify_all<G: id::Generator<(), M>>(&mut self, generator: &mut G)
 	where
@@ -90,6 +95,109 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
 		self.identify_all_with(&mut (), generator)
+	}
+
+	/// Give an identifier (`@id`) to every nodes and canonicalize every
+	/// literals using the given generator to generate fresh identifiers for
+	/// anonymous nodes.
+	#[inline(always)]
+	pub fn relabel_and_canonicalize_with<
+		V: Vocabulary<Iri = T, BlankId = B>,
+		G: id::Generator<V, M>,
+	>(
+		&mut self,
+		vocabulary: &mut V,
+		generator: &mut G,
+	) where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+	{
+		let mut objects = HashSet::new();
+		std::mem::swap(&mut self.0, &mut objects);
+
+		let mut relabeling = HashMap::new();
+		let mut buffer = ryu_js::Buffer::new();
+		for mut object in objects {
+			object.relabel_with(vocabulary, generator, &mut relabeling);
+			object.canonicalize_with(&mut buffer);
+			self.0.insert(object);
+		}
+	}
+
+	/// Give an identifier (`@id`) to every nodes and canonicalize every
+	/// literals using the given generator to generate fresh identifiers for
+	/// anonymous nodes.
+	#[inline(always)]
+	pub fn relabel_and_canonicalize<G: id::Generator<(), M>>(&mut self, generator: &mut G)
+	where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+		(): Vocabulary<Iri = T, BlankId = B>,
+	{
+		self.relabel_and_canonicalize_with(&mut (), generator)
+	}
+
+	/// Relabels nodes.
+	#[inline(always)]
+	pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
+		&mut self,
+		vocabulary: &mut V,
+		generator: &mut G,
+	) where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+	{
+		let mut objects = HashSet::new();
+		std::mem::swap(&mut self.0, &mut objects);
+
+		let mut relabeling = HashMap::new();
+		for mut object in objects {
+			object.relabel_with(vocabulary, generator, &mut relabeling);
+			self.0.insert(object);
+		}
+	}
+
+	/// Relabels nodes.
+	#[inline(always)]
+	pub fn relabel<G: id::Generator<(), M>>(&mut self, generator: &mut G)
+	where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+		(): Vocabulary<Iri = T, BlankId = B>,
+	{
+		self.relabel_with(&mut (), generator)
+	}
+
+	/// Puts this document literals into canonical form using the given
+	/// `buffer`.
+	///
+	/// The buffer is used to compute the canonical form of numbers.
+	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer)
+	where
+		T: Eq + Hash,
+		B: Eq + Hash,
+	{
+		let mut objects = HashSet::new();
+		std::mem::swap(&mut self.0, &mut objects);
+
+		for mut object in objects {
+			object.canonicalize_with(buffer);
+			self.0.insert(object);
+		}
+	}
+
+	/// Puts this document literals into canonical form.
+	pub fn canonicalize(&mut self)
+	where
+		T: Eq + Hash,
+		B: Eq + Hash,
+	{
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonicalize_with(&mut buffer)
 	}
 
 	/// Returns the set of all blank identifiers in the given document.

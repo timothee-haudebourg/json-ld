@@ -118,48 +118,6 @@ impl<M> IntoJsonMeta<M> for String {
 	}
 }
 
-// impl<M> IntoJsonMeta<M> for Value<M> {
-// 	fn into_json_meta(self, meta: M) -> Meta<json_syntax::Value<M>, M> {
-// 		let json = match value {
-// 			Self::Null => json_syntax::Value::Null,
-// 			Self::Boolean(b) => json_syntax::Value::Boolean(b),
-// 			Self::Number(n) => json_syntax::Value::Number(n),
-// 			Self::String(s) => json_syntax::Value::String(s),
-// 			Self::Array(a) => {
-// 				json_syntax::Value::Array(a.into_iter().map(Self::into_json).collect())
-// 			}
-// 			Self::Object(o) => json_syntax::Value::Object(o.into_json_object()),
-// 		};
-
-// 		Meta(json, meta)
-// 	}
-// }
-
-// impl<M> Object<M> {
-// 	pub fn into_json_object(self) -> json_syntax::Object<M> {
-// 		let mut result = Vec::new();
-
-// 		result.extend(self.into_iter().map(object::Entry::into_json));
-
-// 		json_syntax::Object::from_vec(result)
-// 	}
-// }
-
-// impl<M> IntoJsonMeta<M> for Object<M> {
-// 	fn into_json(Meta(object, meta): Meta<Self, M>) -> Meta<json_syntax::Value<M>, M> {
-// 		Meta(json_syntax::Value::Object(object.into_json_object()), meta)
-// 	}
-// }
-
-// impl<M> object::Entry<M> {
-// 	pub fn into_json(self) -> json_syntax::object::Entry<M> {
-// 		json_syntax::object::Entry {
-// 			key: self.key,
-// 			value: Value::into_json(self.value),
-// 		}
-// 	}
-// }
-
 impl<T, M> Entry<T, M> {
 	pub fn insert_in_json_object(
 		self,

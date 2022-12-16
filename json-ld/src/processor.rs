@@ -7,9 +7,12 @@ use crate::{
 	ProcessingMode, RemoteDocumentReference,
 };
 use futures::future::BoxFuture;
+use futures::FutureExt;
+use json_ld_core::rdf::RdfDirection;
+use json_ld_core::RdfQuads;
 use locspan::{Location, Meta};
 use rdf_types::vocabulary::Index;
-use rdf_types::{vocabulary, VocabularyMut};
+use rdf_types::{vocabulary, IriVocabulary, Vocabulary, VocabularyMut};
 use std::fmt::{self, Pointer};
 use std::hash::Hash;
 
@@ -51,6 +54,31 @@ pub struct Options<I = Index, M = Location<I>, C = json_ld_syntax::context::Valu
 	///
 	/// Defaults to `ProcessingMode::JsonLd1_1`.
 	pub processing_mode: ProcessingMode,
+
+	/// Determines how value objects containing a base direction are transformed
+	/// to and from RDF.
+	///
+	///   - If set to [`RdfDirection::I18nDatatype`], an RDF literal is
+	/// generated using a datatype IRI based on <https://www.w3.org/ns/i18n#>
+	/// with both the language tag (if present) and base direction encoded. When
+	/// transforming from RDF, this datatype is decoded to create a value object
+	/// containing `@language` (if present) and `@direction`.
+	///   - If set to [`RdfDirection::CompoundLiteral`], a blank node is emitted
+	/// instead of a literal, where the blank node is the subject of
+	/// `rdf:value`, `rdf:direction`, and `rdf:language` (if present)
+	/// properties. When transforming from RDF, this object is decoded to create
+	/// a value object containing `@language` (if present) and `@direction`.
+	pub rdf_direction: Option<RdfDirection>,
+
+	/// If set to `true`, the JSON-LD processor may emit blank nodes for triple
+	/// predicates, otherwise they will be omitted.
+	/// See <https://www.w3.org/TR/rdf11-concepts/>.
+	///
+	/// The use of blank node identifiers to label properties is obsolete, and
+	/// may be removed in a future version of JSON-LD, as is the support for
+	/// generalized RDF Datasets and thus this option
+	/// may be also be removed.
+	pub produce_generalized_rdf: bool,
 }
 
 impl<I, M, C> Options<I, M, C> {
@@ -101,6 +129,8 @@ impl<I, M, C> Default for Options<I, M, C> {
 			expand_context: None,
 			ordered: false,
 			processing_mode: ProcessingMode::JsonLd1_1,
+			rdf_direction: None,
+			produce_generalized_rdf: false,
 		}
 	}
 }
@@ -271,6 +301,47 @@ impl<I, B, M, E: fmt::Display, C> fmt::Display for FlattenError<I, B, M, E, C> {
 pub type FlattenResult<I, B, M, L> = Result<
 	json_syntax::MetaValue<M>,
 	FlattenError<I, B, M, <L as Loader<I, M>>::Error, <L as ContextLoader<I, M>>::ContextError>,
+>;
+
+/// Error that can be raised by the [`JsonLdProcessor::to_rdf`] function.
+pub enum ToRdfError<M, E, C> {
+	/// Document expansion failed.
+	Expand(ExpandError<M, E, C>),
+}
+
+impl<M, E, C> ToRdfError<M, E, C> {
+	/// Returns the code of this error.
+	pub fn code(&self) -> ErrorCode {
+		match self {
+			Self::Expand(e) => e.code(),
+		}
+	}
+}
+
+impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for ToRdfError<M, E, C> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Expand(e) => e.fmt(f),
+		}
+	}
+}
+
+impl<M, E: fmt::Display, C> fmt::Display for ToRdfError<M, E, C> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Expand(e) => e.fmt(f),
+		}
+	}
+}
+
+/// Error that can be raised by the [`JsonLdProcessor::to_rdf`] function.
+pub type ToRdfResult<'a, V, M, G, L> = Result<
+	ToRdf<'a, 'a, V, M, G>,
+	ToRdfError<
+		M,
+		<L as Loader<<V as IriVocabulary>::Iri, M>>::Error,
+		<L as ContextLoader<<V as IriVocabulary>::Iri, M>>::ContextError,
+	>,
 >;
 
 /// Result of the [`JsonLdProcessor::compare`] function.
@@ -1511,6 +1582,525 @@ pub trait JsonLdProcessor<I, M> {
 		L::ContextError: Send,
 	{
 		self.flatten_with(vocabulary::no_vocabulary_mut(), generator, loader)
+	}
+
+	/// Serializes the document into an RDF dataset with a custom vocabulary
+	/// using the given `options` and warnings handler.
+	///
+	/// Expands the document and returns a [`ToRdf`] instance from which an
+	/// iterator over the RDF quads defined by the document can be accessed
+	/// using the [`ToRdf::quads`] method.
+	///
+	/// The quads will have type [`rdf::Quads`] which borrows the subject,
+	/// predicate and graph values from the documents if possible using [`Cow`].
+	/// If you prefer to have quads owning the values directly you can use the
+	/// [`ToRdf::cloned_quads`] method or call the [`rdf::Quads::cloned`]
+	/// method method form the value returned by [`ToRdf::quads`].
+	///
+	/// [`rdf::Quads`]: json_ld_core::rdf::Quads
+	/// [`rdf::Quads::cloned`]: json_ld_core::rdf::Quads::cloned
+	/// [`Cow`]: std::borrow::Cow
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::{IriVocabularyMut, Quad};
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
+	/// );
+	///
+	/// let mut rdf = input
+	///   .to_rdf_full(
+	///     &mut vocabulary,
+	///     &mut generator,
+	///     &mut loader,
+	///     Options::<_, _>::default(),
+	///     warning::PrintWith
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	///
+	/// for Quad(_s, _p, _o, _g) in rdf.quads() {
+	///   // ...
+	/// }
+	/// # }
+	/// ```
+	fn to_rdf_full<'a, B, C, N, G, L>(
+		&'a self,
+		vocabulary: &'a mut N,
+		generator: &'a mut G,
+		loader: &'a mut L,
+		options: Options<I, M, C>,
+		warnings: impl 'a
+			+ Send
+			+ context_processing::WarningHandler<N, M>
+			+ expansion::WarningHandler<B, N, M>,
+	) -> BoxFuture<ToRdfResult<'a, N, M, G, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		G: Send + Generator<N, M>,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send,
+		Self: Sync,
+	{
+		async move {
+			let rdf_direction = options.rdf_direction;
+			let produce_generalized_rdf = options.produce_generalized_rdf;
+			let expanded_input = self
+				.expand_full(&mut *vocabulary, loader, options.unordered(), warnings)
+				.await
+				.map_err(ToRdfError::Expand)?;
+			Ok(ToRdf::new(
+				vocabulary,
+				generator,
+				expanded_input,
+				rdf_direction,
+				produce_generalized_rdf,
+			))
+		}
+		.boxed()
+	}
+
+	/// Serializes the document into an RDF dataset with a custom vocabulary
+	/// using the given `options`.
+	///
+	/// Expands the document and returns a [`ToRdf`] instance from which an
+	/// iterator over the RDF quads defined by the document can be accessed
+	/// using the [`ToRdf::quads`] method.
+	///
+	/// The quads will have type [`rdf::Quads`] which borrows the subject,
+	/// predicate and graph values from the documents if possible using [`Cow`].
+	/// If you prefer to have quads owning the values directly you can use the
+	/// [`ToRdf::cloned_quads`] method or call the [`rdf::Quads::cloned`]
+	/// method method form the value returned by [`ToRdf::quads`].
+	///
+	/// [`rdf::Quads`]: json_ld_core::rdf::Quads
+	/// [`rdf::Quads::cloned`]: json_ld_core::rdf::Quads::cloned
+	/// [`Cow`]: std::borrow::Cow
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::{IriVocabularyMut, Quad};
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
+	/// );
+	///
+	/// let mut rdf = input
+	///   .to_rdf_with_using(
+	///     &mut vocabulary,
+	///     &mut generator,
+	///     &mut loader,
+	///     Options::<_, _>::default()
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	///
+	/// for Quad(_s, _p, _o, _g) in rdf.quads() {
+	///   // ...
+	/// }
+	/// # }
+	/// ```
+	fn to_rdf_with_using<'a, B, C, N, G, L>(
+		&'a self,
+		vocabulary: &'a mut N,
+		generator: &'a mut G,
+		loader: &'a mut L,
+		options: Options<I, M, C>,
+	) -> BoxFuture<ToRdfResult<'a, N, M, G, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		G: Send + Generator<N, M>,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send,
+		Self: Sync,
+	{
+		self.to_rdf_full(vocabulary, generator, loader, options, ())
+	}
+
+	/// Serializes the document into an RDF dataset with a custom vocabulary.
+	///
+	/// Default options are used.
+	///
+	/// Expands the document and returns a [`ToRdf`] instance from which an
+	/// iterator over the RDF quads defined by the document can be accessed
+	/// using the [`ToRdf::quads`] method.
+	///
+	/// The quads will have type [`rdf::Quads`] which borrows the subject,
+	/// predicate and graph values from the documents if possible using [`Cow`].
+	/// If you prefer to have quads owning the values directly you can use the
+	/// [`ToRdf::cloned_quads`] method or call the [`rdf::Quads::cloned`]
+	/// method method form the value returned by [`ToRdf::quads`].
+	///
+	/// [`rdf::Quads`]: json_ld_core::rdf::Quads
+	/// [`rdf::Quads::cloned`]: json_ld_core::rdf::Quads::cloned
+	/// [`Cow`]: std::borrow::Cow
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::{IriVocabularyMut, Quad};
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+	/// // to an actual `IriBuf`.
+	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	///
+	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
+	/// );
+	///
+	/// let mut rdf = input
+	///   .to_rdf_with(
+	///     &mut vocabulary,
+	///     &mut generator,
+	///     &mut loader
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	///
+	/// for Quad(_s, _p, _o, _g) in rdf.quads() {
+	///   // ...
+	/// }
+	/// # }
+	/// ```
+	fn to_rdf_with<'a, B, N, G, L>(
+		&'a self,
+		vocabulary: &'a mut N,
+		generator: &'a mut G,
+		loader: &'a mut L,
+	) -> BoxFuture<ToRdfResult<'a, N, M, G, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		G: Send + Generator<N, M>,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<json_ld_syntax::context::Value<M>>,
+		L::ContextError: Send,
+		Self: Sync,
+	{
+		self.to_rdf_full(vocabulary, generator, loader, Options::default(), ())
+	}
+
+	/// Serializes the document into an RDF dataset using the given `options`.
+	///
+	/// Expands the document and returns a [`ToRdf`] instance from which an
+	/// iterator over the RDF quads defined by the document can be accessed
+	/// using the [`ToRdf::quads`] method.
+	///
+	/// The quads will have type [`rdf::Quads`] which borrows the subject,
+	/// predicate and graph values from the documents if possible using [`Cow`].
+	/// If you prefer to have quads owning the values directly you can use the
+	/// [`ToRdf::cloned_quads`] method or call the [`rdf::Quads::cloned`]
+	/// method method form the value returned by [`ToRdf::quads`].
+	///
+	/// [`rdf::Quads`]: json_ld_core::rdf::Quads
+	/// [`rdf::Quads::cloned`]: json_ld_core::rdf::Quads::cloned
+	/// [`Cow`]: std::borrow::Cow
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::Quad;
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri_index = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(iri!("https://example.com/").to_owned(), Span::default())
+	/// );
+	///
+	/// let mut rdf = input
+	///   .to_rdf_using(
+	///     &mut generator,
+	///     &mut loader,
+	///     Options::<_, _>::default()
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	///
+	/// for Quad(s, p, o, g) in rdf.quads() {
+	///   println!("subject: {}", s);
+	///   println!("predicate: {}", p);
+	///   println!("object: {}", o);
+	///
+	///   if let Some(g) = g {
+	///     println!("graph: {}", g);
+	///   }
+	/// }
+	/// # }
+	/// ```
+	fn to_rdf_using<'a, B, C, G, L>(
+		&'a self,
+		generator: &'a mut G,
+		loader: &'a mut L,
+		options: Options<I, M, C>,
+	) -> BoxFuture<ToRdfResult<'a, (), M, G, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
+		(): VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		G: Send + Generator<(), M>,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<C>,
+		L::ContextError: Send,
+		Self: Sync,
+	{
+		self.to_rdf_with_using(
+			rdf_types::vocabulary::no_vocabulary_mut(),
+			generator,
+			loader,
+			options,
+		)
+	}
+
+	/// Serializes the document into an RDF dataset.
+	///
+	/// Default options are used.
+	///
+	/// Expands the document and returns a [`ToRdf`] instance from which an
+	/// iterator over the RDF quads defined by the document can be accessed
+	/// using the [`ToRdf::quads`] method.
+	///
+	/// The quads will have type [`rdf::Quads`] which borrows the subject,
+	/// predicate and graph values from the documents if possible using [`Cow`].
+	/// If you prefer to have quads owning the values directly you can use the
+	/// [`ToRdf::cloned_quads`] method or call the [`rdf::Quads::cloned`]
+	/// method method form the value returned by [`ToRdf::quads`].
+	///
+	/// [`rdf::Quads`]: json_ld_core::rdf::Quads
+	/// [`rdf::Quads::cloned`]: json_ld_core::rdf::Quads::cloned
+	/// [`Cow`]: std::borrow::Cow
+	///
+	/// # Example
+	///
+	/// ```
+	/// use static_iref::iri;
+	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
+	/// use rdf_types::Quad;
+	/// use locspan::{Location, Span};
+	///
+	/// # #[async_std::main]
+	/// # async fn main() {
+	/// let iri_index = iri!("https://example.com/sample.jsonld").to_owned();
+	/// let input = RemoteDocumentReference::iri(iri_index);
+	///
+	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
+	/// // the local `example` directory. No HTTP query.
+	/// let mut loader = json_ld::FsLoader::default();
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
+	///
+	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
+	///   // Each blank id will be associated to the document URL with a dummy span.
+	///   Location::new(iri!("https://example.com/").to_owned(), Span::default())
+	/// );
+	///
+	/// let mut rdf = input
+	///   .to_rdf(
+	///     &mut generator,
+	///     &mut loader
+	///   )
+	///   .await
+	///   .expect("flattening failed");
+	///
+	/// for Quad(s, p, o, g) in rdf.quads() {
+	///   println!("subject: {}", s);
+	///   println!("predicate: {}", p);
+	///   println!("object: {}", o);
+	///
+	///   if let Some(g) = g {
+	///     println!("graph: {}", g);
+	///   }
+	/// }
+	/// # }
+	/// ```
+	fn to_rdf<'a, B, G, L>(
+		&'a self,
+		generator: &'a mut G,
+		loader: &'a mut L,
+	) -> BoxFuture<ToRdfResult<'a, (), M, G, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		(): VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		G: Send + Generator<(), M>,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::Context: Into<json_ld_syntax::context::Value<M>>,
+		L::ContextError: Send,
+		Self: Sync,
+	{
+		self.to_rdf_using(generator, loader, Options::default())
+	}
+}
+
+pub struct ToRdf<'v, 'g, V: Vocabulary, M, G> {
+	vocabulary: &'v mut V,
+	generator: &'g mut G,
+	doc: Meta<ExpandedDocument<V::Iri, V::BlankId, M>, M>,
+	rdf_direction: Option<RdfDirection>,
+	produce_generalized_rdf: bool,
+}
+
+impl<'v, 'g, V: Vocabulary, M, G: rdf_types::MetaGenerator<V, M>> ToRdf<'v, 'g, V, M, G> {
+	fn new(
+		vocabulary: &'v mut V,
+		generator: &'g mut G,
+		mut doc: Meta<ExpandedDocument<V::Iri, V::BlankId, M>, M>,
+		rdf_direction: Option<RdfDirection>,
+		produce_generalized_rdf: bool,
+	) -> Self
+	where
+		M: Clone,
+		V::Iri: Clone + Eq + Hash,
+		V::BlankId: Clone + Eq + Hash,
+	{
+		doc.relabel_and_canonicalize_with(vocabulary, generator);
+		Self {
+			vocabulary,
+			generator,
+			doc,
+			rdf_direction,
+			produce_generalized_rdf,
+		}
+	}
+
+	pub fn quads<'a: 'v + 'g>(&'a mut self) -> json_ld_core::rdf::Quads<'a, 'v, 'g, V, M, G> {
+		self.doc.rdf_quads_full(
+			self.vocabulary,
+			self.generator,
+			self.rdf_direction,
+			self.produce_generalized_rdf,
+		)
+	}
+
+	#[inline(always)]
+	pub fn cloned_quads<'a: 'v + 'g>(
+		&'a mut self,
+	) -> json_ld_core::rdf::ClonedQuads<'a, 'v, 'g, V, M, G> {
+		self.quads().cloned()
+	}
+
+	pub fn vocabulary(&self) -> &V {
+		self.vocabulary
+	}
+
+	pub fn vocabulary_mut(&mut self) -> &mut V {
+		self.vocabulary
+	}
+
+	pub fn into_vocabulary(self) -> &'v mut V {
+		self.vocabulary
+	}
+
+	pub fn generator(&self) -> &G {
+		self.generator
+	}
+
+	pub fn generator_mut(&mut self) -> &mut G {
+		self.generator
+	}
+
+	pub fn into_generator(self) -> &'g mut G {
+		self.generator
+	}
+
+	pub fn document(&self) -> &Meta<ExpandedDocument<V::Iri, V::BlankId, M>, M> {
+		&self.doc
+	}
+
+	pub fn document_mut(&mut self) -> &mut Meta<ExpandedDocument<V::Iri, V::BlankId, M>, M> {
+		&mut self.doc
+	}
+
+	pub fn into_document(self) -> Meta<ExpandedDocument<V::Iri, V::BlankId, M>, M> {
+		self.doc
 	}
 }
 

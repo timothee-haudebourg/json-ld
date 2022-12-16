@@ -1,14 +1,14 @@
+use std::str::FromStr;
+
 use crate::{id, object::value, Direction, Id, Indexed, IndexedObject, Node, Object, ValidId};
-use contextual::DisplayWithContext;
 use iref::{AsIri, Iri, IriBuf};
 use json_ld_syntax::Entry;
 use json_syntax::Print;
 use langtag::LanguageTagBuf;
 use locspan::Meta;
-use rdf_types::{IriVocabularyMut, RdfDisplay, Vocabulary};
+use rdf_types::{IriVocabularyMut, Vocabulary};
 use smallvec::SmallVec;
 use static_iref::iri;
-use std::fmt;
 
 mod quad;
 pub use quad::*;
@@ -34,7 +34,8 @@ pub type Triple<T, B> = rdf_types::Triple<ValidId<T, B>, ValidId<T, B>, Value<T,
 impl<T: Clone, B: Clone> Id<T, B> {
 	fn rdf_value(&self) -> Option<Value<T, B>> {
 		match self {
-			Id::Valid(id) => Some(Value::Reference(id.clone())),
+			Id::Valid(ValidId::Iri(i)) => Some(Value::Iri(i.clone())),
+			Id::Valid(ValidId::Blank(b)) => Some(Value::Blank(b.clone())),
 			Id::Invalid(_) => None,
 		}
 	}
@@ -65,6 +66,29 @@ pub enum RdfDirection {
 	/// ```
 	/// where `direction` is either `rtl` or `ltr`.
 	CompoundLiteral,
+}
+
+#[derive(Debug, Clone)]
+pub struct InvalidRdfDirection(pub String);
+
+impl FromStr for RdfDirection {
+	type Err = InvalidRdfDirection;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"i18n-datatype" => Ok(Self::I18nDatatype),
+			"compound-literal" => Ok(Self::CompoundLiteral),
+			_ => Err(InvalidRdfDirection(s.to_string())),
+		}
+	}
+}
+
+impl<'a> TryFrom<&'a str> for RdfDirection {
+	type Error = InvalidRdfDirection;
+
+	fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+		value.parse()
+	}
 }
 
 /// Iterator over the triples of a compound literal representing a language
@@ -146,7 +170,7 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 						Some(RdfDirection::CompoundLiteral) => {
 							let Meta(id, _) = generator.next(vocabulary);
 							Some(CompoundLiteral {
-								value: Value::Reference(id),
+								value: id.into_term(),
 								triples: None,
 							})
 						}
@@ -195,13 +219,19 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 					}
 					value::Literal::Null => ("null".to_string().into(), None),
 					value::Literal::Number(n) => {
-						let rdf_ty = if n.is_i64() {
-							vocabulary.insert(XSD_INTEGER)
+						if n.is_i64()
+							&& !ty
+								.as_ref()
+								.map(|t| vocabulary.iri(t).unwrap() == XSD_DOUBLE)
+								.unwrap_or(false)
+						{
+							(n.to_string().into(), Some(vocabulary.insert(XSD_INTEGER)))
 						} else {
-							vocabulary.insert(XSD_DOUBLE)
-						};
-
-						(n.as_str().to_string().into(), Some(rdf_ty))
+							(
+								pretty_dtoa::dtoa(n.as_f64_lossy(), XSD_CANONICAL_FLOAT).into(),
+								Some(vocabulary.insert(XSD_DOUBLE)),
+							)
+						}
 					}
 					value::Literal::String(s) => (s.to_string().into(), None),
 				};
@@ -222,6 +252,11 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 		}
 	}
 }
+
+// <https://www.w3.org/TR/xmlschema11-2/#f-doubleLexmap>
+const XSD_CANONICAL_FLOAT: pretty_dtoa::FmtFloatConfig = pretty_dtoa::FmtFloatConfig::default()
+	.force_e_notation()
+	.capitalize_e(true);
 
 impl<T: Clone, B: Clone, M> Node<T, B, M> {
 	fn rdf_value(&self) -> Option<Value<T, B>> {
@@ -256,13 +291,13 @@ impl<T: Clone, B: Clone, M> Object<T, B, M> {
 			Self::List(list) => {
 				if list.is_empty() {
 					Some(CompoundValue {
-						value: Value::Reference(ValidId::Iri(vocabulary.insert(RDF_NIL))),
+						value: Value::Iri(vocabulary.insert(RDF_NIL)),
 						triples: None,
 					})
 				} else {
 					let Meta(id, _) = generator.next(vocabulary);
 					Some(CompoundValue {
-						value: Value::Reference(Clone::clone(&id)),
+						value: Clone::clone(&id).into_term(),
 						triples: Some(CompoundValueTriples::List(ListTriples::new(
 							list.as_slice(),
 							id,
@@ -507,7 +542,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 									break Some(rdf_types::Triple(
 										previous_id,
 										ValidId::Iri(vocabulary.insert(RDF_REST)),
-										Value::Reference(id),
+										id.into_term(),
 									));
 								}
 							}
@@ -518,7 +553,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 								break Some(rdf_types::Triple(
 									previous_id,
 									ValidId::Iri(vocabulary.insert(RDF_REST)),
-									Value::Reference(ValidId::Iri(vocabulary.insert(RDF_NIL))),
+									Value::Iri(vocabulary.insert(RDF_NIL)),
 								));
 							}
 						}
@@ -562,27 +597,4 @@ fn i18n(language: Option<LanguageTagBuf>, direction: Direction) -> IriBuf {
 	IriBuf::from_string(iri).unwrap()
 }
 
-/// RDF value.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum Value<T, B> {
-	Literal(Literal<T>),
-	Reference(ValidId<T, B>),
-}
-
-impl<T: RdfDisplay + fmt::Display, B: fmt::Display> fmt::Display for Value<T, B> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::Literal(lit) => lit.rdf_display().fmt(f),
-			Self::Reference(r) => r.rdf_display().fmt(f),
-		}
-	}
-}
-
-impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for Value<T, B> {
-	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::Literal(lit) => lit.fmt_with(vocabulary, f),
-			Self::Reference(r) => r.fmt_with(vocabulary, f),
-		}
-	}
-}
+pub type Value<T, B> = rdf_types::Object<T, B, Literal<T>>;

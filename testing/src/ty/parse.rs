@@ -99,6 +99,8 @@ fn parse_path(p: syn::TypePath) -> Result<Type, UnknownType> {
 		Ok(Type::Iri)
 	} else if is_processing_mode_path(&p) {
 		Ok(Type::ProcessingMode)
+	} else if is_rdf_direction_path(&p) {
+		Ok(Type::RdfDirection)
 	} else if p.path.leading_colon.is_none()
 		&& p.path.segments.len() == 1
 		&& p.path.segments[0].arguments.is_empty()
@@ -184,6 +186,16 @@ fn is_processing_mode_path(p: &syn::TypePath) -> bool {
 			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1
 				&& segment_is_empty_ident(&p.path, 0, "ProcessingMode")))
+}
+
+fn is_rdf_direction_path(p: &syn::TypePath) -> bool {
+	p.qself.is_none()
+		&& ((p.path.segments.len() == 2
+			&& segment_is_empty_ident(&p.path, 0, "json_ld")
+			&& segment_is_empty_ident(&p.path, 1, "RdfDirection"))
+			|| (p.path.leading_colon.is_none()
+				&& p.path.segments.len() == 1
+				&& segment_is_empty_ident(&p.path, 0, "RdfDirection")))
 }
 
 fn is_option_path(p: &syn::TypePath) -> bool {

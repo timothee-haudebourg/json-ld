@@ -41,6 +41,7 @@ pub enum Type {
 	String,
 	Iri,
 	ProcessingMode,
+	RdfDirection,
 	Ref(syn::Ident),
 }
 
@@ -84,18 +85,14 @@ impl Type {
 			Self::String => {
 				let s = match value {
 					json_ld::rdf::Value::Literal(lit) => lit.string_literal().as_str(),
-					json_ld::rdf::Value::Reference(ValidId::Iri(i)) => {
-						vocabulary.iri(i).unwrap().into_str()
-					}
-					json_ld::rdf::Value::Reference(ValidId::Blank(i)) => {
-						vocabulary.blank_id(i).unwrap().as_str()
-					}
+					json_ld::rdf::Value::Iri(i) => vocabulary.iri(i).unwrap().into_str(),
+					json_ld::rdf::Value::Blank(i) => vocabulary.blank_id(i).unwrap().as_str(),
 				};
 
 				Ok(quote! { #s })
 			}
 			Self::Iri => match value {
-				json_ld::rdf::Value::Reference(ValidId::Iri(i)) => {
+				json_ld::rdf::Value::Iri(i) => {
 					let s = vocabulary.iri(i).unwrap().into_str();
 					Ok(quote! { ::static_iref::iri!(#s) })
 				}
@@ -123,11 +120,50 @@ impl Type {
 					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 				}
 			}
+			Self::RdfDirection => {
+				let s = match value {
+					json_ld::rdf::Value::Literal(rdf_types::Literal::String(s)) => s.as_str(),
+					json_ld::rdf::Value::Literal(rdf_types::Literal::TypedString(
+						s,
+						IriIndex::Iri(Vocab::Xsd(vocab::Xsd::String)),
+					)) => s.as_str(),
+					_ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+				};
+
+				match json_ld::rdf::RdfDirection::try_from(s) {
+					Ok(p) => match p {
+						json_ld::rdf::RdfDirection::CompoundLiteral => {
+							Ok(quote! { ::json_ld::rdf::RdfDirection::CompoundLiteral })
+						}
+						json_ld::rdf::RdfDirection::I18nDatatype => {
+							Ok(quote! { ::json_ld::rdf::RdfDirection::I18nDatatype })
+						}
+					},
+					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+				}
+			}
 			Self::Ref(r) => match value {
-				json_ld::rdf::Value::Reference(id) => {
+				json_ld::rdf::Value::Iri(id) => {
 					let d = spec.types.get(r).unwrap();
 					let mod_id = &spec.id;
-					d.generate(vocabulary, spec, dataset, *id, quote! { #mod_id :: #r })
+					d.generate(
+						vocabulary,
+						spec,
+						dataset,
+						ValidId::Iri(*id),
+						quote! { #mod_id :: #r },
+					)
+				}
+				json_ld::rdf::Value::Blank(id) => {
+					let d = spec.types.get(r).unwrap();
+					let mod_id = &spec.id;
+					d.generate(
+						vocabulary,
+						spec,
+						dataset,
+						ValidId::Blank(*id),
+						quote! { #mod_id :: #r },
+					)
 				}
 				_ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 			},
@@ -226,7 +262,7 @@ impl Definition {
 
 				for ty_iri in node_types {
 					match ty_iri {
-						json_ld::rdf::Value::Reference(ValidId::Iri(ty_iri)) => {
+						json_ld::rdf::Value::Iri(ty_iri) => {
 							if let Some(v) = e.variants.get(ty_iri) {
 								if variant.replace(v).is_some() {
 									return Err(Box::new(Error::MultipleTypeVariants(id)));

@@ -1,6 +1,7 @@
 use crate::object::{InvalidExpandedJson, TryFromJson};
 use crate::Term;
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
+use hashbrown::HashMap;
 use iref::{Iri, IriBuf};
 use json_ld_syntax::IntoJsonWithContextMeta;
 use locspan::{Meta, StrippedHash};
@@ -14,6 +15,8 @@ use std::fmt;
 use std::hash::Hash;
 
 pub use rdf_types::MetaGenerator as Generator;
+
+pub use rdf_types::Subject as ValidId;
 
 pub type ValidVocabularyId<V> =
 	ValidId<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>;
@@ -186,9 +189,24 @@ impl<I, B> Id<I, B> {
 		}
 	}
 
-	/// If the reference is a node identifier, returns the node IRI.
-	///
-	/// Returns `None` if it is a blank node reference.
+	#[inline(always)]
+	pub fn is_blank(&self) -> bool {
+		matches!(self, Id::Valid(ValidId::Blank(_)))
+	}
+
+	#[inline(always)]
+	pub fn as_blank(&self) -> Option<&B> {
+		match self {
+			Id::Valid(ValidId::Blank(k)) => Some(k),
+			_ => None,
+		}
+	}
+
+	#[inline(always)]
+	pub fn is_iri(&self) -> bool {
+		matches!(self, Id::Valid(ValidId::Iri(_)))
+	}
+
 	#[inline(always)]
 	pub fn as_iri(&self) -> Option<&I> {
 		match self {
@@ -338,8 +356,6 @@ impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N>
 	}
 }
 
-pub use rdf_types::Subject as ValidId;
-
 impl<T, B> From<ValidId<T, B>> for Id<T, B> {
 	fn from(r: ValidId<T, B>) -> Self {
 		Id::Valid(r)
@@ -397,12 +413,48 @@ pub trait IdentifyAll<T, B, M> {
 	fn identify_all_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N, M>>(
 		&mut self,
 		vocabulary: &mut N,
-		generator: G,
+		generator: &mut G,
 	) where
-		M: Clone;
+		M: Clone,
+		T: Eq + Hash,
+		B: Eq + Hash;
 
-	fn identify_all<G: Generator<(), M>>(&mut self, generator: G)
+	fn identify_all<G: Generator<(), M>>(&mut self, generator: &mut G)
 	where
 		M: Clone,
-		(): Vocabulary<Iri = T, BlankId = B>;
+		T: Eq + Hash,
+		B: Eq + Hash,
+		(): Vocabulary<Iri = T, BlankId = B>,
+	{
+		self.identify_all_with(rdf_types::vocabulary::no_vocabulary_mut(), generator)
+	}
+}
+
+pub trait Relabel<T, B, M> {
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N, M>>(
+		&mut self,
+		vocabulary: &mut N,
+		generator: &mut G,
+		relabeling: &mut HashMap<B, Meta<ValidId<T, B>, M>>,
+	) where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash;
+
+	fn relabel<G: Generator<(), M>>(
+		&mut self,
+		generator: &mut G,
+		relabeling: &mut HashMap<B, Meta<ValidId<T, B>, M>>,
+	) where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+		(): Vocabulary<Iri = T, BlankId = B>,
+	{
+		self.relabel_with(
+			rdf_types::vocabulary::no_vocabulary_mut(),
+			generator,
+			relabeling,
+		)
+	}
 }
