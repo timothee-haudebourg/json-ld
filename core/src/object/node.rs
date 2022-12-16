@@ -1,13 +1,14 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
 use crate::{
-	id, object, utils, Id, Indexed, IndexedObject, Object, Objects, StrippedIndexedObject, Term,
+	id, object, utils, Id, Indexed, IndexedObject, Object, Objects, Relabel, StrippedIndexedObject,
+	Term,
 };
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
 use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta, Keyword};
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedPartialEq};
-use rdf_types::{BlankIdBuf, Vocabulary, VocabularyMut};
+use rdf_types::{BlankIdBuf, Subject, Vocabulary, VocabularyMut};
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
@@ -21,6 +22,8 @@ pub use properties::Properties;
 pub use reverse_properties::ReverseProperties;
 
 pub type Graph<T, B, M> = HashSet<StrippedIndexedObject<T, B, M>>;
+
+pub type Included<T, B, M> = HashSet<StrippedIndexedNode<T, B, M>>;
 
 /// Node parts.
 pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
@@ -180,17 +183,40 @@ impl<T, B, M> Node<T, B, M> {
 		self.id = id
 	}
 
-	/// Assigns an identifier to this node and every other node included in this one using the given `generator`.
+	/// Assigns an identifier to this node and every other node included in this
+	/// one using the given `generator`.
 	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
 		M: Clone,
+		T: Eq + Hash,
+		B: Eq + Hash,
 	{
 		if self.id.is_none() {
 			let value = generator.next(vocabulary);
 			self.id = Some(Entry::new(value.metadata().clone(), value.cast()))
+		}
+
+		if let Some(Meta(graph, _)) = self.graph_mut() {
+			*graph = std::mem::take(graph)
+				.into_iter()
+				.map(|mut o| {
+					o.identify_all_with(vocabulary, generator);
+					o
+				})
+				.collect();
+		}
+
+		if let Some(Meta(included, _)) = self.included_mut() {
+			*included = std::mem::take(included)
+				.into_iter()
+				.map(|mut n| {
+					n.identify_all_with(vocabulary, generator);
+					n
+				})
+				.collect();
 		}
 
 		for (_, objects) in self.properties_mut() {
@@ -212,9 +238,37 @@ impl<T, B, M> Node<T, B, M> {
 	pub fn identify_all<G: id::Generator<(), M>>(&mut self, generator: &mut G)
 	where
 		M: Clone,
+		T: Eq + Hash,
+		B: Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
 		self.identify_all_with(&mut (), generator)
+	}
+
+	/// Puts this node object literals into canonical form using the given
+	/// `buffer`.
+	///
+	/// The buffer is used to compute the canonical form of numbers.
+	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
+		for (_, objects) in self.properties_mut() {
+			for object in objects {
+				object.canonicalize_with(buffer)
+			}
+		}
+
+		if let Some(reverse_properties) = self.reverse_properties_mut() {
+			for (_, nodes) in reverse_properties.iter_mut() {
+				for node in nodes {
+					node.canonicalize_with(buffer)
+				}
+			}
+		}
+	}
+
+	/// Puts this node object literals into canonical form.
+	pub fn canonicalize(&mut self) {
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonicalize_with(&mut buffer)
 	}
 
 	/// Get the node's as an IRI if possible.
@@ -383,6 +437,16 @@ impl<T, B, M> Node<T, B, M> {
 	#[inline(always)]
 	pub fn included_entry_mut(&mut self) -> Option<&mut IncludedEntry<T, B, M>> {
 		self.included.as_mut()
+	}
+
+	/// Returns a reference to the set of `@included` nodes.
+	pub fn included(&self) -> Option<&Meta<Included<T, B, M>, M>> {
+		self.included.as_deref()
+	}
+
+	/// Returns a mutable reference to the set of `@included` nodes.
+	pub fn included_mut(&mut self) -> Option<&mut Meta<Included<T, B, M>, M>> {
+		self.included.as_deref_mut()
 	}
 
 	/// Set the set of nodes included by the node.
@@ -580,6 +644,81 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 			self.stripped() == other.stripped()
 		} else {
 			false
+		}
+	}
+}
+
+impl<T, B, M> Relabel<T, B, M> for Node<T, B, M> {
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: rdf_types::MetaGenerator<N, M>>(
+		&mut self,
+		vocabulary: &mut N,
+		generator: &mut G,
+		relabeling: &mut hashbrown::HashMap<B, Meta<Subject<T, B>, M>>,
+	) where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+	{
+		self.id = match self.id.take() {
+			Some(Entry {
+				key_metadata,
+				value: Meta(Id::Valid(Subject::Blank(b)), _),
+			}) => {
+				let value = relabeling
+					.entry(b)
+					.or_insert_with(|| generator.next(vocabulary))
+					.clone();
+				Some(Entry::new(key_metadata, value.cast()))
+			}
+			None => {
+				let value = generator.next(vocabulary);
+				Some(Entry::new(value.metadata().clone(), value.cast()))
+			}
+			id => id,
+		};
+
+		for ty in self.types_mut() {
+			if let Some(b) = ty.as_blank().cloned() {
+				*ty = relabeling
+					.entry(b)
+					.or_insert_with(|| generator.next(vocabulary))
+					.clone()
+					.cast();
+			}
+		}
+
+		if let Some(Meta(graph, _)) = self.graph_mut() {
+			*graph = std::mem::take(graph)
+				.into_iter()
+				.map(|mut o| {
+					o.relabel_with(vocabulary, generator, relabeling);
+					o
+				})
+				.collect();
+		}
+
+		if let Some(Meta(included, _)) = self.included_mut() {
+			*included = std::mem::take(included)
+				.into_iter()
+				.map(|mut n| {
+					n.relabel_with(vocabulary, generator, relabeling);
+					n
+				})
+				.collect();
+		}
+
+		for (_, objects) in self.properties_mut() {
+			for object in objects {
+				object.relabel_with(vocabulary, generator, relabeling);
+			}
+		}
+
+		if let Some(reverse_properties) = self.reverse_properties_mut() {
+			for (_, nodes) in reverse_properties.iter_mut() {
+				for node in nodes {
+					node.relabel_with(vocabulary, generator, relabeling);
+				}
+			}
 		}
 	}
 }

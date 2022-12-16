@@ -563,7 +563,7 @@ async fn generate_test_suite(
 	for Triple(subject, predicate, object) in dataset.default_graph() {
 		if let ValidId::Iri(id) = subject {
 			if *predicate == ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))) {
-				if let json_ld::rdf::Value::Reference(ValidId::Iri(ty)) = object {
+				if let json_ld::rdf::Value::Iri(ty) = object {
 					if let Some(type_id) = spec.type_map.get(ty) {
 						match spec.ignore.get(id) {
 							Some(link) => {

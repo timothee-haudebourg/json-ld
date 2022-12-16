@@ -1,5 +1,5 @@
 //! Nodes, lists and values.
-use crate::{id, Id, Indexed, LenientLanguageTag};
+use crate::{id, Id, Indexed, LenientLanguageTag, Relabel};
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
 use iref::IriBuf;
@@ -7,7 +7,7 @@ use json_ld_syntax::{Entry, IntoJsonWithContextMeta, Keyword};
 use json_syntax::Number;
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedHash, StrippedPartialEq};
 use locspan_derive::*;
-use rdf_types::{BlankIdBuf, Vocabulary, VocabularyMut};
+use rdf_types::{BlankIdBuf, Subject, Vocabulary, VocabularyMut};
 use smallvec::SmallVec;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -155,6 +155,8 @@ impl<T, B, M> Object<T, B, M> {
 		generator: &mut G,
 	) where
 		M: Clone,
+		T: Eq + Hash,
+		B: Eq + Hash,
 	{
 		match self {
 			Object::Node(n) => n.identify_all_with(vocabulary, generator),
@@ -172,9 +174,29 @@ impl<T, B, M> Object<T, B, M> {
 	pub fn identify_all<G: id::Generator<(), M>>(&mut self, generator: &mut G)
 	where
 		M: Clone,
+		T: Eq + Hash,
+		B: Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
 		self.identify_all_with(&mut (), generator)
+	}
+
+	/// Puts this object literals into canonical form using the given
+	/// `buffer`.
+	///
+	/// The buffer is used to compute the canonical form of numbers.
+	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
+		match self {
+			Self::List(l) => l.canonicalize_with(buffer),
+			Self::Node(n) => n.canonicalize_with(buffer),
+			Self::Value(v) => v.canonicalize_with(buffer),
+		}
+	}
+
+	/// Puts this object literals into canonical form.
+	pub fn canonicalize(&mut self) {
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonicalize_with(&mut buffer)
 	}
 
 	/// Returns an iterator over the types of the object.
@@ -368,6 +390,25 @@ impl<T, B, M> Object<T, B, M> {
 			Self::Value(value) => Entries::Value(value.entries()),
 			Self::List(list) => Entries::List(Some(list.entry())),
 			Self::Node(node) => Entries::Node(node.entries()),
+		}
+	}
+}
+
+impl<T, B, M> Relabel<T, B, M> for Object<T, B, M> {
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: rdf_types::MetaGenerator<N, M>>(
+		&mut self,
+		vocabulary: &mut N,
+		generator: &mut G,
+		relabeling: &mut hashbrown::HashMap<B, Meta<Subject<T, B>, M>>,
+	) where
+		M: Clone,
+		T: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+	{
+		match self {
+			Self::Node(n) => n.relabel_with(vocabulary, generator, relabeling),
+			Self::List(l) => l.relabel_with(vocabulary, generator, relabeling),
+			Self::Value(_) => (),
 		}
 	}
 }

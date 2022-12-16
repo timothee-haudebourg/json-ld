@@ -1,30 +1,30 @@
 [package]
 name = "json-ld-expansion"
-version = "0.9.1"
-authors = ["Timothée Haudebourg <author@haudebourg.net>"]
-edition = "2021"
-categories = ["web-programming", "database", "data-structures"]
-keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
 description = "A JSON-LD document expansion implementation"
-repository = "https://github.com/timothee-haudebourg/json-ld"
 documentation = "https://docs.rs/json-ld-context-processing"
-license = "MIT/Apache-2.0"
 readme = "README.md"
 
 [dependencies]
-json-ld-core = { path = "../core", version = "0.9.1" }
-json-ld-syntax = { path = "../syntax", version = "0.9.1" }
-json-ld-context-processing = { path = "../context-processing", version = "0.9.1" }
-json-syntax = "0.8.14"
-langtag = "0.3"
-iref = "2.2"
-rdf-types = "0.12.3"
-futures = "^0.3"
-mown = "0.2.1"
-locspan = { version = "0.7.9", features = ["contextual"] }
-derivative = "2.2"
-contextual = "0.1.3"
+json-ld-core.workspace = true
+json-ld-syntax.workspace = true
+json-ld-context-processing.workspace = true
+json-syntax.workspace = true
+langtag.workspace = true
+iref.workspace = true
+rdf-types.workspace = true
+futures.workspace = true
+mown.workspace = true
+locspan = { workspace = true, features = ["contextual"] }
+derivative.workspace = true
+contextual.workspace = true
 
 [dev-dependencies]
-async-std = { version = "1.12.0", features = ["attributes"] }
-static-iref = "2.0"
+async-std = { workspace = true, features = ["attributes"] }
+static-iref.workspace = true

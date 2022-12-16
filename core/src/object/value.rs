@@ -190,6 +190,21 @@ impl Literal {
 			Self::String(LiteralString::Inferred(s)) => json_syntax::Value::String(s.into()),
 		}
 	}
+
+	/// Puts this literal into canonical form using the given `buffer`.
+	///
+	/// The buffer is used to compute the canonical form of numbers.
+	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
+		if let Self::Number(n) = self {
+			*n = NumberBuf::from_number(n.canonical_with(buffer))
+		}
+	}
+
+	/// Puts this literal into canonical form.
+	pub fn canonicalize(&mut self) {
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonicalize_with(&mut buffer)
+	}
 }
 
 /// Value object.
@@ -389,6 +404,24 @@ impl<T, M> Value<T, M> {
 				}
 			}
 		}
+	}
+
+	/// Puts this value object literal into canonical form using the given
+	/// `buffer`.
+	///
+	/// The buffer is used to compute the canonical form of numbers.
+	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
+		match self {
+			Self::Json(json) => json.canonicalize_with(buffer),
+			Self::Literal(l, _) => l.canonicalize_with(buffer),
+			Self::LangString(_) => (),
+		}
+	}
+
+	/// Puts this literal into canonical form.
+	pub fn canonicalize(&mut self) {
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonicalize_with(&mut buffer)
 	}
 }
 

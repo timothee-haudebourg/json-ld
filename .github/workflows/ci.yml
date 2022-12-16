@@ -20,11 +20,14 @@ jobs:
           override: true
       - name: Build
         run: cargo build --verbose
-      - name: Run tests
+      - name: Init tests
         run: |
           git submodule init
           git submodule update
-          cargo test --verbose
+      - name: Library tests
+        run: cargo test --verbose --lib
+      - name: Doc tests
+        run: cargo test --verbose -j1 --doc
   rustfmt:
     name: Rustfmt
     runs-on: ubuntu-latest
