@@ -13,7 +13,6 @@ use json_ld_core::RdfQuads;
 use locspan::{Location, Meta};
 use rdf_types::vocabulary::Index;
 use rdf_types::{vocabulary, IriVocabulary, Vocabulary, VocabularyMut};
-use std::fmt::{self, Pointer};
 use std::hash::Hash;
 
 mod remote_document;
@@ -149,17 +148,22 @@ impl<I, M, C> Default for Options<I, M, C> {
 }
 
 /// Error that can be raised by the [`JsonLdProcessor::expand`] function.
+#[derive(Debug, thiserror::Error)]
 pub enum ExpandError<M, E, C> {
 	/// Document expansion failed.
+	#[error("Expansion failed: {0}")]
 	Expansion(Meta<expansion::Error<M, C>, M>),
 
 	/// Context processing failed.
+	#[error("Context processing failed: {0}")]
 	ContextProcessing(Meta<context_processing::Error<C>, M>),
 
 	/// Remote document loading failed with the given precise error.
+	#[error("Remote document loading failed: {0}")]
 	Loading(E),
 
 	/// Remote context loading failed with the given precise error.
+	#[error("Remote context loading failed: {0}")]
 	ContextLoading(C),
 }
 
@@ -175,28 +179,6 @@ impl<M, E, C> ExpandError<M, E, C> {
 	}
 }
 
-impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for ExpandError<M, E, C> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Expansion(e) => e.fmt(f),
-			Self::ContextProcessing(e) => e.fmt(f),
-			Self::Loading(e) => e.fmt(f),
-			Self::ContextLoading(e) => e.fmt(f),
-		}
-	}
-}
-
-impl<M, E: fmt::Display, C> fmt::Display for ExpandError<M, E, C> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Expansion(e) => e.fmt(f),
-			Self::ContextProcessing(e) => e.fmt(f),
-			Self::Loading(e) => e.fmt(f),
-			Self::ContextLoading(e) => e.fmt(f),
-		}
-	}
-}
-
 /// Error that can be raised by the [`JsonLdProcessor::expand`] function.
 pub type ExpandResult<I, B, M, L> = Result<
 	Meta<ExpandedDocument<I, B, M>, M>,
@@ -204,20 +186,26 @@ pub type ExpandResult<I, B, M, L> = Result<
 >;
 
 /// Error that can be raised by the [`JsonLdProcessor::compact`] function.
+#[derive(Debug, thiserror::Error)]
 pub enum CompactError<M, E, C> {
 	/// Document expansion failed.
+	#[error("Expansion failed: {0}")]
 	Expand(ExpandError<M, E, C>),
 
 	/// Context processing failed.
+	#[error("Context processing failed: {0}")]
 	ContextProcessing(Meta<context_processing::Error<C>, M>),
 
 	/// Document compaction failed.
+	#[error("Compaction failed: {0}")]
 	Compaction(Meta<compaction::Error<C>, M>),
 
 	/// Remote document loading failed.
+	#[error("Remote document loading failed: {0}")]
 	Loading(E),
 
 	/// Remote context loading failed.
+	#[error("Remote context loading failed: {0}")]
 	ContextLoading(C),
 }
 
@@ -234,30 +222,6 @@ impl<M, E, C> CompactError<M, E, C> {
 	}
 }
 
-impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for CompactError<M, E, C> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Expand(e) => e.fmt(f),
-			Self::ContextProcessing(e) => e.fmt(f),
-			Self::Compaction(e) => e.fmt(f),
-			Self::Loading(e) => e.fmt(f),
-			Self::ContextLoading(e) => e.fmt(f),
-		}
-	}
-}
-
-impl<M, E: fmt::Display, C> fmt::Display for CompactError<M, E, C> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Expand(e) => e.fmt(f),
-			Self::ContextProcessing(e) => e.fmt(f),
-			Self::Compaction(e) => e.fmt(f),
-			Self::Loading(e) => e.fmt(f),
-			Self::ContextLoading(e) => e.fmt(f),
-		}
-	}
-}
-
 /// Result of the [`JsonLdProcessor::compact`] function.
 pub type CompactResult<I, M, L> = Result<
 	json_syntax::MetaValue<M>,
@@ -265,11 +229,21 @@ pub type CompactResult<I, M, L> = Result<
 >;
 
 /// Error that can be raised by the [`JsonLdProcessor::flatten`] function.
+#[derive(Debug, thiserror::Error)]
 pub enum FlattenError<I, B, M, E, C> {
+	#[error("Expansion failed: {0}")]
 	Expand(ExpandError<M, E, C>),
+
+	#[error("Compaction failed: {0}")]
 	Compact(CompactError<M, E, C>),
+
+	#[error("Conflicting indexes: {0}")]
 	ConflictingIndexes(ConflictingIndexes<I, B, M>),
+
+	#[error("Remote document loading failed: {0}")]
 	Loading(E),
+
+	#[error("Remote context loading failed: {0}")]
 	ContextLoading(C),
 }
 
@@ -286,30 +260,6 @@ impl<I, B, M, E, C> FlattenError<I, B, M, E, C> {
 	}
 }
 
-impl<I, B, M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for FlattenError<I, B, M, E, C> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Expand(e) => e.fmt(f),
-			Self::Compact(e) => e.fmt(f),
-			Self::ConflictingIndexes(e) => e.fmt(f),
-			Self::Loading(e) => e.fmt(f),
-			Self::ContextLoading(e) => e.fmt(f),
-		}
-	}
-}
-
-impl<I, B, M, E: fmt::Display, C> fmt::Display for FlattenError<I, B, M, E, C> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Expand(e) => e.fmt(f),
-			Self::Compact(e) => e.fmt(f),
-			Self::ConflictingIndexes(e) => e.fmt(f),
-			Self::Loading(e) => e.fmt(f),
-			Self::ContextLoading(e) => e.fmt(f),
-		}
-	}
-}
-
 /// Result of the [`JsonLdProcessor::flatten`] function.
 pub type FlattenResult<I, B, M, L> = Result<
 	json_syntax::MetaValue<M>,
@@ -317,8 +267,10 @@ pub type FlattenResult<I, B, M, L> = Result<
 >;
 
 /// Error that can be raised by the [`JsonLdProcessor::to_rdf`] function.
+#[derive(Debug, thiserror::Error)]
 pub enum ToRdfError<M, E, C> {
 	/// Document expansion failed.
+	#[error("Expansion failed: {0}")]
 	Expand(ExpandError<M, E, C>),
 }
 
@@ -327,22 +279,6 @@ impl<M, E, C> ToRdfError<M, E, C> {
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::Expand(e) => e.code(),
-		}
-	}
-}
-
-impl<M, E: fmt::Debug, C: fmt::Debug> fmt::Debug for ToRdfError<M, E, C> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Expand(e) => e.fmt(f),
-		}
-	}
-}
-
-impl<M, E: fmt::Display, C> fmt::Display for ToRdfError<M, E, C> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Expand(e) => e.fmt(f),
 		}
 	}
 }

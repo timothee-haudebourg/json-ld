@@ -1,25 +1,57 @@
 use json_ld_syntax::ErrorCode;
 use locspan::Meta;
-use std::fmt;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error<M, E> {
+	#[error("Invalid context: {0}")]
 	ContextSyntax(json_ld_syntax::context::InvalidContext),
+
+	#[error("Context processing failed: {0}")]
 	ContextProcessing(json_ld_context_processing::Error<E>),
+
+	#[error("Invalid `@index` value")]
 	InvalidIndexValue,
+
+	#[error("Invalid set or list object")]
 	InvalidSetOrListObject,
+
+	#[error("Invalid `@reverse` property map")]
 	InvalidReversePropertyMap,
+
+	#[error("Invalid `@type` value")]
 	InvalidTypeValue,
+
+	#[error("Key expansion failed")]
 	KeyExpansionFailed,
+
+	#[error("Invalid `@reverse` property value")]
 	InvalidReversePropertyValue,
+
+	#[error("Invalid `@language` map value")]
 	InvalidLanguageMapValue,
+
+	#[error("Colliding keywords")]
 	CollidingKeywords,
+
+	#[error("Invalid `@id` value")]
 	InvalidIdValue,
+
+	#[error("Invalid `@included` value")]
 	InvalidIncludedValue,
+
+	#[error("Invalid `@reverse` value")]
 	InvalidReverseValue,
+
+	#[error("Invalid `@nest` value")]
 	InvalidNestValue,
+
+	#[error("Duplicate key `{0}`")]
 	DuplicateKey(Meta<json_syntax::object::Key, M>),
+
+	#[error(transparent)]
 	Literal(crate::LiteralExpansionError),
+
+	#[error(transparent)]
 	Value(crate::InvalidValue),
 }
 
@@ -72,29 +104,5 @@ impl<M, E> From<crate::LiteralExpansionError> for Error<M, E> {
 impl<M, E> From<crate::InvalidValue> for Error<M, E> {
 	fn from(e: crate::InvalidValue) -> Self {
 		Self::Value(e)
-	}
-}
-
-impl<M, E: fmt::Display> fmt::Display for Error<M, E> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::ContextSyntax(e) => e.fmt(f),
-			Self::ContextProcessing(e) => write!(f, "context processing error: {}", e),
-			Self::InvalidIndexValue => write!(f, "invalid index value"),
-			Self::InvalidSetOrListObject => write!(f, "invalid set or list object"),
-			Self::InvalidReversePropertyMap => write!(f, "invalid reverse property map"),
-			Self::InvalidTypeValue => write!(f, "invalid type value"),
-			Self::KeyExpansionFailed => write!(f, "key expansion failed"),
-			Self::InvalidReversePropertyValue => write!(f, "invalid reverse property value"),
-			Self::InvalidLanguageMapValue => write!(f, "invalid language map value"),
-			Self::CollidingKeywords => write!(f, "colliding keywords"),
-			Self::InvalidIdValue => write!(f, "invalid id value"),
-			Self::InvalidIncludedValue => write!(f, "invalid included value"),
-			Self::InvalidReverseValue => write!(f, "invalid reverse value"),
-			Self::InvalidNestValue => write!(f, "invalid nest value"),
-			Self::DuplicateKey(Meta(key, _)) => write!(f, "duplicate key `{}`", key),
-			Self::Literal(e) => e.fmt(f),
-			Self::Value(e) => e.fmt(f),
-		}
 	}
 }

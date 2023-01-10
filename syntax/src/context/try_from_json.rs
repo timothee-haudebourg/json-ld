@@ -6,15 +6,25 @@ use super::{
 use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson, TryFromStrippedJson};
 use iref::IriRefBuf;
 use locspan::Meta;
-use std::fmt;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum InvalidContext {
+	#[error("Invalid IRI reference: {0}")]
 	InvalidIriRef(iref::Error),
+
+	#[error("Unexpected {0}")]
 	Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]),
+
+	#[error("Invalid `@direction`")]
 	InvalidDirection,
+
+	#[error("Duplicate key")]
 	DuplicateKey,
+
+	#[error("Invalid term definition")]
 	InvalidTermDefinition,
+
+	#[error("Invalid `@nest` value `{0}`")]
 	InvalidNestValue(String),
 }
 
@@ -27,19 +37,6 @@ impl InvalidContext {
 			Self::DuplicateKey => ErrorCode::DuplicateKey,
 			Self::InvalidTermDefinition => ErrorCode::InvalidTermDefinition,
 			Self::InvalidNestValue(_) => ErrorCode::InvalidNestValue,
-		}
-	}
-}
-
-impl fmt::Display for InvalidContext {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::InvalidIriRef(e) => write!(f, "invalid IRI reference: {}", e),
-			Self::Unexpected(_, _) => write!(f, "unexpected"),
-			Self::InvalidDirection => write!(f, "invalid direction"),
-			Self::DuplicateKey => write!(f, "duplicate key"),
-			Self::InvalidTermDefinition => write!(f, "invalid term definition"),
-			Self::InvalidNestValue(s) => write!(f, "invalid `@nest` value `{}`", s),
 		}
 	}
 }

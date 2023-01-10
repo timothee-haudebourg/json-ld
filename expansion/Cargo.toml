@@ -24,6 +24,7 @@ mown.workspace = true
 locspan = { workspace = true, features = ["contextual"] }
 derivative.workspace = true
 contextual.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }

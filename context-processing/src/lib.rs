@@ -44,27 +44,66 @@ pub trait WarningHandler<N, M>: json_ld_core::warning::Handler<N, MetaWarning<M>
 impl<N, M, H> WarningHandler<N, M> for H where H: json_ld_core::warning::Handler<N, MetaWarning<M>> {}
 
 /// Errors that can happen during context processing.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error<E> {
+	#[error("Invalid context nullification")]
 	InvalidContextNullification,
+
+	#[error("Remote document loading failed")]
 	LoadingDocumentFailed,
+
+	#[error("Processing mode conflict")]
 	ProcessingModeConflict,
+
+	#[error("Invalid `@context` entry")]
 	InvalidContextEntry,
+
+	#[error("Invalid `@import` value")]
 	InvalidImportValue,
+
+	#[error("Invalid remote context")]
 	InvalidRemoteContext,
+
+	#[error("Invalid base IRI")]
 	InvalidBaseIri,
+
+	#[error("Invalid vocabulary mapping")]
 	InvalidVocabMapping,
+
+	#[error("Cyclic IRI mapping")]
 	CyclicIriMapping,
+
+	#[error("Invalid term definition")]
 	InvalidTermDefinition,
+
+	#[error("Keyword redefinition")]
 	KeywordRedefinition,
+
+	#[error("Invalid `@protected` value")]
 	InvalidProtectedValue,
+
+	#[error("Invalid type mapping")]
 	InvalidTypeMapping,
+
+	#[error("Invalid reverse property")]
 	InvalidReverseProperty,
+
+	#[error("Invalid IRI mapping")]
 	InvalidIriMapping,
+
+	#[error("Invalid keyword alias")]
 	InvalidKeywordAlias,
+
+	#[error("Invalid container mapping")]
 	InvalidContainerMapping,
+
+	#[error("Invalid scoped context")]
 	InvalidScopedContext,
+
+	#[error("Protected term redefinition")]
 	ProtectedTermRedefinition,
+
+	#[error("Remote context loading failed: {0}")]
 	ContextLoadingFailed(E),
 }
 
@@ -91,33 +130,6 @@ impl<E> Error<E> {
 			Self::InvalidScopedContext => ErrorCode::InvalidScopedContext,
 			Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
 			Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
-		}
-	}
-}
-
-impl<E: fmt::Display> fmt::Display for Error<E> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::InvalidContextNullification => write!(f, "invalid context nullification"),
-			Self::LoadingDocumentFailed => write!(f, "loading document failed"),
-			Self::ProcessingModeConflict => write!(f, "processing mode conflict"),
-			Self::InvalidContextEntry => write!(f, "invalid context entry"),
-			Self::InvalidImportValue => write!(f, "invalid import value"),
-			Self::InvalidRemoteContext => write!(f, "invalid remote context"),
-			Self::InvalidBaseIri => write!(f, "invalid base IRI"),
-			Self::InvalidVocabMapping => write!(f, "invalid vocabulary mapping"),
-			Self::CyclicIriMapping => write!(f, "cyclic IRI mapping"),
-			Self::InvalidTermDefinition => write!(f, "invalid term definition"),
-			Self::KeywordRedefinition => write!(f, "keyword redefinition"),
-			Self::InvalidProtectedValue => write!(f, "invalid protected value"),
-			Self::InvalidTypeMapping => write!(f, "invalid type mapping"),
-			Self::InvalidReverseProperty => write!(f, "invalid reverse property"),
-			Self::InvalidIriMapping => write!(f, "invalid IRI mapping"),
-			Self::InvalidKeywordAlias => write!(f, "invalid keyword alias"),
-			Self::InvalidContainerMapping => write!(f, "invalid container mapping"),
-			Self::InvalidScopedContext => write!(f, "invalid scoped context"),
-			Self::ProtectedTermRedefinition => write!(f, "protected term redefinition"),
-			Self::ContextLoadingFailed(e) => write!(f, "context loading failed: {}", e),
 		}
 	}
 }

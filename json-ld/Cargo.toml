@@ -25,6 +25,7 @@ futures.workspace = true
 locspan.workspace = true
 rdf-types.workspace = true
 contextual.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }
