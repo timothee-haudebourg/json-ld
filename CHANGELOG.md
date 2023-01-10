@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.1] - 2023-01-10
+
+### Added
+
+- [ac56b2d] Impl `Error` for all the error types.
+
+### Build
+
+- [ac56b2d] Introduce `thiserror` at version `1.0.38`.
+- [ac56b2d] Upgrade `locspan` from `0.7.12` to `0.7.13`.
+
+### Fixed
+
+- [8ef9a5e] Fix `cliff.toml`
+
 ## [0.12.0] - 2023-01-10
 
 ### Added
@@ -153,6 +168,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [461114f] Add CHANGELOG, move to version 0.4.0
 - [6be001a] Add inline hints.
 
+### Build
+
+- [74b101f] Introduce key expansion policies.
+
 ### Changed
 
 - [1749ea4] Move to 0.3.0-alpha.
@@ -207,6 +226,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [4ad5585] Fix typos in the README.
 
 ## [0.1.0-alpha] - 2020-04-27
+
+### Build
+
+- [598ff07] Introduce the Expanded type.
 
 ### Changed
 

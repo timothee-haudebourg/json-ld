@@ -12,7 +12,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.12.0"
+version = "0.12.1"
 edition = "2021"
 authors = ["Timothée Haudebourg <timothee@haudebourg.net>"]
 categories = ["web-programming", "database", "data-structures"]
@@ -21,13 +21,13 @@ repository = "https://github.com/timothee-haudebourg/json-ld"
 license = "MIT/Apache-2.0"
 
 [workspace.dependencies]
-json-ld = { path = "json-ld", version = "0.12.0" }
-json-ld-syntax = { path = "syntax", version = "0.12.0" }
-json-ld-core = { path = "core", version = "0.12.0" }
-json-ld-context-processing = { path = "context-processing", version = "0.12.0" }
-json-ld-expansion = { path = "expansion", version = "0.12.0" }
-json-ld-compaction = { path = "compaction", version = "0.12.0" }
-json-ld-testing = { path = "testing", version = "0.12.0" }
+json-ld = { path = "json-ld", version = "0.12.1" }
+json-ld-syntax = { path = "syntax", version = "0.12.1" }
+json-ld-core = { path = "core", version = "0.12.1" }
+json-ld-context-processing = { path = "context-processing", version = "0.12.1" }
+json-ld-expansion = { path = "expansion", version = "0.12.1" }
+json-ld-compaction = { path = "compaction", version = "0.12.1" }
+json-ld-testing = { path = "testing", version = "0.12.1" }
 json-syntax = "0.9"
 iref = "2.2"
 static-iref = "2"
