@@ -22,5 +22,6 @@ hashbrown.workspace = true
 derivative.workspace = true
 smallvec.workspace = true
 contextual.workspace = true
+thiserror.workspace = true
 indexmap = "1.9.1" # TODO remove indexmap
 decoded-char = "0.1.0"

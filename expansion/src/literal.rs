@@ -7,7 +7,6 @@ use json_ld_syntax::{context, Entry, ErrorCode, LenientLanguageTag, Nullable};
 use json_syntax::Number;
 use locspan::{At, Meta};
 use rdf_types::VocabularyMut;
-use std::fmt;
 
 pub(crate) enum GivenLiteralValue<'a> {
 	Boolean(bool),
@@ -60,8 +59,9 @@ impl<'a> LiteralValue<'a> {
 
 pub(crate) type ExpandedLiteral<T, B, M> = IndexedObject<T, B, M>;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum LiteralExpansionError {
+	#[error("Invalid `@type` value")]
 	InvalidTypeValue,
 }
 
@@ -69,14 +69,6 @@ impl LiteralExpansionError {
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
-		}
-	}
-}
-
-impl fmt::Display for LiteralExpansionError {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::InvalidTypeValue => write!(f, "invalid type value"),
 		}
 	}
 }

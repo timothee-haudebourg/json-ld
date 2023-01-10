@@ -6,18 +6,30 @@ use json_ld_core::{
 use json_ld_syntax::{Direction, ErrorCode, Keyword, LenientLanguageTagBuf, Nullable};
 use locspan::{At, Meta};
 use rdf_types::VocabularyMut;
-use std::fmt;
 
 pub(crate) type ExpandedValue<T, B, M, W> = (Option<IndexedObject<T, B, M>>, W);
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum InvalidValue {
+	#[error("Invalid language tagged string")]
 	LanguageTaggedString,
+
+	#[error("Invalid base `@direction`")]
 	BaseDirection,
+
+	#[error("Invalid `@index` value")]
 	IndexValue,
+
+	#[error("Invalid typed value")]
 	TypedValue,
+
+	#[error("Invalid value object")]
 	ValueObject,
+
+	#[error("Invalid value object value")]
 	ValueObjectValue,
+
+	#[error("Invalid language tagged value")]
 	LanguageTaggedValue,
 }
 
@@ -31,20 +43,6 @@ impl InvalidValue {
 			Self::ValueObject => ErrorCode::InvalidValueObject,
 			Self::ValueObjectValue => ErrorCode::InvalidValueObjectValue,
 			Self::LanguageTaggedValue => ErrorCode::InvalidLanguageTaggedValue,
-		}
-	}
-}
-
-impl fmt::Display for InvalidValue {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::LanguageTaggedString => write!(f, "invalid language tagged string"),
-			Self::BaseDirection => write!(f, "invalid base direction"),
-			Self::IndexValue => write!(f, "invalid index value"),
-			Self::TypedValue => write!(f, "invalid typed value"),
-			Self::ValueObject => write!(f, "invalid value object"),
-			Self::ValueObjectValue => write!(f, "invalid value object value"),
-			Self::LanguageTaggedValue => write!(f, "invalid language tagged value"),
 		}
 	}
 }

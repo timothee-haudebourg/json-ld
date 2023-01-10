@@ -35,9 +35,15 @@ use value::*;
 
 pub type MetaError<M, E> = Meta<Error<E>, M>;
 
+#[derive(Debug, thiserror::Error)]
 pub enum Error<E> {
+	#[error("IRI confused with prefix")]
 	IriConfusedWithPrefix,
+
+	#[error("Invalid `@nest` value")]
 	InvalidNestValue,
+
+	#[error("Context processing failed: {0}")]
 	ContextProcessing(json_ld_context_processing::Error<E>),
 }
 

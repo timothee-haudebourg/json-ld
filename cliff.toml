@@ -47,7 +47,8 @@ commit_parsers = [
     { message = "^[rR]estructure", group = "Changed"},
     { message = "^[rR]efactor", group = "Changed"},
     { message = "^[rR]emove", group = "Removed"},
-    { message = "^[uU]pgrade( |d)", group = "Build"}
+    { message = "^[uU]pgrade( |d)", group = "Build"},
+    { message = "^[iI]troduce( |d)", group = "Build"}
 ]
 # protect breaking changes from being skipped due to matching a skipping commit_parser
 protect_breaking_commits = false

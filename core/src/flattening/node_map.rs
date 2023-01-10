@@ -10,7 +10,8 @@ use std::hash::Hash;
 /// Conflicting indexes error.
 ///
 /// Raised when a single node is declared with two different indexes.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("Index `{defined_index}` conflicts with index `{conflicting_index}`")]
 pub struct ConflictingIndexes<T, B, M> {
 	pub node_id: Meta<Id<T, B>, M>,
 	pub defined_index: String,
