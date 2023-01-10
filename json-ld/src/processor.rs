@@ -79,6 +79,9 @@ pub struct Options<I = Index, M = Location<I>, C = json_ld_syntax::context::Valu
 	/// generalized RDF Datasets and thus this option
 	/// may be also be removed.
 	pub produce_generalized_rdf: bool,
+
+	/// Term expansion policy, passed to the document expansion algorithm.
+	pub expansion_policy: expansion::Policy
 }
 
 impl<I, M, C> Options<I, M, C> {
@@ -105,6 +108,7 @@ impl<I, M, C> Options<I, M, C> {
 		expansion::Options {
 			processing_mode: self.processing_mode,
 			ordered: self.ordered,
+			policy: self.expansion_policy,
 			..Default::default()
 		}
 	}
@@ -131,6 +135,7 @@ impl<I, M, C> Default for Options<I, M, C> {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			rdf_direction: None,
 			produce_generalized_rdf: false,
+			expansion_policy: expansion::Policy::default()
 		}
 	}
 }
