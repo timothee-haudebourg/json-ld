@@ -81,7 +81,7 @@ pub struct Options<I = Index, M = Location<I>, C = json_ld_syntax::context::Valu
 	pub produce_generalized_rdf: bool,
 
 	/// Term expansion policy, passed to the document expansion algorithm.
-	pub expansion_policy: expansion::Policy
+	pub expansion_policy: expansion::Policy,
 }
 
 impl<I, M, C> Options<I, M, C> {
@@ -91,6 +91,15 @@ impl<I, M, C> Options<I, M, C> {
 	pub fn unordered(self) -> Self {
 		Self {
 			ordered: false,
+			..self
+		}
+	}
+
+	/// Returns these options with the `expand_context` set to the given
+	/// `context`.
+	pub fn with_expand_context(self, context: RemoteDocumentReference<I, M, C>) -> Self {
+		Self {
+			expand_context: Some(context),
 			..self
 		}
 	}
@@ -109,7 +118,6 @@ impl<I, M, C> Options<I, M, C> {
 			processing_mode: self.processing_mode,
 			ordered: self.ordered,
 			policy: self.expansion_policy,
-			..Default::default()
 		}
 	}
 
@@ -135,7 +143,7 @@ impl<I, M, C> Default for Options<I, M, C> {
 			processing_mode: ProcessingMode::JsonLd1_1,
 			rdf_direction: None,
 			produce_generalized_rdf: false,
-			expansion_policy: expansion::Policy::default()
+			expansion_policy: expansion::Policy::default(),
 		}
 	}
 }
