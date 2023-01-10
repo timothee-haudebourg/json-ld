@@ -5,71 +5,230 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.0]
-- Upgraded `json_syntax`: 0.8.17 -> 0.9
-  This version adds a better support for `serde` and `serde_json`,
-  but changes the behavior of the `json` macro without metadata annotations to
-  simplify type inference.
-
-## [0.10.0]
-### Changed
-- Use `rdf_types::Literal` instead of `json_ld::rdf::Value`.
+## [0.12.0] - 2023-01-10
 
 ### Added
-- `JsonLdProcessor::to_rdf*` functions for RDF serialization.
-- `toRdf` test suite.
 
-## [0.9.1]
-### Changed
-- All the library has been refactored. Please take a look at the `README.md`
-  for a new introduction to the API.
-- `json-syntax` library is now used in place of `generic-json`, dropping the
-  support for `serde-json`. `json-syntax` should add back support for it in the
-  future.
-- Improved the `ReqwestLoader` so it can deal with redirections and `Link`
-  headers.
+- [75c73b1] Add `expansion_policy` in `json_ld::Options`.
+- [1076ada] Add `Options::with_expand_context` function.
 
-### Added
-- `JsonLdProcessor` trait.
-- The `locspan` library is used everywhere to keep track of code mapping info.
+## [0.11.0] - 2023-01-10
 
-## [0.6.1]
-- Relax the `K: JsonFrom<J>` bound into `K: Json` from the `AsJson` trait definition. Fixes #33.
+### Build
 
-## [0.6.0]
-### Changed
-- Associate a unique identifier to each loaded document through the `Loader` trait.
-- Locate errors using its source (a `loader::Id`) and its metadata.
-- Locate warnings using its source (a `loader::Id`) and its metadata.
-- The `request::Loader` not longer panic.
+- [b81e53a] Upgrade `json-syntax` to 0.9.
+
+## [0.10.0] - 2022-12-19
 
 ### Added
-- `Warning` type to enumerate possible warnings.
-- `Loc` type to locate errors and warnings.
-- `loader::Id` type to identify source files.
-- `Loader::id`, `Loader::iri`.
-- Compaction API.
 
-## [0.5.0] - 2021-11-04
+- [6e69524] Add RDF deserialization to the processor API
+
 ### Changed
-- Abstract the JSON implementation.
-  The JSON type (formerly `json::JsonValue`) is now a type parameter.
-  It can theoretically be replaced by any type you want, as long as
-  it implements the `generic_json::Json` trait.
-  As of now, only the `ijson::IValue` type implements this trait.
-  If the https://github.com/serde-rs/json/pull/814 PR is merged,
-  then `serde_json::Value` should follow.
 
-## Added
-- `Object::into_node`, `into_value`, `into_list`, `as_node`, `as_value`, `as_list`.
-- `Indexed<Object>::into_indexed_node`, `into_indexed_value`, `into_indexed_list`.
-- `Node::properties`, `reverse_properties`.
-- `PartialEq<str>` impl for `Property`.
-- More documentation.
+- [d6f91f5] Move to version 0.10.0
 
-## [0.4.0] - 2021-09-15
-### Added 
-- `policy` option in the context processing `Options` struct controlling how undefined keys are expanded.
+### Fixed
+
+- [eafe462] Fix git submodule instructions.
+- [eafe462] Fixes #43
+- [6e69524] Fixes #46
+
+## [0.9.1] - 2022-12-09
+
+### Added
+
+- [12d5579] Add some doc.
+- [911c801] Add documentation.
+- [14f9fdb] Add table of contents.
+- [c91e5b1] Add `hashbrown::Equivalent<Id<I, B>>` impls.
+- [ae1c82f] Add `ReqwestLoader` compliant with the spec.
+
+### Changed
+
+- [d114466] Move to version `0.9.1`.
+
+### Fixed
+
+- [b0f961d] Fix formatting.
+- [7a0563b] Fix formatting.
+- [c4c8572] Fix typo & Makefile.
+- [15a78c8] Fix clippy warnings.
+- [17e712e] Fix formatting.
+- [e499bfd] Fix formatting.
+- [88edfe6] Fix and update `README.md`.
+
+## [0.9.0-beta] - 2022-10-20
+
+### Changed
+
+- [ffb61be] Move to version 0.9.0-beta.
+
+### Fixed
+
+- [f340b38] Fix clippy warnings.
+
+## [0.7.0-beta] - 2022-10-20
+
+### Added
+
+- [3d3c761] Add context to syntax functions.
+- [784b861] Add `flatten` API.
+- [f0344db] Add a `::code` method to error types.
+- [0c9bab9] Add some expansion doc.
+- [354a9d6] Add `default_base_url` func to the `Expand` trait.
+
+### Changed
+
+- [62d915a] Refactoring of expansion algo almost done.
+- [8bb57a3] Refactoring of expansion algorithm done!
+- [f8872ae] Refactor more of the compaction algorithm.
+- [e7119e1] Refactored `compaction` module.
+- [e7119e1] Refactor is complete, but not tested yet.
+
+### Fixed
+
+- [3102653] Fix clippy warnings.
+- [ef85f1f] Fix type params order in `expansion` library.
+- [59cdf04] Fix clippy warnings in `context-processing`.
+- [1e7f78d] Fix the rest of clippy warnings.
+- [f8872ae] Fix `Reference`/`ValidReference` bug.
+- [9366eb7] Fix context definition entries size hint.
+- [4070cb9] Fix compact bug.
+- [3be7a05] Fix url of expected compacted document in tests.
+- [bf08768] Fix CI.
+- [d0b8a0f] Fix tests README.
+- [6c461e8] Fix formatting
+- [d78d366] Fix Spruce sponsor ([#42](https://github.com/timothee-haudebourg/grdf/issues/42))
 
 ### Removed
-- Unused `strict` field in the context processing `Options` struct.
+
+- [9c86d04] Remove a lot of clippy warnings.
+- [2b9d456] Remove old expansion code.
+- [6710a47] Remove old tests.
+- [532c0e9] Remove `flattening` folder.
+- [bc5b54d] Remove `Lexicon` datatype.
+- [b1b7272] Remove traces of the `generic_json` crate.
+- [deec55e] Remove `reqwest` feature (for now).
+
+## [0.6.1] - 2022-01-24
+
+### Fixed
+
+- [2ccb23e] Fix #33.
+
+## [0.6.0] - 2022-01-14
+
+### Added
+
+- [cfadb4c] Add warning type.
+- [eda84c9] impl `Display` for `Warning`.
+- [551e240] Add the `flattening` module.
+
+### Changed
+
+- [7df142c] Move to version 0.6.0.
+
+### Fixed
+
+- [2aab37f] Fix formatting and clippy warnings.
+- [e1e5f8b] Fix loaders.
+- [97f2b5c] Fix formatting & clippy warnings.
+- [3e56c17] Fix formatting & clippy warnings.
+- [7b31108] Fix some new clippy warnings.
+
+## [0.5.0] - 2021-11-04
+
+### Added
+
+- [7eb7d09] Add `Lenient::map`.
+- [9fe900e] Add a compact method and example.
+- [448791e] Add strict expansion mode
+- [db2cb79] Add strict expansion mode
+- [6c48bcb] Add semicolon after warn
+- [121564e] Add semicolon after warn
+- [a3a0caa] Add `+nightly` in workflow.
+- [429f688] Add custom tests.
+- [2c8a48b] Add sort-jsonld-array utility script.
+- [461114f] Add CHANGELOG, move to version 0.4.0
+- [6be001a] Add inline hints.
+
+### Changed
+
+- [1749ea4] Move to 0.3.0-alpha.
+- [26bb267] Move to version 0.3.0.
+- [a1e1acd] Move to version 0.5.0.
+
+### Fixed
+
+- [85b05c7] Fix dependencies spec.
+- [1706f60] Fix too strong lifetime constraint on Vocab.
+- [d3995b9] Fix too strong lifetime constraint in example.
+- [f0d4529] Fix iref dep.
+- [86f1771] Fix iri compaction.
+- [1f34815] Fix compact_property_graph.
+- [67b20ab] Fixing some warnings.
+- [a8a81e2] Fix type and index maps.
+- [9b0e452] Fix generated options.
+- [a479378] Fix expected output for custom/c038.
+- [40b3be8] Fix expected output of custom/e112
+- [4493bbe] Fix clippy warnings.
+- [b4d8616] Fix custom test warning.
+- [c1c3c06] Fix Spruce link
+- [0126652] Fix Spruce link
+- [652d107] Fixing tests...
+- [b260d7c] Fix clippy warnings.
+- [092eb69] Fix warnings in `compaction` example.
+- [46108b2] Fix doc tests.
+- [0258d89] Fix test templates.
+- [590c489] Fix json-ld comparison function.
+- [4479778] Fix typo.
+- [955a957] Fix iteration of merged contexts.
+- [1de01c3] Fixes #23
+- [b274216] Fix clippy warning.
+- [d4cedca] Fix README
+
+### Removed
+
+- [6167f19] Remove useless MappedMut.
+- [cebb6af] Remove unused JsonValue in compaction example.
+- [7c9fd8e] Remove the `Lenient` type.
+- [56a4151] Remove remaining traces of the `Lenient` type.
+
+## [0.2.0-alpha] - 2020-04-27
+
+### Changed
+
+- [425caed] Move to version 0.2.0-alpha.
+
+### Fixed
+
+- [0a98f9a] Fix the `included` node interface.
+- [4ad5585] Fix typos in the README.
+
+## [0.1.0-alpha] - 2020-04-27
+
+### Changed
+
+- [60bf328] Refactoring.
+- [ccd7abf] Refactoring. Automatic tests.
+
+### Fixed
+
+- [05aeebd] Fix the test generator. Add a README.
+- [12ff709] Fix test options.
+- [b42ee1a] Fix the reqwest loader and give an example.
+
+### Removed
+
+- [d41a51c] Remove some warnings.
+- [b2ab85c] Remove debug prints.
+- [e0c50a6] Remove debug print.
+- [83bc6d0] Remove debug prints.
+- [9c717d9] Remove more debug prints.
+- [d1aeae8] Remove expand.rs test file.
+- [6e501fd] Remove Term from node ids.
+- [47389b7] Remove `as_json_ld` from LocalContext.
+- [50ff476] Remove keyword iri.
+- [87da59c] Remove useless comment.
+
