@@ -596,4 +596,4 @@ fn i18n(language: Option<LanguageTagBuf>, direction: Direction) -> IriBuf {
 	IriBuf::from_string(iri).unwrap()
 }
 
-pub type Value<T, B> = rdf_types::Object<T, B, Literal<T>>;
+pub type Value<T, B> = rdf_types::Object<ValidId<T, B>, Literal<T>>;
