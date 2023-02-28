@@ -25,7 +25,7 @@ jobs:
           git submodule init
           git submodule update
       - name: Library tests
-        run: cargo test --verbose --lib
+        run: cargo test --verbose --tests --lib
       - name: Doc tests
         run: cargo test --verbose -j1 --doc
   rustfmt:
