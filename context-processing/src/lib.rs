@@ -23,9 +23,9 @@ pub enum Warning {
 impl fmt::Display for Warning {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Self::KeywordLikeTerm(s) => write!(f, "keyword-like term `{}`", s),
-			Self::KeywordLikeValue(s) => write!(f, "keyword-like value `{}`", s),
-			Self::MalformedIri(s) => write!(f, "malformed IRI `{}`", s),
+			Self::KeywordLikeTerm(s) => write!(f, "keyword-like term `{s}`"),
+			Self::KeywordLikeValue(s) => write!(f, "keyword-like value `{s}`"),
+			Self::MalformedIri(s) => write!(f, "malformed IRI `{s}`"),
 		}
 	}
 }

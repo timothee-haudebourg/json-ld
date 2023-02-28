@@ -72,12 +72,12 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 			Self::Reqwest(e) => e.fmt(f),
 			Self::Redirection303 => write!(f, "invalid redirection: 303"),
 			Self::MissingRedirectionLocation => write!(f, "invalid redirection: missing location"),
-			Self::InvalidRedirectionUrl(e) => write!(f, "invalid redirection URL: {}", e),
-			Self::QueryFailed(e) => write!(f, "query failed: status code {}", e),
+			Self::InvalidRedirectionUrl(e) => write!(f, "invalid redirection URL: {e}"),
+			Self::QueryFailed(e) => write!(f, "query failed: status code {e}"),
 			Self::InvalidContentType => write!(f, "invalid content type"),
 			Self::MultipleContextLinkHeaders => write!(f, "multiple context link headers"),
 			Self::TooManyRedirections => write!(f, "too many redirections"),
-			Self::Parse(e) => write!(f, "parse error: {}", e),
+			Self::Parse(e) => write!(f, "parse error: {e}"),
 		}
 	}
 }
@@ -164,7 +164,7 @@ impl Data {
 		}
 
 		Self {
-			accept_header: format!("application/ld+json{}, application/json", json_ld_params),
+			accept_header: format!("application/ld+json{json_ld_params}, application/json"),
 		}
 	}
 }

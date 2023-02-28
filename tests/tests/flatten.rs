@@ -3,8 +3,6 @@ use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentRefe
 use rdf_types::{IndexVocabulary, IriVocabularyMut};
 use static_iref::iri;
 
-const STACK_SIZE: usize = 4 * 1024 * 1024;
-
 #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/flatten-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
 #[iri_prefix("rdf" = "http://www.w3.org/1999/02/22-rdf-syntax-ns#")]
@@ -76,7 +74,6 @@ mod flatten {
 impl flatten::Test {
 	fn run(self) {
 		let child = std::thread::Builder::new()
-			.stack_size(STACK_SIZE)
 			.spawn(|| async_std::task::block_on(self.async_run()))
 			.unwrap();
 

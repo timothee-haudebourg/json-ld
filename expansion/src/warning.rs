@@ -20,12 +20,12 @@ impl<B> From<MalformedIri> for Warning<B> {
 impl<B: fmt::Display> fmt::Display for Warning<B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Self::MalformedIri(s) => write!(f, "malformed IRI `{}`", s),
+			Self::MalformedIri(s) => write!(f, "malformed IRI `{s}`"),
 			Self::EmptyTerm => write!(f, "empty term"),
 			Self::BlankNodeIdProperty(b) => {
-				write!(f, "blank node identifier `{}` used as property", b)
+				write!(f, "blank node identifier `{b}` used as property")
 			}
-			Self::MalformedLanguageTag(t, e) => write!(f, "invalid language tag `{}`: {}", t, e),
+			Self::MalformedLanguageTag(t, e) => write!(f, "invalid language tag `{t}`: {e}"),
 		}
 	}
 }
@@ -33,7 +33,7 @@ impl<B: fmt::Display> fmt::Display for Warning<B> {
 impl<B, N: BlankIdVocabulary<BlankId = B>> DisplayWithContext<N> for Warning<B> {
 	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Self::MalformedIri(s) => write!(f, "malformed IRI `{}`", s),
+			Self::MalformedIri(s) => write!(f, "malformed IRI `{s}`"),
 			Self::EmptyTerm => write!(f, "empty term"),
 			Self::BlankNodeIdProperty(b) => {
 				write!(
@@ -42,7 +42,7 @@ impl<B, N: BlankIdVocabulary<BlankId = B>> DisplayWithContext<N> for Warning<B> 
 					vocabulary.blank_id(b).unwrap()
 				)
 			}
-			Self::MalformedLanguageTag(t, e) => write!(f, "invalid language tag `{}`: {}", t, e),
+			Self::MalformedLanguageTag(t, e) => write!(f, "invalid language tag `{t}`: {e}"),
 		}
 	}
 }

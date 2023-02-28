@@ -21,7 +21,7 @@ impl<T: fmt::Debug> fmt::Debug for TypeSelection<T> {
 		match self {
 			TypeSelection::Reverse => write!(f, "Reverse"),
 			TypeSelection::Any => write!(f, "Any"),
-			TypeSelection::Type(ty) => write!(f, "Type({:?})", ty),
+			TypeSelection::Type(ty) => write!(f, "Type({ty:?})"),
 		}
 	}
 }
@@ -213,8 +213,8 @@ impl<'a, T: fmt::Debug> fmt::Debug for Selection<'a, T> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Selection::Any => write!(f, "Any"),
-			Selection::Type(s) => write!(f, "Type({:?})", s),
-			Selection::Lang(s) => write!(f, "Lang({:?})", s),
+			Selection::Type(s) => write!(f, "Type({s:?})"),
+			Selection::Lang(s) => write!(f, "Lang({s:?})"),
 		}
 	}
 }

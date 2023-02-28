@@ -113,8 +113,8 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for Term<T, B> {
 impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Term<T, B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Term::Id(p) => write!(f, "Term::Ref({:?})", p),
-			Term::Keyword(kw) => write!(f, "Term::Keyword({})", kw),
+			Term::Id(p) => write!(f, "Term::Ref({p:?})"),
+			Term::Keyword(kw) => write!(f, "Term::Keyword({kw})"),
 			Term::Null => write!(f, "Term::Null"),
 		}
 	}

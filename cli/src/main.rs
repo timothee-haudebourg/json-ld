@@ -113,7 +113,7 @@ async fn main() {
 					println!("{}", remote_document.document().pretty_print())
 				}
 				Err(e) => {
-					eprintln!("error: {}", e);
+					eprintln!("error: {e}");
 					std::process::exit(1);
 				}
 			}
@@ -148,7 +148,7 @@ async fn main() {
 					println!("{}", expanded.with(&vocabulary).pretty_print())
 				}
 				Err(e) => {
-					eprintln!("error: {}", e);
+					eprintln!("error: {e}");
 					std::process::exit(1);
 				}
 			}
@@ -170,7 +170,7 @@ async fn main() {
 					println!("{}", flattened.with(&vocabulary).pretty_print())
 				}
 				Err(e) => {
-					eprintln!("error: {}", e);
+					eprintln!("error: {e}");
 					std::process::exit(1);
 				}
 			}
@@ -203,13 +203,13 @@ fn get_remote_document(
 							document,
 						)),
 						Err(e) => {
-							eprintln!("error: {}", e);
+							eprintln!("error: {e}");
 							std::process::exit(1);
 						}
 					}
 				}
 				Err(e) => {
-					eprintln!("error: {}", e);
+					eprintln!("error: {e}");
 					std::process::exit(1);
 				}
 			}
@@ -229,13 +229,13 @@ fn get_remote_document(
 							document,
 						)),
 						Err(e) => {
-							eprintln!("error: {}", e);
+							eprintln!("error: {e}");
 							std::process::exit(1);
 						}
 					}
 				}
 				Err(e) => {
-					eprintln!("error: {}", e);
+					eprintln!("error: {e}");
 					std::process::exit(1);
 				}
 			}

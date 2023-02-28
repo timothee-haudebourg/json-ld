@@ -16,7 +16,7 @@ use std::hash::Hash;
 
 pub use rdf_types::MetaGenerator as Generator;
 
-pub use rdf_types::Subject as ValidId;
+pub use rdf_types::Id as ValidId;
 
 pub type ValidVocabularyId<V> =
 	ValidId<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>;
@@ -344,8 +344,8 @@ impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for Id<T, 
 impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Id<T, B> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
-			Id::Valid(id) => write!(f, "Id::Valid({:?})", id),
-			Id::Invalid(id) => write!(f, "Id::Invalid({:?})", id),
+			Id::Valid(id) => write!(f, "Id::Valid({id:?})"),
+			Id::Invalid(id) => write!(f, "Id::Invalid({id:?})"),
 		}
 	}
 }

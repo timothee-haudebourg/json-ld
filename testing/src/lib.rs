@@ -2,7 +2,6 @@
 //! that can generate Rust test suites from a JSON-LD document.
 use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
-use grdf::Dataset;
 use iref::{IriBuf, IriRefBuf};
 use json_ld::{Expand, ValidId};
 use locspan::{Loc, Location, Meta, Span};
@@ -39,7 +38,7 @@ impl syn::parse::Parse for MountAttribute {
 
 		let prefix: syn::LitStr = content.parse()?;
 		let prefix = IriBuf::from_string(prefix.value())
-			.map_err(|(_, s)| content.error(format!("invalid IRI `{}`", s)))?;
+			.map_err(|(_, s)| content.error(format!("invalid IRI `{s}`")))?;
 
 		let _comma = content.parse()?;
 
@@ -66,7 +65,7 @@ impl syn::parse::Parse for IriAttribute {
 
 		let iri: syn::LitStr = content.parse()?;
 		let iri = IriBuf::from_string(iri.value())
-			.map_err(|(_, s)| content.error(format!("invalid IRI `{}`", s)))?;
+			.map_err(|(_, s)| content.error(format!("invalid IRI `{s}`")))?;
 
 		Ok(Self { _paren, iri })
 	}
@@ -80,7 +79,7 @@ impl syn::parse::Parse for IriArg {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
 		let iri: syn::LitStr = input.parse()?;
 		let iri = IriBuf::from_string(iri.value())
-			.map_err(|(_, s)| input.error(format!("invalid IRI `{}`", s)))?;
+			.map_err(|(_, s)| input.error(format!("invalid IRI `{s}`")))?;
 
 		Ok(Self { iri })
 	}
@@ -104,7 +103,7 @@ impl syn::parse::Parse for PrefixBinding {
 
 		let iri: syn::LitStr = content.parse()?;
 		let iri = IriBuf::from_string(iri.value())
-			.map_err(|(_, s)| content.error(format!("invalid IRI `{}`", s)))?;
+			.map_err(|(_, s)| content.error(format!("invalid IRI `{s}`")))?;
 
 		Ok(Self {
 			_paren,
@@ -131,7 +130,7 @@ impl syn::parse::Parse for IgnoreAttribute {
 
 		let iri_ref: syn::LitStr = content.parse()?;
 		let iri_ref = IriRefBuf::from_string(iri_ref.value())
-			.map_err(|(_, s)| content.error(format!("invalid IRI reference `{}`", s)))?;
+			.map_err(|(_, s)| content.error(format!("invalid IRI reference `{s}`")))?;
 
 		let _comma = content.parse()?;
 
@@ -516,7 +515,7 @@ impl DisplayWithContext<Vocabulary> for Error {
 			Self::Parse(e) => e.fmt(f),
 			Self::Load(e) => e.fmt(f),
 			Self::Expand(e) => e.fmt(f),
-			Self::InvalidIri(i) => write!(f, "invalid IRI `{}`", i),
+			Self::InvalidIri(i) => write!(f, "invalid IRI `{i}`"),
 			Self::InvalidValue(_, value) => {
 				write!(f, "invalid value {}", value.with(vocabulary))
 			}
@@ -563,7 +562,7 @@ async fn generate_test_suite(
 	for Triple(subject, predicate, object) in dataset.default_graph() {
 		if let ValidId::Iri(id) = subject {
 			if *predicate == ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))) {
-				if let json_ld::rdf::Value::Iri(ty) = object {
+				if let json_ld::rdf::Value::Id(ValidId::Iri(ty)) = object {
 					if let Some(type_id) = spec.type_map.get(ty) {
 						match spec.ignore.get(id) {
 							Some(link) => {

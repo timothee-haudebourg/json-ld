@@ -26,7 +26,7 @@ pub struct Print;
 
 impl<N, W: std::fmt::Display> Handler<N, W> for Print {
 	fn handle(&mut self, _vocabulary: &N, warning: W) {
-		eprintln!("{}", warning)
+		eprintln!("{warning}")
 	}
 }
 

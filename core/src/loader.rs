@@ -501,7 +501,7 @@ impl<M> ExtractContextError<M> {
 impl<M> fmt::Display for ExtractContextError<M> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
-			Self::Unexpected(k) => write!(f, "unexpected {}", k),
+			Self::Unexpected(k) => write!(f, "unexpected {k}"),
 			Self::NoContext => write!(f, "missing context"),
 			Self::DuplicateContext(_) => write!(f, "duplicate context"),
 			Self::Syntax(e) => e.fmt(f),

@@ -1,9 +1,9 @@
 use crate::{vocab, BlankIdIndex, Error, IriIndex, TestSpec, Vocab, Vocabulary};
-use grdf::Dataset;
+use contextual::AsRefWithContext;
 use json_ld::ValidId;
 use proc_macro2::TokenStream;
 use quote::quote;
-use rdf_types::{BlankIdVocabulary, IriVocabulary};
+use rdf_types::IriVocabulary;
 use std::collections::HashMap;
 
 mod parse;
@@ -85,14 +85,13 @@ impl Type {
 			Self::String => {
 				let s = match value {
 					json_ld::rdf::Value::Literal(lit) => lit.string_literal().as_str(),
-					json_ld::rdf::Value::Iri(i) => vocabulary.iri(i).unwrap().into_str(),
-					json_ld::rdf::Value::Blank(i) => vocabulary.blank_id(i).unwrap().as_str(),
+					json_ld::rdf::Value::Id(id) => id.as_ref_with(vocabulary),
 				};
 
 				Ok(quote! { #s })
 			}
 			Self::Iri => match value {
-				json_ld::rdf::Value::Iri(i) => {
+				json_ld::rdf::Value::Id(ValidId::Iri(i)) => {
 					let s = vocabulary.iri(i).unwrap().into_str();
 					Ok(quote! { ::static_iref::iri!(#s) })
 				}
@@ -143,27 +142,10 @@ impl Type {
 				}
 			}
 			Self::Ref(r) => match value {
-				json_ld::rdf::Value::Iri(id) => {
+				json_ld::rdf::Value::Id(id) => {
 					let d = spec.types.get(r).unwrap();
 					let mod_id = &spec.id;
-					d.generate(
-						vocabulary,
-						spec,
-						dataset,
-						ValidId::Iri(*id),
-						quote! { #mod_id :: #r },
-					)
-				}
-				json_ld::rdf::Value::Blank(id) => {
-					let d = spec.types.get(r).unwrap();
-					let mod_id = &spec.id;
-					d.generate(
-						vocabulary,
-						spec,
-						dataset,
-						ValidId::Blank(*id),
-						quote! { #mod_id :: #r },
-					)
+					d.generate(vocabulary, spec, dataset, *id, quote! { #mod_id :: #r })
 				}
 				_ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
 			},
@@ -262,7 +244,7 @@ impl Definition {
 
 				for ty_iri in node_types {
 					match ty_iri {
-						json_ld::rdf::Value::Iri(ty_iri) => {
+						json_ld::rdf::Value::Id(ValidId::Iri(ty_iri)) => {
 							if let Some(v) = e.variants.get(ty_iri) {
 								if variant.replace(v).is_some() {
 									return Err(Box::new(Error::MultipleTypeVariants(id)));

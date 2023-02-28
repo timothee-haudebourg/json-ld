@@ -34,8 +34,7 @@ pub type Triple<T, B> = rdf_types::Triple<ValidId<T, B>, ValidId<T, B>, Value<T,
 impl<T: Clone, B: Clone> Id<T, B> {
 	fn rdf_value(&self) -> Option<Value<T, B>> {
 		match self {
-			Id::Valid(ValidId::Iri(i)) => Some(Value::Iri(i.clone())),
-			Id::Valid(ValidId::Blank(b)) => Some(Value::Blank(b.clone())),
+			Id::Valid(id) => Some(Value::Id(id.clone())),
 			Id::Invalid(_) => None,
 		}
 	}
@@ -142,7 +141,7 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 		match self {
 			Self::Json(json) => Some(CompoundLiteral {
 				value: Value::Literal(Literal::TypedString(
-					json.compact_print().to_string().into(),
+					json.compact_print().to_string(),
 					vocabulary.insert(RDF_JSON),
 				)),
 				triples: None,
@@ -162,7 +161,7 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 					Some(direction) => match rdf_direction {
 						Some(RdfDirection::I18nDatatype) => Some(CompoundLiteral {
 							value: Value::Literal(Literal::TypedString(
-								string.to_string().into(),
+								string.to_string(),
 								vocabulary.insert(i18n(language, *direction).as_iri()),
 							)),
 							triples: None,
@@ -177,13 +176,13 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 						None => match language {
 							Some(language) => Some(CompoundLiteral {
 								value: Value::Literal(Literal::LangString(
-									string.to_string().into(),
+									string.to_string(),
 									language,
 								)),
 								triples: None,
 							}),
 							None => Some(CompoundLiteral {
-								value: Value::Literal(Literal::String(string.to_string().into())),
+								value: Value::Literal(Literal::String(string.to_string())),
 								triples: None,
 							}),
 						},
@@ -191,14 +190,14 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 					None => match language {
 						Some(language) => Some(CompoundLiteral {
 							value: Value::Literal(Literal::LangString(
-								string.to_string().into(),
+								string.to_string(),
 								language,
 							)),
 							triples: None,
 						}),
 						None => Some(CompoundLiteral {
 							value: Value::Literal(Literal::TypedString(
-								string.to_string().into(),
+								string.to_string(),
 								vocabulary.insert(XSD_STRING),
 							)),
 							triples: None,
@@ -210,14 +209,14 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 				let (rdf_lit, prefered_rdf_ty) = match lit {
 					value::Literal::Boolean(b) => {
 						let lit = if *b {
-							"true".to_string().into()
+							"true".to_string()
 						} else {
-							"false".to_string().into()
+							"false".to_string()
 						};
 
 						(lit, Some(vocabulary.insert(XSD_BOOLEAN)))
 					}
-					value::Literal::Null => ("null".to_string().into(), None),
+					value::Literal::Null => ("null".to_string(), None),
 					value::Literal::Number(n) => {
 						if n.is_i64()
 							&& !ty
@@ -225,15 +224,15 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 								.map(|t| vocabulary.iri(t).unwrap() == XSD_DOUBLE)
 								.unwrap_or(false)
 						{
-							(n.to_string().into(), Some(vocabulary.insert(XSD_INTEGER)))
+							(n.to_string(), Some(vocabulary.insert(XSD_INTEGER)))
 						} else {
 							(
-								pretty_dtoa::dtoa(n.as_f64_lossy(), XSD_CANONICAL_FLOAT).into(),
+								pretty_dtoa::dtoa(n.as_f64_lossy(), XSD_CANONICAL_FLOAT),
 								Some(vocabulary.insert(XSD_DOUBLE)),
 							)
 						}
 					}
-					value::Literal::String(s) => (s.to_string().into(), None),
+					value::Literal::String(s) => (s.to_string(), None),
 				};
 
 				let rdf_ty = match ty {
@@ -291,7 +290,7 @@ impl<T: Clone, B: Clone, M> Object<T, B, M> {
 			Self::List(list) => {
 				if list.is_empty() {
 					Some(CompoundValue {
-						value: Value::Iri(vocabulary.insert(RDF_NIL)),
+						value: Value::Id(ValidId::Iri(vocabulary.insert(RDF_NIL))),
 						triples: None,
 					})
 				} else {
@@ -553,7 +552,7 @@ impl<'a, T, B, M> ListTriples<'a, T, B, M> {
 								break Some(rdf_types::Triple(
 									previous_id,
 									ValidId::Iri(vocabulary.insert(RDF_REST)),
-									Value::Iri(vocabulary.insert(RDF_NIL)),
+									Value::Id(ValidId::Iri(vocabulary.insert(RDF_NIL))),
 								));
 							}
 						}
@@ -586,12 +585,12 @@ where
 	}
 }
 
-pub type Literal<T> = rdf_types::Literal<rdf_types::StringLiteral, T>;
+pub type Literal<T> = rdf_types::Literal<String, T>;
 
 fn i18n(language: Option<LanguageTagBuf>, direction: Direction) -> IriBuf {
 	let iri = match &language {
-		Some(language) => format!("https://www.w3.org/ns/i18n#{}_{}", language, direction),
-		None => format!("https://www.w3.org/ns/i18n#{}", direction),
+		Some(language) => format!("https://www.w3.org/ns/i18n#{language}_{direction}"),
+		None => format!("https://www.w3.org/ns/i18n#{direction}"),
 	};
 
 	IriBuf::from_string(iri).unwrap()

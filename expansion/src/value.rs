@@ -51,11 +51,11 @@ pub type ValueExpansionResult<T, B, M, W> =
 	Result<ExpandedValue<T, B, M, W>, Meta<InvalidValue, M>>;
 
 /// Expand a value object.
-pub(crate) fn expand_value<'e, T, B, M, N, C, W>(
+pub(crate) fn expand_value<T, B, M, N, C, W>(
 	vocabulary: &mut N,
 	input_type: Option<Meta<Term<T, B>, M>>,
 	type_scoped_context: &Context<T, B, C, M>,
-	expanded_entries: Vec<ExpandedEntry<'e, T, B, M>>,
+	expanded_entries: Vec<ExpandedEntry<T, B, M>>,
 	Meta(value_entry, meta): &Meta<json_syntax::Value<M>, M>,
 	mut warnings: W,
 ) -> ValueExpansionResult<T, B, M, W>
