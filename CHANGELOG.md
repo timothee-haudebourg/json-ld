@@ -5,7 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.13.1] - 2023-02-28
+## [0.14.1] - 2023-04-25
+
+### Added
+
+- [57e11e3] Add mutable accessors in `Object`.
+- [57e11e3] Add `Object::as_value_mut`.
+- [57e11e3] Add `Object::as_node_mut`.
+- [57e11e3] Add `Object::as_list_mut`.
+
+### Fixed
+
+- [8d38977] Fix deprecated `clippy::derive_hash_xor_eq`.
+- [4722c96] Fix formatting.
+
+### Removed
+
+- [dae97c2] Remove unused parameter in `invalid_iri`.
+
+## [0.14.0] - 2023-02-28
+
+### Build
+
+- [8fdf15f] Upgrade `rdf-types` from `0.13` to `0.14.2`.
 
 ### Fixed
 
