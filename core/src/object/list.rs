@@ -8,7 +8,7 @@ use locspan_derive::StrippedHash;
 use rdf_types::{Subject, Vocabulary, VocabularyMut};
 use std::hash::Hash;
 
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Derivative, Clone, Hash, StrippedHash)]
 #[derivative(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
