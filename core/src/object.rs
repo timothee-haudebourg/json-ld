@@ -113,7 +113,7 @@ pub type StrippedIndexedObject<T, B, M> = Stripped<IndexedObject<T, B, M>>;
 /// You can get an `Object` by expanding a JSON-LD document using the
 /// expansion algorithm or by converting an already expanded JSON document
 /// using [`TryFromJson`].
-#[allow(clippy::derive_hash_xor_eq)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Derivative, Clone, Hash, StrippedHash)]
 #[derivative(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
@@ -235,6 +235,15 @@ impl<T, B, M> Object<T, B, M> {
 		}
 	}
 
+	/// Returns this object as a mutable value, if it is one.
+	#[inline(always)]
+	pub fn as_value_mut(&mut self) -> Option<&mut Value<T, M>> {
+		match self {
+			Self::Value(v) => Some(v),
+			_ => None,
+		}
+	}
+
 	/// Converts this object as a value, if it is one.
 	#[inline(always)]
 	pub fn into_value(self) -> Option<Value<T, M>> {
@@ -253,6 +262,15 @@ impl<T, B, M> Object<T, B, M> {
 	/// Returns this object as a node, if it is one.
 	#[inline(always)]
 	pub fn as_node(&self) -> Option<&Node<T, B, M>> {
+		match self {
+			Self::Node(n) => Some(n),
+			_ => None,
+		}
+	}
+
+	/// Returns this object as a mutable node, if it is one.
+	#[inline(always)]
+	pub fn as_node_mut(&mut self) -> Option<&mut Node<T, B, M>> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -286,6 +304,15 @@ impl<T, B, M> Object<T, B, M> {
 	/// Returns this object as a list, if it is one.
 	#[inline(always)]
 	pub fn as_list(&self) -> Option<&List<T, B, M>> {
+		match self {
+			Self::List(l) => Some(l),
+			_ => None,
+		}
+	}
+
+	/// Returns this object as a mutable list, if it is one.
+	#[inline(always)]
+	pub fn as_list_mut(&mut self) -> Option<&mut List<T, B, M>> {
 		match self {
 			Self::List(l) => Some(l),
 			_ => None,

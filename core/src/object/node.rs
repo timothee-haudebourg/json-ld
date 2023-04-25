@@ -139,6 +139,18 @@ impl<T, B, M> Node<T, B, M> {
 		}
 	}
 
+	/// Creates a new graph node.
+	pub fn new_graph(id: Entry<Id<T, B>, M>, graph: GraphEntry<T, B, M>) -> Self {
+		Self {
+			id: Some(id),
+			types: None,
+			graph: Some(graph),
+			included: None,
+			properties: Properties::new(),
+			reverse_properties: None,
+		}
+	}
+
 	pub fn from_parts(parts: Parts<T, B, M>) -> Self {
 		Self {
 			id: parts.id,
