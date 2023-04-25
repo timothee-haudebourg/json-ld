@@ -5,12 +5,13 @@ use std::fmt;
 ///
 /// This is a property of the context processing and compaction options.
 /// New features defined in JSON-LD 1.1 are available unless the processing mode is set to [`ProcessingMode::JsonLd1_0`].
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ProcessingMode {
 	/// JSON-LD 1.0.
 	JsonLd1_0,
 
 	/// JSON-LD 1.1.
+	#[default]
 	JsonLd1_1,
 }
 
@@ -22,13 +23,6 @@ impl ProcessingMode {
 			ProcessingMode::JsonLd1_0 => "json-ld-1.0",
 			ProcessingMode::JsonLd1_1 => "json-ld-1.1",
 		}
-	}
-}
-
-impl Default for ProcessingMode {
-	#[inline(always)]
-	fn default() -> ProcessingMode {
-		ProcessingMode::JsonLd1_1
 	}
 }
 
