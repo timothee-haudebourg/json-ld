@@ -171,7 +171,7 @@ where
 							));
 						}
 						Some(_) => {
-							return Ok(invalid_iri::<_, _, _, _, Warning, _>(
+							return Ok(invalid_iri(
 								vocabulary,
 								Meta(value.to_string(), loc),
 								warnings,
@@ -198,7 +198,7 @@ where
 				}
 
 				// Return value as is.
-				Ok(invalid_iri::<_, _, _, _, Warning, _>(
+				Ok(invalid_iri(
 					vocabulary,
 					Meta(value.to_string(), loc),
 					warnings,
@@ -208,14 +208,7 @@ where
 	}
 }
 
-fn invalid_iri<
-	T,
-	B,
-	N,
-	M,
-	W: From<MalformedIri>,
-	H: json_ld_core::warning::Handler<N, Meta<Warning, M>>,
->(
+fn invalid_iri<T, B, N, M, H: json_ld_core::warning::Handler<N, Meta<Warning, M>>>(
 	vocabulary: &N,
 	Meta(value, loc): Meta<String, M>,
 	mut warnings: H,
