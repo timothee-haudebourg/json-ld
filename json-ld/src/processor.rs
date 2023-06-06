@@ -2099,14 +2099,9 @@ where
 		Some(base) => active_context.set_base_iri(Some(base.clone())),
 		None => {
 			if options.compact_to_relative && active_context.base_iri().is_none() {
-				eprintln!("compact to relative");
 				active_context.set_base_iri(url.cloned());
 			}
 		}
-	}
-
-	if let Some(base_iri) = active_context.base_iri() {
-		eprintln!("base IRI: {}", vocabulary.iri(base_iri).unwrap());
 	}
 
 	expanded_input
