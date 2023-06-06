@@ -2,7 +2,7 @@ use contextual::WithContext;
 use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference};
 use locspan::{Meta, Strip};
 use nquads_syntax::Parse;
-use rdf_types::{IndexVocabulary, IriVocabularyMut};
+use rdf_types::{IndexVocabulary, InsertIntoVocabulary, IriVocabularyMut, MapLiteral};
 use static_iref::iri;
 
 #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/toRdf-manifest.jsonld")]
@@ -156,7 +156,11 @@ impl to_rdf::Test {
 						.unwrap()
 						.into_value()
 						.into_iter()
-						.map(|Meta(q, _)| q.strip().insert_into(&mut vocabulary))
+						.map(|Meta(q, _)| {
+							q.strip()
+								.map_literal(|l| l.insert_type_into_vocabulary(&mut vocabulary))
+								.insert_into_vocabulary(&mut vocabulary)
+						})
 						.collect();
 
 				let success = dataset.is_isomorphic_to(&expected_dataset);

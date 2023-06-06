@@ -3,7 +3,7 @@ use crate::{id, Id, Indexed, Relabel, StrippedIndexedObject};
 use crate::{IndexedObject, TryFromJson};
 use hashbrown::HashMap;
 use locspan::{Location, Meta, StrippedEq, StrippedPartialEq};
-use rdf_types::vocabulary::{Index, VocabularyMut};
+use rdf_types::vocabulary::{BlankIdIndex, IriIndex, VocabularyMut};
 use rdf_types::Vocabulary;
 use std::collections::HashSet;
 use std::hash::Hash;
@@ -11,7 +11,7 @@ use std::hash::Hash;
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
-pub struct ExpandedDocument<T = Index, B = Index, M = Location<T>>(
+pub struct ExpandedDocument<T = IriIndex, B = BlankIdIndex, M = Location<T>>(
 	HashSet<StrippedIndexedObject<T, B, M>>,
 );
 

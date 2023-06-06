@@ -1,7 +1,7 @@
 use super::{Loader, RemoteDocument};
 use contextual::{DisplayWithContext, WithContext};
 use futures::future::{BoxFuture, FutureExt};
-use rdf_types::{vocabulary::Index, IriVocabulary};
+use rdf_types::{vocabulary::IriIndex, IriVocabulary};
 use std::fmt;
 use std::marker::PhantomData;
 
@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 /// Can be useful when you know that you will never need to load remote resource.
 ///
 /// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
-pub struct NoLoader<I = Index, M = locspan::Location<I>, T = json_ld_syntax::Value<M>>(
+pub struct NoLoader<I = IriIndex, M = locspan::Location<I>, T = json_ld_syntax::Value<M>>(
 	PhantomData<(I, M, T)>,
 );
 

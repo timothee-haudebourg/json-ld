@@ -3,7 +3,7 @@ use contextual::AsRefWithContext;
 use json_ld::ValidId;
 use proc_macro2::TokenStream;
 use quote::quote;
-use rdf_types::IriVocabulary;
+use rdf_types::{vocabulary::LiteralIndex, IriVocabulary, LiteralVocabulary};
 use std::collections::HashMap;
 
 mod parse;
@@ -62,29 +62,38 @@ impl Type {
 		vocabulary: &Vocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
-		value: &json_ld::rdf::Value<IriIndex, BlankIdIndex>,
+		value: &json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
 	) -> Result<TokenStream, Box<Error>> {
 		match self {
 			Self::Bool => {
 				let b = match value {
-					json_ld::rdf::Value::Literal(rdf_types::Literal::TypedString(
-						s,
-						IriIndex::Iri(Vocab::Xsd(vocab::Xsd::Boolean)),
-					)) => match s.as_str() {
-						"true" => true,
-						"false" => false,
-						_ => {
-							return Err(Box::new(Error::InvalidValue(self.clone(), value.clone())))
+					json_ld::rdf::Value::Literal(l) => {
+						let literal = vocabulary.literal(l).unwrap();
+						if *literal.type_()
+							== rdf_types::literal::Type::Any(IriIndex::Iri(Vocab::Xsd(
+								vocab::Xsd::Boolean,
+							))) {
+							match literal.value().as_str() {
+								"true" => true,
+								"false" => false,
+								_ => {
+									return Err(Box::new(Error::InvalidValue(self.clone(), *value)))
+								}
+							}
+						} else {
+							return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
 						}
-					},
-					_ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+					}
+					_ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 				};
 
 				Ok(quote! { #b })
 			}
 			Self::String => {
 				let s = match value {
-					json_ld::rdf::Value::Literal(lit) => lit.string_literal().as_str(),
+					json_ld::rdf::Value::Literal(lit) => {
+						vocabulary.literal(lit).unwrap().value().as_str()
+					}
 					json_ld::rdf::Value::Id(id) => id.as_ref_with(vocabulary),
 				};
 
@@ -95,16 +104,22 @@ impl Type {
 					let s = vocabulary.iri(i).unwrap().into_str();
 					Ok(quote! { ::static_iref::iri!(#s) })
 				}
-				_ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+				_ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 			},
 			Self::ProcessingMode => {
 				let s = match value {
-					json_ld::rdf::Value::Literal(rdf_types::Literal::String(s)) => s.as_str(),
-					json_ld::rdf::Value::Literal(rdf_types::Literal::TypedString(
-						s,
-						IriIndex::Iri(Vocab::Xsd(vocab::Xsd::String)),
-					)) => s.as_str(),
-					_ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+					json_ld::rdf::Value::Literal(l) => {
+						let literal = vocabulary.literal(l).unwrap();
+						if *literal.type_()
+							== rdf_types::literal::Type::Any(IriIndex::Iri(Vocab::Xsd(
+								vocab::Xsd::String,
+							))) {
+							literal.value().as_str()
+						} else {
+							return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
+						}
+					}
+					_ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 				};
 
 				match json_ld::ProcessingMode::try_from(s) {
@@ -116,17 +131,23 @@ impl Type {
 							Ok(quote! { ::json_ld::ProcessingMode::JsonLd1_1 })
 						}
 					},
-					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 				}
 			}
 			Self::RdfDirection => {
 				let s = match value {
-					json_ld::rdf::Value::Literal(rdf_types::Literal::String(s)) => s.as_str(),
-					json_ld::rdf::Value::Literal(rdf_types::Literal::TypedString(
-						s,
-						IriIndex::Iri(Vocab::Xsd(vocab::Xsd::String)),
-					)) => s.as_str(),
-					_ => return Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+					json_ld::rdf::Value::Literal(l) => {
+						let literal = vocabulary.literal(l).unwrap();
+						if *literal.type_()
+							== rdf_types::literal::Type::Any(IriIndex::Iri(Vocab::Xsd(
+								vocab::Xsd::String,
+							))) {
+							literal.value().as_str()
+						} else {
+							return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
+						}
+					}
+					_ => return Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 				};
 
 				match json_ld::rdf::RdfDirection::try_from(s) {
@@ -138,7 +159,7 @@ impl Type {
 							Ok(quote! { ::json_ld::rdf::RdfDirection::I18nDatatype })
 						}
 					},
-					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+					Err(_) => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 				}
 			}
 			Self::Ref(r) => match value {
@@ -147,7 +168,7 @@ impl Type {
 					let mod_id = &spec.id;
 					d.generate(vocabulary, spec, dataset, *id, quote! { #mod_id :: #r })
 				}
-				_ => Err(Box::new(Error::InvalidValue(self.clone(), value.clone()))),
+				_ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 			},
 		}
 	}
@@ -220,7 +241,7 @@ impl Struct {
 type OwnedDataset<'a> = grdf::HashDataset<
 	ValidId<IriIndex, BlankIdIndex>,
 	ValidId<IriIndex, BlankIdIndex>,
-	json_ld::rdf::Value<IriIndex, BlankIdIndex>,
+	json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
 	&'a ValidId<IriIndex, BlankIdIndex>,
 >;
 

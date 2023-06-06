@@ -1,7 +1,7 @@
 use super::{Loader, RemoteDocument};
 use futures::future::{BoxFuture, FutureExt};
 use locspan::Meta;
-use rdf_types::{vocabulary::Index, IriVocabulary};
+use rdf_types::{vocabulary::IriIndex, IriVocabulary};
 use std::collections::HashMap;
 use std::fmt;
 use std::fs::File;
@@ -55,7 +55,7 @@ type DynParser<I, M, T, E> = dyn 'static
 /// Loaded documents are not cached: a new file system read is made each time
 /// an URL is loaded even if it has already been queried before.
 pub struct FsLoader<
-	I = Index,
+	I = IriIndex,
 	M = locspan::Location<I>,
 	T = json_ld_syntax::Value<M>,
 	E = json_ld_syntax::parse::MetaError<M>,

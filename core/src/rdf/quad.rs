@@ -1,27 +1,43 @@
 use super::{RdfDirection, ValidId, Value};
 use crate::{flattening::NodeMap, id, ExpandedDocument, FlattenedDocument, LdQuads};
 use rdf_types::vocabulary::IriVocabularyMut;
-use rdf_types::{Triple, Vocabulary};
+use rdf_types::{
+	BlankIdVocabulary, IriVocabulary, LanguageTagVocabularyMut, LiteralVocabulary,
+	LiteralVocabularyMut, Triple, Vocabulary,
+};
 use std::borrow::Cow;
 use std::convert::TryInto;
 use std::hash::Hash;
 
-pub type Quad<T, B> = rdf_types::Quad<ValidId<T, B>, ValidId<T, B>, Value<T, B>, ValidId<T, B>>;
+pub type Quad<T, B, L> =
+	rdf_types::Quad<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>, ValidId<T, B>>;
 
-pub type QuadRef<'a, T, B> =
-	rdf_types::Quad<Cow<'a, ValidId<T, B>>, Cow<'a, ValidId<T, B>>, Value<T, B>, &'a ValidId<T, B>>;
+pub type QuadRef<'a, T, B, L> = rdf_types::Quad<
+	Cow<'a, ValidId<T, B>>,
+	Cow<'a, ValidId<T, B>>,
+	Value<T, B, L>,
+	&'a ValidId<T, B>,
+>;
 
-struct Compound<'a, T, B, M> {
+struct Compound<'a, T, B, L, M> {
 	graph: Option<&'a ValidId<T, B>>,
-	triples: super::CompoundValueTriples<'a, T, B, M>,
+	triples: super::CompoundValueTriples<'a, T, B, L, M>,
 }
+
+type VocabularyCompoundLiteral<'a, N, M> = Compound<
+	'a,
+	<N as IriVocabulary>::Iri,
+	<N as BlankIdVocabulary>::BlankId,
+	<N as LiteralVocabulary>::Literal,
+	M,
+>;
 
 /// Iterator over the RDF Quads of a JSON-LD document.
 pub struct Quads<'a, 'n, 'g, N: Vocabulary, M, G: id::Generator<N, M>> {
 	vocabulary: &'n mut N,
 	generator: &'g mut G,
 	rdf_direction: Option<RdfDirection>,
-	compound_value: Option<Compound<'a, N::Iri, N::BlankId, M>>,
+	compound_value: Option<VocabularyCompoundLiteral<'a, N, M>>,
 	quads: crate::quad::Quads<'a, N::Iri, N::BlankId, M>,
 	produce_generalized_rdf: bool,
 }
@@ -32,13 +48,24 @@ impl<'a, 'n, 'g, N: Vocabulary, M, G: id::Generator<N, M>> Quads<'a, 'n, 'g, N, 
 	}
 }
 
-impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut, M, G: id::Generator<N, M>> Iterator
-	for Quads<'a, 'n, 'g, N, M, G>
+impl<
+		'a,
+		'n,
+		'g,
+		N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut,
+		M,
+		G: id::Generator<N, M>,
+	> Iterator for Quads<'a, 'n, 'g, N, M, G>
 where
 	N::Iri: Clone,
 	N::BlankId: Clone,
+	N::Literal: Clone,
+	N: LiteralVocabularyMut<
+		Type = rdf_types::literal::Type<N::Iri, N::LanguageTag>,
+		Value = String,
+	>,
 {
-	type Item = QuadRef<'a, N::Iri, N::BlankId>;
+	type Item = QuadRef<'a, N::Iri, N::BlankId, N::Literal>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		loop {
@@ -121,13 +148,24 @@ pub struct ClonedQuads<'a, 'n, 'g, N: Vocabulary, M, G: id::Generator<N, M>> {
 	inner: Quads<'a, 'n, 'g, N, M, G>,
 }
 
-impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut, M, G: id::Generator<N, M>> Iterator
-	for ClonedQuads<'a, 'n, 'g, N, M, G>
+impl<
+		'a,
+		'n,
+		'g,
+		N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut,
+		M,
+		G: id::Generator<N, M>,
+	> Iterator for ClonedQuads<'a, 'n, 'g, N, M, G>
 where
 	N::Iri: Clone,
 	N::BlankId: Clone,
+	N::Literal: Clone,
+	N: LiteralVocabularyMut<
+		Type = rdf_types::literal::Type<N::Iri, N::LanguageTag>,
+		Value = String,
+	>,
 {
-	type Item = Quad<N::Iri, N::BlankId>;
+	type Item = Quad<N::Iri, N::BlankId, N::Literal>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.inner.next().map(|rdf_types::Quad(s, p, o, g)| {

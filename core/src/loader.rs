@@ -4,7 +4,7 @@ use iref::Iri;
 use locspan::{Location, MapLocErr, Meta};
 use mime::Mime;
 use mown::Mown;
-use rdf_types::{vocabulary::Index, IriVocabulary, IriVocabularyMut};
+use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
 use static_iref::iri;
 use std::fmt;
 
@@ -26,7 +26,7 @@ pub type LoadingResult<I, M, O, E> = Result<RemoteDocument<I, M, O>, E>;
 ///
 /// Either an IRI or the actual document content.
 #[derive(Clone)]
-pub enum RemoteDocumentReference<I = Index, M = Location<I>, T = json_syntax::Value<M>> {
+pub enum RemoteDocumentReference<I = IriIndex, M = Location<I>, T = json_syntax::Value<M>> {
 	/// IRI to the remote document.
 	Iri(I),
 
@@ -156,7 +156,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 ///
 /// Stores the content of a loaded remote document along with its original URL.
 #[derive(Clone)]
-pub struct RemoteDocument<I = Index, M = Location<I>, T = json_syntax::Value<M>> {
+pub struct RemoteDocument<I = IriIndex, M = Location<I>, T = json_syntax::Value<M>> {
 	/// The final URL of the loaded document, after eventual redirection.
 	url: Option<I>,
 

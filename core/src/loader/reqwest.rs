@@ -8,7 +8,7 @@ use hashbrown::HashSet;
 use iref::Iri;
 use locspan::{Meta, Span};
 use once_cell::sync::OnceCell;
-use rdf_types::{vocabulary::Index, IriVocabulary, IriVocabularyMut};
+use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
 use reqwest::{
 	header::{ACCEPT, CONTENT_TYPE, LINK, LOCATION},
 	StatusCode,
@@ -97,7 +97,7 @@ type DynParser<I, M, T, E> = dyn 'static
 /// Loaded documents are not cached: a new network query is made each time
 /// an URL is loaded even if it has already been queried before.
 pub struct ReqwestLoader<
-	I = Index,
+	I = IriIndex,
 	M = locspan::Location<I>,
 	T = json_ld_syntax::Value<M>,
 	E = ParseError<M>,

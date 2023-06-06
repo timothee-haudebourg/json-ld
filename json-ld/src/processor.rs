@@ -3,15 +3,15 @@ use crate::context_processing::{self, Process, ProcessMeta, Processed};
 use crate::expansion;
 use crate::syntax::{self, ErrorCode};
 use crate::{
-	id::Generator, ConflictingIndexes, Context, ContextLoader, ExpandedDocument, Loader,
-	ProcessingMode, RemoteDocumentReference,
+	flattening::ConflictingIndexes, id::Generator, Context, ContextLoader, ExpandedDocument,
+	Loader, ProcessingMode, RemoteDocumentReference,
 };
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use json_ld_core::rdf::RdfDirection;
 use json_ld_core::RdfQuads;
 use locspan::{Location, Meta};
-use rdf_types::vocabulary::Index;
+use rdf_types::vocabulary::IriIndex;
 use rdf_types::{vocabulary, IriVocabulary, Vocabulary, VocabularyMut};
 use std::hash::Hash;
 
@@ -19,7 +19,7 @@ mod remote_document;
 
 /// JSON-LD Processor options.
 #[derive(Clone)]
-pub struct Options<I = Index, M = Location<I>, C = json_ld_syntax::context::Value<M>> {
+pub struct Options<I = IriIndex, M = Location<I>, C = json_ld_syntax::context::Value<M>> {
 	/// The base IRI to use when expanding or compacting the document.
 	///
 	/// If set, this overrides the input document's IRI.

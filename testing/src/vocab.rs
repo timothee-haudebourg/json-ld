@@ -1,7 +1,7 @@
 use iref_enum::IriEnum;
 
-pub type IriIndex = rdf_types::vocabulary::IriIndex<Vocab>;
-pub type BlankIdIndex = rdf_types::vocabulary::Index;
+pub type IriIndex = rdf_types::vocabulary::IriOrIndex<Vocab>;
+pub type BlankIdIndex = rdf_types::vocabulary::BlankIdIndex;
 
 #[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Vocab {

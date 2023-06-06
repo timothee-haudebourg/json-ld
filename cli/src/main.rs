@@ -6,7 +6,7 @@ use contextual::WithContext;
 use iref::IriBuf;
 use json_ld::{syntax::Parse, JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference};
 use locspan::{Location, Span};
-use rdf_types::{vocabulary::Index, IriVocabulary, IriVocabularyMut};
+use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
 
 #[derive(Parser)]
 #[clap(name="json-ld", author, version, about, long_about = None)]
@@ -80,7 +80,7 @@ enum Source {
 	Nowhere,
 	StdIn,
 	Path,
-	Iri(rdf_types::vocabulary::Index),
+	Iri(IriIndex),
 }
 
 #[tokio::main]
@@ -92,7 +92,7 @@ async fn main() {
 	stderrlog::new().verbosity(args.verbosity).init().unwrap();
 
 	let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
-	let mut loader: json_ld::loader::ReqwestLoader<Index, Location<Source, Span>> =
+	let mut loader: json_ld::loader::ReqwestLoader<IriIndex, Location<Source, Span>> =
 		json_ld::loader::ReqwestLoader::new_with_metadata_map(|_, url, span| {
 			Location::new(Source::Iri(*url), span)
 		});
@@ -179,10 +179,10 @@ async fn main() {
 }
 
 fn get_remote_document(
-	vocabulary: &mut impl IriVocabularyMut<Iri = Index>,
+	vocabulary: &mut impl IriVocabularyMut<Iri = IriIndex>,
 	url_or_path: Option<IriOrPath>,
 	base_url: Option<IriBuf>,
-) -> RemoteDocumentReference<Index, Location<Source, Span>> {
+) -> RemoteDocumentReference<IriIndex, Location<Source, Span>> {
 	match url_or_path {
 		Some(IriOrPath::Iri(url)) => {
 			let url = vocabulary.insert(url.as_iri());

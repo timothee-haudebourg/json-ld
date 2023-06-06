@@ -8,7 +8,9 @@ use locspan::{Loc, Location, Meta, Span};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use rdf_types::{IriVocabulary, IriVocabularyMut, Quad, Triple};
+use rdf_types::{
+	vocabulary::LiteralIndex, IriVocabulary, IriVocabularyMut, Quad, RdfDisplay, Triple,
+};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -490,7 +492,10 @@ enum Error {
 	Load(json_ld::loader::fs::Error<json_ld::syntax::parse::MetaError<Location<IriIndex>>>),
 	Expand(ExpandError),
 	InvalidIri(String),
-	InvalidValue(Type, json_ld::rdf::Value<IriIndex, BlankIdIndex>),
+	InvalidValue(
+		Type,
+		json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
+	),
 	InvalidTypeField,
 	NoTypeVariants(ValidId<IriIndex, BlankIdIndex>),
 	MultipleTypeVariants(ValidId<IriIndex, BlankIdIndex>),
@@ -517,7 +522,7 @@ impl DisplayWithContext<Vocabulary> for Error {
 			Self::Expand(e) => e.fmt(f),
 			Self::InvalidIri(i) => write!(f, "invalid IRI `{i}`"),
 			Self::InvalidValue(_, value) => {
-				write!(f, "invalid value {}", value.with(vocabulary))
+				write!(f, "invalid value {}", value.with(vocabulary).rdf_display())
 			}
 			Self::InvalidTypeField => write!(f, "invalid type field"),
 			Self::NoTypeVariants(r) => {
@@ -652,7 +657,7 @@ fn func_name(prefix: &str, id: &str) -> String {
 type OwnedQuad<'a> = rdf_types::Quad<
 	ValidId<IriIndex, BlankIdIndex>,
 	ValidId<IriIndex, BlankIdIndex>,
-	json_ld::rdf::Value<IriIndex, BlankIdIndex>,
+	json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
 	&'a ValidId<IriIndex, BlankIdIndex>,
 >;
 
@@ -660,6 +665,7 @@ fn quad_to_owned(
 	rdf_types::Quad(subject, predicate, object, graph): json_ld::rdf::QuadRef<
 		IriIndex,
 		BlankIdIndex,
+		LiteralIndex,
 	>,
 ) -> OwnedQuad {
 	Quad(*subject.as_ref(), *predicate.as_ref(), object, graph)
