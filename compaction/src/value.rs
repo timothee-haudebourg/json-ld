@@ -1,5 +1,5 @@
 use crate::{compact_iri, compact_key, MetaError, Options};
-use json_ld_context_processing::{Options as ProcessingOptions, Process, ProcessMeta};
+use json_ld_context_processing::{Options as ProcessingOptions, Process};
 use json_ld_core::{
 	object, Container, ContainerKind, Context, ContextLoader, Id, Loader, Term, Type, Value,
 };

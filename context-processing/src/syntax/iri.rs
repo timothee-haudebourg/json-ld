@@ -1,5 +1,5 @@
 use super::{DefinedTerms, Merged};
-use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandler};
+use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iref::{Iri, IriRef};
 use json_ld_core::{future::{BoxFuture, FutureExt}, Context, ContextLoader, Id, Term};

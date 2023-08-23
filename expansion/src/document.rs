@@ -1,6 +1,6 @@
 use super::expand_element;
 use crate::{ActiveProperty, Error, Loader, Options, WarningHandler};
-use json_ld_context_processing::{ContextLoader, ProcessMeta};
+use json_ld_context_processing::ContextLoader;
 use json_ld_core::{Context, ExpandedDocument, IndexedObject, Object};
 use json_syntax::Value;
 use locspan::Meta;

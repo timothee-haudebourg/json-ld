@@ -1,15 +1,13 @@
 use crate::compaction::{self, Compact, CompactMeta};
-use crate::context_processing::{self, Process, ProcessMeta, Processed};
+use crate::context_processing::{self, Process, Processed};
 use crate::expansion;
 use crate::syntax::{self, ErrorCode};
 use crate::{
-	flattening::ConflictingIndexes,
-	future::{BoxFuture, FutureExt},
-	id::Generator,
-	Context, ContextLoader, ExpandedDocument, Loader, ProcessingMode, RemoteDocumentReference,
+	flattening::ConflictingIndexes, id::Generator, Context, ContextLoader, ExpandedDocument,
+	Loader, ProcessingMode,
 };
 use json_ld_core::rdf::RdfDirection;
-use json_ld_core::{RdfQuads, RemoteContextReference};
+use json_ld_core::{future::{BoxFuture, FutureExt}, RdfQuads, RemoteContextReference};
 use locspan::{Location, Meta};
 use rdf_types::vocabulary::IriIndex;
 use rdf_types::{vocabulary, IriVocabulary, Vocabulary, VocabularyMut};

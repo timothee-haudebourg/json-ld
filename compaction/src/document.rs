@@ -1,9 +1,6 @@
 use json_ld_context_processing::ContextLoader;
-use json_ld_core::{
-	future::{BoxFuture, FutureExt},
-	ExpandedDocument, FlattenedDocument, Term,
-};
-use json_ld_syntax::{IntoJson, IntoJsonMeta, Keyword};
+use json_ld_core::{future::{BoxFuture, FutureExt}, ExpandedDocument, FlattenedDocument, Term};
+use json_ld_syntax::{IntoJson, Keyword};
 use locspan::Meta;
 use rdf_types::{vocabulary, Vocabulary};
 use std::hash::Hash;

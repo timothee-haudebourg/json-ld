@@ -90,7 +90,7 @@ impl expand::Test {
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 		let mut loader: json_ld::FsLoader = json_ld::FsLoader::default();
 		loader.mount(
-			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api").into()),
+			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api")),
 			"json-ld-api",
 		);
 

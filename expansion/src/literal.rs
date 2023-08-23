@@ -2,7 +2,7 @@ use crate::{expand_iri, node_id_of_term, ActiveProperty, WarningHandler};
 use json_ld_core::{
 	object::value::Literal, Context, IndexedObject, LangString, Node, Object, Type, Value,
 };
-use json_ld_syntax::{context, Entry, ErrorCode, LenientLanguageTag, Nullable};
+use json_ld_syntax::{Entry, ErrorCode, LenientLanguageTag, Nullable};
 use json_syntax::Number;
 use locspan::{At, Meta};
 use rdf_types::VocabularyMut;

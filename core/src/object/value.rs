@@ -344,7 +344,7 @@ impl<M> TryFrom<json_syntax::Value<M>> for Literal {
 			json_syntax::Value::Null => Ok(Self::Null),
 			json_syntax::Value::Boolean(b) => Ok(Self::Boolean(b)),
 			json_syntax::Value::Number(n) => Ok(Self::Number(n)),
-			json_syntax::Value::String(s) => Ok(Self::String(s.into())),
+			json_syntax::Value::String(s) => Ok(Self::String(s)),
 			_ => Err(InvalidExpandedJson::InvalidLiteral),
 		}
 	}

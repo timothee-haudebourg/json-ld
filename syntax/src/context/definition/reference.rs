@@ -1,14 +1,11 @@
-use super::{
-	BindingsIter, Definition, EntryValueSubItems, Key, KeyOrKeyword, TermBinding, Type, Version,
-	Vocab,
-};
+use super::{BindingsIter, Definition, EntryValueSubItems, Key, TermBinding, Type, Version, Vocab};
 use crate::{
 	context::{self, TermDefinition},
-	Direction, Keyword, LenientLanguageTag, LenientLanguageTagBuf, Nullable,
+	Direction, LenientLanguageTagBuf, Nullable,
 };
 use context::Entry;
-use derivative::Derivative;
-use iref::{Iri, IriBuf, IriRef, IriRefBuf};
+
+use iref::IriRefBuf;
 use locspan::Meta;
 
 // pub type BaseEntryRef<'a, M> = Entry<Nullable<IriRef<'a>>, M>;
@@ -318,7 +315,7 @@ impl<'a, M> EntryRef<'a, M> {
 			Self::Type(_) => EntryKeyRef::Type,
 			Self::Version(_) => EntryKeyRef::Version,
 			Self::Vocab(_) => EntryKeyRef::Vocab,
-			Self::Definition(key, _) => EntryKeyRef::Definition(*key),
+			Self::Definition(key, _) => EntryKeyRef::Definition(key),
 		}
 	}
 
@@ -395,7 +392,7 @@ impl<'a, M> EntryRef<'a, M> {
 				EntryValueRef::Vocab(&v.value),
 			),
 			Self::Definition(key, b) => (
-				Meta(EntryKeyRef::Definition(*key), &b.key_metadata),
+				Meta(EntryKeyRef::Definition(key), &b.key_metadata),
 				EntryValueRef::Definition(&b.definition),
 			),
 		}

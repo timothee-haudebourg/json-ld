@@ -2,7 +2,7 @@ use crate::{
 	add_value, compact_collection_with, compact_iri, compact_iri_with, compact_key, value_value,
 	CompactFragment, CompactIndexedFragment, Error, MetaError, Options,
 };
-use json_ld_context_processing::ProcessMeta;
+
 use json_ld_core::{
 	context::Nest,
 	object::{self, List},

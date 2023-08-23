@@ -4,9 +4,7 @@
 //! # Usage
 //!
 //! The compaction algorithm is provided by the [`Compact`] trait.
-use json_ld_context_processing::{
-	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
-};
+use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
 use json_ld_core::{
 	context::inverse::{LangSelection, TypeSelection},
 	future::{BoxFuture, FutureExt},
