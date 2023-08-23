@@ -3,7 +3,7 @@ use crate::{Container, Direction, LenientLanguageTagBuf, Nullable, Term, Type};
 use contextual::WithContext;
 use json_ld_syntax::{
 	context::{
-		definition::{Key, KeyOrTypeRef, KeyRef, TypeContainer},
+		definition::{Key, TypeContainer},
 		term_definition::Index,
 	},
 	Entry, KeywordType,
@@ -11,39 +11,59 @@ use json_ld_syntax::{
 use locspan::{BorrowStripped, Meta, StrippedEq, StrippedPartialEq};
 use locspan_derive::{StrippedEq, StrippedPartialEq};
 use rdf_types::{IriVocabulary, Vocabulary};
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::hash::Hash;
+use std::{borrow::Borrow, fmt};
 
 /// Term binding.
-pub enum Binding<T, B, L, M> {
+pub enum Binding<T, B, M> {
 	/// Normal term definition.
-	Normal(Key, NormalTermDefinition<T, B, L, M>),
+	Normal(Key, NormalTermDefinition<T, B, M>),
 
 	/// `@type` term definition.
 	Type(TypeTermDefinition),
 }
 
 /// Term binding reference.
-pub enum BindingRef<'a, T, B, L, M> {
+pub enum BindingRef<'a, T, B, M> {
 	/// Normal term definition.
-	Normal(&'a Key, &'a NormalTermDefinition<T, B, L, M>),
+	Normal(&'a Key, &'a NormalTermDefinition<T, B, M>),
 
 	/// `@type` term definition.
 	Type(&'a TypeTermDefinition),
 }
 
-impl<'a, T, B, L, M> BindingRef<'a, T, B, L, M> {
-	/// Returns a reference to the bound term.
-	pub fn term(&self) -> KeyOrTypeRef<'a> {
+pub enum BindingTerm<'a> {
+	Normal(&'a Key),
+	Type,
+}
+
+impl<'a> BindingTerm<'a> {
+	pub fn as_str(&self) -> &'a str {
 		match self {
-			Self::Normal(key, _) => KeyOrTypeRef::Key(KeyRef::from(*key)),
-			Self::Type(_) => KeyOrTypeRef::Type,
+			Self::Normal(key) => key.as_str(),
+			Self::Type => "@type",
+		}
+	}
+}
+
+impl<'a> fmt::Display for BindingTerm<'a> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		self.as_str().fmt(f)
+	}
+}
+
+impl<'a, T, B, M> BindingRef<'a, T, B, M> {
+	/// Returns a reference to the bound term.
+	pub fn term(&self) -> BindingTerm<'a> {
+		match self {
+			Self::Normal(key, _) => BindingTerm::Normal(key),
+			Self::Type(_) => BindingTerm::Type,
 		}
 	}
 
 	/// Returns a reference to the bound term definition.
-	pub fn definition(&self) -> TermDefinitionRef<'a, T, B, L, M> {
+	pub fn definition(&self) -> TermDefinitionRef<'a, T, B, M> {
 		match self {
 			Self::Normal(_, d) => TermDefinitionRef::Normal(d),
 			Self::Type(d) => TermDefinitionRef::Type(d),
@@ -53,12 +73,12 @@ impl<'a, T, B, L, M> BindingRef<'a, T, B, L, M> {
 
 /// Context term definitions.
 #[derive(Clone)]
-pub struct Definitions<T, B, L, M> {
-	normal: HashMap<Key, NormalTermDefinition<T, B, L, M>>,
+pub struct Definitions<T, B, M> {
+	normal: HashMap<Key, NormalTermDefinition<T, B, M>>,
 	type_: Option<TypeTermDefinition>,
 }
 
-impl<T, B, L, M> Default for Definitions<T, B, L, M> {
+impl<T, B, M> Default for Definitions<T, B, M> {
 	fn default() -> Self {
 		Self {
 			normal: HashMap::new(),
@@ -67,12 +87,12 @@ impl<T, B, L, M> Default for Definitions<T, B, L, M> {
 	}
 }
 
-impl<T, B, L, M> Definitions<T, B, L, M> {
+impl<T, B, M> Definitions<T, B, M> {
 	#[allow(clippy::type_complexity)]
 	pub fn into_parts(
 		self,
 	) -> (
-		HashMap<Key, NormalTermDefinition<T, B, L, M>>,
+		HashMap<Key, NormalTermDefinition<T, B, M>>,
 		Option<TypeTermDefinition>,
 	) {
 		(self.normal, self.type_)
@@ -93,7 +113,7 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 	}
 
 	/// Returns a reference to the definition of the given `term`, if any.
-	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<TermDefinitionRef<T, B, L, M>>
+	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<TermDefinitionRef<T, B, M>>
 	where
 		Q: Hash + Eq,
 		Key: Borrow<Q>,
@@ -107,7 +127,7 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 	}
 
 	/// Returns a reference to the normal definition of the given `term`, if any.
-	pub fn get_normal<Q: ?Sized>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B, L, M>>
+	pub fn get_normal<Q: ?Sized>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B, M>>
 	where
 		Q: Hash + Eq,
 		Key: Borrow<Q>,
@@ -134,7 +154,7 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 	}
 
 	/// Inserts the given `binding`.
-	pub fn insert(&mut self, binding: Binding<T, B, L, M>) -> Option<TermDefinition<T, B, L, M>> {
+	pub fn insert(&mut self, binding: Binding<T, B, M>) -> Option<TermDefinition<T, B, M>> {
 		match binding {
 			Binding::Normal(key, definition) => self
 				.insert_normal(key, definition)
@@ -147,8 +167,8 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 	pub fn insert_normal(
 		&mut self,
 		term: Key,
-		definition: NormalTermDefinition<T, B, L, M>,
-	) -> Option<NormalTermDefinition<T, B, L, M>> {
+		definition: NormalTermDefinition<T, B, M>,
+	) -> Option<NormalTermDefinition<T, B, M>> {
 		self.normal.insert(term, definition)
 	}
 
@@ -161,8 +181,8 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 	pub fn set_normal(
 		&mut self,
 		term: Key,
-		definition: Option<NormalTermDefinition<T, B, L, M>>,
-	) -> Option<NormalTermDefinition<T, B, L, M>> {
+		definition: Option<NormalTermDefinition<T, B, M>>,
+	) -> Option<NormalTermDefinition<T, B, M>> {
 		match definition {
 			Some(d) => self.normal.insert(term, d),
 			None => self.normal.remove(&term),
@@ -178,7 +198,7 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 	}
 
 	/// Returns an iterator over the term definitions.
-	pub fn iter(&self) -> Iter<T, B, L, M> {
+	pub fn iter(&self) -> Iter<T, B, M> {
 		Iter {
 			type_: self.type_.as_ref(),
 			normal: self.normal.iter(),
@@ -186,13 +206,13 @@ impl<T, B, L, M> Definitions<T, B, L, M> {
 	}
 }
 
-pub struct Iter<'a, T, B, L, M> {
+pub struct Iter<'a, T, B, M> {
 	type_: Option<&'a TypeTermDefinition>,
-	normal: std::collections::hash_map::Iter<'a, Key, NormalTermDefinition<T, B, L, M>>,
+	normal: std::collections::hash_map::Iter<'a, Key, NormalTermDefinition<T, B, M>>,
 }
 
-impl<'a, T, B, L, M> Iterator for Iter<'a, T, B, L, M> {
-	type Item = BindingRef<'a, T, B, L, M>;
+impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
+	type Item = BindingRef<'a, T, B, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.type_
@@ -202,22 +222,22 @@ impl<'a, T, B, L, M> Iterator for Iter<'a, T, B, L, M> {
 	}
 }
 
-impl<'a, T, B, L, M> IntoIterator for &'a Definitions<T, B, L, M> {
-	type Item = BindingRef<'a, T, B, L, M>;
-	type IntoIter = Iter<'a, T, B, L, M>;
+impl<'a, T, B, M> IntoIterator for &'a Definitions<T, B, M> {
+	type Item = BindingRef<'a, T, B, M>;
+	type IntoIter = Iter<'a, T, B, M>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
 
-pub struct IntoIter<T, B, L, M> {
+pub struct IntoIter<T, B, M> {
 	type_: Option<TypeTermDefinition>,
-	normal: std::collections::hash_map::IntoIter<Key, NormalTermDefinition<T, B, L, M>>,
+	normal: std::collections::hash_map::IntoIter<Key, NormalTermDefinition<T, B, M>>,
 }
 
-impl<T, B, L, M> Iterator for IntoIter<T, B, L, M> {
-	type Item = Binding<T, B, L, M>;
+impl<T, B, M> Iterator for IntoIter<T, B, M> {
+	type Item = Binding<T, B, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.type_
@@ -227,9 +247,9 @@ impl<T, B, L, M> Iterator for IntoIter<T, B, L, M> {
 	}
 }
 
-impl<T, B, L, M> IntoIterator for Definitions<T, B, L, M> {
-	type Item = Binding<T, B, L, M>;
-	type IntoIter = IntoIter<T, B, L, M>;
+impl<T, B, M> IntoIterator for Definitions<T, B, M> {
+	type Item = Binding<T, B, M>;
+	type IntoIter = IntoIter<T, B, M>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		IntoIter {
@@ -271,9 +291,9 @@ impl TypeTermDefinition {
 		meta: M,
 	) -> Meta<json_ld_syntax::context::definition::Type<M>, M> {
 		let def = json_ld_syntax::context::definition::Type {
-			container: Entry::new(meta.clone(), Meta(self.container, meta.clone())),
+			container: Entry::new_with(meta.clone(), Meta(self.container, meta.clone())),
 			protected: if self.protected {
-				Some(Entry::new(meta.clone(), Meta(true, meta.clone())))
+				Some(Entry::new_with(meta.clone(), Meta(true, meta.clone())))
 			} else {
 				None
 			},
@@ -286,23 +306,23 @@ impl TypeTermDefinition {
 /// Term definition.
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq, Clone)]
 #[locspan(stripped(T, B), fixed(T, B))]
-pub enum TermDefinition<T, B, C, M> {
+pub enum TermDefinition<T, B, M> {
 	/// `@type` term definition.
 	Type(TypeTermDefinition),
 
 	/// Normal term definition.
-	Normal(NormalTermDefinition<T, B, C, M>),
+	Normal(NormalTermDefinition<T, B, M>),
 }
 
-impl<T, B, C, M> TermDefinition<T, B, C, M> {
-	pub fn as_ref(&self) -> TermDefinitionRef<T, B, C, M> {
+impl<T, B, M> TermDefinition<T, B, M> {
+	pub fn as_ref(&self) -> TermDefinitionRef<T, B, M> {
 		match self {
 			Self::Type(t) => TermDefinitionRef::Type(t),
 			Self::Normal(n) => TermDefinitionRef::Normal(n),
 		}
 	}
 
-	pub fn modulo_protected_field(&self) -> ModuloProtected<TermDefinitionRef<T, B, C, M>> {
+	pub fn modulo_protected_field(&self) -> ModuloProtected<TermDefinitionRef<T, B, M>> {
 		ModuloProtected(self.as_ref())
 	}
 
@@ -341,7 +361,7 @@ impl<T, B, C, M> TermDefinition<T, B, C, M> {
 		}
 	}
 
-	pub fn context(&self) -> Option<&Entry<C, M>> {
+	pub fn context(&self) -> Option<&Entry<Box<json_ld_syntax::context::Value<M>>, M>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.context.as_ref(),
@@ -394,15 +414,15 @@ impl<T, B, C, M> TermDefinition<T, B, C, M> {
 /// Term definition reference.
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq)]
 #[locspan(stripped(T, B), fixed(T, B))]
-pub enum TermDefinitionRef<'a, T, B, C, M> {
+pub enum TermDefinitionRef<'a, T, B, M> {
 	/// `@type` definition.
 	Type(&'a TypeTermDefinition),
 
 	/// Normal definition.
-	Normal(&'a NormalTermDefinition<T, B, C, M>),
+	Normal(&'a NormalTermDefinition<T, B, M>),
 }
 
-impl<'a, T, B, C, M> TermDefinitionRef<'a, T, B, C, M> {
+impl<'a, T, B, M> TermDefinitionRef<'a, T, B, M> {
 	pub fn modulo_protected_field(&self) -> ModuloProtected<Self> {
 		ModuloProtected(*self)
 	}
@@ -442,7 +462,7 @@ impl<'a, T, B, C, M> TermDefinitionRef<'a, T, B, C, M> {
 		}
 	}
 
-	pub fn context(&self) -> Option<&'a Entry<C, M>> {
+	pub fn context(&self) -> Option<&'a Entry<Box<json_ld_syntax::context::Value<M>>, M>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.context.as_ref(),
@@ -492,7 +512,7 @@ impl<'a, T, B, C, M> TermDefinitionRef<'a, T, B, C, M> {
 	}
 }
 
-impl<'a, T, B, C, M> Clone for TermDefinitionRef<'a, T, B, C, M> {
+impl<'a, T, B, M> Clone for TermDefinitionRef<'a, T, B, M> {
 	fn clone(&self) -> Self {
 		match self {
 			Self::Type(d) => Self::Type(d),
@@ -501,12 +521,12 @@ impl<'a, T, B, C, M> Clone for TermDefinitionRef<'a, T, B, C, M> {
 	}
 }
 
-impl<'a, T, B, C, M> Copy for TermDefinitionRef<'a, T, B, C, M> {}
+impl<'a, T, B, M> Copy for TermDefinitionRef<'a, T, B, M> {}
 
 // A term definition.
 #[derive(PartialEq, Eq, StrippedPartialEq, StrippedEq, Clone)]
 #[locspan(stripped(T, B), fixed(T, B))]
-pub struct NormalTermDefinition<T, B, C, M> {
+pub struct NormalTermDefinition<T, B, M> {
 	// IRI mapping.
 	#[locspan(stripped)]
 	pub value: Option<Term<T, B>>,
@@ -528,7 +548,7 @@ pub struct NormalTermDefinition<T, B, C, M> {
 	pub base_url: Option<T>,
 
 	// Optional context.
-	pub context: Option<Entry<C, M>>,
+	pub context: Option<Entry<Box<json_ld_syntax::context::Value<M>>, M>>,
 
 	// Container mapping.
 	#[locspan(stripped)]
@@ -555,7 +575,7 @@ pub struct NormalTermDefinition<T, B, C, M> {
 	pub typ: Option<Type<T>>,
 }
 
-impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
+impl<T, B, M> NormalTermDefinition<T, B, M> {
 	pub fn modulo_protected_field(&self) -> ModuloProtected<&Self> {
 		ModuloProtected(self)
 	}
@@ -570,7 +590,6 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 		meta: M,
 	) -> Meta<Nullable<json_ld_syntax::context::TermDefinition<M>>, M>
 	where
-		C: IntoSyntax<T, B, M>,
 		M: Clone,
 	{
 		use json_ld_syntax::context::term_definition::{Id, Type as SyntaxType, TypeKeyword};
@@ -614,7 +633,7 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 			(
 				None,
 				self.value.map(|t| {
-					Entry::new(
+					Entry::new_with(
 						meta.clone(),
 						Meta(term_into_key(vocabulary, t), meta.clone()),
 					)
@@ -623,7 +642,7 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 		} else {
 			(
 				self.value.map(|t| {
-					Entry::new(
+					Entry::new_with(
 						meta.clone(),
 						Meta(term_into_id(vocabulary, t), meta.clone()),
 					)
@@ -637,7 +656,7 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 		let expanded = json_ld_syntax::context::term_definition::Expanded {
 			id,
 			type_: self.typ.map(|t| {
-				Entry::new(
+				Entry::new_with(
 					meta.clone(),
 					Meta(
 						Nullable::Some(type_into_syntax(vocabulary, t)),
@@ -646,7 +665,7 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 				)
 			}),
 			context: self.context.map(|e| {
-				Entry::new(
+				Entry::new_with(
 					e.key_metadata.clone(),
 					Meta(
 						Box::new(e.value.0.into_syntax(vocabulary, meta.clone())),
@@ -658,21 +677,21 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 			index: self.index.clone(),
 			language: self
 				.language
-				.map(|l| Entry::new(meta.clone(), Meta(l, meta.clone()))),
+				.map(|l| Entry::new_with(meta.clone(), Meta(l, meta.clone()))),
 			direction: self
 				.direction
-				.map(|d| Entry::new(meta.clone(), Meta(d, meta.clone()))),
+				.map(|d| Entry::new_with(meta.clone(), Meta(d, meta.clone()))),
 			container: container
-				.map(|Meta(c, m)| Entry::new(meta.clone(), Meta(Nullable::Some(c), m))),
+				.map(|Meta(c, m)| Entry::new_with(meta.clone(), Meta(Nullable::Some(c), m))),
 			nest: self.nest.clone(),
 			prefix: if self.prefix {
-				Some(Entry::new(meta.clone(), Meta(true, meta.clone())))
+				Some(Entry::new_with(meta.clone(), Meta(true, meta.clone())))
 			} else {
 				None
 			},
 			propagate: None,
 			protected: if self.protected {
-				Some(Entry::new(meta.clone(), Meta(true, meta.clone())))
+				Some(Entry::new_with(meta.clone(), Meta(true, meta.clone())))
 			} else {
 				None
 			},
@@ -682,8 +701,8 @@ impl<T, B, C, M> NormalTermDefinition<T, B, C, M> {
 	}
 }
 
-impl<T, B, C, M> Default for NormalTermDefinition<T, B, C, M> {
-	fn default() -> NormalTermDefinition<T, B, C, M> {
+impl<T, B, M> Default for NormalTermDefinition<T, B, M> {
+	fn default() -> NormalTermDefinition<T, B, M> {
 		NormalTermDefinition {
 			value: None,
 			prefix: false,
@@ -704,11 +723,11 @@ impl<T, B, C, M> Default for NormalTermDefinition<T, B, C, M> {
 /// Wrapper to consider a term definition without the `@protected` flag.
 pub struct ModuloProtected<T>(T);
 
-impl<'a, 'b, T: PartialEq, B: PartialEq, C: StrippedPartialEq<E>, M, E, N>
-	StrippedPartialEq<ModuloProtected<&'b NormalTermDefinition<T, B, E, N>>>
-	for ModuloProtected<&'a NormalTermDefinition<T, B, C, M>>
+impl<'a, 'b, T: PartialEq, B: PartialEq, M, N>
+	StrippedPartialEq<ModuloProtected<&'b NormalTermDefinition<T, B, N>>>
+	for ModuloProtected<&'a NormalTermDefinition<T, B, M>>
 {
-	fn stripped_eq(&self, other: &ModuloProtected<&'b NormalTermDefinition<T, B, E, N>>) -> bool {
+	fn stripped_eq(&self, other: &ModuloProtected<&'b NormalTermDefinition<T, B, N>>) -> bool {
 		// NOTE we ignore the `protected` flag.
 		self.0.prefix == other.0.prefix
 			&& self.0.reverse_property == other.0.reverse_property
@@ -724,10 +743,7 @@ impl<'a, 'b, T: PartialEq, B: PartialEq, C: StrippedPartialEq<E>, M, E, N>
 	}
 }
 
-impl<'a, T: Eq, B: Eq, C: StrippedEq, M> StrippedEq
-	for ModuloProtected<&'a NormalTermDefinition<T, B, C, M>>
-{
-}
+impl<'a, T: Eq, B: Eq, M> StrippedEq for ModuloProtected<&'a NormalTermDefinition<T, B, M>> {}
 
 impl<'a, 'b> StrippedPartialEq<ModuloProtected<&'b TypeTermDefinition>>
 	for ModuloProtected<&'a TypeTermDefinition>
@@ -740,11 +756,11 @@ impl<'a, 'b> StrippedPartialEq<ModuloProtected<&'b TypeTermDefinition>>
 
 impl<'a> StrippedEq for ModuloProtected<&'a TypeTermDefinition> {}
 
-impl<'a, 'b, T: PartialEq, B: PartialEq, C: StrippedPartialEq, M>
-	StrippedPartialEq<ModuloProtected<TermDefinitionRef<'b, T, B, C, M>>>
-	for ModuloProtected<TermDefinitionRef<'a, T, B, C, M>>
+impl<'a, 'b, T: PartialEq, B: PartialEq, M>
+	StrippedPartialEq<ModuloProtected<TermDefinitionRef<'b, T, B, M>>>
+	for ModuloProtected<TermDefinitionRef<'a, T, B, M>>
 {
-	fn stripped_eq(&self, other: &ModuloProtected<TermDefinitionRef<'b, T, B, C, M>>) -> bool {
+	fn stripped_eq(&self, other: &ModuloProtected<TermDefinitionRef<'b, T, B, M>>) -> bool {
 		// NOTE we ignore the `protected` flag.
 		self.0.prefix() == other.0.prefix()
 			&& self.0.reverse_property() == other.0.reverse_property()
@@ -760,7 +776,4 @@ impl<'a, 'b, T: PartialEq, B: PartialEq, C: StrippedPartialEq, M>
 	}
 }
 
-impl<'a, T: Eq, B: Eq, C: StrippedEq, M> StrippedEq
-	for ModuloProtected<TermDefinitionRef<'a, T, B, C, M>>
-{
-}
+impl<'a, T: Eq, B: Eq, M> StrippedEq for ModuloProtected<TermDefinitionRef<'a, T, B, M>> {}

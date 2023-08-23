@@ -1,7 +1,7 @@
 use crate::{expand_iri, ExpandedEntry, Warning, WarningHandler};
 use json_ld_core::{
-	object::value::{Literal, LiteralString},
-	Context, Id, Indexed, IndexedObject, LangString, Object, Term, ValidId, Value,
+	object::value::Literal, Context, Id, Indexed, IndexedObject, LangString, Object, Term, ValidId,
+	Value,
 };
 use json_ld_syntax::{Direction, ErrorCode, Keyword, LenientLanguageTagBuf, Nullable};
 use locspan::{At, Meta};
@@ -51,10 +51,10 @@ pub type ValueExpansionResult<T, B, M, W> =
 	Result<ExpandedValue<T, B, M, W>, Meta<InvalidValue, M>>;
 
 /// Expand a value object.
-pub(crate) fn expand_value<T, B, M, N, C, W>(
+pub(crate) fn expand_value<T, B, M, N, W>(
 	vocabulary: &mut N,
 	input_type: Option<Meta<Term<T, B>, M>>,
-	type_scoped_context: &Context<T, B, C, M>,
+	type_scoped_context: &Context<T, B, M>,
 	expanded_entries: Vec<ExpandedEntry<T, B, M>>,
 	Meta(value_entry, meta): &Meta<json_syntax::Value<M>, M>,
 	mut warnings: W,
@@ -117,7 +117,7 @@ where
 				// If value is not a string, an invalid @index value error has
 				// been detected and processing is aborted.
 				if let Some(value) = value.as_str() {
-					index = Some(json_ld_syntax::Entry::new(
+					index = Some(json_ld_syntax::Entry::new_with(
 						key.into_metadata().clone(),
 						Meta(value.to_string(), value_metadata.clone()),
 					))
@@ -131,7 +131,7 @@ where
 					let Meta(expanded_ty, _) = expand_iri(
 						vocabulary,
 						type_scoped_context,
-						Meta(Nullable::Some(ty_value.into()), value_metadata.clone()),
+						Meta(Nullable::Some(ty_value.into()), value_metadata),
 						true,
 						true,
 						&mut warnings,
@@ -167,7 +167,7 @@ where
 		}
 		return Ok((
 			Some(Meta(
-				Indexed::new(
+				Indexed::new_entry(
 					Object::Value(Value::Json(Meta(value_entry.clone(), meta.clone()))),
 					index,
 				),
@@ -181,7 +181,7 @@ where
 	// error has been detected and processing is aborted.
 	let result = match value_entry {
 		json_syntax::Value::Null => Literal::Null,
-		json_syntax::Value::String(s) => Literal::String(LiteralString::Expanded(s.clone())),
+		json_syntax::Value::String(s) => Literal::String(s.clone()),
 		json_syntax::Value::Number(n) => Literal::Number(n.clone()),
 		json_syntax::Value::Boolean(b) => Literal::Boolean(*b),
 		_ => {
@@ -231,7 +231,7 @@ where
 			return match LangString::new(s, lang, direction) {
 				Ok(result) => Ok((
 					Some(Meta(
-						Indexed::new(Object::Value(Value::LangString(result)), index),
+						Indexed::new_entry(Object::Value(Value::LangString(result)), index),
 						meta.clone(),
 					)),
 					warnings,
@@ -250,7 +250,7 @@ where
 
 	Ok((
 		Some(Meta(
-			Indexed::new(Object::Value(Value::Literal(result, ty)), index),
+			Indexed::new_entry(Object::Value(Value::Literal(result, ty)), index),
 			meta.clone(),
 		)),
 		warnings,

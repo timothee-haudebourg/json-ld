@@ -2,26 +2,26 @@ use super::{
 	compact_expanded_full, CompactError, CompactResult, CompareResult, ExpandError, ExpandResult,
 	FlattenError, FlattenResult, JsonLdProcessor, Options,
 };
-use crate::context_processing::{self, Process, ProcessMeta};
+use crate::context_processing::{self, Process};
 use crate::expansion::{self, Expand};
 use crate::syntax;
 use crate::{
-	future::{BoxFuture, FutureExt},
 	id::Generator,
 	Context, ContextLoader, Flatten, Loader, RemoteDocument, RemoteDocumentReference,
 };
 use contextual::WithContext;
+use json_ld_core::{future::{BoxFuture, FutureExt}, RemoteContextReference};
 use locspan::BorrowStripped;
 use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
 impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>> {
-	fn compare_full<'a, B, C, N, L>(
+	fn compare_full<'a, B, N, L>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		mut warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -30,13 +30,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {
@@ -60,11 +58,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 		.boxed()
 	}
 
-	fn expand_full<'a, B, C, N, L>(
+	fn expand_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		mut options: Options<I, M, C>,
+		mut options: Options<I, M>,
 		mut warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -73,13 +71,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {
@@ -139,12 +135,12 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 		.boxed()
 	}
 
-	fn compact_full<'a, B, C, N, L>(
+	fn compact_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: RemoteDocumentReference<I, M, C>,
+		context: RemoteContextReference<I, M>,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		mut warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -153,13 +149,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {
@@ -187,13 +181,13 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 		.boxed()
 	}
 
-	fn flatten_full<'a, B, C, N, L>(
+	fn flatten_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut (impl Send + Generator<N, M>),
-		context: Option<RemoteDocumentReference<I, M, C>>,
+		context: Option<RemoteContextReference<I, M>>,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		mut warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -202,13 +196,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {
@@ -248,12 +240,12 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 }
 
 impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::Value<M>> {
-	fn compare_full<'a, B, C, N, L>(
+	fn compare_full<'a, B, N, L>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -262,13 +254,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {
@@ -293,11 +283,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		.boxed()
 	}
 
-	fn expand_full<'a, B, C, N, L>(
+	fn expand_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -306,13 +296,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {
@@ -325,12 +313,12 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		.boxed()
 	}
 
-	fn compact_full<'a, B, C, N, L>(
+	fn compact_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: RemoteDocumentReference<I, M, C>,
+		context: RemoteContextReference<I, M>,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -339,13 +327,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {
@@ -366,13 +352,13 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		.boxed()
 	}
 
-	fn flatten_full<'a, B, C, N, L>(
+	fn flatten_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut (impl Send + Generator<N, M>),
-		context: Option<RemoteDocumentReference<I, M, C>>,
+		context: Option<RemoteContextReference<I, M>>,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -381,13 +367,11 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {

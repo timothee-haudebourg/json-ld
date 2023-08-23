@@ -1,9 +1,6 @@
 use std::fmt;
 
-use crate::{
-	context::definition::{KeyOrKeyword, KeyOrKeywordRef},
-	Keyword,
-};
+use crate::{context::definition::KeyOrKeyword, Keyword};
 
 pub enum Expandable {
 	Keyword(Keyword),
@@ -18,14 +15,14 @@ pub enum ExpandableRef<'a> {
 	String(&'a str),
 }
 
-impl<'a> From<KeyOrKeywordRef<'a>> for ExpandableRef<'a> {
-	fn from(k: KeyOrKeywordRef<'a>) -> Self {
-		match k {
-			KeyOrKeywordRef::Keyword(k) => Self::Keyword(k),
-			KeyOrKeywordRef::Key(k) => Self::String(k.as_str()),
-		}
-	}
-}
+// impl<'a> From<KeyOrKeywordRef<'a>> for ExpandableRef<'a> {
+// 	fn from(k: KeyOrKeywordRef<'a>) -> Self {
+// 		match k {
+// 			KeyOrKeywordRef::Keyword(k) => Self::Keyword(k),
+// 			KeyOrKeywordRef::Key(k) => Self::String(k.as_str()),
+// 		}
+// 	}
+// }
 
 impl<'a> From<&'a KeyOrKeyword> for ExpandableRef<'a> {
 	fn from(k: &'a KeyOrKeyword) -> Self {

@@ -22,7 +22,7 @@ pub use list::List;
 pub use mapped_eq::MappedEq;
 pub use node::{Graph, IndexedNode, Node, Nodes, StrippedIndexedNode};
 pub use typ::{Type, TypeRef};
-pub use value::{Literal, LiteralString, Value};
+pub use value::{Literal, Value};
 
 /// Abstract object.
 pub trait Any<T, B, M = ()> {
@@ -100,10 +100,10 @@ pub enum Ref<'a, T, B, M = ()> {
 }
 
 /// Indexed object.
-pub type IndexedObject<T, B, M> = Meta<Indexed<Object<T, B, M>, M>, M>;
+pub type IndexedObject<T, B, M = ()> = Meta<Indexed<Object<T, B, M>, M>, M>;
 
 /// Indexed object, without regard for its metadata.
-pub type StrippedIndexedObject<T, B, M> = Stripped<IndexedObject<T, B, M>>;
+pub type StrippedIndexedObject<T, B, M = ()> = Stripped<IndexedObject<T, B, M>>;
 
 /// Object.
 ///
@@ -464,21 +464,27 @@ impl<T, B, M> Indexed<Object<T, B, M>, M> {
 	#[inline(always)]
 	pub fn into_indexed_node(self) -> Option<Indexed<Node<T, B, M>, M>> {
 		let (object, index) = self.into_parts();
-		object.into_node().map(|node| Indexed::new(node, index))
+		object
+			.into_node()
+			.map(|node| Indexed::new_entry(node, index))
 	}
 
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
 	pub fn into_indexed_value(self) -> Option<Indexed<Value<T, M>, M>> {
 		let (object, index) = self.into_parts();
-		object.into_value().map(|value| Indexed::new(value, index))
+		object
+			.into_value()
+			.map(|value| Indexed::new_entry(value, index))
 	}
 
 	/// Converts this indexed object into an indexed list, if it is one.
 	#[inline(always)]
 	pub fn into_indexed_list(self) -> Option<Indexed<List<T, B, M>, M>> {
 		let (object, index) = self.into_parts();
-		object.into_list().map(|list| Indexed::new(list, index))
+		object
+			.into_list()
+			.map(|list| Indexed::new_entry(list, index))
 	}
 
 	/// Try to convert this object into an unnamed graph.
@@ -487,9 +493,9 @@ impl<T, B, M> Indexed<Object<T, B, M>, M> {
 		match obj {
 			Object::Node(n) => match n.into_unnamed_graph() {
 				Ok(g) => Ok(g.value),
-				Err(n) => Err(Indexed::new(Object::node(n), index)),
+				Err(n) => Err(Indexed::new_entry(Object::node(n), index)),
 			},
-			obj => Err(Indexed::new(obj, index)),
+			obj => Err(Indexed::new_entry(obj, index)),
 		}
 	}
 

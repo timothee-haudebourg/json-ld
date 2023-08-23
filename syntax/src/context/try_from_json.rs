@@ -68,37 +68,46 @@ impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
 				{
 					match Keyword::try_from(key.as_str()) {
 						Ok(Keyword::Id) => {
-							def.id = Some(Entry::new(key_metadata, Nullable::try_from_json(value)?))
+							def.id = Some(Entry::new_with(
+								key_metadata,
+								Nullable::try_from_json(value)?,
+							))
 						}
 						Ok(Keyword::Type) => {
-							def.type_ =
-								Some(Entry::new(key_metadata, Nullable::try_from_json(value)?))
+							def.type_ = Some(Entry::new_with(
+								key_metadata,
+								Nullable::try_from_json(value)?,
+							))
 						}
 						Ok(Keyword::Context) => {
-							def.context = Some(Entry::new(
+							def.context = Some(Entry::new_with(
 								key_metadata,
 								Value::try_from_json(value)?.map(Box::new),
 							))
 						}
 						Ok(Keyword::Reverse) => {
-							def.reverse = Some(Entry::new(
+							def.reverse = Some(Entry::new_with(
 								key_metadata,
 								definition::Key::try_from_json(value)?,
 							))
 						}
 						Ok(Keyword::Index) => {
-							def.index = Some(Entry::new(
+							def.index = Some(Entry::new_with(
 								key_metadata,
 								term_definition::Index::try_from_json(value)?,
 							))
 						}
 						Ok(Keyword::Language) => {
-							def.language =
-								Some(Entry::new(key_metadata, Nullable::try_from_json(value)?))
+							def.language = Some(Entry::new_with(
+								key_metadata,
+								Nullable::try_from_json(value)?,
+							))
 						}
 						Ok(Keyword::Direction) => {
-							def.direction =
-								Some(Entry::new(key_metadata, Nullable::try_from_json(value)?))
+							def.direction = Some(Entry::new_with(
+								key_metadata,
+								Nullable::try_from_json(value)?,
+							))
 						}
 						Ok(Keyword::Container) => {
 							let container = match value {
@@ -109,28 +118,28 @@ impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
 								}
 							};
 
-							def.container = Some(Entry::new(key_metadata, container))
+							def.container = Some(Entry::new_with(key_metadata, container))
 						}
 						Ok(Keyword::Nest) => {
-							def.nest = Some(Entry::new(
+							def.nest = Some(Entry::new_with(
 								key_metadata,
 								term_definition::Nest::try_from_json(value)?,
 							))
 						}
 						Ok(Keyword::Prefix) => {
-							def.prefix = Some(Entry::new(
+							def.prefix = Some(Entry::new_with(
 								key_metadata,
 								bool::try_from_json(value).map_err(Meta::cast)?,
 							))
 						}
 						Ok(Keyword::Propagate) => {
-							def.propagate = Some(Entry::new(
+							def.propagate = Some(Entry::new_with(
 								key_metadata,
 								bool::try_from_json(value).map_err(Meta::cast)?,
 							))
 						}
 						Ok(Keyword::Protected) => {
-							def.protected = Some(Entry::new(
+							def.protected = Some(Entry::new_with(
 								key_metadata,
 								bool::try_from_json(value).map_err(Meta::cast)?,
 							))
@@ -201,7 +210,7 @@ impl<M> TryFromJson<M> for definition::Type<M> {
 				{
 					match Keyword::try_from(key.as_str()) {
 						Ok(Keyword::Container) => {
-							if let Some(prev) = container.replace(Entry::new(
+							if let Some(prev) = container.replace(Entry::new_with(
 								key_metadata,
 								definition::TypeContainer::try_from_json(value)?,
 							)) {
@@ -209,7 +218,7 @@ impl<M> TryFromJson<M> for definition::Type<M> {
 							}
 						}
 						Ok(Keyword::Protected) => {
-							if let Some(prev) = protected.replace(Entry::new(
+							if let Some(prev) = protected.replace(Entry::new_with(
 								key_metadata,
 								bool::try_from_json(value).map_err(Meta::cast)?,
 							)) {
@@ -357,7 +366,7 @@ impl<M: Clone> TryFromJson<M> for Value<M> {
 	}
 }
 
-impl<M: Clone> TryFromJson<M> for Context<Definition<M>> {
+impl<M: Clone> TryFromJson<M> for Context<M> {
 	type Error = InvalidContext;
 
 	fn try_from_json(
@@ -379,48 +388,58 @@ impl<M: Clone> TryFromJson<M> for Context<Definition<M>> {
 				{
 					match Keyword::try_from(key.as_str()) {
 						Ok(Keyword::Base) => {
-							def.base =
-								Some(Entry::new(key_metadata, Nullable::try_from_json(value)?))
+							def.base = Some(Entry::new_with(
+								key_metadata,
+								Nullable::try_from_json(value)?,
+							))
 						}
 						Ok(Keyword::Import) => {
-							def.import =
-								Some(Entry::new(key_metadata, IriRefBuf::try_from_json(value)?))
+							def.import = Some(Entry::new_with(
+								key_metadata,
+								IriRefBuf::try_from_json(value)?,
+							))
 						}
 						Ok(Keyword::Language) => {
-							def.language =
-								Some(Entry::new(key_metadata, Nullable::try_from_json(value)?))
+							def.language = Some(Entry::new_with(
+								key_metadata,
+								Nullable::try_from_json(value)?,
+							))
 						}
 						Ok(Keyword::Direction) => {
-							def.direction =
-								Some(Entry::new(key_metadata, Nullable::try_from_json(value)?))
+							def.direction = Some(Entry::new_with(
+								key_metadata,
+								Nullable::try_from_json(value)?,
+							))
 						}
 						Ok(Keyword::Propagate) => {
-							def.propagate = Some(Entry::new(
+							def.propagate = Some(Entry::new_with(
 								key_metadata,
 								bool::try_from_json(value).map_err(Meta::cast)?,
 							))
 						}
 						Ok(Keyword::Protected) => {
-							def.protected = Some(Entry::new(
+							def.protected = Some(Entry::new_with(
 								key_metadata,
 								bool::try_from_json(value).map_err(Meta::cast)?,
 							))
 						}
 						Ok(Keyword::Type) => {
-							def.type_ = Some(Entry::new(
+							def.type_ = Some(Entry::new_with(
 								key_metadata,
 								definition::Type::try_from_json(value)?,
 							))
 						}
 						Ok(Keyword::Version) => {
-							def.version = Some(Entry::new(
+							def.version = Some(Entry::new_with(
 								key_metadata,
 								definition::Version::try_from_json(value)?,
 							))
 						}
 						Ok(Keyword::Vocab) => {
-							def.vocab =
-								Some(Entry::new(key_metadata, Nullable::try_from_json(value)?))
+							def.vocab = Some(Entry::new_with(
+								key_metadata,
+								Nullable::try_from_json(value)?,
+							))
 						}
 						_ => {
 							let term_def = match value {

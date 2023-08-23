@@ -8,13 +8,13 @@ use super::{
 
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
-pub enum ArrayIter<'a, M, D> {
-	Owned(core::slice::Iter<'a, Meta<Context<D>, M>>),
-	Borrowed(core::slice::Iter<'a, Meta<ContextRef<'a, D>, M>>),
+pub enum ArrayIter<'a, M> {
+	Owned(core::slice::Iter<'a, Meta<Context<M>, M>>),
+	Borrowed(core::slice::Iter<'a, Meta<ContextRef<'a, M>, M>>),
 }
 
-impl<'a, D, M: Clone> Iterator for ArrayIter<'a, M, D> {
-	type Item = Meta<ContextRef<'a, D>, M>;
+impl<'a, M: Clone> Iterator for ArrayIter<'a, M> {
+	type Item = Meta<ContextRef<'a, M>, M>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		match self {
@@ -33,34 +33,9 @@ impl<'a, D, M: Clone> Iterator for ArrayIter<'a, M, D> {
 	}
 }
 
-impl<'a, D, M: Clone> ExactSizeIterator for ArrayIter<'a, M, D> {}
+impl<'a, M: Clone> ExactSizeIterator for ArrayIter<'a, M> {}
 
-pub trait AnyValue<M>: Sized + StrippedPartialEq + Clone + Send + Sync {
-	type Definition: AnyDefinition<M, ContextValue = Self> + Send + Sync;
-
-	fn as_value_ref(&self) -> ValueRef<M, Self::Definition>;
-
-	fn traverse(&self) -> Traverse<M, Self> {
-		match self.as_value_ref() {
-			ValueRef::One(Meta(c, _)) => Traverse::new(FragmentRef::Context(c)),
-			ValueRef::Many(m) => Traverse::new(FragmentRef::ContextArray(m)),
-		}
-	}
-}
-
-pub trait AnyValueMut {
-	fn append(&mut self, context: Self);
-}
-
-impl<M: Clone + Send + Sync> AnyValue<M> for Value<M> {
-	type Definition = Definition<M, Self>;
-
-	fn as_value_ref(&self) -> ValueRef<M, Self::Definition> {
-		self.into()
-	}
-}
-
-impl<M> AnyValueMut for Value<M> {
+impl<M> Value<M> {
 	fn append(&mut self, context: Self) {
 		match self {
 			Self::One(a) => {
@@ -88,12 +63,12 @@ impl<M> AnyValueMut for Value<M> {
 /// Reference to a context entry.
 #[derive(Derivative)]
 #[derivative(Clone(bound = "M: Clone"))]
-pub enum ValueRef<'a, M, D = Definition<M>> {
-	One(Meta<ContextRef<'a, D>, M>),
-	Many(ArrayIter<'a, M, D>),
+pub enum ValueRef<'a, M> {
+	One(Meta<ContextRef<'a, M>, M>),
+	Many(ArrayIter<'a, M>),
 }
 
-impl<'a, M, D> ValueRef<'a, M, D> {
+impl<'a, M> ValueRef<'a, M> {
 	pub fn is_array(&self) -> bool {
 		matches!(self, Self::Many(_))
 	}
@@ -106,9 +81,9 @@ impl<'a, M, D> ValueRef<'a, M, D> {
 	}
 }
 
-impl<'a, M: Clone, D> IntoIterator for ValueRef<'a, M, D> {
-	type Item = Meta<ContextRef<'a, D>, M>;
-	type IntoIter = ContextEntryIter<'a, M, D>;
+impl<'a, M: Clone> IntoIterator for ValueRef<'a, M> {
+	type Item = Meta<ContextRef<'a, M>, M>;
+	type IntoIter = ContextEntryIter<'a, M>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		match self {
@@ -118,7 +93,7 @@ impl<'a, M: Clone, D> IntoIterator for ValueRef<'a, M, D> {
 	}
 }
 
-impl<'a, M: Clone> From<&'a Value<M>> for ValueRef<'a, M, Definition<M>> {
+impl<'a, M: Clone> From<&'a Value<M>> for ValueRef<'a, M> {
 	fn from(e: &'a Value<M>) -> Self {
 		match e {
 			Value::One(c) => Self::One(c.borrow_value().cast()),
@@ -127,36 +102,13 @@ impl<'a, M: Clone> From<&'a Value<M>> for ValueRef<'a, M, Definition<M>> {
 	}
 }
 
-// #[derive(Clone)]
-// pub struct ManyContexts<'a, M>(std::slice::Iter<'a, Meta<Context<Definition<M>>, M>>);
-
-// impl<'a, M: Clone> Iterator for ManyContexts<'a, M> {
-// 	type Item = Meta<ContextRef<'a, Definition<M>>, M>;
-
-// 	fn size_hint(&self) -> (usize, Option<usize>) {
-// 		self.0.size_hint()
-// 	}
-
-// 	fn next(&mut self) -> Option<Self::Item> {
-// 		self.0.next().map(|c| c.borrow_value().cast())
-// 	}
-// }
-
-// impl<'a, M: Clone> ExactSizeIterator for ManyContexts<'a, M> {}
-
-// impl<'a, M, D> From<std::slice::Iter<'a, Meta<Context<D>, M>>> for ManyContexts<'a, M> {
-// 	fn from(i: std::slice::Iter<'a, Meta<Context<D>, M>>) -> Self {
-// 		Self(i)
-// 	}
-// }
-
-pub enum ContextEntryIter<'a, M, D = Definition<M>> {
-	One(Option<Meta<ContextRef<'a, D>, M>>),
-	Many(ArrayIter<'a, M, D>),
+pub enum ContextEntryIter<'a, M> {
+	One(Option<Meta<ContextRef<'a, M>, M>>),
+	Many(ArrayIter<'a, M>),
 }
 
-impl<'a, M: Clone, D> Iterator for ContextEntryIter<'a, M, D> {
-	type Item = Meta<ContextRef<'a, D>, M>;
+impl<'a, M: Clone> Iterator for ContextEntryIter<'a, M> {
+	type Item = Meta<ContextRef<'a, M>, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
@@ -169,21 +121,18 @@ impl<'a, M: Clone, D> Iterator for ContextEntryIter<'a, M, D> {
 /// Reference to context.
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""), Copy(bound = ""))]
-pub enum ContextRef<'a, D> {
+pub enum ContextRef<'a, M = ()> {
 	Null,
 	IriRef(IriRef<'a>),
-	Definition(&'a D),
+	Definition(&'a Definition<M>),
 }
 
-impl<'a, D> ContextRef<'a, D> {
+impl<'a, M> ContextRef<'a, M> {
 	pub fn is_object(&self) -> bool {
 		matches!(self, Self::Definition(_))
 	}
 
-	pub fn sub_items<M>(&self) -> ContextSubFragments<'a, M, D>
-	where
-		D: AnyDefinition<M>,
-	{
+	pub fn sub_items(&self) -> ContextSubFragments<'a, M> where M: Clone {
 		match self {
 			Self::Definition(d) => ContextSubFragments::Definition(Box::new(d.entries())),
 			_ => ContextSubFragments::None,

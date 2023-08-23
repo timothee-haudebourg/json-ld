@@ -6,12 +6,7 @@ use json_syntax::{Number, NumberBuf};
 use locspan::Meta;
 use locspan_derive::*;
 use rdf_types::{IriVocabulary, IriVocabularyMut};
-use std::{
-	cmp::Ordering,
-	fmt,
-	hash::{Hash, Hasher},
-	marker::PhantomData,
-};
+use std::{hash::Hash, marker::PhantomData};
 
 use super::InvalidExpandedJson;
 
@@ -54,89 +49,6 @@ impl<'a, T> TypeRef<'a, T> {
 	}
 }
 
-#[derive(Clone)]
-pub enum LiteralString {
-	/// Literal string expanded from a JSON-LD document.
-	Expanded(json_syntax::String),
-
-	/// Literal string inferred during expansion.
-	Inferred(String),
-}
-
-impl From<json_syntax::String> for LiteralString {
-	fn from(s: json_syntax::String) -> Self {
-		Self::Expanded(s)
-	}
-}
-
-impl LiteralString {
-	#[inline(always)]
-	pub fn as_str(&self) -> &str {
-		match self {
-			Self::Expanded(s) => s.as_ref(),
-			Self::Inferred(s) => s.as_str(),
-		}
-	}
-}
-
-impl AsRef<str> for LiteralString {
-	#[inline(always)]
-	fn as_ref(&self) -> &str {
-		self.as_str()
-	}
-}
-
-impl std::borrow::Borrow<str> for LiteralString {
-	#[inline(always)]
-	fn borrow(&self) -> &str {
-		self.as_str()
-	}
-}
-
-impl std::ops::Deref for LiteralString {
-	type Target = str;
-
-	#[inline(always)]
-	fn deref(&self) -> &str {
-		self.as_str()
-	}
-}
-
-impl PartialEq for LiteralString {
-	#[inline(always)]
-	fn eq(&self, other: &LiteralString) -> bool {
-		self.as_str() == other.as_str()
-	}
-}
-
-impl Eq for LiteralString {}
-
-impl Hash for LiteralString {
-	#[inline(always)]
-	fn hash<H: Hasher>(&self, h: &mut H) {
-		self.as_str().hash(h)
-	}
-}
-
-impl PartialOrd for LiteralString {
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		self.as_str().partial_cmp(other.as_str())
-	}
-}
-
-impl Ord for LiteralString {
-	fn cmp(&self, other: &Self) -> Ordering {
-		self.as_str().cmp(other.as_str())
-	}
-}
-
-impl fmt::Debug for LiteralString {
-	#[inline(always)]
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		self.as_str().fmt(f)
-	}
-}
-
 /// Literal value.
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Literal {
@@ -150,7 +62,7 @@ pub enum Literal {
 	Number(NumberBuf),
 
 	/// String.
-	String(LiteralString),
+	String(json_syntax::String),
 }
 
 impl Literal {
@@ -186,8 +98,7 @@ impl Literal {
 			Self::Null => json_syntax::Value::Null,
 			Self::Boolean(b) => json_syntax::Value::Boolean(b),
 			Self::Number(n) => json_syntax::Value::Number(n),
-			Self::String(LiteralString::Expanded(s)) => json_syntax::Value::String(s),
-			Self::String(LiteralString::Inferred(s)) => json_syntax::Value::String(s.into()),
+			Self::String(s) => json_syntax::Value::String(s),
 		}
 	}
 

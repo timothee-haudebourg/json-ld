@@ -17,14 +17,22 @@ use std::hash::Hash;
 #[locspan(ignore(M))]
 #[locspan(stripped(T, B))]
 /// List object.
-pub struct List<T, B, M> {
+pub struct List<T, B, M = ()> {
 	entry: Entry<Vec<IndexedObject<T, B, M>>, M>,
 }
 
+impl<T, B> List<T, B> {
+	/// Creates a new list object.
+	pub fn new(objects: Vec<IndexedObject<T, B>>) -> Self {
+		Self::new_with((), Meta::none(objects))
+	}
+}
+
 impl<T, B, M> List<T, B, M> {
-	pub fn new(key_metadata: M, value: Meta<Vec<IndexedObject<T, B, M>>, M>) -> Self {
+	/// Creates a new list object with metadata.
+	pub fn new_with(key_metadata: M, value: Meta<Vec<IndexedObject<T, B, M>>, M>) -> Self {
 		Self {
-			entry: Entry::new(key_metadata, value),
+			entry: Entry::new_with(key_metadata, value),
 		}
 	}
 
@@ -120,7 +128,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> List<T, B, M> {
 				InvalidExpandedJson::UnexpectedEntry,
 				unexpected_entry.key.into_metadata(),
 			)),
-			None => Ok(Self::new(list_entry.key.into_metadata(), list)),
+			None => Ok(Self::new_with(list_entry.key.into_metadata(), list)),
 		}
 	}
 }

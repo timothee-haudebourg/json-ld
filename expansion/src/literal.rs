@@ -1,7 +1,6 @@
 use crate::{expand_iri, node_id_of_term, ActiveProperty, WarningHandler};
 use json_ld_core::{
-	object::value::{Literal, LiteralString},
-	Context, IndexedObject, LangString, Node, Object, Type, Value,
+	object::value::Literal, Context, IndexedObject, LangString, Node, Object, Type, Value,
 };
 use json_ld_syntax::{context, Entry, ErrorCode, LenientLanguageTag, Nullable};
 use json_syntax::Number;
@@ -38,7 +37,7 @@ impl<'a> GivenLiteralValue<'a> {
 
 pub(crate) enum LiteralValue<'a> {
 	Given(GivenLiteralValue<'a>),
-	Inferred(String),
+	Inferred(json_ld_syntax::String),
 }
 
 impl<'a> LiteralValue<'a> {
@@ -78,9 +77,9 @@ pub(crate) type LiteralExpansionResult<T, B, M> =
 
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
-pub(crate) fn expand_literal<T, B, M, N, C: context::AnyValue<M>>(
+pub(crate) fn expand_literal<T, B, M, N>(
 	vocabulary: &mut N,
-	active_context: &Context<T, B, C, M>,
+	active_context: &Context<T, B, M>,
 	active_property: ActiveProperty<'_, M>,
 	Meta(value, meta): Meta<LiteralValue, &M>,
 	warnings: &mut impl WarningHandler<B, N, M>,
@@ -109,13 +108,13 @@ where
 			let id = node_id_of_term(expand_iri(
 				vocabulary,
 				active_context,
-				Meta(Nullable::Some(value.as_str().unwrap().into()), meta.clone()),
+				Meta(Nullable::Some(value.as_str().unwrap().into()), meta),
 				true,
 				false,
 				warnings,
 			));
 
-			node.set_id(id.map(|id| Entry::new(id.metadata().clone(), id)));
+			node.set_id(id.map(|id| Entry::new_with(id.metadata().clone(), id)));
 			Ok(Meta(Object::node(node).into(), meta.clone()))
 		}
 
@@ -128,13 +127,13 @@ where
 			let id = node_id_of_term(expand_iri(
 				vocabulary,
 				active_context,
-				Meta(Nullable::Some(value.as_str().unwrap().into()), meta.clone()),
+				Meta(Nullable::Some(value.as_str().unwrap().into()), meta),
 				true,
 				true,
 				warnings,
 			));
 
-			node.set_id(id.map(|id| Entry::new(id.metadata().clone(), id)));
+			node.set_id(id.map(|id| Entry::new_with(id.metadata().clone(), id)));
 			Ok(Meta(Object::node(node).into(), meta.clone()))
 		}
 
@@ -147,11 +146,9 @@ where
 					GivenLiteralValue::Number(n) => Literal::Number(unsafe {
 						json_syntax::NumberBuf::new_unchecked(n.as_bytes().into())
 					}),
-					GivenLiteralValue::String(s) => {
-						Literal::String(LiteralString::Expanded(s.into()))
-					}
+					GivenLiteralValue::String(s) => Literal::String(s.into()),
 				},
-				LiteralValue::Inferred(s) => Literal::String(LiteralString::Inferred(s)),
+				LiteralValue::Inferred(s) => Literal::String(s),
 			};
 
 			// If `active_property` has a type mapping in active context, other than `@id`,

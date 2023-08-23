@@ -128,10 +128,10 @@ pub trait Expand<T, B, M> {
 	/// imported by the input and required during expansion.
 	/// The `options` are used to tweak the expansion algorithm.
 	/// The `warning_handler` is called each time a warning is emitted during expansion.
-	fn expand_full<'a, N, C, L: Loader<T, M> + ContextLoader<T, M>>(
+	fn expand_full<'a, N, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: Context<T, B, C, M>,
+		context: Context<T, B, M>,
 		base_url: Option<&'a T>,
 		loader: &'a mut L,
 		options: Options,
@@ -142,10 +142,8 @@ pub trait Expand<T, B, M> {
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: Clone + Send + Sync,
-		C: 'a + ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 		L: Send + Sync,
 		L::Output: Into<Value<M>>,
-		L::Context: Into<C>,
 		L::ContextError: Send;
 
 	/// Expand the input JSON-LD document with the given `vocabulary`
@@ -166,12 +164,11 @@ pub trait Expand<T, B, M> {
 		M: 'a + Clone + Send + Sync,
 		L: Send + Sync,
 		L::Output: Into<Value<M>>,
-		L::Context: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 	{
 		self.expand_full(
 			vocabulary,
-			Context::<T, B, L::Context, M>::new(self.default_base_url().cloned()),
+			Context::<T, B, M>::new(self.default_base_url().cloned()),
 			self.default_base_url(),
 			loader,
 			Options::default(),
@@ -195,7 +192,6 @@ pub trait Expand<T, B, M> {
 		M: 'a + Clone + Send + Sync,
 		L: Send + Sync,
 		L::Output: Into<Value<M>>,
-		L::Context: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 		(): VocabularyMut<Iri = T, BlankId = B>,
 	{
@@ -209,10 +205,10 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 		None
 	}
 
-	fn expand_full<'a, N, C, L: Loader<T, M> + ContextLoader<T, M>>(
+	fn expand_full<'a, N, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: Context<T, B, C, M>,
+		context: Context<T, B, M>,
 		base_url: Option<&'a T>,
 		loader: &'a mut L,
 		options: Options,
@@ -223,10 +219,8 @@ impl<T, B, M> Expand<T, B, M> for Meta<Value<M>, M> {
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		C: 'a + ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 		L: Send + Sync,
 		L::Output: Into<Value<M>>,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		async move {
@@ -254,10 +248,10 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
 		self.url()
 	}
 
-	fn expand_full<'a, N, C, L: Loader<T, M> + ContextLoader<T, M>>(
+	fn expand_full<'a, N, L: Loader<T, M> + ContextLoader<T, M>>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: Context<T, B, C, M>,
+		context: Context<T, B, M>,
 		base_url: Option<&'a T>,
 		loader: &'a mut L,
 		options: Options,
@@ -268,10 +262,8 @@ impl<T, B, M> Expand<T, B, M> for RemoteDocument<T, M, Value<M>> {
 		T: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		C: 'a + ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 		L: Send + Sync,
 		L::Output: Into<Value<M>>,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.document().expand_full(

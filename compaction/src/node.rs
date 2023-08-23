@@ -19,12 +19,12 @@ fn optional_string<M: Clone>(s: Option<Meta<String, M>>, meta: &M) -> json_synta
 }
 
 /// Compact the given indexed node.
-pub async fn compact_indexed_node_with<I, B, M, C, N, L>(
+pub async fn compact_indexed_node_with<I, B, M, N, L>(
 	vocabulary: &mut N,
 	Meta(node, meta): Meta<&Node<I, B, M>, &M>,
 	index: Option<&Entry<String, M>>,
-	mut active_context: &Context<I, B, C, M>,
-	type_scoped_context: &Context<I, B, C, M>,
+	mut active_context: &Context<I, B, M>,
+	type_scoped_context: &Context<I, B, M>,
 	active_property: Option<Meta<&str, &M>>,
 	loader: &mut L,
 	options: Options,
@@ -34,9 +34,7 @@ where
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
-	C: ProcessMeta<I, B, M>,
 	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-	L::Context: Into<C>,
 {
 	// If active context has a previous context, the active context is not propagated.
 	// If element does not contain an @value entry, and element does not consist of
@@ -406,12 +404,12 @@ where
 }
 
 /// Compact the given list of types into the given `result` compacted object.
-fn compact_types<I, B, M, C, N, E>(
+fn compact_types<I, B, M, N, E>(
 	vocabulary: &mut N,
 	result: &mut json_syntax::Object<M>,
 	type_entry: Option<&TypeEntry<I, B, M>>,
-	active_context: &Context<I, B, C, M>,
-	type_scoped_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
+	type_scoped_context: &Context<I, B, M>,
 	options: Options,
 ) -> Result<(), MetaError<M, E>>
 where

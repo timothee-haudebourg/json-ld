@@ -51,24 +51,24 @@ impl From<String> for Index {
 	}
 }
 
-#[derive(Clone, Copy)]
-pub struct IndexRef<'a>(&'a str);
+// #[derive(Clone, Copy)]
+// pub struct IndexRef<'a>(&'a str);
 
-impl<'a> IndexRef<'a> {
-	pub fn to_owned(self) -> Index {
-		Index(self.0.to_owned())
-	}
+// impl<'a> IndexRef<'a> {
+// 	pub fn to_owned(self) -> Index {
+// 		Index(self.0.to_owned())
+// 	}
 
-	pub fn as_str(&self) -> &'a str {
-		self.0
-	}
-}
+// 	pub fn as_str(&self) -> &'a str {
+// 		self.0
+// 	}
+// }
 
-impl<'a> From<&'a Index> for IndexRef<'a> {
-	fn from(i: &'a Index) -> Self {
-		Self(&i.0)
-	}
-}
+// impl<'a> From<&'a Index> for IndexRef<'a> {
+// 	fn from(i: &'a Index) -> Self {
+// 		Self(&i.0)
+// 	}
+// }
 
 // impl<'a> From<IndexRef<'a>> for super::EntryKeyRef<'a> {
 // 	fn from(i: IndexRef<'a>) -> Self {

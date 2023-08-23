@@ -209,7 +209,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 						.cmp(b.id().unwrap().0.with(vocabulary).as_str())
 				});
 			}
-			entry.set_graph(Some(Entry::new(
+			entry.set_graph(Some(Entry::new_with(
 				id_metadata.clone(),
 				Meta(
 					nodes
@@ -250,7 +250,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 				.declare_node(Meta(graph_id, id_metadata.clone()), None)
 				.ok()
 				.unwrap();
-			entry.set_graph(Some(Entry::new(
+			entry.set_graph(Some(Entry::new_with(
 				id_metadata.clone(),
 				Meta(
 					graph

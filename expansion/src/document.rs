@@ -12,10 +12,10 @@ use std::hash::Hash;
 /// Note that you probably do not want to use this function directly,
 /// but instead use the [`Document::expand`](crate::Document::expand) method on
 /// a `Value` instance.
-pub(crate) async fn expand<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
+pub(crate) async fn expand<'a, T, B, M, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	vocabulary: &'a mut N,
 	document: &'a Meta<Value<M>, M>,
-	active_context: Context<T, B, C, M>,
+	active_context: Context<T, B, M>,
 	base_url: Option<&'a T>,
 	loader: &'a mut L,
 	options: Options,
@@ -26,10 +26,8 @@ where
 	T: Clone + Eq + Hash + Send + Sync,
 	B: Clone + Eq + Hash + Send + Sync,
 	M: Clone + Send + Sync,
-	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Send + Sync,
 	L::Output: Into<Value<M>>,
-	L::Context: Into<C>,
 	L::ContextError: Send,
 	W: 'a + Send + WarningHandler<B, N, M>,
 {

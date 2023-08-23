@@ -116,30 +116,15 @@ pub enum Container<M> {
 	Many(Vec<Meta<ContainerKind, M>>),
 }
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub enum ContainerRef<'a, M> {
-	One(ContainerKind),
-	Many(&'a [Meta<ContainerKind, M>]),
-}
-
-impl<'a, M> ContainerRef<'a, M> {
+impl<M> Container<M> {
 	pub fn is_array(&self) -> bool {
 		matches!(self, Self::Many(_))
 	}
 
-	pub fn sub_fragments(&self) -> SubValues<'a, M> {
+	pub fn sub_fragments(&self) -> SubValues<M> {
 		match self {
 			Self::One(_) => SubValues::None,
 			Self::Many(m) => SubValues::Many(m.iter()),
-		}
-	}
-}
-
-impl<'a, M> From<&'a Container<M>> for ContainerRef<'a, M> {
-	fn from(c: &'a Container<M>) -> Self {
-		match c {
-			Container::One(c) => Self::One(*c),
-			Container::Many(m) => Self::Many(m),
 		}
 	}
 }

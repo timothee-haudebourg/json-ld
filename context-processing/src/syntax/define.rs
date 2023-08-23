@@ -11,8 +11,7 @@ use json_ld_syntax::{
 		definition::{EntryValueRef, KeyOrKeyword, KeyOrKeywordRef},
 		term_definition::{self, IdRef},
 	},
-	CompactIri, ContainerKind, ContainerRef, Entry, ExpandableRef, Keyword, LenientLanguageTag,
-	Nullable,
+	CompactIri, ContainerKind, Entry, ExpandableRef, Keyword, LenientLanguageTag, Nullable,
 };
 use locspan::{At, BorrowStripped, Meta};
 use rdf_types::{BlankId, VocabularyMut};
@@ -106,15 +105,14 @@ pub fn define<
 	T: Clone + PartialEq + Send + Sync,
 	B: Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
-	C: ProcessMeta<T, B, M>,
 	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	L: ContextLoader<T, M> + Send + Sync,
 	W: 'a + Send + WarningHandler<N, M>,
 >(
 	vocabulary: &'a mut N,
-	active_context: &'a mut Context<T, B, C, M>,
-	local_context: &'a Merged<'a, M, C>,
-	Meta(term, meta): Meta<KeyOrKeywordRef, M>,
+	active_context: &'a mut Context<T, B, M>,
+	local_context: &'a Merged<'a, M>,
+	Meta(term, meta): Meta<KeyOrKeywordRef<'a>, &'a M>,
 	defined: &'a mut DefinedTerms<M>,
 	remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
@@ -122,10 +120,7 @@ pub fn define<
 	protected: bool,
 	options: Options,
 	mut warnings: W,
-) -> BoxFuture<'a, Result<W, Error<L::ContextError>>>
-where
-	L::Context: Into<C>,
-{
+) -> BoxFuture<'a, Result<W, Error<L::ContextError>>> {
 	let term = term.to_owned();
 	async move {
 		if defined.begin(&term, &meta)? {
@@ -201,11 +196,11 @@ where
 
 						let simple_term =
 							!d.value().as_ref().map(|d| d.is_expanded()).unwrap_or(false);
-						let value: term_definition::ExpandedRef<M, C> = d.into();
+						let value = term_definition::ExpandedRef::from(d);
 
 						// Create a new term definition, `definition`, initializing `prefix` flag to
 						// `false`, `protected` to `protected`, and `reverse_property` to `false`.
-						let mut definition = NormalTermDefinition::<T, B, C, M> {
+						let mut definition = NormalTermDefinition::<T, B, M> {
 							protected,
 							..Default::default()
 						};
@@ -233,7 +228,7 @@ where
 							let (typ, w) = expand_iri_with(
 								vocabulary,
 								active_context,
-								Meta(type_.cast(), type_loc.clone()),
+								Meta(type_.as_ref().cast(), type_loc),
 								false,
 								true,
 								local_context,
@@ -281,7 +276,7 @@ where
 								warnings.handle(
 									vocabulary,
 									Warning::KeywordLikeValue(reverse_value.to_string())
-										.at(reverse_loc),
+										.at(reverse_loc.clone()),
 								);
 								return Ok(warnings);
 							}
@@ -327,10 +322,9 @@ where
 								match container_value {
 									Nullable::Null => (),
 									Nullable::Some(container_value) => {
-										let container_value = Container::from_syntax_ref(
-											Nullable::Some(container_value),
-										)
-										.map_err(|_| Error::InvalidReverseProperty)?;
+										let container_value =
+											Container::from_syntax(Nullable::Some(container_value))
+												.map_err(|_| Error::InvalidReverseProperty)?;
 
 										if matches!(
 											container_value,
@@ -357,11 +351,9 @@ where
 
 						match value.id {
 							// If `value` contains the entry `@id` and its value does not equal `term`:
-							Some(Entry {
-								value: Meta(id_value, id_loc),
-								..
-							}) if id_value.cast::<KeyOrKeywordRef>()
-								!= Nullable::Some(key.into()) =>
+							Some(Meta(id_value, id_loc))
+								if id_value.cast::<KeyOrKeywordRef>()
+									!= Nullable::Some(key.into()) =>
 							{
 								match id_value {
 									// If the `@id` entry of value is `null`, the term is not used for IRI
@@ -380,7 +372,7 @@ where
 											warnings.handle(
 												vocabulary,
 												Warning::KeywordLikeValue(id_value.to_string())
-													.at(id_loc),
+													.at(id_loc.clone()),
 											);
 											return Ok(warnings);
 										}
@@ -438,7 +430,7 @@ where
 											let (expanded_term, w) = expand_iri_with(
 												vocabulary,
 												active_context,
-												Meta(Nullable::Some((&term).into()), meta.clone()),
+												Meta(Nullable::Some((&term).into()), meta),
 												false,
 												true,
 												local_context,
@@ -471,10 +463,7 @@ where
 									}
 								}
 							}
-							Some(Entry {
-								value: Meta(Nullable::Some(IdRef::Keyword(Keyword::Type)), _id_loc),
-								..
-							}) => {
+							Some(Meta(Nullable::Some(IdRef::Keyword(Keyword::Type)), _id_loc)) => {
 								// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
 								// `@type`.
 								definition.value = Some(Term::Keyword(Keyword::Type))
@@ -494,7 +483,7 @@ where
 											local_context,
 											Meta(
 												KeyOrKeywordRef::Key(compact_iri.prefix().into()),
-												meta.clone(),
+												meta,
 											),
 											defined,
 											remote_contexts.clone(),
@@ -638,8 +627,8 @@ where
 								match container_value {
 									Nullable::Null
 									| Nullable::Some(
-										ContainerRef::Many(_)
-										| ContainerRef::One(
+										json_ld_syntax::Container::Many(_)
+										| json_ld_syntax::Container::One(
 											ContainerKind::Graph
 											| ContainerKind::Id
 											| ContainerKind::Type,
@@ -649,7 +638,7 @@ where
 								}
 							}
 
-							let container_value = Container::from_syntax_ref(container_value)
+							let container_value = Container::from_syntax(container_value.as_ref())
 								.map_err(|_| Error::InvalidContainerMapping)?;
 
 							// Initialize `container` to the value associated with the `@container`
@@ -706,10 +695,7 @@ where
 							match expand_iri_simple(
 								vocabulary,
 								active_context,
-								Meta(
-									Nullable::Some(index_value.as_str().into()),
-									index_loc.clone(),
-								),
+								Meta(Nullable::Some(index_value.as_str().into()), index_loc),
 								false,
 								true,
 								&mut warnings,
@@ -718,9 +704,9 @@ where
 								_ => return Err(Error::InvalidTermDefinition),
 							}
 
-							definition.index = Some(Entry::new(
-								key_metadata,
-								Meta(index_value.to_owned(), index_loc),
+							definition.index = Some(Entry::new_with(
+								key_metadata.clone(),
+								Meta(index_value.to_owned(), index_loc.clone()),
 							))
 						}
 
@@ -749,7 +735,7 @@ where
 							let (_, w) = super::process_context(
 								vocabulary,
 								active_context,
-								context.borrow_metadata(),
+								context.borrow().map(|boxed| &**boxed),
 								remote_contexts.clone(),
 								loader,
 								base_url.clone(),
@@ -762,7 +748,7 @@ where
 
 							// Set the local context of definition to context, and base URL to base URL.
 							definition.context =
-								Some(Entry::new(key_metadata, context.cloned_value()));
+								Some(Entry::new_with(key_metadata.clone(), context.clone()));
 							definition.base_url = base_url;
 						}
 
@@ -781,8 +767,7 @@ where
 								// Otherwise, an invalid language mapping error has been detected and
 								// processing is aborted.
 								// Set the `language` mapping of definition to `language`.
-								definition.language =
-									Some(language_value.map(LenientLanguageTag::to_owned));
+								definition.language = Some(language_value.clone());
 							}
 
 							// If `value` contains the entry `@direction` and does not contain the
@@ -794,7 +779,7 @@ where
 							{
 								// Initialize `direction` to the value associated with the `@direction`
 								// entry, which MUST be either null, "ltr", or "rtl".
-								definition.direction = Some(direction_value);
+								definition.direction = Some(direction_value.clone());
 							}
 						}
 
@@ -810,9 +795,9 @@ where
 								return Err(Error::InvalidTermDefinition);
 							}
 
-							definition.nest = Some(Entry::new(
-								key_metadata,
-								Meta(nest_value.to_owned(), nest_meta),
+							definition.nest = Some(Entry::new_with(
+								key_metadata.clone(),
+								Meta(nest_value.clone(), nest_meta.clone()),
 							));
 						}
 
@@ -836,7 +821,7 @@ where
 							// which MUST be a boolean.
 							// Otherwise, an invalid @prefix value error has been detected and
 							// processing is aborted.
-							definition.prefix = prefix_value;
+							definition.prefix = *prefix_value;
 
 							// If the `prefix` flag of `definition` is set to `true`, and its IRI
 							// mapping is a keyword, an invalid term definition has been detected and

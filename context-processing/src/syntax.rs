@@ -20,26 +20,23 @@ pub use iri::*;
 pub use merged::*;
 use syntax::context::definition::KeyOrKeywordRef;
 
-impl<C: syntax::context::AnyValue<M> + syntax::IntoJsonMeta<M>, T, B, M> ProcessMeta<T, B, M>
-	for C
-{
+impl<T, B, M> ProcessMeta<T, B, M> for syntax::context::Value<M> {
 	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		meta: &'l M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, C, M>,
+		active_context: &'a Context<T, B, M>,
 		stack: ProcessingStack<T>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
 		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, C, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		L::Context: Into<C>,
 	{
 		async move {
 			Ok(process_context(
@@ -77,50 +74,44 @@ fn resolve_iri<I>(
 	}
 }
 
-type ContextProcessingResult<'a, T, B, M, C, L, W> =
-	Result<(Processed<'a, T, B, C, M>, W), MetaError<M, <L as ContextLoader<T, M>>::ContextError>>;
+type ContextProcessingResult<'a, T, B, M, L, W> =
+	Result<(Processed<'a, T, B, M>, W), MetaError<M, <L as ContextLoader<T, M>>::ContextError>>;
 
 // This function tries to follow the recommended context processing algorithm.
 // See `https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm`.
 //
 // The recommended default value for `remote_contexts` is the empty set,
 // `false` for `override_protected`, and `true` for `propagate`.
-fn process_context<'l: 'a, 'a, T, B, M, C, N, L, W>(
+fn process_context<'l: 'a, 'a, T, B, M, N, L, W>(
 	vocabulary: &'a mut N,
-	active_context: &'a Context<T, B, C, M>,
-	local_context: Meta<&'l C, &'l M>,
+	active_context: &'a Context<T, B, M>,
+	Meta(local_context, meta): Meta<&'l syntax::context::Value<M>, &'l M>,
 	mut remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
 	base_url: Option<T>,
 	mut options: Options,
 	mut warnings: W,
-) -> BoxFuture<'a, ContextProcessingResult<'l, T, B, M, C, L, W>>
+) -> BoxFuture<'a, ContextProcessingResult<'l, T, B, M, L, W>>
 where
 	T: 'a + Clone + PartialEq + Send + Sync,
 	B: 'a + Clone + PartialEq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
-	C: ProcessMeta<T, B, M>,
 	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 	L: ContextLoader<T, M> + Send + Sync,
-	L::Context: Into<C>,
 	W: 'a + Send + WarningHandler<N, M>,
 {
-	use syntax::context::AnyDefinition;
-
 	async move {
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = active_context.clone();
 
 		// 2) If `local_context` is an object containing the member @propagate,
 		// its value MUST be boolean true or false, set `propagate` to that value.
-		let local_context_ref: syntax::context::ValueRef<'a, M, _> = local_context.as_value_ref();
-
-		if let syntax::context::ValueRef::One(Meta(syntax::ContextRef::Definition(def), _)) =
-			local_context_ref
+		if let syntax::context::Value::One(Meta(syntax::Context::Definition(def), _)) =
+			local_context
 		{
-			if let Some(propagate) = def.propagate() {
+			if let Some(propagate) = &def.propagate {
 				if options.processing_mode == ProcessingMode::JsonLd1_0 {
-					return Err(Error::InvalidContextEntry.at(propagate.key_metadata));
+					return Err(Error::InvalidContextEntry.at(propagate.key_metadata.clone()));
 				}
 
 				options.propagate = *propagate.value.value()
@@ -135,16 +126,16 @@ where
 
 		// 4) If local context is not an array, set it to an array containing only local context.
 		// 5) For each item context in local context:
-		for Meta(context, context_meta) in local_context_ref {
+		for Meta(context, context_meta) in local_context {
 			match context {
 				// 5.1) If context is null:
-				syntax::ContextRef::Null => {
+				syntax::Context::Null => {
 					// If `override_protected` is false and `active_context` contains any protected term
 					// definitions, an invalid context nullification has been detected and processing
 					// is aborted.
 					if !options.override_protected && result.has_protected_items() {
 						let e: MetaError<M, L::ContextError> =
-							Error::InvalidContextNullification.at(context_meta);
+							Error::InvalidContextNullification.at(context_meta.clone());
 						return Err(e);
 					} else {
 						// Otherwise, initialize result as a newly-initialized active context, setting
@@ -166,12 +157,13 @@ where
 				}
 
 				// 5.2) If context is a string,
-				syntax::ContextRef::IriRef(iri_ref) => {
+				syntax::Context::IriRef(iri_ref) => {
 					// Initialize `context` to the result of resolving context against base URL.
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
-					let context_iri = resolve_iri(vocabulary, iri_ref, base_url.as_ref())
-						.ok_or_else(|| Error::LoadingDocumentFailed.at(context_meta.clone()))?;
+					let context_iri =
+						resolve_iri(vocabulary, iri_ref.as_iri_ref(), base_url.as_ref())
+							.ok_or_else(|| Error::LoadingDocumentFailed.at(context_meta.clone()))?;
 
 					// If the number of entries in the `remote_contexts` array exceeds a processor
 					// defined limit, a context overflow error has been detected and processing is
@@ -197,9 +189,8 @@ where
 						let loaded_context = loader
 							.load_context_with(vocabulary, context_iri.clone())
 							.await
-							.map_err(|e| Error::ContextLoadingFailed(e).at(context_meta))?
-							.into_document()
-							.map(Into::into);
+							.map_err(|e| Error::ContextLoadingFailed(e).at(context_meta.clone()))?
+							.into_document();
 
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
@@ -228,9 +219,9 @@ where
 				}
 
 				// 5.4) Context definition.
-				syntax::ContextRef::Definition(context) => {
+				syntax::Context::Definition(context) => {
 					// 5.5) If context has a @version entry:
-					if let Some(version_value) = context.version() {
+					if let Some(version_value) = &context.version {
 						// 5.5.2) If processing mode is set to json-ld-1.0, a processing mode conflict
 						// error has been detected.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
@@ -240,39 +231,39 @@ where
 					}
 
 					// 5.6) If context has an @import entry:
-					let context: Merged<'a, M, C> = if let Some(Entry {
+					let context: Merged<'a, M> = if let Some(Entry {
 						value: Meta(import_value, import_meta),
 						..
-					}) = context.import()
+					}) = &context.import
 					{
 						// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
-							return Err(Error::InvalidContextEntry.at(import_meta));
+							return Err(Error::InvalidContextEntry.at(import_meta.clone()));
 						}
 
 						// 5.6.3) Initialize import to the result of resolving the value of
 						// @import.
-						let import = resolve_iri(vocabulary, import_value, base_url.as_ref())
-							.ok_or_else(|| Error::InvalidImportValue.at(import_meta.clone()))?;
+						let import =
+							resolve_iri(vocabulary, import_value.as_iri_ref(), base_url.as_ref())
+								.ok_or_else(|| Error::InvalidImportValue.at(import_meta.clone()))?;
 
 						// 5.6.4) Dereference import.
-						let import_context = loader
+						let import_context: syntax::context::Value<M> = loader
 							.load_context_with(vocabulary, import)
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(import_meta.clone()))?
 							.into_document()
-							.into_value()
-							.into();
+							.into_value();
 
 						// If the dereferenced document has no top-level map with an @context
 						// entry, or if the value of @context is not a context definition
 						// (i.e., it is not an map), an invalid remote context has been
 						// detected and processing is aborted; otherwise, set import context
 						// to the value of that entry.
-						match import_context.as_value_ref() {
-							syntax::context::ValueRef::One(Meta(
-								syntax::ContextRef::Definition(import_context_def),
+						match &import_context {
+							syntax::context::Value::One(Meta(
+								syntax::Context::Definition(import_context_def),
 								_,
 							)) => {
 								// If `import_context` has a @import entry, an invalid context entry
@@ -280,13 +271,13 @@ where
 								if let Some(Entry {
 									value: Meta(_, loc),
 									..
-								}) = import_context_def.import()
+								}) = &import_context_def.import
 								{
-									return Err(Error::InvalidContextEntry.at(loc));
+									return Err(Error::InvalidContextEntry.at(loc.clone()));
 								}
 							}
 							_ => {
-								return Err(Error::InvalidRemoteContext.at(import_meta));
+								return Err(Error::InvalidRemoteContext.at(import_meta.clone()));
 							}
 						}
 
@@ -312,14 +303,17 @@ where
 									// If value is null, remove the base IRI of result.
 									result.set_base_iri(None);
 								}
-								syntax::Nullable::Some(iri_ref) => match iri_ref.into_iri() {
+								syntax::Nullable::Some(iri_ref) => match iri_ref.as_iri() {
 									Ok(iri) => result.set_base_iri(Some(vocabulary.insert(iri))),
-									Err(not_iri) => {
-										let resolved =
-											resolve_iri(vocabulary, not_iri, result.base_iri())
-												.ok_or_else(|| {
-													Error::InvalidBaseIri.at(base_meta)
-												})?;
+									Err(_) => {
+										let resolved = resolve_iri(
+											vocabulary,
+											iri_ref.as_iri_ref(),
+											result.base_iri(),
+										)
+										.ok_or_else(|| {
+											Error::InvalidBaseIri.at(base_meta.clone())
+										})?;
 										result.set_base_iri(Some(resolved))
 									}
 								},
@@ -350,7 +344,7 @@ where
 								match expand_iri_simple(
 									vocabulary,
 									&result,
-									Meta(Nullable::Some(value.into()), vocab_meta.clone()),
+									Meta(Nullable::Some(value.into()), vocab_meta),
 									true,
 									true,
 									&mut warnings,
@@ -358,7 +352,11 @@ where
 									Meta(Term::Id(vocab), _) => {
 										result.set_vocabulary(Some(Term::Id(vocab)))
 									}
-									_ => return Err(Error::InvalidVocabMapping.at(vocab_meta)),
+									_ => {
+										return Err(
+											Error::InvalidVocabMapping.at(vocab_meta.clone())
+										)
+									}
 								}
 							}
 						}
@@ -390,7 +388,7 @@ where
 						// 5.10.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected and processing is aborted.
 						if options.processing_mode == ProcessingMode::JsonLd1_0 {
-							return Err(Error::InvalidContextEntry.at(direction_meta));
+							return Err(Error::InvalidContextEntry.at(direction_meta.clone()));
 						}
 
 						match value {
@@ -399,7 +397,7 @@ where
 								result.set_default_base_direction(None);
 							}
 							Nullable::Some(dir) => {
-								result.set_default_base_direction(Some(dir));
+								result.set_default_base_direction(Some(*dir));
 							}
 						}
 					}
@@ -409,8 +407,9 @@ where
 					let mut defined = DefinedTerms::new();
 					let protected = context
 						.protected()
-						.map(Entry::into_value)
-						.map(Meta::into_value)
+						.map(Entry::as_value)
+						.map(Meta::value)
+						.copied()
 						.unwrap_or(false);
 
 					// 5.13) For each key-value pair in context where key is not
@@ -427,7 +426,7 @@ where
 							&context,
 							Meta(
 								KeyOrKeywordRef::Keyword(syntax::Keyword::Type),
-								ty.key_metadata.clone(),
+								&ty.key_metadata,
 							),
 							&mut defined,
 							remote_contexts.clone(),
@@ -446,7 +445,7 @@ where
 							vocabulary,
 							&mut result,
 							&context,
-							Meta(key.into(), binding.key_metadata().clone()),
+							Meta(key.into(), &binding.key_metadata),
 							&mut defined,
 							remote_contexts.clone(),
 							loader,
@@ -456,13 +455,13 @@ where
 							warnings,
 						)
 						.await
-						.map_err(|e| e.at(binding.key_metadata().clone()))?
+						.map_err(|e| e.at(binding.key_metadata.clone()))?
 					}
 				}
 			}
 		}
 
-		Ok((Processed::new(local_context, result), warnings))
+		Ok((Processed::new(Meta(local_context, meta), result), warnings))
 	}
 	.boxed()
 }

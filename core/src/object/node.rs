@@ -208,7 +208,7 @@ impl<T, B, M> Node<T, B, M> {
 	{
 		if self.id.is_none() {
 			let value = generator.next(vocabulary);
-			self.id = Some(Entry::new(value.metadata().clone(), value.cast()))
+			self.id = Some(Entry::new_with(value.metadata().clone(), value.cast()))
 		}
 
 		if let Some(Meta(graph, _)) = self.graph_mut() {
@@ -333,7 +333,7 @@ impl<T, B, M> Node<T, B, M> {
 		value_metadata: M,
 	) -> &mut TypeEntry<T, B, M> {
 		self.types
-			.get_or_insert_with(|| Entry::new(key_metadata, Meta(Vec::new(), value_metadata)))
+			.get_or_insert_with(|| Entry::new_with(key_metadata, Meta(Vec::new(), value_metadata)))
 	}
 
 	pub fn type_entry_or_insert(
@@ -342,7 +342,7 @@ impl<T, B, M> Node<T, B, M> {
 		value: TypeEntryValue<T, B, M>,
 	) -> &mut TypeEntry<T, B, M> {
 		self.types
-			.get_or_insert_with(|| Entry::new(key_metadata, value))
+			.get_or_insert_with(|| Entry::new_with(key_metadata, value))
 	}
 
 	pub fn type_entry_or_insert_with(
@@ -627,7 +627,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 		props: Meta<ReverseProperties<T, B, M>, M>,
 	) -> &mut Entry<ReverseProperties<T, B, M>, M> {
 		self.reverse_properties
-			.get_or_insert_with(|| Entry::new(key_metadata, props))
+			.get_or_insert_with(|| Entry::new_with(key_metadata, props))
 	}
 
 	pub fn reverse_properties_or_default(
@@ -636,7 +636,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 		value_metadata: M,
 	) -> &mut Entry<ReverseProperties<T, B, M>, M> {
 		self.reverse_properties.get_or_insert_with(|| {
-			Entry::new(key_metadata, Meta(ReverseProperties::new(), value_metadata))
+			Entry::new_with(key_metadata, Meta(ReverseProperties::new(), value_metadata))
 		})
 	}
 
@@ -680,11 +680,11 @@ impl<T, B, M> Relabel<T, B, M> for Node<T, B, M> {
 					.entry(b)
 					.or_insert_with(|| generator.next(vocabulary))
 					.clone();
-				Some(Entry::new(key_metadata, value.cast()))
+				Some(Entry::new_with(key_metadata, value.cast()))
 			}
 			None => {
 				let value = generator.next(vocabulary);
-				Some(Entry::new(value.metadata().clone(), value.cast()))
+				Some(Entry::new_with(value.metadata().clone(), value.cast()))
 			}
 			id => id,
 		};
@@ -1421,7 +1421,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@id")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new(
+			Some(entry) => Some(Entry::new_with(
 				entry.key.into_metadata(),
 				Id::try_from_json_in(vocabulary, entry.value)?,
 			)),
@@ -1432,7 +1432,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@type")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new(
+			Some(entry) => Some(Entry::new_with(
 				entry.key.into_metadata(),
 				Vec::try_from_json_in(vocabulary, entry.value)?,
 			)),
@@ -1443,7 +1443,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@graph")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new(
+			Some(entry) => Some(Entry::new_with(
 				entry.key.into_metadata(),
 				HashSet::try_from_json_in(vocabulary, entry.value)?,
 			)),
@@ -1454,7 +1454,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@included")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new(
+			Some(entry) => Some(Entry::new_with(
 				entry.key.into_metadata(),
 				HashSet::try_from_json_in(vocabulary, entry.value)?,
 			)),
@@ -1465,7 +1465,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@reverse")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new(
+			Some(entry) => Some(Entry::new_with(
 				entry.key.into_metadata(),
 				ReverseProperties::try_from_json_in(vocabulary, entry.value)?,
 			)),

@@ -42,16 +42,16 @@ impl Container {
 		Container::None
 	}
 
-	pub fn from_syntax_ref<M>(
-		r: Nullable<json_ld_syntax::ContainerRef<M>>,
+	pub fn from_syntax<M>(
+		r: Nullable<&json_ld_syntax::Container<M>>,
 	) -> Result<Self, Meta<InvalidContainer, M>>
 	where
 		M: Clone,
 	{
 		match r {
 			Nullable::Null => Ok(Self::None),
-			Nullable::Some(json_ld_syntax::ContainerRef::One(c)) => Ok(c.into()),
-			Nullable::Some(json_ld_syntax::ContainerRef::Many(m)) => {
+			Nullable::Some(json_ld_syntax::Container::One(c)) => Ok((*c).into()),
+			Nullable::Some(json_ld_syntax::Container::Many(m)) => {
 				let mut container = Container::new();
 
 				for Meta(t, t_meta) in m {

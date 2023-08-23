@@ -244,8 +244,8 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 			self.nodes.insert(
 				id.value().clone(),
 				Meta(
-					Indexed::new(
-						Node::with_id(Entry::new(id.metadata().clone(), id.clone())),
+					Indexed::new_entry(
+						Node::with_id(Entry::new_with(id.metadata().clone(), id.clone())),
 						index.cloned(),
 					),
 					id.metadata().clone(),
@@ -295,7 +295,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 			} else {
 				self.nodes.insert(
 					id.value.value().clone(),
-					Meta(Indexed::new(Node::with_id(id.clone()), index), meta),
+					Meta(Indexed::new_entry(Node::with_id(id.clone()), index), meta),
 				);
 			}
 
@@ -394,7 +394,7 @@ where
 		Object::Value(value) => {
 			let flat_value = value.clone();
 			Ok(Meta(
-				Indexed::new(Object::Value(flat_value), element.index_entry().cloned()),
+				Indexed::new_entry(Object::Value(flat_value), element.index_entry().cloned()),
 				meta.clone(),
 			))
 		}
@@ -406,8 +406,8 @@ where
 			}
 
 			Ok(Meta(
-				Indexed::new(
-					Object::List(object::List::new(
+				Indexed::new_entry(
+					Object::List(object::List::new_with(
 						list.entry().key_metadata.clone(),
 						Meta(flat_list, list.entry().value.metadata().clone()),
 					)),
@@ -452,7 +452,7 @@ where
 			.declare_node(id.clone(), index)?;
 
 		if let Some(entry) = node.type_entry() {
-			flat_node.set_type_entry(Some(Entry::new(
+			flat_node.set_type_entry(Some(Entry::new_with(
 				entry.key_metadata.clone(),
 				Meta(
 					entry
@@ -482,7 +482,7 @@ where
 			.unwrap();
 		match flat_node.graph_entry_mut() {
 			Some(graph) => graph.extend(flat_graph),
-			None => flat_node.set_graph(Some(Entry::new(
+			None => flat_node.set_graph(Some(Entry::new_with(
 				graph_entry.key_metadata.clone(),
 				Meta(flat_graph, graph_entry.value.metadata().clone()),
 			))),
@@ -538,8 +538,8 @@ where
 				flat_subject.properties_mut().insert_unique(
 					property.cloned(),
 					Meta(
-						Indexed::new(
-							Object::node(Node::with_id(Entry::new(
+						Indexed::new_entry(
+							Object::node(Node::with_id(Entry::new_with(
 								id.metadata().clone(),
 								id.clone(),
 							))),
@@ -572,8 +572,8 @@ where
 		}
 	}
 
-	Ok(Indexed::new(
-		Node::with_id(Entry::new(id.metadata().clone(), id)),
+	Ok(Indexed::new_entry(
+		Node::with_id(Entry::new_with(id.metadata().clone(), id)),
 		None,
 	))
 }

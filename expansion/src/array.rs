@@ -12,15 +12,14 @@ pub(crate) async fn expand_array<
 	T,
 	B,
 	M,
-	C,
 	N,
 	L: Loader<T, M> + ContextLoader<T, M>,
 	W: Send + WarningHandler<B, N, M>,
 >(
 	vocabulary: &mut N,
-	active_context: &Context<T, B, C, M>,
+	active_context: &Context<T, B, M>,
 	active_property: ActiveProperty<'_, M>,
-	active_property_definition: Option<TermDefinitionRef<'_, T, B, C, M>>,
+	active_property_definition: Option<TermDefinitionRef<'_, T, B, M>>,
 	Meta(element, meta): Meta<&Array<M>, &M>,
 	base_url: Option<&T>,
 	loader: &mut L,
@@ -33,10 +32,8 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
-	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
 	L::Output: Into<Value<M>>,
-	L::Context: Into<C>,
 	L::ContextError: Send,
 {
 	// Initialize an empty array, result.
@@ -75,7 +72,11 @@ where
 	if is_list {
 		return Ok((
 			Expanded::Object(Meta(
-				Object::List(object::List::new(meta.clone(), Meta(result, meta.clone()))).into(),
+				Object::List(object::List::new_with(
+					meta.clone(),
+					Meta(result, meta.clone()),
+				))
+				.into(),
 				meta.clone(),
 			)),
 			warnings,

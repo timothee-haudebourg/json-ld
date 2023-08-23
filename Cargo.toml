@@ -45,7 +45,11 @@ hashbrown = "0.13.1"
 smallvec = "1.10"
 log = "0.4.17"
 thiserror = "1.0.38"
+serde = "1.0"
 
 iref-enum = "2.1"
 grdf = "0.19"
 async-std = "1.12"
+
+[patch.crates-io]
+locspan = { path = "/home/work/Documents/Community/parsing/locspan", features = ["serde"] }

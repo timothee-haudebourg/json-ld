@@ -1,5 +1,5 @@
-use crate::{Direction, LenientLanguageTag, Nullable};
-use iref::IriRef;
+use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable};
+use iref::{IriRef, IriRefBuf};
 use json_syntax::print::{
 	printed_string_size, string_literal, Options, PrecomputeSize, Print, Size,
 };
@@ -17,6 +17,18 @@ impl Print for Direction {
 	}
 }
 
+impl PrecomputeSize for LenientLanguageTagBuf {
+	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
+		Size::Width(printed_string_size(self.as_str()))
+	}
+}
+
+impl Print for LenientLanguageTagBuf {
+	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
+		string_literal(self.as_str(), f)
+	}
+}
+
 impl<'a> PrecomputeSize for LenientLanguageTag<'a> {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		Size::Width(printed_string_size(self.as_str()))
@@ -29,7 +41,7 @@ impl<'a> Print for LenientLanguageTag<'a> {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<IriRef<'a>> {
+impl PrecomputeSize for Nullable<IriRefBuf> {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -38,7 +50,7 @@ impl<'a> PrecomputeSize for Nullable<IriRef<'a>> {
 	}
 }
 
-impl<'a> Print for Nullable<IriRef<'a>> {
+impl Print for Nullable<IriRefBuf> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -65,7 +77,7 @@ impl Print for Nullable<bool> {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<crate::LenientLanguageTag<'a>> {
+impl PrecomputeSize for Nullable<LenientLanguageTagBuf> {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -74,7 +86,7 @@ impl<'a> PrecomputeSize for Nullable<crate::LenientLanguageTag<'a>> {
 	}
 }
 
-impl<'a> Print for Nullable<crate::LenientLanguageTag<'a>> {
+impl Print for Nullable<LenientLanguageTagBuf> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),

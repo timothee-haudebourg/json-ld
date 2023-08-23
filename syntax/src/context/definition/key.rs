@@ -38,6 +38,10 @@ impl Key {
 	pub fn into_string(self) -> String {
 		self.0
 	}
+
+	pub fn is_keyword_like(&self) -> bool {
+		crate::is_keyword_like(self.as_str())
+	}
 }
 
 impl From<json_syntax::object::Key> for Key {
@@ -228,15 +232,6 @@ impl<'a> From<&'a Key> for KeyOrKeywordRef<'a> {
 	}
 }
 
-impl<'a> fmt::Display for KeyOrKeywordRef<'a> {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		match self {
-			Self::Key(k) => k.fmt(f),
-			Self::Keyword(k) => k.fmt(f),
-		}
-	}
-}
-
 pub enum KeyOrType {
 	Key(Key),
 	Type,
@@ -252,32 +247,6 @@ impl KeyOrType {
 }
 
 impl fmt::Display for KeyOrType {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		self.as_str().fmt(f)
-	}
-}
-pub enum KeyOrTypeRef<'a> {
-	Key(KeyRef<'a>),
-	Type,
-}
-
-impl<'a> KeyOrTypeRef<'a> {
-	pub fn as_str(&self) -> &'a str {
-		match self {
-			Self::Key(k) => k.as_str(),
-			Self::Type => "@type",
-		}
-	}
-
-	pub fn to_owned(&self) -> KeyOrType {
-		match self {
-			Self::Key(k) => KeyOrType::Key(KeyRef::to_owned(*k)),
-			Self::Type => KeyOrType::Type,
-		}
-	}
-}
-
-impl<'a> fmt::Display for KeyOrTypeRef<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.as_str().fmt(f)
 	}
