@@ -98,7 +98,7 @@ impl flatten::Test {
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 		let mut loader: json_ld::FsLoader = json_ld::FsLoader::default();
 		loader.mount(
-			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api").into()),
+			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api")),
 			"json-ld-api",
 		);
 
@@ -156,20 +156,18 @@ impl flatten::Test {
 
 					if success {
 						break;
-					} else {
-						if i == 9 {
-							eprintln!("test failed");
-							eprintln!(
-								"output=\n{}",
-								flattened.with(&vocabulary).document().pretty_print()
-							);
-							eprintln!(
-								"expected=\n{}",
-								expect.document().with(&vocabulary).pretty_print()
-							);
+					} else if i == 9 {
+						eprintln!("test failed");
+						eprintln!(
+							"output=\n{}",
+							flattened.with(&vocabulary).document().pretty_print()
+						);
+						eprintln!(
+							"expected=\n{}",
+							expect.document().with(&vocabulary).pretty_print()
+						);
 
-							assert!(success)
-						}
+						assert!(success)
 					}
 				}
 			}

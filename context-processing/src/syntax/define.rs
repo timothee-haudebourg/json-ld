@@ -1,5 +1,5 @@
 use super::{expand_iri_simple, expand_iri_with, Merged};
-use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandler};
+use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use futures::future::{BoxFuture, FutureExt};
 use iref::{Iri, IriRef};
 use json_ld_core::{
@@ -11,7 +11,7 @@ use json_ld_syntax::{
 		definition::{EntryValueRef, KeyOrKeyword, KeyOrKeywordRef},
 		term_definition::{self, IdRef},
 	},
-	CompactIri, ContainerKind, Entry, ExpandableRef, Keyword, LenientLanguageTag, Nullable,
+	CompactIri, ContainerKind, Entry, ExpandableRef, Keyword, Nullable,
 };
 use locspan::{At, BorrowStripped, Meta};
 use rdf_types::{BlankId, VocabularyMut};
@@ -123,7 +123,7 @@ pub fn define<
 ) -> BoxFuture<'a, Result<W, Error<L::ContextError>>> {
 	let term = term.to_owned();
 	async move {
-		if defined.begin(&term, &meta)? {
+		if defined.begin(&term, meta)? {
 			if term.is_empty() {
 				return Err(Error::InvalidTermDefinition);
 			}
@@ -779,7 +779,7 @@ pub fn define<
 							{
 								// Initialize `direction` to the value associated with the `@direction`
 								// entry, which MUST be either null, "ltr", or "rtl".
-								definition.direction = Some(direction_value.clone());
+								definition.direction = Some(*direction_value);
 							}
 						}
 

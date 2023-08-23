@@ -3,9 +3,7 @@ use crate::{
 	GivenLiteralValue, LiteralValue, Loader, Options, Warning, WarningHandler,
 };
 use futures::future::{BoxFuture, FutureExt};
-use json_ld_context_processing::{
-	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
-};
+use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
 use json_ld_core::{object, Context, Id, Indexed, Object, Term, ValidId};
 use json_ld_syntax::{Keyword, Nullable};
 use json_syntax::{object::Entry, Value};

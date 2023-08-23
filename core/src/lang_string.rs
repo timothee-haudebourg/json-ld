@@ -122,7 +122,7 @@ impl LangString {
 		direction: Option<Meta<json_syntax::Value<M>, M>>,
 	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
 		let data = match value {
-			Meta(json_syntax::Value::String(s), _) => s.into(),
+			Meta(json_syntax::Value::String(s), _) => s,
 			Meta(v, meta) => {
 				return Err(Meta(
 					InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String),

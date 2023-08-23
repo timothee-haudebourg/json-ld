@@ -1,8 +1,6 @@
 use crate::{add_value, compact_iri, compact_property, MetaError, Options};
 use contextual::WithContext;
-use json_ld_context_processing::{
-	Options as ProcessingOptions, Process, ProcessMeta, ProcessingMode,
-};
+use json_ld_context_processing::{Options as ProcessingOptions, Process, ProcessingMode};
 use json_ld_core::{
 	object::node::TypeEntry, Container, ContainerKind, Context, ContextLoader, Id, Loader, Node,
 	Term, Type,

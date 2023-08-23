@@ -1,10 +1,10 @@
 use crate::compaction::{self, Compact, CompactMeta};
-use crate::context_processing::{self, Process, ProcessMeta, Processed};
+use crate::context_processing::{self, Process, Processed};
 use crate::expansion;
 use crate::syntax::{self, ErrorCode};
 use crate::{
 	flattening::ConflictingIndexes, id::Generator, Context, ContextLoader, ExpandedDocument,
-	Loader, ProcessingMode, RemoteDocumentReference,
+	Loader, ProcessingMode,
 };
 use futures::future::BoxFuture;
 use futures::FutureExt;

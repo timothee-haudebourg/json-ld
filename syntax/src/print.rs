@@ -1,5 +1,5 @@
 use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable};
-use iref::{IriRef, IriRefBuf};
+use iref::IriRefBuf;
 use json_syntax::print::{
 	printed_string_size, string_literal, Options, PrecomputeSize, Print, Size,
 };

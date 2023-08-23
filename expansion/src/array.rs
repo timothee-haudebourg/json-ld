@@ -1,5 +1,5 @@
 use crate::{expand_element, ActiveProperty, Error, Expanded, Loader, Options, WarningHandler};
-use json_ld_context_processing::{ContextLoader, ProcessMeta};
+use json_ld_context_processing::ContextLoader;
 use json_ld_core::{context::TermDefinitionRef, object, Context, Object};
 use json_ld_syntax::ContainerKind;
 use json_syntax::{Array, Value};

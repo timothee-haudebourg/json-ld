@@ -1,4 +1,4 @@
-use iref::{IriRef, IriRefBuf};
+use iref::IriRefBuf;
 use json_ld_syntax::{self as syntax, Entry};
 use locspan::Meta;
 
