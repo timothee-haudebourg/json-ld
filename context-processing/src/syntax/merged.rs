@@ -1,102 +1,102 @@
-use iref::IriRef;
-use json_ld_syntax::{
-	self as syntax,
-	context::definition::{AnyDefinition, TermBindingRef},
-	Entry,
-};
+use iref::{IriRef, IriRefBuf};
+use json_ld_syntax::{self as syntax, Entry};
 use locspan::Meta;
 
-pub struct Merged<'a, M, C: syntax::context::AnyValue<M>> {
-	base: &'a C::Definition,
-	imported: Option<C>,
+pub struct Merged<'a, M> {
+	base: &'a syntax::context::Definition<M>,
+	imported: Option<syntax::context::Value<M>>,
 }
 
-impl<'a, M, C: syntax::context::AnyValue<M>> Merged<'a, M, C> {
-	pub fn new(base: &'a C::Definition, imported: Option<C>) -> Self {
+impl<'a, M> Merged<'a, M> {
+	pub fn new(
+		base: &'a syntax::context::Definition<M>,
+		imported: Option<syntax::context::Value<M>>,
+	) -> Self {
 		Self { base, imported }
 	}
 
-	pub fn imported(&self) -> Option<&C::Definition> {
-		self.imported
-			.as_ref()
-			.and_then(|imported| match imported.as_value_ref() {
-				syntax::context::ValueRef::One(Meta(
-					syntax::ContextRef::Definition(import_context),
-					_,
-				)) => Some(import_context),
-				_ => None,
-			})
+	pub fn imported(&self) -> Option<&syntax::context::Definition<M>> {
+		self.imported.as_ref().and_then(|imported| match imported {
+			syntax::context::Value::One(Meta(syntax::Context::Definition(import_context), _)) => {
+				Some(import_context)
+			}
+			_ => None,
+		})
 	}
 
-	pub fn base(&self) -> Option<Entry<syntax::Nullable<IriRef>, M>> {
+	pub fn base(&self) -> Option<&Entry<syntax::Nullable<IriRefBuf>, M>> {
 		self.base
-			.base()
-			.or_else(|| self.imported().and_then(|i| i.base()))
+			.base
+			.as_ref()
+			.or_else(|| self.imported().and_then(|i| i.base.as_ref()))
 
 		// self.imported()
 		// 	.and_then(|i| i.base())
 		// 	.or_else(|| self.base.base())
 	}
 
-	pub fn vocab(
-		&self,
-	) -> Option<Entry<syntax::Nullable<syntax::context::definition::VocabRef>, M>> {
+	pub fn vocab(&self) -> Option<&Entry<syntax::Nullable<syntax::context::definition::Vocab>, M>> {
 		self.base
-			.vocab()
-			.or_else(|| self.imported().and_then(|i| i.vocab()))
+			.vocab
+			.as_ref()
+			.or_else(|| self.imported().and_then(|i| i.vocab.as_ref()))
 		// self.imported()
 		// 	.and_then(|i| i.vocab())
 		// 	.or_else(|| self.base.vocab())
 	}
 
-	pub fn language(&self) -> Option<Entry<syntax::Nullable<syntax::LenientLanguageTag>, M>> {
+	pub fn language(&self) -> Option<&Entry<syntax::Nullable<syntax::LenientLanguageTagBuf>, M>> {
 		self.base
-			.language()
-			.or_else(|| self.imported().and_then(|i| i.language()))
+			.language
+			.as_ref()
+			.or_else(|| self.imported().and_then(|i| i.language.as_ref()))
 		// self.imported()
 		// 	.and_then(|i| i.language())
 		// 	.or_else(|| self.base.language())
 	}
 
-	pub fn direction(&self) -> Option<Entry<syntax::Nullable<syntax::Direction>, M>> {
+	pub fn direction(&self) -> Option<&Entry<syntax::Nullable<syntax::Direction>, M>> {
 		self.base
-			.direction()
-			.or_else(|| self.imported().and_then(|i| i.direction()))
+			.direction
+			.as_ref()
+			.or_else(|| self.imported().and_then(|i| i.direction.as_ref()))
 		// self.imported()
 		// 	.and_then(|i| i.direction())
 		// 	.or_else(|| self.base.direction())
 	}
 
-	pub fn protected(&self) -> Option<Entry<bool, M>> {
+	pub fn protected(&self) -> Option<&Entry<bool, M>> {
 		self.base
-			.protected()
-			.or_else(|| self.imported().and_then(|i| i.protected()))
+			.protected
+			.as_ref()
+			.or_else(|| self.imported().and_then(|i| i.protected.as_ref()))
 		// self.imported()
 		// 	.and_then(|i| i.protected())
 		// 	.or_else(|| self.base.protected())
 	}
 
-	pub fn type_(&self) -> Option<Entry<syntax::context::definition::Type<M>, M>> {
+	pub fn type_(&self) -> Option<&Entry<syntax::context::definition::Type<M>, M>> {
 		self.base
-			.type_()
-			.or_else(|| self.imported().and_then(|i| i.type_()))
+			.type_
+			.as_ref()
+			.or_else(|| self.imported().and_then(|i| i.type_.as_ref()))
 		// self.imported()
 		// 	.and_then(|i| i.protected())
 		// 	.or_else(|| self.base.protected())
 	}
 
-	pub fn bindings(&self) -> MergedBindings<M, C> {
+	pub fn bindings(&self) -> MergedBindings<M> {
 		MergedBindings {
 			base: self.base,
-			base_bindings: self.base.bindings(),
-			imported_bindings: self.imported().map(|i| i.bindings()),
+			base_bindings: self.base.bindings.iter(),
+			imported_bindings: self.imported().map(|i| i.bindings.iter()),
 		}
 	}
 
 	pub fn get(
 		&self,
 		key: &syntax::context::definition::KeyOrKeyword,
-	) -> Option<syntax::context::definition::EntryValueRef<M, C>> {
+	) -> Option<syntax::context::definition::EntryValueRef<M>> {
 		self.base
 			.get(key)
 			.or_else(|| self.imported().and_then(|i| i.get(key)))
@@ -106,8 +106,8 @@ impl<'a, M, C: syntax::context::AnyValue<M>> Merged<'a, M, C> {
 	}
 }
 
-impl<'a, M, C: syntax::context::AnyValue<M>> From<&'a C::Definition> for Merged<'a, M, C> {
-	fn from(base: &'a C::Definition) -> Self {
+impl<'a, M> From<&'a syntax::context::Definition<M>> for Merged<'a, M> {
+	fn from(base: &'a syntax::context::Definition<M>) -> Self {
 		Self {
 			base,
 			imported: None,
@@ -115,16 +115,16 @@ impl<'a, M, C: syntax::context::AnyValue<M>> From<&'a C::Definition> for Merged<
 	}
 }
 
-pub struct MergedBindings<'a, M, C: syntax::context::AnyValue<M>> {
-	base: &'a C::Definition,
-	base_bindings: syntax::context::definition::BindingsIter<'a, M, C>,
-	imported_bindings: Option<syntax::context::definition::BindingsIter<'a, M, C>>,
+pub struct MergedBindings<'a, M> {
+	base: &'a syntax::context::Definition<M>,
+	base_bindings: syntax::context::definition::BindingsIter<'a, M>,
+	imported_bindings: Option<syntax::context::definition::BindingsIter<'a, M>>,
 }
 
-impl<'a, M: Clone, C: syntax::context::AnyValue<M>> Iterator for MergedBindings<'a, M, C> {
+impl<'a, M: Clone> Iterator for MergedBindings<'a, M> {
 	type Item = (
-		syntax::context::definition::KeyRef<'a>,
-		TermBindingRef<'a, M, C>,
+		&'a syntax::context::definition::Key,
+		&'a syntax::context::definition::TermBinding<M>,
 	);
 
 	fn next(&mut self) -> Option<Self::Item> {

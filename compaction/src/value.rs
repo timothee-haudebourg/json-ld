@@ -10,18 +10,11 @@ use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
 /// Compact the given indexed value.
-pub async fn compact_indexed_value_with<
-	I,
-	B,
-	M,
-	C: ProcessMeta<I, B, M>,
-	N,
-	L: Loader<I, M> + ContextLoader<I, M>,
->(
+pub async fn compact_indexed_value_with<I, B, M, N, L: Loader<I, M> + ContextLoader<I, M>>(
 	vocabulary: &mut N,
 	Meta(value, meta): Meta<&Value<I, M>, &M>,
 	index: Option<&Entry<String, M>>,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	active_property: Option<Meta<&str, &M>>,
 	loader: &mut L,
 	options: Options,
@@ -32,7 +25,6 @@ where
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
 	L: Send + Sync,
-	L::Context: Into<C>,
 {
 	// If the term definition for active property in active context has a local context:
 	let mut active_context = Mown::Borrowed(active_context);

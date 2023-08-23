@@ -16,14 +16,20 @@ use std::ops::Deref;
 	Debug,
 )]
 #[locspan(ignore(M))]
-pub struct Entry<T, M> {
+pub struct Entry<T, M = ()> {
 	#[locspan(ignore)]
 	pub key_metadata: M,
 	pub value: Meta<T, M>,
 }
 
+impl<T> Entry<T> {
+	pub fn new(value: T) -> Self {
+		Self::new_with((), Meta::none(value))
+	}
+}
+
 impl<T, M> Entry<T, M> {
-	pub fn new(key_metadata: M, value: Meta<T, M>) -> Self {
+	pub fn new_with(key_metadata: M, value: Meta<T, M>) -> Self {
 		Self {
 			key_metadata,
 			value,
@@ -42,15 +48,15 @@ impl<T, M> Entry<T, M> {
 	where
 		M: Clone,
 	{
-		Entry::new(self.key_metadata.clone(), self.value.borrow_value())
+		Entry::new_with(self.key_metadata.clone(), self.value.borrow_value())
 	}
 
 	pub fn map<U>(self, f: impl Fn(T) -> U) -> Entry<U, M> {
-		Entry::new(self.key_metadata, self.value.map(f))
+		Entry::new_with(self.key_metadata, self.value.map(f))
 	}
 
 	pub fn cast<U: From<T>>(self) -> Entry<U, M> {
-		Entry::new(self.key_metadata, self.value.cast())
+		Entry::new_with(self.key_metadata, self.value.cast())
 	}
 }
 
@@ -60,7 +66,7 @@ impl<'a, T, M> Entry<&'a T, M> {
 		T: Deref,
 	{
 		let Meta(value, meta) = self.value;
-		Entry::new(self.key_metadata, Meta(value.deref(), meta))
+		Entry::new_with(self.key_metadata, Meta(value.deref(), meta))
 	}
 }
 

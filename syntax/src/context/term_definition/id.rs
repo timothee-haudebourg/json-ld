@@ -1,4 +1,5 @@
-use crate::{context, CompactIri, ExpandableRef, Keyword};
+use crate::context::definition::KeyOrKeywordRef;
+use crate::{CompactIri, ExpandableRef, Keyword};
 use iref::Iri;
 use locspan_derive::StrippedPartialEq;
 use rdf_types::BlankId;
@@ -53,6 +54,21 @@ impl Id {
 			Self::Keyword(k) => k.to_string(),
 		}
 	}
+
+	pub fn is_keyword(&self) -> bool {
+		matches!(self, Self::Keyword(_))
+	}
+
+	pub fn is_keyword_like(&self) -> bool {
+		crate::is_keyword_like(self.as_str())
+	}
+
+	pub fn as_id_ref(&self) -> IdRef {
+		match self {
+			Self::Term(t) => IdRef::Term(t),
+			Self::Keyword(k) => IdRef::Keyword(*k),
+		}
+	}
 }
 
 impl PartialEq for Id {
@@ -82,42 +98,32 @@ impl From<String> for Id {
 	}
 }
 
-#[derive(Clone, Copy)]
+impl<'a> From<&'a Id> for ExpandableRef<'a> {
+	fn from(i: &'a Id) -> Self {
+		match i {
+			Id::Term(t) => Self::String(t),
+			Id::Keyword(k) => Self::Keyword(*k),
+		}
+	}
+}
+
+impl fmt::Display for Id {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match self {
+			Self::Term(t) => t.fmt(f),
+			Self::Keyword(k) => k.fmt(f),
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum IdRef<'a> {
 	Term(&'a str),
 	Keyword(Keyword),
 }
 
 impl<'a> IdRef<'a> {
-	pub fn as_iri(&self) -> Option<Iri<'a>> {
-		match self {
-			Self::Term(t) => Iri::new(*t).ok(),
-			Self::Keyword(_) => None,
-		}
-	}
-
-	pub fn as_blank_id(&self) -> Option<&'a BlankId> {
-		match self {
-			Self::Term(t) => BlankId::new(t).ok(),
-			Self::Keyword(_) => None,
-		}
-	}
-
-	pub fn as_compact_iri(&self) -> Option<&'a CompactIri> {
-		match self {
-			Self::Term(t) => CompactIri::new(t).ok(),
-			Self::Keyword(_) => None,
-		}
-	}
-
-	pub fn as_keyword(&self) -> Option<Keyword> {
-		match self {
-			Self::Keyword(k) => Some(*k),
-			Self::Term(_) => None,
-		}
-	}
-
-	pub fn as_str(&self) -> &'a str {
+	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Term(t) => t,
 			Self::Keyword(k) => k.into_str(),
@@ -142,15 +148,6 @@ impl<'a> From<&'a str> for IdRef<'a> {
 	}
 }
 
-impl<'a> From<IdRef<'a>> for context::definition::KeyOrKeywordRef<'a> {
-	fn from(i: IdRef<'a>) -> Self {
-		match i {
-			IdRef::Term(t) => Self::Key(t.into()),
-			IdRef::Keyword(k) => Self::Keyword(k),
-		}
-	}
-}
-
 impl<'a> From<IdRef<'a>> for ExpandableRef<'a> {
 	fn from(i: IdRef<'a>) -> Self {
 		match i {
@@ -161,19 +158,16 @@ impl<'a> From<IdRef<'a>> for ExpandableRef<'a> {
 }
 
 impl<'a> fmt::Display for IdRef<'a> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::Term(t) => t.fmt(f),
-			Self::Keyword(k) => k.fmt(f),
-		}
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		self.as_str().fmt(f)
 	}
 }
 
-impl<'a> From<&'a Id> for IdRef<'a> {
-	fn from(i: &'a Id) -> Self {
+impl<'a> From<IdRef<'a>> for KeyOrKeywordRef<'a> {
+	fn from(i: IdRef<'a>) -> Self {
 		match i {
-			Id::Term(t) => Self::Term(t),
-			Id::Keyword(k) => Self::Keyword(*k),
+			IdRef::Term(t) => Self::Key(t.into()),
+			IdRef::Keyword(k) => Self::Keyword(k),
 		}
 	}
 }

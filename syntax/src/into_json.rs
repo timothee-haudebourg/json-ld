@@ -238,7 +238,7 @@ impl<M> IntoJsonMeta<M> for context::Value<M> {
 	}
 }
 
-impl<M> IntoJsonMeta<M> for Context<context::Definition<M>> {
+impl<M> IntoJsonMeta<M> for Context<M> {
 	fn into_json_meta(self, meta: M) -> Meta<json_syntax::Value<M>, M> {
 		match self {
 			Self::Null => Meta(json_syntax::Value::Null, meta),

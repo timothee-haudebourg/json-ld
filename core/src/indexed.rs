@@ -16,7 +16,7 @@ use std::ops::{Deref, DerefMut};
 	Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, StrippedPartialEq, StrippedEq, StrippedHash,
 )]
 #[locspan(ignore(M))]
-pub struct Indexed<T, M> {
+pub struct Indexed<T, M = ()> {
 	/// Index.
 	index: Option<Entry<String, M>>,
 
@@ -24,10 +24,17 @@ pub struct Indexed<T, M> {
 	value: T,
 }
 
+impl<T> Indexed<T> {
+	/// Creates a new (maybe) indexed value without metadata.
+	pub fn new(value: T, index: Option<String>) -> Indexed<T> {
+		Self::new_entry(value, index.map(|i| Entry::new(i)))
+	}
+}
+
 impl<T, M> Indexed<T, M> {
 	/// Create a new (maybe) indexed value.
 	#[inline(always)]
-	pub fn new(value: T, index: Option<Entry<String, M>>) -> Indexed<T, M> {
+	pub fn new_entry(value: T, index: Option<Entry<String, M>>) -> Indexed<T, M> {
 		Indexed { value, index }
 	}
 
@@ -80,21 +87,21 @@ impl<T, M> Indexed<T, M> {
 	where
 		F: FnOnce(T) -> U,
 	{
-		Indexed::new(f(self.value), self.index)
+		Indexed::new_entry(f(self.value), self.index)
 	}
 
 	/// Cast the inner value.
 	#[inline(always)]
 	pub fn cast<U: From<T>>(self) -> Indexed<U, M> {
-		Indexed::new(self.value.into(), self.index)
+		Indexed::new_entry(self.value.into(), self.index)
 	}
 
 	/// Try to cast the inner value.
 	#[inline(always)]
 	pub fn try_cast<U: TryFrom<T>>(self) -> Result<Indexed<U, M>, Indexed<U::Error, M>> {
 		match self.value.try_into() {
-			Ok(value) => Ok(Indexed::new(value, self.index)),
-			Err(e) => Err(Indexed::new(e, self.index)),
+			Ok(value) => Ok(Indexed::new_entry(value, self.index)),
+			Err(e) => Err(Indexed::new_entry(e, self.index)),
 		}
 	}
 }
@@ -123,7 +130,7 @@ impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJsonObject<T, B, M> for Inde
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
 			Some(index_entry) => match index_entry.value {
-				Meta(json_syntax::Value::String(index), meta) => Some(Entry::new(
+				Meta(json_syntax::Value::String(index), meta) => Some(Entry::new_with(
 					index_entry.key.into_metadata(),
 					Meta(index.to_string(), meta),
 				)),
@@ -133,14 +140,14 @@ impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJsonObject<T, B, M> for Inde
 		};
 
 		let Meta(value, meta) = O::try_from_json_object_in(vocabulary, Meta(object, meta))?;
-		Ok(Meta(Self::new(value, index), meta))
+		Ok(Meta(Self::new_entry(value, index), meta))
 	}
 }
 
 impl<T, M> From<T> for Indexed<T, M> {
 	#[inline(always)]
 	fn from(value: T) -> Indexed<T, M> {
-		Indexed::new(value, None)
+		Indexed::new_entry(value, None)
 	}
 }
 

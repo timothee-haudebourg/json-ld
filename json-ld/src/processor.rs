@@ -9,7 +9,7 @@ use crate::{
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use json_ld_core::rdf::RdfDirection;
-use json_ld_core::RdfQuads;
+use json_ld_core::{RdfQuads, RemoteContextReference};
 use locspan::{Location, Meta};
 use rdf_types::vocabulary::IriIndex;
 use rdf_types::{vocabulary, IriVocabulary, Vocabulary, VocabularyMut};
@@ -19,7 +19,7 @@ mod remote_document;
 
 /// JSON-LD Processor options.
 #[derive(Clone)]
-pub struct Options<I = IriIndex, M = Location<I>, C = json_ld_syntax::context::Value<M>> {
+pub struct Options<I = IriIndex, M = Location<I>> {
 	/// The base IRI to use when expanding or compacting the document.
 	///
 	/// If set, this overrides the input document's IRI.
@@ -39,7 +39,7 @@ pub struct Options<I = IriIndex, M = Location<I>, C = json_ld_syntax::context::V
 	pub compact_to_relative: bool,
 
 	/// A context that is used to initialize the active context when expanding a document.
-	pub expand_context: Option<RemoteDocumentReference<I, M, C>>,
+	pub expand_context: Option<RemoteContextReference<I, M>>,
 
 	/// If set to `true`, certain algorithm processing steps where indicated are
 	/// ordered lexicographically.
@@ -83,7 +83,7 @@ pub struct Options<I = IriIndex, M = Location<I>, C = json_ld_syntax::context::V
 	pub expansion_policy: expansion::Policy,
 }
 
-impl<I, M, C> Options<I, M, C> {
+impl<I, M> Options<I, M> {
 	/// Returns these options with the `ordered` flag set to `false`.
 	///
 	/// This means entries will not be ordered by keys before being processed.
@@ -96,7 +96,7 @@ impl<I, M, C> Options<I, M, C> {
 
 	/// Returns these options with the `expand_context` set to the given
 	/// `context`.
-	pub fn with_expand_context(self, context: RemoteDocumentReference<I, M, C>) -> Self {
+	pub fn with_expand_context(self, context: RemoteContextReference<I, M>) -> Self {
 		Self {
 			expand_context: Some(context),
 			..self
@@ -131,7 +131,7 @@ impl<I, M, C> Options<I, M, C> {
 	}
 }
 
-impl<I, M, C> Default for Options<I, M, C> {
+impl<I, M> Default for Options<I, M> {
 	fn default() -> Self {
 		Self {
 			base: None,
@@ -379,12 +379,12 @@ pub trait JsonLdProcessor<I, M> {
 	/// ).await.expect("comparison failed"));
 	/// # }
 	/// ```
-	fn compare_full<'a, B, C, N, L>(
+	fn compare_full<'a, B, N, L>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -393,13 +393,11 @@ pub trait JsonLdProcessor<I, M> {
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send;
 
 	/// Compare this document against `other` with a custom vocabulary using the
@@ -436,23 +434,21 @@ pub trait JsonLdProcessor<I, M> {
 	/// ).await.expect("comparison failed"));
 	/// # }
 	/// ```
-	fn compare_with_using<'a, B, C, N, L>(
+	fn compare_with_using<'a, B, N, L>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<CompareResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.compare_full(other, vocabulary, loader, options, ())
@@ -505,7 +501,6 @@ pub trait JsonLdProcessor<I, M> {
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 	{
 		self.compare_with_using(other, vocabulary, loader, Options::default())
@@ -540,22 +535,20 @@ pub trait JsonLdProcessor<I, M> {
 	/// ).await.expect("comparison failed"));
 	/// # }
 	/// ```
-	fn compare_using<'a, B, C, L>(
+	fn compare_using<'a, B, L>(
 		&'a self,
 		other: &'a Self,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<CompareResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.compare_with_using(
@@ -608,7 +601,6 @@ pub trait JsonLdProcessor<I, M> {
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 	{
 		self.compare_with(other, rdf_types::vocabulary::no_vocabulary_mut(), loader)
@@ -650,11 +642,11 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("expansion failed");
 	/// # }
 	/// ```
-	fn expand_full<'a, B, C, N, L>(
+	fn expand_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -663,13 +655,11 @@ pub trait JsonLdProcessor<I, M> {
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send;
 
 	/// Expand the document with the given `vocabulary` and `loader`, using
@@ -708,22 +698,20 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("expansion failed");
 	/// # }
 	/// ```
-	fn expand_with_using<'a, B, C, N, L>(
+	fn expand_with_using<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<ExpandResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.expand_full(vocabulary, loader, options, ())
@@ -777,7 +765,6 @@ pub trait JsonLdProcessor<I, M> {
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 	{
 		self.expand_with_using(vocabulary, loader, Options::default())
@@ -813,21 +800,19 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("expansion failed");
 	/// # }
 	/// ```
-	fn expand_using<'a, B, C, L>(
+	fn expand_using<'a, B, L>(
 		&'a self,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<ExpandResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.expand_with_using(vocabulary::no_vocabulary_mut(), loader, options)
@@ -870,7 +855,6 @@ pub trait JsonLdProcessor<I, M> {
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 	{
 		self.expand_with(vocabulary::no_vocabulary_mut(), loader)
@@ -917,12 +901,12 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("compaction failed");
 	/// # }
 	/// ```
-	fn compact_full<'a, B, C, N, L>(
+	fn compact_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: RemoteDocumentReference<I, M, C>,
+		context: RemoteContextReference<I, M>,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -931,13 +915,11 @@ pub trait JsonLdProcessor<I, M> {
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send;
 
 	/// Compact the document relative to `context` with the given `vocabulary`
@@ -981,23 +963,21 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("compaction failed");
 	/// # }
 	/// ```
-	fn compact_with_using<'a, B, C, N, L>(
+	fn compact_with_using<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: RemoteDocumentReference<I, M, C>,
+		context: RemoteContextReference<I, M>,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<'a, CompactResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.compact_full(vocabulary, context, loader, options, ())
@@ -1044,22 +1024,20 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("compaction failed");
 	/// # }
 	/// ```
-	fn compact_with<'a, B, C, N, L>(
+	fn compact_with<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: RemoteDocumentReference<I, M, C>,
+		context: RemoteContextReference<I, M>,
 		loader: &'a mut L,
 	) -> BoxFuture<'a, CompactResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.compact_with_using(vocabulary, context, loader, Options::default())
@@ -1101,22 +1079,20 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("compaction failed");
 	/// # }
 	/// ```
-	fn compact_using<'a, B, C, L>(
+	fn compact_using<'a, B, L>(
 		&'a self,
-		context: RemoteDocumentReference<I, M, C>,
+		context: RemoteContextReference<I, M>,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<'a, CompactResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.compact_with_using(vocabulary::no_vocabulary_mut(), context, loader, options)
@@ -1157,21 +1133,19 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("compaction failed");
 	/// # }
 	/// ```
-	fn compact<'a, B, C, L>(
+	fn compact<'a, B, L>(
 		&'a self,
-		context: RemoteDocumentReference<I, M, C>,
+		context: RemoteContextReference<I, M>,
 		loader: &'a mut L,
 	) -> BoxFuture<'a, CompactResult<I, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader)
@@ -1232,13 +1206,13 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("flattening failed");
 	/// # }
 	/// ```
-	fn flatten_full<'a, B, C, N, L>(
+	fn flatten_full<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut (impl Send + Generator<N, M>),
-		context: Option<RemoteDocumentReference<I, M, C>>,
+		context: Option<RemoteContextReference<I, M>>,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -1247,13 +1221,11 @@ pub trait JsonLdProcessor<I, M> {
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send;
 
 	/// Flatten the document with the given `vocabulary`, `generator`
@@ -1308,23 +1280,21 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("flattening failed");
 	/// # }
 	/// ```
-	fn flatten_with_using<'a, B, C, N, L>(
+	fn flatten_with_using<'a, B, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut (impl Send + Generator<N, M>),
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.flatten_full(vocabulary, generator, None, loader, options, ())
@@ -1396,7 +1366,6 @@ pub trait JsonLdProcessor<I, M> {
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 	{
 		self.flatten_with_using(vocabulary, generator, loader, Options::default())
@@ -1448,22 +1417,20 @@ pub trait JsonLdProcessor<I, M> {
 	///   .expect("flattening failed");
 	/// # }
 	/// ```
-	fn flatten_using<'a, B, C, L>(
+	fn flatten_using<'a, B, L>(
 		&'a self,
 		generator: &'a mut (impl Send + Generator<(), M>),
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
 	where
 		I: Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		(): Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 	{
 		self.flatten_with_using(vocabulary::no_vocabulary_mut(), generator, loader, options)
@@ -1527,7 +1494,6 @@ pub trait JsonLdProcessor<I, M> {
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 	{
 		self.flatten_with(vocabulary::no_vocabulary_mut(), generator, loader)
@@ -1593,12 +1559,12 @@ pub trait JsonLdProcessor<I, M> {
 	/// }
 	/// # }
 	/// ```
-	fn to_rdf_full<'a, B, C, N, G, L>(
+	fn to_rdf_full<'a, B, N, G, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut G,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 		warnings: impl 'a
 			+ Send
 			+ context_processing::WarningHandler<N, M>
@@ -1607,14 +1573,12 @@ pub trait JsonLdProcessor<I, M> {
 	where
 		I: 'a + Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: 'a + Clone + Send + Sync,
 		G: Send + Generator<N, M>,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 		Self: Sync,
 	{
@@ -1695,24 +1659,22 @@ pub trait JsonLdProcessor<I, M> {
 	/// }
 	/// # }
 	/// ```
-	fn to_rdf_with_using<'a, B, C, N, G, L>(
+	fn to_rdf_with_using<'a, B, N, G, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut G,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<ToRdfResult<'a, N, M, G, L>>
 	where
 		I: 'a + Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: 'a + Clone + Send + Sync,
 		G: Send + Generator<N, M>,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 		Self: Sync,
 	{
@@ -1793,7 +1755,6 @@ pub trait JsonLdProcessor<I, M> {
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 		Self: Sync,
 	{
@@ -1859,23 +1820,21 @@ pub trait JsonLdProcessor<I, M> {
 	/// }
 	/// # }
 	/// ```
-	fn to_rdf_using<'a, B, C, G, L>(
+	fn to_rdf_using<'a, B, G, L>(
 		&'a self,
 		generator: &'a mut G,
 		loader: &'a mut L,
-		options: Options<I, M, C>,
+		options: Options<I, M>,
 	) -> BoxFuture<ToRdfResult<'a, (), M, G, L>>
 	where
 		I: 'a + Clone + Eq + Hash + Send + Sync,
 		B: 'a + Clone + Eq + Hash + Send + Sync,
-		C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 		(): VocabularyMut<Iri = I, BlankId = B>,
 		M: 'a + Clone + Send + Sync,
 		G: Send + Generator<(), M>,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<C>,
 		L::ContextError: Send,
 		Self: Sync,
 	{
@@ -1961,7 +1920,6 @@ pub trait JsonLdProcessor<I, M> {
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
-		L::Context: Into<json_ld_syntax::context::Value<M>>,
 		L::ContextError: Send,
 		Self: Sync,
 	{
@@ -2053,26 +2011,24 @@ impl<'v, 'g, V: Vocabulary, M, G: rdf_types::MetaGenerator<V, M>> ToRdf<'v, 'g, 
 	}
 }
 
-async fn compact_expanded_full<'a, T, I, B, M, C, N, L>(
+async fn compact_expanded_full<'a, T, I, B, M, N, L>(
 	expanded_input: &'a Meta<T, M>,
 	url: Option<&'a I>,
 	vocabulary: &'a mut N,
-	context: RemoteDocumentReference<I, M, C>,
+	context: RemoteContextReference<I, M>,
 	loader: &'a mut L,
-	options: Options<I, M, C>,
+	options: Options<I, M>,
 	warnings: impl Send + context_processing::WarningHandler<N, M>,
 ) -> Result<json_syntax::MetaValue<M>, CompactError<M, L::Error, L::ContextError>>
 where
 	T: CompactMeta<I, B, M>,
 	I: Clone + Eq + Hash + Send + Sync,
 	B: 'a + Clone + Eq + Hash + Send + Sync,
-	C: 'a + ProcessMeta<I, B, M> + From<json_ld_syntax::context::Value<M>>,
 	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 	M: Clone + Send + Sync,
 	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 	L::Output: Into<syntax::Value<M>>,
 	L::Error: Send,
-	L::Context: Into<C>,
 	L::ContextError: Send,
 {
 	let context_base = url.or(options.base.as_ref());
@@ -2083,7 +2039,7 @@ where
 		.map_err(CompactError::ContextLoading)?
 		.into_document();
 
-	let mut active_context: Processed<I, B, C, M> = context
+	let mut active_context: Processed<I, B, M> = context
 		.process_full(
 			vocabulary,
 			&Context::new(None),

@@ -4,14 +4,10 @@ use crate::{
 };
 use contextual::WithContext;
 use futures::future::{BoxFuture, FutureExt};
-use json_ld_context_processing::{
-	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
-};
+use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
 use json_ld_core::{
-	object,
-	object::value::{Literal, LiteralString},
-	Container, Context, Id, Indexed, IndexedObject, LangString, Node, Object, ProcessingMode, Term,
-	Type, Value,
+	object, object::value::Literal, Container, Context, Id, Indexed, IndexedObject, LangString,
+	Node, Object, ProcessingMode, Term, Type, Value,
 };
 use json_ld_syntax::{ContainerKind, Keyword, LenientLanguageTagBuf, Nullable};
 use json_syntax::object::Entry;
@@ -35,10 +31,10 @@ pub(crate) fn node_id_of_term<T, B, M>(
 
 /// Expand a node object.
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn expand_node<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
+pub(crate) async fn expand_node<'a, T, B, M, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	vocabulary: &'a mut N,
-	active_context: &'a Context<T, B, C, M>,
-	type_scoped_context: &'a Context<T, B, C, M>,
+	active_context: &'a Context<T, B, M>,
+	type_scoped_context: &'a Context<T, B, M>,
 	active_property: ActiveProperty<'a, M>,
 	expanded_entries: Vec<ExpandedEntry<'a, T, B, M>>,
 	base_url: Option<&'a T>,
@@ -51,10 +47,8 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
-	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
 	L::Output: Into<json_syntax::Value<M>>,
-	L::Context: Into<C>,
 	L::ContextError: Send,
 	W: 'a + Send + WarningHandler<B, N, M>,
 {
@@ -64,7 +58,7 @@ where
 
 	let (result, has_value_object_entries, warnings) = expand_node_entries(
 		vocabulary,
-		Indexed::new(Node::new(), None),
+		Indexed::new_entry(Node::new(), None),
 		false,
 		active_context,
 		type_scoped_context,
@@ -121,12 +115,12 @@ type NodeEntriesExpensionResult<T, B, M, L, W> =
 	Result<ExpandedNode<T, B, M, W>, Meta<Error<M, <L as ContextLoader<T, M>>::ContextError>, M>>;
 
 #[allow(clippy::too_many_arguments)]
-fn expand_node_entries<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
+fn expand_node_entries<'a, T, B, M, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	vocabulary: &'a mut N,
 	mut result: Indexed<Node<T, B, M>, M>,
 	mut has_value_object_entries: bool,
-	active_context: &'a Context<T, B, C, M>,
-	type_scoped_context: &'a Context<T, B, C, M>,
+	active_context: &'a Context<T, B, M>,
+	type_scoped_context: &'a Context<T, B, M>,
 	active_property: ActiveProperty<'a, M>,
 	expanded_entries: Vec<ExpandedEntry<'a, T, B, M>>,
 	base_url: Option<&'a T>,
@@ -139,10 +133,8 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
-	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
 	L::Output: Into<json_syntax::Value<M>>,
-	L::Context: Into<C>,
 	L::ContextError: Send,
 	W: 'a + Send + WarningHandler<B, N, M>,
 {
@@ -194,15 +186,14 @@ where
 									node_id_of_term(expand_iri(
 										vocabulary,
 										active_context,
-										Meta(
-											Nullable::Some(str_value.into()),
-											value.metadata().clone(),
-										),
+										Meta(Nullable::Some(str_value.into()), value.metadata()),
 										true,
 										false,
 										&mut warnings,
 									))
-									.map(|t| json_ld_syntax::Entry::new(key_metadata.clone(), t)),
+									.map(|t| {
+										json_ld_syntax::Entry::new_with(key_metadata.clone(), t)
+									}),
 								)
 							} else {
 								return Err(Error::InvalidIdValue.at(value.metadata().clone()));
@@ -223,7 +214,7 @@ where
 									if let Ok(ty) = expand_iri(
 										vocabulary,
 										type_scoped_context,
-										Meta(Nullable::Some(str_ty.into()), ty.metadata().clone()),
+										Meta(Nullable::Some(str_ty.into()), ty.metadata()),
 										true,
 										true,
 										&mut warnings,
@@ -267,7 +258,7 @@ where
 							.await?;
 							warnings = w;
 
-							result.set_graph(Some(json_ld_syntax::Entry::new(
+							result.set_graph(Some(json_ld_syntax::Entry::new_with(
 								key_metadata.clone(),
 								Meta(
 									expanded_value
@@ -319,7 +310,7 @@ where
 							if let Some(included) = result.included_entry_mut() {
 								included.extend(expanded_nodes.into_iter().map(Stripped));
 							} else {
-								result.set_included(Some(json_ld_syntax::Entry::new(
+								result.set_included(Some(json_ld_syntax::Entry::new_with(
 									key_metadata.clone(),
 									Meta(
 										expanded_nodes.into_iter().map(Stripped).collect(),
@@ -335,7 +326,7 @@ where
 						// If expanded property is @index:
 						Keyword::Index => {
 							if let Some(index) = value.as_str() {
-								result.set_index(Some(json_ld_syntax::Entry::new(
+								result.set_index(Some(json_ld_syntax::Entry::new_with(
 									key_metadata.clone(),
 									Meta(index.to_string(), value.metadata().clone()),
 								)))
@@ -366,7 +357,7 @@ where
 										active_context,
 										Meta(
 											Nullable::Some(reverse_key.as_str().into()),
-											reverse_key_metadata.clone(),
+											reverse_key_metadata,
 										),
 										false,
 										true,
@@ -526,7 +517,7 @@ where
 													active_context.as_ref(),
 													Meta(
 														Nullable::Some(key.as_str().into()),
-														key_metadata.clone(),
+														key_metadata,
 													),
 													false,
 													true,
@@ -662,7 +653,7 @@ where
 													active_context,
 													Meta(
 														Nullable::Some(language.as_str().into()),
-														language_metadata.clone(),
+														language_metadata,
 													),
 													false,
 													true,
@@ -698,7 +689,7 @@ where
 												// key-value pairs: (@value-item) and
 												// (@language-language).
 												if let Ok(v) = LangString::new(
-													LiteralString::Expanded(item.clone()),
+													item.clone(),
 													language,
 													direction,
 												) {
@@ -715,11 +706,7 @@ where
 												} else {
 													expanded_value.push(Meta(
 														Object::Value(Value::Literal(
-															Literal::String(
-																LiteralString::Expanded(
-																	item.clone(),
-																),
-															),
+															Literal::String(item.clone()),
 															None,
 														))
 														.into(),
@@ -833,10 +820,7 @@ where
 									let expanded_index = match expand_iri(
 										vocabulary,
 										active_context,
-										Meta(
-											Nullable::Some(index.as_str().into()),
-											index_metadata.clone(),
-										),
+										Meta(Nullable::Some(index.as_str().into()), index_metadata),
 										false,
 										true,
 										&mut warnings,
@@ -883,7 +867,7 @@ where
 											let mut node = Node::new();
 											let mut graph = HashSet::new();
 											graph.insert(Stripped(item));
-											node.set_graph(Some(json_ld_syntax::Entry::new(
+											node.set_graph(Some(json_ld_syntax::Entry::new_with(
 												item_metadata.clone(),
 												Meta(graph, item_metadata.clone()),
 											)));
@@ -910,7 +894,9 @@ where
 														index_metadata,
 													)),
 													Meta(
-														LiteralValue::Inferred(index.to_string()),
+														LiteralValue::Inferred(
+															index.as_str().into(),
+														),
 														index_metadata,
 													),
 													&mut warnings,
@@ -924,7 +910,7 @@ where
 													active_context,
 													Meta(
 														Nullable::Some(index_key.into()),
-														index_metadata.clone(),
+														index_metadata,
 													),
 													false,
 													true,
@@ -967,13 +953,15 @@ where
 												// @index, item does not have an entry @index,
 												// and expanded index is not @none, add the
 												// key-value pair (@index-index) to item.
-												item.set_index(Some(json_ld_syntax::Entry::new(
-													index_metadata.clone(),
-													Meta(
-														(*index).to_string(),
+												item.set_index(Some(
+													json_ld_syntax::Entry::new_with(
 														index_metadata.clone(),
+														Meta(
+															(*index).to_string(),
+															index_metadata.clone(),
+														),
 													),
-												)))
+												))
 											} else if container_mapping.contains(ContainerKind::Id)
 												&& item.id().is_none()
 											{
@@ -993,14 +981,14 @@ where
 																Nullable::Some(
 																	index.as_str().into(),
 																),
-																index_metadata.clone(),
+																index_metadata,
 															),
 															true,
 															false,
 															&mut warnings,
 														))
 														.map(|t| {
-															json_ld_syntax::Entry::new(
+															json_ld_syntax::Entry::new_with(
 																index_metadata.clone(),
 																t,
 															)
@@ -1074,7 +1062,7 @@ where
 					if container_mapping.contains(ContainerKind::List) && !expanded_value.is_list()
 					{
 						expanded_value = Expanded::Object(Meta(
-							Object::List(object::List::new(
+							Object::List(object::List::new_with(
 								key_metadata.clone(),
 								Meta(
 									expanded_value.into_iter().collect(),
@@ -1102,7 +1090,7 @@ where
 									let mut node = Node::new();
 									let mut graph = HashSet::new();
 									graph.insert(Stripped(ev));
-									node.set_graph(Some(json_ld_syntax::Entry::new(
+									node.set_graph(Some(json_ld_syntax::Entry::new_with(
 										ev_metadata.clone(),
 										Meta(graph, ev_metadata.clone()),
 									)));

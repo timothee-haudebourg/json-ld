@@ -6,50 +6,77 @@ use smallvec::SmallVec;
 
 pub mod definition;
 mod print;
-mod reference;
 pub mod term_definition;
 mod try_from_json;
 
-pub use definition::{AnyDefinition, Definition};
-pub use reference::*;
-pub use term_definition::{TermDefinition, TermDefinitionRef};
+pub use definition::Definition;
+pub use term_definition::TermDefinition;
 pub use try_from_json::InvalidContext;
 
-/// Context entry.
+/// JSON-LD Context value.
+///
+/// Can represent a single context entry, or a list of context entries.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[locspan(ignore(M))]
-pub enum Value<M> {
-	One(Meta<Context<Definition<M, Self>>, M>),
-	Many(Vec<Meta<Context<Definition<M, Self>>, M>>),
+pub enum Value<M = ()> {
+	One(Meta<Context<M>, M>),
+	Many(Vec<Meta<Context<M>, M>>),
+}
+
+impl Value {
+	pub fn one(context: Context) -> Self {
+		Self::One(Meta::none(context))
+	}
 }
 
 impl<M> Value<M> {
-	pub fn as_slice(&self) -> &[Meta<Context<Definition<M, Self>>, M>] {
+	pub fn as_slice(&self) -> &[Meta<Context<M>, M>] {
 		match self {
 			Self::One(c) => std::slice::from_ref(c),
 			Self::Many(list) => list,
 		}
 	}
 
-	pub fn traverse(&self) -> Traverse<M, Self>
-	where
-		M: Clone + Send + Sync,
-	{
+	pub fn is_object(&self) -> bool {
 		match self {
-			Self::One(c) => Traverse::new(FragmentRef::Context(c.as_context_ref())),
-			Self::Many(m) => Traverse::new(FragmentRef::ContextArray(ArrayIter::Owned(m.iter()))),
+			Self::One(c) => c.is_object(),
+			_ => false,
 		}
+	}
+
+	pub fn is_array(&self) -> bool {
+		matches!(self, Self::Many(_))
+	}
+
+	pub fn traverse(&self) -> Traverse<M> {
+		match self {
+			Self::One(c) => Traverse::new(FragmentRef::Context(c)),
+			Self::Many(m) => Traverse::new(FragmentRef::ContextArray(m)),
+		}
+	}
+
+	pub fn iter(&self) -> std::slice::Iter<Meta<Context<M>, M>> {
+		self.as_slice().iter()
 	}
 }
 
-impl<M> From<Meta<Context<Definition<M, Self>>, M>> for Value<M> {
-	fn from(c: Meta<Context<Definition<M, Self>>, M>) -> Self {
+impl<'a, M> IntoIterator for &'a Value<M> {
+	type IntoIter = std::slice::Iter<'a, Meta<Context<M>, M>>;
+	type Item = &'a Meta<Context<M>, M>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.iter()
+	}
+}
+
+impl<M> From<Meta<Context<M>, M>> for Value<M> {
+	fn from(c: Meta<Context<M>, M>) -> Self {
 		Self::One(c)
 	}
 }
 
-impl<M: Default> From<Context<Definition<M, Self>>> for Value<M> {
-	fn from(c: Context<Definition<M, Self>>) -> Self {
+impl<M: Default> From<Context<M>> for Value<M> {
+	fn from(c: Context<M>) -> Self {
 		Self::One(Meta(c, M::default()))
 	}
 }
@@ -78,8 +105,8 @@ impl<'a, M: Default> From<iref::Iri<'a>> for Value<M> {
 	}
 }
 
-impl<M: Default> From<Definition<M, Self>> for Value<M> {
-	fn from(c: Definition<M, Self>) -> Self {
+impl<M: Default> From<Definition<M>> for Value<M> {
+	fn from(c: Definition<M>) -> Self {
 		Self::One(Meta(Context::Definition(c), M::default()))
 	}
 }
@@ -108,28 +135,25 @@ impl<'a, M> From<Meta<iref::Iri<'a>, M>> for Value<M> {
 	}
 }
 
-// impl<M, D> From<Meta<D, M>> for Value<M, D> {
-// 	fn from(Meta(c, meta): Meta<D, M>) -> Self {
-// 		Self::One(Meta(Context::Definition(c), meta))
-// 	}
-// }
-
 /// Context.
 #[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
 #[locspan(ignore(M))]
-pub enum Context<D> {
+pub enum Context<M = ()> {
 	Null,
 	IriRef(#[locspan(stripped)] IriRefBuf),
-	Definition(D),
+	Definition(Definition<M>),
 }
 
-impl<D> Context<D> {
-	pub fn as_context_ref(&self) -> ContextRef<D> {
+impl<M> Context<M> {
+	fn sub_items(&self) -> ContextSubFragments<M> {
 		match self {
-			Self::Null => ContextRef::Null,
-			Self::IriRef(i) => ContextRef::IriRef(i.as_iri_ref()),
-			Self::Definition(d) => ContextRef::Definition(d),
+			Self::Definition(d) => ContextSubFragments::Definition(Box::new(d.iter())),
+			_ => ContextSubFragments::None,
 		}
+	}
+
+	pub fn is_object(&self) -> bool {
+		matches!(self, Self::Definition(_))
 	}
 }
 
@@ -157,25 +181,25 @@ impl<'a, D> From<iref::Iri<'a>> for Context<D> {
 	}
 }
 
-impl<M, C> From<Definition<M, C>> for Context<Definition<M, C>> {
-	fn from(c: Definition<M, C>) -> Self {
+impl<M> From<Definition<M>> for Context<M> {
+	fn from(c: Definition<M>) -> Self {
 		Context::Definition(c)
 	}
 }
 
 /// Context value fragment.
-pub enum FragmentRef<'a, M, C: AnyValue<M>> {
+pub enum FragmentRef<'a, M> {
 	/// Context array.
-	ContextArray(ArrayIter<'a, M, C::Definition>),
+	ContextArray(&'a [Meta<Context<M>, M>]),
 
 	/// Context.
-	Context(ContextRef<'a, C::Definition>),
+	Context(&'a Meta<Context<M>, M>),
 
 	/// Context definition fragment.
-	DefinitionFragment(definition::FragmentRef<'a, M, C>),
+	DefinitionFragment(definition::FragmentRef<'a, M>),
 }
 
-impl<'a, M, C: AnyValue<M>> FragmentRef<'a, M, C> {
+impl<'a, M> FragmentRef<'a, M> {
 	pub fn is_array(&self) -> bool {
 		match self {
 			Self::ContextArray(_) => true,
@@ -184,10 +208,7 @@ impl<'a, M, C: AnyValue<M>> FragmentRef<'a, M, C> {
 		}
 	}
 
-	pub fn is_object(&self) -> bool
-	where
-		M: Clone,
-	{
+	pub fn is_object(&self) -> bool {
 		match self {
 			Self::Context(c) => c.is_object(),
 			Self::DefinitionFragment(i) => i.is_object(),
@@ -195,25 +216,22 @@ impl<'a, M, C: AnyValue<M>> FragmentRef<'a, M, C> {
 		}
 	}
 
-	pub fn sub_items(&self) -> SubFragments<'a, M, C>
-	where
-		M: Clone,
-	{
+	pub fn sub_items(&self) -> SubFragments<'a, M> {
 		match self {
-			Self::ContextArray(a) => SubFragments::ContextArray(a.clone()),
+			Self::ContextArray(a) => SubFragments::ContextArray(a.iter()),
 			Self::Context(c) => SubFragments::Context(c.sub_items()),
 			Self::DefinitionFragment(d) => SubFragments::Definition(Box::new(d.sub_items())),
 		}
 	}
 }
 
-pub enum ContextSubFragments<'a, M, D: AnyDefinition<M>> {
+pub enum ContextSubFragments<'a, M> {
 	None,
-	Definition(Box<definition::Entries<'a, M, D::ContextValue>>),
+	Definition(Box<definition::Entries<'a, M>>),
 }
 
-impl<'a, M: 'a + Clone, D: AnyDefinition<M>> Iterator for ContextSubFragments<'a, M, D> {
-	type Item = FragmentRef<'a, M, D::ContextValue>;
+impl<'a, M> Iterator for ContextSubFragments<'a, M> {
+	type Item = FragmentRef<'a, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
@@ -225,38 +243,38 @@ impl<'a, M: 'a + Clone, D: AnyDefinition<M>> Iterator for ContextSubFragments<'a
 	}
 }
 
-pub enum SubFragments<'a, M, C: AnyValue<M>> {
-	ContextArray(ArrayIter<'a, M, C::Definition>),
-	Context(ContextSubFragments<'a, M, C::Definition>),
-	Definition(Box<definition::SubItems<'a, M, C>>),
+pub enum SubFragments<'a, M> {
+	ContextArray(std::slice::Iter<'a, Meta<Context<M>, M>>),
+	Context(ContextSubFragments<'a, M>),
+	Definition(Box<definition::SubItems<'a, M>>),
 }
 
-impl<'a, M: Clone, C: AnyValue<M>> Iterator for SubFragments<'a, M, C> {
-	type Item = FragmentRef<'a, M, C>;
+impl<'a, M> Iterator for SubFragments<'a, M> {
+	type Item = FragmentRef<'a, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
-			Self::ContextArray(a) => a.next().map(|c| FragmentRef::Context(c.into_value())),
+			Self::ContextArray(a) => a.next().map(FragmentRef::Context),
 			Self::Context(i) => i.next(),
 			Self::Definition(i) => i.next().map(FragmentRef::DefinitionFragment),
 		}
 	}
 }
 
-pub struct Traverse<'a, M, C: AnyValue<M>> {
-	stack: SmallVec<[FragmentRef<'a, M, C>; 8]>,
+pub struct Traverse<'a, M> {
+	stack: SmallVec<[FragmentRef<'a, M>; 8]>,
 }
 
-impl<'a, M, C: AnyValue<M>> Traverse<'a, M, C> {
-	pub(crate) fn new(item: FragmentRef<'a, M, C>) -> Self {
+impl<'a, M> Traverse<'a, M> {
+	pub(crate) fn new(item: FragmentRef<'a, M>) -> Self {
 		let mut stack = SmallVec::new();
 		stack.push(item);
 		Self { stack }
 	}
 }
 
-impl<'a, M: Clone, C: AnyValue<M>> Iterator for Traverse<'a, M, C> {
-	type Item = FragmentRef<'a, M, C>;
+impl<'a, M> Iterator for Traverse<'a, M> {
+	type Item = FragmentRef<'a, M>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.stack.pop() {

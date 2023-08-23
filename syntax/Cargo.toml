@@ -12,7 +12,7 @@ documentation = "https://docs.rs/json-ld-context-processing"
 readme = "README.md"
 
 [dependencies]
-iref.workspace = true
+iref = { workspace = true, features = ["serde"] }
 langtag.workspace = true
 rdf-types.workspace = true
 json-syntax.workspace = true
@@ -23,5 +23,6 @@ derivative.workspace = true
 smallvec.workspace = true
 contextual.workspace = true
 thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
 indexmap = "1.9.1" # TODO remove indexmap
 decoded-char = "0.1.0"

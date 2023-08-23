@@ -138,70 +138,62 @@ impl<E> Error<E> {
 pub type MetaError<M, E> = Meta<Error<E>, M>;
 
 /// Result of context processing functions.
-pub type ProcessingResult<'a, T, B, M, C, E> = Result<Processed<'a, T, B, C, M>, MetaError<M, E>>;
+pub type ProcessingResult<'a, T, B, M, E> = Result<Processed<'a, T, B, M>, MetaError<M, E>>;
 
 /// Context processing functions.
-// FIXME: unclear why the `'static` lifetime is now required.
-pub trait ProcessMeta<T, B, M>:
-	json_ld_syntax::IntoJsonMeta<M> + json_ld_syntax::context::AnyValue<M>
-{
+pub trait ProcessMeta<T, B, M> {
 	/// Process the local context with specific options.
 	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		meta: &'l M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, Self, M>,
+		active_context: &'a Context<T, B, M>,
 		stack: ProcessingStack<T>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
 		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
-		M: 'a + Clone + Send + Sync,
-		L::Context: Into<Self>;
+		M: 'a + Clone + Send + Sync;
 }
 
 pub trait Process<T, B, M>: Send + Sync {
-	type Stripped: Send + Sync;
-
 	/// Process the local context with specific options.
 	#[allow(clippy::type_complexity)]
 	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, Self::Stripped, M>,
+		active_context: &'a Context<T, B, M>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
 		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
-		M: 'a + Clone + Send + Sync,
-		L::Context: Into<Self::Stripped>;
+		M: 'a + Clone + Send + Sync;
 
 	/// Process the local context with specific options.
 	#[allow(clippy::type_complexity)]
 	fn process_with<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, Self::Stripped, M>,
+		active_context: &'a Context<T, B, M>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		L::Context: Into<Self::Stripped>,
 	{
 		self.process_full(
 			vocabulary,
@@ -221,13 +213,12 @@ pub trait Process<T, B, M>: Send + Sync {
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
 		base_url: Option<T>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: 'a + Clone + PartialEq + Send + Sync,
 		B: 'a + Clone + PartialEq + Send + Sync,
 		M: 'a + Clone + Send + Sync,
-		L::Context: Into<Self::Stripped>,
 	{
 		async move {
 			let active_context = Context::default();
@@ -245,25 +236,52 @@ pub trait Process<T, B, M>: Send + Sync {
 	}
 }
 
-impl<C: ProcessMeta<T, B, M>, T, B, M: Send + Sync> Process<T, B, M> for Meta<C, M> {
-	type Stripped = C;
-
+impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<json_ld_syntax::context::Value<M>, M> {
 	/// Process the local context with specific options.
 	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, Self::Stripped, M>,
+		active_context: &'a Context<T, B, M>,
 		loader: &'a mut L,
 		base_url: Option<T>,
 		options: Options,
 		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, Self::Stripped, L::ContextError>>
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
 	where
 		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
 		T: Clone + PartialEq + Send + Sync,
 		B: Clone + PartialEq + Send + Sync,
 		M: 'a + Clone,
-		L::Context: Into<Self::Stripped>,
+	{
+		self.value().process_meta(
+			self.metadata(),
+			vocabulary,
+			active_context,
+			ProcessingStack::new(),
+			loader,
+			base_url,
+			options,
+			warnings,
+		)
+	}
+}
+
+impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<Box<json_ld_syntax::context::Value<M>>, M> {
+	/// Process the local context with specific options.
+	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
+		&'l self,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<T, B, M>,
+		loader: &'a mut L,
+		base_url: Option<T>,
+		options: Options,
+		warnings: impl 'a + Send + WarningHandler<N, M>,
+	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
+	where
+		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
+		T: Clone + PartialEq + Send + Sync,
+		B: Clone + PartialEq + Send + Sync,
+		M: 'a + Clone,
 	{
 		self.value().process_meta(
 			self.metadata(),

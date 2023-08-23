@@ -1,4 +1,4 @@
-use crate::{context, CompactIri, ExpandableRef, Keyword};
+use crate::{CompactIri, ExpandableRef, Keyword};
 use iref::Iri;
 use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
@@ -173,44 +173,20 @@ impl<'a> TryFrom<&'a str> for TypeKeyword {
 	}
 }
 
-#[derive(Clone, Copy)]
-pub enum TypeRef<'a> {
-	Term(&'a str),
-	Keyword(TypeKeyword),
-}
+// impl<'a> From<TypeRef<'a>> for context::definition::KeyOrKeywordRef<'a> {
+// 	fn from(d: TypeRef<'a>) -> Self {
+// 		match d {
+// 			TypeRef::Term(t) => Self::Key(t.into()),
+// 			TypeRef::Keyword(k) => Self::Keyword(k.into()),
+// 		}
+// 	}
+// }
 
-impl<'a> TypeRef<'a> {
-	pub fn as_str(&self) -> &'a str {
-		match self {
-			Self::Term(t) => t,
-			Self::Keyword(k) => k.into_str(),
-		}
-	}
-}
-
-impl<'a> From<&'a Type> for TypeRef<'a> {
-	fn from(t: &'a Type) -> Self {
-		match t {
-			Type::Term(t) => Self::Term(t),
-			Type::Keyword(k) => Self::Keyword(*k),
-		}
-	}
-}
-
-impl<'a> From<TypeRef<'a>> for context::definition::KeyOrKeywordRef<'a> {
-	fn from(d: TypeRef<'a>) -> Self {
+impl<'a> From<&'a Type> for ExpandableRef<'a> {
+	fn from(d: &'a Type) -> Self {
 		match d {
-			TypeRef::Term(t) => Self::Key(t.into()),
-			TypeRef::Keyword(k) => Self::Keyword(k.into()),
-		}
-	}
-}
-
-impl<'a> From<TypeRef<'a>> for ExpandableRef<'a> {
-	fn from(d: TypeRef<'a>) -> Self {
-		match d {
-			TypeRef::Term(t) => Self::String(t),
-			TypeRef::Keyword(k) => Self::Keyword(k.into()),
+			Type::Term(t) => Self::String(t),
+			Type::Keyword(k) => Self::Keyword((*k).into()),
 		}
 	}
 }

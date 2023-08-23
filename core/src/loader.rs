@@ -34,6 +34,9 @@ pub enum RemoteDocumentReference<I = IriIndex, M = Location<I>, T = json_syntax:
 	Loaded(RemoteDocument<I, M, T>),
 }
 
+pub type RemoteContextReference<I = IriIndex, M = Location<I>> =
+	RemoteDocumentReference<I, M, json_ld_syntax::context::Value<M>>;
+
 impl<I, M> RemoteDocumentReference<I, M, json_syntax::Value<M>> {
 	/// Creates an IRI to a `json_syntax::Value<M>` JSON document.
 	///
@@ -101,7 +104,9 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 			Self::Loaded(doc) => Ok(Mown::Borrowed(doc)),
 		}
 	}
+}
 
+impl<I, M> RemoteContextReference<I, M> {
 	/// Loads the remote context definition with the given `vocabulary` and
 	/// `loader`.
 	///
@@ -111,10 +116,7 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		self,
 		vocabulary: &mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		loader: &mut L,
-	) -> LoadingResult<I, M, T, L::ContextError>
-	where
-		L::Context: Into<T>,
-	{
+	) -> LoadingResult<I, M, json_ld_syntax::context::Value<M>, L::ContextError> {
 		match self {
 			Self::Iri(r) => Ok(loader
 				.load_context_with(vocabulary, r)
@@ -135,10 +137,9 @@ impl<I, M, T> RemoteDocumentReference<I, M, T> {
 		&self,
 		vocabulary: &mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		loader: &mut L,
-	) -> Result<Mown<'_, RemoteDocument<I, M, T>>, L::ContextError>
+	) -> Result<Mown<'_, RemoteDocument<I, M, json_ld_syntax::context::Value<M>>>, L::ContextError>
 	where
 		I: Clone,
-		L::Context: Into<T>,
 	{
 		match self {
 			Self::Iri(r) => Ok(Mown::Owned(
@@ -180,6 +181,9 @@ pub struct RemoteDocument<I = IriIndex, M = Location<I>, T = json_syntax::Value<
 	/// The retrieved document.
 	document: Meta<T, M>,
 }
+
+pub type RemoteContext<I = IriIndex, M = Location<I>> =
+	RemoteDocument<I, M, json_ld_syntax::context::Value<M>>;
 
 impl<I, M, T> RemoteDocument<I, M, T> {
 	/// Creates a new remote document.
@@ -422,9 +426,6 @@ pub trait Loader<I, M> {
 /// It is implemented for any loader where the output type implements
 /// [`ExtractContext`].
 pub trait ContextLoader<I, M> {
-	/// Output of the loader, a context.
-	type Context;
-
 	/// Error type.
 	type ContextError;
 
@@ -433,7 +434,7 @@ pub trait ContextLoader<I, M> {
 		&'a mut self,
 		vocabulary: &'a mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, M, Self::Context, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<I, M, json_ld_syntax::context::Value<M>, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a;
@@ -442,7 +443,7 @@ pub trait ContextLoader<I, M> {
 	fn load_context<'a>(
 		&'a mut self,
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, M, Self::Context, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<I, M, json_ld_syntax::context::Value<M>, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a,
@@ -457,16 +458,15 @@ pub trait ContextLoader<I, M> {
 /// Implemented by documents containing a JSON-LD context definition, providing
 /// a method to extract this context.
 pub trait ExtractContext<M>: Sized {
-	/// Context definition type.
-	type Context;
-
 	/// Error type.
 	///
 	/// May be raised if the inner context is missing or invalid.
 	type Error;
 
 	/// Extract the context definition.
-	fn extract_context(value: Meta<Self, M>) -> Result<Meta<Self::Context, M>, Self::Error>;
+	fn extract_context(
+		value: Meta<Self, M>,
+	) -> Result<Meta<json_ld_syntax::context::Value<M>, M>, Self::Error>;
 }
 
 /// Context extraction error.
@@ -510,12 +510,11 @@ impl<M> fmt::Display for ExtractContextError<M> {
 }
 
 impl<M: Clone> ExtractContext<M> for json_syntax::Value<M> {
-	type Context = json_ld_syntax::context::Value<M>;
 	type Error = Meta<ExtractContextError<M>, M>;
 
 	fn extract_context(
 		Meta(value, meta): Meta<Self, M>,
-	) -> Result<Meta<Self::Context, M>, Self::Error> {
+	) -> Result<Meta<json_ld_syntax::context::Value<M>, M>, Self::Error> {
 		match value {
 			json_syntax::Value::Object(mut o) => match o
 				.remove_unique("@context")
@@ -552,14 +551,16 @@ impl<I: Send, M, L: Loader<I, M>> ContextLoader<I, M> for L
 where
 	L::Output: ExtractContext<M>,
 {
-	type Context = <L::Output as ExtractContext<M>>::Context;
 	type ContextError = ContextLoaderError<L::Error, <L::Output as ExtractContext<M>>::Error>;
 
 	fn load_context_with<'a>(
 		&'a mut self,
 		vocabulary: &'a mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		url: I,
-	) -> BoxFuture<'a, Result<RemoteDocument<I, M, Self::Context>, Self::ContextError>>
+	) -> BoxFuture<
+		'a,
+		Result<RemoteDocument<I, M, json_ld_syntax::context::Value<M>>, Self::ContextError>,
+	>
 	where
 		I: 'a,
 		M: 'a,

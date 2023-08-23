@@ -41,10 +41,10 @@ impl<'a, M> ActiveProperty<'a, M> {
 		matches!(self, Self::None)
 	}
 
-	pub fn get_from<'c, T, B, C>(
+	pub fn get_from<'c, T, B>(
 		&self,
-		context: &'c Context<T, B, C, M>,
-	) -> Option<json_ld_core::context::TermDefinitionRef<'c, T, B, C, M>> {
+		context: &'c Context<T, B, M>,
+	) -> Option<json_ld_core::context::TermDefinitionRef<'c, T, B, M>> {
 		match self {
 			Self::Some(Meta(s, _)) => context.get(*s),
 			Self::None => None,
@@ -81,9 +81,9 @@ pub(crate) type ElementExpansionResult<T, B, M, L, W> =
 /// See <https://www.w3.org/TR/json-ld11-api/#expansion-algorithm>.
 /// The default specified value for `ordered` and `from_map` is `false`.
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn expand_element<'a, T, B, M, C, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
+pub(crate) fn expand_element<'a, T, B, M, N, L: Loader<T, M> + ContextLoader<T, M>, W>(
 	vocabulary: &'a mut N,
-	active_context: &'a Context<T, B, C, M>,
+	active_context: &'a Context<T, B, M>,
 	active_property: ActiveProperty<'a, M>,
 	Meta(element, meta): &'a Meta<Value<M>, M>,
 	base_url: Option<&'a T>,
@@ -97,10 +97,8 @@ where
 	T: Clone + Eq + Hash + Sync + Send,
 	B: Clone + Eq + Hash + Sync + Send,
 	M: Clone + Sync + Send,
-	C: ProcessMeta<T, B, M> + From<json_ld_syntax::context::Value<M>>,
 	L: Sync + Send,
 	L::Output: Into<Value<M>>,
-	L::Context: Into<C>,
 	L::ContextError: Send,
 	W: 'a + Send + WarningHandler<B, N, M>,
 {
@@ -161,7 +159,7 @@ where
 					match expand_iri(
 						vocabulary,
 						active_context,
-						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
+						Meta(Nullable::Some(key.as_str().into()), key_metadata),
 						false,
 						true,
 						&mut warnings,
@@ -203,6 +201,7 @@ where
 					let options: ProcessingOptions = options.into();
 					active_context = Mown::Owned(
 						property_scoped_context
+							.as_value()
 							.process_with(
 								vocabulary,
 								active_context.as_ref(),
@@ -225,10 +224,9 @@ where
 					.map_err(Error::duplicate_key_ref)?
 				{
 					use json_ld_syntax::TryFromJson;
-					let local_context: Meta<C, M> =
+					let local_context =
 						json_ld_syntax::context::Value::try_from_json(local_context.clone())
-							.map_loc_err(Error::ContextSyntax)?
-							.map(Into::into);
+							.map_loc_err(Error::ContextSyntax)?;
 
 					active_context = Mown::Owned(
 						local_context
@@ -260,7 +258,7 @@ where
 					let Meta(expanded_key, _) = expand_iri(
 						vocabulary,
 						active_context.as_ref(),
-						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
+						Meta(Nullable::Some(key.as_str().into()), key_metadata),
 						false,
 						true,
 						&mut warnings,
@@ -335,10 +333,7 @@ where
 							expand_iri(
 								vocabulary,
 								active_context.as_ref(),
-								Meta(
-									Nullable::Some(input_type_str.into()),
-									input_metadata.clone(),
-								),
+								Meta(Nullable::Some(input_type_str.into()), input_metadata),
 								false,
 								true,
 								&mut warnings,
@@ -371,7 +366,7 @@ where
 					let Meta(expanded_key, _) = expand_iri(
 						vocabulary,
 						active_context.as_ref(),
-						Meta(Nullable::Some(key.as_str().into()), key_metadata.clone()),
+						Meta(Nullable::Some(key.as_str().into()), key_metadata),
 						false,
 						true,
 						&mut warnings,
@@ -413,7 +408,7 @@ where
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => {
-									index = Some(json_ld_syntax::Entry::new(
+									index = Some(json_ld_syntax::Entry::new_with(
 										key_metadata.clone(),
 										Meta(value.to_string(), key_metadata.clone()),
 									))
@@ -454,8 +449,8 @@ where
 
 					Ok((
 						Expanded::Object(Meta(
-							Indexed::new(
-								Object::List(object::List::new(
+							Indexed::new_entry(
+								Object::List(object::List::new_with(
 									list_key_metadata,
 									Meta(result, list_meta.clone()),
 								)),

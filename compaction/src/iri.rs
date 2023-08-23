@@ -14,9 +14,9 @@ pub struct IriConfusedWithPrefix;
 /// Compact the given term without considering any value.
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
-pub(crate) fn compact_iri<I, B, M, C>(
+pub(crate) fn compact_iri<I, B, M>(
 	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
 	reverse: bool,
@@ -27,7 +27,7 @@ where
 	B: Clone + Hash + Eq,
 	M: Clone,
 {
-	compact_iri_full::<I, B, M, C, Object<I, B, M>>(
+	compact_iri_full::<I, B, M, Object<I, B, M>>(
 		vocabulary,
 		active_context,
 		var,
@@ -38,9 +38,9 @@ where
 	)
 }
 
-pub(crate) fn compact_key<I, B, M, C>(
+pub(crate) fn compact_key<I, B, M>(
 	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	var: Meta<&Term<I, B>, &M>,
 	vocab: bool,
 	reverse: bool,
@@ -57,9 +57,9 @@ where
 /// Compact the given term considering the given value object.
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
-pub(crate) fn compact_iri_with<I, B, M, C, O: object::Any<I, B, M>>(
+pub(crate) fn compact_iri_with<I, B, M, O: object::Any<I, B, M>>(
 	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	var: Meta<&Term<I, B>, &M>,
 	value: &Indexed<O, M>,
 	vocab: bool,
@@ -85,9 +85,9 @@ where
 /// Compact the given term.
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
-pub(crate) fn compact_iri_full<I, B, M, C, O: object::Any<I, B, M>>(
+pub(crate) fn compact_iri_full<I, B, M, O: object::Any<I, B, M>>(
 	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	Meta(var, meta): Meta<&Term<I, B>, &M>,
 	value: Option<&Indexed<O, M>>,
 	vocab: bool,
@@ -326,7 +326,7 @@ where
 								{
 									has_id_type = true;
 									let mut vocab = false;
-									let Meta(compacted_iri, _) = compact_iri::<_, _, M, _>(
+									let Meta(compacted_iri, _) = compact_iri::<_, _, M>(
 										vocabulary,
 										active_context,
 										Meta(&id.clone().into_term(), meta),

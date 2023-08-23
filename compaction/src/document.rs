@@ -22,20 +22,19 @@ pub type CompactDocumentResult<I, M, L> = Result<
 /// to include a JSON-LD context to a JSON-LD document.
 /// It is used at the end of compaction algorithm to embed to
 /// context used to compact the document into the compacted output.
-pub trait EmbedContext<I, B, C, M> {
+pub trait EmbedContext<I, B, M> {
 	/// Embeds the given context into the document.
 	fn embed_context<N>(
 		&mut self,
 		vocabulary: &N,
-		context: json_ld_context_processing::ProcessedRef<I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<I, B, M>,
 		options: crate::Options,
 	) -> Result<(), Meta<IriConfusedWithPrefix, M>>
 	where
 		N: Vocabulary<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		M: Clone,
-		C: Clone + IntoJsonMeta<M>;
+		M: Clone;
 }
 
 /// Compaction with metadata.
@@ -44,13 +43,12 @@ pub trait CompactMeta<I, B, M> {
 	fn compact_full_meta<
 		'a,
 		N,
-		C,
 		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
 	>(
 		&'a self,
 		meta: &'a M,
 		vocabulary: &'a mut N,
-		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, M>,
 		loader: &'a mut L,
 		options: crate::Options,
 	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
@@ -59,9 +57,7 @@ pub trait CompactMeta<I, B, M> {
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: json_ld_context_processing::ProcessMeta<I, B, M>,
-		L: Send + Sync,
-		L::Context: Into<C>;
+		L: Send + Sync;
 }
 
 /// Compaction function.
@@ -70,12 +66,11 @@ pub trait Compact<I, B, M> {
 	fn compact_full<
 		'a,
 		N,
-		C,
 		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
 	>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, M>,
 		loader: &'a mut L,
 		options: crate::Options,
 	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
@@ -84,21 +79,18 @@ pub trait Compact<I, B, M> {
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: json_ld_context_processing::ProcessMeta<I, B, M>,
-		L: Send + Sync,
-		L::Context: Into<C>;
+		L: Send + Sync;
 
 	/// Compacts the input document with the given `vocabulary` to
 	/// interpret identifiers.
 	fn compact_with<
 		'a,
 		N,
-		C,
 		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
 	>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, M>,
 		loader: &'a mut L,
 	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
@@ -106,9 +98,7 @@ pub trait Compact<I, B, M> {
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: json_ld_context_processing::ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Context: Into<C>,
 	{
 		self.compact_full(vocabulary, context, loader, crate::Options::default())
 	}
@@ -116,11 +106,10 @@ pub trait Compact<I, B, M> {
 	/// Compacts the input document.
 	fn compact<
 		'a,
-		C,
 		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
 	>(
 		&'a self,
-		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, M>,
 		loader: &'a mut L,
 	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
@@ -128,9 +117,7 @@ pub trait Compact<I, B, M> {
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: json_ld_context_processing::ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Context: Into<C>,
 	{
 		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader)
 	}
@@ -140,12 +127,11 @@ impl<T: CompactMeta<I, B, M>, I, B, M> Compact<I, B, M> for Meta<T, M> {
 	fn compact_full<
 		'a,
 		N,
-		C,
 		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
 	>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, M>,
 		loader: &'a mut L,
 		options: crate::Options,
 	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
@@ -154,9 +140,7 @@ impl<T: CompactMeta<I, B, M>, I, B, M> Compact<I, B, M> for Meta<T, M> {
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: json_ld_context_processing::ProcessMeta<I, B, M>,
 		L: Send + Sync,
-		L::Context: Into<C>,
 	{
 		self.value()
 			.compact_full_meta(self.metadata(), vocabulary, context, loader, options)
@@ -167,13 +151,12 @@ impl<I, B, M> CompactMeta<I, B, M> for ExpandedDocument<I, B, M> {
 	fn compact_full_meta<
 		'a,
 		N,
-		C,
 		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
 	>(
 		&'a self,
 		meta: &'a M,
 		vocabulary: &'a mut N,
-		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, M>,
 		loader: &'a mut L,
 		options: crate::Options,
 	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
@@ -182,11 +165,7 @@ impl<I, B, M> CompactMeta<I, B, M> for ExpandedDocument<I, B, M> {
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: Clone
-			+ json_ld_context_processing::ProcessMeta<I, B, M>
-			+ json_ld_syntax::context::AnyValue<M>,
 		L: Send + Sync,
-		L::Context: Into<C>,
 	{
 		async move {
 			let mut compacted_output = self
@@ -216,13 +195,12 @@ impl<I, B, M> CompactMeta<I, B, M> for FlattenedDocument<I, B, M> {
 	fn compact_full_meta<
 		'a,
 		N,
-		C,
 		L: json_ld_core::Loader<I, M> + json_ld_context_processing::ContextLoader<I, M>,
 	>(
 		&'a self,
 		meta: &'a M,
 		vocabulary: &'a mut N,
-		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, M>,
 		loader: &'a mut L,
 		options: crate::Options,
 	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
@@ -231,11 +209,7 @@ impl<I, B, M> CompactMeta<I, B, M> for FlattenedDocument<I, B, M> {
 		I: Clone + Hash + Eq + Send + Sync,
 		B: Clone + Hash + Eq + Send + Sync,
 		M: Clone + Send + Sync,
-		C: Clone
-			+ json_ld_context_processing::ProcessMeta<I, B, M>
-			+ json_ld_syntax::context::AnyValue<M>,
 		L: Send + Sync,
-		L::Context: Into<C>,
 	{
 		async move {
 			let mut compacted_output = self
@@ -260,11 +234,11 @@ impl<I, B, M> CompactMeta<I, B, M> for FlattenedDocument<I, B, M> {
 	}
 }
 
-impl<I, B, C, M> EmbedContext<I, B, C, M> for json_syntax::MetaValue<M> {
+impl<I, B, M> EmbedContext<I, B, M> for json_syntax::MetaValue<M> {
 	fn embed_context<N>(
 		&mut self,
 		vocabulary: &N,
-		context: json_ld_context_processing::ProcessedRef<I, B, C, M>,
+		context: json_ld_context_processing::ProcessedRef<I, B, M>,
 		options: crate::Options,
 	) -> Result<(), Meta<IriConfusedWithPrefix, M>>
 	where
@@ -272,7 +246,6 @@ impl<I, B, C, M> EmbedContext<I, B, C, M> for json_syntax::MetaValue<M> {
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
 		M: Clone,
-		C: Clone + IntoJsonMeta<M>,
 	{
 		let value = self.value_mut().take();
 

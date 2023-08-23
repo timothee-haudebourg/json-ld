@@ -1,7 +1,4 @@
-use crate::{
-	object::{InvalidExpandedJson, LiteralString},
-	Direction, LenientLanguageTag, LenientLanguageTagBuf,
-};
+use crate::{object::InvalidExpandedJson, Direction, LenientLanguageTag, LenientLanguageTagBuf};
 use locspan::Meta;
 
 /// Language string.
@@ -12,7 +9,7 @@ use locspan::Meta;
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct LangString {
 	/// Actual content of the string.
-	data: LiteralString,
+	data: json_ld_syntax::String,
 	language: Option<LenientLanguageTagBuf>,
 	direction: Option<Direction>,
 }
@@ -24,10 +21,10 @@ pub struct InvalidLangString;
 impl LangString {
 	/// Create a new language string.
 	pub fn new(
-		data: LiteralString,
+		data: json_ld_syntax::String,
 		language: Option<LenientLanguageTagBuf>,
 		direction: Option<Direction>,
-	) -> Result<Self, LiteralString> {
+	) -> Result<Self, json_ld_syntax::String> {
 		if language.is_some() || direction.is_some() {
 			Ok(Self {
 				data,
@@ -42,7 +39,7 @@ impl LangString {
 	pub fn into_parts(
 		self,
 	) -> (
-		LiteralString,
+		json_ld_syntax::String,
 		Option<LenientLanguageTagBuf>,
 		Option<Direction>,
 	) {

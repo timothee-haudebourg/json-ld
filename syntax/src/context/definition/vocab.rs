@@ -34,23 +34,29 @@ impl From<String> for Vocab {
 	}
 }
 
-#[derive(Clone, Copy)]
-pub struct VocabRef<'a>(&'a str);
-
-impl<'a> VocabRef<'a> {
-	pub fn as_str(&self) -> &'a str {
-		self.0
-	}
-}
-
-impl<'a> From<&'a Vocab> for VocabRef<'a> {
+impl<'a> From<&'a Vocab> for ExpandableRef<'a> {
 	fn from(v: &'a Vocab) -> Self {
-		Self(v.as_str())
+		ExpandableRef::String(&v.0)
 	}
 }
 
-impl<'a> From<VocabRef<'a>> for ExpandableRef<'a> {
-	fn from(v: VocabRef<'a>) -> Self {
-		ExpandableRef::String(v.0)
-	}
-}
+// #[derive(Clone, Copy)]
+// pub struct VocabRef<'a>(&'a str);
+
+// impl<'a> VocabRef<'a> {
+// 	pub fn as_str(&self) -> &'a str {
+// 		self.0
+// 	}
+// }
+
+// impl<'a> From<&'a Vocab> for VocabRef<'a> {
+// 	fn from(v: &'a Vocab) -> Self {
+// 		Self(v.as_str())
+// 	}
+// }
+
+// impl<'a> From<VocabRef<'a>> for ExpandableRef<'a> {
+// 	fn from(v: VocabRef<'a>) -> Self {
+// 		ExpandableRef::String(v.0)
+// 	}
+// }

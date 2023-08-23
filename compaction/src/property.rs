@@ -13,7 +13,7 @@ use locspan::Meta;
 use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
-async fn compact_property_list<I, B, M, C, N, L>(
+async fn compact_property_list<I, B, M, N, L>(
 	vocabulary: &mut N,
 	Meta(list, meta): Meta<&List<I, B, M>, &M>,
 	expanded_index: Option<&json_ld_syntax::Entry<String, M>>,
@@ -21,7 +21,7 @@ async fn compact_property_list<I, B, M, C, N, L>(
 	container: Container,
 	as_array: bool,
 	item_active_property: Meta<&str, &M>,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	loader: &mut L,
 	options: Options,
 ) -> Result<(), MetaError<M, L::ContextError>>
@@ -30,9 +30,7 @@ where
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
-	C: ProcessMeta<I, B, M>,
 	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-	L::Context: Into<C>,
 {
 	// If expanded item is a list object:
 	let mut compacted_item = compact_collection_with(
@@ -118,7 +116,7 @@ where
 	Ok(())
 }
 
-async fn compact_property_graph<I, B, M, C, N, L>(
+async fn compact_property_graph<I, B, M, N, L>(
 	vocabulary: &mut N,
 	Meta(node, meta): Meta<&Node<I, B, M>, &M>,
 	expanded_index: Option<&json_ld_syntax::Entry<String, M>>,
@@ -126,7 +124,7 @@ async fn compact_property_graph<I, B, M, C, N, L>(
 	container: Container,
 	as_array: bool,
 	item_active_property: Meta<&str, &M>,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	loader: &mut L,
 	options: Options,
 ) -> Result<(), MetaError<M, L::ContextError>>
@@ -135,9 +133,7 @@ where
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: Clone + Send + Sync,
-	C: ProcessMeta<I, B, M>,
 	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-	L::Context: Into<C>,
 {
 	// If expanded item is a graph object
 	let mut compacted_item = node
@@ -362,9 +358,9 @@ where
 	Ok(())
 }
 
-fn select_nest_result<'a, I, B, M, C, E>(
+fn select_nest_result<'a, I, B, M, E>(
 	result: &'a mut json_syntax::Object<M>,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	item_active_property: Meta<&str, &M>,
 	compact_arrays: bool,
 ) -> Result<(&'a mut json_syntax::Object<M>, Container, bool), MetaError<M, E>>
@@ -451,12 +447,12 @@ where
 }
 
 /// Compact the given property into the `result` compacted object.
-pub async fn compact_property<'a, T, O, I, B, M, C, N, L>(
+pub async fn compact_property<'a, T, O, I, B, M, N, L>(
 	vocabulary: &mut N,
 	result: &mut json_syntax::Object<M>,
 	expanded_property: Meta<Term<I, B>, M>,
 	expanded_value: O,
-	active_context: &Context<I, B, C, M>,
+	active_context: &Context<I, B, M>,
 	loader: &mut L,
 	inside_reverse: bool,
 	options: Options,
@@ -468,9 +464,7 @@ where
 	I: Clone + Hash + Eq + Send + Sync,
 	B: Clone + Hash + Eq + Send + Sync,
 	M: 'a + Clone + Send + Sync,
-	C: ProcessMeta<I, B, M>,
 	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-	L::Context: Into<C>,
 {
 	let mut is_empty = true;
 
@@ -885,7 +879,7 @@ where
 			vocabulary,
 			active_context,
 			expanded_property.borrow(),
-			&Indexed::new(Object::node(Node::new()), None),
+			&Indexed::new_entry(Object::node(Node::new()), None),
 			true,
 			inside_reverse,
 			options,
