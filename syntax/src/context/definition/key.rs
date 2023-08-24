@@ -11,7 +11,7 @@ use std::hash::Hash;
 pub struct Key(#[locspan(stripped)] String);
 
 impl Key {
-	pub fn as_iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<&Iri> {
 		Iri::new(&self.0).ok()
 	}
 

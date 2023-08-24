@@ -3,6 +3,7 @@ use crate::{
 	Expanded, ExpandedEntry, LiteralValue, Loader, Options, Policy, Warning, WarningHandler,
 };
 use contextual::WithContext;
+use indexmap::IndexSet;
 use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
 use json_ld_core::{
 	future::{BoxFuture, FutureExt},
@@ -14,7 +15,6 @@ use json_syntax::object::Entry;
 use locspan::{At, Meta, Stripped};
 use mown::Mown;
 use rdf_types::VocabularyMut;
-use std::collections::HashSet;
 use std::hash::Hash;
 
 /// Convert a term to a node id, if possible.
@@ -258,7 +258,7 @@ where
 							.await?;
 							warnings = w;
 
-							result.set_graph(Some(json_ld_syntax::Entry::new_with(
+							result.set_graph_entry(Some(json_ld_syntax::Entry::new_with(
 								key_metadata.clone(),
 								Meta(
 									expanded_value
@@ -405,7 +405,7 @@ where
 												};
 
 											if is_double_reversed {
-												result.insert_all(
+												result.insert_all_with(
 													Meta(reverse_prop, meta),
 													reverse_expanded_value.into_iter(),
 												)
@@ -865,9 +865,9 @@ where
 										{
 											let item_metadata = item.metadata().clone();
 											let mut node = Node::new();
-											let mut graph = HashSet::new();
+											let mut graph = IndexSet::new();
 											graph.insert(Stripped(item));
-											node.set_graph(Some(json_ld_syntax::Entry::new_with(
+											node.set_graph_entry(Some(json_ld_syntax::Entry::new_with(
 												item_metadata.clone(),
 												Meta(graph, item_metadata.clone()),
 											)));
@@ -927,7 +927,7 @@ where
 												if let Object::Node(node) =
 													item.value_mut().inner_mut()
 												{
-													node.insert(
+													node.insert_with(
 														Meta(
 															expanded_index_key,
 															index_metadata.clone(),
@@ -1088,9 +1088,9 @@ where
 								.map(|ev| {
 									let ev_metadata = ev.metadata().clone();
 									let mut node = Node::new();
-									let mut graph = HashSet::new();
+									let mut graph = IndexSet::new();
 									graph.insert(Stripped(ev));
-									node.set_graph(Some(json_ld_syntax::Entry::new_with(
+									node.set_graph_entry(Some(json_ld_syntax::Entry::new_with(
 										ev_metadata.clone(),
 										Meta(graph, ev_metadata.clone()),
 									)));
@@ -1129,7 +1129,7 @@ where
 							// Otherwise, key is not a reverse property use add value
 							// to add expanded value to the expanded property entry in
 							// result using true for as array.
-							result.insert_all(
+							result.insert_all_with(
 								Meta(prop, key_metadata.clone()),
 								expanded_value.into_iter(),
 							);

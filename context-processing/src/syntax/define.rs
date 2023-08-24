@@ -530,13 +530,13 @@ pub fn define<
 												vocabulary.insert_blank_id(blank_id),
 											)))
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
-											match iri_ref.into_iri() {
-												Ok(iri) => {
+											match iri_ref.as_iri() {
+												Some(iri) => {
 													definition.value = Some(Term::Id(Id::iri(
 														vocabulary.insert(iri),
 													)))
 												}
-												Err(iri_ref) => {
+												None => {
 													if iri_ref.as_str().contains('/') {
 														// Term is a relative IRI reference.
 														// Set the IRI mapping of definition to the result of IRI expanding

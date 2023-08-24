@@ -2,23 +2,25 @@ use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
 use crate::{id, Id, Indexed, Relabel, StrippedIndexedObject};
 use crate::{IndexedObject, TryFromJson};
 use hashbrown::HashMap;
-use locspan::{Location, Meta, StrippedEq, StrippedPartialEq};
-use rdf_types::vocabulary::{BlankIdIndex, IriIndex, VocabularyMut};
-use rdf_types::Vocabulary;
+use indexmap::IndexSet;
+use iref::IriBuf;
+use locspan::{Meta, StrippedEq, StrippedPartialEq};
+use rdf_types::vocabulary::VocabularyMut;
+use rdf_types::{Vocabulary, BlankIdBuf};
 use std::collections::HashSet;
 use std::hash::Hash;
 
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
-pub struct ExpandedDocument<T = IriIndex, B = BlankIdIndex, M = Location<T>>(
-	HashSet<StrippedIndexedObject<T, B, M>>,
+pub struct ExpandedDocument<T = IriBuf, B = BlankIdBuf, M = ()>(
+	IndexSet<StrippedIndexedObject<T, B, M>>,
 );
 
 impl<T, B, M> Default for ExpandedDocument<T, B, M> {
 	#[inline(always)]
 	fn default() -> Self {
-		Self(HashSet::new())
+		Self(IndexSet::new())
 	}
 }
 
@@ -39,17 +41,17 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	pub fn objects(&self) -> &HashSet<StrippedIndexedObject<T, B, M>> {
+	pub fn objects(&self) -> &IndexSet<StrippedIndexedObject<T, B, M>> {
 		&self.0
 	}
 
 	#[inline(always)]
-	pub fn into_objects(self) -> HashSet<StrippedIndexedObject<T, B, M>> {
+	pub fn into_objects(self) -> IndexSet<StrippedIndexedObject<T, B, M>> {
 		self.0
 	}
 
 	#[inline(always)]
-	pub fn iter(&self) -> std::collections::hash_set::Iter<'_, StrippedIndexedObject<T, B, M>> {
+	pub fn iter(&self) -> indexmap::set::Iter<'_, StrippedIndexedObject<T, B, M>> {
 		self.0.iter()
 	}
 
@@ -75,9 +77,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Eq + Hash,
 		B: Eq + Hash,
 	{
-		let mut objects = HashSet::new();
-		std::mem::swap(&mut self.0, &mut objects);
-
+		let mut objects = std::mem::take(&mut self.0);
 		for mut object in objects {
 			object.identify_all_with(vocabulary, generator);
 			self.0.insert(object);
@@ -113,9 +113,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 	{
-		let mut objects = HashSet::new();
-		std::mem::swap(&mut self.0, &mut objects);
-
+		let mut objects = std::mem::take(&mut self.0);
 		let mut relabeling = HashMap::new();
 		let mut buffer = ryu_js::Buffer::new();
 		for mut object in objects {
@@ -150,9 +148,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 	{
-		let mut objects = HashSet::new();
-		std::mem::swap(&mut self.0, &mut objects);
-
+		let mut objects = std::mem::take(&mut self.0);
 		let mut relabeling = HashMap::new();
 		for mut object in objects {
 			object.relabel_with(vocabulary, generator, &mut relabeling);
@@ -181,9 +177,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Eq + Hash,
 		B: Eq + Hash,
 	{
-		let mut objects = HashSet::new();
-		std::mem::swap(&mut self.0, &mut objects);
-
+		let mut objects = std::mem::take(&mut self.0);
 		for mut object in objects {
 			object.canonicalize_with(buffer);
 			self.0.insert(object);
@@ -270,7 +264,7 @@ impl<T, B, M> IntoIterator for ExpandedDocument<T, B, M> {
 }
 
 impl<'a, T, B, M> IntoIterator for &'a ExpandedDocument<T, B, M> {
-	type IntoIter = std::collections::hash_set::Iter<'a, StrippedIndexedObject<T, B, M>>;
+	type IntoIter = indexmap::set::Iter<'a, StrippedIndexedObject<T, B, M>>;
 	type Item = &'a StrippedIndexedObject<T, B, M>;
 
 	#[inline(always)]
@@ -278,7 +272,7 @@ impl<'a, T, B, M> IntoIterator for &'a ExpandedDocument<T, B, M> {
 		self.iter()
 	}
 }
-pub struct IntoIter<T, B, M>(std::collections::hash_set::IntoIter<StrippedIndexedObject<T, B, M>>);
+pub struct IntoIter<T, B, M>(indexmap::set::IntoIter<StrippedIndexedObject<T, B, M>>);
 
 impl<T, B, M> Iterator for IntoIter<T, B, M> {
 	type Item = IndexedObject<T, B, M>;
@@ -302,8 +296,8 @@ impl<T: Hash + Eq, B: Hash + Eq, M> Extend<IndexedObject<T, B, M>> for ExpandedD
 	}
 }
 
-impl<T, B, M> From<HashSet<StrippedIndexedObject<T, B, M>>> for ExpandedDocument<T, B, M> {
-	fn from(set: HashSet<StrippedIndexedObject<T, B, M>>) -> Self {
+impl<T, B, M> From<IndexSet<StrippedIndexedObject<T, B, M>>> for ExpandedDocument<T, B, M> {
+	fn from(set: IndexSet<StrippedIndexedObject<T, B, M>>) -> Self {
 		Self(set)
 	}
 }

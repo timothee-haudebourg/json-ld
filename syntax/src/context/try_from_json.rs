@@ -10,7 +10,7 @@ use locspan::Meta;
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum InvalidContext {
 	#[error("Invalid IRI reference: {0}")]
-	InvalidIriRef(iref::Error),
+	InvalidIriRef(String),
 
 	#[error("Unexpected {0}")]
 	Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]),
@@ -374,9 +374,9 @@ impl<M: Clone> TryFromJson<M> for Context<M> {
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
 		match value {
 			json_syntax::Value::Null => Ok(Meta(Self::Null, meta)),
-			json_syntax::Value::String(s) => match IriRefBuf::new(&s) {
+			json_syntax::Value::String(s) => match IriRefBuf::new(s.into_string()) {
 				Ok(iri_ref) => Ok(Meta(Self::IriRef(iri_ref), meta)),
-				Err(e) => Err(Meta(InvalidContext::InvalidIriRef(e), meta)),
+				Err(e) => Err(Meta(InvalidContext::InvalidIriRef(e.0), meta)),
 			},
 			json_syntax::Value::Object(o) => {
 				let mut def = Definition::new();

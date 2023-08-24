@@ -808,7 +808,7 @@ where
 							// entry for @id from `expanded_item` for `element`.
 							if let Some(map) = compacted_item.as_object() {
 								if map.len() == 1 && map.get_unique("@id").ok().unwrap().is_some() {
-									let obj = Object::node(Node::with_id(
+									let obj = Object::node(Node::with_id_entry(
 										expanded_item.id_entry().unwrap().clone(),
 									));
 									compacted_item = obj

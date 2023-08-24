@@ -5,6 +5,7 @@ members = [
 	"context-processing",
 	"expansion",
 	"compaction",
+	"serializer",
 	"testing",
 	"tests",
 	"json-ld",
@@ -30,13 +31,13 @@ json-ld-context-processing = { path = "context-processing", version = "0.15.1" }
 json-ld-expansion = { path = "expansion", version = "0.15.1" }
 json-ld-compaction = { path = "compaction", version = "0.15.1" }
 json-ld-testing = { path = "testing", version = "0.15.1" }
-json-syntax = "0.9"
-iref = "2.2"
-static-iref = "2"
+json-syntax = "0.9.6"
+iref = "3.1.2"
+static-iref = "3.0"
 langtag = "0.3"
-rdf-types = "0.15.2"
+rdf-types = "0.16"
 contextual = "0.1.4"
-locspan = "0.7.14"
+locspan = "0.7.15"
 locspan-derive = "0.6"
 derivative = "2.2"
 futures = "0.3"
@@ -46,7 +47,10 @@ smallvec = "1.10"
 log = "0.4.17"
 thiserror = "1.0.38"
 serde = "1.0"
+indexmap = "2.0"
 
-iref-enum = "2.1"
-grdf = "0.19"
+iref-enum = "3.0"
+grdf = "0.20"
 async-std = "1.12"
+
+serde-ld = { git = "https://github.com/spruceid/serde-ld.git" }

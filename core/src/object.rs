@@ -2,6 +2,7 @@
 use crate::{id, Id, Indexed, LenientLanguageTag, Relabel};
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
+use indexmap::IndexSet;
 use iref::IriBuf;
 use json_ld_syntax::{Entry, IntoJsonWithContextMeta, Keyword};
 use json_syntax::Number;
@@ -9,7 +10,6 @@ use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedHash, Stripped
 use locspan_derive::*;
 use rdf_types::{BlankIdBuf, Subject, Vocabulary, VocabularyMut};
 use smallvec::SmallVec;
-use std::collections::HashSet;
 use std::hash::Hash;
 
 pub mod list;
@@ -846,7 +846,7 @@ impl<T, B, M, V: TryFromJson<T, B, M>> TryFromJson<T, B, M> for Vec<Meta<V, M>> 
 }
 
 impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T, B, M>
-	for HashSet<Stripped<Meta<V, M>>>
+	for IndexSet<Stripped<Meta<V, M>>>
 {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
@@ -854,7 +854,7 @@ impl<T, B, M, V: StrippedEq + StrippedHash + TryFromJson<T, B, M>> TryFromJson<T
 	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
 		match value {
 			json_syntax::Value::Array(items) => {
-				let mut result = HashSet::new();
+				let mut result = IndexSet::new();
 
 				for item in items {
 					result.insert(Stripped(V::try_from_json_in(vocabulary, item)?));

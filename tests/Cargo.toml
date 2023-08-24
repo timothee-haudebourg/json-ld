@@ -25,4 +25,4 @@ log.workspace = true
 grdf = { workspace = true, features = ["meta"] }
 contextual.workspace = true
 
-nquads-syntax = "0.13.0"
+nquads-syntax = "0.15.0"

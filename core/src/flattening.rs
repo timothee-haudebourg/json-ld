@@ -162,7 +162,7 @@ fn filter_sub_graph<T, B, M>(
 	if node.index().is_none() && node.properties().is_empty() {
 		None
 	} else {
-		node.set_graph(None);
+		node.set_graph_entry(None);
 		node.set_included(None);
 		node.set_reverse_properties(None);
 		Some(Meta(node.map_inner(Object::node), meta))
@@ -209,7 +209,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 						.cmp(b.id().unwrap().0.with(vocabulary).as_str())
 				});
 			}
-			entry.set_graph(Some(Entry::new_with(
+			entry.set_graph_entry(Some(Entry::new_with(
 				id_metadata.clone(),
 				Meta(
 					nodes
@@ -250,7 +250,7 @@ impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
 				.declare_node(Meta(graph_id, id_metadata.clone()), None)
 				.ok()
 				.unwrap();
-			entry.set_graph(Some(Entry::new_with(
+			entry.set_graph_entry(Some(Entry::new_with(
 				id_metadata.clone(),
 				Meta(
 					graph

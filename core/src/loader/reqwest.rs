@@ -53,7 +53,9 @@ pub enum Error<E> {
 
 	MissingRedirectionLocation,
 
-	InvalidRedirectionUrl(iref::Error),
+	InvalidRedirectionUrl(String),
+
+	InvalidRedirectionUrlEncoding,
 
 	QueryFailed(StatusCode),
 
@@ -73,6 +75,7 @@ impl<E: fmt::Display> fmt::Display for Error<E> {
 			Self::Redirection303 => write!(f, "invalid redirection: 303"),
 			Self::MissingRedirectionLocation => write!(f, "invalid redirection: missing location"),
 			Self::InvalidRedirectionUrl(e) => write!(f, "invalid redirection URL: {e}"),
+			Self::InvalidRedirectionUrlEncoding => write!(f, "invalid redirection URL encoding"),
 			Self::QueryFailed(e) => write!(f, "query failed: status code {e}"),
 			Self::InvalidContentType => write!(f, "invalid content type"),
 			Self::MultipleContextLinkHeaders => write!(f, "multiple context link headers"),
@@ -285,8 +288,10 @@ impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, 
 									.into_iter()
 									.flat_map(|p| p.split(|b| *b == b' '))
 								{
-									if let Ok(iri) = Iri::new(p) {
-										profile.insert(Profile::new(iri, vocabulary));
+									if let Ok(p) = std::str::from_utf8(p) {
+										if let Ok(iri) = Iri::new(p) {
+											profile.insert(Profile::new(iri, vocabulary));
+										}
 									}
 								}
 
@@ -329,9 +334,16 @@ impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, 
 						} else {
 							match response.headers().get(LOCATION) {
 								Some(location) => {
-									let u = Iri::new(location.as_bytes())
-										.map_err(Error::InvalidRedirectionUrl)?;
-									url = vocabulary.insert(u);
+									match std::str::from_utf8(location.as_bytes()) {
+										Ok(location) => {
+											let u = Iri::new(location)
+												.map_err(|e| Error::InvalidRedirectionUrl(e.0.to_string()))?;
+											url = vocabulary.insert(u);
+										}
+										Err(e) => {
+											return Err(Error::InvalidRedirectionUrlEncoding)
+										}
+									}
 								}
 								None => break Err(Error::MissingRedirectionLocation),
 							}

@@ -4,6 +4,7 @@
 //! # Usage
 //!
 //! The compaction algorithm is provided by the [`Compact`] trait.
+use indexmap::IndexSet;
 use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
 use json_ld_core::{
 	context::inverse::{LangSelection, TypeSelection},
@@ -16,7 +17,6 @@ use json_syntax::object::Entry;
 use locspan::{Meta, Stripped};
 use mown::Mown;
 use rdf_types::{vocabulary, VocabularyMut};
-use std::collections::HashSet;
 use std::hash::Hash;
 
 mod document;
@@ -606,7 +606,7 @@ where
 }
 
 impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, B, M>
-	for HashSet<T>
+	for IndexSet<T>
 {
 	fn compact_fragment_full_meta<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,

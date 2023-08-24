@@ -24,7 +24,7 @@ use ty::{Type, UnknownType};
 
 type FsLoader = json_ld::FsLoader<IriIndex, Location<IriIndex>>;
 
-type Vocabulary = rdf_types::IndexVocabulary<IriIndex, BlankIdIndex>;
+type IndexVocabulary = rdf_types::IndexVocabulary<IriIndex, BlankIdIndex>;
 
 struct MountAttribute {
 	_paren: syn::token::Paren,
@@ -39,8 +39,8 @@ impl syn::parse::Parse for MountAttribute {
 		let _paren = syn::parenthesized!(content in input);
 
 		let prefix: syn::LitStr = content.parse()?;
-		let prefix = IriBuf::from_string(prefix.value())
-			.map_err(|(_, s)| content.error(format!("invalid IRI `{s}`")))?;
+		let prefix = IriBuf::new(prefix.value())
+			.map_err(|e| content.error(format!("invalid IRI `{}`", e.0)))?;
 
 		let _comma = content.parse()?;
 
@@ -66,8 +66,8 @@ impl syn::parse::Parse for IriAttribute {
 		let _paren = syn::parenthesized!(content in input);
 
 		let iri: syn::LitStr = content.parse()?;
-		let iri = IriBuf::from_string(iri.value())
-			.map_err(|(_, s)| content.error(format!("invalid IRI `{s}`")))?;
+		let iri = IriBuf::new(iri.value())
+			.map_err(|e| content.error(format!("invalid IRI `{}`", e.0)))?;
 
 		Ok(Self { _paren, iri })
 	}
@@ -80,8 +80,8 @@ struct IriArg {
 impl syn::parse::Parse for IriArg {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
 		let iri: syn::LitStr = input.parse()?;
-		let iri = IriBuf::from_string(iri.value())
-			.map_err(|(_, s)| input.error(format!("invalid IRI `{s}`")))?;
+		let iri = IriBuf::new(iri.value())
+			.map_err(|e| input.error(format!("invalid IRI `{}`", e.0)))?;
 
 		Ok(Self { iri })
 	}
@@ -104,8 +104,8 @@ impl syn::parse::Parse for PrefixBinding {
 		let _eq = content.parse()?;
 
 		let iri: syn::LitStr = content.parse()?;
-		let iri = IriBuf::from_string(iri.value())
-			.map_err(|(_, s)| content.error(format!("invalid IRI `{s}`")))?;
+		let iri = IriBuf::new(iri.value())
+			.map_err(|e| content.error(format!("invalid IRI `{}`", e.0)))?;
 
 		Ok(Self {
 			_paren,
@@ -131,8 +131,8 @@ impl syn::parse::Parse for IgnoreAttribute {
 		let _paren = syn::parenthesized!(content in input);
 
 		let iri_ref: syn::LitStr = content.parse()?;
-		let iri_ref = IriRefBuf::from_string(iri_ref.value())
-			.map_err(|(_, s)| content.error(format!("invalid IRI reference `{s}`")))?;
+		let iri_ref = IriRefBuf::new(iri_ref.value())
+			.map_err(|e| content.error(format!("invalid IRI reference `{}`", e.0)))?;
 
 		let _comma = content.parse()?;
 
@@ -166,7 +166,7 @@ struct TestSpec {
 struct InvalidIri(String);
 
 fn expand_iri(
-	vocabulary: &mut Vocabulary,
+	vocabulary: &mut IndexVocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	iri: IriBuf,
 ) -> Result<IriIndex, InvalidIri> {
@@ -194,7 +194,7 @@ pub fn test_suite(
 	input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
 	let mut input = syn::parse_macro_input!(input as syn::ItemMod);
-	let mut vocabulary = Vocabulary::new();
+	let mut vocabulary = IndexVocabulary::new();
 
 	match task::block_on(derive_test_suite(&mut vocabulary, &mut input, args)) {
 		Ok(tokens) => quote! { #input #tokens }.into(),
@@ -208,7 +208,7 @@ pub fn test_suite(
 }
 
 async fn derive_test_suite(
-	vocabulary: &mut Vocabulary,
+	vocabulary: &mut IndexVocabulary,
 	input: &mut syn::ItemMod,
 	args: proc_macro::TokenStream,
 ) -> Result<TokenStream, Box<Error>> {
@@ -218,7 +218,7 @@ async fn derive_test_suite(
 }
 
 fn parse_input(
-	vocabulary: &mut Vocabulary,
+	vocabulary: &mut IndexVocabulary,
 	loader: &mut FsLoader,
 	input: &mut syn::ItemMod,
 	args: proc_macro::TokenStream,
@@ -291,7 +291,7 @@ fn parse_input(
 }
 
 fn parse_struct_type(
-	vocabulary: &mut Vocabulary,
+	vocabulary: &mut IndexVocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	type_map: &mut HashMap<IriIndex, syn::Ident>,
 	s: &mut syn::ItemStruct,
@@ -367,7 +367,7 @@ fn parse_struct_type(
 }
 
 fn parse_enum_type(
-	vocabulary: &mut Vocabulary,
+	vocabulary: &mut IndexVocabulary,
 	bindings: &mut HashMap<String, IriIndex>,
 	type_map: &mut HashMap<IriIndex, syn::Ident>,
 	e: &mut syn::ItemEnum,
@@ -513,8 +513,8 @@ impl From<InvalidIri> for Error {
 	}
 }
 
-impl DisplayWithContext<Vocabulary> for Error {
-	fn fmt_with(&self, vocabulary: &Vocabulary, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl DisplayWithContext<IndexVocabulary> for Error {
+	fn fmt_with(&self, vocabulary: &IndexVocabulary, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		use fmt::Display;
 		match self {
 			Self::Parse(e) => e.fmt(f),
@@ -538,7 +538,7 @@ impl DisplayWithContext<Vocabulary> for Error {
 }
 
 async fn generate_test_suite(
-	vocabulary: &mut Vocabulary,
+	vocabulary: &mut IndexVocabulary,
 	mut loader: FsLoader,
 	spec: TestSpec,
 ) -> Result<TokenStream, Box<Error>> {

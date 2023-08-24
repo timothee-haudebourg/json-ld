@@ -26,3 +26,4 @@ mown.workspace = true
 locspan.workspace = true
 derivative.workspace = true
 thiserror.workspace = true
+indexmap.workspace = true

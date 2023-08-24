@@ -5,6 +5,7 @@ use crate::{
 };
 use contextual::WithContext;
 use derivative::Derivative;
+use indexmap::IndexMap;
 use json_ld_syntax::IntoJsonWithContextMeta;
 use locspan::{BorrowStripped, Meta, Stripped};
 use rdf_types::{Vocabulary, VocabularyMut};
@@ -20,12 +21,12 @@ pub type ReversePropertyNodes<T, B, M> = Multiset<Stripped<IndexedNode<T, B, M>>
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
-pub struct ReverseProperties<T, B, M>(hashbrown::HashMap<Id<T, B>, ReversePropertyEntry<T, B, M>>);
+pub struct ReverseProperties<T, B, M>(IndexMap<Id<T, B>, ReversePropertyEntry<T, B, M>>);
 
 impl<T, B, M> ReverseProperties<T, B, M> {
 	/// Creates an empty map.
 	pub(crate) fn new() -> Self {
-		Self(hashbrown::HashMap::new())
+		Self(IndexMap::new())
 	}
 
 	/// Returns the number of reverse properties.
@@ -66,13 +67,13 @@ impl<T, B, M> ReverseProperties<T, B, M> {
 impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 	/// Checks if the given reverse property is associated to any node.
 	#[inline(always)]
-	pub fn contains<Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(&self, prop: &Q) -> bool {
+	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(&self, prop: &Q) -> bool {
 		self.0.get(prop).is_some()
 	}
 
 	/// Returns an iterator over all the nodes associated to the given reverse property.
 	#[inline(always)]
-	pub fn get<'a, Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+	pub fn get<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
 	) -> Nodes<T, B, M>
@@ -89,7 +90,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 	///
 	/// If multiple nodes are found, there are no guaranties on which node will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+	pub fn get_any<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
 	) -> Option<&IndexedNode<T, B, M>>
@@ -336,7 +337,7 @@ impl<'a, T, B, M> IntoIterator for &'a mut ReverseProperties<T, B, M> {
 ///
 /// It is created by the [`ReverseProperties::into_iter`] function.
 pub struct IntoIter<T, B, M> {
-	inner: hashbrown::hash_map::IntoIter<Id<T, B>, ReversePropertyEntry<T, B, M>>,
+	inner: indexmap::map::IntoIter<Id<T, B>, ReversePropertyEntry<T, B, M>>,
 }
 
 impl<T, B, M> Iterator for IntoIter<T, B, M> {
@@ -365,7 +366,7 @@ impl<T, B, M> std::iter::FusedIterator for IntoIter<T, B, M> {}
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct Iter<'a, T, B, M> {
-	inner: hashbrown::hash_map::Iter<'a, Id<T, B>, ReversePropertyEntry<T, B, M>>,
+	inner: indexmap::map::Iter<'a, Id<T, B>, ReversePropertyEntry<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
@@ -398,7 +399,7 @@ pub type ReversePropertyEntry<T, B, M> = Entry<ReversePropertyNodes<T, B, M>, M>
 ///
 /// It is created by the [`ReverseProperties::iter_mut`] function.
 pub struct IterMut<'a, T, B, M> {
-	inner: hashbrown::hash_map::IterMut<'a, Id<T, B>, ReversePropertyEntry<T, B, M>>,
+	inner: indexmap::map::IterMut<'a, Id<T, B>, ReversePropertyEntry<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for IterMut<'a, T, B, M> {

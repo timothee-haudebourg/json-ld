@@ -13,7 +13,7 @@ pub enum Id {
 }
 
 impl Id {
-	pub fn as_iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<&Iri> {
 		match self {
 			Self::Term(t) => Iri::new(t).ok(),
 			Self::Keyword(_) => None,

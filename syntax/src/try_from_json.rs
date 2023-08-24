@@ -35,9 +35,9 @@ impl<M> crate::TryFromJson<M> for bool {
 impl<M> TryFromStrippedJson<M> for IriRefBuf {
 	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext> {
 		match value {
-			json_syntax::Value::String(s) => match IriRefBuf::from_string(s.into_string()) {
+			json_syntax::Value::String(s) => match IriRefBuf::new(s.into_string()) {
 				Ok(iri_ref) => Ok(iri_ref),
-				Err((e, _)) => Err(InvalidContext::InvalidIriRef(e)),
+				Err(e) => Err(InvalidContext::InvalidIriRef(e.0)),
 			},
 			unexpected => Err(InvalidContext::Unexpected(
 				unexpected.kind(),
@@ -54,9 +54,9 @@ impl<M> TryFromJson<M> for IriRefBuf {
 		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
 	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
 		match value {
-			json_syntax::Value::String(s) => match IriRefBuf::from_string(s.into_string()) {
+			json_syntax::Value::String(s) => match IriRefBuf::new(s.into_string()) {
 				Ok(iri_ref) => Ok(Meta(iri_ref, meta)),
-				Err((e, _)) => Err(Meta(InvalidContext::InvalidIriRef(e), meta)),
+				Err(e) => Err(Meta(InvalidContext::InvalidIriRef(e.0), meta)),
 			},
 			unexpected => Err(Meta(
 				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String]),

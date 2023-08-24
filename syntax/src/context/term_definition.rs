@@ -51,7 +51,7 @@ impl<M> TermDefinition<M> {
 pub struct Simple(#[locspan(stripped)] pub(crate) String);
 
 impl Simple {
-	pub fn as_iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<&Iri> {
 		Iri::new(&self.0).ok()
 	}
 

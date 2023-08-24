@@ -27,7 +27,7 @@ async fn expand() {
 	.unwrap();
 
 	let document_url: IriBuf =
-		iri!("https://w3c.github.io/json-ld-api/tests/0020-in.jsonld").into();
+		iri!("https://w3c.github.io/json-ld-api/tests/0020-in.jsonld").to_owned();
 	let mut loader: json_ld::NoLoader<IriBuf, Span, json_ld::syntax::Value<Span>> =
 		json_ld::NoLoader::new();
 	let _: Meta<json_ld::ExpandedDocument<IriBuf, BlankIdBuf, _>, _> =

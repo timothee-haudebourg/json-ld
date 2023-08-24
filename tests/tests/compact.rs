@@ -19,7 +19,7 @@ mod compact {
 		pub comments: &'static [&'static str],
 
 		#[iri("manifest:action")]
-		pub input: Iri<'static>,
+		pub input: &'static Iri,
 
 		#[iri("manifest:name")]
 		pub name: &'static str,
@@ -28,7 +28,7 @@ mod compact {
 		pub options: Options,
 
 		#[iri("test:context")]
-		pub context: Iri<'static>,
+		pub context: &'static Iri,
 
 		#[iri("rdf:type")]
 		pub desc: Description,
@@ -38,7 +38,7 @@ mod compact {
 		#[iri("test:PositiveEvaluationTest")]
 		Positive {
 			#[iri("manifest:result")]
-			expect: Iri<'static>,
+			expect: &'static Iri,
 		},
 		#[iri("test:NegativeEvaluationTest")]
 		Negative {
@@ -50,10 +50,10 @@ mod compact {
 	#[derive(Default)]
 	pub struct Options {
 		#[iri("test:base")]
-		pub base: Option<Iri<'static>>,
+		pub base: Option<&'static Iri>,
 
 		#[iri("test:expandContext")]
-		pub expand_context: Option<Iri<'static>>,
+		pub expand_context: Option<&'static Iri>,
 
 		#[iri("test:processingMode")]
 		pub processing_mode: Option<json_ld::ProcessingMode>,

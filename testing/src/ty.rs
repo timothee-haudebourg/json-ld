@@ -1,4 +1,4 @@
-use crate::{vocab, BlankIdIndex, Error, IriIndex, TestSpec, Vocab, Vocabulary};
+use crate::{vocab, BlankIdIndex, Error, IriIndex, TestSpec, Vocab, IndexVocabulary};
 use contextual::AsRefWithContext;
 use json_ld::ValidId;
 use proc_macro2::TokenStream;
@@ -59,7 +59,7 @@ impl Type {
 
 	pub(crate) fn generate(
 		&self,
-		vocabulary: &Vocabulary,
+		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		value: &json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
@@ -101,7 +101,7 @@ impl Type {
 			}
 			Self::Iri => match value {
 				json_ld::rdf::Value::Id(ValidId::Iri(i)) => {
-					let s = vocabulary.iri(i).unwrap().into_str();
+					let s = vocabulary.iri(i).unwrap().as_str();
 					Ok(quote! { ::static_iref::iri!(#s) })
 				}
 				_ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
@@ -177,7 +177,7 @@ impl Type {
 impl Struct {
 	pub(crate) fn generate(
 		&self,
-		vocabulary: &Vocabulary,
+		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		id: ValidId<IriIndex, BlankIdIndex>,
@@ -248,7 +248,7 @@ type OwnedDataset<'a> = grdf::HashDataset<
 impl Definition {
 	pub(crate) fn generate(
 		&self,
-		vocabulary: &Vocabulary,
+		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
 		dataset: &OwnedDataset,
 		id: ValidId<IriIndex, BlankIdIndex>,

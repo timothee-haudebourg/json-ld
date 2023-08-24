@@ -23,7 +23,7 @@ mod to_rdf {
 		pub comments: &'static [&'static str],
 
 		#[iri("manifest:action")]
-		pub input: Iri<'static>,
+		pub input: &'static Iri,
 
 		#[iri("manifest:name")]
 		pub name: &'static str,
@@ -39,7 +39,7 @@ mod to_rdf {
 		#[iri("jld:PositiveEvaluationTest")]
 		Positive {
 			#[iri("manifest:result")]
-			expect: Iri<'static>,
+			expect: &'static Iri,
 		},
 		#[iri("jld:NegativeEvaluationTest")]
 		Negative {
@@ -55,7 +55,7 @@ mod to_rdf {
 	#[derive(Default)]
 	pub struct Options {
 		#[iri("jld:base")]
-		pub base: Option<Iri<'static>>,
+		pub base: Option<&'static Iri>,
 
 		#[iri("jld:processingMode")]
 		pub processing_mode: Option<json_ld::ProcessingMode>,
@@ -67,7 +67,7 @@ mod to_rdf {
 		pub normative: Option<bool>,
 
 		#[iri("jld:expandContext")]
-		pub expand_context: Option<Iri<'static>>,
+		pub expand_context: Option<&'static Iri>,
 
 		#[iri("jld:produceGeneralizedRdf")]
 		pub produce_generalized_rdf: bool,
