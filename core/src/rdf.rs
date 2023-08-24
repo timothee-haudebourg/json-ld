@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::{id, object::value, Direction, Id, Indexed, IndexedObject, Node, Object, ValidId};
-use iref::{AsIri, Iri, IriBuf};
+use iref::{Iri, IriBuf};
 use json_ld_syntax::Entry;
 use json_syntax::Print;
 use langtag::LanguageTagBuf;
@@ -16,20 +16,20 @@ use static_iref::iri;
 mod quad;
 pub use quad::*;
 
-pub const RDF_TYPE: Iri<'static> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
-pub const RDF_FIRST: Iri<'static> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#first");
-pub const RDF_REST: Iri<'static> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#rest");
-pub const RDF_VALUE: Iri<'static> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#value");
-pub const RDF_DIRECTION: Iri<'static> =
+pub const RDF_TYPE: &'static Iri = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#type");
+pub const RDF_FIRST: &'static Iri = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#first");
+pub const RDF_REST: &'static Iri = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#rest");
+pub const RDF_VALUE: &'static Iri = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#value");
+pub const RDF_DIRECTION: &'static Iri =
 	iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#direction");
-pub const RDF_JSON: Iri<'static> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#JSON");
+pub const RDF_JSON: &'static Iri = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#JSON");
 /// IRI of the `http://www.w3.org/1999/02/22-rdf-syntax-ns#nil` value.
-pub const RDF_NIL: Iri<'static> = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#nil");
+pub const RDF_NIL: &'static Iri = iri!("http://www.w3.org/1999/02/22-rdf-syntax-ns#nil");
 
-pub const XSD_BOOLEAN: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#boolean");
-pub const XSD_INTEGER: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#integer");
-pub const XSD_DOUBLE: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#double");
-pub const XSD_STRING: Iri<'static> = iri!("http://www.w3.org/2001/XMLSchema#string");
+pub const XSD_BOOLEAN: &'static Iri = iri!("http://www.w3.org/2001/XMLSchema#boolean");
+pub const XSD_INTEGER: &'static Iri = iri!("http://www.w3.org/2001/XMLSchema#integer");
+pub const XSD_DOUBLE: &'static Iri = iri!("http://www.w3.org/2001/XMLSchema#double");
+pub const XSD_STRING: &'static Iri = iri!("http://www.w3.org/2001/XMLSchema#string");
 
 /// JSON-LD to RDF triple.
 pub type Triple<T, B, L> = rdf_types::Triple<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>>;
@@ -526,7 +526,7 @@ impl<
 		G: id::Generator<N, M>,
 	> Iterator for CompoundValueTriplesWith<'a, 'n, N, M, G>
 where
-	N::Iri: AsIri + Clone,
+	N::Iri: AsRef<Iri> + Clone,
 	N::BlankId: Clone,
 	N::Literal: Clone,
 	N: LiteralVocabularyMut<
@@ -681,7 +681,7 @@ impl<
 		G: id::Generator<N, M>,
 	> Iterator for ListTriplesWith<'a, 'n, N, M, G>
 where
-	N::Iri: AsIri + Clone,
+	N::Iri: AsRef<Iri> + Clone,
 	N::BlankId: Clone,
 	N::Literal: Clone,
 	N: LiteralVocabularyMut<
@@ -705,7 +705,7 @@ fn i18n(language: Option<LanguageTagBuf>, direction: Direction) -> IriBuf {
 		None => format!("https://www.w3.org/ns/i18n#{direction}"),
 	};
 
-	IriBuf::from_string(iri).unwrap()
+	IriBuf::new(iri).unwrap()
 }
 
 pub type Value<T, B, L> = rdf_types::Object<ValidId<T, B>, L>;

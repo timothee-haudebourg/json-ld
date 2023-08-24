@@ -234,7 +234,7 @@ impl<T, B, M> Context<T, B, M> {
 				Entry::new_with(
 					meta.clone(),
 					Meta(
-						Nullable::Some(vocabulary.iri(&i).unwrap().into()),
+						Nullable::Some(vocabulary.iri(&i).unwrap().to_owned().into()),
 						meta.clone(),
 					),
 				)

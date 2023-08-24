@@ -1,10 +1,10 @@
 use super::{Multiset, Objects};
 use crate::{
 	object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
-	Id, IndexedObject, StrippedIndexedObject,
+	Id, IndexedObject, StrippedIndexedObject, Indexed, Object,
 };
 use derivative::Derivative;
-use hashbrown::HashMap;
+use indexmap::IndexMap;
 use locspan::{BorrowStripped, Meta, Stripped};
 use locspan_derive::{StrippedEq, StrippedHash, StrippedPartialEq};
 use rdf_types::VocabularyMut;
@@ -70,12 +70,12 @@ pub type PropertyObjects<T, B, M> = Multiset<StrippedIndexedObject<T, B, M>>;
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
-pub struct Properties<T, B, M = ()>(HashMap<Id<T, B>, PropertyEntry<T, B, M>>);
+pub struct Properties<T, B, M = ()>(IndexMap<Id<T, B>, PropertyEntry<T, B, M>>);
 
 impl<T, B, M> Properties<T, B, M> {
 	/// Creates an empty map.
 	pub(crate) fn new() -> Self {
-		Self(HashMap::new())
+		Self(IndexMap::new())
 	}
 
 	/// Returns the number of properties.
@@ -113,16 +113,56 @@ impl<T, B, M> Properties<T, B, M> {
 	}
 }
 
+impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
+	/// Associate the given object to the node through the given property.
+	#[inline(always)]
+	pub fn insert(&mut self, prop: Id<T, B>, value: Indexed<Object<T, B>>) {
+		self.insert_with(Meta::none(prop), Meta::none(value))
+	}
+
+	/// Associate the given object to the node through the given property, unless it is already.
+	#[inline(always)]
+	pub fn insert_unique(
+		&mut self,
+		prop: Id<T, B>,
+		value: Indexed<Object<T, B>>,
+	) {
+		self.insert_unique_with(Meta::none(prop), Meta::none(value))
+	}
+
+	/// Associate all the given objects to the node through the given property.
+	#[inline(always)]
+	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Object<T, B>>>>(
+		&mut self,
+		prop: Id<T, B>,
+		values: Objects,
+	) {
+		self.insert_all_with(Meta::none(prop), values.into_iter().map(Meta::none))
+	}
+
+	/// Associate all the given objects to the node through the given property, unless it is already.
+	///
+	/// The [equivalence operator](crate::Object::equivalent) is used to remove equivalent objects.
+	#[inline(always)]
+	pub fn insert_all_unique<Objects: IntoIterator<Item = Indexed<Object<T, B>>>>(
+		&mut self,
+		prop: Id<T, B>,
+		values: Objects,
+	) {
+		self.insert_all_unique_stripped_with(Meta::none(prop), values.into_iter().map(|v| Stripped(Meta::none(v))))
+	}
+}
+
 impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	/// Checks if the given property is associated to any object.
 	#[inline(always)]
-	pub fn contains<Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(&self, prop: &Q) -> bool {
+	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(&self, prop: &Q) -> bool {
 		self.0.get(prop).is_some()
 	}
 
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
-	pub fn get<Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
 	) -> Objects<T, B, M> {
@@ -136,7 +176,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	///
 	/// If multiple objects are found, there are no guaranties on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+	pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
 	) -> Option<&IndexedObject<T, B, M>> {
@@ -146,9 +186,9 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 		}
 	}
 
-	/// Associate the given object to the node through the given property.
+	/// Associate the given object to the node through the given property with metadata.
 	#[inline(always)]
-	pub fn insert(&mut self, Meta(prop, meta): Meta<Id<T, B>, M>, value: IndexedObject<T, B, M>) {
+	pub fn insert_with(&mut self, Meta(prop, meta): Meta<Id<T, B>, M>, value: IndexedObject<T, B, M>) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(Stripped(value));
 		} else {
@@ -159,7 +199,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Associate the given object to the node through the given property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(
+	pub fn insert_unique_with(
 		&mut self,
 		Meta(prop, meta): Meta<Id<T, B>, M>,
 		value: IndexedObject<T, B, M>,
@@ -176,7 +216,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Associate all the given objects to the node through the given property.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = IndexedObject<T, B, M>>>(
+	pub fn insert_all_with<Objects: IntoIterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,
 		Meta(prop, meta): Meta<Id<T, B>, M>,
 		values: Objects,
@@ -195,7 +235,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	///
 	/// The [equivalence operator](crate::Object::equivalent) is used to remove equivalent objects.
 	#[inline(always)]
-	pub fn insert_all_unique_stripped<
+	pub fn insert_all_unique_stripped_with<
 		Objects: IntoIterator<Item = StrippedIndexedObject<T, B, M>>,
 	>(
 		&mut self,
@@ -226,12 +266,12 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 	///
 	/// The [equivalence operator](crate::Object::equivalent) is used to remove equivalent objects.
 	#[inline(always)]
-	pub fn insert_all_unique<Objects: IntoIterator<Item = IndexedObject<T, B, M>>>(
+	pub fn insert_all_unique_with<Objects: IntoIterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,
 		prop: Meta<Id<T, B>, M>,
 		values: Objects,
 	) {
-		self.insert_all_unique_stripped(prop, values.into_iter().map(Stripped))
+		self.insert_all_unique_stripped_with(prop, values.into_iter().map(Stripped))
 	}
 
 	pub fn extend_unique<I, O>(&mut self, iter: I)
@@ -240,7 +280,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 		O: IntoIterator<Item = IndexedObject<T, B, M>>,
 	{
 		for (prop, values) in iter {
-			self.insert_all_unique(prop, values)
+			self.insert_all_unique_with(prop, values)
 		}
 	}
 
@@ -250,7 +290,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 		O: IntoIterator<Item = StrippedIndexedObject<T, B, M>>,
 	{
 		for (prop, values) in iter {
-			self.insert_all_unique_stripped(prop, values)
+			self.insert_all_unique_stripped_with(prop, values)
 		}
 	}
 
@@ -287,7 +327,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Properties<T,
 			let prop = Id::from_string_in(vocabulary, key.to_string());
 			let objects: Vec<IndexedObject<T, B, M>> =
 				Vec::try_from_json_in(vocabulary, entry.value)?.into_value();
-			result.insert_all(Meta(prop, key_meta), objects)
+			result.insert_all_with(Meta(prop, key_meta), objects)
 		}
 
 		Ok(Meta(result, meta))
@@ -325,7 +365,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Extend<(Meta<Id<T, B>, M>, Vec<IndexedObject
 		I: IntoIterator<Item = (Meta<Id<T, B>, M>, Vec<IndexedObject<T, B, M>>)>,
 	{
 		for (prop, values) in iter {
-			self.insert_all(prop, values)
+			self.insert_all_with(prop, values)
 		}
 	}
 }
@@ -384,7 +424,7 @@ impl<'a, T, B, M> IntoIterator for &'a mut Properties<T, B, M> {
 ///
 /// It is created by the [`Properties::into_iter`] function.
 pub struct IntoIter<T, B, M> {
-	inner: hashbrown::hash_map::IntoIter<Id<T, B>, PropertyEntry<T, B, M>>,
+	inner: indexmap::map::IntoIter<Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<T, B, M> Iterator for IntoIter<T, B, M> {
@@ -413,7 +453,7 @@ impl<T, B, M> std::iter::FusedIterator for IntoIter<T, B, M> {}
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
 pub struct Iter<'a, T, B, M> {
-	inner: hashbrown::hash_map::Iter<'a, Id<T, B>, PropertyEntry<T, B, M>>,
+	inner: indexmap::map::Iter<'a, Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for Iter<'a, T, B, M> {
@@ -446,7 +486,7 @@ pub type PropertyEntry<T, B, M> = Entry<PropertyObjects<T, B, M>, M>;
 ///
 /// It is created by the [`Properties::iter_mut`] function.
 pub struct IterMut<'a, T, B, M> {
-	inner: hashbrown::hash_map::IterMut<'a, Id<T, B>, PropertyEntry<T, B, M>>,
+	inner: indexmap::map::IterMut<'a, Id<T, B>, PropertyEntry<T, B, M>>,
 }
 
 impl<'a, T, B, M> Iterator for IterMut<'a, T, B, M> {

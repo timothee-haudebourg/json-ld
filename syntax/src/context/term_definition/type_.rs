@@ -10,7 +10,7 @@ pub enum Type {
 }
 
 impl Type {
-	pub fn as_iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<&Iri> {
 		match self {
 			Self::Term(t) => Iri::new(t).ok(),
 			Self::Keyword(_) => None,

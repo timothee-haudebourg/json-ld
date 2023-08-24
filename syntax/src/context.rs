@@ -1,5 +1,5 @@
 use crate::Entry;
-use iref::IriRefBuf;
+use iref::{IriRefBuf, IriRef, Iri};
 use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
 use smallvec::SmallVec;
@@ -87,9 +87,9 @@ impl<M: Default> From<IriRefBuf> for Value<M> {
 	}
 }
 
-impl<'a, M: Default> From<iref::IriRef<'a>> for Value<M> {
-	fn from(i: iref::IriRef<'a>) -> Self {
-		Self::One(Meta(Context::IriRef(i.into()), M::default()))
+impl<'a, M: Default> From<&'a IriRef> for Value<M> {
+	fn from(i: &'a IriRef) -> Self {
+		Self::One(Meta(Context::IriRef(i.to_owned()), M::default()))
 	}
 }
 
@@ -99,9 +99,9 @@ impl<M: Default> From<iref::IriBuf> for Value<M> {
 	}
 }
 
-impl<'a, M: Default> From<iref::Iri<'a>> for Value<M> {
-	fn from(i: iref::Iri<'a>) -> Self {
-		Self::One(Meta(Context::IriRef(i.into()), M::default()))
+impl<'a, M: Default> From<&'a Iri> for Value<M> {
+	fn from(i: &'a Iri) -> Self {
+		Self::One(Meta(Context::IriRef(i.to_owned().into()), M::default()))
 	}
 }
 
@@ -117,9 +117,9 @@ impl<M> From<Meta<IriRefBuf, M>> for Value<M> {
 	}
 }
 
-impl<'a, M> From<Meta<iref::IriRef<'a>, M>> for Value<M> {
-	fn from(Meta(i, meta): Meta<iref::IriRef<'a>, M>) -> Self {
-		Self::One(Meta(Context::IriRef(i.into()), meta))
+impl<'a, M> From<Meta<&'a IriRef, M>> for Value<M> {
+	fn from(Meta(i, meta): Meta<&'a IriRef, M>) -> Self {
+		Self::One(Meta(Context::IriRef(i.to_owned()), meta))
 	}
 }
 
@@ -129,9 +129,9 @@ impl<M> From<Meta<iref::IriBuf, M>> for Value<M> {
 	}
 }
 
-impl<'a, M> From<Meta<iref::Iri<'a>, M>> for Value<M> {
-	fn from(Meta(i, meta): Meta<iref::Iri<'a>, M>) -> Self {
-		Self::One(Meta(Context::IriRef(i.into()), meta))
+impl<'a, M> From<Meta<&'a Iri, M>> for Value<M> {
+	fn from(Meta(i, meta): Meta<&'a Iri, M>) -> Self {
+		Self::One(Meta(Context::IriRef(i.to_owned().into()), meta))
 	}
 }
 
@@ -163,9 +163,9 @@ impl<D> From<IriRefBuf> for Context<D> {
 	}
 }
 
-impl<'a, D> From<iref::IriRef<'a>> for Context<D> {
-	fn from(i: iref::IriRef<'a>) -> Self {
-		Context::IriRef(i.into())
+impl<'a, D> From<&'a IriRef> for Context<D> {
+	fn from(i: &'a IriRef) -> Self {
+		Context::IriRef(i.to_owned())
 	}
 }
 
@@ -175,9 +175,9 @@ impl<D> From<iref::IriBuf> for Context<D> {
 	}
 }
 
-impl<'a, D> From<iref::Iri<'a>> for Context<D> {
-	fn from(i: iref::Iri<'a>) -> Self {
-		Context::IriRef(i.into())
+impl<'a, D> From<&'a Iri> for Context<D> {
+	fn from(i: &'a Iri) -> Self {
+		Context::IriRef(i.to_owned().into())
 	}
 }
 

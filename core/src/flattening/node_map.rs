@@ -1,10 +1,11 @@
 use super::Environment;
 use crate::{id, object, ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object};
 use derivative::Derivative;
+use indexmap::IndexSet;
 use json_ld_syntax::Entry;
 use locspan::{BorrowStripped, Meta, Stripped};
 use rdf_types::{BlankIdVocabulary, IriVocabulary, Vocabulary};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::hash::Hash;
 
 /// Conflicting indexes error.
@@ -245,7 +246,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 				id.value().clone(),
 				Meta(
 					Indexed::new_entry(
-						Node::with_id(Entry::new_with(id.metadata().clone(), id.clone())),
+						Node::with_id_entry(Entry::new_with(id.metadata().clone(), id.clone())),
 						index.cloned(),
 					),
 					id.metadata().clone(),
@@ -295,7 +296,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 			} else {
 				self.nodes.insert(
 					id.value.value().clone(),
-					Meta(Indexed::new_entry(Node::with_id(id.clone()), index), meta),
+					Meta(Indexed::new_entry(Node::with_id_entry(id.clone()), index), meta),
 				);
 			}
 
@@ -310,7 +311,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 					.extend(types.value.into_value().into_iter());
 			}
 
-			flat_node.set_graph(node.graph);
+			flat_node.set_graph_entry(node.graph);
 			flat_node.set_included(node.included);
 			flat_node
 				.properties_mut()
@@ -469,7 +470,7 @@ where
 	if let Some(graph_entry) = node.graph_entry() {
 		node_map.declare_graph(id.clone());
 
-		let mut flat_graph = HashSet::new();
+		let mut flat_graph = IndexSet::new();
 		for object in graph_entry.iter() {
 			let flat_object = extend_node_map(env, node_map, object, Some(&id))?;
 			flat_graph.insert(Stripped(flat_object));
@@ -482,7 +483,7 @@ where
 			.unwrap();
 		match flat_node.graph_entry_mut() {
 			Some(graph) => graph.extend(flat_graph),
-			None => flat_node.set_graph(Some(Entry::new_with(
+			None => flat_node.set_graph_entry(Some(Entry::new_with(
 				graph_entry.key_metadata.clone(),
 				Meta(flat_graph, graph_entry.value.metadata().clone()),
 			))),
@@ -513,7 +514,7 @@ where
 			.get_mut(&id)
 			.unwrap()
 			.properties_mut()
-			.insert_all_unique(property.cloned(), flat_objects)
+			.insert_all_unique_with(property.cloned(), flat_objects)
 	}
 
 	if let Some(reverse_properties) = node.reverse_properties_entry() {
@@ -535,11 +536,11 @@ where
 					.get_mut(subject_id)
 					.unwrap();
 
-				flat_subject.properties_mut().insert_unique(
+				flat_subject.properties_mut().insert_unique_with(
 					property.cloned(),
 					Meta(
 						Indexed::new_entry(
-							Object::node(Node::with_id(Entry::new_with(
+							Object::node(Node::with_id_entry(Entry::new_with(
 								id.metadata().clone(),
 								id.clone(),
 							))),
@@ -573,7 +574,7 @@ where
 	}
 
 	Ok(Indexed::new_entry(
-		Node::with_id(Entry::new_with(id.metadata().clone(), id)),
+		Node::with_id_entry(Entry::new_with(id.metadata().clone(), id)),
 		None,
 	))
 }

@@ -57,7 +57,7 @@ impl<T, B, M> ProcessMeta<T, B, M> for syntax::context::Value<M> {
 /// Resolve `iri_ref` against the given base IRI.
 fn resolve_iri<I>(
 	vocabulary: &mut impl IriVocabularyMut<Iri = I>,
-	iri_ref: IriRef,
+	iri_ref: &IriRef,
 	base_iri: Option<&I>,
 ) -> Option<I> {
 	match base_iri {
@@ -65,10 +65,7 @@ fn resolve_iri<I>(
 			let result = iri_ref.resolved(vocabulary.iri(base_iri).unwrap());
 			Some(vocabulary.insert(result.as_iri()))
 		}
-		None => match iri_ref.into_iri() {
-			Ok(iri) => Some(vocabulary.insert(iri)),
-			Err(_) => None,
-		},
+		None => iri_ref.as_iri().map(|iri| vocabulary.insert(iri))
 	}
 }
 
@@ -302,8 +299,8 @@ where
 									result.set_base_iri(None);
 								}
 								syntax::Nullable::Some(iri_ref) => match iri_ref.as_iri() {
-									Ok(iri) => result.set_base_iri(Some(vocabulary.insert(iri))),
-									Err(_) => {
+									Some(iri) => result.set_base_iri(Some(vocabulary.insert(iri))),
+									None => {
 										let resolved = resolve_iri(
 											vocabulary,
 											iri_ref.as_iri_ref(),

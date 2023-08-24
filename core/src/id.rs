@@ -79,10 +79,10 @@ impl<I: Hash, B: Hash> StrippedHash for Id<I, B> {
 	}
 }
 
-impl<'a, B> hashbrown::Equivalent<Id<IriBuf, B>> for iref::Iri<'a> {
+impl<'a, B> hashbrown::Equivalent<Id<IriBuf, B>> for &'a Iri {
 	fn equivalent(&self, key: &Id<IriBuf, B>) -> bool {
 		match key {
-			Id::Valid(ValidId::Iri(iri)) => self == iri,
+			Id::Valid(ValidId::Iri(iri)) => *self == iri,
 			_ => false,
 		}
 	}
@@ -141,9 +141,9 @@ impl<I, B, M> TryFromJson<I, B, M> for Id<I, B> {
 
 impl<I: From<IriBuf>, B: From<BlankIdBuf>> Id<I, B> {
 	pub fn from_string(s: String) -> Self {
-		match IriBuf::from_string(s) {
+		match IriBuf::new(s) {
 			Ok(iri) => Self::Valid(ValidId::Iri(iri.into())),
-			Err((_, s)) => match BlankIdBuf::new(s) {
+			Err(e) => match BlankIdBuf::new(e.0) {
 				Ok(blank) => Self::Valid(ValidId::Blank(blank.into())),
 				Err(InvalidBlankId(s)) => Self::Invalid(s),
 			},
@@ -246,7 +246,7 @@ impl<I: AsRef<str>, B: AsRef<str>> Id<I, B> {
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> AsRefWithContext<str, N> for Id<T, B> {
 	fn as_ref_with<'a>(&'a self, vocabulary: &'a N) -> &'a str {
 		match self {
-			Id::Valid(ValidId::Iri(id)) => vocabulary.iri(id).unwrap().into_str(),
+			Id::Valid(ValidId::Iri(id)) => vocabulary.iri(id).unwrap().as_str(),
 			Id::Valid(ValidId::Blank(id)) => vocabulary.blank_id(id).unwrap().as_str(),
 			Id::Invalid(id) => id.as_str(),
 		}

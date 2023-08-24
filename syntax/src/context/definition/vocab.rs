@@ -7,7 +7,7 @@ use rdf_types::BlankId;
 pub struct Vocab(#[locspan(stripped)] String);
 
 impl Vocab {
-	pub fn as_iri(&self) -> Option<Iri> {
+	pub fn as_iri(&self) -> Option<&Iri> {
 		Iri::new(&self.0).ok()
 	}
 

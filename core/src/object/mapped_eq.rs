@@ -1,6 +1,6 @@
 use crate::{Id, Indexed, ValidId};
+use indexmap::IndexSet;
 use locspan::BorrowStripped;
-use std::collections::HashSet;
 use std::hash::Hash;
 
 pub trait MappedEq<T: ?Sized = Self> {
@@ -174,7 +174,7 @@ impl<T: MappedEq> MappedEq for [T] {
 	}
 }
 
-impl<T: MappedEq> UnorderedMappedEq for HashSet<T> {
+impl<T: MappedEq> UnorderedMappedEq for IndexSet<T> {
 	type Item = T;
 
 	fn len(&self) -> usize {
@@ -182,7 +182,7 @@ impl<T: MappedEq> UnorderedMappedEq for HashSet<T> {
 	}
 }
 
-impl<T: MappedEq> MappedEq for HashSet<T> {
+impl<T: MappedEq> MappedEq for IndexSet<T> {
 	type BlankId = T::BlankId;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(

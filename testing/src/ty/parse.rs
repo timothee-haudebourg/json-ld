@@ -68,8 +68,14 @@ fn parse_multiple(ty: syn::Type) -> Result<Type, UnknownType> {
 fn parse_reference(r: syn::TypeReference) -> Result<Type, UnknownType> {
 	if r.mutability.is_none() {
 		if let Some(lft) = r.lifetime {
-			if lft.ident == "static" && is_str(&r.elem) {
-				return Ok(Type::String);
+			if lft.ident == "static" {
+				if is_str(&r.elem) {
+					return Ok(Type::String);
+				}
+
+				if is_iri(&r.elem) {
+					return Ok(Type::Iri);
+				}
 			}
 		}
 	}
@@ -95,8 +101,6 @@ fn reference_into_multiple(r: syn::TypeReference) -> Result<syn::Type, syn::Type
 fn parse_path(p: syn::TypePath) -> Result<Type, UnknownType> {
 	if is_bool_path(&p) {
 		Ok(Type::Bool)
-	} else if is_iri_path(&p) {
-		Ok(Type::Iri)
 	} else if is_processing_mode_path(&p) {
 		Ok(Type::ProcessingMode)
 	} else if is_rdf_direction_path(&p) {
@@ -121,25 +125,16 @@ fn segment_is_empty_ident(path: &syn::Path, i: usize, id: &str) -> bool {
 	segment.arguments.is_empty() && segment.ident == id
 }
 
-fn is_static_arguments(args: &syn::PathArguments) -> bool {
-	match args {
-		syn::PathArguments::AngleBracketed(args) => {
-			args.args.len() == 1 && is_static_argument(&args.args[0])
-		}
-		_ => false,
-	}
-}
-
-fn is_static_argument(arg: &syn::GenericArgument) -> bool {
-	match arg {
-		syn::GenericArgument::Lifetime(lft) => lft.ident == "static",
-		_ => false,
-	}
-}
-
 fn is_str(ty: &syn::Type) -> bool {
 	match ty {
 		syn::Type::Path(p) => is_str_path(p),
+		_ => false,
+	}
+}
+
+fn is_iri(ty: &syn::Type) -> bool {
+	match ty {
+		syn::Type::Path(p) => is_iri_path(p),
 		_ => false,
 	}
 }
@@ -175,7 +170,6 @@ fn is_iri_path(p: &syn::TypePath) -> bool {
 			|| (p.path.leading_colon.is_none()
 				&& p.path.segments.len() == 1
 				&& segment_is_ident(&p.path, 0, "Iri")))
-		&& is_static_arguments(&p.path.segments.last().unwrap().arguments)
 }
 
 fn is_processing_mode_path(p: &syn::TypePath) -> bool {

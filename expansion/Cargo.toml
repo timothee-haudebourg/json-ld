@@ -25,6 +25,7 @@ locspan = { workspace = true, features = ["contextual"] }
 derivative.workspace = true
 contextual.workspace = true
 thiserror.workspace = true
+indexmap.workspace = true
 
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }

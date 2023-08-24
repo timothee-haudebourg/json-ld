@@ -1,0 +1,21 @@
+[package]
+name = "json-ld-serializer"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "JSON-LD serialization"
+documentation = "https://docs.rs/json-ld-serializer"
+readme = "README.md"
+
+[dependencies]
+json-ld-core.workspace = true
+serde-ld.workspace = true
+rdf-types.workspace = true
+locspan.workspace = true
+json-syntax.workspace = true
+indexmap.workspace = true
+xsd-types = { git = "https://github.com/timothee-haudebourg/xsd-types.git" }

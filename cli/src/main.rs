@@ -68,9 +68,9 @@ impl FromStr for IriOrPath {
 	type Err = std::convert::Infallible;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		match IriBuf::new(s) {
+		match IriBuf::new(s.to_owned()) {
 			Ok(iri) => Ok(Self::Iri(iri)),
-			Err(_) => Ok(Self::Path(s.into())),
+			Err(e) => Ok(Self::Path(e.0.into())),
 		}
 	}
 }

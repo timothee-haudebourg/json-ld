@@ -45,7 +45,7 @@ impl CompactIri {
 		&self[i + 1..]
 	}
 
-	pub fn as_iri_ref(&self) -> IriRef {
+	pub fn as_iri_ref(&self) -> &IriRef {
 		IriRef::new(self.as_str()).unwrap()
 	}
 }
@@ -95,7 +95,7 @@ impl CompactIriBuf {
 	}
 
 	pub fn into_iri_ref(self) -> IriRefBuf {
-		IriRefBuf::from_string(self.0).unwrap()
+		IriRefBuf::new(self.0).unwrap()
 	}
 }
 

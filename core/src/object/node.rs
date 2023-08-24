@@ -5,11 +5,11 @@ use crate::{
 };
 use contextual::{IntoRefWithContext, WithContext};
 use derivative::Derivative;
+use indexmap::IndexSet;
 use iref::IriBuf;
 use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta, Keyword};
 use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedPartialEq};
 use rdf_types::{BlankIdBuf, Subject, Vocabulary, VocabularyMut};
-use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
@@ -21,9 +21,9 @@ pub use multiset::Multiset;
 pub use properties::Properties;
 pub use reverse_properties::ReverseProperties;
 
-pub type Graph<T, B, M> = HashSet<StrippedIndexedObject<T, B, M>>;
+pub type Graph<T, B, M = ()> = IndexSet<StrippedIndexedObject<T, B, M>>;
 
-pub type Included<T, B, M> = HashSet<StrippedIndexedNode<T, B, M>>;
+pub type Included<T, B, M = ()> = IndexSet<StrippedIndexedNode<T, B, M>>;
 
 /// Node parts.
 pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
@@ -58,7 +58,7 @@ pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
 	pub reverse_properties: Option<Entry<ReverseProperties<T, B, M>, M>>,
 }
 
-pub type IndexedNode<T, B, M> = Meta<Indexed<Node<T, B, M>, M>, M>;
+pub type IndexedNode<T = IriBuf, B = BlankIdBuf, M = ()> = Meta<Indexed<Node<T, B, M>, M>, M>;
 
 /// Indexed node, without regard for its metadata.
 pub type StrippedIndexedNode<T, B, M> = Stripped<IndexedNode<T, B, M>>;
@@ -112,6 +112,27 @@ impl<T, B, M> Default for Node<T, B, M> {
 	}
 }
 
+impl<T, B> Node<T, B> {
+	/// Creates a new empty node with the given id.
+	#[inline(always)]
+	pub fn with_id(id: Id<T, B>) -> Self {
+		Self {
+			id: Some(Entry::new(id)),
+			types: None,
+			graph: None,
+			included: None,
+			properties: Properties::new(),
+			reverse_properties: None,
+		}
+	}
+
+	/// Set the graph.
+	#[inline(always)]
+	pub fn set_graph(&mut self, graph: Option<Graph<T, B>>) {
+		self.set_graph_entry(graph.map(|g| Entry::new(g)))
+	}
+}
+
 impl<T, B, M> Node<T, B, M> {
 	/// Creates a new empty node.
 	#[inline(always)]
@@ -126,9 +147,9 @@ impl<T, B, M> Node<T, B, M> {
 		}
 	}
 
-	/// Creates a new empty node with the given id.
+	/// Creates a new empty node with the given id entry.
 	#[inline(always)]
-	pub fn with_id(id: Entry<Id<T, B>, M>) -> Self {
+	pub fn with_id_entry(id: Entry<Id<T, B>, M>) -> Self {
 		Self {
 			id: Some(id),
 			types: None,
@@ -431,7 +452,7 @@ impl<T, B, M> Node<T, B, M> {
 
 	/// Set the graph.
 	#[inline(always)]
-	pub fn set_graph(&mut self, graph: Option<GraphEntry<T, B, M>>) {
+	pub fn set_graph_entry(&mut self, graph: Option<GraphEntry<T, B, M>>) {
 		self.graph = graph
 	}
 
@@ -548,6 +569,27 @@ impl<T, B, M> Node<T, B, M> {
 	}
 }
 
+impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
+	/// Associates the given object to the node through the given property.
+	#[inline(always)]
+	pub fn insert(&mut self, prop: Id<T, B>, value: Indexed<Object<T, B>>) {
+		self.properties.insert(prop, value)
+	}
+
+	/// Associates all the given objects to the node through the given property.
+	///
+	/// If there already exists objects associated to the given reverse property,
+	/// `reverse_value` is added to the list. Duplicate objects are not removed.
+	#[inline(always)]
+	pub fn insert_all<Objects: Iterator<Item = Indexed<Object<T, B>>>>(
+		&mut self,
+		prop: Id<T, B>,
+		values: Objects,
+	) {
+		self.properties.insert_all(prop, values)
+	}
+}
+
 impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// Checks if the node object has the given term as key.
 	///
@@ -577,7 +619,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 
 	/// Get all the objects associated to the node with the given property.
 	#[inline(always)]
-	pub fn get<'a, Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+	pub fn get<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
 	) -> Objects<T, B, M>
@@ -592,7 +634,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: ?Sized + Hash + hashbrown::Equivalent<Id<T, B>>>(
+	pub fn get_any<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
 	) -> Option<&IndexedObject<T, B, M>>
@@ -604,8 +646,8 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Meta<Id<T, B>, M>, value: IndexedObject<T, B, M>) {
-		self.properties.insert(prop, value)
+	pub fn insert_with(&mut self, prop: Meta<Id<T, B>, M>, value: IndexedObject<T, B, M>) {
+		self.properties.insert_with(prop, value)
 	}
 
 	/// Associates all the given objects to the node through the given property.
@@ -613,12 +655,12 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// If there already exists objects associated to the given reverse property,
 	/// `reverse_value` is added to the list. Duplicate objects are not removed.
 	#[inline(always)]
-	pub fn insert_all<Objects: Iterator<Item = IndexedObject<T, B, M>>>(
+	pub fn insert_all_with<Objects: Iterator<Item = IndexedObject<T, B, M>>>(
 		&mut self,
 		prop: Meta<Id<T, B>, M>,
 		values: Objects,
 	) {
-		self.properties.insert_all(prop, values)
+		self.properties.insert_all_with(prop, values)
 	}
 
 	pub fn reverse_properties_or_insert(
@@ -863,8 +905,8 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, st
 pub enum EntryValueRef<'a, T, B, M> {
 	Id(Meta<&'a Id<T, B>, &'a M>),
 	Type(&'a TypeEntryValue<T, B, M>),
-	Graph(&'a HashSet<StrippedIndexedObject<T, B, M>>),
-	Included(&'a HashSet<StrippedIndexedNode<T, B, M>>),
+	Graph(&'a IndexSet<StrippedIndexedObject<T, B, M>>),
+	Included(&'a IndexSet<StrippedIndexedNode<T, B, M>>),
 	Reverse(&'a ReverseProperties<T, B, M>),
 	Property(&'a [StrippedIndexedObject<T, B, M>]),
 }
@@ -970,7 +1012,7 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 pub type TypeEntryValue<T, B, M> = Meta<Vec<Meta<Id<T, B>, M>>, M>;
 pub type TypeEntry<T, B, M> = Entry<Vec<Meta<Id<T, B>, M>>, M>;
 pub type GraphEntry<T, B, M> = Entry<Graph<T, B, M>, M>;
-pub type IncludedEntry<T, B, M> = Entry<HashSet<StrippedIndexedNode<T, B, M>>, M>;
+pub type IncludedEntry<T, B, M> = Entry<Included<T, B, M>, M>;
 
 #[derive(Derivative)]
 #[derivative(Clone(bound = ""))]
@@ -1232,8 +1274,8 @@ pub enum SubFragments<'a, T, B, M> {
 		Option<EntryValueRef<'a, T, B, M>>,
 	),
 	Type(std::slice::Iter<'a, Meta<Id<T, B>, M>>),
-	Graph(std::collections::hash_set::Iter<'a, StrippedIndexedObject<T, B, M>>),
-	Included(std::collections::hash_set::Iter<'a, StrippedIndexedNode<T, B, M>>),
+	Graph(indexmap::set::Iter<'a, StrippedIndexedObject<T, B, M>>),
+	Included(indexmap::set::Iter<'a, StrippedIndexedNode<T, B, M>>),
 	Reverse(reverse_properties::Iter<'a, T, B, M>),
 	Property(std::slice::Iter<'a, StrippedIndexedObject<T, B, M>>),
 }
@@ -1445,7 +1487,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 		{
 			Some(entry) => Some(Entry::new_with(
 				entry.key.into_metadata(),
-				HashSet::try_from_json_in(vocabulary, entry.value)?,
+				IndexSet::try_from_json_in(vocabulary, entry.value)?,
 			)),
 			None => None,
 		};
@@ -1456,7 +1498,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 		{
 			Some(entry) => Some(Entry::new_with(
 				entry.key.into_metadata(),
-				HashSet::try_from_json_in(vocabulary, entry.value)?,
+				IndexSet::try_from_json_in(vocabulary, entry.value)?,
 			)),
 			None => None,
 		};

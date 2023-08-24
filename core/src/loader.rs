@@ -320,7 +320,7 @@ pub enum StandardProfile {
 }
 
 impl StandardProfile {
-	pub fn from_iri(iri: Iri) -> Option<Self> {
+	pub fn from_iri(iri: &Iri) -> Option<Self> {
 		if iri == iri!("http://www.w3.org/ns/json-ld#expanded") {
 			Some(Self::Expanded)
 		} else if iri == iri!("http://www.w3.org/ns/json-ld#compacted") {
@@ -336,7 +336,7 @@ impl StandardProfile {
 		}
 	}
 
-	pub fn iri(&self) -> Iri<'static> {
+	pub fn iri(&self) -> &'static Iri {
 		match self {
 			Self::Expanded => iri!("http://www.w3.org/ns/json-ld#expanded"),
 			Self::Compacted => iri!("http://www.w3.org/ns/json-ld#compacted"),
@@ -360,14 +360,14 @@ pub enum Profile<I> {
 }
 
 impl<I> Profile<I> {
-	pub fn new(iri: Iri, vocabulary: &mut impl IriVocabularyMut<Iri = I>) -> Self {
+	pub fn new(iri: &Iri, vocabulary: &mut impl IriVocabularyMut<Iri = I>) -> Self {
 		match StandardProfile::from_iri(iri) {
 			Some(p) => Self::Standard(p),
 			None => Self::Custom(vocabulary.insert(iri)),
 		}
 	}
 
-	pub fn iri<'a>(&'a self, vocabulary: &'a impl IriVocabulary<Iri = I>) -> Iri<'a> {
+	pub fn iri<'a>(&'a self, vocabulary: &'a impl IriVocabulary<Iri = I>) -> &'a Iri {
 		match self {
 			Self::Standard(s) => s.iri(),
 			Self::Custom(c) => vocabulary.iri(c).unwrap(),

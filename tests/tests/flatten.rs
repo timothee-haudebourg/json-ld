@@ -18,7 +18,7 @@ mod flatten {
 		pub comments: &'static [&'static str],
 
 		#[iri("manifest:action")]
-		pub input: Iri<'static>,
+		pub input: &'static Iri,
 
 		#[iri("manifest:name")]
 		pub name: &'static str,
@@ -27,7 +27,7 @@ mod flatten {
 		pub options: Options,
 
 		#[iri("test:context")]
-		pub context: Option<Iri<'static>>,
+		pub context: Option<&'static Iri>,
 
 		#[iri("rdf:type")]
 		pub desc: Description,
@@ -37,7 +37,7 @@ mod flatten {
 		#[iri("test:PositiveEvaluationTest")]
 		Positive {
 			#[iri("manifest:result")]
-			expect: Iri<'static>,
+			expect: &'static Iri,
 		},
 		#[iri("test:NegativeEvaluationTest")]
 		Negative {
@@ -49,10 +49,10 @@ mod flatten {
 	#[derive(Default)]
 	pub struct Options {
 		#[iri("test:base")]
-		pub base: Option<Iri<'static>>,
+		pub base: Option<&'static Iri>,
 
 		#[iri("test:expandContext")]
-		pub expand_context: Option<Iri<'static>>,
+		pub expand_context: Option<&'static Iri>,
 
 		#[iri("test:processingMode")]
 		pub processing_mode: Option<json_ld::ProcessingMode>,

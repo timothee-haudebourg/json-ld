@@ -3,6 +3,7 @@ use crate::{
 	Nullable,
 };
 use contextual::Contextual;
+use indexmap::IndexSet;
 use locspan::Meta;
 
 pub trait IntoJsonWithContextMeta<M, N>: Sized {
@@ -23,7 +24,7 @@ impl<T: IntoJsonWithContext<M, N>, M, N> IntoJsonWithContextMeta<M, N> for Vec<T
 }
 
 impl<T: IntoJsonWithContext<M, N>, M, N> IntoJsonWithContextMeta<M, N>
-	for std::collections::HashSet<T>
+	for IndexSet<T>
 {
 	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
 		Meta(

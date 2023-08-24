@@ -73,11 +73,11 @@ enum QuadsFrame<'a, T, B, M> {
 	),
 	IndexedObjectSet(
 		Option<Meta<&'a Id<T, B>, &'a M>>,
-		std::collections::hash_set::Iter<'a, StrippedIndexedObject<T, B, M>>,
+		indexmap::set::Iter<'a, StrippedIndexedObject<T, B, M>>,
 	),
 	IndexedNodeSet(
 		Option<Meta<&'a Id<T, B>, &'a M>>,
-		std::collections::hash_set::Iter<'a, StrippedIndexedNode<T, B, M>>,
+		indexmap::set::Iter<'a, StrippedIndexedNode<T, B, M>>,
 	),
 	IndexedObjectSlice(
 		Option<Meta<&'a Id<T, B>, &'a M>>,

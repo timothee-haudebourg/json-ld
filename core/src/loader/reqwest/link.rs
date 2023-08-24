@@ -83,7 +83,7 @@ impl Link {
 		}
 	}
 
-	pub fn href(&self) -> IriRef {
+	pub fn href(&self) -> &IriRef {
 		self.href.as_iri_ref()
 	}
 
