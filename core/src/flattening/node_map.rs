@@ -296,7 +296,10 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 			} else {
 				self.nodes.insert(
 					id.value.value().clone(),
-					Meta(Indexed::new_entry(Node::with_id_entry(id.clone()), index), meta),
+					Meta(
+						Indexed::new_entry(Node::with_id_entry(id.clone()), index),
+						meta,
+					),
 				);
 			}
 

@@ -18,4 +18,10 @@ rdf-types.workspace = true
 locspan.workspace = true
 json-syntax.workspace = true
 indexmap.workspace = true
+thiserror.workspace = true
 xsd-types = { git = "https://github.com/timothee-haudebourg/xsd-types.git" }
+
+[dev-dependencies]
+serde-ld = { workspace = true, features = [ "derive" ] }
+contextual.workspace = true
+json-syntax.workspace = true

@@ -12,8 +12,7 @@ mod into_json;
 mod keyword;
 mod lang;
 mod nullable;
-#[allow(hidden_glob_reexports)] // Fixed in the next version.
-mod print;
+mod print_ld;
 mod try_from_json;
 
 pub use compact_iri::*;

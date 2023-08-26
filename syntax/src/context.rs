@@ -1,5 +1,5 @@
 use crate::Entry;
-use iref::{IriRefBuf, IriRef, Iri};
+use iref::{Iri, IriRef, IriRefBuf};
 use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
 use smallvec::SmallVec;

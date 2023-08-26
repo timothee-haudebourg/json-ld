@@ -133,6 +133,12 @@ pub enum Object<T = IriBuf, B = BlankIdBuf, M = ()> {
 }
 
 impl<T, B, M> Object<T, B, M> {
+	/// Creates a `null` value object.
+	#[inline(always)]
+	pub fn null() -> Self {
+		Self::Value(Value::null())
+	}
+
 	/// Creates a new node object from a node.
 	#[inline(always)]
 	pub fn node(n: Node<T, B, M>) -> Self {

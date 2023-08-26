@@ -1,7 +1,7 @@
 use super::{Multiset, Objects};
 use crate::{
 	object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
-	Id, IndexedObject, StrippedIndexedObject, Indexed, Object,
+	Id, Indexed, IndexedObject, Object, StrippedIndexedObject,
 };
 use derivative::Derivative;
 use indexmap::IndexMap;
@@ -62,7 +62,7 @@ impl<T, M> ops::DerefMut for Entry<T, M> {
 	}
 }
 
-pub type PropertyObjects<T, B, M> = Multiset<StrippedIndexedObject<T, B, M>>;
+pub type PropertyObjects<T, B, M = ()> = Multiset<StrippedIndexedObject<T, B, M>>;
 
 /// Properties of a node object, and their associated objects.
 #[derive(Derivative, Clone)]
@@ -74,7 +74,7 @@ pub struct Properties<T, B, M = ()>(IndexMap<Id<T, B>, PropertyEntry<T, B, M>>);
 
 impl<T, B, M> Properties<T, B, M> {
 	/// Creates an empty map.
-	pub(crate) fn new() -> Self {
+	pub fn new() -> Self {
 		Self(IndexMap::new())
 	}
 
@@ -122,11 +122,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
 
 	/// Associate the given object to the node through the given property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(
-		&mut self,
-		prop: Id<T, B>,
-		value: Indexed<Object<T, B>>,
-	) {
+	pub fn insert_unique(&mut self, prop: Id<T, B>, value: Indexed<Object<T, B>>) {
 		self.insert_unique_with(Meta::none(prop), Meta::none(value))
 	}
 
@@ -149,7 +145,14 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
 		prop: Id<T, B>,
 		values: Objects,
 	) {
-		self.insert_all_unique_stripped_with(Meta::none(prop), values.into_iter().map(|v| Stripped(Meta::none(v))))
+		self.insert_all_unique_stripped_with(
+			Meta::none(prop),
+			values.into_iter().map(|v| Stripped(Meta::none(v))),
+		)
+	}
+
+	pub fn set(&mut self, prop: Id<T, B>, values: PropertyObjects<T, B>) {
+		self.set_with(Meta::none(prop), values)
 	}
 }
 
@@ -188,7 +191,11 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Associate the given object to the node through the given property with metadata.
 	#[inline(always)]
-	pub fn insert_with(&mut self, Meta(prop, meta): Meta<Id<T, B>, M>, value: IndexedObject<T, B, M>) {
+	pub fn insert_with(
+		&mut self,
+		Meta(prop, meta): Meta<Id<T, B>, M>,
+		value: IndexedObject<T, B, M>,
+	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(Stripped(value));
 		} else {
@@ -272,6 +279,17 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 		values: Objects,
 	) {
 		self.insert_all_unique_stripped_with(prop, values.into_iter().map(Stripped))
+	}
+
+	pub fn set_with(
+		&mut self,
+		Meta(prop, meta): Meta<Id<T, B>, M>,
+		values: PropertyObjects<T, B, M>,
+	) {
+		self.0
+			.entry(prop)
+			.or_insert_with(|| Entry::new(meta, Multiset::new()))
+			.value = values
 	}
 
 	pub fn extend_unique<I, O>(&mut self, iter: I)

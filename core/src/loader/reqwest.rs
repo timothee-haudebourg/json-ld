@@ -333,18 +333,15 @@ impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, 
 							break Err(Error::Redirection303);
 						} else {
 							match response.headers().get(LOCATION) {
-								Some(location) => {
-									match std::str::from_utf8(location.as_bytes()) {
-										Ok(location) => {
-											let u = Iri::new(location)
-												.map_err(|e| Error::InvalidRedirectionUrl(e.0.to_string()))?;
-											url = vocabulary.insert(u);
-										}
-										Err(e) => {
-											return Err(Error::InvalidRedirectionUrlEncoding)
-										}
+								Some(location) => match std::str::from_utf8(location.as_bytes()) {
+									Ok(location) => {
+										let u = Iri::new(location).map_err(|e| {
+											Error::InvalidRedirectionUrl(e.0.to_string())
+										})?;
+										url = vocabulary.insert(u);
 									}
-								}
+									Err(e) => return Err(Error::InvalidRedirectionUrlEncoding),
+								},
 								None => break Err(Error::MissingRedirectionLocation),
 							}
 						}
