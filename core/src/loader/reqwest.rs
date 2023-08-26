@@ -340,7 +340,7 @@ impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, 
 										})?;
 										url = vocabulary.insert(u);
 									}
-									Err(e) => return Err(Error::InvalidRedirectionUrlEncoding),
+									Err(_e) => return Err(Error::InvalidRedirectionUrlEncoding),
 								},
 								None => break Err(Error::MissingRedirectionLocation),
 							}

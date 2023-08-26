@@ -12,6 +12,8 @@ members = [
 	"cli"
 ]
 
+workspace.resolver = "2"
+
 [workspace.package]
 version = "0.15.0"
 edition = "2021"
