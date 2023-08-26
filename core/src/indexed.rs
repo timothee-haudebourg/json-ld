@@ -26,8 +26,13 @@ pub struct Indexed<T, M = ()> {
 
 impl<T> Indexed<T> {
 	/// Creates a new (maybe) indexed value without metadata.
-	pub fn new(value: T, index: Option<String>) -> Indexed<T> {
+	pub fn new(value: T, index: Option<String>) -> Self {
 		Self::new_entry(value, index.map(Entry::new))
+	}
+
+	/// Creates a non-indexed value, without metadata.
+	pub fn none(value: T) -> Self {
+		Self::new(value, None)
 	}
 }
 

@@ -867,10 +867,12 @@ where
 											let mut node = Node::new();
 											let mut graph = IndexSet::new();
 											graph.insert(Stripped(item));
-											node.set_graph_entry(Some(json_ld_syntax::Entry::new_with(
-												item_metadata.clone(),
-												Meta(graph, item_metadata.clone()),
-											)));
+											node.set_graph_entry(Some(
+												json_ld_syntax::Entry::new_with(
+													item_metadata.clone(),
+													Meta(graph, item_metadata.clone()),
+												),
+											));
 											item = Meta(Object::node(node).into(), item_metadata);
 										}
 

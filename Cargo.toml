@@ -51,4 +51,4 @@ iref-enum = "3.0"
 grdf = "0.20"
 async-std = "1.12"
 
-serde-ld = { git = "https://github.com/spruceid/serde-ld.git" }
+serde-ld = { path = "/home/timothee/Projets/spruceid/serde-ld/serde-ld" }

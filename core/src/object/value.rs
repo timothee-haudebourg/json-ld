@@ -148,6 +148,12 @@ pub enum Value<T = IriBuf, M = ()> {
 }
 
 impl<T, M> Value<T, M> {
+	/// Creates a `null` value object.
+	#[inline(always)]
+	pub fn null() -> Self {
+		Self::Literal(Literal::Null, None)
+	}
+
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {

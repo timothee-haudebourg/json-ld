@@ -1,4 +1,4 @@
-use crate::{vocab, BlankIdIndex, Error, IriIndex, TestSpec, Vocab, IndexVocabulary};
+use crate::{vocab, BlankIdIndex, Error, IndexVocabulary, IriIndex, TestSpec, Vocab};
 use contextual::AsRefWithContext;
 use json_ld::ValidId;
 use proc_macro2::TokenStream;

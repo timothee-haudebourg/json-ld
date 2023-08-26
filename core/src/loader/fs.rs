@@ -78,8 +78,9 @@ impl<I, M, T, E> FsLoader<I, M, T, E> {
 	pub fn filepath(&self, vocabulary: &impl IriVocabulary<Iri = I>, url: &I) -> Option<PathBuf> {
 		let url = vocabulary.iri(url).unwrap();
 		for (path, target_url) in &self.mount_points {
-			if let Some((suffix, _, _)) =
-				url.as_iri_ref().suffix(vocabulary.iri(target_url).unwrap().as_iri_ref())
+			if let Some((suffix, _, _)) = url
+				.as_iri_ref()
+				.suffix(vocabulary.iri(target_url).unwrap().as_iri_ref())
 			{
 				let mut filepath = path.clone();
 				for seg in suffix.as_path().segments() {

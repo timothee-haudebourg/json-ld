@@ -80,8 +80,8 @@ struct IriArg {
 impl syn::parse::Parse for IriArg {
 	fn parse(input: ParseStream) -> syn::Result<Self> {
 		let iri: syn::LitStr = input.parse()?;
-		let iri = IriBuf::new(iri.value())
-			.map_err(|e| input.error(format!("invalid IRI `{}`", e.0)))?;
+		let iri =
+			IriBuf::new(iri.value()).map_err(|e| input.error(format!("invalid IRI `{}`", e.0)))?;
 
 		Ok(Self { iri })
 	}

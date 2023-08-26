@@ -6,7 +6,7 @@ use indexmap::IndexSet;
 use iref::IriBuf;
 use locspan::{Meta, StrippedEq, StrippedPartialEq};
 use rdf_types::vocabulary::VocabularyMut;
-use rdf_types::{Vocabulary, BlankIdBuf};
+use rdf_types::{BlankIdBuf, Vocabulary};
 use std::collections::HashSet;
 use std::hash::Hash;
 

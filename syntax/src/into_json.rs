@@ -23,9 +23,7 @@ impl<T: IntoJsonWithContext<M, N>, M, N> IntoJsonWithContextMeta<M, N> for Vec<T
 	}
 }
 
-impl<T: IntoJsonWithContext<M, N>, M, N> IntoJsonWithContextMeta<M, N>
-	for IndexSet<T>
-{
+impl<T: IntoJsonWithContext<M, N>, M, N> IntoJsonWithContextMeta<M, N> for IndexSet<T> {
 	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
 		Meta(
 			json_syntax::Value::Array(

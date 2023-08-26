@@ -65,7 +65,7 @@ fn resolve_iri<I>(
 			let result = iri_ref.resolved(vocabulary.iri(base_iri).unwrap());
 			Some(vocabulary.insert(result.as_iri()))
 		}
-		None => iri_ref.as_iri().map(|iri| vocabulary.insert(iri))
+		None => iri_ref.as_iri().map(|iri| vocabulary.insert(iri)),
 	}
 }
 
