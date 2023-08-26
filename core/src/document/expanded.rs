@@ -77,7 +77,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Eq + Hash,
 		B: Eq + Hash,
 	{
-		let mut objects = std::mem::take(&mut self.0);
+		let objects = std::mem::take(&mut self.0);
 		for mut object in objects {
 			object.identify_all_with(vocabulary, generator);
 			self.0.insert(object);
@@ -113,7 +113,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 	{
-		let mut objects = std::mem::take(&mut self.0);
+		let objects = std::mem::take(&mut self.0);
 		let mut relabeling = HashMap::new();
 		let mut buffer = ryu_js::Buffer::new();
 		for mut object in objects {
@@ -148,7 +148,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 	{
-		let mut objects = std::mem::take(&mut self.0);
+		let objects = std::mem::take(&mut self.0);
 		let mut relabeling = HashMap::new();
 		for mut object in objects {
 			object.relabel_with(vocabulary, generator, &mut relabeling);
@@ -177,7 +177,7 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		T: Eq + Hash,
 		B: Eq + Hash,
 	{
-		let mut objects = std::mem::take(&mut self.0);
+		let objects = std::mem::take(&mut self.0);
 		for mut object in objects {
 			object.canonicalize_with(buffer);
 			self.0.insert(object);

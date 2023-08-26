@@ -311,7 +311,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> NodeMapGraph<T, B, M> {
 						types.key_metadata.clone(),
 						types.value.metadata().clone(),
 					)
-					.extend(types.value.into_value().into_iter());
+					.extend(types.value.into_value());
 			}
 
 			flat_node.set_graph_entry(node.graph);

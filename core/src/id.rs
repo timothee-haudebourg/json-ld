@@ -39,7 +39,7 @@ pub type MetaVocabularyId<V, M> = Meta<VocabularyId<V>, M>;
 /// meaning that the hash of `Id::Valid(id)` the same as `id`, and the hash of
 /// `Id::Invalid(id)` is the same as `id`.
 ///
-/// This may be useful to define custom [`hashbrown::Equivalent<Id<I, B>>`]
+/// This may be useful to define custom [`indexmap::Equivalent<Id<I, B>>`]
 /// implementation.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, StrippedPartialEq, StrippedEq)]
 #[locspan(stripped(I, B))]
@@ -61,7 +61,7 @@ impl<I: Hash, B: Hash> Hash for Id<I, B> {
 	}
 }
 
-impl<I: PartialEq, B: PartialEq> hashbrown::Equivalent<Id<I, B>> for ValidId<I, B> {
+impl<I: PartialEq, B: PartialEq> indexmap::Equivalent<Id<I, B>> for ValidId<I, B> {
 	fn equivalent(&self, key: &Id<I, B>) -> bool {
 		match key {
 			Id::Valid(id) => self == id,
@@ -79,7 +79,7 @@ impl<I: Hash, B: Hash> StrippedHash for Id<I, B> {
 	}
 }
 
-impl<'a, B> hashbrown::Equivalent<Id<IriBuf, B>> for &'a Iri {
+impl<'a, B> indexmap::Equivalent<Id<IriBuf, B>> for &'a Iri {
 	fn equivalent(&self, key: &Id<IriBuf, B>) -> bool {
 		match key {
 			Id::Valid(ValidId::Iri(iri)) => *self == iri,
@@ -88,7 +88,7 @@ impl<'a, B> hashbrown::Equivalent<Id<IriBuf, B>> for &'a Iri {
 	}
 }
 
-impl<B> hashbrown::Equivalent<Id<IriBuf, B>> for iref::IriBuf {
+impl<B> indexmap::Equivalent<Id<IriBuf, B>> for iref::IriBuf {
 	fn equivalent(&self, key: &Id<IriBuf, B>) -> bool {
 		match key {
 			Id::Valid(ValidId::Iri(iri)) => self == iri,
@@ -97,7 +97,7 @@ impl<B> hashbrown::Equivalent<Id<IriBuf, B>> for iref::IriBuf {
 	}
 }
 
-impl<I> hashbrown::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankId {
+impl<I> indexmap::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankId {
 	fn equivalent(&self, key: &Id<I, BlankIdBuf>) -> bool {
 		match key {
 			Id::Valid(ValidId::Blank(b)) => self == b,
@@ -106,7 +106,7 @@ impl<I> hashbrown::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankId {
 	}
 }
 
-impl<I> hashbrown::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankIdBuf {
+impl<I> indexmap::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankIdBuf {
 	fn equivalent(&self, key: &Id<I, BlankIdBuf>) -> bool {
 		match key {
 			Id::Valid(ValidId::Blank(b)) => self == b,

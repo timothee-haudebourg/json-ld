@@ -1,11 +1,9 @@
 use std::hash::Hash;
 
-use indexmap::IndexSet;
-use json_ld_core::{object::Literal, ExpandedDocument, Indexed, LangString, Node, Object, Value};
-use locspan::Meta;
-use rdf_types::{literal, IriVocabularyMut, LanguageTagVocabulary, Term};
-use serde_ld::{rdf_types::Vocabulary, LexicalRepresentation, RdfLiteral, SerializeLd};
-use xsd_types::XsdDatatype;
+use json_ld_core::ExpandedDocument;
+
+use rdf_types::IriVocabularyMut;
+use serde_ld::{rdf_types::Vocabulary, SerializeLd};
 
 mod expanded;
 

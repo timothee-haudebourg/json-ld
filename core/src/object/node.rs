@@ -129,7 +129,7 @@ impl<T, B> Node<T, B> {
 	/// Set the graph.
 	#[inline(always)]
 	pub fn set_graph(&mut self, graph: Option<Graph<T, B>>) {
-		self.set_graph_entry(graph.map(|g| Entry::new(g)))
+		self.set_graph_entry(graph.map(Entry::new))
 	}
 }
 

@@ -1,7 +1,6 @@
 use std::hash::Hash;
 
-use indexmap::IndexSet;
-use json_ld_core::{object::node::Multiset, Indexed, IndexedObject, StrippedIndexedObject};
+use json_ld_core::{object::node::Multiset, Indexed, StrippedIndexedObject};
 use locspan::Meta;
 use rdf_types::{IriVocabularyMut, Vocabulary};
 use serde_ld::LexicalRepresentation;

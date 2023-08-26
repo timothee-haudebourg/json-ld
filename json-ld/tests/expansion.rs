@@ -7,7 +7,7 @@ use static_iref::iri;
 #[async_std::test]
 async fn expand() {
 	let json = json_ld::syntax::Value::parse_str(
-		r##"
+		r#"
 		{
 			"@graph": [
 				{
@@ -21,7 +21,7 @@ async fn expand() {
 				}
 			]
 		}
-	"##,
+	"#,
 		|span| span,
 	)
 	.unwrap();

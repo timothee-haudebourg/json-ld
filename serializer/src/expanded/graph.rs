@@ -1,17 +1,13 @@
 use std::hash::Hash;
 
-use json_ld_core::{object::Graph, Indexed, Object};
+use json_ld_core::{object::Graph, Indexed};
 use locspan::{Meta, Stripped};
-use rdf_types::{IriVocabularyMut, Term, Vocabulary};
+use rdf_types::{IriVocabularyMut, Vocabulary};
 use serde_ld::LexicalRepresentation;
 
 use crate::Error;
 
-use super::{
-    node::SerializeNode,
-    object::{serialize_object, SerializeObject},
-    value::literal_to_value,
-};
+use super::object::serialize_object;
 
 pub struct SerializeGraph<'a, V: Vocabulary, I> {
     vocabulary: &'a mut V,

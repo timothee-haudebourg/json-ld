@@ -10,7 +10,7 @@ use serde_ld::LexicalRepresentation;
 
 use crate::Error;
 
-use super::object::{serialize_object, SerializeObject};
+use super::object::serialize_object;
 
 pub struct SerializeList<'a, V: Vocabulary, I> {
     vocabulary: &'a mut V,
@@ -73,7 +73,7 @@ where
     }
 
     fn end(self) -> Result<Self::Ok, Self::Error> {
-        let first = self.first.unwrap_or_else(|| Object::null());
+        let first = self.first.unwrap_or_else(Object::null);
         let mut result = self.rest;
         result.push(Meta::none(Indexed::none(first)));
         Ok(result)
