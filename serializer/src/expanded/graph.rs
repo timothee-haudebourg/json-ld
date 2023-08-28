@@ -1,9 +1,9 @@
 use std::hash::Hash;
 
 use json_ld_core::{object::Graph, Indexed};
+use linked_data::LexicalRepresentation;
 use locspan::{Meta, Stripped};
 use rdf_types::{IriVocabularyMut, Vocabulary};
-use serde_ld::LexicalRepresentation;
 
 use crate::Error;
 
@@ -25,7 +25,7 @@ impl<'a, V: Vocabulary, I> SerializeGraph<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> serde_ld::GraphSerializer<V, I> for SerializeGraph<'a, V, I>
+impl<'a, V: Vocabulary, I> linked_data::GraphVisitor<V, I> for SerializeGraph<'a, V, I>
 where
     V: IriVocabularyMut,
     V::Iri: Eq + Hash,
@@ -34,9 +34,9 @@ where
     type Ok = Graph<V::Iri, V::BlankId>;
     type Error = Error;
 
-    fn insert<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn subject<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + LexicalRepresentation<V, I> + serde_ld::SerializeSubject<V, I>,
+        T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
     {
         let object = serialize_object(self.vocabulary, self.interpretation, value)?;
         self.result

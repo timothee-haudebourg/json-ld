@@ -317,7 +317,7 @@ impl<M> PrintWithSize for Nullable<TermDefinition<M>> {
 	}
 }
 
-impl<'a, M> PrecomputeSize for term_definition::Expanded<M> {
+impl<M> PrecomputeSize for term_definition::Expanded<M> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		json_syntax::print::pre_compute_object_size(
 			self.iter().map(|entry| (entry.key().as_str(), entry)),
@@ -327,7 +327,7 @@ impl<'a, M> PrecomputeSize for term_definition::Expanded<M> {
 	}
 }
 
-impl<'a, M> PrintWithSize for term_definition::Expanded<M> {
+impl<M> PrintWithSize for term_definition::Expanded<M> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,

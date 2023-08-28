@@ -1,9 +1,9 @@
 use std::hash::Hash;
 
 use json_ld_core::{object::node::Multiset, Indexed, StrippedIndexedObject};
+use linked_data::LexicalRepresentation;
 use locspan::Meta;
 use rdf_types::{IriVocabularyMut, Vocabulary};
-use serde_ld::LexicalRepresentation;
 
 use crate::Error;
 
@@ -25,7 +25,8 @@ impl<'a, V: Vocabulary, I> SerializeProperty<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> serde_ld::PredicateSerializer<V, I> for SerializeProperty<'a, V, I>
+impl<'a, V: Vocabulary, I> linked_data::PredicateObjectsVisitor<V, I>
+    for SerializeProperty<'a, V, I>
 where
     V: IriVocabularyMut,
     V::Iri: Eq + Hash,
@@ -34,9 +35,9 @@ where
     type Ok = Multiset<StrippedIndexedObject<V::Iri, V::BlankId>>;
     type Error = Error;
 
-    fn insert<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + LexicalRepresentation<V, I> + serde_ld::SerializeSubject<V, I>,
+        T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
     {
         let object = serialize_object(self.vocabulary, self.interpretation, value)?;
         self.result

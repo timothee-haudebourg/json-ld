@@ -1,9 +1,9 @@
 use std::hash::Hash;
 
 use json_ld_core::{ExpandedDocument, Indexed, Object};
+use linked_data::LexicalRepresentation;
 use locspan::Meta;
 use rdf_types::{IriVocabularyMut, Term, Vocabulary};
-use serde_ld::LexicalRepresentation;
 
 use crate::Error;
 
@@ -29,7 +29,7 @@ impl<'a, V: Vocabulary, I> SerializeDefaultGraph<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> serde_ld::GraphSerializer<V, I> for SerializeDefaultGraph<'a, V, I>
+impl<'a, V: Vocabulary, I> linked_data::GraphVisitor<V, I> for SerializeDefaultGraph<'a, V, I>
 where
     V: IriVocabularyMut,
     V::Iri: Eq + Hash,
@@ -38,9 +38,9 @@ where
     type Ok = ();
     type Error = Error;
 
-    fn insert<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn subject<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + LexicalRepresentation<V, I> + serde_ld::SerializeSubject<V, I>,
+        T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
     {
         let id = match value.lexical_representation(self.interpretation, self.vocabulary) {
             Some(Term::Literal(lit)) => {
@@ -55,7 +55,7 @@ where
 
         let serializer = SerializeNode::new(self.vocabulary, self.interpretation, id);
 
-        let node = value.serialize_subject(serializer)?;
+        let node = value.visit_subject(serializer)?;
         self.result
             .insert(Meta::none(Indexed::new(Object::node(node), None)));
         Ok(())
