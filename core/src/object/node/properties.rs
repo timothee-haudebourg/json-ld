@@ -72,6 +72,12 @@ pub type PropertyObjects<T, B, M = ()> = Multiset<StrippedIndexedObject<T, B, M>
 )]
 pub struct Properties<T, B, M = ()>(IndexMap<Id<T, B>, PropertyEntry<T, B, M>>);
 
+impl<T, B, M> Default for Properties<T, B, M> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl<T, B, M> Properties<T, B, M> {
 	/// Creates an empty map.
 	pub fn new() -> Self {

@@ -32,7 +32,7 @@ impl<'a, V: Vocabulary, I> SerializeExpandedDocument<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> serde_ld::Serializer<V, I> for SerializeExpandedDocument<'a, V, I>
+impl<'a, V: Vocabulary, I> linked_data::Visitor<V, I> for SerializeExpandedDocument<'a, V, I>
 where
     V: IriVocabularyMut,
     V::Iri: Eq + Hash,
@@ -41,19 +41,19 @@ where
     type Ok = ExpandedDocument<V::Iri, V::BlankId>;
     type Error = Error;
 
-    fn insert_default<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn default_graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde_ld::SerializeGraph<V, I>,
+        T: ?Sized + linked_data::LinkedDataGraph<V, I>,
     {
         let serializer =
             SerializeDefaultGraph::new(self.vocabulary, self.interpretation, &mut self.result);
 
-        value.serialize_graph(serializer)
+        value.visit_graph(serializer)
     }
 
-    fn insert<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn named_graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde_ld::LexicalRepresentation<V, I> + serde_ld::SerializeGraph<V, I>,
+        T: ?Sized + linked_data::LexicalRepresentation<V, I> + linked_data::LinkedDataGraph<V, I>,
     {
         let mut node = match value.lexical_representation(self.interpretation, self.vocabulary) {
             Some(Term::Literal(_)) => return Err(Error::InvalidGraph),
@@ -63,7 +63,7 @@ where
 
         let serializer = SerializeGraph::new(self.vocabulary, self.interpretation);
 
-        let graph = value.serialize_graph(serializer)?;
+        let graph = value.visit_graph(serializer)?;
 
         node.set_graph(Some(graph));
         self.result

@@ -4,9 +4,9 @@ use json_ld_core::{
     rdf::{RDF_FIRST, RDF_REST},
     Indexed, IndexedObject, Object,
 };
+use linked_data::LexicalRepresentation;
 use locspan::Meta;
 use rdf_types::{Id, IriVocabularyMut, Term, Vocabulary};
-use serde_ld::LexicalRepresentation;
 
 use crate::Error;
 
@@ -30,7 +30,7 @@ impl<'a, V: Vocabulary, I> SerializeList<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> serde_ld::SubjectSerializer<V, I> for SerializeList<'a, V, I>
+impl<'a, V: Vocabulary, I> linked_data::SubjectVisitor<V, I> for SerializeList<'a, V, I>
 where
     V: IriVocabularyMut,
     V::Iri: Eq + Hash,
@@ -39,10 +39,10 @@ where
     type Ok = Vec<IndexedObject<V::Iri, V::BlankId>>;
     type Error = Error;
 
-    fn insert<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
+    fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
     where
         L: ?Sized + LexicalRepresentation<V, I>,
-        T: ?Sized + serde_ld::SerializePredicate<V, I>,
+        T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
     {
         match predicate.lexical_representation(self.interpretation, self.vocabulary) {
             Some(Term::Id(id)) => {
@@ -51,11 +51,11 @@ where
                     if iri == RDF_FIRST {
                         let serializer =
                             SerializeListFirst::new(self.vocabulary, self.interpretation);
-                        self.first = value.serialize_predicate(serializer)?;
+                        self.first = value.visit_objects(serializer)?;
                     } else if iri == RDF_REST {
                         let serializer =
                             SerializeListRest::new(self.vocabulary, self.interpretation);
-                        self.rest = value.serialize_predicate(serializer)?;
+                        self.rest = value.visit_objects(serializer)?;
                     }
                 }
 
@@ -67,7 +67,7 @@ where
 
     fn graph<T>(&mut self, _value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde_ld::SerializeGraph<V, I>,
+        T: ?Sized + linked_data::LinkedDataGraph<V, I>,
     {
         Ok(())
     }
@@ -96,7 +96,8 @@ impl<'a, V: Vocabulary, I> SerializeListFirst<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> serde_ld::PredicateSerializer<V, I> for SerializeListFirst<'a, V, I>
+impl<'a, V: Vocabulary, I> linked_data::PredicateObjectsVisitor<V, I>
+    for SerializeListFirst<'a, V, I>
 where
     V: IriVocabularyMut,
     V::Iri: Eq + Hash,
@@ -105,9 +106,9 @@ where
     type Ok = Option<Object<V::Iri, V::BlankId>>;
     type Error = Error;
 
-    fn insert<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + LexicalRepresentation<V, I> + serde_ld::SerializeSubject<V, I>,
+        T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
     {
         self.result = Some(serialize_object(
             self.vocabulary,
@@ -138,7 +139,8 @@ impl<'a, V: Vocabulary, I> SerializeListRest<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> serde_ld::PredicateSerializer<V, I> for SerializeListRest<'a, V, I>
+impl<'a, V: Vocabulary, I> linked_data::PredicateObjectsVisitor<V, I>
+    for SerializeListRest<'a, V, I>
 where
     V: IriVocabularyMut,
     V::Iri: Eq + Hash,
@@ -147,12 +149,12 @@ where
     type Ok = Vec<IndexedObject<V::Iri, V::BlankId>>;
     type Error = Error;
 
-    fn insert<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + LexicalRepresentation<V, I> + serde_ld::SerializeSubject<V, I>,
+        T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
     {
         let serializer = SerializeList::new(self.vocabulary, self.interpretation);
-        self.result = value.serialize_subject(serializer)?;
+        self.result = value.visit_subject(serializer)?;
         Ok(())
     }
 

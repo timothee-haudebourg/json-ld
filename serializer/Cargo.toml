@@ -13,7 +13,7 @@ readme = "README.md"
 
 [dependencies]
 json-ld-core.workspace = true
-serde-ld.workspace = true
+linked-data.workspace = true
 rdf-types.workspace = true
 locspan.workspace = true
 json-syntax.workspace = true
@@ -22,6 +22,6 @@ thiserror.workspace = true
 xsd-types = { git = "https://github.com/timothee-haudebourg/xsd-types.git" }
 
 [dev-dependencies]
-serde-ld = { workspace = true, features = [ "derive" ] }
+linked-data = { workspace = true, features = [ "derive" ] }
 contextual.workspace = true
 json-syntax.workspace = true

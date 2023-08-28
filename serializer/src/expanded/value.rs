@@ -1,7 +1,7 @@
 use json_ld_core::{object::Literal, LangString, Value};
+use linked_data::RdfLiteral;
 use locspan::Meta;
 use rdf_types::{literal, IriVocabularyMut, LanguageTagVocabulary};
-use serde_ld::RdfLiteral;
 use xsd_types::{XsdDatatype, XSD_STRING};
 
 pub fn literal_to_value<V: IriVocabularyMut + LanguageTagVocabulary>(

@@ -12,7 +12,7 @@ members = [
 	"cli"
 ]
 
-workspace.resolver = "2"
+resolver = "2"
 
 [workspace.package]
 version = "0.15.0"
@@ -53,4 +53,4 @@ iref-enum = "3.0"
 grdf = "0.20"
 async-std = "1.12"
 
-serde-ld = { path = "/home/timothee/Projets/spruceid/serde-ld/serde-ld" }
+linked-data = { path = "/home/timothee/Projets/spruceid/linked-data/linked-data" }

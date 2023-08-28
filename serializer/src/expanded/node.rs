@@ -1,8 +1,8 @@
 use std::hash::Hash;
 
 use json_ld_core::Node;
+use linked_data::LexicalRepresentation;
 use rdf_types::{IriVocabularyMut, Term, Vocabulary};
-use serde_ld::LexicalRepresentation;
 
 use crate::Error;
 
@@ -33,7 +33,7 @@ impl<'a, V: Vocabulary, I> SerializeNode<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> serde_ld::SubjectSerializer<V, I> for SerializeNode<'a, V, I>
+impl<'a, V: Vocabulary, I> linked_data::SubjectVisitor<V, I> for SerializeNode<'a, V, I>
 where
     V: IriVocabularyMut,
     V::Iri: Eq + Hash,
@@ -42,10 +42,10 @@ where
     type Ok = Node<V::Iri, V::BlankId>;
     type Error = Error;
 
-    fn insert<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
+    fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
     where
         L: ?Sized + LexicalRepresentation<V, I>,
-        T: ?Sized + serde_ld::SerializePredicate<V, I>,
+        T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
     {
         let prop = match predicate.lexical_representation(self.interpretation, self.vocabulary) {
             Some(Term::Id(id)) => json_ld_core::Id::Valid(id),
@@ -54,7 +54,7 @@ where
 
         let serializer = SerializeProperty::new(self.vocabulary, self.interpretation);
 
-        let objects = value.serialize_predicate(serializer)?;
+        let objects = value.visit_objects(serializer)?;
         self.result.properties_mut().set(prop, objects);
 
         Ok(())
@@ -62,11 +62,11 @@ where
 
     fn graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + serde_ld::SerializeGraph<V, I>,
+        T: ?Sized + linked_data::LinkedDataGraph<V, I>,
     {
         let serializer = SerializeGraph::new(self.vocabulary, self.interpretation);
 
-        let graph = value.serialize_graph(serializer)?;
+        let graph = value.visit_graph(serializer)?;
         self.result.set_graph(Some(graph));
         Ok(())
     }

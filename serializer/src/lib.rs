@@ -2,8 +2,8 @@ use std::hash::Hash;
 
 use json_ld_core::ExpandedDocument;
 
+use linked_data::{rdf_types::Vocabulary, LinkedData};
 use rdf_types::IriVocabularyMut;
-use serde_ld::{rdf_types::Vocabulary, SerializeLd};
 
 mod expanded;
 
@@ -19,7 +19,7 @@ pub enum Error {
 }
 
 /// Serialize the given Linked-Data value into a JSON-LD document.
-pub fn serialize(value: &impl SerializeLd) -> Result<ExpandedDocument, Error> {
+pub fn serialize(value: &impl LinkedData) -> Result<ExpandedDocument, Error> {
     serialize_with(&mut (), &mut (), value)
 }
 
@@ -27,7 +27,7 @@ pub fn serialize(value: &impl SerializeLd) -> Result<ExpandedDocument, Error> {
 pub fn serialize_with<V: Vocabulary, I>(
     vocabulary: &mut V,
     interpretation: &mut I,
-    value: &impl SerializeLd<V, I>,
+    value: &impl LinkedData<V, I>,
 ) -> Result<ExpandedDocument<V::Iri, V::BlankId>, Error>
 where
     V: IriVocabularyMut,
@@ -36,5 +36,5 @@ where
 {
     let serializer = SerializeExpandedDocument::new(vocabulary, interpretation);
 
-    value.serialize(serializer)
+    value.visit(serializer)
 }
