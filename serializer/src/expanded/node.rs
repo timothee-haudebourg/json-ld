@@ -1,8 +1,11 @@
 use std::hash::Hash;
 
 use json_ld_core::Node;
-use linked_data::LexicalRepresentation;
-use rdf_types::{IriVocabularyMut, Term, Vocabulary};
+use linked_data::{CowRdfTerm, Interpret, RdfLiteralValue};
+use rdf_types::{
+    interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
+    Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
+};
 
 use crate::Error;
 
@@ -33,21 +36,30 @@ impl<'a, V: Vocabulary, I> SerializeNode<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> linked_data::SubjectVisitor<V, I> for SerializeNode<'a, V, I>
+impl<'a, V: Vocabulary, I: Interpretation> linked_data::SubjectVisitor<V, I>
+    for SerializeNode<'a, V, I>
 where
     V: IriVocabularyMut,
-    V::Iri: Eq + Hash,
-    V::BlankId: Eq + Hash,
+    V::Iri: Clone + Eq + Hash,
+    V::BlankId: Clone + Eq + Hash,
+    V::LanguageTag: Clone,
+    V::Value: RdfLiteralValue<V>,
+    I: ReverseIriInterpretation<Iri = V::Iri>
+        + ReverseBlankIdInterpretation<BlankId = V::BlankId>
+        + ReverseLiteralInterpretation<Literal = V::Literal>,
 {
     type Ok = Node<V::Iri, V::BlankId>;
     type Error = Error;
 
     fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
     where
-        L: ?Sized + LexicalRepresentation<V, I>,
+        L: ?Sized + Interpret<V, I>,
         T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
     {
-        let prop = match predicate.lexical_representation(self.interpretation, self.vocabulary) {
+        let prop = match predicate
+            .lexical_representation(self.vocabulary, self.interpretation)
+            .map(CowRdfTerm::into_owned)
+        {
             Some(Term::Id(id)) => json_ld_core::Id::Valid(id),
             _ => return Err(Error::InvalidPredicate),
         };

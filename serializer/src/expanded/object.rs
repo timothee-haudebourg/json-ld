@@ -5,9 +5,12 @@ use json_ld_core::{
     rdf::{RDF_FIRST, RDF_REST},
     Indexed, IndexedObject, Node, Object,
 };
-use linked_data::LexicalRepresentation;
+use linked_data::{CowRdfTerm, Interpret, RdfLiteralValue};
 use locspan::Meta;
-use rdf_types::{Id, IriVocabularyMut, Term, Vocabulary};
+use rdf_types::{
+    interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
+    Id, Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
+};
 
 use crate::Error;
 
@@ -19,18 +22,26 @@ use super::{
     value::literal_to_value,
 };
 
-pub fn serialize_object<V: Vocabulary, I, T>(
+pub fn serialize_object<V: Vocabulary, I: Interpretation, T>(
     vocabulary: &mut V,
     interpretation: &mut I,
     value: &T,
 ) -> Result<Object<V::Iri, V::BlankId>, Error>
 where
     V: IriVocabularyMut,
-    V::Iri: Eq + Hash,
-    V::BlankId: Eq + Hash,
-    T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
+    V::Iri: Clone + Eq + Hash,
+    V::BlankId: Clone + Eq + Hash,
+    V::LanguageTag: Clone,
+    V::Value: RdfLiteralValue<V>,
+    I: ReverseIriInterpretation<Iri = V::Iri>
+        + ReverseBlankIdInterpretation<BlankId = V::BlankId>
+        + ReverseLiteralInterpretation<Literal = V::Literal>,
+    T: ?Sized + Interpret<V, I> + linked_data::LinkedDataSubject<V, I>,
 {
-    match value.lexical_representation(interpretation, vocabulary) {
+    match value
+        .lexical_representation(vocabulary, interpretation)
+        .map(CowRdfTerm::into_owned)
+    {
         Some(Term::Literal(lit)) => {
             let value = literal_to_value(vocabulary, lit);
             Ok(Object::Value(value))
@@ -74,21 +85,30 @@ impl<'a, V: Vocabulary, I> SerializeObject<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> linked_data::SubjectVisitor<V, I> for SerializeObject<'a, V, I>
+impl<'a, V: Vocabulary, I: Interpretation> linked_data::SubjectVisitor<V, I>
+    for SerializeObject<'a, V, I>
 where
     V: IriVocabularyMut,
-    V::Iri: Eq + Hash,
-    V::BlankId: Eq + Hash,
+    V::Iri: Clone + Eq + Hash,
+    V::BlankId: Clone + Eq + Hash,
+    V::LanguageTag: Clone,
+    V::Value: RdfLiteralValue<V>,
+    I: ReverseIriInterpretation<Iri = V::Iri>
+        + ReverseBlankIdInterpretation<BlankId = V::BlankId>
+        + ReverseLiteralInterpretation<Literal = V::Literal>,
 {
     type Ok = Object<V::Iri, V::BlankId>;
     type Error = Error;
 
     fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
     where
-        L: ?Sized + LexicalRepresentation<V, I>,
+        L: ?Sized + Interpret<V, I>,
         T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
     {
-        let prop = match predicate.lexical_representation(self.interpretation, self.vocabulary) {
+        let prop = match predicate
+            .lexical_representation(self.vocabulary, self.interpretation)
+            .map(CowRdfTerm::into_owned)
+        {
             Some(Term::Id(id)) => {
                 if let Id::Iri(iri) = &id {
                     let iri = self.vocabulary.iri(iri).unwrap();

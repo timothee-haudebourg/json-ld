@@ -1,9 +1,12 @@
 use std::hash::Hash;
 
 use json_ld_core::{object::Graph, Indexed};
-use linked_data::LexicalRepresentation;
+use linked_data::{Interpret, RdfLiteralValue};
 use locspan::{Meta, Stripped};
-use rdf_types::{IriVocabularyMut, Vocabulary};
+use rdf_types::{
+    interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
+    Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Vocabulary,
+};
 
 use crate::Error;
 
@@ -25,18 +28,24 @@ impl<'a, V: Vocabulary, I> SerializeGraph<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> linked_data::GraphVisitor<V, I> for SerializeGraph<'a, V, I>
+impl<'a, V: Vocabulary, I: Interpretation> linked_data::GraphVisitor<V, I>
+    for SerializeGraph<'a, V, I>
 where
     V: IriVocabularyMut,
-    V::Iri: Eq + Hash,
-    V::BlankId: Eq + Hash,
+    V::Iri: Clone + Eq + Hash,
+    V::BlankId: Clone + Eq + Hash,
+    V::LanguageTag: Clone,
+    V::Value: RdfLiteralValue<V>,
+    I: ReverseIriInterpretation<Iri = V::Iri>
+        + ReverseBlankIdInterpretation<BlankId = V::BlankId>
+        + ReverseLiteralInterpretation<Literal = V::Literal>,
 {
     type Ok = Graph<V::Iri, V::BlankId>;
     type Error = Error;
 
     fn subject<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
+        T: ?Sized + Interpret<V, I> + linked_data::LinkedDataSubject<V, I>,
     {
         let object = serialize_object(self.vocabulary, self.interpretation, value)?;
         self.result
