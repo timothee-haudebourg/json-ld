@@ -4,9 +4,12 @@ use json_ld_core::{
     rdf::{RDF_FIRST, RDF_REST},
     Indexed, IndexedObject, Object,
 };
-use linked_data::LexicalRepresentation;
+use linked_data::{CowRdfTerm, Interpret, RdfLiteralValue};
 use locspan::Meta;
-use rdf_types::{Id, IriVocabularyMut, Term, Vocabulary};
+use rdf_types::{
+    interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
+    Id, Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
+};
 
 use crate::Error;
 
@@ -30,24 +33,35 @@ impl<'a, V: Vocabulary, I> SerializeList<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> linked_data::SubjectVisitor<V, I> for SerializeList<'a, V, I>
+impl<'a, V: Vocabulary, I: Interpretation> linked_data::SubjectVisitor<V, I>
+    for SerializeList<'a, V, I>
 where
     V: IriVocabularyMut,
-    V::Iri: Eq + Hash,
-    V::BlankId: Eq + Hash,
+    V::Iri: Clone + Eq + Hash,
+    V::BlankId: Clone + Eq + Hash,
+    V::LanguageTag: Clone,
+    V::Value: RdfLiteralValue<V>,
+    I: ReverseIriInterpretation<Iri = V::Iri>
+        + ReverseBlankIdInterpretation<BlankId = V::BlankId>
+        + ReverseLiteralInterpretation<Literal = V::Literal>,
 {
     type Ok = Vec<IndexedObject<V::Iri, V::BlankId>>;
     type Error = Error;
 
     fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
     where
-        L: ?Sized + LexicalRepresentation<V, I>,
+        L: ?Sized + Interpret<V, I>,
         T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
     {
-        match predicate.lexical_representation(self.interpretation, self.vocabulary) {
+        let repr = predicate
+            .interpret(self.vocabulary, self.interpretation)
+            .into_lexical_representation(self.vocabulary, self.interpretation)
+            .map(CowRdfTerm::into_term);
+
+        match repr {
             Some(Term::Id(id)) => {
-                if let Id::Iri(iri) = &id {
-                    let iri = self.vocabulary.iri(iri).unwrap();
+                if let Id::Iri(iri) = id {
+                    let iri = self.vocabulary.iri(iri.as_ref()).unwrap();
                     if iri == RDF_FIRST {
                         let serializer =
                             SerializeListFirst::new(self.vocabulary, self.interpretation);
@@ -96,19 +110,24 @@ impl<'a, V: Vocabulary, I> SerializeListFirst<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> linked_data::PredicateObjectsVisitor<V, I>
+impl<'a, V: Vocabulary, I: Interpretation> linked_data::PredicateObjectsVisitor<V, I>
     for SerializeListFirst<'a, V, I>
 where
     V: IriVocabularyMut,
-    V::Iri: Eq + Hash,
-    V::BlankId: Eq + Hash,
+    V::Iri: Clone + Eq + Hash,
+    V::BlankId: Clone + Eq + Hash,
+    V::LanguageTag: Clone,
+    V::Value: RdfLiteralValue<V>,
+    I: ReverseIriInterpretation<Iri = V::Iri>
+        + ReverseBlankIdInterpretation<BlankId = V::BlankId>
+        + ReverseLiteralInterpretation<Literal = V::Literal>,
 {
     type Ok = Option<Object<V::Iri, V::BlankId>>;
     type Error = Error;
 
     fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
+        T: ?Sized + Interpret<V, I> + linked_data::LinkedDataSubject<V, I>,
     {
         self.result = Some(serialize_object(
             self.vocabulary,
@@ -139,19 +158,24 @@ impl<'a, V: Vocabulary, I> SerializeListRest<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> linked_data::PredicateObjectsVisitor<V, I>
+impl<'a, V: Vocabulary, I: Interpretation> linked_data::PredicateObjectsVisitor<V, I>
     for SerializeListRest<'a, V, I>
 where
     V: IriVocabularyMut,
-    V::Iri: Eq + Hash,
-    V::BlankId: Eq + Hash,
+    V::Iri: Clone + Eq + Hash,
+    V::BlankId: Clone + Eq + Hash,
+    V::LanguageTag: Clone,
+    V::Value: RdfLiteralValue<V>,
+    I: ReverseIriInterpretation<Iri = V::Iri>
+        + ReverseBlankIdInterpretation<BlankId = V::BlankId>
+        + ReverseLiteralInterpretation<Literal = V::Literal>,
 {
     type Ok = Vec<IndexedObject<V::Iri, V::BlankId>>;
     type Error = Error;
 
     fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + LexicalRepresentation<V, I> + linked_data::LinkedDataSubject<V, I>,
+        T: ?Sized + Interpret<V, I> + linked_data::LinkedDataSubject<V, I>,
     {
         let serializer = SerializeList::new(self.vocabulary, self.interpretation);
         self.result = value.visit_subject(serializer)?;

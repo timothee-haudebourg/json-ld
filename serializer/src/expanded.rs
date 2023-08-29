@@ -1,6 +1,10 @@
 use json_ld_core::{ExpandedDocument, Indexed, Node, Object};
+use linked_data::{CowRdfTerm, RdfLiteralValue};
 use locspan::Meta;
-use rdf_types::{IriVocabularyMut, Term, Vocabulary};
+use rdf_types::{
+    interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
+    Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
+};
 use std::hash::Hash;
 
 use crate::Error;
@@ -32,11 +36,17 @@ impl<'a, V: Vocabulary, I> SerializeExpandedDocument<'a, V, I> {
     }
 }
 
-impl<'a, V: Vocabulary, I> linked_data::Visitor<V, I> for SerializeExpandedDocument<'a, V, I>
+impl<'a, V: Vocabulary, I: Interpretation> linked_data::Visitor<V, I>
+    for SerializeExpandedDocument<'a, V, I>
 where
     V: IriVocabularyMut,
-    V::Iri: Eq + Hash,
-    V::BlankId: Eq + Hash,
+    V::Iri: Clone + Eq + Hash,
+    V::BlankId: Clone + Eq + Hash,
+    V::LanguageTag: Clone,
+    V::Value: RdfLiteralValue<V>,
+    I: ReverseIriInterpretation<Iri = V::Iri>
+        + ReverseBlankIdInterpretation<BlankId = V::BlankId>
+        + ReverseLiteralInterpretation<Literal = V::Literal>,
 {
     type Ok = ExpandedDocument<V::Iri, V::BlankId>;
     type Error = Error;
@@ -53,9 +63,12 @@ where
 
     fn named_graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where
-        T: ?Sized + linked_data::LexicalRepresentation<V, I> + linked_data::LinkedDataGraph<V, I>,
+        T: ?Sized + linked_data::Interpret<V, I> + linked_data::LinkedDataGraph<V, I>,
     {
-        let mut node = match value.lexical_representation(self.interpretation, self.vocabulary) {
+        let mut node = match value
+            .lexical_representation(self.vocabulary, self.interpretation)
+            .map(CowRdfTerm::into_owned)
+        {
             Some(Term::Literal(_)) => return Err(Error::InvalidGraph),
             Some(Term::Id(id)) => Node::with_id(json_ld_core::Id::Valid(id)),
             None => Node::new(),
