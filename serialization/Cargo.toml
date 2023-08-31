@@ -1,5 +1,5 @@
 [package]
-name = "json-ld-serializer"
+name = "json-ld-serialization"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

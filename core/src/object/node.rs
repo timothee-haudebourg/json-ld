@@ -61,7 +61,7 @@ pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
 pub type IndexedNode<T = IriBuf, B = BlankIdBuf, M = ()> = Meta<Indexed<Node<T, B, M>, M>, M>;
 
 /// Indexed node, without regard for its metadata.
-pub type StrippedIndexedNode<T, B, M> = Stripped<IndexedNode<T, B, M>>;
+pub type StrippedIndexedNode<T = IriBuf, B = BlankIdBuf, M = ()> = Stripped<IndexedNode<T, B, M>>;
 
 /// Node object.
 ///
@@ -130,6 +130,26 @@ impl<T, B> Node<T, B> {
 	#[inline(always)]
 	pub fn set_graph(&mut self, graph: Option<Graph<T, B>>) {
 		self.set_graph_entry(graph.map(Entry::new))
+	}
+
+	/// Returns a mutable reference to the reverse properties of the node.
+	///
+	/// If no `@reverse` entry is present, one is created.
+	#[inline(always)]
+	pub fn reverse_properties_mut_or_default(&mut self) -> &mut ReverseProperties<T, B> {
+		self.reverse_properties
+			.get_or_insert_with(|| Entry::new(ReverseProperties::new()))
+			.value_mut()
+	}
+
+	/// Returns a mutable reference to the included nodes.
+	///
+	/// If no `@included` entry is present, one is created.
+	#[inline(always)]
+	pub fn included_mut_or_default(&mut self) -> &mut Included<T, B> {
+		self.included
+			.get_or_insert_with(|| Entry::new(Included::new()))
+			.value_mut()
 	}
 }
 

@@ -1,19 +1,21 @@
 use super::{Multiset, Nodes};
 use crate::{
 	object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
-	Id, IndexedNode, StrippedIndexedNode,
+	Id, Indexed, IndexedNode, Node, StrippedIndexedNode,
 };
 use contextual::WithContext;
 use derivative::Derivative;
 use indexmap::IndexMap;
+use iref::IriBuf;
 use json_ld_syntax::IntoJsonWithContextMeta;
 use locspan::{BorrowStripped, Meta, Stripped};
-use rdf_types::{Vocabulary, VocabularyMut};
+use rdf_types::{BlankIdBuf, Vocabulary, VocabularyMut};
 use std::hash::{Hash, Hasher};
 
 pub use super::properties::Entry;
 
-pub type ReversePropertyNodes<T, B, M> = Multiset<Stripped<IndexedNode<T, B, M>>>;
+pub type ReversePropertyNodes<T = IriBuf, B = BlankIdBuf, M = ()> =
+	Multiset<Stripped<IndexedNode<T, B, M>>>;
 
 /// Reverse properties of a node object, and their associated nodes.
 #[derive(Derivative, Clone)]
@@ -21,11 +23,19 @@ pub type ReversePropertyNodes<T, B, M> = Multiset<Stripped<IndexedNode<T, B, M>>
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
-pub struct ReverseProperties<T, B, M>(IndexMap<Id<T, B>, ReversePropertyEntry<T, B, M>>);
+pub struct ReverseProperties<T = IriBuf, B = BlankIdBuf, M = ()>(
+	IndexMap<Id<T, B>, ReversePropertyEntry<T, B, M>>,
+);
+
+impl<T, B, M> Default for ReverseProperties<T, B, M> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
 
 impl<T, B, M> ReverseProperties<T, B, M> {
 	/// Creates an empty map.
-	pub(crate) fn new() -> Self {
+	pub fn new() -> Self {
 		Self(IndexMap::new())
 	}
 
@@ -61,6 +71,51 @@ impl<T, B, M> ReverseProperties<T, B, M> {
 	#[inline(always)]
 	pub fn clear(&mut self) {
 		self.0.clear()
+	}
+}
+
+impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
+	/// Associate the given node the reverse property `prop`.
+	#[inline(always)]
+	pub fn insert(&mut self, prop: Id<T, B>, value: Indexed<Node<T, B>>) {
+		self.insert_with(Meta::none(prop), Meta::none(value))
+	}
+
+	/// Associate the given node reverse property `prop`, unless it is already.
+	#[inline(always)]
+	pub fn insert_unique(&mut self, prop: Id<T, B>, value: Indexed<Node<T, B>>) {
+		self.insert_unique_with(Meta::none(prop), Meta::none(value))
+	}
+
+	/// Associate all the given nodes reverse property `prop`.
+	#[inline(always)]
+	pub fn insert_all<Objects: IntoIterator<Item = Indexed<Node<T, B>>>>(
+		&mut self,
+		prop: Id<T, B>,
+		values: Objects,
+	) {
+		self.insert_all_with(Meta::none(prop), values.into_iter().map(Meta::none))
+	}
+
+	/// Associate all the given nodes to the reverse property `prop`, unless it
+	/// is already.
+	///
+	/// The [equivalence operator](crate::Node::equivalent) is used to remove
+	/// equivalent nodes.
+	#[inline(always)]
+	pub fn insert_all_unique<Nodes: IntoIterator<Item = Indexed<Node<T, B>>>>(
+		&mut self,
+		prop: Id<T, B>,
+		values: Nodes,
+	) {
+		self.insert_all_unique_stripped_with(
+			Meta::none(prop),
+			values.into_iter().map(|v| Stripped(Meta::none(v))),
+		)
+	}
+
+	pub fn set(&mut self, prop: Id<T, B>, values: ReversePropertyNodes<T, B>) {
+		self.set_with(Meta::none(prop), values)
 	}
 }
 
@@ -105,7 +160,11 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate the given node to the given reverse property.
 	#[inline(always)]
-	pub fn insert(&mut self, Meta(prop, meta): Meta<Id<T, B>, M>, value: IndexedNode<T, B, M>) {
+	pub fn insert_with(
+		&mut self,
+		Meta(prop, meta): Meta<Id<T, B>, M>,
+		value: IndexedNode<T, B, M>,
+	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(Stripped(value));
 		} else {
@@ -116,7 +175,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate the given node to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(
+	pub fn insert_unique_with(
 		&mut self,
 		Meta(prop, meta): Meta<Id<T, B>, M>,
 		value: IndexedNode<T, B, M>,
@@ -133,7 +192,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate all the given nodes to the given reverse property.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = IndexedNode<T, B, M>>>(
+	pub fn insert_all_with<Objects: IntoIterator<Item = IndexedNode<T, B, M>>>(
 		&mut self,
 		Meta(prop, meta): Meta<Id<T, B>, M>,
 		values: Objects,
@@ -150,7 +209,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate all the given nodes to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_all_unique_stripped<
+	pub fn insert_all_unique_stripped_with<
 		Nodes: IntoIterator<Item = Stripped<IndexedNode<T, B, M>>>,
 	>(
 		&mut self,
@@ -179,21 +238,32 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 
 	/// Associate all the given nodes to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_all_unique<Nodes: IntoIterator<Item = IndexedNode<T, B, M>>>(
+	pub fn insert_all_unique_with<Nodes: IntoIterator<Item = IndexedNode<T, B, M>>>(
 		&mut self,
 		prop: Meta<Id<T, B>, M>,
 		values: Nodes,
 	) {
-		self.insert_all_unique_stripped(prop, values.into_iter().map(Stripped))
+		self.insert_all_unique_stripped_with(prop, values.into_iter().map(Stripped))
 	}
 
-	pub fn extend_unique<I, N>(&mut self, iter: I)
+	pub fn set_with(
+		&mut self,
+		Meta(prop, meta): Meta<Id<T, B>, M>,
+		values: ReversePropertyNodes<T, B, M>,
+	) {
+		self.0
+			.entry(prop)
+			.or_insert_with(|| Entry::new(meta, Multiset::new()))
+			.value = values
+	}
+
+	pub fn extend_unique_with<I, N>(&mut self, iter: I)
 	where
 		I: IntoIterator<Item = (Meta<Id<T, B>, M>, N)>,
 		N: IntoIterator<Item = IndexedNode<T, B, M>>,
 	{
 		for (prop, values) in iter {
-			self.insert_all_unique(prop, values)
+			self.insert_all_unique_with(prop, values)
 		}
 	}
 
@@ -203,7 +273,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> ReverseProperties<T, B, M> {
 		N: IntoIterator<Item = Stripped<IndexedNode<T, B, M>>>,
 	{
 		for (prop, values) in iter {
-			self.insert_all_unique_stripped(prop, values)
+			self.insert_all_unique_stripped_with(prop, values)
 		}
 	}
 
@@ -240,7 +310,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for ReverseProper
 			let prop = Id::from_string_in(vocabulary, key.to_string());
 			let nodes: Vec<IndexedNode<T, B, M>> =
 				Vec::try_from_json_in(vocabulary, entry.value)?.into_value();
-			result.insert_all(Meta(prop, key_meta), nodes)
+			result.insert_all_with(Meta(prop, key_meta), nodes)
 		}
 
 		Ok(Meta(result, meta))
@@ -278,7 +348,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Extend<(Meta<Id<T, B>, M>, Vec<IndexedNode<T
 		I: IntoIterator<Item = (Meta<Id<T, B>, M>, Vec<IndexedNode<T, B, M>>)>,
 	{
 		for (prop, values) in iter {
-			self.insert_all(prop, values)
+			self.insert_all_with(prop, values)
 		}
 	}
 }

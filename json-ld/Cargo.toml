@@ -20,6 +20,7 @@ json-ld-core.workspace = true
 json-ld-context-processing.workspace = true
 json-ld-expansion.workspace = true
 json-ld-compaction.workspace = true
+json-ld-serialization.workspace = true
 json-syntax.workspace = true
 futures.workspace = true
 locspan.workspace = true

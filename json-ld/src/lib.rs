@@ -368,6 +368,7 @@ pub use json_ld_compaction as compaction;
 pub use json_ld_context_processing as context_processing;
 pub use json_ld_core::*;
 pub use json_ld_expansion as expansion;
+pub use json_ld_serialization as ser;
 pub use json_ld_syntax as syntax;
 
 pub use compaction::Compact;
