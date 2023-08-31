@@ -4,6 +4,7 @@ pub use json_ld_syntax::{Direction, LenientLanguageTag, LenientLanguageTagBuf, N
 
 mod container;
 pub mod context;
+mod deserialization;
 mod document;
 pub mod flattening;
 pub mod id;

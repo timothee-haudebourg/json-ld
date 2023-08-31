@@ -1,9 +1,11 @@
+use iref::IriBuf;
 use json_ld_core::Context;
 use locspan::Meta;
+use rdf_types::BlankIdBuf;
 use std::ops;
 
 /// Processed context that also borrows the original, unprocessed, context.
-pub struct Processed<'l, T, B, M> {
+pub struct Processed<'l, T = IriBuf, B = BlankIdBuf, M = ()> {
 	unprocessed: Meta<&'l json_ld_syntax::context::Value<M>, &'l M>,
 	processed: Context<T, B, M>,
 }

@@ -27,6 +27,7 @@ derivative.workspace = true
 mown.workspace = true
 iref.workspace = true
 static-iref.workspace = true
+linked-data.workspace = true
 futures.workspace = true
 langtag.workspace = true
 smallvec.workspace = true

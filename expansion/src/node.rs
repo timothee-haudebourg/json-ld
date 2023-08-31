@@ -431,7 +431,7 @@ where
 														key_metadata.clone(),
 														reverse_value.metadata().clone(),
 													)
-													.insert_all(
+													.insert_all_with(
 														Meta(reverse_prop, meta),
 														reverse_expanded_nodes.into_iter(),
 													)
@@ -1123,7 +1123,7 @@ where
 									key_metadata.clone(),
 									value.metadata().clone(),
 								)
-								.insert_all(
+								.insert_all_with(
 									Meta(prop, key_metadata.clone()),
 									reverse_expanded_nodes.into_iter(),
 								);
