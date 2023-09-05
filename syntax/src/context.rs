@@ -13,24 +13,61 @@ pub use definition::Definition;
 pub use term_definition::TermDefinition;
 pub use try_from_json::InvalidContext;
 
-/// JSON-LD Context value.
+/// JSON-LD Context.
 ///
 /// Can represent a single context entry, or a list of context entries.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(untagged, bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
-pub enum Value<M = ()> {
-	One(Meta<Context<M>, M>),
-	Many(Vec<Meta<Context<M>, M>>),
+pub enum Context<M = ()> {
+	One(Meta<ContextEntry<M>, M>),
+	Many(Vec<Meta<ContextEntry<M>, M>>),
 }
 
-impl Value {
-	pub fn one(context: Context) -> Self {
-		Self::One(Meta::none(context))
+impl<M> Default for Context<M> {
+	fn default() -> Self {
+		Self::Many(Vec::new())
 	}
 }
 
-impl<M> Value<M> {
-	pub fn as_slice(&self) -> &[Meta<Context<M>, M>] {
+impl Context {
+	/// Creates a new context with a single entry.
+	pub fn one(context: ContextEntry) -> Self {
+		Self::One(Meta::none(context))
+	}
+
+	/// Creates the `null` context.
+	pub fn null() -> Self {
+		Self::one(ContextEntry::Null)
+	}
+
+	/// Creates a new context with a single IRI-reference entry.
+	pub fn iri_ref(iri_ref: IriRefBuf) -> Self {
+		Self::one(ContextEntry::IriRef(iri_ref))
+	}
+
+	/// Creates a new context with a single context definition entry.
+	pub fn definition(def: Definition) -> Self {
+		Self::one(ContextEntry::Definition(def))
+	}
+}
+
+impl<M> Context<M> {
+	pub fn len(&self) -> usize {
+		match self {
+			Self::One(_) => 1,
+			Self::Many(l) => l.len(),
+		}
+	}
+
+	pub fn is_empty(&self) -> bool {
+		match self {
+			Self::One(_) => false,
+			Self::Many(l) => l.is_empty(),
+		}
+	}
+
+	pub fn as_slice(&self) -> &[Meta<ContextEntry<M>, M>] {
 		match self {
 			Self::One(c) => std::slice::from_ref(c),
 			Self::Many(list) => list,
@@ -55,96 +92,100 @@ impl<M> Value<M> {
 		}
 	}
 
-	pub fn iter(&self) -> std::slice::Iter<Meta<Context<M>, M>> {
+	pub fn iter(&self) -> std::slice::Iter<Meta<ContextEntry<M>, M>> {
 		self.as_slice().iter()
 	}
 }
 
-impl<'a, M> IntoIterator for &'a Value<M> {
-	type IntoIter = std::slice::Iter<'a, Meta<Context<M>, M>>;
-	type Item = &'a Meta<Context<M>, M>;
+impl<'a, M> IntoIterator for &'a Context<M> {
+	type IntoIter = std::slice::Iter<'a, Meta<ContextEntry<M>, M>>;
+	type Item = &'a Meta<ContextEntry<M>, M>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
 
-impl<M> From<Meta<Context<M>, M>> for Value<M> {
-	fn from(c: Meta<Context<M>, M>) -> Self {
+impl<M> From<Meta<ContextEntry<M>, M>> for Context<M> {
+	fn from(c: Meta<ContextEntry<M>, M>) -> Self {
 		Self::One(c)
 	}
 }
 
-impl<M: Default> From<Context<M>> for Value<M> {
-	fn from(c: Context<M>) -> Self {
+impl<M: Default> From<ContextEntry<M>> for Context<M> {
+	fn from(c: ContextEntry<M>) -> Self {
 		Self::One(Meta(c, M::default()))
 	}
 }
 
-impl<M: Default> From<IriRefBuf> for Value<M> {
+impl<M: Default> From<IriRefBuf> for Context<M> {
 	fn from(i: IriRefBuf) -> Self {
-		Self::One(Meta(Context::IriRef(i), M::default()))
+		Self::One(Meta(ContextEntry::IriRef(i), M::default()))
 	}
 }
 
-impl<'a, M: Default> From<&'a IriRef> for Value<M> {
+impl<'a, M: Default> From<&'a IriRef> for Context<M> {
 	fn from(i: &'a IriRef) -> Self {
-		Self::One(Meta(Context::IriRef(i.to_owned()), M::default()))
+		Self::One(Meta(ContextEntry::IriRef(i.to_owned()), M::default()))
 	}
 }
 
-impl<M: Default> From<iref::IriBuf> for Value<M> {
+impl<M: Default> From<iref::IriBuf> for Context<M> {
 	fn from(i: iref::IriBuf) -> Self {
-		Self::One(Meta(Context::IriRef(i.into()), M::default()))
+		Self::One(Meta(ContextEntry::IriRef(i.into()), M::default()))
 	}
 }
 
-impl<'a, M: Default> From<&'a Iri> for Value<M> {
+impl<'a, M: Default> From<&'a Iri> for Context<M> {
 	fn from(i: &'a Iri) -> Self {
-		Self::One(Meta(Context::IriRef(i.to_owned().into()), M::default()))
+		Self::One(Meta(
+			ContextEntry::IriRef(i.to_owned().into()),
+			M::default(),
+		))
 	}
 }
 
-impl<M: Default> From<Definition<M>> for Value<M> {
+impl<M: Default> From<Definition<M>> for Context<M> {
 	fn from(c: Definition<M>) -> Self {
-		Self::One(Meta(Context::Definition(c), M::default()))
+		Self::One(Meta(ContextEntry::Definition(c), M::default()))
 	}
 }
 
-impl<M> From<Meta<IriRefBuf, M>> for Value<M> {
+impl<M> From<Meta<IriRefBuf, M>> for Context<M> {
 	fn from(Meta(i, meta): Meta<IriRefBuf, M>) -> Self {
-		Self::One(Meta(Context::IriRef(i), meta))
+		Self::One(Meta(ContextEntry::IriRef(i), meta))
 	}
 }
 
-impl<'a, M> From<Meta<&'a IriRef, M>> for Value<M> {
+impl<'a, M> From<Meta<&'a IriRef, M>> for Context<M> {
 	fn from(Meta(i, meta): Meta<&'a IriRef, M>) -> Self {
-		Self::One(Meta(Context::IriRef(i.to_owned()), meta))
+		Self::One(Meta(ContextEntry::IriRef(i.to_owned()), meta))
 	}
 }
 
-impl<M> From<Meta<iref::IriBuf, M>> for Value<M> {
+impl<M> From<Meta<iref::IriBuf, M>> for Context<M> {
 	fn from(Meta(i, meta): Meta<iref::IriBuf, M>) -> Self {
-		Self::One(Meta(Context::IriRef(i.into()), meta))
+		Self::One(Meta(ContextEntry::IriRef(i.into()), meta))
 	}
 }
 
-impl<'a, M> From<Meta<&'a Iri, M>> for Value<M> {
+impl<'a, M> From<Meta<&'a Iri, M>> for Context<M> {
 	fn from(Meta(i, meta): Meta<&'a Iri, M>) -> Self {
-		Self::One(Meta(Context::IriRef(i.to_owned().into()), meta))
+		Self::One(Meta(ContextEntry::IriRef(i.to_owned().into()), meta))
 	}
 }
 
 /// Context.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(untagged, bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
-pub enum Context<M = ()> {
+pub enum ContextEntry<M = ()> {
 	Null,
 	IriRef(#[locspan(stripped)] IriRefBuf),
 	Definition(Definition<M>),
 }
 
-impl<M> Context<M> {
+impl<M> ContextEntry<M> {
 	fn sub_items(&self) -> ContextSubFragments<M> {
 		match self {
 			Self::Definition(d) => ContextSubFragments::Definition(Box::new(d.iter())),
@@ -157,43 +198,43 @@ impl<M> Context<M> {
 	}
 }
 
-impl<D> From<IriRefBuf> for Context<D> {
+impl<D> From<IriRefBuf> for ContextEntry<D> {
 	fn from(i: IriRefBuf) -> Self {
-		Context::IriRef(i)
+		ContextEntry::IriRef(i)
 	}
 }
 
-impl<'a, D> From<&'a IriRef> for Context<D> {
+impl<'a, D> From<&'a IriRef> for ContextEntry<D> {
 	fn from(i: &'a IriRef) -> Self {
-		Context::IriRef(i.to_owned())
+		ContextEntry::IriRef(i.to_owned())
 	}
 }
 
-impl<D> From<iref::IriBuf> for Context<D> {
+impl<D> From<iref::IriBuf> for ContextEntry<D> {
 	fn from(i: iref::IriBuf) -> Self {
-		Context::IriRef(i.into())
+		ContextEntry::IriRef(i.into())
 	}
 }
 
-impl<'a, D> From<&'a Iri> for Context<D> {
+impl<'a, D> From<&'a Iri> for ContextEntry<D> {
 	fn from(i: &'a Iri) -> Self {
-		Context::IriRef(i.to_owned().into())
+		ContextEntry::IriRef(i.to_owned().into())
 	}
 }
 
-impl<M> From<Definition<M>> for Context<M> {
+impl<M> From<Definition<M>> for ContextEntry<M> {
 	fn from(c: Definition<M>) -> Self {
-		Context::Definition(c)
+		ContextEntry::Definition(c)
 	}
 }
 
 /// Context value fragment.
 pub enum FragmentRef<'a, M> {
 	/// Context array.
-	ContextArray(&'a [Meta<Context<M>, M>]),
+	ContextArray(&'a [Meta<ContextEntry<M>, M>]),
 
 	/// Context.
-	Context(&'a Meta<Context<M>, M>),
+	Context(&'a Meta<ContextEntry<M>, M>),
 
 	/// Context definition fragment.
 	DefinitionFragment(definition::FragmentRef<'a, M>),
@@ -244,7 +285,7 @@ impl<'a, M> Iterator for ContextSubFragments<'a, M> {
 }
 
 pub enum SubFragments<'a, M> {
-	ContextArray(std::slice::Iter<'a, Meta<Context<M>, M>>),
+	ContextArray(std::slice::Iter<'a, Meta<ContextEntry<M>, M>>),
 	Context(ContextSubFragments<'a, M>),
 	Definition(Box<definition::SubItems<'a, M>>),
 }

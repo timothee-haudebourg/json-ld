@@ -361,7 +361,7 @@ impl<T, B, M> TermDefinition<T, B, M> {
 		}
 	}
 
-	pub fn context(&self) -> Option<&Entry<Box<json_ld_syntax::context::Value<M>>, M>> {
+	pub fn context(&self) -> Option<&Entry<Box<json_ld_syntax::context::Context<M>>, M>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.context.as_ref(),
@@ -462,7 +462,7 @@ impl<'a, T, B, M> TermDefinitionRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn context(&self) -> Option<&'a Entry<Box<json_ld_syntax::context::Value<M>>, M>> {
+	pub fn context(&self) -> Option<&'a Entry<Box<json_ld_syntax::context::Context<M>>, M>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.context.as_ref(),
@@ -548,7 +548,7 @@ pub struct NormalTermDefinition<T, B, M> {
 	pub base_url: Option<T>,
 
 	// Optional context.
-	pub context: Option<Entry<Box<json_ld_syntax::context::Value<M>>, M>>,
+	pub context: Option<Entry<Box<json_ld_syntax::context::Context<M>>, M>>,
 
 	// Container mapping.
 	#[locspan(stripped)]

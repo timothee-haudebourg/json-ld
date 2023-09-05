@@ -1,7 +1,7 @@
 use super::{
 	definition,
 	term_definition::{self, InvalidNest},
-	Context, Definition, Entry, TermDefinition, Value,
+	Context, ContextEntry, Definition, Entry, TermDefinition,
 };
 use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson, TryFromStrippedJson};
 use iref::IriRefBuf;
@@ -82,7 +82,7 @@ impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
 						Ok(Keyword::Context) => {
 							def.context = Some(Entry::new_with(
 								key_metadata,
-								Value::try_from_json(value)?.map(Box::new),
+								Context::try_from_json(value)?.map(Box::new),
 							))
 						}
 						Ok(Keyword::Reverse) => {
@@ -342,7 +342,7 @@ impl<M> TryFromJson<M> for term_definition::Nest {
 	}
 }
 
-impl<M: Clone> TryFromJson<M> for Value<M> {
+impl<M: Clone> TryFromJson<M> for Context<M> {
 	type Error = InvalidContext;
 
 	fn try_from_json(
@@ -353,20 +353,20 @@ impl<M: Clone> TryFromJson<M> for Value<M> {
 				let mut many = Vec::with_capacity(a.len());
 
 				for item in a {
-					many.push(Context::try_from_json(item)?)
+					many.push(ContextEntry::try_from_json(item)?)
 				}
 
 				Ok(Meta(Self::Many(many), meta))
 			}
 			context => Ok(Meta(
-				Self::One(Context::try_from_json(Meta(context, meta.clone()))?),
+				Self::One(ContextEntry::try_from_json(Meta(context, meta.clone()))?),
 				meta,
 			)),
 		}
 	}
 }
 
-impl<M: Clone> TryFromJson<M> for Context<M> {
+impl<M: Clone> TryFromJson<M> for ContextEntry<M> {
 	type Error = InvalidContext;
 
 	fn try_from_json(
@@ -449,7 +449,7 @@ impl<M: Clone> TryFromJson<M> for Context<M> {
 
 							if let Some(binding) = def
 								.bindings
-								.insert(Meta(key.into(), key_metadata), term_def)
+								.insert_with(Meta(key.into(), key_metadata), term_def)
 							{
 								return Err(Meta(
 									InvalidContext::DuplicateKey,

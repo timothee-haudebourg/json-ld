@@ -4,22 +4,23 @@ use locspan::Meta;
 
 pub struct Merged<'a, M> {
 	base: &'a syntax::context::Definition<M>,
-	imported: Option<syntax::context::Value<M>>,
+	imported: Option<syntax::context::Context<M>>,
 }
 
 impl<'a, M> Merged<'a, M> {
 	pub fn new(
 		base: &'a syntax::context::Definition<M>,
-		imported: Option<syntax::context::Value<M>>,
+		imported: Option<syntax::context::Context<M>>,
 	) -> Self {
 		Self { base, imported }
 	}
 
 	pub fn imported(&self) -> Option<&syntax::context::Definition<M>> {
 		self.imported.as_ref().and_then(|imported| match imported {
-			syntax::context::Value::One(Meta(syntax::Context::Definition(import_context), _)) => {
-				Some(import_context)
-			}
+			syntax::context::Context::One(Meta(
+				syntax::ContextEntry::Definition(import_context),
+				_,
+			)) => Some(import_context),
 			_ => None,
 		})
 	}

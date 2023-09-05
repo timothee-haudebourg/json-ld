@@ -1,6 +1,6 @@
 use crate::{
-	context, Container, ContainerKind, Context, Direction, Entry, Keyword, LenientLanguageTagBuf,
-	Nullable,
+	context, Container, ContainerKind, ContextEntry, Direction, Entry, Keyword,
+	LenientLanguageTagBuf, Nullable,
 };
 use contextual::Contextual;
 use indexmap::IndexSet;
@@ -225,7 +225,7 @@ impl<M> IntoJsonMeta<M> for context::term_definition::Id {
 	}
 }
 
-impl<M> IntoJsonMeta<M> for context::Value<M> {
+impl<M> IntoJsonMeta<M> for context::Context<M> {
 	fn into_json_meta(self, meta: M) -> Meta<json_syntax::Value<M>, M> {
 		match self {
 			Self::One(c) => c.into_json(),
@@ -237,7 +237,7 @@ impl<M> IntoJsonMeta<M> for context::Value<M> {
 	}
 }
 
-impl<M> IntoJsonMeta<M> for Context<M> {
+impl<M> IntoJsonMeta<M> for ContextEntry<M> {
 	fn into_json_meta(self, meta: M) -> Meta<json_syntax::Value<M>, M> {
 		match self {
 			Self::Null => Meta(json_syntax::Value::Null, meta),

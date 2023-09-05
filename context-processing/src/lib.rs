@@ -236,7 +236,7 @@ pub trait Process<T, B, M>: Send + Sync {
 	}
 }
 
-impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<json_ld_syntax::context::Value<M>, M> {
+impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<json_ld_syntax::context::Context<M>, M> {
 	/// Process the local context with specific options.
 	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
@@ -266,7 +266,7 @@ impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<json_ld_syntax::context::Va
 	}
 }
 
-impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<Box<json_ld_syntax::context::Value<M>>, M> {
+impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<Box<json_ld_syntax::context::Context<M>>, M> {
 	/// Process the local context with specific options.
 	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,

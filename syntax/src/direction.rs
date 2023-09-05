@@ -1,5 +1,15 @@
 use locspan_derive::StrippedPartialEq;
-use std::fmt;
+use std::{fmt, str::FromStr};
+
+#[derive(Debug, thiserror::Error)]
+#[error("invalid JSON-LD text direction `{0}`")]
+pub struct InvalidDirection<T>(pub T);
+
+impl<'a, T: ?Sized + ToOwned> InvalidDirection<&'a T> {
+	pub fn into_owned(self) -> InvalidDirection<T::Owned> {
+		InvalidDirection(self.0.to_owned())
+	}
+}
 
 /// Internationalized string direction.
 ///
@@ -21,18 +31,30 @@ impl Direction {
 			Direction::Rtl => "rtl",
 		}
 	}
+
+	pub fn into_str(self) -> &'static str {
+		self.as_str()
+	}
+}
+
+impl FromStr for Direction {
+	type Err = InvalidDirection<String>;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Self::try_from(s).map_err(InvalidDirection::into_owned)
+	}
 }
 
 impl<'a> TryFrom<&'a str> for Direction {
-	type Error = &'a str;
+	type Error = InvalidDirection<&'a str>;
 
 	/// Convert the strings `"rtl"` and `"ltr"` into a `Direction`.
 	#[inline(always)]
-	fn try_from(name: &'a str) -> Result<Direction, &'a str> {
+	fn try_from(name: &'a str) -> Result<Direction, InvalidDirection<&'a str>> {
 		match name {
 			"ltr" => Ok(Direction::Ltr),
 			"rtl" => Ok(Direction::Rtl),
-			_ => Err(name),
+			_ => Err(InvalidDirection(name)),
 		}
 	}
 }
@@ -44,5 +66,40 @@ impl fmt::Display for Direction {
 			Direction::Ltr => write!(f, "ltr"),
 			Direction::Rtl => write!(f, "rtl"),
 		}
+	}
+}
+
+impl serde::Serialize for Direction {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.as_str().serialize(serializer)
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for Direction {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		struct Visitor;
+
+		impl<'de> serde::de::Visitor<'de> for Visitor {
+			type Value = Direction;
+
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str("JSON-LD text direction")
+			}
+
+			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				v.parse().map_err(|e| E::custom(e))
+			}
+		}
+
+		deserializer.deserialize_str(Visitor)
 	}
 }

@@ -122,3 +122,45 @@ impl<'a> fmt::Display for LenientLanguageTag<'a> {
 		}
 	}
 }
+
+impl serde::Serialize for LenientLanguageTagBuf {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.as_str().serialize(serializer)
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for LenientLanguageTagBuf {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		struct Visitor;
+
+		impl<'de> serde::de::Visitor<'de> for Visitor {
+			type Value = LenientLanguageTagBuf;
+
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str("JSON-LD version")
+			}
+
+			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				self.visit_string(v.to_owned())
+			}
+
+			fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				Ok(LenientLanguageTagBuf::new(v).0)
+			}
+		}
+
+		deserializer.deserialize_string(Visitor)
+	}
+}

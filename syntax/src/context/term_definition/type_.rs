@@ -3,7 +3,10 @@ use iref::Iri;
 use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
-#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(
+	Clone, StrippedPartialEq, PartialOrd, Ord, Debug, serde::Serialize, serde::Deserialize,
+)]
+#[serde(untagged)]
 pub enum Type {
 	Term(#[locspan(stripped)] String),
 	Keyword(#[locspan(stripped)] TypeKeyword),
@@ -75,11 +78,20 @@ impl From<String> for Type {
 
 /// Subset of keyword acceptable for as value for the `@type` entry
 /// of an expanded term definition.
-#[derive(Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(
+	Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug, serde::Serialize, serde::Deserialize,
+)]
 pub enum TypeKeyword {
+	#[serde(rename = "@id")]
 	Id,
+
+	#[serde(rename = "@json")]
 	Json,
+
+	#[serde(rename = "@none")]
 	None,
+
+	#[serde(rename = "@vocab")]
 	Vocab,
 }
 

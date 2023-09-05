@@ -6,10 +6,13 @@ use rdf_types::BlankId;
 use std::fmt;
 use std::hash::Hash;
 
-#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(
+	Clone, StrippedPartialEq, PartialOrd, Ord, Debug, serde::Serialize, serde::Deserialize,
+)]
+#[serde(untagged)]
 pub enum Id {
-	Term(#[locspan(stripped)] String),
 	Keyword(#[locspan(stripped)] Keyword),
+	Term(#[locspan(stripped)] String),
 }
 
 impl Id {

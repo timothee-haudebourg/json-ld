@@ -1,9 +1,9 @@
 use super::{definition, term_definition, TermDefinition};
-use crate::{Container, Context, Nullable};
+use crate::{Container, ContextEntry, Nullable};
 use json_syntax::print::{string_literal, Options, PrecomputeSize, Print, PrintWithSize, Size};
 use std::fmt;
 
-impl<M> Print for super::Value<M> {
+impl<M> Print for super::Context<M> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		let mut sizes = Vec::with_capacity(
 			self.traverse()
@@ -16,7 +16,7 @@ impl<M> Print for super::Value<M> {
 	}
 }
 
-impl<M> PrecomputeSize for super::Value<M> {
+impl<M> PrecomputeSize for super::Context<M> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::One(context) => (*context.value()).pre_compute_size(options, sizes),
@@ -27,7 +27,7 @@ impl<M> PrecomputeSize for super::Value<M> {
 	}
 }
 
-impl<M> PrintWithSize for super::Value<M> {
+impl<M> PrintWithSize for super::Context<M> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -57,12 +57,14 @@ impl<M> PrintWithSize for super::Value<M> {
 
 // impl<T> IntoForMeta for T {}
 
-impl<M> PrecomputeSize for Context<M> {
+impl<M> PrecomputeSize for ContextEntry<M> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
-			Context::Null => Size::Width(4),
-			Context::IriRef(r) => Size::Width(json_syntax::print::printed_string_size(r.as_str())),
-			Context::Definition(d) => json_syntax::print::pre_compute_object_size(
+			ContextEntry::Null => Size::Width(4),
+			ContextEntry::IriRef(r) => {
+				Size::Width(json_syntax::print::printed_string_size(r.as_str()))
+			}
+			ContextEntry::Definition(d) => json_syntax::print::pre_compute_object_size(
 				d.iter().map(|entry| {
 					let (key, value) = entry.into_key_value();
 					(key.as_str(), value)
@@ -74,7 +76,7 @@ impl<M> PrecomputeSize for Context<M> {
 	}
 }
 
-impl<M> PrintWithSize for Context<M> {
+impl<M> PrintWithSize for ContextEntry<M> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -84,9 +86,9 @@ impl<M> PrintWithSize for Context<M> {
 		index: &mut usize,
 	) -> fmt::Result {
 		match self {
-			Context::Null => write!(f, "null"),
-			Context::IriRef(r) => string_literal(r.as_str(), f),
-			Context::Definition(d) => json_syntax::print::print_object(
+			ContextEntry::Null => write!(f, "null"),
+			ContextEntry::IriRef(r) => string_literal(r.as_str(), f),
+			ContextEntry::Definition(d) => json_syntax::print::print_object(
 				d.iter().map(|entry| {
 					let (key, value) = entry.into_key_value();
 					(key.as_str(), value)

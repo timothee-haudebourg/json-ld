@@ -6,13 +6,13 @@ use std::ops;
 
 /// Processed context that also borrows the original, unprocessed, context.
 pub struct Processed<'l, T = IriBuf, B = BlankIdBuf, M = ()> {
-	unprocessed: Meta<&'l json_ld_syntax::context::Value<M>, &'l M>,
+	unprocessed: Meta<&'l json_ld_syntax::context::Context<M>, &'l M>,
 	processed: Context<T, B, M>,
 }
 
 impl<'l, T, B, M> Processed<'l, T, B, M> {
 	pub(crate) fn new(
-		unprocessed: Meta<&'l json_ld_syntax::context::Value<M>, &'l M>,
+		unprocessed: Meta<&'l json_ld_syntax::context::Context<M>, &'l M>,
 		processed: Context<T, B, M>,
 	) -> Self {
 		Self {
@@ -21,7 +21,7 @@ impl<'l, T, B, M> Processed<'l, T, B, M> {
 		}
 	}
 
-	pub fn unprocessed(&self) -> Meta<&'l json_ld_syntax::context::Value<M>, &'l M> {
+	pub fn unprocessed(&self) -> Meta<&'l json_ld_syntax::context::Context<M>, &'l M> {
 		self.unprocessed
 	}
 
@@ -63,12 +63,12 @@ impl<'l, T, B, M> ops::DerefMut for Processed<'l, T, B, M> {
 
 /// Reference to a processed context that also borrows the original, unprocessed, context.
 pub struct ProcessedRef<'l, 'a, T, B, M> {
-	unprocessed: Meta<&'l json_ld_syntax::context::Value<M>, &'l M>,
+	unprocessed: Meta<&'l json_ld_syntax::context::Context<M>, &'l M>,
 	processed: &'a Context<T, B, M>,
 }
 
 impl<'l, 'a, T, B, M> ProcessedRef<'l, 'a, T, B, M> {
-	pub fn unprocessed(&self) -> Meta<&'l json_ld_syntax::context::Value<M>, &'l M> {
+	pub fn unprocessed(&self) -> Meta<&'l json_ld_syntax::context::Context<M>, &'l M> {
 		self.unprocessed
 	}
 
@@ -79,12 +79,12 @@ impl<'l, 'a, T, B, M> ProcessedRef<'l, 'a, T, B, M> {
 
 /// Processed context that also owns the original, unprocessed, context.
 pub struct ProcessedOwned<T, B, M> {
-	unprocessed: Meta<json_ld_syntax::context::Value<M>, M>,
+	unprocessed: Meta<json_ld_syntax::context::Context<M>, M>,
 	processed: Context<T, B, M>,
 }
 
 impl<T, B, M> ProcessedOwned<T, B, M> {
-	pub fn unprocessed(&self) -> &Meta<json_ld_syntax::context::Value<M>, M> {
+	pub fn unprocessed(&self) -> &Meta<json_ld_syntax::context::Context<M>, M> {
 		&self.unprocessed
 	}
 

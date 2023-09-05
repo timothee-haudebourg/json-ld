@@ -3,7 +3,18 @@ use iref::Iri;
 use locspan_derive::StrippedPartialEq;
 use rdf_types::BlankId;
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(
+	Clone,
+	PartialEq,
+	StrippedPartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+#[serde(transparent)]
 pub struct Vocab(#[locspan(stripped)] String);
 
 impl Vocab {
@@ -39,24 +50,3 @@ impl<'a> From<&'a Vocab> for ExpandableRef<'a> {
 		ExpandableRef::String(&v.0)
 	}
 }
-
-// #[derive(Clone, Copy)]
-// pub struct VocabRef<'a>(&'a str);
-
-// impl<'a> VocabRef<'a> {
-// 	pub fn as_str(&self) -> &'a str {
-// 		self.0
-// 	}
-// }
-
-// impl<'a> From<&'a Vocab> for VocabRef<'a> {
-// 	fn from(v: &'a Vocab) -> Self {
-// 		Self(v.as_str())
-// 	}
-// }
-
-// impl<'a> From<VocabRef<'a>> for ExpandableRef<'a> {
-// 	fn from(v: VocabRef<'a>) -> Self {
-// 		ExpandableRef::String(v.0)
-// 	}
-// }

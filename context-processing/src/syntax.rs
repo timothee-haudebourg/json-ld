@@ -18,7 +18,7 @@ pub use iri::*;
 pub use merged::*;
 use syntax::context::definition::KeyOrKeywordRef;
 
-impl<T, B, M> ProcessMeta<T, B, M> for syntax::context::Value<M> {
+impl<T, B, M> ProcessMeta<T, B, M> for syntax::context::Context<M> {
 	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
 		&'l self,
 		meta: &'l M,
@@ -80,7 +80,7 @@ type ContextProcessingResult<'a, T, B, M, L, W> =
 fn process_context<'l: 'a, 'a, T, B, M, N, L, W>(
 	vocabulary: &'a mut N,
 	active_context: &'a Context<T, B, M>,
-	Meta(local_context, meta): Meta<&'l syntax::context::Value<M>, &'l M>,
+	Meta(local_context, meta): Meta<&'l syntax::context::Context<M>, &'l M>,
 	mut remote_contexts: ProcessingStack<T>,
 	loader: &'a mut L,
 	base_url: Option<T>,
@@ -101,7 +101,7 @@ where
 
 		// 2) If `local_context` is an object containing the member @propagate,
 		// its value MUST be boolean true or false, set `propagate` to that value.
-		if let syntax::context::Value::One(Meta(syntax::Context::Definition(def), _)) =
+		if let syntax::context::Context::One(Meta(syntax::ContextEntry::Definition(def), _)) =
 			local_context
 		{
 			if let Some(propagate) = &def.propagate {
@@ -124,7 +124,7 @@ where
 		for Meta(context, context_meta) in local_context {
 			match context {
 				// 5.1) If context is null:
-				syntax::Context::Null => {
+				syntax::ContextEntry::Null => {
 					// If `override_protected` is false and `active_context` contains any protected term
 					// definitions, an invalid context nullification has been detected and processing
 					// is aborted.
@@ -152,7 +152,7 @@ where
 				}
 
 				// 5.2) If context is a string,
-				syntax::Context::IriRef(iri_ref) => {
+				syntax::ContextEntry::IriRef(iri_ref) => {
 					// Initialize `context` to the result of resolving context against base URL.
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
@@ -214,7 +214,7 @@ where
 				}
 
 				// 5.4) Context definition.
-				syntax::Context::Definition(context) => {
+				syntax::ContextEntry::Definition(context) => {
 					// 5.5) If context has a @version entry:
 					if let Some(version_value) = &context.version {
 						// 5.5.2) If processing mode is set to json-ld-1.0, a processing mode conflict
@@ -244,7 +244,7 @@ where
 								.ok_or_else(|| Error::InvalidImportValue.at(import_meta.clone()))?;
 
 						// 5.6.4) Dereference import.
-						let import_context: syntax::context::Value<M> = loader
+						let import_context: syntax::context::Context<M> = loader
 							.load_context_with(vocabulary, import)
 							.await
 							.map_err(|e| Error::ContextLoadingFailed(e).at(import_meta.clone()))?
@@ -257,8 +257,8 @@ where
 						// detected and processing is aborted; otherwise, set import context
 						// to the value of that entry.
 						match &import_context {
-							syntax::context::Value::One(Meta(
-								syntax::Context::Definition(import_context_def),
+							syntax::context::Context::One(Meta(
+								syntax::ContextEntry::Definition(import_context_def),
 								_,
 							)) => {
 								// If `import_context` has a @import entry, an invalid context entry

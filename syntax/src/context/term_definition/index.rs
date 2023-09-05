@@ -4,7 +4,10 @@ use locspan_derive::StrippedPartialEq;
 use std::fmt;
 use std::hash::Hash;
 
-#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(
+	Clone, StrippedPartialEq, PartialOrd, Ord, Debug, serde::Serialize, serde::Deserialize,
+)]
+#[serde(transparent)]
 pub struct Index(#[locspan(stripped)] String);
 
 impl Index {

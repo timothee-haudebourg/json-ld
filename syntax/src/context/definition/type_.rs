@@ -1,11 +1,27 @@
 use crate::context::Entry;
 use locspan_derive::StrippedPartialEq;
-use std::hash::Hash;
+use std::{hash::Hash, str::FromStr};
 
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	StrippedPartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+	Debug,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+#[serde(bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
 pub struct Type<M> {
+	#[serde(rename = "@container")]
 	pub container: Entry<TypeContainer, M>,
+
+	#[serde(rename = "@protected")]
 	pub protected: Option<Entry<bool, M>>,
 }
 
@@ -78,16 +94,24 @@ impl ContextTypeKey {
 	}
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("invalid JSON-LD `@type` container `{0}`")]
+pub struct InvalidTypeContainer<T = String>(pub T);
+
 #[derive(Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug)]
 pub enum TypeContainer {
 	Set,
 }
 
 impl TypeContainer {
-	pub fn into_str(self) -> &'static str {
+	pub fn as_str(&self) -> &'static str {
 		match self {
 			Self::Set => "@set",
 		}
+	}
+
+	pub fn into_str(self) -> &'static str {
+		self.as_str()
 	}
 }
 
@@ -102,5 +126,51 @@ impl Eq for TypeContainer {}
 impl Hash for TypeContainer {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.into_str().hash(state)
+	}
+}
+
+impl FromStr for TypeContainer {
+	type Err = InvalidTypeContainer;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"@set" => Ok(Self::Set),
+			other => Err(InvalidTypeContainer(other.to_owned())),
+		}
+	}
+}
+
+impl serde::Serialize for TypeContainer {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.as_str().serialize(serializer)
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for TypeContainer {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		struct Visitor;
+
+		impl<'de> serde::de::Visitor<'de> for Visitor {
+			type Value = TypeContainer;
+
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str("JSON-LD type container")
+			}
+
+			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				v.parse().map_err(|e| E::custom(e))
+			}
+		}
+
+		deserializer.deserialize_str(Visitor)
 	}
 }

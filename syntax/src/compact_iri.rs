@@ -97,6 +97,10 @@ impl CompactIriBuf {
 	pub fn into_iri_ref(self) -> IriRefBuf {
 		IriRefBuf::new(self.0).unwrap()
 	}
+
+	pub fn into_string(self) -> String {
+		self.0
+	}
 }
 
 impl std::borrow::Borrow<CompactIri> for CompactIriBuf {

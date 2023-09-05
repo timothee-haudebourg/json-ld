@@ -223,7 +223,7 @@ where
 				{
 					use json_ld_syntax::TryFromJson;
 					let local_context =
-						json_ld_syntax::context::Value::try_from_json(local_context.clone())
+						json_ld_syntax::context::Context::try_from_json(local_context.clone())
 							.map_loc_err(Error::ContextSyntax)?;
 
 					active_context = Mown::Owned(
