@@ -21,21 +21,55 @@ pub use version::*;
 pub use vocab::*;
 
 /// Context definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
+#[derive(
+	PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug, serde::Serialize, serde::Deserialize,
+)]
+#[serde(bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
 #[derivative(Default(bound = ""))]
 pub struct Definition<M = ()> {
 	#[locspan(unwrap_deref2_stripped)]
+	#[serde(rename = "@base", default, skip_serializing_if = "Option::is_none")]
 	pub base: Option<Entry<Nullable<IriRefBuf>, M>>,
+
 	#[locspan(unwrap_deref2_stripped)]
+	#[serde(rename = "@import", default, skip_serializing_if = "Option::is_none")]
 	pub import: Option<Entry<IriRefBuf, M>>,
+
+	#[serde(rename = "@language", default, skip_serializing_if = "Option::is_none")]
 	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, M>>,
+
+	#[serde(
+		rename = "@direction",
+		default,
+		skip_serializing_if = "Option::is_none"
+	)]
 	pub direction: Option<Entry<Nullable<Direction>, M>>,
+
+	#[serde(
+		rename = "@propagate",
+		default,
+		skip_serializing_if = "Option::is_none"
+	)]
 	pub propagate: Option<Entry<bool, M>>,
+
+	#[serde(
+		rename = "@protected",
+		default,
+		skip_serializing_if = "Option::is_none"
+	)]
 	pub protected: Option<Entry<bool, M>>,
+
+	#[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
 	pub type_: Option<Entry<Type<M>, M>>,
+
+	#[serde(rename = "@version", default, skip_serializing_if = "Option::is_none")]
 	pub version: Option<Entry<Version, M>>,
+
+	#[serde(rename = "@vocab", default, skip_serializing_if = "Option::is_none")]
 	pub vocab: Option<Entry<Nullable<Vocab>, M>>,
+
+	#[serde(flatten)]
 	pub bindings: Bindings<M>,
 }
 
@@ -98,11 +132,18 @@ impl<M> Definition<M> {
 }
 
 /// Context bindings.
-#[derive(PartialEq, Eq, Clone, Derivative, Debug)]
+#[derive(PartialEq, Eq, Clone, Derivative, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(transparent, bound(deserialize = "M: Default"))]
 #[derivative(Default(bound = ""))]
 pub struct Bindings<M = ()>(IndexMap<Key, TermBinding<M>>);
 
 pub type BindingsIter<'a, M> = indexmap::map::Iter<'a, Key, TermBinding<M>>;
+
+impl Bindings {
+	pub fn insert(&mut self, key: Key, def: Nullable<TermDefinition>) -> Option<TermBinding> {
+		self.0.insert(key, TermBinding::new((), Meta::none(def)))
+	}
+}
 
 impl<M> Bindings<M> {
 	pub fn new() -> Self {
@@ -125,7 +166,7 @@ impl<M> Bindings<M> {
 		self.0.iter()
 	}
 
-	pub fn insert(
+	pub fn insert_with(
 		&mut self,
 		Meta(key, key_metadata): Meta<Key, M>,
 		def: Meta<Nullable<TermDefinition<M>>, M>,
@@ -155,6 +196,18 @@ impl<M> FromIterator<(Key, TermBinding<M>)> for Bindings<M> {
 	}
 }
 
+impl FromIterator<(Key, Nullable<TermDefinition>)> for Bindings {
+	fn from_iter<T: IntoIterator<Item = (Key, Nullable<TermDefinition>)>>(iter: T) -> Self {
+		let mut result = Self::new();
+
+		for (key, definition) in iter {
+			result.insert(key, definition);
+		}
+
+		result
+	}
+}
+
 impl<M> FromIterator<(Meta<Key, M>, Meta<Nullable<TermDefinition<M>>, M>)> for Bindings<M> {
 	fn from_iter<T: IntoIterator<Item = (Meta<Key, M>, Meta<Nullable<TermDefinition<M>>, M>)>>(
 		iter: T,
@@ -162,7 +215,7 @@ impl<M> FromIterator<(Meta<Key, M>, Meta<Nullable<TermDefinition<M>>, M>)> for B
 		let mut result = Self::new();
 
 		for (key, definition) in iter {
-			result.insert(key, definition);
+			result.insert_with(key, definition);
 		}
 
 		result
@@ -179,11 +232,15 @@ impl<M, N> locspan::StrippedPartialEq<Bindings<N>> for Bindings<M> {
 }
 
 /// Term binding.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
-pub struct TermBinding<M> {
+#[serde(transparent)]
+pub struct TermBinding<M = ()> {
 	#[locspan(ignore)]
+	#[serde(skip)]
 	pub key_metadata: M,
+
 	pub definition: Meta<Nullable<TermDefinition<M>>, M>,
 }
 

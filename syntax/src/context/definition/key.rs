@@ -7,7 +7,18 @@ use std::fmt;
 use std::hash::Hash;
 
 /// Context key.
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(
+	Clone,
+	PartialEq,
+	StrippedPartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+#[serde(transparent)]
 pub struct Key(#[locspan(stripped)] String);
 
 impl Key {
@@ -60,6 +71,12 @@ impl Hash for Key {
 impl From<String> for Key {
 	fn from(k: String) -> Self {
 		Self(k)
+	}
+}
+
+impl<'a> From<&'a str> for Key {
+	fn from(value: &'a str) -> Self {
+		Self(value.to_owned())
 	}
 }
 

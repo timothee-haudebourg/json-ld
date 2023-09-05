@@ -15,14 +15,29 @@ use locspan_derive::*;
 	StrippedOrd,
 	Hash,
 	Debug,
+	serde::Serialize,
+	serde::Deserialize,
 )]
 pub enum ContainerKind {
+	#[serde(rename = "@graph")]
 	Graph,
+
+	#[serde(rename = "@id")]
 	Id,
+
+	#[serde(rename = "@index")]
 	Index,
+
+	#[serde(rename = "@language")]
 	Language,
+
+	#[serde(rename = "@list")]
 	List,
+
+	#[serde(rename = "@set")]
 	Set,
+
+	#[serde(rename = "@type")]
 	Type,
 }
 
@@ -109,7 +124,10 @@ impl<M> From<ContainerKind> for Container<M> {
 	StrippedOrd,
 	Hash,
 	Debug,
+	serde::Serialize,
+	serde::Deserialize,
 )]
+#[serde(untagged, bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
 pub enum Container<M> {
 	One(ContainerKind),

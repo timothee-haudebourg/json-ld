@@ -281,15 +281,15 @@ pub trait IntoSyntax<T, B, M> {
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
 		meta: M,
-	) -> json_ld_syntax::context::Value<M>;
+	) -> json_ld_syntax::context::Context<M>;
 }
 
-impl<T, B, M> IntoSyntax<T, B, M> for json_ld_syntax::context::Value<M> {
+impl<T, B, M> IntoSyntax<T, B, M> for json_ld_syntax::context::Context<M> {
 	fn into_syntax(
 		self,
 		_namespace: &impl Vocabulary<Iri = T, BlankId = B>,
 		_meta: M,
-	) -> json_ld_syntax::context::Value<M> {
+	) -> json_ld_syntax::context::Context<M> {
 		self
 	}
 }
@@ -299,10 +299,10 @@ impl<T, B, M: Clone> IntoSyntax<T, B, M> for Context<T, B, M> {
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
 		meta: M,
-	) -> json_ld_syntax::context::Value<M> {
+	) -> json_ld_syntax::context::Context<M> {
 		let Meta(definition, meta) = self.into_syntax_definition(vocabulary, meta);
-		json_ld_syntax::context::Value::One(Meta(
-			json_ld_syntax::Context::Definition(definition),
+		json_ld_syntax::context::Context::One(Meta(
+			json_ld_syntax::ContextEntry::Definition(definition),
 			meta,
 		))
 	}

@@ -35,7 +35,7 @@ pub enum RemoteDocumentReference<I = IriIndex, M = Location<I>, T = json_syntax:
 }
 
 pub type RemoteContextReference<I = IriIndex, M = Location<I>> =
-	RemoteDocumentReference<I, M, json_ld_syntax::context::Value<M>>;
+	RemoteDocumentReference<I, M, json_ld_syntax::context::Context<M>>;
 
 impl<I, M> RemoteDocumentReference<I, M, json_syntax::Value<M>> {
 	/// Creates an IRI to a `json_syntax::Value<M>` JSON document.
@@ -47,7 +47,7 @@ impl<I, M> RemoteDocumentReference<I, M, json_syntax::Value<M>> {
 	}
 }
 
-impl<I, M> RemoteDocumentReference<I, M, json_ld_syntax::context::Value<M>> {
+impl<I, M> RemoteDocumentReference<I, M, json_ld_syntax::context::Context<M>> {
 	/// Creates an IRI to a `json_ld_syntax::context::Value<M>` JSON-LD context document.
 	///
 	/// This method can replace `RemoteDocumentReference::Iri` to help the type
@@ -116,7 +116,7 @@ impl<I, M> RemoteContextReference<I, M> {
 		self,
 		vocabulary: &mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		loader: &mut L,
-	) -> LoadingResult<I, M, json_ld_syntax::context::Value<M>, L::ContextError> {
+	) -> LoadingResult<I, M, json_ld_syntax::context::Context<M>, L::ContextError> {
 		match self {
 			Self::Iri(r) => Ok(loader
 				.load_context_with(vocabulary, r)
@@ -137,7 +137,7 @@ impl<I, M> RemoteContextReference<I, M> {
 		&self,
 		vocabulary: &mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		loader: &mut L,
-	) -> Result<Mown<'_, RemoteDocument<I, M, json_ld_syntax::context::Value<M>>>, L::ContextError>
+	) -> Result<Mown<'_, RemoteDocument<I, M, json_ld_syntax::context::Context<M>>>, L::ContextError>
 	where
 		I: Clone,
 	{
@@ -183,7 +183,7 @@ pub struct RemoteDocument<I = IriIndex, M = Location<I>, T = json_syntax::Value<
 }
 
 pub type RemoteContext<I = IriIndex, M = Location<I>> =
-	RemoteDocument<I, M, json_ld_syntax::context::Value<M>>;
+	RemoteDocument<I, M, json_ld_syntax::context::Context<M>>;
 
 impl<I, M, T> RemoteDocument<I, M, T> {
 	/// Creates a new remote document.
@@ -434,7 +434,7 @@ pub trait ContextLoader<I, M> {
 		&'a mut self,
 		vocabulary: &'a mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, M, json_ld_syntax::context::Value<M>, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<I, M, json_ld_syntax::context::Context<M>, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a;
@@ -443,7 +443,7 @@ pub trait ContextLoader<I, M> {
 	fn load_context<'a>(
 		&'a mut self,
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, M, json_ld_syntax::context::Value<M>, Self::ContextError>>
+	) -> BoxFuture<'a, LoadingResult<I, M, json_ld_syntax::context::Context<M>, Self::ContextError>>
 	where
 		I: 'a,
 		M: 'a,
@@ -466,7 +466,7 @@ pub trait ExtractContext<M>: Sized {
 	/// Extract the context definition.
 	fn extract_context(
 		value: Meta<Self, M>,
-	) -> Result<Meta<json_ld_syntax::context::Value<M>, M>, Self::Error>;
+	) -> Result<Meta<json_ld_syntax::context::Context<M>, M>, Self::Error>;
 }
 
 /// Context extraction error.
@@ -514,7 +514,7 @@ impl<M: Clone> ExtractContext<M> for json_syntax::Value<M> {
 
 	fn extract_context(
 		Meta(value, meta): Meta<Self, M>,
-	) -> Result<Meta<json_ld_syntax::context::Value<M>, M>, Self::Error> {
+	) -> Result<Meta<json_ld_syntax::context::Context<M>, M>, Self::Error> {
 		match value {
 			json_syntax::Value::Object(mut o) => match o
 				.remove_unique("@context")
@@ -522,7 +522,7 @@ impl<M: Clone> ExtractContext<M> for json_syntax::Value<M> {
 			{
 				Some(context) => {
 					use json_ld_syntax::TryFromJson;
-					json_ld_syntax::context::Value::try_from_json(context.value)
+					json_ld_syntax::context::Context::try_from_json(context.value)
 						.map_loc_err(ExtractContextError::Syntax)
 				}
 				None => Err(Meta(ExtractContextError::NoContext, meta)),
@@ -559,7 +559,7 @@ where
 		url: I,
 	) -> BoxFuture<
 		'a,
-		Result<RemoteDocument<I, M, json_ld_syntax::context::Value<M>>, Self::ContextError>,
+		Result<RemoteDocument<I, M, json_ld_syntax::context::Context<M>>, Self::ContextError>,
 	>
 	where
 		I: 'a,

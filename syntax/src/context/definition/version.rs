@@ -1,5 +1,9 @@
 use locspan_derive::StrippedPartialEq;
-use std::hash::Hash;
+use std::{hash::Hash, str::FromStr};
+
+#[derive(Debug, thiserror::Error)]
+#[error("unknown JSON-LD version `{0}`")]
+pub struct UnknownVersion(pub String);
 
 /// Version number.
 ///
@@ -54,5 +58,52 @@ impl<'a> From<Version> for &'a json_syntax::Number {
 impl From<Version> for json_syntax::NumberBuf {
 	fn from(v: Version) -> Self {
 		v.into_json_number_buf()
+	}
+}
+
+impl FromStr for Version {
+	type Err = UnknownVersion;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		if s == "1.1" {
+			Ok(Version::V1_1)
+		} else {
+			Err(UnknownVersion(s.to_owned()))
+		}
+	}
+}
+
+impl serde::Serialize for Version {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.into_str().serialize(serializer)
+	}
+}
+
+impl<'de> serde::Deserialize<'de> for Version {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		struct Visitor;
+
+		impl<'de> serde::de::Visitor<'de> for Visitor {
+			type Value = Version;
+
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str("JSON-LD version")
+			}
+
+			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				v.parse().map_err(|e| E::custom(e))
+			}
+		}
+
+		deserializer.deserialize_str(Visitor)
 	}
 }

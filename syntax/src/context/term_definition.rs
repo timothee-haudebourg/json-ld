@@ -1,13 +1,14 @@
 use crate::{
 	container,
 	context::{self, Entry},
-	CompactIri, Container, ContainerKind, Direction, Keyword, LenientLanguageTagBuf, Nullable,
+	CompactIri, CompactIriBuf, Container, ContainerKind, Direction, Keyword, LenientLanguageTagBuf,
+	Nullable,
 };
 use derivative::Derivative;
-use iref::Iri;
+use iref::{Iri, IriBuf};
 use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
-use rdf_types::BlankId;
+use rdf_types::{BlankId, BlankIdBuf};
 
 mod id;
 mod index;
@@ -20,7 +21,8 @@ pub use nest::*;
 pub use type_::*;
 
 /// Term definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(untagged, bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
 pub enum TermDefinition<M = ()> {
 	Simple(Simple),
@@ -47,7 +49,8 @@ impl<M> TermDefinition<M> {
 	}
 }
 
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(transparent)]
 pub struct Simple(#[locspan(stripped)] pub(crate) String);
 
 impl Simple {
@@ -72,22 +75,82 @@ impl Simple {
 	}
 }
 
+impl From<IriBuf> for Simple {
+	fn from(value: IriBuf) -> Self {
+		Self(value.into_string())
+	}
+}
+
+impl From<CompactIriBuf> for Simple {
+	fn from(value: CompactIriBuf) -> Self {
+		Self(value.into_string())
+	}
+}
+
+impl From<BlankIdBuf> for Simple {
+	fn from(value: BlankIdBuf) -> Self {
+		Self(value.to_string())
+	}
+}
+
 /// Expanded term definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
+#[derive(
+	PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug, serde::Serialize, serde::Deserialize,
+)]
+#[serde(bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
 #[derivative(Default(bound = ""))]
 pub struct Expanded<M> {
+	#[serde(rename = "@id", default, skip_serializing_if = "Option::is_none")]
 	pub id: Option<Entry<Nullable<Id>, M>>,
+
+	#[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
 	pub type_: Option<Entry<Nullable<Type>, M>>,
-	pub context: Option<Entry<Box<context::Value<M>>, M>>,
+
+	#[serde(rename = "@context", default, skip_serializing_if = "Option::is_none")]
+	pub context: Option<Entry<Box<context::Context<M>>, M>>,
+
+	#[serde(rename = "@reverse", default, skip_serializing_if = "Option::is_none")]
 	pub reverse: Option<Entry<context::definition::Key, M>>,
+
+	#[serde(rename = "@index", default, skip_serializing_if = "Option::is_none")]
 	pub index: Option<Entry<Index, M>>,
+
+	#[serde(rename = "@language", default, skip_serializing_if = "Option::is_none")]
 	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, M>>,
+
+	#[serde(
+		rename = "@direction",
+		default,
+		skip_serializing_if = "Option::is_none"
+	)]
 	pub direction: Option<Entry<Nullable<Direction>, M>>,
+
+	#[serde(
+		rename = "@container",
+		default,
+		skip_serializing_if = "Option::is_none"
+	)]
 	pub container: Option<Entry<Nullable<Container<M>>, M>>,
+
+	#[serde(rename = "@nest", default, skip_serializing_if = "Option::is_none")]
 	pub nest: Option<Entry<Nest, M>>,
+
+	#[serde(rename = "@prefix", default, skip_serializing_if = "Option::is_none")]
 	pub prefix: Option<Entry<bool, M>>,
+
+	#[serde(
+		rename = "@propagate",
+		default,
+		skip_serializing_if = "Option::is_none"
+	)]
 	pub propagate: Option<Entry<bool, M>>,
+
+	#[serde(
+		rename = "@protected",
+		default,
+		skip_serializing_if = "Option::is_none"
+	)]
 	pub protected: Option<Entry<bool, M>>,
 }
 
@@ -193,7 +256,7 @@ impl<M> Expanded<M> {
 pub struct ExpandedRef<'a, M> {
 	pub id: Option<Meta<Nullable<IdRef<'a>>, &'a M>>,
 	pub type_: Option<&'a Entry<Nullable<Type>, M>>,
-	pub context: Option<&'a Entry<Box<context::Value<M>>, M>>,
+	pub context: Option<&'a Entry<Box<context::Context<M>>, M>>,
 	pub reverse: Option<&'a Entry<context::definition::Key, M>>,
 	pub index: Option<&'a Entry<Index, M>>,
 	pub language: Option<&'a Entry<Nullable<LenientLanguageTagBuf>, M>>,
@@ -396,7 +459,7 @@ impl<'a, M> From<&'a Meta<Nullable<TermDefinition<M>>, M>> for ExpandedRef<'a, M
 pub struct Entries<'a, M> {
 	id: Option<&'a Entry<Nullable<Id>, M>>,
 	type_: Option<&'a Entry<Nullable<Type>, M>>,
-	context: Option<&'a Entry<Box<context::Value<M>>, M>>,
+	context: Option<&'a Entry<Box<context::Context<M>>, M>>,
 	reverse: Option<&'a Entry<context::definition::Key, M>>,
 	index: Option<&'a Entry<Index, M>>,
 	language: Option<&'a Entry<Nullable<LenientLanguageTagBuf>, M>>,
@@ -411,7 +474,7 @@ pub struct Entries<'a, M> {
 pub enum EntryRef<'a, M> {
 	Id(&'a Entry<Nullable<Id>, M>),
 	Type(&'a Entry<Nullable<Type>, M>),
-	Context(&'a Entry<Box<context::Value<M>>, M>),
+	Context(&'a Entry<Box<context::Context<M>>, M>),
 	Reverse(&'a Entry<context::definition::Key, M>),
 	Index(&'a Entry<Index, M>),
 	Language(&'a Entry<Nullable<LenientLanguageTagBuf>, M>),
@@ -542,7 +605,7 @@ impl EntryKey {
 pub enum EntryValueRef<'a, M> {
 	Id(&'a Meta<Nullable<Id>, M>),
 	Type(&'a Meta<Nullable<Type>, M>),
-	Context(&'a Meta<Box<context::Value<M>>, M>),
+	Context(&'a Meta<Box<context::Context<M>>, M>),
 	Reverse(&'a Meta<context::definition::Key, M>),
 	Index(&'a Meta<Index, M>),
 	Language(&'a Meta<Nullable<LenientLanguageTagBuf>, M>),

@@ -45,6 +45,8 @@ impl Hash for Nest {
 	}
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("invalid `@nest` value")]
 pub struct InvalidNest(pub String);
 
 impl TryFrom<String> for Nest {
@@ -61,39 +63,44 @@ impl TryFrom<String> for Nest {
 	}
 }
 
-// #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-// pub enum NestRef<'a> {
-// 	Nest,
-// 	Term(&'a str),
-// }
+impl serde::Serialize for Nest {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.as_str().serialize(serializer)
+	}
+}
 
-// impl<'a> std::hash::Hash for NestRef<'a> {
-// 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-// 		self.as_str().hash(state)
-// 	}
-// }
+impl<'de> serde::Deserialize<'de> for Nest {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		struct Visitor;
 
-// impl<'a> NestRef<'a> {
-// 	pub fn to_owned(self) -> Nest {
-// 		match self {
-// 			Self::Nest => Nest::Nest,
-// 			Self::Term(t) => Nest::Term(t.to_owned()),
-// 		}
-// 	}
+		impl<'de> serde::de::Visitor<'de> for Visitor {
+			type Value = Nest;
 
-// 	pub fn as_str(&self) -> &'a str {
-// 		match self {
-// 			Self::Nest => "@nest",
-// 			Self::Term(t) => t,
-// 		}
-// 	}
-// }
+			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+				formatter.write_str("`@nest` value")
+			}
 
-// impl<'a> From<&'a Nest> for NestRef<'a> {
-// 	fn from(n: &'a Nest) -> Self {
-// 		match n {
-// 			Nest::Nest => Self::Nest,
-// 			Nest::Term(t) => Self::Term(t),
-// 		}
-// 	}
-// }
+			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				self.visit_string(v.to_owned())
+			}
+
+			fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				Nest::try_from(v).map_err(|e| E::custom(e))
+			}
+		}
+
+		deserializer.deserialize_string(Visitor)
+	}
+}

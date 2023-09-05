@@ -110,6 +110,21 @@ impl<T> Nullable<T> {
 	}
 }
 
+impl<T> From<T> for Nullable<T> {
+	fn from(value: T) -> Self {
+		Self::Some(value)
+	}
+}
+
+impl<T> From<Option<T>> for Nullable<T> {
+	fn from(value: Option<T>) -> Self {
+		match value {
+			Some(t) => Self::Some(t),
+			None => Self::Null,
+		}
+	}
+}
+
 impl<'a, T: Clone> Nullable<&'a T> {
 	/// Clone the referenced inner value.
 	#[inline(always)]
@@ -136,5 +151,26 @@ impl<T: contextual::DisplayWithContext<V>, V> contextual::DisplayWithContext<V> 
 			Self::Null => write!(f, "null"),
 			Self::Some(v) => v.fmt_with(vocabulary, f),
 		}
+	}
+}
+
+impl<T: serde::Serialize> serde::Serialize for Nullable<T> {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		match self {
+			Self::Null => serializer.serialize_none(),
+			Self::Some(t) => serializer.serialize_some(t),
+		}
+	}
+}
+
+impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Nullable<T> {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		Ok(Option::<T>::deserialize(deserializer)?.into())
 	}
 }

@@ -83,3 +83,24 @@ impl<T, M> std::ops::DerefMut for Entry<T, M> {
 		&mut self.value
 	}
 }
+
+impl<T: serde::Serialize, M> serde::Serialize for Entry<T, M> {
+	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+	where
+		S: serde::Serializer,
+	{
+		self.value.serialize(serializer)
+	}
+}
+
+impl<'de, T: serde::Deserialize<'de>, M: Default> serde::Deserialize<'de> for Entry<T, M> {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		Ok(Self::new_with(
+			M::default(),
+			Meta(T::deserialize(deserializer)?, M::default()),
+		))
+	}
+}
