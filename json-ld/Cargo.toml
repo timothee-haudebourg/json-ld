@@ -33,3 +33,6 @@ thiserror.workspace = true
 async-std = { workspace = true, features = ["attributes"] }
 iref.workspace = true
 static-iref.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
