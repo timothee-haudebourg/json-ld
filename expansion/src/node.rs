@@ -375,10 +375,10 @@ where
 										Meta(Term::Keyword(_), meta) => {
 											return Err(Error::InvalidReversePropertyMap.at(meta))
 										}
-										Meta(Term::Id(Id::Invalid(_)), meta)
+										Meta(Term::Id(Id::Invalid(name)), meta)
 											if options.policy == Policy::Strictest =>
 										{
-											return Err(Error::KeyExpansionFailed.at(meta))
+											return Err(Error::KeyExpansionFailed(name).at(meta))
 										}
 										Meta(Term::Id(reverse_prop), meta)
 											if reverse_prop
@@ -448,7 +448,7 @@ where
 										}
 										_ => {
 											if options.policy.is_strict() {
-												return Err(Error::KeyExpansionFailed
+												return Err(Error::KeyExpansionFailed(reverse_key.to_string())
 													.at(reverse_key_metadata.clone()));
 											}
 											// otherwise the key is just dropped.
@@ -574,8 +574,8 @@ where
 					}
 				}
 
-				Term::Id(Id::Invalid(_)) if options.policy == Policy::Strictest => {
-					return Err(Error::KeyExpansionFailed.at(key_metadata.clone()))
+				Term::Id(Id::Invalid(name)) if options.policy == Policy::Strictest => {
+					return Err(Error::KeyExpansionFailed(name).at(key_metadata.clone()))
 				}
 
 				Term::Id(prop)
@@ -1149,9 +1149,9 @@ where
 					}
 				}
 
-				Term::Id(_) => {
+				Term::Id(prop) => {
 					if options.policy.is_strict() {
-						return Err(Error::KeyExpansionFailed.at(key_metadata.clone()));
+						return Err(Error::KeyExpansionFailed(prop.with(&*vocabulary).to_string()).at(key_metadata.clone()));
 					}
 					// non-keyword properties that does not include a ':' are skipped.
 				}
