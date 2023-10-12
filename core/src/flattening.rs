@@ -170,14 +170,14 @@ fn filter_sub_graph<T, B, M>(
 }
 
 impl<T: Clone + Eq + Hash, B: Clone + Eq + Hash, M: Clone> NodeMap<T, B, M> {
-	pub fn flatten(self, ordered: bool) -> Vec<IndexedNode<T, B, M>>
+	pub fn flatten(self, ordered: bool) -> FlattenedDocument<T, B, M>
 	where
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
 		self.flatten_with(&(), ordered)
 	}
 
-	pub fn flatten_with<V>(self, vocabulary: &V, ordered: bool) -> Vec<IndexedNode<T, B, M>>
+	pub fn flatten_with<V>(self, vocabulary: &V, ordered: bool) -> FlattenedDocument<T, B, M>
 	where
 		V: Vocabulary<Iri = T, BlankId = B>,
 	{

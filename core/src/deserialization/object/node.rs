@@ -5,7 +5,7 @@ use linked_data::{
 use locspan::{Meta, Stripped};
 use rdf_types::{Interpretation, IriVocabularyMut, LanguageTagVocabularyMut, Vocabulary};
 
-use crate::{rdf::RDF_TYPE, Indexed, Node, Object};
+use crate::{rdf::RDF_TYPE, Node, StrippedIndexedNode, StrippedIndexedObject};
 
 impl<T, B, M, V: Vocabulary, I: Interpretation> LinkedDataResource<V, I> for Node<T, B, M>
 where
@@ -155,7 +155,7 @@ where
 	}
 }
 
-struct Objects<'a, T, B, M>(&'a [Stripped<Meta<Indexed<Object<T, B, M>, M>, M>>]);
+struct Objects<'a, T, B, M>(&'a [StrippedIndexedObject<T, B, M>]);
 
 impl<'a, T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<V, I>
 	for Objects<'a, T, B, M>
@@ -177,7 +177,7 @@ where
 	}
 }
 
-struct Nodes<'a, T, B, M>(&'a [Stripped<Meta<Indexed<Node<T, B, M>, M>, M>>]);
+struct Nodes<'a, T, B, M>(&'a [StrippedIndexedNode<T, B, M>]);
 
 impl<'a, T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<V, I>
 	for Nodes<'a, T, B, M>

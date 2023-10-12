@@ -16,6 +16,7 @@ pub mod object;
 pub mod print;
 pub mod quad;
 pub mod rdf;
+mod serialization;
 mod term;
 mod ty;
 pub mod utils;

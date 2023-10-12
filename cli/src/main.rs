@@ -126,8 +126,13 @@ async fn main() {
 		} => {
 			let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url);
 
+			let options = json_ld::Options {
+				expansion_policy: json_ld::expansion::Policy::Strictest,
+				..Default::default()
+			};
+
 			match remote_document
-				.expand_with(&mut vocabulary, &mut loader)
+				.expand_with_using(&mut vocabulary, &mut loader, options)
 				.await
 			{
 				Ok(mut expanded) => {
