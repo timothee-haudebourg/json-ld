@@ -1,0 +1,234 @@
+{
+	"@context": [
+	  "https://www.w3.org/2018/credentials/v1",
+	  {
+		"@protected": true,
+		"id": "@id",
+		"type": "@type",
+		"driversLicense": {
+		  "@id": "https://w3id.org/vdl#license",
+		  "@type": "@id"
+		},
+		"Iso18013DriversLicenseCredential": "https://w3id.org/vdl#Iso18013DriversLicenseCredential",
+		"Iso18013DriversLicense": {
+		  "@id": "https://w3id.org/vdl#Iso18013DriversLicense",
+		  "@context": {
+			"@protected": true,
+			"administrative_number": "https://w3id.org/vdl#administrativeNumber",
+			"age_birth_year": {
+			  "@id": "https://w3id.org/vdl#ageBirthYear",
+			  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+			},
+			"age_in_years": {
+			  "@id": "https://w3id.org/vdl#ageInYears",
+			  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+			},
+			"age_over_18": "https://w3id.org/vdl#ageOver18",
+			"age_over_21": "https://w3id.org/vdl#ageOver21",
+			"age_over_25": "https://w3id.org/vdl#ageOver25",
+			"age_over_62": "https://w3id.org/vdl#ageOver62",
+			"age_over_65": "https://w3id.org/vdl#ageOver65",
+			"birth_date": {
+			  "@id": "https://w3id.org/vdl#birthDate",
+			  "@type": "https://www.rfc-editor.org/rfc/rfc3339#full-date"
+			},
+			"birth_place": "https://w3id.org/vdl#birthPlace",
+			"document_number": "https://w3id.org/vdl#documentNumber",
+			"driving_privileges": {
+			  "@id": "https://w3id.org/vdl#drivingPrivileges",
+			  "@type": "@json"
+			},
+			"expiry_date": {
+			  "@id": "https://w3id.org/vdl#expiryDate",
+			  "@type": "https://w3id.org/vdl#date-time-or-full-date"
+			},
+			"eye_colour": "https://w3id.org/vdl#eyeColour",
+			"family_name": "https://w3id.org/vdl#familyName",
+			"family_name_national_character": "https://w3id.org/vdl#familyNameNationalCharacter",
+			"given_name": "https://w3id.org/vdl#givenName",
+			"given_name_national_character": "https://w3id.org/vdl#givenNameNationalCharacter",
+			"hair_colour": "https://w3id.org/vdl#hairColour",
+			"height": {
+			  "@id": "https://w3id.org/vdl#height",
+			  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+			},
+			"issue_date": {
+			  "@id": "https://w3id.org/vdl#issueDate",
+			  "@type": "https://w3id.org/vdl#date-time-or-full-date"
+			},
+			"issuing_authority": "https://w3id.org/vdl#issuingAuthority",
+			"issuing_country": "https://w3id.org/vdl#issuingCountry",
+			"issuing_jurisdiction": "https://w3id.org/vdl#issuingJurisdiction",
+			"nationality": "https://w3id.org/vdl#nationality",
+			"portrait": {
+			  "@id": "https://w3id.org/vdl#portrait",
+			  "@type": "http://www.w3.org/2001/XMLSchema#base64Binary"
+			},
+			"portrait_capture_date": {
+			  "@id": "https://w3id.org/vdl#portraitCaptureDate",
+			  "@type": "https://www.rfc-editor.org/rfc/rfc3339#date-time"
+			},
+			"resident_address": "https://w3id.org/vdl#residentAddress",
+			"resident_city": "https://w3id.org/vdl#residentCity",
+			"resident_country": "https://w3id.org/vdl#residentCountry",
+			"resident_postal_code": "https://w3id.org/vdl#residentPostalCode",
+			"resident_state": "https://w3id.org/vdl#residentState",
+			"sex": {
+			  "@id": "https://w3id.org/vdl#sex",
+			  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+			},
+			"signature_usual_mark": {
+			  "@id": "https://w3id.org/vdl#signatureUsualMark",
+			  "@type": "http://www.w3.org/2001/XMLSchema#base64Binary"
+			},
+			"un_distinguishing_sign": "https://w3id.org/vdl#unDistinguishingSign",
+			"weight": {
+			  "@id": "https://w3id.org/vdl#weight",
+			  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+			}
+		  }
+		}
+	  },
+	  {
+		"@protected": true,
+		"aamva_aka_family_name_v2": "https://w3id.org/vdl/aamva#akaFamilyNameV2",
+		"aamva_aka_given_name_v2": "https://w3id.org/vdl/aamva#akaGivenNameV2",
+		"aamva_aka_suffix": "https://w3id.org/vdl/aamva#akaSuffix",
+		"aamva_cdl_indicator": {
+		  "@id": "https://w3id.org/vdl/aamva#cdlIndicator",
+		  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+		},
+		"aamva_dhs_compliance": "https://w3id.org/vdl/aamva#dhsCompliance",
+		"aamva_dhs_compliance_text": "https://w3id.org/vdl/aamva#dhsCompliance_text",
+		"aamva_dhs_temporary_lawful_status": {
+		  "@id": "https://w3id.org/vdl/aamva#dhsTemporaryLawfulStatus",
+		  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+		},
+		"aamva_domestic_driving_privileges": {
+		  "@id": "https://w3id.org/vdl/aamva#domesticDrivingPrivileges",
+		  "@type": "@json"
+		},
+		"aamva_edl_credential": {
+		  "@id": "https://w3id.org/vdl/aamva#edlCredential",
+		  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+		},
+		"aamva_family_name_truncation": "https://w3id.org/vdl/aamva#familyNameTruncation",
+		"aamva_given_name_truncation": "https://w3id.org/vdl/aamva#givenNameTruncation",
+		"aamva_hazmat_endorsement_expiration_date": {
+		  "@id": "https://w3id.org/vdl/aamva#hazmatEndorsementExpirationDate",
+		  "@type": "https://www.rfc-editor.org/rfc/rfc3339#full-date"
+		},
+		"aamva_name_suffix": "https://w3id.org/vdl/aamva#nameSuffix",
+		"aamva_organ_donor": {
+		  "@id": "https://w3id.org/vdl/aamva#organDonor",
+		  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+		},
+		"aamva_race_ethnicity": "https://w3id.org/vdl/aamva#raceEthnicity",
+		"aamva_resident_county": "https://w3id.org/vdl/aamva#residentCounty",
+		"aamva_sex": {
+		  "@id": "https://w3id.org/vdl/aamva#sex",
+		  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+		},
+		"aamva_veteran": {
+		  "@id": "https://w3id.org/vdl/aamva#veteran",
+		  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+		},
+		"aamva_weight_range": {
+		  "@id": "https://w3id.org/vdl/aamva#weightRange",
+		  "@type": "http://www.w3.org/2001/XMLSchema#unsignedInt"
+		}
+	  },
+	  {
+		"id": "@id",
+		"documentSignerCertificate": "cadmv:documentSignerCertificate",
+		"cadmv.height": "cadmv:height",
+		"type": "@type",
+		"name": "cadmv:name",
+		"@version": 1.1,
+		"@protected": true,
+		"cadmv": "https://www.dmv.ca.gov/context/v1/#",
+		"url": "cadmv:url"
+	  }
+	],
+	"id": "urn:uuid:ffabfaf2-c2d1-458b-afa8-d85e81c402ee",
+    "type": [
+      "VerifiableCredential",
+      "Iso18013DriversLicense"
+    ],
+    "credentialSubject": {
+      "id": "did:jwk:eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6IkNiajhCclRWM053LWFNWk1fbVR2dHB0RC12bHJjNENmMloxMVExZ2RqUmsiLCJ5IjoiNUsxMEtmYTRWWXRRb1docGJyYlJEWDU1TVhhWFZUNWtWOTJ4NFFJVEFHayJ9",
+      "driversLicense": {
+        "age_over_18": true,
+        "age_over_62": false,
+        "given_name": "Alice Bob",
+        "family_name": "Smith",
+        "birth_date": "1929-10-07",
+        "issue_date": "2015-03-03",
+        "expiry_date": "2026-10-07",
+        "issuing_country": "US",
+        "issuing_authority": "CA,USA",
+        "document_number": "ABCD1234",
+        "portrait": "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",
+        "driving_privileges": [
+          {
+            "vehicle_category_code": "B",
+            "issue_date": "2015-03-03",
+            "expiry_date": "2026-10-07"
+          },
+          {
+            "vehicle_category_code": "BE",
+            "issue_date": "2015-03-03",
+            "expiry_date": "2026-10-07"
+          }
+        ],
+        "un_distinguishing_sign": "USA",
+        "sex": 1,
+        "cadmv.height": "5ft08in",
+        "height": 172,
+        "weight": 86,
+        "eye_colour": "brown",
+        "hair_colour": "unknown",
+        "resident_address": "2451 1ST AVE, SACRAMENTO 95818",
+        "resident_city": "SACRAMENTO",
+        "resident_postal_code": "95818",
+        "aamva_family_name_truncation": "U",
+        "aamva_given_name_truncation": "U",
+        "aamva_name_suffix": "JR",
+        "aamva_organ_donor": 1,
+        "aamva_sex": 1,
+        "aamva_resident_county": "067",
+        "aamva_dhs_compliance": "F",
+        "issuing_jurisdiction": "US-CA-067",
+        "aamva_weight_range": 4,
+        "aamva_domestic_driving_privileges": [
+          {
+            "domestic_vehicle_class": {
+              "domestic_vehicle_class_code": "C ",
+              "domestic_vehicle_class_description": "Class C NON-COMMERCIAL",
+              "expiry_date": "2026-10-07",
+              "issue_date": "2015-03-03"
+            },
+            "domestic_vehicle_restrictions": [
+              {
+                "domestic_vehicle_restriction_code": "A",
+                "domestic_vehicle_restriction_description": "_MUST WEAR CORRECTIVE LENSES WHEN DRIVING"
+              }
+            ]
+          }
+        ],
+        "age_in_years": 93,
+        "age_over_21": true,
+        "age_over_25": true,
+        "age_over_65": true,
+        "type": "Iso18013DriversLicense"
+      }
+    },
+    "issuer": {
+      "id": "did:jwk:eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ijc0SmN3LTNzSFpFYTdxeTNfNzliYS0zV2hreHo2SkpSalBTN05qUEhES00iLCJ5IjoiQU9aWmZpRjc1UW9ydGdpZkVRSUxmbGFNLWRhQm9aMG1jV3BCeV9HYWhzQSJ9",
+      "url": "https://www.dmv.ca.gov/",
+      "documentSignerCertificate": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUN2RENDQW1PZ0F3SUJBZ0lKQUtaNjVLcm9hZmM3TUFvR0NDcUdTTTQ5QkFNQ01IUXhDekFKQmdOVkJBWVQKQWxWVE1SUXdFZ1lEVlFRSURBdEZlR0Z0Y0d4bFRHRnVaREViTUJrR0ExVUVDZ3dTVTNCeWRXTmxhV1FnVkdWegpkQ0JTYjI5ME1USXdNQVlEVlFRRERDbFRjSEoxWTJWSlJDQkpVMDh4T0RBeE15MDNJRlJsYzNRZ1EyVnlkR2xtCmFXTmhkR1VnVW05dmREQWVGdzB5TXpBNE1UUXdPVEU1TVRsYUZ3MHlOREE0TVRNd09URTVNVGxhTUhneEN6QUoKQmdOVkJBWVRBbFZUTVJRd0VnWURWUVFJREF0RmVHRnRjR3hsVEdGdVpERWRNQnNHQTFVRUNnd1VVM0J5ZFdObAphV1FnVkdWemRDQlRhV2R1WlhJeE5EQXlCZ05WQkFNTUsxTndjblZqWlVsRUlFbFRUekU0TURFekxUY2dWR1Z6CmRDQkRaWEowYVdacFkyRjBaU0JUYVdkdVpYSXdXVEFUQmdjcWhrak9QUUlCQmdncWhrak9QUU1CQndOQ0FBUncKbDgrZC9TMkt4SHdKcFhDclBhR2REdTlIMVBjY1hyNHVldHJtSlhVMENBWkpNS0puNXJ0OXpyQUdJOFpLTWlGdQprajZYU3E1U3c3MzdtSExPZDNiVm80SFpNSUhXTUIwR0ExVWREZ1FXQkJRMk9uUXJhaGxYNzNBNG80VmJhZWYvCnJoOFZCVEFmQmdOVkhTTUVHREFXZ0JSMTEwZ2tLSktSNnhUcTBSNjhScmptQm4ydXVEQXZCZ2xnaGtnQmh2aEMKQVEwRUloWWdVM0J5ZFdObFNVUWdWR1Z6ZENCVGFXZHVaWElnUTJWeWRHbG1hV05oZEdVd0RnWURWUjBQQVFILwpCQVFEQWdlQU1CVUdBMVVkSlFFQi93UUxNQWtHQnlpQmpGMEZBUUl3RWdZRFZSMFRBUUgvQkFnd0JnRUIvd0lCCkFEQW9CZ05WSFI4RUlUQWZNQjJnRzZBWmhoZG9kSFJ3Y3pvdmMzQnlkV05sYVdRdVkyOXRMMk55YkRBS0JnZ3EKaGtqT1BRUURBZ05IQURCRUFpQmRjVmJFdWt3cFYvRS96bnJYdVVnOFRlbktWODk0K3d5YlVBU3E2cVdrV2dJZwpJVXlXYXRUYnppc2p4ejFjY0J1dmtnNWtYdG5ERG9aSUlnWDlkd29ueXU4PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",
+      "name": "CA DMV"
+    },
+    "issuanceDate": "2023-10-05T15:16:19Z",
+    "expirationDate": "2023-11-04T15:16:19Z"
+  }

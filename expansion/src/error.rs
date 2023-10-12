@@ -21,8 +21,8 @@ pub enum Error<M, E> {
 	#[error("Invalid `@type` value")]
 	InvalidTypeValue,
 
-	#[error("Key expansion failed")]
-	KeyExpansionFailed,
+	#[error("Key `{0}` expansion failed")]
+	KeyExpansionFailed(String),
 
 	#[error("Invalid `@reverse` property value")]
 	InvalidReversePropertyValue,
@@ -64,7 +64,7 @@ impl<M, E> Error<M, E> {
 			Self::InvalidSetOrListObject => ErrorCode::InvalidSetOrListObject,
 			Self::InvalidReversePropertyMap => ErrorCode::InvalidReversePropertyMap,
 			Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
-			Self::KeyExpansionFailed => ErrorCode::KeyExpansionFailed,
+			Self::KeyExpansionFailed(_) => ErrorCode::KeyExpansionFailed,
 			Self::InvalidReversePropertyValue => ErrorCode::InvalidReversePropertyValue,
 			Self::InvalidLanguageMapValue => ErrorCode::InvalidLanguageMapValue,
 			Self::CollidingKeywords => ErrorCode::CollidingKeywords,

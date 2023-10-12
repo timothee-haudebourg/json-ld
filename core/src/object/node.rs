@@ -126,6 +126,11 @@ impl<T, B> Node<T, B> {
 		}
 	}
 
+	/// Sets the `@type` of the node.
+	pub fn set_type(&mut self, value: Option<Vec<Meta<Id<T, B>, ()>>>) {
+		self.types = value.map(Entry::new)
+	}
+
 	/// Set the graph.
 	#[inline(always)]
 	pub fn set_graph(&mut self, graph: Option<Graph<T, B>>) {

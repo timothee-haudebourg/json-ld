@@ -667,6 +667,36 @@ impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, 
 	}
 }
 
+impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, B, M> for [T] {
+	fn compact_fragment_full_meta<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+		&'a self,
+		meta: &'a M,
+		vocabulary: &'a mut N,
+		active_context: &'a Context<I, B, M>,
+		type_scoped_context: &'a Context<I, B, M>,
+		active_property: Option<Meta<&'a str, &'a M>>,
+		loader: &'a mut L,
+		options: Options,
+	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	where
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq + Send + Sync,
+		B: Clone + Hash + Eq + Send + Sync,
+		M: Clone + Send + Sync,
+		L: Send + Sync,
+	{
+		compact_collection_with(
+			vocabulary,
+			Meta(self.iter(), meta),
+			active_context,
+			type_scoped_context,
+			active_property,
+			loader,
+			options,
+		)
+	}
+}
+
 impl<T: CompactFragment<I, B, M>, I, B, M> CompactFragment<I, B, M> for Stripped<T> {
 	fn compact_fragment_full<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
 		&'a self,
