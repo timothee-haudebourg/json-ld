@@ -1,10 +1,10 @@
 use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
-use crate::{id, Id, Indexed, Relabel, StrippedIndexedObject};
+use crate::{id, Id, Indexed, Relabel, StrippedIndexedObject, Node, Object};
 use crate::{IndexedObject, TryFromJson};
 use hashbrown::HashMap;
 use indexmap::IndexSet;
 use iref::IriBuf;
-use locspan::{Meta, StrippedEq, StrippedPartialEq};
+use locspan::{Meta, Stripped, StrippedEq, StrippedPartialEq};
 use rdf_types::vocabulary::VocabularyMut;
 use rdf_types::{BlankIdBuf, Vocabulary};
 use std::collections::HashSet;
@@ -202,6 +202,26 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 		self.traverse()
 			.filter_map(|f| f.into_id().and_then(Id::into_blank))
 			.collect()
+	}
+
+	/// Returns the main node object of the document, if any.
+	/// 
+	/// The main node is the unique top level (root) node object. If multiple
+	/// node objects are on the root, `None` is returned.
+	pub fn main_node(&self) -> Option<&Node<T, B, M>> {
+		let mut result = None;
+
+		for Stripped(Meta(object, _)) in self {
+			if let Object::Node(node) = object.inner() {
+				if result.is_some() {
+					return None
+				}
+
+				result = Some(&**node)
+			}
+		}
+
+		result
 	}
 }
 
