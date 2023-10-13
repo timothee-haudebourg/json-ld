@@ -1,10 +1,10 @@
 use crate::future::{BoxFuture, FutureExt};
 use hashbrown::HashSet;
-use iref::Iri;
-use locspan::{Location, MapLocErr, Meta};
+use iref::{Iri, IriBuf};
+use locspan::{MapLocErr, Meta};
 use mime::Mime;
 use mown::Mown;
-use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
+use rdf_types::{IriVocabulary, IriVocabularyMut};
 use static_iref::iri;
 use std::fmt;
 
@@ -26,7 +26,7 @@ pub type LoadingResult<I, M, O, E> = Result<RemoteDocument<I, M, O>, E>;
 ///
 /// Either an IRI or the actual document content.
 #[derive(Clone)]
-pub enum RemoteDocumentReference<I = IriIndex, M = Location<I>, T = json_syntax::Value<M>> {
+pub enum RemoteDocumentReference<I = IriBuf, M = (), T = json_syntax::Value<M>> {
 	/// IRI to the remote document.
 	Iri(I),
 
@@ -34,7 +34,7 @@ pub enum RemoteDocumentReference<I = IriIndex, M = Location<I>, T = json_syntax:
 	Loaded(RemoteDocument<I, M, T>),
 }
 
-pub type RemoteContextReference<I = IriIndex, M = Location<I>> =
+pub type RemoteContextReference<I = IriBuf, M = ()> =
 	RemoteDocumentReference<I, M, json_ld_syntax::context::Context<M>>;
 
 impl<I, M> RemoteDocumentReference<I, M, json_syntax::Value<M>> {
@@ -157,7 +157,7 @@ impl<I, M> RemoteContextReference<I, M> {
 ///
 /// Stores the content of a loaded remote document along with its original URL.
 #[derive(Clone)]
-pub struct RemoteDocument<I = IriIndex, M = Location<I>, T = json_syntax::Value<M>> {
+pub struct RemoteDocument<I = IriBuf, M = (), T = json_syntax::Value<M>> {
 	/// The final URL of the loaded document, after eventual redirection.
 	url: Option<I>,
 
@@ -182,7 +182,7 @@ pub struct RemoteDocument<I = IriIndex, M = Location<I>, T = json_syntax::Value<
 	document: Meta<T, M>,
 }
 
-pub type RemoteContext<I = IriIndex, M = Location<I>> =
+pub type RemoteContext<I = IriBuf, M = ()> =
 	RemoteDocument<I, M, json_ld_syntax::context::Context<M>>;
 
 impl<I, M, T> RemoteDocument<I, M, T> {
@@ -389,7 +389,7 @@ impl<I> Profile<I> {
 ///   - `ReqwestLoader` that actually download the remote documents using the
 ///     [`reqwest`](https://crates.io/crates/reqwest) library.
 ///     This requires the `reqwest` feature to be enabled.
-pub trait Loader<I, M> {
+pub trait Loader<I = IriBuf, M = ()> {
 	/// The type of documents that can be loaded.
 	type Output;
 
@@ -425,7 +425,7 @@ pub trait Loader<I, M> {
 ///
 /// It is implemented for any loader where the output type implements
 /// [`ExtractContext`].
-pub trait ContextLoader<I, M> {
+pub trait ContextLoader<I = IriBuf, M = ()> {
 	/// Error type.
 	type ContextError;
 
@@ -471,7 +471,7 @@ pub trait ExtractContext<M>: Sized {
 
 /// Context extraction error.
 #[derive(Debug)]
-pub enum ExtractContextError<M> {
+pub enum ExtractContextError<M = ()> {
 	/// Unexpected JSON value.
 	Unexpected(json_syntax::Kind),
 
