@@ -351,7 +351,7 @@ pub type CompareResult<I, M, L> = Result<
 ///   .expect("expansion failed");
 /// # }
 /// ```
-pub trait JsonLdProcessor<I, M> {
+pub trait JsonLdProcessor<I, M>: Sized {
 	/// Compare this document against `other` with a custom vocabulary using the
 	/// given `options` and warnings handler.
 	///
@@ -687,6 +687,60 @@ pub trait JsonLdProcessor<I, M> {
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,
 		L::ContextError: Send;
+
+	fn into_document_with_using<'a, B, N, L>(
+		self,
+		vocabulary: &'a mut N,
+		loader: &'a mut L,
+		options: Options<I, M>,
+	) -> BoxFuture<'a, IntoDocumentResult<I, B, M, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::ContextError: Send,
+	{
+		self.into_document_full(vocabulary, loader, options, ())
+	}
+
+	fn into_document_with<'a, B, N, L>(
+		self,
+		vocabulary: &'a mut N,
+		loader: &'a mut L,
+	) -> BoxFuture<'a, IntoDocumentResult<I, B, M, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::ContextError: Send,
+	{
+		self.into_document_with_using(vocabulary, loader, Options::default())
+	}
+
+	fn into_document<'a, B, L>(
+		self,
+		loader: &'a mut L,
+	) -> BoxFuture<'a, IntoDocumentResult<I, B, M, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		(): VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::ContextError: Send,
+	{
+		self.into_document_with(vocabulary::no_vocabulary_mut(), loader)
+	}
 
 	/// Expand the document with the given `vocabulary` and `loader`, using
 	/// the given `options`.
