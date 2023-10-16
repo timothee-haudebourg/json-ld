@@ -13,6 +13,7 @@ readme = "README.md"
 
 [features]
 reqwest = ["json-ld-core/reqwest"]
+serde = ["json-ld-syntax/serde", "json-ld-core/serde"]
 
 [dependencies]
 json-ld-syntax.workspace = true

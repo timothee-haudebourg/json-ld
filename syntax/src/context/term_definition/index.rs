@@ -4,10 +4,9 @@ use locspan_derive::StrippedPartialEq;
 use std::fmt;
 use std::hash::Hash;
 
-#[derive(
-	Clone, StrippedPartialEq, PartialOrd, Ord, Debug, serde::Serialize, serde::Deserialize,
-)]
-#[serde(transparent)]
+#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Index(#[locspan(stripped)] String);
 
 impl Index {

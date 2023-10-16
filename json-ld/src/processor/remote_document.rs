@@ -4,13 +4,13 @@ use super::{
 };
 use crate::context_processing::{self, Process};
 use crate::expansion::{self, Expand};
-use crate::syntax;
 use crate::{
 	id::Generator, Context, ContextLoader, Flatten, Loader, RemoteDocument, RemoteDocumentReference,
 };
+use crate::{syntax, IntoDocumentResult};
 use contextual::WithContext;
 use futures::future::{BoxFuture, FutureExt};
-use json_ld_core::RemoteContextReference;
+use json_ld_core::{Document, RemoteContextReference};
 use locspan::BorrowStripped;
 use rdf_types::VocabularyMut;
 use std::hash::Hash;
@@ -131,6 +131,34 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 				)
 				.await
 				.map_err(ExpandError::Expansion)
+		}
+		.boxed()
+	}
+
+	fn into_document_full<'a, B, N, L>(
+		self,
+		vocabulary: &'a mut N,
+		loader: &'a mut L,
+		options: Options<I, M>,
+		warnings: impl 'a
+			+ Send
+			+ context_processing::WarningHandler<N, M>
+			+ expansion::WarningHandler<B, N, M>,
+	) -> BoxFuture<'a, IntoDocumentResult<I, B, M, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::ContextError: Send,
+	{
+		async move {
+			let expanded =
+				JsonLdProcessor::expand_full(&self, vocabulary, loader, options, warnings).await?;
+			Ok(Document::new(self, expanded))
 		}
 		.boxed()
 	}
@@ -309,6 +337,36 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 				.await
 				.map_err(ExpandError::Loading)?;
 			JsonLdProcessor::expand_full(doc.as_ref(), vocabulary, loader, options, warnings).await
+		}
+		.boxed()
+	}
+
+	fn into_document_full<'a, B, N, L>(
+		self,
+		vocabulary: &'a mut N,
+		loader: &'a mut L,
+		options: Options<I, M>,
+		warnings: impl 'a
+			+ Send
+			+ context_processing::WarningHandler<N, M>
+			+ expansion::WarningHandler<B, N, M>,
+	) -> BoxFuture<'a, IntoDocumentResult<I, B, M, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::ContextError: Send,
+	{
+		async move {
+			let doc = self
+				.load_with(vocabulary, loader)
+				.await
+				.map_err(ExpandError::Loading)?;
+			JsonLdProcessor::into_document_full(doc, vocabulary, loader, options, warnings).await
 		}
 		.boxed()
 	}

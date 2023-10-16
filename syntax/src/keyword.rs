@@ -7,104 +7,93 @@ use std::fmt;
 pub struct NotAKeyword<T>(pub T);
 
 /// JSON-LD keywords.
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	StrippedPartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Hash,
-	Debug,
-	serde::Serialize,
-	serde::Deserialize,
-)]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Keyword {
 	/// `@base`.
 	/// Used to set the base IRI against which to resolve those relative IRI references
 	/// which are otherwise interpreted relative to the document.
-	#[serde(rename = "@base")]
+	#[cfg_attr(feature = "serde", serde(rename = "@base"))]
 	Base,
 
 	/// `@container`.
 	/// Used to set the default container type for a term.
-	#[serde(rename = "@container")]
+	#[cfg_attr(feature = "serde", serde(rename = "@container"))]
 	Container,
 
 	/// `@context`.
 	/// Used to define the short-hand names that are used throughout a JSON-LD document.
-	#[serde(rename = "@context")]
+	#[cfg_attr(feature = "serde", serde(rename = "@context"))]
 	Context,
 
 	/// `@direction`.
 	/// Used to set the base direction of a JSON-LD value, which are not typed values.
 	/// (e.g. strings, or language-tagged strings).
-	#[serde(rename = "@direction")]
+	#[cfg_attr(feature = "serde", serde(rename = "@direction"))]
 	Direction,
 
 	/// `@graph`.
 	/// Used to express a graph.
-	#[serde(rename = "@graph")]
+	#[cfg_attr(feature = "serde", serde(rename = "@graph"))]
 	Graph,
 
 	/// `@id`.
 	/// Used to uniquely identify node objects that are being described in the document with IRIs
 	/// or blank node identifiers.
-	#[serde(rename = "@id")]
+	#[cfg_attr(feature = "serde", serde(rename = "@id"))]
 	Id,
 
 	/// `@import`.
 	/// Used in a context definition to load an external context within which the containing
 	/// context definition is merged.
-	#[serde(rename = "@import")]
+	#[cfg_attr(feature = "serde", serde(rename = "@import"))]
 	Import,
 
 	/// `@included`.
 	/// Used in a top-level node object to define an included block, for including secondary node
 	/// objects within another node object.
-	#[serde(rename = "@included")]
+	#[cfg_attr(feature = "serde", serde(rename = "@included"))]
 	Included,
 
 	/// `@index`.
 	/// Used to specify that a container is used to index information and that processing should
 	/// continue deeper into a JSON data structure.
-	#[serde(rename = "@index")]
+	#[cfg_attr(feature = "serde", serde(rename = "@index"))]
 	Index,
 
 	/// `@json`.
 	/// Used as the @type value of a JSON literal.
-	#[serde(rename = "@json")]
+	#[cfg_attr(feature = "serde", serde(rename = "@json"))]
 	Json,
 
 	/// `@language`.
 	/// Used to specify the language for a particular string value or the default language of a
 	/// JSON-LD document.
-	#[serde(rename = "@language")]
+	#[cfg_attr(feature = "serde", serde(rename = "@language"))]
 	Language,
 
 	/// `@list`.
 	/// Used to express an ordered set of data.
-	#[serde(rename = "@list")]
+	#[cfg_attr(feature = "serde", serde(rename = "@list"))]
 	List,
 
 	/// `@nest`.
 	/// Used to define a property of a node object that groups together properties of that node,
 	/// but is not an edge in the graph.
-	#[serde(rename = "@nest")]
+	#[cfg_attr(feature = "serde", serde(rename = "@nest"))]
 	Nest,
 
 	/// `@none`.
 	/// Used as an index value in an index map, id map, language map, type map, or elsewhere where
 	/// a map is used to index into other values, when the indexed node does not have the feature
 	/// being indexed.
-	#[serde(rename = "@none")]
+	#[cfg_attr(feature = "serde", serde(rename = "@none"))]
 	None,
 
 	/// `@prefix`.
 	/// With the value true, allows this term to be used to construct a compact IRI when
 	/// compacting.
-	#[serde(rename = "@prefix")]
+	#[cfg_attr(feature = "serde", serde(rename = "@prefix"))]
 	Prefix,
 
 	/// `@propagate`.
@@ -114,43 +103,43 @@ pub enum Keyword {
 	/// (other than for type-scoped contexts, which default to false).
 	/// Setting this to false causes term definitions created within that context to be removed
 	/// when entering a new node object.
-	#[serde(rename = "@propagate")]
+	#[cfg_attr(feature = "serde", serde(rename = "@propagate"))]
 	Propagate,
 
 	/// `@protected`.
 	/// Used to prevent term definitions of a context to be overridden by other contexts.
-	#[serde(rename = "@protected")]
+	#[cfg_attr(feature = "serde", serde(rename = "@protected"))]
 	Protected,
 
 	/// `@reverse`.
 	/// Used to express reverse properties.
-	#[serde(rename = "@reverse")]
+	#[cfg_attr(feature = "serde", serde(rename = "@reverse"))]
 	Reverse,
 
 	/// `@set`.
 	/// Used to express an unordered set of data and to ensure that values are always represented
 	/// as arrays.
-	#[serde(rename = "@set")]
+	#[cfg_attr(feature = "serde", serde(rename = "@set"))]
 	Set,
 
 	/// `@type`.
 	/// Used to set the type of a node or the datatype of a typed value.
-	#[serde(rename = "@type")]
+	#[cfg_attr(feature = "serde", serde(rename = "@type"))]
 	Type,
 
 	/// `@value`.
 	/// Used to specify the data that is associated with a particular property in the graph.
-	#[serde(rename = "@value")]
+	#[cfg_attr(feature = "serde", serde(rename = "@value"))]
 	Value,
 
 	/// `@version`.
 	/// Used in a context definition to set the processing mode.
-	#[serde(rename = "@version")]
+	#[cfg_attr(feature = "serde", serde(rename = "@version"))]
 	Version,
 
 	/// `@vocab`.
 	/// Used to expand properties and values in @type with a common prefix IRI.
-	#[serde(rename = "@vocab")]
+	#[cfg_attr(feature = "serde", serde(rename = "@vocab"))]
 	Vocab,
 }
 

@@ -9,7 +9,7 @@ use crate::{
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use json_ld_core::rdf::RdfDirection;
-use json_ld_core::{RdfQuads, RemoteContextReference};
+use json_ld_core::{Document, RdfQuads, RemoteContextReference};
 use locspan::{Location, Meta};
 use rdf_types::vocabulary::IriIndex;
 use rdf_types::{vocabulary, IriVocabulary, Vocabulary, VocabularyMut};
@@ -179,9 +179,15 @@ impl<M, E, C> ExpandError<M, E, C> {
 	}
 }
 
-/// Error that can be raised by the [`JsonLdProcessor::expand`] function.
+/// Result returned by the [`JsonLdProcessor::expand`] function.
 pub type ExpandResult<I, B, M, L> = Result<
 	Meta<ExpandedDocument<I, B, M>, M>,
+	ExpandError<M, <L as Loader<I, M>>::Error, <L as ContextLoader<I, M>>::ContextError>,
+>;
+
+/// Result returned by the [`JsonLdProcessor::into_document`] function.
+pub type IntoDocumentResult<I, B, M, L> = Result<
+	Document<I, B, M>,
 	ExpandError<M, <L as Loader<I, M>>::Error, <L as ContextLoader<I, M>>::ContextError>,
 >;
 
@@ -657,6 +663,26 @@ pub trait JsonLdProcessor<I, M> {
 		B: 'a + Clone + Eq + Hash + Send + Sync,
 		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
 		M: Clone + Send + Sync,
+		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+		L::Output: Into<syntax::Value<M>>,
+		L::Error: Send,
+		L::ContextError: Send;
+
+	fn into_document_full<'a, B, N, L>(
+		self,
+		vocabulary: &'a mut N,
+		loader: &'a mut L,
+		options: Options<I, M>,
+		warnings: impl 'a
+			+ Send
+			+ context_processing::WarningHandler<N, M>
+			+ expansion::WarningHandler<B, N, M>,
+	) -> BoxFuture<'a, IntoDocumentResult<I, B, M, L>>
+	where
+		I: 'a + Clone + Eq + Hash + Send + Sync,
+		B: 'a + Clone + Eq + Hash + Send + Sync,
+		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
+		M: 'a + Clone + Send + Sync,
 		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
 		L::Output: Into<syntax::Value<M>>,
 		L::Error: Send,

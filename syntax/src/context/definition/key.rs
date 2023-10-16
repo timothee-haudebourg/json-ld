@@ -7,18 +7,9 @@ use std::fmt;
 use std::hash::Hash;
 
 /// Context key.
-#[derive(
-	Clone,
-	PartialEq,
-	StrippedPartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Debug,
-	serde::Serialize,
-	serde::Deserialize,
-)]
-#[serde(transparent)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Key(#[locspan(stripped)] String);
 
 impl Key {

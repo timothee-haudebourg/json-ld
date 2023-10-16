@@ -21,8 +21,9 @@ pub use nest::*;
 pub use type_::*;
 
 /// Term definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(untagged, bound(deserialize = "M: Default"))]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged, bound(deserialize = "M: Default")))]
 #[locspan(ignore(M))]
 pub enum TermDefinition<M = ()> {
 	Simple(Simple),
@@ -49,8 +50,12 @@ impl<M> TermDefinition<M> {
 	}
 }
 
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(transparent)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(transparent)
+)]
 pub struct Simple(#[locspan(stripped)] pub(crate) String);
 
 impl Simple {
@@ -94,62 +99,100 @@ impl From<BlankIdBuf> for Simple {
 }
 
 /// Expanded term definition.
-#[derive(
-	PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug, serde::Serialize, serde::Deserialize,
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(bound(deserialize = "M: Default"))
 )]
-#[serde(bound(deserialize = "M: Default"))]
 #[locspan(ignore(M))]
 #[derivative(Default(bound = ""))]
 pub struct Expanded<M> {
-	#[serde(rename = "@id", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@id", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub id: Option<Entry<Nullable<Id>, M>>,
 
-	#[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub type_: Option<Entry<Nullable<Type>, M>>,
 
-	#[serde(rename = "@context", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@context", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub context: Option<Entry<Box<context::Context<M>>, M>>,
 
-	#[serde(rename = "@reverse", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@reverse", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub reverse: Option<Entry<context::definition::Key, M>>,
 
-	#[serde(rename = "@index", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@index", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub index: Option<Entry<Index, M>>,
 
-	#[serde(rename = "@language", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@language", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, M>>,
 
-	#[serde(
-		rename = "@direction",
-		default,
-		skip_serializing_if = "Option::is_none"
+	#[cfg_attr(
+		feature = "serde",
+		serde(
+			rename = "@direction",
+			default,
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub direction: Option<Entry<Nullable<Direction>, M>>,
 
-	#[serde(
-		rename = "@container",
-		default,
-		skip_serializing_if = "Option::is_none"
+	#[cfg_attr(
+		feature = "serde",
+		serde(
+			rename = "@container",
+			default,
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub container: Option<Entry<Nullable<Container<M>>, M>>,
 
-	#[serde(rename = "@nest", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@nest", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub nest: Option<Entry<Nest, M>>,
 
-	#[serde(rename = "@prefix", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@prefix", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub prefix: Option<Entry<bool, M>>,
 
-	#[serde(
-		rename = "@propagate",
-		default,
-		skip_serializing_if = "Option::is_none"
+	#[cfg_attr(
+		feature = "serde",
+		serde(
+			rename = "@propagate",
+			default,
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub propagate: Option<Entry<bool, M>>,
 
-	#[serde(
-		rename = "@protected",
-		default,
-		skip_serializing_if = "Option::is_none"
+	#[cfg_attr(
+		feature = "serde",
+		serde(
+			rename = "@protected",
+			default,
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub protected: Option<Entry<bool, M>>,
 }

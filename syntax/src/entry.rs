@@ -84,6 +84,7 @@ impl<T, M> std::ops::DerefMut for Entry<T, M> {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl<T: serde::Serialize, M> serde::Serialize for Entry<T, M> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -93,6 +94,7 @@ impl<T: serde::Serialize, M> serde::Serialize for Entry<T, M> {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl<'de, T: serde::Deserialize<'de>, M: Default> serde::Deserialize<'de> for Entry<T, M> {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
