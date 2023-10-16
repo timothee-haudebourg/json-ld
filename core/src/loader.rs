@@ -280,6 +280,11 @@ impl<I, M, T> RemoteDocument<I, M, T> {
 		&self.document
 	}
 
+	/// Returns a mutable reference to the content of the document.
+	pub fn document_mut(&mut self) -> &mut Meta<T, M> {
+		&mut self.document
+	}
+
 	/// Drops the original URL and returns the content of the document.
 	pub fn into_document(self) -> Meta<T, M> {
 		self.document
