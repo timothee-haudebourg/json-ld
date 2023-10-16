@@ -252,6 +252,18 @@ impl<T: Hash + Eq, B: Hash + Eq, M> ExpandedDocument<T, B, M> {
 	}
 }
 
+impl<T: Eq + Hash, B: Eq + Hash, M> From<Meta<Indexed<Node<T, B, M>, M>, M>>
+	for ExpandedDocument<T, B, M>
+{
+	fn from(value: Meta<Indexed<Node<T, B, M>, M>, M>) -> Self {
+		let mut result = Self::default();
+
+		result.insert(value.map(|n| n.map_inner(Object::node)));
+
+		result
+	}
+}
+
 impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for ExpandedDocument<T, B, M> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
