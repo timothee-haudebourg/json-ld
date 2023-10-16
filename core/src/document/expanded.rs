@@ -223,6 +223,26 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 
 		result
 	}
+
+	/// Consumes the document and returns its main node object, if any.
+	///
+	/// The main node is the unique top level (root) node object. If multiple
+	/// node objects are on the root, `None` is returned.
+	pub fn into_main_node(self) -> Option<Meta<Node<T, B, M>, M>> {
+		let mut result = None;
+
+		for Meta(object, meta) in self {
+			if let Object::Node(node) = object.into_inner() {
+				if result.is_some() {
+					return None;
+				}
+
+				result = Some(Meta(*node, meta))
+			}
+		}
+
+		result
+	}
 }
 
 impl<T: Hash + Eq, B: Hash + Eq, M> ExpandedDocument<T, B, M> {
