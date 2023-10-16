@@ -320,7 +320,10 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Properties<T, B, M> {
 
 	/// Removes and returns all the values associated to the given property.
 	#[inline(always)]
-	pub fn remove(&mut self, prop: &Id<T, B>) -> Option<PropertyEntry<T, B, M>> {
+	pub fn remove<Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
+		&mut self,
+		prop: &Q,
+	) -> Option<PropertyEntry<T, B, M>> {
 		self.0.remove(prop)
 	}
 }
