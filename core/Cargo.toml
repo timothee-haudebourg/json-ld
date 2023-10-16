@@ -14,6 +14,7 @@ readme = "README.md"
 [features]
 default = []
 reqwest = ["bytes", "dep:reqwest"]
+serde = ["dep:serde", "json-syntax/serde"]
 
 [dependencies]
 json-ld-syntax.workspace = true
@@ -34,6 +35,7 @@ smallvec.workspace = true
 hashbrown.workspace = true
 thiserror.workspace = true
 indexmap.workspace = true
+serde = { workspace = true, optional = true }
 once_cell = "^1.4"
 ryu-js = "0.2.2"
 permutohedron = { version = "0.2" }

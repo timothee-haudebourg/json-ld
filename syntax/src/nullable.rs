@@ -154,6 +154,7 @@ impl<T: contextual::DisplayWithContext<V>, V> contextual::DisplayWithContext<V> 
 	}
 }
 
+#[cfg(feature = "serde")]
 impl<T: serde::Serialize> serde::Serialize for Nullable<T> {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -166,6 +167,7 @@ impl<T: serde::Serialize> serde::Serialize for Nullable<T> {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Nullable<T> {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where

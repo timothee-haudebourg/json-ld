@@ -16,8 +16,9 @@ pub use try_from_json::InvalidContext;
 /// JSON-LD Context.
 ///
 /// Can represent a single context entry, or a list of context entries.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(untagged, bound(deserialize = "M: Default"))]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged, bound(deserialize = "M: Default")))]
 #[locspan(ignore(M))]
 pub enum Context<M = ()> {
 	One(Meta<ContextEntry<M>, M>),
@@ -176,8 +177,12 @@ impl<'a, M> From<Meta<&'a Iri, M>> for Context<M> {
 }
 
 /// Context.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(untagged, bound(deserialize = "M: Default"))]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(untagged, bound(deserialize = "M: Default"))
+)]
 #[locspan(ignore(M))]
 pub enum ContextEntry<M = ()> {
 	Null,

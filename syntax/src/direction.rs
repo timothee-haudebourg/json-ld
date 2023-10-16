@@ -69,6 +69,7 @@ impl fmt::Display for Direction {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl serde::Serialize for Direction {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -78,6 +79,7 @@ impl serde::Serialize for Direction {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for Direction {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where

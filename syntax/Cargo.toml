@@ -11,18 +11,21 @@ description = "A JSON-LD context processing implementation"
 documentation = "https://docs.rs/json-ld-context-processing"
 readme = "README.md"
 
+[features]
+serde = ["dep:serde", "iref/serde", "locspan/serde", "json-syntax/serde", "indexmap/serde"]
+
 [dependencies]
-iref = { workspace = true, features = ["serde"] }
+iref.workspace = true
 langtag.workspace = true
 rdf-types.workspace = true
 json-syntax.workspace = true
-locspan = { workspace = true, features = ["serde"] }
+locspan.workspace = true
 locspan-derive.workspace = true
 hashbrown.workspace = true
 derivative.workspace = true
 smallvec.workspace = true
 contextual.workspace = true
 thiserror.workspace = true
-serde = { workspace = true, features = ["derive"] }
-indexmap = { workspace = true, features = ["serde"] }
+serde = { workspace = true, features = ["derive"], optional = true }
+indexmap.workspace = true
 decoded-char = "0.1.0"

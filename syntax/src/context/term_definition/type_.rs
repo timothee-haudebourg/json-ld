@@ -3,10 +3,9 @@ use iref::Iri;
 use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
-#[derive(
-	Clone, StrippedPartialEq, PartialOrd, Ord, Debug, serde::Serialize, serde::Deserialize,
-)]
-#[serde(untagged)]
+#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Type {
 	Term(#[locspan(stripped)] String),
 	Keyword(#[locspan(stripped)] TypeKeyword),
@@ -78,20 +77,19 @@ impl From<String> for Type {
 
 /// Subset of keyword acceptable for as value for the `@type` entry
 /// of an expanded term definition.
-#[derive(
-	Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug, serde::Serialize, serde::Deserialize,
-)]
+#[derive(Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TypeKeyword {
-	#[serde(rename = "@id")]
+	#[cfg_attr(feature = "serde", serde(rename = "@id"))]
 	Id,
 
-	#[serde(rename = "@json")]
+	#[cfg_attr(feature = "serde", serde(rename = "@json"))]
 	Json,
 
-	#[serde(rename = "@none")]
+	#[cfg_attr(feature = "serde", serde(rename = "@none"))]
 	None,
 
-	#[serde(rename = "@vocab")]
+	#[cfg_attr(feature = "serde", serde(rename = "@vocab"))]
 	Vocab,
 }
 

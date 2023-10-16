@@ -2,26 +2,15 @@ use crate::context::Entry;
 use locspan_derive::StrippedPartialEq;
 use std::{hash::Hash, str::FromStr};
 
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	StrippedPartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Hash,
-	Debug,
-	serde::Serialize,
-	serde::Deserialize,
-)]
-#[serde(bound(deserialize = "M: Default"))]
+#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound(deserialize = "M: Default")))]
 #[locspan(ignore(M))]
 pub struct Type<M> {
-	#[serde(rename = "@container")]
+	#[cfg_attr(feature = "serde", serde(rename = "@container"))]
 	pub container: Entry<TypeContainer, M>,
 
-	#[serde(rename = "@protected")]
+	#[cfg_attr(feature = "serde", serde(rename = "@protected"))]
 	pub protected: Option<Entry<bool, M>>,
 }
 
@@ -140,6 +129,7 @@ impl FromStr for TypeContainer {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl serde::Serialize for TypeContainer {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
@@ -149,6 +139,7 @@ impl serde::Serialize for TypeContainer {
 	}
 }
 
+#[cfg(feature = "serde")]
 impl<'de> serde::Deserialize<'de> for TypeContainer {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where

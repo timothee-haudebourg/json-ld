@@ -6,10 +6,9 @@ use rdf_types::BlankId;
 use std::fmt;
 use std::hash::Hash;
 
-#[derive(
-	Clone, StrippedPartialEq, PartialOrd, Ord, Debug, serde::Serialize, serde::Deserialize,
-)]
-#[serde(untagged)]
+#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Id {
 	Keyword(#[locspan(stripped)] Keyword),
 	Term(#[locspan(stripped)] String),

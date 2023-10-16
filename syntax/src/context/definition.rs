@@ -21,55 +21,81 @@ pub use version::*;
 pub use vocab::*;
 
 /// Context definition.
-#[derive(
-	PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug, serde::Serialize, serde::Deserialize,
-)]
-#[serde(bound(deserialize = "M: Default"))]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound(deserialize = "M: Default")))]
 #[locspan(ignore(M))]
 #[derivative(Default(bound = ""))]
 pub struct Definition<M = ()> {
 	#[locspan(unwrap_deref2_stripped)]
-	#[serde(rename = "@base", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@base", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub base: Option<Entry<Nullable<IriRefBuf>, M>>,
 
 	#[locspan(unwrap_deref2_stripped)]
-	#[serde(rename = "@import", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@import", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub import: Option<Entry<IriRefBuf, M>>,
 
-	#[serde(rename = "@language", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@language", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, M>>,
 
-	#[serde(
-		rename = "@direction",
-		default,
-		skip_serializing_if = "Option::is_none"
+	#[cfg_attr(
+		feature = "serde",
+		serde(
+			rename = "@direction",
+			default,
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub direction: Option<Entry<Nullable<Direction>, M>>,
 
-	#[serde(
-		rename = "@propagate",
-		default,
-		skip_serializing_if = "Option::is_none"
+	#[cfg_attr(
+		feature = "serde",
+		serde(
+			rename = "@propagate",
+			default,
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub propagate: Option<Entry<bool, M>>,
 
-	#[serde(
-		rename = "@protected",
-		default,
-		skip_serializing_if = "Option::is_none"
+	#[cfg_attr(
+		feature = "serde",
+		serde(
+			rename = "@protected",
+			default,
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub protected: Option<Entry<bool, M>>,
 
-	#[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub type_: Option<Entry<Type<M>, M>>,
 
-	#[serde(rename = "@version", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@version", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub version: Option<Entry<Version, M>>,
 
-	#[serde(rename = "@vocab", default, skip_serializing_if = "Option::is_none")]
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@vocab", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub vocab: Option<Entry<Nullable<Vocab>, M>>,
 
-	#[serde(flatten)]
+	#[cfg_attr(feature = "serde", serde(flatten))]
 	pub bindings: Bindings<M>,
 }
 
@@ -132,8 +158,12 @@ impl<M> Definition<M> {
 }
 
 /// Context bindings.
-#[derive(PartialEq, Eq, Clone, Derivative, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(transparent, bound(deserialize = "M: Default"))]
+#[derive(PartialEq, Eq, Clone, Derivative, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+	feature = "serde",
+	serde(transparent, bound(deserialize = "M: Default"))
+)]
 #[derivative(Default(bound = ""))]
 pub struct Bindings<M = ()>(IndexMap<Key, TermBinding<M>>);
 
@@ -232,13 +262,14 @@ impl<M, N> locspan::StrippedPartialEq<Bindings<N>> for Bindings<M> {
 }
 
 /// Term binding.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(bound(deserialize = "M: Default"))]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound(deserialize = "M: Default")))]
 #[locspan(ignore(M))]
-#[serde(transparent)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct TermBinding<M = ()> {
 	#[locspan(ignore)]
-	#[serde(skip)]
+	#[cfg_attr(feature = "serde", serde(skip))]
 	pub key_metadata: M,
 
 	pub definition: Meta<Nullable<TermDefinition<M>>, M>,

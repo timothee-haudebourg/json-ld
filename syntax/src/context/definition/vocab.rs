@@ -3,18 +3,9 @@ use iref::Iri;
 use locspan_derive::StrippedPartialEq;
 use rdf_types::BlankId;
 
-#[derive(
-	Clone,
-	PartialEq,
-	StrippedPartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Debug,
-	serde::Serialize,
-	serde::Deserialize,
-)]
-#[serde(transparent)]
+#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Vocab(#[locspan(stripped)] String);
 
 impl Vocab {

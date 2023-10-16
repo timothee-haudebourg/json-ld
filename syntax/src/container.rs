@@ -15,29 +15,28 @@ use locspan_derive::*;
 	StrippedOrd,
 	Hash,
 	Debug,
-	serde::Serialize,
-	serde::Deserialize,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ContainerKind {
-	#[serde(rename = "@graph")]
+	#[cfg_attr(feature = "serde", serde(rename = "@graph"))]
 	Graph,
 
-	#[serde(rename = "@id")]
+	#[cfg_attr(feature = "serde", serde(rename = "@id"))]
 	Id,
 
-	#[serde(rename = "@index")]
+	#[cfg_attr(feature = "serde", serde(rename = "@index"))]
 	Index,
 
-	#[serde(rename = "@language")]
+	#[cfg_attr(feature = "serde", serde(rename = "@language"))]
 	Language,
 
-	#[serde(rename = "@list")]
+	#[cfg_attr(feature = "serde", serde(rename = "@list"))]
 	List,
 
-	#[serde(rename = "@set")]
+	#[cfg_attr(feature = "serde", serde(rename = "@set"))]
 	Set,
 
-	#[serde(rename = "@type")]
+	#[cfg_attr(feature = "serde", serde(rename = "@type"))]
 	Type,
 }
 
@@ -124,10 +123,12 @@ impl<M> From<ContainerKind> for Container<M> {
 	StrippedOrd,
 	Hash,
 	Debug,
-	serde::Serialize,
-	serde::Deserialize,
 )]
-#[serde(untagged, bound(deserialize = "M: Default"))]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(untagged, bound(deserialize = "M: Default"))
+)]
 #[locspan(ignore(M))]
 pub enum Container<M> {
 	One(ContainerKind),
