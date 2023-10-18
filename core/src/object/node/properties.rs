@@ -3,7 +3,7 @@ use crate::{
 	object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject},
 	Id, Indexed, IndexedObject, Object, StrippedIndexedObject,
 };
-use derivative::Derivative;
+use educe::Educe;
 use indexmap::IndexMap;
 use locspan::{BorrowStripped, Meta, Stripped};
 use locspan_derive::{StrippedEq, StrippedHash, StrippedPartialEq};
@@ -14,7 +14,7 @@ use std::{
 };
 
 /// Property set entry.
-#[derive(Derivative, Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
+#[derive(Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
 #[locspan(ignore(M))]
 pub struct Entry<T, M> {
 	/// Property key metadata.
@@ -65,8 +65,8 @@ impl<T, M> ops::DerefMut for Entry<T, M> {
 pub type PropertyObjects<T, B, M = ()> = Multiset<StrippedIndexedObject<T, B, M>>;
 
 /// Properties of a node object, and their associated objects.
-#[derive(Derivative, Clone)]
-#[derivative(
+#[derive(Educe, Clone)]
+#[educe(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
@@ -477,8 +477,8 @@ impl<T, B, M> std::iter::FusedIterator for IntoIter<T, B, M> {}
 /// Iterator over the properties of a node.
 ///
 /// It is created by the [`Properties::iter`] function.
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone)]
 pub struct Iter<'a, T, B, M> {
 	inner: indexmap::map::Iter<'a, Id<T, B>, PropertyEntry<T, B, M>>,
 }

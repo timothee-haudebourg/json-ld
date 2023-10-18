@@ -1,4 +1,4 @@
-use derivative::Derivative;
+use educe::Educe;
 use iref::IriRef;
 use locspan::{Meta, StrippedPartialEq};
 
@@ -6,8 +6,8 @@ use super::{
 	AnyDefinition, Context, ContextSubFragments, Definition, FragmentRef, Traverse, Value,
 };
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone)]
 pub enum ArrayIter<'a, M> {
 	Owned(core::slice::Iter<'a, Meta<Context<M>, M>>),
 	Borrowed(core::slice::Iter<'a, Meta<ContextRef<'a, M>, M>>),
@@ -61,8 +61,8 @@ impl<M> Value<M> {
 }
 
 /// Reference to a context entry.
-#[derive(Derivative)]
-#[derivative(Clone(bound = "M: Clone"))]
+#[derive(Educe)]
+#[educe(Clone(bound = "M: Clone"))]
 pub enum ValueRef<'a, M> {
 	One(Meta<ContextRef<'a, M>, M>),
 	Many(ArrayIter<'a, M>),
@@ -119,8 +119,8 @@ impl<'a, M: Clone> Iterator for ContextEntryIter<'a, M> {
 }
 
 /// Reference to context.
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum ContextRef<'a, M = ()> {
 	Null,
 	IriRef(IriRef<'a>),

@@ -4,7 +4,7 @@ use crate::{
 	CompactIri, CompactIriBuf, Container, ContainerKind, Direction, Keyword, LenientLanguageTagBuf,
 	Nullable,
 };
-use derivative::Derivative;
+use educe::Educe;
 use iref::{Iri, IriBuf};
 use locspan::Meta;
 use locspan_derive::StrippedPartialEq;
@@ -99,14 +99,14 @@ impl From<BlankIdBuf> for Simple {
 }
 
 /// Expanded term definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Educe, Debug)]
 #[cfg_attr(
 	feature = "serde",
 	derive(serde::Serialize, serde::Deserialize),
 	serde(bound(deserialize = "M: Default"))
 )]
 #[locspan(ignore(M))]
-#[derivative(Default(bound = ""))]
+#[educe(Default)]
 pub struct Expanded<M> {
 	#[cfg_attr(
 		feature = "serde",
@@ -294,8 +294,8 @@ impl<M> Expanded<M> {
 }
 
 /// Expanded term definition.
-#[derive(Debug, Derivative)]
-#[derivative(Default(bound = ""))]
+#[derive(Debug, Educe)]
+#[educe(Default)]
 pub struct ExpandedRef<'a, M> {
 	pub id: Option<Meta<Nullable<IdRef<'a>>, &'a M>>,
 	pub type_: Option<&'a Entry<Nullable<Type>, M>>,
@@ -345,8 +345,8 @@ impl<'a, M> From<&'a Meta<Nullable<TermDefinition<M>>, M>> for ExpandedRef<'a, M
 // }
 
 // /// Term definition.
-// #[derive(Derivative)]
-// #[derivative(Clone(bound = "M: Clone"))]
+// #[derive(Educe)]
+// #[educe(Clone(bound = "M: Clone"))]
 // pub enum TermDefinitionRef<'a, M> {
 // 	Simple(SimpleRef<'a>),
 // 	Expanded(ExpandedRef<'a, M>),
@@ -381,8 +381,8 @@ impl<'a, M> From<&'a Meta<Nullable<TermDefinition<M>>, M>> for ExpandedRef<'a, M
 // pub type NestEntryRef<'a, M> = Entry<NestRef<'a>, M>;
 
 // /// Expanded term definition.
-// #[derive(Derivative)]
-// #[derivative(Default(bound = ""), Clone(bound = "M: Clone"))]
+// #[derive(Educe)]
+// #[educe(Default, Clone(bound = "M: Clone"))]
 // pub struct ExpandedRef<'a, M> {
 // 	pub id: Option<&'a Entry<Nullable<Id>, M>>,
 // 	pub type_: Option<&'a Entry<Nullable<Type>, M>>,

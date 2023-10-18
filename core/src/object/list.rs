@@ -1,7 +1,7 @@
 use super::{Any, InvalidExpandedJson, MappedEq};
 use crate::{IndexedObject, Relabel, TryFromJson};
 use contextual::WithContext;
-use derivative::Derivative;
+use educe::Educe;
 use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta};
 use locspan::{Meta, StrippedEq, StrippedPartialEq};
 use locspan_derive::StrippedHash;
@@ -9,8 +9,8 @@ use rdf_types::{Subject, Vocabulary, VocabularyMut};
 use std::hash::Hash;
 
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Derivative, Clone, Hash, StrippedHash)]
-#[derivative(
+#[derive(Educe, Clone, Hash, StrippedHash)]
+#[educe(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]

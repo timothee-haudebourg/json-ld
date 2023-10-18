@@ -12,13 +12,13 @@ use crate::Error;
 
 use super::{node::SerializeNode, value::literal_to_value};
 
-pub struct SerializeDefaultGraph<'a, V: Vocabulary, I> {
+pub struct SerializeDefaultGraph<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
 	result: &'a mut ExpandedDocument<V::Iri, V::BlankId>,
 }
 
-impl<'a, V: Vocabulary, I> SerializeDefaultGraph<'a, V, I> {
+impl<'a, I, V: Vocabulary> SerializeDefaultGraph<'a, I, V> {
 	pub fn new(
 		vocabulary: &'a mut V,
 		interpretation: &'a mut I,
@@ -32,8 +32,8 @@ impl<'a, V: Vocabulary, I> SerializeDefaultGraph<'a, V, I> {
 	}
 }
 
-impl<'a, V: Vocabulary, I: Interpretation> linked_data::GraphVisitor<V, I>
-	for SerializeDefaultGraph<'a, V, I>
+impl<'a, I: Interpretation, V: Vocabulary> linked_data::GraphVisitor<I, V>
+	for SerializeDefaultGraph<'a, I, V>
 where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
@@ -49,7 +49,7 @@ where
 
 	fn subject<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<V, I> + linked_data::LinkedDataSubject<V, I>,
+		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		let id = match value
 			.lexical_representation(self.vocabulary, self.interpretation)

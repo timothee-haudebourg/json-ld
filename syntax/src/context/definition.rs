@@ -1,6 +1,6 @@
 use super::{term_definition, Entry, TermDefinition};
 use crate::{Direction, Keyword, LenientLanguageTagBuf, Nullable};
-use derivative::Derivative;
+use educe::Educe;
 use indexmap::IndexMap;
 use iref::IriRefBuf;
 use locspan::Meta;
@@ -21,11 +21,11 @@ pub use version::*;
 pub use vocab::*;
 
 /// Context definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Derivative, Debug)]
+#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Educe, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound(deserialize = "M: Default")))]
 #[locspan(ignore(M))]
-#[derivative(Default(bound = ""))]
+#[educe(Default)]
 pub struct Definition<M = ()> {
 	#[locspan(unwrap_deref2_stripped)]
 	#[cfg_attr(
@@ -158,13 +158,13 @@ impl<M> Definition<M> {
 }
 
 /// Context bindings.
-#[derive(PartialEq, Eq, Clone, Derivative, Debug)]
+#[derive(PartialEq, Eq, Clone, Educe, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
 	feature = "serde",
 	serde(transparent, bound(deserialize = "M: Default"))
 )]
-#[derivative(Default(bound = ""))]
+#[educe(Default)]
 pub struct Bindings<M = ()>(IndexMap<Key, TermBinding<M>>);
 
 pub type BindingsIter<'a, M> = indexmap::map::Iter<'a, Key, TermBinding<M>>;

@@ -335,7 +335,7 @@ impl<I, B> ExpandedDocument<I, B> {
 								}
 
 								values.reverse();
-								lists.push((head_id.clone(), values))
+								lists.push((head_id, values))
 							}
 						}
 					}

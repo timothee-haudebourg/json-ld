@@ -4,7 +4,7 @@ use crate::{
 	Term,
 };
 use contextual::{IntoRefWithContext, WithContext};
-use derivative::Derivative;
+use educe::Educe;
 use indexmap::IndexSet;
 use iref::IriBuf;
 use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta, Keyword};
@@ -71,8 +71,8 @@ pub type StrippedIndexedNode<T = IriBuf, B = BlankIdBuf, M = ()> = Stripped<Inde
 /// (`@included` field).
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
-#[derive(Derivative, Clone)]
-#[derivative(Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq"))]
+#[derive(Educe, Clone)]
+#[educe(Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq"))]
 pub struct Node<T = IriBuf, B = BlankIdBuf, M = ()> {
 	/// Identifier.
 	///
@@ -859,8 +859,8 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Indexed<Node<T, B, M>, M> {
 	}
 }
 
-#[derive(Derivative, PartialEq, Eq)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe, PartialEq, Eq)]
+#[educe(Clone, Copy)]
 pub enum EntryKeyRef<'a, T, B, M> {
 	Id,
 	Type,
@@ -925,8 +925,8 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, st
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum EntryValueRef<'a, T, B, M> {
 	Id(Meta<&'a Id<T, B>, &'a M>),
 	Type(&'a TypeEntryValue<T, B, M>),
@@ -960,8 +960,8 @@ impl<'a, T, B, M> EntryValueRef<'a, T, B, M> {
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum EntryRef<'a, T, B, M> {
 	Id(&'a Entry<Id<T, B>, M>),
 	Type(&'a TypeEntry<T, B, M>),
@@ -1039,8 +1039,8 @@ pub type TypeEntry<T, B, M> = Entry<Vec<Meta<Id<T, B>, M>>, M>;
 pub type GraphEntry<T, B, M> = Entry<Graph<T, B, M>, M>;
 pub type IncludedEntry<T, B, M> = Entry<Included<T, B, M>, M>;
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone)]
 pub struct Entries<'a, T, B, M> {
 	id: Option<&'a Entry<Id<T, B>, M>>,
 	type_: Option<&'a TypeEntry<T, B, M>>,
@@ -1098,8 +1098,8 @@ impl<'a, T, B, M> Iterator for Entries<'a, T, B, M> {
 
 impl<'a, T, B, M> ExactSizeIterator for Entries<'a, T, B, M> {}
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone)]
 pub struct IndexedEntries<'a, T, B, M> {
 	index: Option<&'a str>,
 	inner: Entries<'a, T, B, M>,
@@ -1123,8 +1123,8 @@ impl<'a, T, B, M> Iterator for IndexedEntries<'a, T, B, M> {
 
 impl<'a, T, B, M> ExactSizeIterator for IndexedEntries<'a, T, B, M> {}
 
-#[derive(Derivative, PartialEq, Eq)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe, PartialEq, Eq)]
+#[educe(Clone, Copy)]
 pub enum IndexedEntryKeyRef<'a, T, B, M> {
 	Index,
 	Node(EntryKeyRef<'a, T, B, M>),
@@ -1173,15 +1173,15 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, st
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum IndexedEntryValueRef<'a, T, B, M> {
 	Index(&'a str),
 	Node(EntryValueRef<'a, T, B, M>),
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum IndexedEntryRef<'a, T, B, M> {
 	Index(&'a str),
 	Node(EntryRef<'a, T, B, M>),

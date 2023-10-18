@@ -4,7 +4,7 @@ use crate::{
 	Id, Indexed, IndexedNode, Node, StrippedIndexedNode,
 };
 use contextual::WithContext;
-use derivative::Derivative;
+use educe::Educe;
 use indexmap::IndexMap;
 use iref::IriBuf;
 use json_ld_syntax::IntoJsonWithContextMeta;
@@ -18,8 +18,8 @@ pub type ReversePropertyNodes<T = IriBuf, B = BlankIdBuf, M = ()> =
 	Multiset<Stripped<IndexedNode<T, B, M>>>;
 
 /// Reverse properties of a node object, and their associated nodes.
-#[derive(Derivative, Clone)]
-#[derivative(
+#[derive(Educe, Clone)]
+#[educe(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
@@ -433,8 +433,8 @@ impl<T, B, M> std::iter::FusedIterator for IntoIter<T, B, M> {}
 /// Iterator over the reverse properties of a node.
 ///
 /// It is created by the [`ReverseProperties::iter`] function.
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone)]
 pub struct Iter<'a, T, B, M> {
 	inner: indexmap::map::Iter<'a, Id<T, B>, ReversePropertyEntry<T, B, M>>,
 }

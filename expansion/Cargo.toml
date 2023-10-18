@@ -22,7 +22,7 @@ rdf-types.workspace = true
 futures.workspace = true
 mown.workspace = true
 locspan = { workspace = true, features = ["contextual"] }
-derivative.workspace = true
+educe.workspace = true
 contextual.workspace = true
 thiserror.workspace = true
 indexmap.workspace = true

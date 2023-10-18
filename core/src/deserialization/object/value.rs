@@ -11,7 +11,7 @@ use crate::{
 	Value,
 };
 
-impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedDataResource<V, I> for Value<V::Iri, M>
+impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri, M>
 where
 	V: LanguageTagVocabularyMut,
 {
@@ -19,7 +19,7 @@ where
 		&self,
 		vocabulary: &mut V,
 		_interpretation: &mut I,
-	) -> ResourceInterpretation<V, I> {
+	) -> ResourceInterpretation<I, V> {
 		let term = match self {
 			Self::Literal(l, ty) => match l {
 				Literal::Null => CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(
@@ -92,44 +92,44 @@ where
 	}
 }
 
-impl<T, M, V: Vocabulary, I: Interpretation> LinkedDataSubject<V, I> for Value<T, M> {
+impl<T, M, V: Vocabulary, I: Interpretation> LinkedDataSubject<I, V> for Value<T, M> {
 	fn visit_subject<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::SubjectVisitor<V, I>,
+		S: linked_data::SubjectVisitor<I, V>,
 	{
 		visitor.end()
 	}
 }
 
-impl<T, M, V: Vocabulary, I: Interpretation> LinkedDataPredicateObjects<V, I> for Value<T, M> {
+impl<T, M, V: Vocabulary, I: Interpretation> LinkedDataPredicateObjects<I, V> for Value<T, M> {
 	fn visit_objects<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<V, I>,
+		S: linked_data::PredicateObjectsVisitor<I, V>,
 	{
 		visitor.end()
 	}
 }
 
-impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedDataGraph<V, I> for Value<V::Iri, M>
+impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedDataGraph<I, V> for Value<V::Iri, M>
 where
 	V: LanguageTagVocabularyMut,
 {
 	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::GraphVisitor<V, I>,
+		S: linked_data::GraphVisitor<I, V>,
 	{
 		visitor.subject(self)?;
 		visitor.end()
 	}
 }
 
-impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedData<V, I> for Value<V::Iri, M>
+impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedData<I, V> for Value<V::Iri, M>
 where
 	V: LanguageTagVocabularyMut,
 {
 	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::Visitor<V, I>,
+		S: linked_data::Visitor<I, V>,
 	{
 		visitor.default_graph(self)?;
 		visitor.end()
