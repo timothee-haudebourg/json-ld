@@ -8,9 +8,7 @@ use locspan::{Loc, Location, Meta, Span};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use rdf_types::{
-	vocabulary::LiteralIndex, IriVocabulary, IriVocabularyMut, Quad, RdfDisplay, Triple,
-};
+use rdf_types::{vocabulary::LiteralIndex, IriVocabulary, IriVocabularyMut, Quad, Triple};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -522,7 +520,7 @@ impl DisplayWithContext<IndexVocabulary> for Error {
 			Self::Expand(e) => e.fmt(f),
 			Self::InvalidIri(i) => write!(f, "invalid IRI `{i}`"),
 			Self::InvalidValue(_, value) => {
-				write!(f, "invalid value {}", value.with(vocabulary).rdf_display())
+				write!(f, "invalid value {}", value.with(vocabulary))
 			}
 			Self::InvalidTypeField => write!(f, "invalid type field"),
 			Self::NoTypeVariants(r) => {

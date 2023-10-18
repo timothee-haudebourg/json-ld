@@ -331,8 +331,8 @@ impl<T: fmt::Display, B: fmt::Display> fmt::Display for Id<T, B> {
 	}
 }
 
-impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for Id<T, B> {
-	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
+impl<V: IriVocabulary + BlankIdVocabulary> DisplayWithContext<V> for Id<V::Iri, V::BlankId> {
+	fn fmt_with(&self, vocabulary: &V, f: &mut fmt::Formatter) -> fmt::Result {
 		use fmt::Display;
 		match self {
 			Id::Valid(id) => id.fmt_with(vocabulary, f),

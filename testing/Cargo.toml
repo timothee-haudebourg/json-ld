@@ -19,7 +19,7 @@ json-ld.workspace = true
 iref.workspace = true
 static-iref.workspace = true
 iref-enum.workspace = true
-rdf-types.workspace = true
+rdf-types = { workspace = true, features = ["contextual"] }
 grdf = { workspace = true, features = ["meta"] }
 locspan.workspace = true
 contextual.workspace = true

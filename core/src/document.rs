@@ -39,6 +39,7 @@ impl<I, B, M> Document<I, B, M> {
 		self.expanded
 	}
 
+	#[allow(clippy::type_complexity)]
 	pub fn into_parts(self) -> (RemoteDocument<I, M>, Meta<ExpandedDocument<I, B, M>, M>) {
 		(self.remote, self.expanded)
 	}

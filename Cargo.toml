@@ -36,7 +36,7 @@ json-syntax = "0.9.6"
 iref = "3.1.2"
 static-iref = "3.0"
 langtag = "0.3"
-rdf-types = "0.16"
+rdf-types = "0.17.3"
 contextual = "0.1.4"
 locspan = "0.7.16"
 locspan-derive = "0.6"
@@ -51,7 +51,7 @@ serde = "1.0"
 indexmap = "2.0"
 
 iref-enum = "3.0"
-grdf = "0.20"
+grdf = "0.21"
 async-std = "1.12"
 
 linked-data = { git = "https://github.com/spruceid/linked-data-rs.git" }
