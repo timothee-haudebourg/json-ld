@@ -12,13 +12,13 @@ use crate::Error;
 
 use super::object::serialize_object_with;
 
-pub struct SerializeGraph<'a, V: Vocabulary, I> {
+pub struct SerializeGraph<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
 	result: Graph<V::Iri, V::BlankId>,
 }
 
-impl<'a, V: Vocabulary, I> SerializeGraph<'a, V, I> {
+impl<'a, I, V: Vocabulary> SerializeGraph<'a, I, V> {
 	pub fn new(vocabulary: &'a mut V, interpretation: &'a mut I) -> Self {
 		Self {
 			vocabulary,
@@ -28,8 +28,8 @@ impl<'a, V: Vocabulary, I> SerializeGraph<'a, V, I> {
 	}
 }
 
-impl<'a, V: Vocabulary, I: Interpretation> linked_data::GraphVisitor<V, I>
-	for SerializeGraph<'a, V, I>
+impl<'a, I: Interpretation, V: Vocabulary> linked_data::GraphVisitor<I, V>
+	for SerializeGraph<'a, I, V>
 where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
@@ -45,7 +45,7 @@ where
 
 	fn subject<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<V, I> + linked_data::LinkedDataSubject<V, I>,
+		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		let object = serialize_object_with(self.vocabulary, self.interpretation, value)?;
 		self.result

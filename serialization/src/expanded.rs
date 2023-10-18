@@ -23,13 +23,13 @@ use graph::SerializeGraph;
 pub use node::serialize_node_with;
 pub use object::serialize_object_with;
 
-pub struct SerializeExpandedDocument<'a, V: Vocabulary, I> {
+pub struct SerializeExpandedDocument<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
 	result: ExpandedDocument<V::Iri, V::BlankId>,
 }
 
-impl<'a, V: Vocabulary, I> SerializeExpandedDocument<'a, V, I> {
+impl<'a, I, V: Vocabulary> SerializeExpandedDocument<'a, I, V> {
 	pub fn new(vocabulary: &'a mut V, interpretation: &'a mut I) -> Self {
 		Self {
 			vocabulary,
@@ -39,8 +39,8 @@ impl<'a, V: Vocabulary, I> SerializeExpandedDocument<'a, V, I> {
 	}
 }
 
-impl<'a, V: Vocabulary, I: Interpretation> linked_data::Visitor<V, I>
-	for SerializeExpandedDocument<'a, V, I>
+impl<'a, I: Interpretation, V: Vocabulary> linked_data::Visitor<I, V>
+	for SerializeExpandedDocument<'a, I, V>
 where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
@@ -56,7 +56,7 @@ where
 
 	fn default_graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + linked_data::LinkedDataGraph<V, I>,
+		T: ?Sized + linked_data::LinkedDataGraph<I, V>,
 	{
 		let serializer =
 			SerializeDefaultGraph::new(self.vocabulary, self.interpretation, &mut self.result);
@@ -66,7 +66,7 @@ where
 
 	fn named_graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + linked_data::LinkedDataResource<V, I> + linked_data::LinkedDataGraph<V, I>,
+		T: ?Sized + linked_data::LinkedDataResource<I, V> + linked_data::LinkedDataGraph<I, V>,
 	{
 		let mut node = match value
 			.lexical_representation(self.vocabulary, self.interpretation)

@@ -52,10 +52,7 @@ impl<'a, M> ActiveProperty<'a, M> {
 
 impl<'a, M> Clone for ActiveProperty<'a, M> {
 	fn clone(&self) -> Self {
-		match self {
-			Self::Some(m) => Self::Some(*m),
-			Self::None => Self::None,
-		}
+		*self
 	}
 }
 

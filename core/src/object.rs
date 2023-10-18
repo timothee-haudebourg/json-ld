@@ -1,7 +1,7 @@
 //! Nodes, lists and values.
 use crate::{id, Id, Indexed, LenientLanguageTag, Relabel};
 use contextual::{IntoRefWithContext, WithContext};
-use derivative::Derivative;
+use educe::Educe;
 use indexmap::IndexSet;
 use iref::IriBuf;
 use json_ld_syntax::{Entry, IntoJsonWithContextMeta, Keyword};
@@ -114,8 +114,8 @@ pub type StrippedIndexedObject<T, B, M = ()> = Stripped<IndexedObject<T, B, M>>;
 /// expansion algorithm or by converting an already expanded JSON document
 /// using [`TryFromJson`].
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Derivative, Clone, Hash, StrippedHash)]
-#[derivative(
+#[derive(Educe, Clone, Hash, StrippedHash)]
+#[educe(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
 )]
@@ -513,8 +513,8 @@ impl<T, B, M> Indexed<Object<T, B, M>, M> {
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone)]
 pub enum Entries<'a, T, B, M> {
 	Value(value::Entries<'a, T, M>),
 	List(Option<list::EntryRef<'a, T, B, M>>),
@@ -545,8 +545,8 @@ impl<'a, T, B, M> Iterator for Entries<'a, T, B, M> {
 
 impl<'a, T, B, M> ExactSizeIterator for Entries<'a, T, B, M> {}
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone)]
 pub struct IndexedEntries<'a, T, B, M> {
 	index: Option<&'a str>,
 	inner: Entries<'a, T, B, M>,
@@ -570,8 +570,8 @@ impl<'a, T, B, M> Iterator for IndexedEntries<'a, T, B, M> {
 
 impl<'a, T, B, M> ExactSizeIterator for IndexedEntries<'a, T, B, M> {}
 
-#[derive(Derivative, PartialEq, Eq)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe, PartialEq, Eq)]
+#[educe(Clone, Copy)]
 pub enum EntryKeyRef<'a, T, B, M> {
 	Value(value::EntryKey),
 	List(&'a M),
@@ -624,16 +624,16 @@ impl<'a, T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, st
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum EntryValueRef<'a, T, B, M> {
 	Value(value::EntryRef<'a, T, M>),
 	List(list::EntryValueRef<'a, T, B, M>),
 	Node(node::EntryValueRef<'a, T, B, M>),
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum EntryRef<'a, T, B, M> {
 	Value(value::EntryRef<'a, T, M>),
 	List(list::EntryRef<'a, T, B, M>),
@@ -684,8 +684,8 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 	}
 }
 
-#[derive(Derivative, PartialEq, Eq)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe, PartialEq, Eq)]
+#[educe(Clone, Copy)]
 pub enum IndexedEntryKeyRef<'a, T, B, M> {
 	Index,
 	Object(EntryKeyRef<'a, T, B, M>),
@@ -734,15 +734,15 @@ impl<'a, T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, st
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum IndexedEntryValueRef<'a, T, B, M> {
 	Index(&'a str),
 	Object(EntryValueRef<'a, T, B, M>),
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum IndexedEntryRef<'a, T, B, M> {
 	Index(&'a str),
 	Object(EntryRef<'a, T, B, M>),

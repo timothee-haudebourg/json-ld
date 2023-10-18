@@ -514,10 +514,7 @@ impl<'a, T, B, M> TermDefinitionRef<'a, T, B, M> {
 
 impl<'a, T, B, M> Clone for TermDefinitionRef<'a, T, B, M> {
 	fn clone(&self) -> Self {
-		match self {
-			Self::Type(d) => Self::Type(d),
-			Self::Normal(d) => Self::Normal(*d),
-		}
+		*self
 	}
 }
 

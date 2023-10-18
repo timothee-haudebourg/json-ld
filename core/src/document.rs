@@ -101,31 +101,31 @@ impl<I, B, M> serde::Serialize for Document<I, B, M> {
 	}
 }
 
-impl<V: Vocabulary, I: Interpretation, M> LinkedData<V, I> for Document<V::Iri, V::BlankId, M>
+impl<V: Vocabulary, I: Interpretation, M> LinkedData<I, V> for Document<V::Iri, V::BlankId, M>
 where
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
-	V::Iri: LinkedDataSubject<V, I> + LinkedDataResource<V, I>,
-	V::BlankId: LinkedDataSubject<V, I> + LinkedDataResource<V, I>,
+	V::Iri: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
+	V::BlankId: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
 	M: Clone,
 {
 	fn visit<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::Visitor<V, I>,
+		S: linked_data::Visitor<I, V>,
 	{
 		self.expanded.value().visit(visitor)
 	}
 }
 
-impl<V: Vocabulary, I: Interpretation, M> LinkedDataGraph<V, I> for Document<V::Iri, V::BlankId, M>
+impl<V: Vocabulary, I: Interpretation, M> LinkedDataGraph<I, V> for Document<V::Iri, V::BlankId, M>
 where
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
-	V::Iri: LinkedDataSubject<V, I> + LinkedDataResource<V, I>,
-	V::BlankId: LinkedDataSubject<V, I> + LinkedDataResource<V, I>,
+	V::Iri: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
+	V::BlankId: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
 	M: Clone,
 {
 	fn visit_graph<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::GraphVisitor<V, I>,
+		S: linked_data::GraphVisitor<I, V>,
 	{
 		self.expanded.value().visit_graph(visitor)
 	}

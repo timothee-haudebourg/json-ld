@@ -6,17 +6,17 @@ use crate::ExpandedDocument;
 
 mod object;
 
-impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<V, I>
+impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V>
 	for ExpandedDocument<T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::GraphVisitor<V, I>,
+		S: linked_data::GraphVisitor<I, V>,
 	{
 		for Stripped(Meta(object, _)) in self {
 			visitor.subject(object.inner())?;
@@ -26,17 +26,17 @@ where
 	}
 }
 
-impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<V, I>
+impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V>
 	for ExpandedDocument<T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::Visitor<V, I>,
+		S: linked_data::Visitor<I, V>,
 	{
 		visitor.default_graph(self)?;
 		visitor.end()

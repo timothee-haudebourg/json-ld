@@ -1,5 +1,5 @@
 use crate::{object, Direction, LangString, LenientLanguageTag};
-use derivative::Derivative;
+use educe::Educe;
 use iref::{Iri, IriBuf};
 use json_ld_syntax::{IntoJsonWithContextMeta, Keyword};
 use json_syntax::{Number, NumberBuf};
@@ -26,8 +26,8 @@ impl<T> Type<T> {
 }
 
 /// Value type reference.
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum TypeRef<'a, T> {
 	Json,
 	Id(&'a T),
@@ -363,8 +363,8 @@ impl<T, B, M> object::Any<T, B, M> for Value<T, M> {
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum EntryRef<'a, T, M> {
 	Value(ValueEntryRef<'a, M>),
 	Type(TypeRef<'a, T>),
@@ -405,8 +405,8 @@ impl<'a, T, M> EntryRef<'a, T, M> {
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""), Copy(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone, Copy)]
 pub enum EntryValueRef<'a, T, M> {
 	Value(ValueEntryRef<'a, M>),
 	Type(TypeRef<'a, T>),
@@ -421,11 +421,7 @@ pub enum ValueEntryRef<'a, M> {
 
 impl<'a, M> Clone for ValueEntryRef<'a, M> {
 	fn clone(&self) -> Self {
-		match self {
-			Self::Literal(l) => Self::Literal(l),
-			Self::LangString(l) => Self::LangString(l),
-			Self::Json(v) => Self::Json(*v),
-		}
+		*self
 	}
 }
 
@@ -467,8 +463,8 @@ impl EntryKey {
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Clone(bound = ""))]
+#[derive(Educe)]
+#[educe(Clone)]
 pub struct Entries<'a, T, M> {
 	value: Option<ValueEntryRef<'a, M>>,
 	type_: Option<TypeRef<'a, T>>,

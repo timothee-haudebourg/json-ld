@@ -24,7 +24,7 @@ locspan = { workspace = true, features = ["indexmap"] }
 locspan-derive.workspace = true
 contextual.workspace = true
 log.workspace = true
-derivative.workspace = true
+educe.workspace = true
 mown.workspace = true
 iref.workspace = true
 static-iref.workspace = true

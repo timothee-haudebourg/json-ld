@@ -15,14 +15,14 @@ use crate::Error;
 
 use super::object::serialize_object_with;
 
-pub struct SerializeList<'a, V: Vocabulary, I> {
+pub struct SerializeList<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
 	first: Option<Object<V::Iri, V::BlankId>>,
 	rest: Vec<IndexedObject<V::Iri, V::BlankId>>,
 }
 
-impl<'a, V: Vocabulary, I> SerializeList<'a, V, I> {
+impl<'a, I, V: Vocabulary> SerializeList<'a, I, V> {
 	pub fn new(vocabulary: &'a mut V, interpretation: &'a mut I) -> Self {
 		Self {
 			vocabulary,
@@ -33,8 +33,8 @@ impl<'a, V: Vocabulary, I> SerializeList<'a, V, I> {
 	}
 }
 
-impl<'a, V: Vocabulary, I: Interpretation> linked_data::SubjectVisitor<V, I>
-	for SerializeList<'a, V, I>
+impl<'a, I: Interpretation, V: Vocabulary> linked_data::SubjectVisitor<I, V>
+	for SerializeList<'a, I, V>
 where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
@@ -50,8 +50,8 @@ where
 
 	fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
 	where
-		L: ?Sized + LinkedDataResource<V, I>,
-		T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
+		L: ?Sized + LinkedDataResource<I, V>,
+		T: ?Sized + linked_data::LinkedDataPredicateObjects<I, V>,
 	{
 		let repr = predicate
 			.interpretation(self.vocabulary, self.interpretation)
@@ -81,22 +81,22 @@ where
 
 	fn reverse_predicate<L, T>(&mut self, _predicate: &L, _subjects: &T) -> Result<(), Self::Error>
 	where
-		L: ?Sized + LinkedDataResource<V, I>,
-		T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
+		L: ?Sized + LinkedDataResource<I, V>,
+		T: ?Sized + linked_data::LinkedDataPredicateObjects<I, V>,
 	{
 		Err(Error::ListReverseProperty)
 	}
 
 	fn graph<T>(&mut self, _value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + linked_data::LinkedDataGraph<V, I>,
+		T: ?Sized + linked_data::LinkedDataGraph<I, V>,
 	{
 		Ok(())
 	}
 
 	fn include<T>(&mut self, _value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<V, I> + linked_data::LinkedDataSubject<V, I>,
+		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		Err(Error::ListInclude)
 	}
@@ -109,13 +109,13 @@ where
 	}
 }
 
-pub struct SerializeListFirst<'a, V: Vocabulary, I> {
+pub struct SerializeListFirst<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
 	result: Option<Object<V::Iri, V::BlankId>>,
 }
 
-impl<'a, V: Vocabulary, I> SerializeListFirst<'a, V, I> {
+impl<'a, I, V: Vocabulary> SerializeListFirst<'a, I, V> {
 	pub fn new(vocabulary: &'a mut V, interpretation: &'a mut I) -> Self {
 		Self {
 			vocabulary,
@@ -125,8 +125,8 @@ impl<'a, V: Vocabulary, I> SerializeListFirst<'a, V, I> {
 	}
 }
 
-impl<'a, V: Vocabulary, I: Interpretation> linked_data::PredicateObjectsVisitor<V, I>
-	for SerializeListFirst<'a, V, I>
+impl<'a, I: Interpretation, V: Vocabulary> linked_data::PredicateObjectsVisitor<I, V>
+	for SerializeListFirst<'a, I, V>
 where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
@@ -142,7 +142,7 @@ where
 
 	fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<V, I> + linked_data::LinkedDataSubject<V, I>,
+		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		self.result = Some(serialize_object_with(
 			self.vocabulary,
@@ -157,13 +157,13 @@ where
 	}
 }
 
-pub struct SerializeListRest<'a, V: Vocabulary, I> {
+pub struct SerializeListRest<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
 	result: Vec<IndexedObject<V::Iri, V::BlankId>>,
 }
 
-impl<'a, V: Vocabulary, I> SerializeListRest<'a, V, I> {
+impl<'a, I, V: Vocabulary> SerializeListRest<'a, I, V> {
 	pub fn new(vocabulary: &'a mut V, interpretation: &'a mut I) -> Self {
 		Self {
 			vocabulary,
@@ -173,8 +173,8 @@ impl<'a, V: Vocabulary, I> SerializeListRest<'a, V, I> {
 	}
 }
 
-impl<'a, V: Vocabulary, I: Interpretation> linked_data::PredicateObjectsVisitor<V, I>
-	for SerializeListRest<'a, V, I>
+impl<'a, I: Interpretation, V: Vocabulary> linked_data::PredicateObjectsVisitor<I, V>
+	for SerializeListRest<'a, I, V>
 where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
@@ -190,7 +190,7 @@ where
 
 	fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<V, I> + linked_data::LinkedDataSubject<V, I>,
+		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		let serializer = SerializeList::new(self.vocabulary, self.interpretation);
 		self.result = value.visit_subject(serializer)?;

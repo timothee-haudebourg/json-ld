@@ -44,7 +44,7 @@ pub fn serialize(value: &impl LinkedData) -> Result<ExpandedDocument, Error> {
 pub fn serialize_with<V: Vocabulary, I: Interpretation>(
 	vocabulary: &mut V,
 	interpretation: &mut I,
-	value: &impl LinkedData<V, I>,
+	value: &impl LinkedData<I, V>,
 ) -> Result<ExpandedDocument<V::Iri, V::BlankId>, Error>
 where
 	V: IriVocabularyMut,

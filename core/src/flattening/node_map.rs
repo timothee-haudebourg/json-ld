@@ -1,6 +1,6 @@
 use super::Environment;
 use crate::{id, object, ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object};
-use derivative::Derivative;
+use educe::Educe;
 use indexmap::IndexSet;
 use json_ld_syntax::Entry;
 use locspan::{BorrowStripped, Meta, Stripped};
@@ -25,8 +25,8 @@ pub type Parts<T, B, M> = (
 );
 
 /// Node identifier to node definition map.
-#[derive(Derivative)]
-#[derivative(Default(bound = ""))]
+#[derive(Educe)]
+#[educe(Default)]
 pub struct NodeMap<T, B, M> {
 	graphs: HashMap<Id<T, B>, NamedNodeMapGraph<T, B, M>>,
 	default_graph: NodeMapGraph<T, B, M>,
@@ -187,8 +187,8 @@ impl<T, B, M> IntoIterator for NodeMap<T, B, M> {
 	}
 }
 
-#[derive(Derivative)]
-#[derivative(Default(bound = ""))]
+#[derive(Educe)]
+#[educe(Default)]
 pub struct NodeMapGraph<T, B, M> {
 	nodes: HashMap<Id<T, B>, IndexedNode<T, B, M>>,
 }

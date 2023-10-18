@@ -17,7 +17,7 @@ use super::{
 
 /// Serialize the given Linked-Data value into a JSON-LD node object using a
 /// custom vocabulary and interpretation.
-pub fn serialize_node_with<V: Vocabulary, I: Interpretation, T>(
+pub fn serialize_node_with<I: Interpretation, V: Vocabulary, T>(
 	vocabulary: &mut V,
 	interpretation: &mut I,
 	value: &T,
@@ -31,7 +31,7 @@ where
 	I: ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,
-	T: ?Sized + LinkedDataResource<V, I> + linked_data::LinkedDataSubject<V, I>,
+	T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 {
 	let id = match value
 		.lexical_representation(vocabulary, interpretation)
@@ -47,13 +47,13 @@ where
 	value.visit_subject(serializer)
 }
 
-pub struct SerializeNode<'a, V: Vocabulary, I> {
+pub struct SerializeNode<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
 	result: Node<V::Iri, V::BlankId>,
 }
 
-impl<'a, V: Vocabulary, I> SerializeNode<'a, V, I> {
+impl<'a, I, V: Vocabulary> SerializeNode<'a, I, V> {
 	pub fn new(
 		vocabulary: &'a mut V,
 		interpretation: &'a mut I,
@@ -72,8 +72,8 @@ impl<'a, V: Vocabulary, I> SerializeNode<'a, V, I> {
 	}
 }
 
-impl<'a, V: Vocabulary, I: Interpretation> linked_data::SubjectVisitor<V, I>
-	for SerializeNode<'a, V, I>
+impl<'a, I: Interpretation, V: Vocabulary> linked_data::SubjectVisitor<I, V>
+	for SerializeNode<'a, I, V>
 where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
@@ -89,8 +89,8 @@ where
 
 	fn predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
 	where
-		L: ?Sized + LinkedDataResource<V, I>,
-		T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
+		L: ?Sized + LinkedDataResource<I, V>,
+		T: ?Sized + linked_data::LinkedDataPredicateObjects<I, V>,
 	{
 		let prop = match predicate
 			.lexical_representation(self.vocabulary, self.interpretation)
@@ -110,8 +110,8 @@ where
 
 	fn reverse_predicate<L, T>(&mut self, predicate: &L, value: &T) -> Result<(), Self::Error>
 	where
-		L: ?Sized + LinkedDataResource<V, I>,
-		T: ?Sized + linked_data::LinkedDataPredicateObjects<V, I>,
+		L: ?Sized + LinkedDataResource<I, V>,
+		T: ?Sized + linked_data::LinkedDataPredicateObjects<I, V>,
 	{
 		let prop = match predicate
 			.lexical_representation(self.vocabulary, self.interpretation)
@@ -133,7 +133,7 @@ where
 
 	fn include<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + LinkedDataResource<V, I> + linked_data::LinkedDataSubject<V, I>,
+		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		let node = serialize_node_with(self.vocabulary, self.interpretation, value)?;
 
@@ -145,7 +145,7 @@ where
 
 	fn graph<T>(&mut self, value: &T) -> Result<(), Self::Error>
 	where
-		T: ?Sized + linked_data::LinkedDataGraph<V, I>,
+		T: ?Sized + linked_data::LinkedDataGraph<I, V>,
 	{
 		let serializer = SerializeGraph::new(self.vocabulary, self.interpretation);
 

@@ -7,16 +7,16 @@ use rdf_types::{Interpretation, IriVocabularyMut, LanguageTagVocabularyMut, Voca
 
 use crate::{rdf::RDF_TYPE, Node, StrippedIndexedNode, StrippedIndexedObject};
 
-impl<T, B, M, V: Vocabulary, I: Interpretation> LinkedDataResource<V, I> for Node<T, B, M>
+impl<T, B, M, V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Node<T, B, M>
 where
-	T: LinkedDataResource<V, I>,
-	B: LinkedDataResource<V, I>,
+	T: LinkedDataResource<I, V>,
+	B: LinkedDataResource<I, V>,
 {
 	fn interpretation(
 		&self,
 		vocabulary: &mut V,
 		interpretation: &mut I,
-	) -> ResourceInterpretation<V, I> {
+	) -> ResourceInterpretation<I, V> {
 		match self.id() {
 			Some(Meta(crate::Id::Valid(id), _)) => id.interpretation(vocabulary, interpretation),
 			_ => ResourceInterpretation::Uninterpreted(None),
@@ -24,16 +24,16 @@ where
 	}
 }
 
-impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataSubject<V, I> for Node<T, B, M>
+impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataSubject<I, V> for Node<T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit_subject<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::SubjectVisitor<V, I>,
+		S: linked_data::SubjectVisitor<I, V>,
 	{
 		if !self.types().is_empty() {
 			visitor.predicate(RDF_TYPE, &Types(self.types()))?;
@@ -67,33 +67,33 @@ where
 	}
 }
 
-impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<V, I>
+impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
 	for Node<T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<V, I>,
+		S: linked_data::PredicateObjectsVisitor<I, V>,
 	{
 		visitor.object(self)?;
 		visitor.end()
 	}
 }
 
-impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<V, I> for Node<T, B, M>
+impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V> for Node<T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::GraphVisitor<V, I>,
+		S: linked_data::GraphVisitor<I, V>,
 	{
 		match self.graph() {
 			Some(g) => {
@@ -110,16 +110,16 @@ where
 	}
 }
 
-impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<V, I> for Node<T, B, M>
+impl<T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V> for Node<T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::Visitor<V, I>,
+		S: linked_data::Visitor<I, V>,
 	{
 		if self.is_graph() {
 			visitor.named_graph(self)?;
@@ -133,17 +133,17 @@ where
 
 struct Types<'a, T, B, M>(&'a [Meta<crate::Id<T, B>, M>]);
 
-impl<'a, T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<V, I>
+impl<'a, T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
 	for Types<'a, T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<V, I>,
+		S: linked_data::PredicateObjectsVisitor<I, V>,
 	{
 		for Meta(ty, _) in self.0 {
 			if let crate::Id::Valid(id) = ty {
@@ -157,17 +157,17 @@ where
 
 struct Objects<'a, T, B, M>(&'a [StrippedIndexedObject<T, B, M>]);
 
-impl<'a, T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<V, I>
+impl<'a, T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
 	for Objects<'a, T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<V, I>,
+		S: linked_data::PredicateObjectsVisitor<I, V>,
 	{
 		for Stripped(Meta(object, _)) in self.0 {
 			visitor.object(object.inner())?;
@@ -179,17 +179,17 @@ where
 
 struct Nodes<'a, T, B, M>(&'a [StrippedIndexedNode<T, B, M>]);
 
-impl<'a, T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<V, I>
+impl<'a, T, B, M, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects<I, V>
 	for Nodes<'a, T, B, M>
 where
-	T: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
-	B: LinkedDataResource<V, I> + LinkedDataSubject<V, I>,
+	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
+	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	M: Clone,
 	V: IriVocabularyMut + LanguageTagVocabularyMut,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::PredicateObjectsVisitor<V, I>,
+		S: linked_data::PredicateObjectsVisitor<I, V>,
 	{
 		for Stripped(Meta(node, _)) in self.0 {
 			visitor.object(node.inner())?;
