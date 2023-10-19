@@ -14,7 +14,7 @@ use std::{
 };
 
 /// Property set entry.
-#[derive(Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash)]
 #[locspan(ignore(M))]
 pub struct Entry<T, M> {
 	/// Property key metadata.
@@ -65,7 +65,7 @@ impl<T, M> ops::DerefMut for Entry<T, M> {
 pub type PropertyObjects<T, B, M = ()> = Multiset<StrippedIndexedObject<T, B, M>>;
 
 /// Properties of a node object, and their associated objects.
-#[derive(Educe, Clone)]
+#[derive(Educe, Debug, Clone)]
 #[educe(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")

@@ -156,7 +156,7 @@ impl<I, M> RemoteContextReference<I, M> {
 /// Remote document.
 ///
 /// Stores the content of a loaded remote document along with its original URL.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct RemoteDocument<I = IriBuf, M = (), T = json_syntax::Value<M>> {
 	/// The final URL of the loaded document, after eventual redirection.
 	url: Option<I>,

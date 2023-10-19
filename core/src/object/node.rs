@@ -71,7 +71,7 @@ pub type StrippedIndexedNode<T = IriBuf, B = BlankIdBuf, M = ()> = Stripped<Inde
 /// (`@included` field).
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
-#[derive(Educe, Clone)]
+#[derive(Educe, Debug, Clone)]
 #[educe(Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq"))]
 pub struct Node<T = IriBuf, B = BlankIdBuf, M = ()> {
 	/// Identifier.

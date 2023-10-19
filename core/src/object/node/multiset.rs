@@ -1,6 +1,6 @@
 use std::hash::{BuildHasher, Hash, Hasher};
 
-#[derive(Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct DeterministicHasherBuilder;
 
 impl BuildHasher for DeterministicHasherBuilder {
@@ -15,7 +15,7 @@ use json_ld_syntax::{IntoJsonWithContext, IntoJsonWithContextMeta};
 use locspan::{Meta, StrippedEq, StrippedHash, StrippedPartialEq};
 
 /// Multi-set of values.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Multiset<T, S = DeterministicHasherBuilder> {
 	data: Vec<T>,
 	hasher: S,

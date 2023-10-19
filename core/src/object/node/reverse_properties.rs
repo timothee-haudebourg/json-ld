@@ -18,7 +18,7 @@ pub type ReversePropertyNodes<T = IriBuf, B = BlankIdBuf, M = ()> =
 	Multiset<Stripped<IndexedNode<T, B, M>>>;
 
 /// Reverse properties of a node object, and their associated nodes.
-#[derive(Educe, Clone)]
+#[derive(Educe, Debug, Clone)]
 #[educe(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")
