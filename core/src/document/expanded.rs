@@ -13,6 +13,7 @@ use std::hash::Hash;
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
+#[derive(Debug, Clone)]
 pub struct ExpandedDocument<T = IriBuf, B = BlankIdBuf, M = ()>(
 	IndexSet<StrippedIndexedObject<T, B, M>>,
 );

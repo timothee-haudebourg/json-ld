@@ -9,7 +9,7 @@ use rdf_types::{Subject, Vocabulary, VocabularyMut};
 use std::hash::Hash;
 
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Educe, Clone, Hash, StrippedHash)]
+#[derive(Educe, Debug, Clone, Hash, StrippedHash)]
 #[educe(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")

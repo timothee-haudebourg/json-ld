@@ -114,7 +114,7 @@ pub type StrippedIndexedObject<T, B, M = ()> = Stripped<IndexedObject<T, B, M>>;
 /// expansion algorithm or by converting an already expanded JSON document
 /// using [`TryFromJson`].
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Educe, Clone, Hash, StrippedHash)]
+#[derive(Educe, Debug, Clone, Hash, StrippedHash)]
 #[educe(
 	PartialEq(bound = "T: Eq + Hash, B: Eq + Hash, M: PartialEq"),
 	Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq")

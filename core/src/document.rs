@@ -17,6 +17,7 @@ pub use flattened::FlattenedDocument;
 use crate::RemoteDocument;
 
 /// JSON-LD document in both compact and expanded form.
+#[derive(Debug, Clone)]
 pub struct Document<I = IriBuf, B = BlankIdBuf, M = ()> {
 	remote: RemoteDocument<I, M>,
 	expanded: Meta<ExpandedDocument<I, B, M>, M>,

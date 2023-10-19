@@ -50,7 +50,7 @@ impl<'a, T> TypeRef<'a, T> {
 }
 
 /// Literal value.
-#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Literal {
 	/// The `null` value.
 	Null,
@@ -122,6 +122,7 @@ impl Literal {
 ///
 /// Either a typed literal value, or an internationalized language string.
 #[derive(
+	Debug,
 	Clone,
 	PartialEq,
 	Eq,
