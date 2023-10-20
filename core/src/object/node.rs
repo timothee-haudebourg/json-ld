@@ -582,6 +582,11 @@ impl<T, B, M> Node<T, B, M> {
 		Traverse::new(Some(super::FragmentRef::Node(self)))
 	}
 
+	#[inline(always)]
+	pub fn count(&self, f: impl FnMut(&super::FragmentRef<T, B, M>) -> bool) -> usize {
+		self.traverse().filter(f).count()
+	}
+
 	pub fn entries(&self) -> Entries<T, B, M> {
 		Entries {
 			id: self.id.as_ref(),

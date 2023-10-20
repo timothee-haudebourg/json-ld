@@ -55,6 +55,21 @@ impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> PrintWithContext<N>
 	}
 }
 
+impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> PrintWithContext<N> for object::Node<T, B, M> {
+	fn contextual_fmt_with(
+		&self,
+		vocabulary: &N,
+		f: &mut std::fmt::Formatter,
+		options: &Options,
+		indent: usize,
+	) -> std::fmt::Result {
+		let mut sizes = Vec::with_capacity(self.count(|i| i.is_json_array() || i.is_json_object()));
+		self.contextual_pre_compute_size(vocabulary, options, &mut sizes);
+		let mut index = 0;
+		self.contextual_fmt_with_size(vocabulary, f, options, indent, &sizes, &mut index)
+	}
+}
+
 impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> PrintWithSizeAndContext<N>
 	for ExpandedDocument<T, B, M>
 {
