@@ -22,7 +22,7 @@ use content_type::*;
 use link::*;
 
 /// Loader options.
-pub struct Options<I> {
+pub struct Options<I, F> {
 	/// One or more IRIs to use in the request as a profile parameter.
 	///
 	/// (See [IANA Considerations](https://www.w3.org/TR/json-ld11/#iana-considerations)).
@@ -32,13 +32,17 @@ pub struct Options<I> {
 	///
 	/// Defaults to 8.
 	pub max_redirections: usize,
+
+	/// A function or closure building the reqwest engine
+	pub reqwest_factory: F,
 }
 
-impl<I> Default for Options<I> {
+impl<I> Default for Options<I, fn() -> reqwest::Client> {
 	fn default() -> Self {
 		Self {
 			request_profile: Vec::new(),
 			max_redirections: 8,
+			reqwest_factory: reqwest::Client::new,
 		}
 	}
 }
@@ -104,13 +108,14 @@ pub struct ReqwestLoader<
 	M = locspan::Location<I>,
 	T = json_ld_syntax::Value<M>,
 	E = ParseError<M>,
+	F = fn() -> reqwest::Client,
 > {
 	parser: Box<DynParser<I, M, T, E>>,
-	options: Options<I>,
+	options: Options<I, F>,
 	data: OnceCell<Data>,
 }
 
-impl<I, M, T, E> ReqwestLoader<I, M, T, E> {
+impl<I, M, T, E> ReqwestLoader<I, M, T, E, fn() -> reqwest::Client> {
 	/// Creates a new loader with the given parsing function.
 	pub fn new(
 		parser: impl 'static
@@ -120,14 +125,16 @@ impl<I, M, T, E> ReqwestLoader<I, M, T, E> {
 	) -> Self {
 		Self::new_using(parser, Options::default())
 	}
+}
 
+impl<I, M, T, E, F> ReqwestLoader<I, M, T, E, F> {
 	/// Creates a new leader with the given parsing function and options.
 	pub fn new_using(
 		parser: impl 'static
 			+ Send
 			+ Sync
 			+ FnMut(&dyn IriVocabulary<Iri = I>, &I, Bytes) -> Result<Meta<T, M>, E>,
-		options: Options<I>,
+		options: Options<I, F>,
 	) -> Self {
 		Self {
 			parser: Box::new(parser),
@@ -143,7 +150,7 @@ struct Data {
 }
 
 impl Data {
-	fn new<I>(options: &Options<I>, vocabulary: &impl IriVocabulary<Iri = I>) -> Self {
+	fn new<I, F>(options: &Options<I, F>, vocabulary: &impl IriVocabulary<Iri = I>) -> Self {
 		let mut json_ld_params = String::new();
 
 		if !options.request_profile.is_empty() {
@@ -219,8 +226,10 @@ impl<M> fmt::Display for ParseError<M> {
 	}
 }
 
-impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, M>
-	for ReqwestLoader<I, M, T, E>
+impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E, F: Send> Loader<I, M>
+	for ReqwestLoader<I, M, T, E, F>
+where
+	F: Fn() -> reqwest::Client,
 {
 	type Output = T;
 	type Error = Error<E>;
@@ -245,7 +254,7 @@ impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, 
 				}
 
 				log::debug!("downloading: {}", vocabulary.iri(&url).unwrap().as_str());
-				let client = reqwest::Client::new();
+				let client = (self.options.reqwest_factory)();
 				let request = client
 					.get(vocabulary.iri(&url).unwrap().as_str())
 					.header(ACCEPT, &data.accept_header);
