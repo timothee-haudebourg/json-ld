@@ -66,9 +66,12 @@ where
 
 					CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(value)))
 				}
-				Literal::String(s) => CowRdfTerm::Borrowed(Term::Literal(RdfLiteralRef::Xsd(
-					xsd_types::ValueRef::String(s),
-				))),
+				Literal::String(s) => match ty {
+					Some(ty) => CowRdfTerm::from_str(vocabulary, s.as_str(), ty),
+					None => CowRdfTerm::Borrowed(Term::Literal(RdfLiteralRef::Xsd(
+						xsd_types::ValueRef::String(s),
+					))),
+				},
 			},
 			Self::LangString(s) => match s.language().and_then(|l| l.as_language_tag()) {
 				Some(tag) => {
