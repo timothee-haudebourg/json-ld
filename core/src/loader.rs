@@ -20,6 +20,12 @@ pub mod reqwest;
 #[cfg(feature = "reqwest")]
 pub use self::reqwest::ReqwestLoader;
 
+#[cfg(feature = "fileurl")]
+pub mod fileurl;
+
+#[cfg(feature = "fileurl")]
+pub use self::fileurl::FileUrlLoader;
+
 pub type LoadingResult<I, M, O, E> = Result<RemoteDocument<I, M, O>, E>;
 
 /// Remote document, loaded or not.
