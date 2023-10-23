@@ -8,9 +8,11 @@ use rdf_types::{IriVocabulary, IriVocabularyMut};
 use static_iref::iri;
 use std::fmt;
 
+pub mod chain;
 pub mod fs;
 pub mod none;
 
+pub use chain::ChainLoader;
 pub use fs::FsLoader;
 pub use none::NoLoader;
 
