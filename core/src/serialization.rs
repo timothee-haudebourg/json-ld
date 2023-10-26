@@ -215,9 +215,12 @@ fn is_anonymous<I: ReverseTermInterpretation>(interpretation: &I, id: &I::Resour
 }
 
 pub enum SerializationError {
-	InvalidJson(json_syntax::parse::Error<(), std::convert::Infallible>),
-	InvalidBoolean(String),
-	Number(String),
+	InvalidJson(
+		linked_data::ContextIris,
+		json_syntax::parse::Error<(), std::convert::Infallible>,
+	),
+	InvalidBoolean(linked_data::ContextIris, String),
+	Number(linked_data::ContextIris, String),
 }
 
 #[derive(Clone, Copy)]
@@ -228,12 +231,13 @@ pub struct RdfTerms<R> {
 }
 
 impl<I, B> ExpandedDocument<I, B> {
-	pub fn from_interpreted_quads<'a, V, T>(
+	pub fn from_interpreted_quads_in<'a, V, T>(
 		vocabulary: &V,
 		interpretation: &T,
 		quads: impl IntoIterator<
 			Item = Quad<&'a T::Resource, &'a T::Resource, &'a T::Resource, &'a T::Resource>,
 		>,
+		context: linked_data::Context<T>,
 	) -> Result<Self, SerializationError>
 	where
 		V: Vocabulary<
@@ -357,11 +361,39 @@ impl<I, B> ExpandedDocument<I, B> {
 					&graph,
 					id,
 					resource,
+					context,
 				)?);
 			}
 		}
 
 		Ok(result)
+	}
+
+	pub fn from_interpreted_quads<'a, V, T>(
+		vocabulary: &V,
+		interpretation: &T,
+		quads: impl IntoIterator<
+			Item = Quad<&'a T::Resource, &'a T::Resource, &'a T::Resource, &'a T::Resource>,
+		>,
+	) -> Result<Self, SerializationError>
+	where
+		V: Vocabulary<
+			Iri = I,
+			BlankId = B,
+			Type = literal::Type<I, <V as LanguageTagVocabulary>::LanguageTag>,
+		>,
+		T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal>,
+		T::Resource: 'a + Ord + Hash,
+		I: Clone + Eq + Hash,
+		B: Clone + Eq + Hash,
+		V::Value: AsRef<str>,
+	{
+		Self::from_interpreted_quads_in(
+			vocabulary,
+			interpretation,
+			quads,
+			linked_data::Context::default(),
+		)
 	}
 }
 
@@ -372,6 +404,7 @@ fn render_object<V, I>(
 	graph: &SerGraph<&I::Resource>,
 	id: &I::Resource,
 	resource: &SerResource<&I::Resource>,
+	context: linked_data::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
 	V: Vocabulary<
@@ -383,8 +416,9 @@ where
 	V::Value: AsRef<str>,
 	I::Resource: Ord,
 {
+	let context = context.with_subject(id);
 	if resource.is_empty() {
-		render_reference(vocabulary, interpretation, id)
+		render_reference(vocabulary, interpretation, id, context)
 	} else {
 		match &resource.list.values {
 			Some(values) => {
@@ -397,6 +431,7 @@ where
 						rdf_terms,
 						graph,
 						value,
+						context,
 					)?);
 				}
 
@@ -437,6 +472,7 @@ where
 								graph,
 								id,
 								resource,
+								context,
 							)?));
 						}
 					}
@@ -445,44 +481,43 @@ where
 				}
 
 				for (prop, objects) in &resource.properties {
-					if let Some(prop) = id_of(interpretation, *prop) {
-						insert_property(
-							vocabulary,
-							interpretation,
-							rdf_terms,
-							graph,
-							&mut node,
-							prop,
-							objects.iter().copied(),
-						)?;
-					}
-				}
-
-				if !resource.list.first.is_empty() {
-					let rdf_first_id = rdf_terms.first.unwrap();
-					let rdf_first = id_of(interpretation, rdf_first_id).unwrap();
 					insert_property(
 						vocabulary,
 						interpretation,
 						rdf_terms,
 						graph,
 						&mut node,
-						rdf_first,
+						prop,
+						objects.iter().copied(),
+						context,
+					)?;
+				}
+
+				if !resource.list.first.is_empty() {
+					let rdf_first_id = rdf_terms.first.unwrap();
+					insert_property(
+						vocabulary,
+						interpretation,
+						rdf_terms,
+						graph,
+						&mut node,
+						rdf_first_id,
 						resource.list.first.iter().copied(),
+						context,
 					)?;
 				}
 
 				if !resource.list.rest.is_empty() {
 					let rdf_rest_id = rdf_terms.rest.unwrap();
-					let rdf_rest = id_of(interpretation, rdf_rest_id).unwrap();
 					insert_property(
 						vocabulary,
 						interpretation,
 						rdf_terms,
 						graph,
 						&mut node,
-						rdf_rest,
+						rdf_rest_id,
 						resource.list.rest.iter().copied(),
+						context,
 					)?;
 				}
 
@@ -498,8 +533,9 @@ fn insert_property<'a, V, I, O>(
 	rdf_terms: RdfTerms<&'a I::Resource>,
 	graph: &SerGraph<&'a I::Resource>,
 	node: &mut Node<V::Iri, V::BlankId>,
-	prop: Id<V::Iri, V::BlankId>,
+	prop: &I::Resource,
 	values: O,
+	context: linked_data::Context<I>,
 ) -> Result<(), SerializationError>
 where
 	V: Vocabulary<
@@ -513,22 +549,40 @@ where
 	O: IntoIterator<Item = &'a I::Resource>,
 	O::IntoIter: ExactSizeIterator,
 {
-	let mut values = values.into_iter();
+	let context = context.with_predicate(prop);
+	match id_of(interpretation, prop) {
+		Some(prop) => {
+			let mut values = values.into_iter();
 
-	while values.len() > 1 {
-		let value = values.next().unwrap();
-		let Meta(v, _) =
-			render_object_or_reference(vocabulary, interpretation, rdf_terms, graph, value)?;
-		node.insert(prop.clone(), v);
+			while values.len() > 1 {
+				let value = values.next().unwrap();
+				let Meta(v, _) = render_object_or_reference(
+					vocabulary,
+					interpretation,
+					rdf_terms,
+					graph,
+					value,
+					context,
+				)?;
+				node.insert(prop.clone(), v);
+			}
+
+			if let Some(value) = values.next() {
+				let Meta(v, _) = render_object_or_reference(
+					vocabulary,
+					interpretation,
+					rdf_terms,
+					graph,
+					value,
+					context,
+				)?;
+				node.insert(prop, v);
+			}
+
+			Ok(())
+		}
+		None => Ok(()),
 	}
-
-	if let Some(value) = values.next() {
-		let Meta(v, _) =
-			render_object_or_reference(vocabulary, interpretation, rdf_terms, graph, value)?;
-		node.insert(prop, v);
-	}
-
-	Ok(())
 }
 
 fn render_object_or_reference<V, I>(
@@ -537,6 +591,7 @@ fn render_object_or_reference<V, I>(
 	rdf_terms: RdfTerms<&I::Resource>,
 	graph: &SerGraph<&I::Resource>,
 	id: &I::Resource,
+	context: linked_data::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
 	V: Vocabulary<
@@ -551,12 +606,20 @@ where
 	match graph.get(&id) {
 		Some(resource) => {
 			if resource.references == 1 && !resource.is_empty() {
-				render_object(vocabulary, interpretation, rdf_terms, graph, id, resource)
+				render_object(
+					vocabulary,
+					interpretation,
+					rdf_terms,
+					graph,
+					id,
+					resource,
+					context,
+				)
 			} else {
-				render_reference(vocabulary, interpretation, id)
+				render_reference(vocabulary, interpretation, id, context)
 			}
 		}
-		None => render_reference(vocabulary, interpretation, id),
+		None => render_reference(vocabulary, interpretation, id, context),
 	}
 }
 
@@ -564,6 +627,7 @@ fn render_reference<V, I>(
 	vocabulary: &V,
 	interpretation: &I,
 	id: &I::Resource,
+	context: linked_data::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
 	V: Vocabulary<
@@ -575,7 +639,7 @@ where
 	V::Value: AsRef<str>,
 	I::Resource: Ord,
 {
-	match term_of(vocabulary, interpretation, id)? {
+	match term_of(vocabulary, interpretation, id, context)? {
 		Some(Term::Id(id)) => Ok(Meta::none(Indexed::none(Object::node(Node::with_id(id))))),
 		Some(Term::Literal(value)) => Ok(Meta::none(Indexed::none(Object::Value(value)))),
 		None => Ok(Meta::none(Indexed::none(Object::node(Node::new())))),
@@ -609,6 +673,7 @@ fn term_of<V, T>(
 	vocabulary: &V,
 	interpretation: &T,
 	resource: &T::Resource,
+	context: linked_data::Context<T>,
 ) -> Result<Option<ResourceTerm<V>>, SerializationError>
 where
 	V: Vocabulary<
@@ -629,7 +694,12 @@ where
 						let ty = vocabulary.iri(i).unwrap();
 						if ty == RDF_JSON {
 							let json = json_syntax::Value::parse_str(l.value().as_ref(), |_| ())
-								.map_err(|Meta(e, _)| SerializationError::InvalidJson(e))?;
+								.map_err(|Meta(e, _)| {
+									SerializationError::InvalidJson(
+										context.into_iris(vocabulary, interpretation),
+										e,
+									)
+								})?;
 							Value::Json(json)
 						} else if ty == XSD_BOOLEAN {
 							let b = match l.as_ref() {
@@ -637,6 +707,7 @@ where
 								"false" | "0" => false,
 								other => {
 									return Err(SerializationError::InvalidBoolean(
+										context.into_iris(vocabulary, interpretation),
 										other.to_owned(),
 									))
 								}
@@ -644,8 +715,12 @@ where
 
 							Value::Literal(Literal::Boolean(b), Some(i.clone()))
 						} else if ty == XSD_INTEGER || ty == XSD_DOUBLE {
-							let n = json_syntax::NumberBuf::from_str(l.as_str())
-								.map_err(|_| SerializationError::Number(l.as_ref().to_owned()))?;
+							let n = json_syntax::NumberBuf::from_str(l.as_str()).map_err(|_| {
+								SerializationError::Number(
+									context.into_iris(vocabulary, interpretation),
+									l.as_ref().to_owned(),
+								)
+							})?;
 							Value::Literal(Literal::Number(n), Some(i.clone()))
 						} else if ty == XSD_STRING {
 							Value::Literal(Literal::String(l.as_ref().into()), None)
@@ -684,7 +759,7 @@ where
 	V::BlankId: Clone + Eq + Hash,
 	V::Value: AsRef<str>,
 {
-	fn deserialize_dataset(
+	fn deserialize_dataset_in(
 		vocabulary: &V,
 		interpretation: &I,
 		dataset: &impl grdf::Dataset<
@@ -693,8 +768,10 @@ where
 			Object = I::Resource,
 			GraphLabel = I::Resource,
 		>,
+		context: linked_data::Context<I>,
 	) -> Result<Self, FromLinkedDataError> {
-		Self::from_interpreted_quads(vocabulary, interpretation, dataset.quads())
-			.map_err(|_| FromLinkedDataError::InvalidLiteral)
+		Self::from_interpreted_quads(vocabulary, interpretation, dataset.quads()).map_err(|_| {
+			FromLinkedDataError::InvalidLiteral(context.into_iris(vocabulary, interpretation))
+		})
 	}
 }
