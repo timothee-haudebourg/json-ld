@@ -12,6 +12,7 @@ documentation = "https://docs.rs/json-ld"
 readme = "README.md"
 
 [features]
+fileurl = ["json-ld-core/fileurl"]
 reqwest = ["json-ld-core/reqwest"]
 serde = ["json-ld-syntax/serde", "json-ld-core/serde"]
 
