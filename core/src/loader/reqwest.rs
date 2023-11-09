@@ -104,8 +104,8 @@ type DynParser<I, M, T, E> = dyn 'static
 /// By default,
 /// loaded documents are not cached: a new network query is made each time
 /// an URL is loaded even if it has already been queried before.
-/// This can be changed by providing a different [reqwest factory](Options::reqwest_factory),
-/// where the reqwest client includes a caching middleware
+/// This can be changed by providing a different [client](Options::client),
+/// including a caching middleware
 /// (such as [this one](https://crates.io/crates/http-cache-reqwest)).
 pub struct ReqwestLoader<
 	I = IriIndex,
