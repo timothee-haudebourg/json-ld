@@ -11,7 +11,7 @@ use once_cell::sync::OnceCell;
 use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
 use reqwest::{
 	header::{ACCEPT, CONTENT_TYPE, LINK, LOCATION},
-	StatusCode,
+	Client, StatusCode,
 };
 use std::{fmt, hash::Hash, string::FromUtf8Error};
 
@@ -32,6 +32,9 @@ pub struct Options<I> {
 	///
 	/// Defaults to 8.
 	pub max_redirections: usize,
+
+	/// A reqwest [Client]
+	pub client: Client,
 }
 
 impl<I> Default for Options<I> {
@@ -39,6 +42,7 @@ impl<I> Default for Options<I> {
 		Self {
 			request_profile: Vec::new(),
 			max_redirections: 8,
+			client: Client::new(),
 		}
 	}
 }
@@ -97,8 +101,12 @@ type DynParser<I, M, T, E> = dyn 'static
 ///
 /// The loader will follow indirections and `Link` headers.
 ///
-/// Loaded documents are not cached: a new network query is made each time
+/// By default,
+/// loaded documents are not cached: a new network query is made each time
 /// an URL is loaded even if it has already been queried before.
+/// This can be changed by providing a different [client](Options::client),
+/// including a caching middleware
+/// (such as [this one](https://crates.io/crates/http-cache-reqwest)).
 pub struct ReqwestLoader<
 	I = IriIndex,
 	M = locspan::Location<I>,
@@ -120,7 +128,9 @@ impl<I, M, T, E> ReqwestLoader<I, M, T, E> {
 	) -> Self {
 		Self::new_using(parser, Options::default())
 	}
+}
 
+impl<I, M, T, E> ReqwestLoader<I, M, T, E> {
 	/// Creates a new leader with the given parsing function and options.
 	pub fn new_using(
 		parser: impl 'static
@@ -245,8 +255,9 @@ impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, 
 				}
 
 				log::debug!("downloading: {}", vocabulary.iri(&url).unwrap().as_str());
-				let client = reqwest::Client::new();
-				let request = client
+				let request = self
+					.options
+					.client
 					.get(vocabulary.iri(&url).unwrap().as_str())
 					.header(ACCEPT, &data.accept_header);
 
