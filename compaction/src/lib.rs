@@ -4,12 +4,12 @@
 //! # Usage
 //!
 //! The compaction algorithm is provided by the [`Compact`] trait.
-use futures::future::{BoxFuture, FutureExt};
 use json_ld_context_processing::{
 	ContextLoader, Options as ProcessingOptions, Process, ProcessMeta,
 };
 use json_ld_core::{
 	context::inverse::{LangSelection, TypeSelection},
+	future::{BoxFuture, FutureExt},
 	object::Any,
 	Context, Indexed, Loader, ProcessingMode, Term, Value,
 };

@@ -3,11 +3,11 @@ use crate::context_processing::{self, Process, ProcessMeta, Processed};
 use crate::expansion;
 use crate::syntax::{self, ErrorCode};
 use crate::{
-	flattening::ConflictingIndexes, id::Generator, Context, ContextLoader, ExpandedDocument,
-	Loader, ProcessingMode, RemoteDocumentReference,
+	flattening::ConflictingIndexes,
+	future::{BoxFuture, FutureExt},
+	id::Generator,
+	Context, ContextLoader, ExpandedDocument, Loader, ProcessingMode, RemoteDocumentReference,
 };
-use futures::future::BoxFuture;
-use futures::FutureExt;
 use json_ld_core::rdf::RdfDirection;
 use json_ld_core::RdfQuads;
 use locspan::{Location, Meta};

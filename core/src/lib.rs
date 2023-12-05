@@ -5,6 +5,7 @@ mod container;
 pub mod context;
 mod document;
 pub mod flattening;
+pub mod future;
 pub mod id;
 mod indexed;
 mod lang_string;

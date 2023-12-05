@@ -6,10 +6,11 @@ use crate::context_processing::{self, Process, ProcessMeta};
 use crate::expansion::{self, Expand};
 use crate::syntax;
 use crate::{
-	id::Generator, Context, ContextLoader, Flatten, Loader, RemoteDocument, RemoteDocumentReference,
+	future::{BoxFuture, FutureExt},
+	id::Generator,
+	Context, ContextLoader, Flatten, Loader, RemoteDocument, RemoteDocumentReference,
 };
 use contextual::WithContext;
-use futures::future::{BoxFuture, FutureExt};
 use locspan::BorrowStripped;
 use rdf_types::VocabularyMut;
 use std::hash::Hash;

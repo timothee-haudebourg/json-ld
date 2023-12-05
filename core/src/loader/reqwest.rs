@@ -2,8 +2,8 @@
 use crate::Profile;
 
 use super::{Loader, RemoteDocument};
+use crate::future::{BoxFuture, FutureExt};
 use bytes::Bytes;
-use futures::future::{BoxFuture, FutureExt};
 use hashbrown::HashSet;
 use iref::Iri;
 use locspan::{Meta, Span};

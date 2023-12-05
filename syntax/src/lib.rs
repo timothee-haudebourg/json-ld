@@ -12,6 +12,7 @@ mod into_json;
 mod keyword;
 mod lang;
 mod nullable;
+#[allow(hidden_glob_reexports)] // Fixed in the next version.
 mod print;
 mod try_from_json;
 

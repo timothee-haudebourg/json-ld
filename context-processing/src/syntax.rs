@@ -2,9 +2,11 @@ use crate::{
 	ContextLoader, Error, MetaError, Options, ProcessMeta, Processed, ProcessingResult,
 	ProcessingStack, WarningHandler,
 };
-use futures::future::{BoxFuture, FutureExt};
 use iref::IriRef;
-use json_ld_core::{Context, ProcessingMode, Term};
+use json_ld_core::{
+	future::{BoxFuture, FutureExt},
+	Context, ProcessingMode, Term,
+};
 use json_ld_syntax::{self as syntax, Entry, Nullable};
 use locspan::{At, Meta};
 use rdf_types::{IriVocabularyMut, VocabularyMut};

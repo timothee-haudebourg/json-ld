@@ -1,6 +1,8 @@
-use futures::FutureExt;
 use json_ld_context_processing::ContextLoader;
-use json_ld_core::{ExpandedDocument, FlattenedDocument, Term};
+use json_ld_core::{
+	future::{BoxFuture, FutureExt},
+	ExpandedDocument, FlattenedDocument, Term,
+};
 use json_ld_syntax::{IntoJson, IntoJsonMeta, Keyword};
 use locspan::Meta;
 use rdf_types::{vocabulary, Vocabulary};
@@ -53,7 +55,7 @@ pub trait CompactMeta<I, B, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
 		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
@@ -78,7 +80,7 @@ pub trait Compact<I, B, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
 		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
@@ -100,7 +102,7 @@ pub trait Compact<I, B, M> {
 		vocabulary: &'a mut N,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
-	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
 		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
@@ -122,7 +124,7 @@ pub trait Compact<I, B, M> {
 		&'a self,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
-	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
 		(): Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
@@ -148,7 +150,7 @@ impl<T: CompactMeta<I, B, M>, I, B, M> Compact<I, B, M> for Meta<T, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
 		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
@@ -176,7 +178,7 @@ impl<I, B, M> CompactMeta<I, B, M> for ExpandedDocument<I, B, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
 		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,
@@ -225,7 +227,7 @@ impl<I, B, M> CompactMeta<I, B, M> for FlattenedDocument<I, B, M> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B, C, M>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> futures::future::BoxFuture<'a, CompactDocumentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactDocumentResult<I, M, L>>
 	where
 		N: Send + Sync + rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq + Send + Sync,

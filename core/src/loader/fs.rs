@@ -1,5 +1,5 @@
 use super::{Loader, RemoteDocument};
-use futures::future::{BoxFuture, FutureExt};
+use crate::future::{BoxFuture, FutureExt};
 use locspan::Meta;
 use rdf_types::{vocabulary::IriIndex, IriVocabulary};
 use std::collections::HashMap;

@@ -6,9 +6,11 @@
 //! The expansion algorithm is provided by the [`Expand`] trait.
 use std::hash::Hash;
 
-use futures::future::{BoxFuture, FutureExt};
 use json_ld_context_processing::{Context, ProcessMeta};
-use json_ld_core::{ContextLoader, ExpandedDocument, Loader, RemoteDocument};
+use json_ld_core::{
+	future::{BoxFuture, FutureExt},
+	ContextLoader, ExpandedDocument, Loader, RemoteDocument,
+};
 use json_syntax::Value;
 use locspan::Meta;
 use rdf_types::{vocabulary, BlankIdVocabulary, VocabularyMut};

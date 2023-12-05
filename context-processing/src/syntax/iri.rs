@@ -2,7 +2,10 @@ use super::{DefinedTerms, Merged};
 use crate::{Error, Options, ProcessMeta, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iref::{Iri, IriRef};
-use json_ld_core::{Context, ContextLoader, Id, Term};
+use json_ld_core::{
+	future::{BoxFuture, FutureExt},
+	Context, ContextLoader, Id, Term,
+};
 use json_ld_syntax::{
 	self as syntax,
 	context::definition::{Key, KeyOrKeywordRef},
@@ -10,7 +13,6 @@ use json_ld_syntax::{
 };
 use locspan::Meta;
 use rdf_types::{BlankId, VocabularyMut};
-use std::future::Future;
 use syntax::{is_keyword_like, CompactIri};
 
 pub struct MalformedIri(pub String);
@@ -43,7 +45,7 @@ pub fn expand_iri_with<
 	loader: &'a mut L,
 	options: Options,
 	mut warnings: W,
-) -> impl 'a + Send + Future<Output = Result<(Term<T, B>, W), Error<L::ContextError>>>
+) -> BoxFuture<'a, Result<(Term<T, B>, W), Error<L::ContextError>>>
 where
 	C: ProcessMeta<T, B, M>,
 	L::Context: Into<C>,
@@ -206,6 +208,7 @@ where
 			}
 		}
 	}
+	.boxed()
 }
 
 fn invalid_iri<T, B, N, M, H: json_ld_core::warning::Handler<N, Meta<Warning, M>>>(
