@@ -26,7 +26,7 @@ where
 					xsd_types::Value::String("null".to_string()),
 				))),
 				Literal::Boolean(b) => CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(
-					xsd_types::Value::Boolean(*b),
+					xsd_types::Value::Boolean((*b).into()),
 				))),
 				Literal::Number(n) => {
 					#[derive(Clone, Copy, Default, PartialEq)]

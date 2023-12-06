@@ -7,8 +7,10 @@ use indexmap::IndexSet;
 use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
 use json_ld_core::{
 	future::{BoxFuture, FutureExt},
-	object, object::value::Literal, Container, Context, Id, Indexed, IndexedObject, LangString,
-	Node, Object, ProcessingMode, Term, Type, Value,
+	object,
+	object::value::Literal,
+	Container, Context, Id, Indexed, IndexedObject, LangString, Node, Object, ProcessingMode, Term,
+	Type, Value,
 };
 use json_ld_syntax::{ContainerKind, Keyword, LenientLanguageTagBuf, Nullable};
 use json_syntax::object::Entry;

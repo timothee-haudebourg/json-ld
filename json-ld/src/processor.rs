@@ -7,7 +7,10 @@ use crate::{
 	Loader, ProcessingMode,
 };
 use json_ld_core::rdf::RdfDirection;
-use json_ld_core::{future::{BoxFuture, FutureExt}, Document, RdfQuads, RemoteContextReference};
+use json_ld_core::{
+	future::{BoxFuture, FutureExt},
+	Document, RdfQuads, RemoteContextReference,
+};
 use locspan::{Location, Meta};
 use rdf_types::vocabulary::IriIndex;
 use rdf_types::{vocabulary, IriVocabulary, Vocabulary, VocabularyMut};

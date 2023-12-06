@@ -5,12 +5,14 @@ use super::{
 use crate::context_processing::{self, Process};
 use crate::expansion::{self, Expand};
 use crate::{
-	id::Generator,
-	Context, ContextLoader, Flatten, Loader, RemoteDocument, RemoteDocumentReference,
+	id::Generator, Context, ContextLoader, Flatten, Loader, RemoteDocument, RemoteDocumentReference,
 };
 use crate::{syntax, IntoDocumentResult};
 use contextual::WithContext;
-use json_ld_core::{future::{BoxFuture, FutureExt}, Document, RemoteContextReference};
+use json_ld_core::{
+	future::{BoxFuture, FutureExt},
+	Document, RemoteContextReference,
+};
 use locspan::BorrowStripped;
 use rdf_types::VocabularyMut;
 use std::hash::Hash;

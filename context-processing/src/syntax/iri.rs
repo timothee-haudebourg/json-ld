@@ -2,7 +2,10 @@ use super::{DefinedTerms, Merged};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iref::{Iri, IriRef};
-use json_ld_core::{future::{BoxFuture, FutureExt}, Context, ContextLoader, Id, Term};
+use json_ld_core::{
+	future::{BoxFuture, FutureExt},
+	Context, ContextLoader, Id, Term,
+};
 use json_ld_syntax::{self as syntax, context::definition::Key, ExpandableRef, Nullable};
 use locspan::Meta;
 use rdf_types::{BlankId, VocabularyMut};

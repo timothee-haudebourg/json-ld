@@ -2,7 +2,7 @@ use json_ld_core::{object::Literal, LangString, Value};
 use linked_data::RdfLiteral;
 use locspan::Meta;
 use rdf_types::{literal, IriVocabularyMut, LanguageTagVocabulary};
-use xsd_types::{XsdDatatype, XSD_STRING};
+use xsd_types::XSD_STRING;
 
 pub fn literal_to_value<V: IriVocabularyMut + LanguageTagVocabulary>(
 	vocabulary: &mut V,
@@ -30,9 +30,9 @@ pub fn literal_to_value<V: IriVocabularyMut + LanguageTagVocabulary>(
 }
 
 fn xsd_to_value<V: IriVocabularyMut>(vocabulary: &mut V, value: xsd_types::Value) -> Value<V::Iri> {
-	let ty = value.type_();
+	let ty = value.datatype();
 	let number = match value {
-		xsd_types::Value::Boolean(b) => return Value::Literal(Literal::Boolean(b), None),
+		xsd_types::Value::Boolean(b) => return Value::Literal(Literal::Boolean(b.into()), None),
 		xsd_types::Value::String(s) => return Value::Literal(Literal::String(s.into()), None),
 		xsd_types::Value::Decimal(v) => v.to_string(),
 		xsd_types::Value::Integer(v) => v.to_string(),

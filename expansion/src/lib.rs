@@ -7,7 +7,10 @@
 use std::hash::Hash;
 
 use json_ld_context_processing::Context;
-use json_ld_core::{future::{BoxFuture, FutureExt}, ContextLoader, ExpandedDocument, Loader, RemoteDocument};
+use json_ld_core::{
+	future::{BoxFuture, FutureExt},
+	ContextLoader, ExpandedDocument, Loader, RemoteDocument,
+};
 use json_syntax::Value;
 use locspan::Meta;
 use rdf_types::{vocabulary, BlankIdVocabulary, VocabularyMut};
