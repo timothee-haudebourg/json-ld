@@ -6,7 +6,7 @@ use json_ld_core::{
 		Graph, List,
 	},
 	rdf::{RDF_FIRST, RDF_REST},
-	Indexed, IndexedObject, Node, Object,
+	Entry, Indexed, IndexedObject, Node, Object,
 };
 use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
 use locspan::{Meta, Stripped};
@@ -213,6 +213,16 @@ where
 
 			let mut node = Node::new();
 			*node.properties_mut() = self.properties;
+
+			if !self.reverse_properties.is_empty() {
+				node.set_reverse_properties(Some(Entry::new(self.reverse_properties)));
+			}
+
+			if !self.included.is_empty() {
+				node.set_included(Some(Entry::new(self.included)));
+			}
+
+			node.set_graph(self.graph);
 
 			Ok(Object::node(node))
 		}
