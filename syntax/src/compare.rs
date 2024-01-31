@@ -1,24 +1,11 @@
-use json_syntax::{MetaValue, Value};
-use locspan::Stripped;
+use json_syntax::Value;
 
 /// JSON-LD comparison.
 pub trait Compare {
 	fn compare(&self, other: &Self) -> bool;
 }
 
-impl<T: Compare> Compare for Stripped<T> {
-	fn compare(&self, other: &Self) -> bool {
-		self.0.compare(&other.0)
-	}
-}
-
-impl<M> Compare for MetaValue<M> {
-	fn compare(&self, other: &Self) -> bool {
-		self.value().compare(other.value())
-	}
-}
-
-impl<M> Compare for Value<M> {
+impl Compare for Value {
 	fn compare(&self, other: &Self) -> bool {
 		match (self, other) {
 			(Self::Null, Self::Null) => true,
@@ -49,7 +36,7 @@ impl<M> Compare for Value<M> {
 			(Self::Object(a), Self::Object(b)) => {
 				if a.len() == b.len() {
 					for entry in a {
-						match b.get_unique(&*entry.key).ok().expect("invalid JSON-LD") {
+						match b.get_unique(&*entry.key).expect("invalid JSON-LD") {
 							Some(value) => {
 								if !entry.value.compare(value) {
 									return false;

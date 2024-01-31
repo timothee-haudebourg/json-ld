@@ -4,7 +4,6 @@ use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
 use iref::{IriBuf, IriRefBuf};
 use json_ld::{Expand, ValidId};
-use locspan::{Loc, Location, Meta, Span};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
@@ -20,7 +19,7 @@ use vocab::{BlankIdIndex, IriIndex, Vocab};
 mod ty;
 use ty::{Type, UnknownType};
 
-type FsLoader = json_ld::FsLoader<IriIndex, Location<IriIndex>>;
+type FsLoader = json_ld::FsLoader<IriIndex>;
 
 type IndexVocabulary = rdf_types::IndexVocabulary<IriIndex, BlankIdIndex>;
 
@@ -474,21 +473,10 @@ fn parse_enum_type(
 	Ok(ty::Enum { variants })
 }
 
-type ExpandError = Loc<
-	json_ld::expansion::Error<
-		Location<IriIndex>,
-		json_ld::ContextLoaderError<
-			json_ld::fs::Error<json_ld::syntax::parse::MetaError<Location<IriIndex>>>,
-			Loc<json_ld::ExtractContextError<Location<IriIndex>>, IriIndex>,
-		>,
-	>,
-	IriIndex,
->;
-
 enum Error {
 	Parse(syn::Error),
-	Load(json_ld::loader::fs::Error<json_ld::syntax::parse::MetaError<Location<IriIndex>>>),
-	Expand(ExpandError),
+	Load(json_ld::loader::fs::Error),
+	Expand(json_ld::expansion::Error<json_ld::fs::Error>),
 	InvalidIri(String),
 	InvalidValue(
 		Type,
@@ -547,14 +535,12 @@ async fn generate_test_suite(
 		.await
 		.map_err(Error::Load)?;
 
-	let mut expanded_json_ld: Meta<json_ld::ExpandedDocument<IriIndex, BlankIdIndex, _>, _> =
-		json_ld
-			.expand_with(vocabulary, &mut loader)
-			.await
-			.map_err(Error::Expand)?;
+	let mut expanded_json_ld: json_ld::ExpandedDocument<IriIndex, BlankIdIndex> = json_ld
+		.expand_with(vocabulary, &mut loader)
+		.await
+		.map_err(Error::Expand)?;
 
-	let mut generator = rdf_types::generator::Blank::new()
-		.with_metadata(Location::new(IriIndex::Index(0), Span::default()));
+	let mut generator = rdf_types::generator::Blank::new();
 	expanded_json_ld.identify_all_with(vocabulary, &mut generator);
 
 	let rdf_quads = expanded_json_ld.rdf_quads_with(vocabulary, &mut generator, None);

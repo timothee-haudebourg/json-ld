@@ -1,12 +1,11 @@
 use crate::{CompactIri, ExpandableRef};
 use iref::Iri;
-use locspan_derive::StrippedPartialEq;
 use rdf_types::BlankId;
 
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Vocab(#[locspan(stripped)] String);
+pub struct Vocab(String);
 
 impl Vocab {
 	pub fn as_iri(&self) -> Option<&Iri> {

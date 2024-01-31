@@ -5,7 +5,6 @@ use json_ld_core::{
 	Indexed, IndexedObject, Object,
 };
 use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
-use locspan::Meta;
 use rdf_types::{
 	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
 	Id, Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
@@ -104,7 +103,7 @@ where
 	fn end(self) -> Result<Self::Ok, Self::Error> {
 		let first = self.first.unwrap_or_else(Object::null);
 		let mut result = self.rest;
-		result.push(Meta::none(Indexed::none(first)));
+		result.push(Indexed::none(first));
 		Ok(result)
 	}
 }

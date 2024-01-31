@@ -1,21 +1,20 @@
-use rdf_types::Vocabulary;
+use rdf_types::{Generator, Vocabulary};
 
-use crate::{id, IdentifyAll, IndexedNode, Relabel, StrippedIndexedNode};
+use crate::{IdentifyAll, IndexedNode, Relabel};
 use std::{collections::HashSet, hash::Hash};
 
 /// Result of the document flattening algorithm.
 ///
 /// It is just an alias for a set of (indexed) nodes.
-pub type FlattenedDocument<T, B, M> = Vec<IndexedNode<T, B, M>>;
+pub type FlattenedDocument<T, B> = Vec<IndexedNode<T, B>>;
 
-impl<T, B, M> IdentifyAll<T, B, M> for FlattenedDocument<T, B, M> {
+impl<T, B> IdentifyAll<T, B> for FlattenedDocument<T, B> {
 	#[inline(always)]
-	fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
+	fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
-		M: Clone,
 		T: Eq + Hash,
 		B: Eq + Hash,
 	{
@@ -25,14 +24,13 @@ impl<T, B, M> IdentifyAll<T, B, M> for FlattenedDocument<T, B, M> {
 	}
 }
 
-impl<T, B, M> Relabel<T, B, M> for FlattenedDocument<T, B, M> {
-	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: rdf_types::MetaGenerator<N, M>>(
+impl<T, B> Relabel<T, B> for FlattenedDocument<T, B> {
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
-		relabeling: &mut hashbrown::HashMap<B, locspan::Meta<rdf_types::Subject<T, B>, M>>,
+		relabeling: &mut hashbrown::HashMap<B, rdf_types::Subject<T, B>>,
 	) where
-		M: Clone,
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 	{
@@ -42,4 +40,4 @@ impl<T, B, M> Relabel<T, B, M> for FlattenedDocument<T, B, M> {
 	}
 }
 
-pub type UnorderedFlattenedDocument<T, B, M> = HashSet<StrippedIndexedNode<T, B, M>>;
+pub type UnorderedFlattenedDocument<T, B> = HashSet<IndexedNode<T, B>>;

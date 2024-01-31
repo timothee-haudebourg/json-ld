@@ -2,7 +2,6 @@ use std::hash::Hash;
 
 use json_ld_core::{ExpandedDocument, Indexed, Object};
 use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
-use locspan::Meta;
 use rdf_types::{
 	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
 	Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
@@ -57,8 +56,7 @@ where
 		{
 			Some(Term::Literal(lit)) => {
 				let value = literal_to_value(self.vocabulary, lit);
-				self.result
-					.insert(Meta::none(Indexed::new(Object::Value(value), None)));
+				self.result.insert(Indexed::new(Object::Value(value), None));
 				return Ok(());
 			}
 			Some(Term::Id(id)) => Some(json_ld_core::Id::Valid(id)),
@@ -68,8 +66,7 @@ where
 		let serializer = SerializeNode::new(self.vocabulary, self.interpretation, id);
 
 		let node = value.visit_subject(serializer)?;
-		self.result
-			.insert(Meta::none(Indexed::new(Object::node(node), None)));
+		self.result.insert(Indexed::new(Object::node(node), None));
 		Ok(())
 	}
 

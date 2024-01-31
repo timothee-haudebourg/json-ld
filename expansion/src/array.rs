@@ -1,40 +1,34 @@
 use crate::{expand_element, ActiveProperty, Error, Expanded, Loader, Options, WarningHandler};
-use json_ld_context_processing::ContextLoader;
-use json_ld_core::{context::TermDefinitionRef, object, Context, Object};
+use json_ld_core::{context::TermDefinitionRef, object, Context, Environment, Object};
 use json_ld_syntax::ContainerKind;
-use json_syntax::{Array, Value};
-use locspan::Meta;
+use json_syntax::Array;
 use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) async fn expand_array<
-	T,
-	B,
-	M,
-	N,
-	L: Loader<T, M> + ContextLoader<T, M>,
-	W: Send + WarningHandler<B, N, M>,
->(
-	vocabulary: &mut N,
-	active_context: &Context<T, B, M>,
-	active_property: ActiveProperty<'_, M>,
-	active_property_definition: Option<TermDefinitionRef<'_, T, B, M>>,
-	Meta(element, meta): Meta<&Array<M>, &M>,
-	base_url: Option<&T>,
-	loader: &mut L,
+pub(crate) async fn expand_array<N, L, W>(
+	env: Environment<'_, N, L, W>,
+	active_context: &Context<N::Iri, N::BlankId>,
+	active_property: ActiveProperty<'_>,
+	active_property_definition: Option<TermDefinitionRef<'_, N::Iri, N::BlankId>>,
+	element: &Array,
+	base_url: Option<&N::Iri>,
 	options: Options,
 	from_map: bool,
-	mut warnings: W,
-) -> Result<(Expanded<T, B, M>, W), Meta<Error<M, L::ContextError>, M>>
+) -> Result<Expanded<N::Iri, N::BlankId>, Error<L::Error>>
 where
-	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
-	T: Clone + Eq + Hash + Sync + Send,
-	B: Clone + Eq + Hash + Sync + Send,
-	M: Clone + Sync + Send,
+	N: VocabularyMut,
+	N::Iri: Clone + Eq + Hash,
+	N::BlankId: Clone + Eq + Hash,
+	L: Loader<N::Iri>,
+	W: WarningHandler<N>,
+	//
+	N: Send + Sync,
+	N::Iri: Sync + Send,
+	N::BlankId: Sync + Send,
 	L: Sync + Send,
-	L::Output: Into<Value<M>>,
-	L::ContextError: Send,
+	L::Error: Send,
+	W: Send + Sync,
 {
 	// Initialize an empty array, result.
 	let mut is_list = false;
@@ -52,37 +46,30 @@ where
 		// Initialize `expanded_item` to the result of using this algorithm
 		// recursively, passing `active_context`, `active_property`, `item` as element,
 		// `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
-		let (e, w) = expand_element(
-			vocabulary,
+		let e = expand_element(
+			Environment {
+				vocabulary: env.vocabulary,
+				loader: env.loader,
+				warnings: env.warnings,
+			},
 			active_context,
 			active_property,
 			item,
 			base_url,
-			loader,
 			options,
 			from_map,
-			warnings,
 		)
 		.await?;
-		warnings = w;
 
 		result.extend(e);
 	}
 
 	if is_list {
-		return Ok((
-			Expanded::Object(Meta(
-				Object::List(object::List::new_with(
-					meta.clone(),
-					Meta(result, meta.clone()),
-				))
-				.into(),
-				meta.clone(),
-			)),
-			warnings,
+		return Ok(Expanded::Object(
+			Object::List(object::List::new(result)).into(),
 		));
 	}
 
 	// Return result.
-	Ok((Expanded::Array(result), warnings))
+	Ok(Expanded::Array(result))
 }

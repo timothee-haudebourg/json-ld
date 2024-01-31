@@ -23,7 +23,6 @@ contextual.workspace = true
 rdf-types.workspace = true
 futures.workspace = true
 mown.workspace = true
-locspan.workspace = true
 educe.workspace = true
 thiserror.workspace = true
 indexmap.workspace = true

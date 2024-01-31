@@ -4,8 +4,7 @@ pub mod inverse;
 
 use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Term};
 use contextual::WithContext;
-use json_ld_syntax::KeywordType;
-use locspan::{BorrowStripped, Meta, StrippedPartialEq};
+use json_ld_syntax::{KeywordType, Nullable};
 use once_cell::sync::OnceCell;
 use rdf_types::Vocabulary;
 use std::borrow::Borrow;
@@ -20,18 +19,18 @@ pub use definition::*;
 pub use inverse::InverseContext;
 
 /// JSON-LD context.
-pub struct Context<T, B, M> {
+pub struct Context<T, B> {
 	original_base_url: Option<T>,
 	base_iri: Option<T>,
 	vocabulary: Option<Term<T, B>>,
 	default_language: Option<LenientLanguageTagBuf>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
-	definitions: Definitions<T, B, M>,
+	definitions: Definitions<T, B>,
 	inverse: OnceCell<InverseContext<T, B>>,
 }
 
-impl<T, B, M> Default for Context<T, B, M> {
+impl<T, B> Default for Context<T, B> {
 	fn default() -> Self {
 		Self {
 			original_base_url: None,
@@ -46,9 +45,9 @@ impl<T, B, M> Default for Context<T, B, M> {
 	}
 }
 
-pub type DefinitionEntryRef<'a, T, B, M> = (&'a Key, &'a TermDefinition<T, B, M>);
+pub type DefinitionEntryRef<'a, T, B> = (&'a Key, &'a TermDefinition<T, B>);
 
-impl<T, B, M> Context<T, B, M> {
+impl<T, B> Context<T, B> {
 	/// Create a new context with the given base IRI.
 	pub fn new(base_iri: Option<T>) -> Self
 	where
@@ -67,7 +66,7 @@ impl<T, B, M> Context<T, B, M> {
 	}
 
 	/// Returns a reference to the given `term` definition, if any.
-	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<TermDefinitionRef<T, B, M>>
+	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<TermDefinitionRef<T, B>>
 	where
 		Key: Borrow<Q>,
 		KeywordType: Borrow<Q>,
@@ -77,7 +76,7 @@ impl<T, B, M> Context<T, B, M> {
 	}
 
 	/// Returns a reference to the given `term` normal definition, if any.
-	pub fn get_normal<Q: ?Sized>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B, M>>
+	pub fn get_normal<Q: ?Sized>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B>>
 	where
 		Key: Borrow<Q>,
 		Q: Hash + Eq,
@@ -147,7 +146,7 @@ impl<T, B, M> Context<T, B, M> {
 	}
 
 	/// Returns a handle to the term definitions.
-	pub fn definitions(&self) -> &Definitions<T, B, M> {
+	pub fn definitions(&self) -> &Definitions<T, B> {
 		&self.definitions
 	}
 
@@ -175,8 +174,8 @@ impl<T, B, M> Context<T, B, M> {
 	pub fn set_normal(
 		&mut self,
 		key: Key,
-		definition: Option<NormalTermDefinition<T, B, M>>,
-	) -> Option<NormalTermDefinition<T, B, M>> {
+		definition: Option<NormalTermDefinition<T, B>>,
+	) -> Option<NormalTermDefinition<T, B>> {
 		self.inverse.take();
 		self.definitions.set_normal(key, definition)
 	}
@@ -220,95 +219,62 @@ impl<T, B, M> Context<T, B, M> {
 	pub fn into_syntax_definition(
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
-		meta: M,
-	) -> Meta<json_ld_syntax::context::Definition<M>, M>
-	where
-		M: Clone,
-	{
-		use json_ld_syntax::{Entry, Nullable};
-
+	) -> json_ld_syntax::context::Definition {
 		let (bindings, type_) = self.definitions.into_parts();
 
-		let definition = json_ld_syntax::context::Definition {
-			base: self.base_iri.map(|i| {
-				Entry::new_with(
-					meta.clone(),
-					Meta(
-						Nullable::Some(vocabulary.iri(&i).unwrap().to_owned().into()),
-						meta.clone(),
-					),
-				)
-			}),
+		json_ld_syntax::context::Definition {
+			base: self
+				.base_iri
+				.map(|i| Nullable::Some(vocabulary.iri(&i).unwrap().to_owned().into())),
 			import: None,
-			language: self
-				.default_language
-				.map(|l| Entry::new_with(meta.clone(), Meta(Nullable::Some(l), meta.clone()))),
-			direction: self
-				.default_base_direction
-				.map(|d| Entry::new_with(meta.clone(), Meta(Nullable::Some(d), meta.clone()))),
+			language: self.default_language.map(Nullable::Some),
+			direction: self.default_base_direction.map(Nullable::Some),
 			propagate: None,
 			protected: None,
-			type_: type_
-				.map(|t| Entry::new_with(meta.clone(), t.into_syntax_definition(meta.clone()))),
+			type_: type_.map(TypeTermDefinition::into_syntax_definition),
 			version: None,
-			vocab: self.vocabulary.map(|v| {
-				let vocab = match v {
-					Term::Null => Nullable::Null,
-					Term::Id(r) => Nullable::Some(r.with(vocabulary).to_string().into()),
-					Term::Keyword(_) => panic!("invalid vocab"),
-				};
-
-				Entry::new_with(meta.clone(), Meta(vocab, meta.clone()))
+			vocab: self.vocabulary.map(|v| match v {
+				Term::Null => Nullable::Null,
+				Term::Id(r) => Nullable::Some(r.with(vocabulary).to_string().into()),
+				Term::Keyword(_) => panic!("invalid vocab"),
 			}),
 			bindings: bindings
 				.into_iter()
-				.map(|(key, definition)| {
-					(
-						Meta(key, meta.clone()),
-						definition.into_syntax_definition(vocabulary, meta.clone()),
-					)
-				})
+				.map(|(key, definition)| (key, definition.into_syntax_definition(vocabulary)))
 				.collect(),
-		};
-
-		Meta(definition, meta)
+		}
 	}
 }
 
 /// Context fragment to syntax method.
-pub trait IntoSyntax<T, B, M> {
+pub trait IntoSyntax<T, B> {
 	fn into_syntax(
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
-		meta: M,
-	) -> json_ld_syntax::context::Context<M>;
+	) -> json_ld_syntax::context::Context;
 }
 
-impl<T, B, M> IntoSyntax<T, B, M> for json_ld_syntax::context::Context<M> {
+impl<T, B> IntoSyntax<T, B> for json_ld_syntax::context::Context {
 	fn into_syntax(
 		self,
 		_namespace: &impl Vocabulary<Iri = T, BlankId = B>,
-		_meta: M,
-	) -> json_ld_syntax::context::Context<M> {
+	) -> json_ld_syntax::context::Context {
 		self
 	}
 }
 
-impl<T, B, M: Clone> IntoSyntax<T, B, M> for Context<T, B, M> {
+impl<T, B: Clone> IntoSyntax<T, B> for Context<T, B> {
 	fn into_syntax(
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
-		meta: M,
-	) -> json_ld_syntax::context::Context<M> {
-		let Meta(definition, meta) = self.into_syntax_definition(vocabulary, meta);
-		json_ld_syntax::context::Context::One(Meta(
-			json_ld_syntax::ContextEntry::Definition(definition),
-			meta,
+	) -> json_ld_syntax::context::Context {
+		json_ld_syntax::context::Context::One(json_ld_syntax::ContextEntry::Definition(
+			self.into_syntax_definition(vocabulary),
 		))
 	}
 }
 
-impl<T: Clone, B: Clone, M: Clone> Clone for Context<T, B, M> {
+impl<T: Clone, B: Clone> Clone for Context<T, B> {
 	fn clone(&self) -> Self {
 		Self {
 			original_base_url: self.original_base_url.clone(),
@@ -323,13 +289,13 @@ impl<T: Clone, B: Clone, M: Clone> Clone for Context<T, B, M> {
 	}
 }
 
-impl<T: PartialEq, B: PartialEq, M> StrippedPartialEq for Context<T, B, M> {
-	fn stripped_eq(&self, other: &Self) -> bool {
+impl<T: PartialEq, B: PartialEq> PartialEq for Context<T, B> {
+	fn eq(&self, other: &Self) -> bool {
 		self.original_base_url == other.original_base_url
 			&& self.base_iri == other.base_iri
 			&& self.vocabulary == other.vocabulary
 			&& self.default_language == other.default_language
 			&& self.default_base_direction == other.default_base_direction
-			&& self.previous_context.stripped() == other.previous_context.stripped()
+			&& self.previous_context == other.previous_context
 	}
 }

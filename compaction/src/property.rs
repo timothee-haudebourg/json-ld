@@ -1,41 +1,45 @@
 use crate::{
 	add_value, compact_collection_with, compact_iri, compact_iri_with, compact_key, value_value,
-	CompactFragment, CompactIndexedFragment, Error, MetaError, Options,
+	CompactFragment, CompactIndexedFragment, Error, Options,
 };
 
 use json_ld_core::{
 	context::Nest,
 	object::{self, List},
-	Container, ContainerKind, Context, ContextLoader, Id, Indexed, Loader, Node, Object, Term,
+	Container, ContainerKind, Context, Id, Indexed, Loader, Node, Object, Term,
 };
 use json_ld_syntax::Keyword;
-use locspan::Meta;
 use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
-async fn compact_property_list<I, B, M, N, L>(
+async fn compact_property_list<N, L>(
 	vocabulary: &mut N,
-	Meta(list, meta): Meta<&List<I, B, M>, &M>,
-	expanded_index: Option<&json_ld_syntax::Entry<String, M>>,
-	nest_result: &mut json_syntax::Object<M>,
+	list: &List<N::Iri, N::BlankId>,
+	expanded_index: Option<&str>,
+	nest_result: &mut json_syntax::Object,
 	container: Container,
 	as_array: bool,
-	item_active_property: Meta<&str, &M>,
-	active_context: &Context<I, B, M>,
+	item_active_property: &str,
+	active_context: &Context<N::Iri, N::BlankId>,
 	loader: &mut L,
 	options: Options,
-) -> Result<(), MetaError<M, L::ContextError>>
+) -> Result<(), Error<L::Error>>
 where
-	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-	I: Clone + Hash + Eq + Send + Sync,
-	B: Clone + Hash + Eq + Send + Sync,
-	M: Clone + Send + Sync,
-	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+	N: VocabularyMut,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
+	L: Loader<N::Iri>,
+	//
+	N: Send + Sync,
+	N::Iri: Send + Sync,
+	N::BlankId: Send + Sync,
+	L: Send + Sync,
+	L::Error: Send,
 {
 	// If expanded item is a list object:
 	let mut compacted_item = compact_collection_with(
 		vocabulary,
-		Meta(list.iter(), meta),
+		list.iter(),
 		active_context,
 		active_context,
 		Some(item_active_property),
@@ -48,7 +52,7 @@ where
 	// then set `compacted_item` to an array containing only `compacted_item`.
 	if !compacted_item.is_array() {
 		let array = vec![compacted_item];
-		compacted_item = Meta(json_syntax::Value::Array(array), meta.clone())
+		compacted_item = json_syntax::Value::Array(array)
 	}
 
 	// If container does not include @list:
@@ -60,12 +64,11 @@ where
 		let key = compact_key(
 			vocabulary,
 			active_context,
-			Meta(&Term::Keyword(Keyword::List), meta),
+			&Term::Keyword(Keyword::List),
 			true,
 			false,
 			options,
-		)
-		.map_err(Meta::cast)?;
+		)?;
 		let mut compacted_item_list_object = json_syntax::Object::default();
 		compacted_item_list_object.insert(key.unwrap(), compacted_item);
 
@@ -76,64 +79,52 @@ where
 			let key = compact_key(
 				vocabulary,
 				active_context,
-				Meta(&Term::Keyword(Keyword::Index), &index.key_metadata),
+				&Term::Keyword(Keyword::Index),
 				true,
 				false,
 				options,
-			)
-			.map_err(Meta::cast)?;
+			)?;
 
-			let Meta(index_value, meta) = &index.value;
-
-			compacted_item_list_object.insert(
-				key.unwrap(),
-				Meta(
-					json_syntax::Value::String(index_value.as_str().into()),
-					meta.clone(),
-				),
-			);
+			compacted_item_list_object
+				.insert(key.unwrap(), json_syntax::Value::String(index.into()));
 		}
 
-		compacted_item = Meta(
-			json_syntax::Value::Object(compacted_item_list_object),
-			meta.clone(),
-		);
+		compacted_item = json_syntax::Value::Object(compacted_item_list_object);
 
 		// Use add value to add `compacted_item` to
 		// the `item_active_property` entry in `nest_result` using `as_array`.
 		add_value(nest_result, item_active_property, compacted_item, as_array)
 	} else {
 		// Otherwise, set the value of the item active property entry in nest result to compacted item.
-		nest_result.insert(
-			Meta(
-				item_active_property.0.into(),
-				item_active_property.1.clone(),
-			),
-			compacted_item,
-		);
+		nest_result.insert(item_active_property.into(), compacted_item);
 	}
 
 	Ok(())
 }
 
-async fn compact_property_graph<I, B, M, N, L>(
+async fn compact_property_graph<N, L>(
 	vocabulary: &mut N,
-	Meta(node, meta): Meta<&Node<I, B, M>, &M>,
-	expanded_index: Option<&json_ld_syntax::Entry<String, M>>,
-	nest_result: &mut json_syntax::Object<M>,
+	node: &Node<N::Iri, N::BlankId>,
+	expanded_index: Option<&str>,
+	nest_result: &mut json_syntax::Object,
 	container: Container,
 	as_array: bool,
-	item_active_property: Meta<&str, &M>,
-	active_context: &Context<I, B, M>,
+	item_active_property: &str,
+	active_context: &Context<N::Iri, N::BlankId>,
 	loader: &mut L,
 	options: Options,
-) -> Result<(), MetaError<M, L::ContextError>>
+) -> Result<(), Error<L::Error>>
 where
-	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-	I: Clone + Hash + Eq + Send + Sync,
-	B: Clone + Hash + Eq + Send + Sync,
-	M: Clone + Send + Sync,
-	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+	N: VocabularyMut,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
+	L: Loader<N::Iri>,
+	//
+	N: Send + Sync,
+	N::Iri: Send + Sync,
+	N::BlankId: Send + Sync,
+	L: Send + Sync,
+	L::Error: Send,
 {
 	// If expanded item is a graph object
 	let mut compacted_item = node
@@ -155,22 +146,19 @@ where
 		// in `nest_result`, initializing it to a new empty map,
 		// if necessary.
 		if nest_result
-			.get_unique(*item_active_property)
+			.get_unique(item_active_property)
 			.ok()
 			.unwrap()
 			.is_none()
 		{
 			nest_result.insert(
-				Meta(
-					item_active_property.0.into(),
-					item_active_property.1.clone(),
-				),
-				Meta(json_ld_syntax::Object::default().into(), meta.clone()),
+				item_active_property.into(),
+				json_ld_syntax::Object::default().into(),
 			);
 		}
 
 		let map_object = nest_result
-			.get_unique_mut(*item_active_property)
+			.get_unique_mut(item_active_property)
 			.ok()
 			.unwrap()
 			.unwrap();
@@ -180,30 +168,17 @@ where
 		// `expanded_item` or @none if no such value exists
 		// with `vocab` set to false if there is an @id entry in
 		// `expanded_item`.
-		let (id_value, vocab): (Meta<Term<I, B>, M>, bool) = match node.id_entry() {
-			Some(entry) => (entry.value.clone().cast(), false),
-			None => (Meta(Term::Keyword(Keyword::None), meta.clone()), true),
+		let (id_value, vocab) = match &node.id {
+			Some(entry) => (entry.clone().into_term(), false),
+			None => (Term::Keyword(Keyword::None), true),
 		};
 
-		let map_key = compact_iri(
-			vocabulary,
-			active_context,
-			id_value.borrow(),
-			vocab,
-			false,
-			options,
-		)
-		.map_err(Meta::cast)?
-		.unwrap();
+		let map_key =
+			compact_iri(vocabulary, active_context, &id_value, vocab, false, options)?.unwrap();
 
 		// Use `add_value` to add `compacted_item` to
 		// the `map_key` entry in `map_object` using `as_array`.
-		add_value(
-			map_object,
-			map_key.borrow().map(String::as_str),
-			compacted_item,
-			as_array,
-		)
+		add_value(map_object, &map_key, compacted_item, as_array)
 	} else if container.contains(ContainerKind::Graph)
 		&& container.contains(ContainerKind::Index)
 		&& node.is_simple_graph()
@@ -212,22 +187,19 @@ where
 		// in `nest_result`, initializing it to a new empty map,
 		// if necessary.
 		if nest_result
-			.get_unique(*item_active_property)
+			.get_unique(item_active_property)
 			.ok()
 			.unwrap()
 			.is_none()
 		{
 			nest_result.insert(
-				Meta(
-					item_active_property.0.into(),
-					item_active_property.1.clone(),
-				),
-				Meta(json_ld_syntax::Object::default().into(), meta.clone()),
+				item_active_property.into(),
+				json_ld_syntax::Object::default().into(),
 			);
 		}
 
 		let map_object = nest_result
-			.get_unique_mut(*item_active_property)
+			.get_unique_mut(item_active_property)
 			.ok()
 			.unwrap()
 			.unwrap();
@@ -235,9 +207,7 @@ where
 
 		// Initialize `map_key` the value of @index in `expanded_item`
 		// or @none, if no such value exists.
-		let map_key = expanded_index
-			.map(|e| e.value.borrow().map(String::as_str))
-			.unwrap_or_else(|| Meta("@none", meta));
+		let map_key = expanded_index.unwrap_or("@none");
 
 		// Use `add_value` to add `compacted_item` to
 		// the `map_key` entry in `map_object` using `as_array`.
@@ -254,23 +224,19 @@ where
 		// containing the key from IRI compacting @included and
 		// the original `compacted_item` as the value.
 		compacted_item = match compacted_item {
-			Meta(json_syntax::Value::Array(items), items_meta) if items.len() > 1 => {
+			json_syntax::Value::Array(items) if items.len() > 1 => {
 				let key = compact_iri(
 					vocabulary,
 					active_context,
-					Meta(&Term::Keyword(Keyword::Included), &items_meta),
+					&Term::Keyword(Keyword::Included),
 					true,
 					false,
 					options,
-				)
-				.map_err(Meta::cast)?
+				)?
 				.unwrap();
 				let mut map = json_syntax::Object::default();
-				map.insert(
-					key.cast(),
-					Meta(json_syntax::Value::Array(items), items_meta.clone()),
-				);
-				Meta(json_syntax::Value::Object(map), items_meta)
+				map.insert(key.into(), json_syntax::Value::Array(items));
+				json_syntax::Value::Object(map)
 			}
 			item => item,
 		};
@@ -287,47 +253,37 @@ where
 		let key = compact_iri(
 			vocabulary,
 			active_context,
-			Meta(&Term::Keyword(Keyword::Graph), meta),
+			&Term::Keyword(Keyword::Graph),
 			true,
 			false,
 			options,
-		)
-		.map_err(Meta::cast)?
+		)?
 		.unwrap();
 		let mut map = json_syntax::Object::default();
-		map.insert(key.cast(), compacted_item);
+		map.insert(key.into(), compacted_item);
 
 		// If `expanded_item` contains an @id entry,
 		// add an entry in `compacted_item` using the key from
 		// IRI compacting @id using the value of
 		// IRI compacting the value of @id in `expanded_item` using
 		// false for vocab.
-		if let Some(id_entry) = node.id_entry() {
+		if let Some(id_entry) = &node.id {
 			let key = compact_iri(
 				vocabulary,
 				active_context,
-				Meta(&Term::Keyword(Keyword::Id), &id_entry.key_metadata),
+				&Term::Keyword(Keyword::Id),
 				false,
 				false,
 				options,
-			)
-			.map_err(Meta::cast)?
+			)?
 			.unwrap();
-			let id: Meta<Term<I, B>, M> = id_entry.value.clone().cast();
-			let value = compact_iri(
-				vocabulary,
-				active_context,
-				id.borrow(),
-				false,
-				false,
-				options,
-			)
-			.map_err(Meta::cast)?;
+			let id: Term<N::Iri, N::BlankId> = id_entry.clone().into();
+			let value = compact_iri(vocabulary, active_context, &id, false, false, options)?;
 			map.insert(
-				key.cast(),
+				key.into(),
 				match value {
-					Some(s) => s.cast(),
-					None => Meta(json_syntax::Value::Null, meta.clone()),
+					Some(s) => s.into(),
+					None => json_syntax::Value::Null,
 				},
 			);
 		}
@@ -339,37 +295,35 @@ where
 			let key = compact_iri(
 				vocabulary,
 				active_context,
-				Meta(&Term::Keyword(Keyword::Index), &index_entry.key_metadata),
+				&Term::Keyword(Keyword::Index),
 				true,
 				false,
 				options,
-			)
-			.map_err(Meta::cast)?
+			)?
 			.unwrap();
-			map.insert(key.cast(), index_entry.value.clone().cast());
+			map.insert(key.into(), index_entry.into());
 		}
 
 		// Use `add_value` to add `compacted_item` to the
 		// `item_active_property` entry in `nest_result` using `as_array`.
-		let compacted_item = Meta(json_syntax::Value::Object(map), meta.clone());
+		let compacted_item = json_syntax::Value::Object(map);
 		add_value(nest_result, item_active_property, compacted_item, as_array)
 	}
 
 	Ok(())
 }
 
-fn select_nest_result<'a, I, B, M, E>(
-	result: &'a mut json_syntax::Object<M>,
-	active_context: &Context<I, B, M>,
-	item_active_property: Meta<&str, &M>,
+fn select_nest_result<'a, I, B, E>(
+	result: &'a mut json_syntax::Object,
+	active_context: &Context<I, B>,
+	item_active_property: &str,
 	compact_arrays: bool,
-) -> Result<(&'a mut json_syntax::Object<M>, Container, bool), MetaError<M, E>>
+) -> Result<(&'a mut json_syntax::Object, Container, bool), Error<E>>
 where
-	I: Clone + Hash + Eq + Send + Sync,
-	B: Clone + Hash + Eq + Send + Sync,
-	M: Clone + Send + Sync,
+	I: Clone + Hash + Eq,
+	B: Clone + Hash + Eq,
 {
-	let (nest_result, container) = match active_context.get(*item_active_property) {
+	let (nest_result, container) = match active_context.get(item_active_property) {
 		Some(term_definition) => {
 			let nest_result = match term_definition.nest() {
 				Some(nest_term) => {
@@ -377,22 +331,16 @@ where
 					// or a term in the active context that expands to @nest,
 					// an invalid @nest value error has been detected,
 					// and processing is aborted.
-					if *nest_term.value != Nest::Nest {
+					if *nest_term != Nest::Nest {
 						match active_context.get(nest_term.as_str()) {
 							Some(term_def)
 								if term_def.value() == Some(&Term::Keyword(Keyword::Nest)) => {}
-							_ => {
-								return Err(Meta(
-									Error::InvalidNestValue,
-									nest_term.key_metadata.clone(),
-								))
-							}
+							_ => return Err(Error::InvalidNestValue),
 						}
 					}
 
 					// If result does not have a nest_term entry,
 					// initialize it to an empty map.
-					let meta = nest_term.key_metadata.clone();
 					if result
 						.get_unique(nest_term.as_str())
 						.ok()
@@ -400,8 +348,8 @@ where
 						.is_none()
 					{
 						result.insert(
-							nest_term.value.clone().map(|k| k.as_str().into()),
-							Meta(json_syntax::Object::default().into(), meta),
+							nest_term.as_str().into(),
+							json_syntax::Object::default().into(),
 						);
 					}
 
@@ -435,8 +383,8 @@ where
 	// or if `item_active_property` is @graph or @list,
 	// otherwise the negation of `options.compact_arrays`.
 	let as_array = if container.contains(ContainerKind::Set)
-		|| *item_active_property == "@graph"
-		|| *item_active_property == "@list"
+		|| item_active_property == "@graph"
+		|| item_active_property == "@list"
 	{
 		true
 	} else {
@@ -447,24 +395,30 @@ where
 }
 
 /// Compact the given property into the `result` compacted object.
-pub async fn compact_property<'a, T, O, I, B, M, N, L>(
+pub async fn compact_property<'a, N, L, O, T>(
 	vocabulary: &mut N,
-	result: &mut json_syntax::Object<M>,
-	expanded_property: Meta<Term<I, B>, M>,
+	result: &mut json_syntax::Object,
+	expanded_property: Term<N::Iri, N::BlankId>,
 	expanded_value: O,
-	active_context: &Context<I, B, M>,
+	active_context: &Context<N::Iri, N::BlankId>,
 	loader: &mut L,
 	inside_reverse: bool,
 	options: Options,
-) -> Result<(), MetaError<M, L::ContextError>>
+) -> Result<(), Error<L::Error>>
 where
-	T: 'a + object::Any<I, B, M> + Sync + Send,
-	O: IntoIterator<Item = &'a Meta<Indexed<T, M>, M>>,
-	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-	I: Clone + Hash + Eq + Send + Sync,
-	B: Clone + Hash + Eq + Send + Sync,
-	M: 'a + Clone + Send + Sync,
-	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+	N: VocabularyMut,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
+	O: IntoIterator<Item = &'a Indexed<T>>,
+	T: 'a + object::Any<N::Iri, N::BlankId>,
+	L: Loader<N::Iri>,
+	//
+	N: Send + Sync,
+	N::Iri: Send + Sync,
+	N::BlankId: Send + Sync,
+	T: Sync + Send,
+	L: Send + Sync,
+	L::Error: Send,
 {
 	let mut is_empty = true;
 
@@ -476,13 +430,12 @@ where
 		let item_active_property = compact_iri_with(
 			vocabulary,
 			active_context,
-			Meta(&expanded_property.0, &expanded_property.1),
+			&expanded_property,
 			expanded_item,
 			true,
 			inside_reverse,
 			options,
-		)
-		.map_err(Meta::cast)?;
+		)?;
 
 		// If the term definition for `item_active_property` in the active context
 		// has a nest value entry (nest term)
@@ -490,7 +443,7 @@ where
 			let (nest_result, container, as_array) = select_nest_result(
 				result,
 				active_context,
-				item_active_property.borrow().map(String::as_str),
+				&item_active_property,
 				options.compact_arrays,
 			)?;
 
@@ -505,12 +458,12 @@ where
 				object::Ref::List(list) => {
 					compact_property_list(
 						vocabulary,
-						Meta(list, expanded_item.metadata()),
-						expanded_item.index_entry(),
+						list,
+						expanded_item.index(),
 						nest_result,
 						container,
 						as_array,
-						item_active_property.borrow().map(String::as_str),
+						&item_active_property,
 						active_context,
 						loader,
 						options,
@@ -520,12 +473,12 @@ where
 				object::Ref::Node(node) if node.is_graph() => {
 					compact_property_graph(
 						vocabulary,
-						Meta(node, expanded_item.metadata()),
-						expanded_item.index_entry(),
+						node,
+						expanded_item.index(),
 						nest_result,
 						container,
 						as_array,
-						item_active_property.borrow().map(String::as_str),
+						&item_active_property,
 						active_context,
 						loader,
 						options,
@@ -538,7 +491,7 @@ where
 							vocabulary,
 							active_context,
 							active_context,
-							Some(item_active_property.borrow().map(String::as_str)),
+							Some(&item_active_property),
 							loader,
 							options,
 						)
@@ -561,10 +514,9 @@ where
 							.unwrap()
 							.is_none()
 						{
-							let meta = item_active_property.metadata().clone();
 							nest_result.insert(
-								item_active_property.clone().cast(),
-								Meta(json_syntax::Object::default().into(), meta),
+								item_active_property.clone().into(),
+								json_syntax::Object::default().into(),
 							);
 						}
 
@@ -590,15 +542,11 @@ where
 						let mut container_key = compact_iri(
 							vocabulary,
 							active_context,
-							Meta(
-								&Term::Keyword(container_type.into()),
-								compacted_item.metadata(),
-							),
+							&Term::Keyword(container_type.into()),
 							true,
 							false,
 							options,
-						)
-						.map_err(Meta::cast)?;
+						)?;
 
 						// Initialize `index_key` to the value of index mapping in
 						// the term definition associated with `item_active_property`
@@ -617,12 +565,10 @@ where
 							&& expanded_item.is_value()
 						{
 							if let object::Ref::Value(value) = expanded_item.inner().as_ref() {
-								compacted_item = value_value(value, expanded_item.metadata())
+								compacted_item = value_value(value)
 							}
 
-							expanded_item.language().map(|lang| {
-								Meta(lang.to_string(), expanded_item.metadata().clone())
-							})
+							expanded_item.language().map(|lang| lang.to_string())
 						} else if container_type == ContainerKind::Index {
 							match index_key {
 								Some(index_key) => {
@@ -634,21 +580,15 @@ where
 									container_key = compact_iri(
 										vocabulary,
 										active_context,
-										Meta(
-											&Term::Id(Id::Invalid(index_key.to_string())),
-											index_key.metadata(),
-										),
+										&Term::Id(Id::Invalid(index_key.to_string())),
 										true,
 										false,
 										options,
-									)
-									.map_err(Meta::cast)?;
+									)?;
 
 									// Set `map_key` to the first value of
 									// `container_key` in `compacted_item`, if any.
-									let (map_key, remaining_values) = match compacted_item
-										.value_mut()
-									{
+									let (map_key, remaining_values) = match &mut compacted_item {
 										json_syntax::Value::Object(map) => {
 											match map
 												.remove_unique(
@@ -658,22 +598,16 @@ where
 												.unwrap()
 											{
 												Some(entry) => match entry.value {
-													Meta(json_syntax::Value::String(s), meta) => (
-														Some(Meta(s.to_string(), meta.clone())),
-														Vec::new(),
-													),
-													Meta(json_syntax::Value::Array(values), _) => {
+													json_syntax::Value::String(s) => {
+														(Some(s.to_string()), Vec::new())
+													}
+													json_syntax::Value::Array(values) => {
 														let mut values = values.into_iter();
 														match values.next() {
 															Some(first_value) => (
-																first_value.as_str().map(|v| {
-																	Meta(
-																		v.to_string(),
-																		first_value
-																			.metadata()
-																			.clone(),
-																	)
-																}),
+																first_value
+																	.as_str()
+																	.map(|v| v.to_string()),
 																values.collect(),
 															),
 															None => (None, values.collect()),
@@ -697,11 +631,7 @@ where
 											for value in remaining_values {
 												add_value(
 													map,
-													container_key
-														.as_ref()
-														.unwrap()
-														.borrow()
-														.map(String::as_str),
+													container_key.as_deref().unwrap(),
 													value,
 													false,
 												)
@@ -715,9 +645,7 @@ where
 									// Otherwise, if `container` includes @index and
 									// `index_key` is @index, set `map_key` to the value of
 									// @index in `expanded_item`, if any.
-									expanded_item.index_entry().map(|entry| {
-										Meta(entry.value.to_string(), entry.metadata().clone())
-									})
+									expanded_item.index().map(ToOwned::to_owned)
 								}
 							}
 						} else if container_type == ContainerKind::Id {
@@ -731,11 +659,7 @@ where
 									map.remove_unique(container_key.unwrap().as_str())
 										.ok()
 										.unwrap()
-										.map(|entry| {
-											entry.value.as_str().map(|s| {
-												Meta(s.to_string(), entry.value.metadata().clone())
-											})
-										})
+										.map(|entry| entry.value.as_str().map(ToOwned::to_owned))
 								})
 								.flatten()
 						} else {
@@ -751,20 +675,14 @@ where
 										.unwrap()
 									{
 										Some(entry) => match entry.value {
-											Meta(json_syntax::Value::String(s), meta) => (
-												Some(Meta((*s).to_string(), meta.clone())),
-												Vec::new(),
-											),
-											Meta(json_syntax::Value::Array(values), _) => {
+											json_syntax::Value::String(s) => {
+												(Some((*s).to_string()), Vec::new())
+											}
+											json_syntax::Value::Array(values) => {
 												let mut values = values.into_iter();
 												match values.next() {
 													Some(first_value) => (
-														first_value.as_str().map(|v| {
-															Meta(
-																v.to_string(),
-																first_value.metadata().clone(),
-															)
-														}),
+														first_value.as_str().map(ToOwned::to_owned),
 														values.collect(),
 													),
 													None => (None, values.collect()),
@@ -788,11 +706,7 @@ where
 									for value in remaining_values {
 										add_value(
 											map,
-											container_key
-												.as_ref()
-												.unwrap()
-												.borrow()
-												.map(String::as_str),
+											container_key.as_deref().unwrap(),
 											value,
 											false,
 										)
@@ -808,17 +722,16 @@ where
 							// entry for @id from `expanded_item` for `element`.
 							if let Some(map) = compacted_item.as_object() {
 								if map.len() == 1 && map.get_unique("@id").ok().unwrap().is_some() {
-									let obj = Object::node(Node::with_id_entry(
-										expanded_item.id_entry().unwrap().clone(),
+									let obj = Object::node(Node::with_id(
+										expanded_item.id().unwrap().clone(),
 									));
 									compacted_item = obj
 										.compact_indexed_fragment(
 											vocabulary,
-											compacted_item.metadata(),
 											None,
 											active_context,
 											active_context,
-											Some(item_active_property.borrow().map(String::as_str)),
+											Some(&item_active_property),
 											loader,
 											options,
 										)
@@ -837,33 +750,22 @@ where
 								let key = compact_iri(
 									vocabulary,
 									active_context,
-									Meta(&Term::Keyword(Keyword::None), compacted_item.metadata()),
+									&Term::Keyword(Keyword::None),
 									true,
 									false,
 									options,
-								)
-								.map_err(Meta::cast)?;
+								)?;
 								key.unwrap()
 							}
 						};
 
 						// Use `add_value` to add `compacted_item` to
 						// the `map_key` entry in `map_object` using `as_array`.
-						add_value(
-							map_object,
-							map_key.borrow().map(String::as_str),
-							compacted_item,
-							as_array,
-						)
+						add_value(map_object, &map_key, compacted_item, as_array)
 					} else {
 						// Otherwise, use `add_value` to add `compacted_item` to the
 						// `item_active_property` entry in `nest_result` using `as_array`.
-						add_value(
-							nest_result,
-							item_active_property.borrow().map(String::as_str),
-							compacted_item,
-							as_array,
-						)
+						add_value(nest_result, &item_active_property, compacted_item, as_array)
 					}
 				}
 			};
@@ -878,13 +780,12 @@ where
 		let item_active_property = compact_iri_with(
 			vocabulary,
 			active_context,
-			expanded_property.borrow(),
-			&Indexed::new_entry(Object::node(Node::new()), None),
+			&expanded_property,
+			&Indexed::new(Object::node(Node::new()), None),
 			true,
 			inside_reverse,
 			options,
-		)
-		.map_err(Meta::cast)?;
+		)?;
 
 		// If the term definition for `item_active_property` in the active context
 		// has a nest value entry (nest term):
@@ -892,18 +793,13 @@ where
 			let (nest_result, _, _) = select_nest_result(
 				result,
 				active_context,
-				item_active_property.borrow().map(String::as_str),
+				&item_active_property,
 				options.compact_arrays,
 			)?;
 
 			// Use `add_value` to add an empty array to the `item_active_property` entry in
 			// `nest_result` using true for `as_array`.
-			add_value(
-				nest_result,
-				item_active_property.borrow().map(String::as_str),
-				Meta(Vec::new().into(), item_active_property.metadata().clone()),
-				true,
-			)
+			add_value(nest_result, &item_active_property, Vec::new().into(), true)
 		}
 	}
 

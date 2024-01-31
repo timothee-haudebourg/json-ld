@@ -1,14 +1,12 @@
 use std::str::FromStr;
 
-use crate::{id, object::value, Direction, Id, Indexed, IndexedObject, Node, Object, ValidId};
+use crate::{object::value, Direction, Id, Indexed, IndexedObject, Node, Object, ValidId};
 use iref::{Iri, IriBuf};
-use json_ld_syntax::Entry;
 use json_syntax::Print;
 use langtag::LanguageTagBuf;
-use locspan::Meta;
 use rdf_types::{
-	IriVocabularyMut, LanguageTagVocabulary, LanguageTagVocabularyMut, LiteralVocabularyMut,
-	Vocabulary,
+	Generator, IriVocabularyMut, LanguageTagVocabulary, LanguageTagVocabularyMut,
+	LiteralVocabularyMut, Vocabulary,
 };
 use smallvec::SmallVec;
 use static_iref::iri;
@@ -133,10 +131,10 @@ pub struct CompoundLiteral<T, B, L> {
 	triples: Option<CompoundLiteralTriples<T, B, L>>,
 }
 
-impl<T: Clone, M> crate::object::Value<T, M> {
+impl<T: Clone> crate::object::Value<T> {
 	fn rdf_value_with<
 		V: Vocabulary<Iri = T> + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: id::Generator<V, M>,
+		G: Generator<V>,
 	>(
 		&self,
 		vocabulary: &mut V,
@@ -186,7 +184,7 @@ impl<T: Clone, M> crate::object::Value<T, M> {
 							})
 						}
 						Some(RdfDirection::CompoundLiteral) => {
-							let Meta(id, _) = generator.next(vocabulary);
+							let id = generator.next(vocabulary);
 							Some(CompoundLiteral {
 								value: id.into_term(),
 								triples: None,
@@ -308,25 +306,22 @@ const XSD_CANONICAL_FLOAT: pretty_dtoa::FmtFloatConfig = pretty_dtoa::FmtFloatCo
 	.force_e_notation()
 	.capitalize_e(true);
 
-impl<T: Clone, B: Clone, M> Node<T, B, M> {
+impl<T: Clone, B: Clone> Node<T, B> {
 	fn rdf_value<L>(&self) -> Option<Value<T, B, L>> {
-		self.id_entry()
-			.map(Entry::as_value)
-			.map(Meta::value)
-			.and_then(Id::rdf_value)
+		self.id.as_ref().and_then(Id::rdf_value)
 	}
 }
 
-impl<T: Clone, B: Clone, M> Object<T, B, M> {
+impl<T: Clone, B: Clone> Object<T, B> {
 	fn rdf_value_with<
 		V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: id::Generator<V, M>,
+		G: Generator<V>,
 	>(
 		&self,
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Option<CompoundValue<T, B, V::Literal, M>>
+	) -> Option<CompoundValue<T, B, V::Literal>>
 	where
 		V: LiteralVocabularyMut<
 			Type = rdf_types::literal::Type<V::Iri, V::LanguageTag>,
@@ -351,7 +346,7 @@ impl<T: Clone, B: Clone, M> Object<T, B, M> {
 						triples: None,
 					})
 				} else {
-					let Meta(id, _) = generator.next(vocabulary);
+					let id = generator.next(vocabulary);
 					Some(CompoundValue {
 						value: Clone::clone(&id).into_term(),
 						triples: Some(CompoundValueTriples::List(ListTriples::new(
@@ -365,21 +360,21 @@ impl<T: Clone, B: Clone, M> Object<T, B, M> {
 	}
 }
 
-pub struct CompoundValue<'a, T, B, L, M> {
+pub struct CompoundValue<'a, T, B, L> {
 	value: Value<T, B, L>,
-	triples: Option<CompoundValueTriples<'a, T, B, L, M>>,
+	triples: Option<CompoundValueTriples<'a, T, B, L>>,
 }
 
-impl<'a, T: Clone, B: Clone, M> crate::quad::ObjectRef<'a, T, B, M> {
+impl<'a, T: Clone, B: Clone> crate::quad::ObjectRef<'a, T, B> {
 	pub fn rdf_value_with<
 		V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: id::Generator<V, M>,
+		G: Generator<V>,
 	>(
 		&self,
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Option<CompoundValue<'a, T, B, V::Literal, M>>
+	) -> Option<CompoundValue<'a, T, B, V::Literal>>
 	where
 		V: LiteralVocabularyMut<
 			Type = rdf_types::literal::Type<V::Iri, V::LanguageTag>,
@@ -400,24 +395,24 @@ impl<'a, T: Clone, B: Clone, M> crate::quad::ObjectRef<'a, T, B, M> {
 	}
 }
 
-enum ListItemTriples<'a, T, B, L, M> {
-	NestedList(NestedListTriples<'a, T, B, M>),
+enum ListItemTriples<'a, T, B, L> {
+	NestedList(NestedListTriples<'a, T, B>),
 	CompoundLiteral(Box<CompoundLiteralTriples<T, B, L>>),
 }
 
-struct NestedListTriples<'a, T, B, M> {
+struct NestedListTriples<'a, T, B> {
 	head_ref: Option<ValidId<T, B>>,
 	previous: Option<ValidId<T, B>>,
-	iter: std::slice::Iter<'a, IndexedObject<T, B, M>>,
+	iter: std::slice::Iter<'a, IndexedObject<T, B>>,
 }
 
-struct ListNode<'a, 'i, T, B, M> {
+struct ListNode<'a, 'i, T, B> {
 	id: &'i ValidId<T, B>,
-	object: &'a Indexed<Object<T, B, M>, M>,
+	object: &'a Indexed<Object<T, B>>,
 }
 
-impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
-	fn new(list: &'a [IndexedObject<T, B, M>], head_ref: ValidId<T, B>) -> Self {
+impl<'a, T, B> NestedListTriples<'a, T, B> {
+	fn new(list: &'a [IndexedObject<T, B>], head_ref: ValidId<T, B>) -> Self {
 		Self {
 			head_ref: Some(head_ref),
 			previous: None,
@@ -432,15 +427,15 @@ impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
 	/// Pull the next object of the list.
 	///
 	/// Uses the given generator to assign as id to the list element.
-	fn next<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
+	fn next<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
-	) -> Option<ListNode<'a, '_, T, B, M>> {
+	) -> Option<ListNode<'a, '_, T, B>> {
 		if let Some(next) = self.iter.next() {
 			let id = match self.head_ref.take() {
 				Some(id) => id,
-				None => generator.next(vocabulary).into_value(),
+				None => generator.next(vocabulary),
 			};
 
 			self.previous = Some(id);
@@ -454,12 +449,12 @@ impl<'a, T, B, M> NestedListTriples<'a, T, B, M> {
 	}
 }
 
-pub enum CompoundValueTriples<'a, T, B, L, M> {
+pub enum CompoundValueTriples<'a, T, B, L> {
 	Literal(Box<CompoundLiteralTriples<T, B, L>>),
-	List(ListTriples<'a, T, B, L, M>),
+	List(ListTriples<'a, T, B, L>),
 }
 
-impl<'a, T, B, L, M> CompoundValueTriples<'a, T, B, L, M> {
+impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
 	pub fn literal(l: CompoundLiteralTriples<T, B, L>) -> Self {
 		Self::Literal(Box::new(l))
 	}
@@ -467,13 +462,13 @@ impl<'a, T, B, L, M> CompoundValueTriples<'a, T, B, L, M> {
 	pub fn with<
 		'n,
 		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + LanguageTagVocabulary,
-		G: id::Generator<V, M>,
+		G: Generator<V>,
 	>(
 		self,
 		vocabulary: &'n mut V,
 		generator: G,
 		rdf_direction: Option<RdfDirection>,
-	) -> CompoundValueTriplesWith<'a, 'n, V, M, G> {
+	) -> CompoundValueTriplesWith<'a, 'n, V, G> {
 		CompoundValueTriplesWith {
 			vocabulary,
 			generator,
@@ -484,7 +479,7 @@ impl<'a, T, B, L, M> CompoundValueTriples<'a, T, B, L, M> {
 
 	pub fn next<
 		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: id::Generator<V, M>,
+		G: Generator<V>,
 	>(
 		&mut self,
 		vocabulary: &mut V,
@@ -504,26 +499,16 @@ impl<'a, T, B, L, M> CompoundValueTriples<'a, T, B, L, M> {
 	}
 }
 
-pub struct CompoundValueTriplesWith<
-	'a,
-	'n,
-	N: Vocabulary + LanguageTagVocabulary,
-	M,
-	G: id::Generator<N, M>,
-> {
+pub struct CompoundValueTriplesWith<'a, 'n, N: Vocabulary + LanguageTagVocabulary, G: Generator<N>>
+{
 	vocabulary: &'n mut N,
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
-	inner: CompoundValueTriples<'a, N::Iri, N::BlankId, N::Literal, M>,
+	inner: CompoundValueTriples<'a, N::Iri, N::BlankId, N::Literal>,
 }
 
-impl<
-		'a,
-		'n,
-		M,
-		N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: id::Generator<N, M>,
-	> Iterator for CompoundValueTriplesWith<'a, 'n, N, M, G>
+impl<'a, 'n, N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut, G: Generator<N>> Iterator
+	for CompoundValueTriplesWith<'a, 'n, N, G>
 where
 	N::Iri: AsRef<Iri> + Clone,
 	N::BlankId: Clone,
@@ -544,13 +529,13 @@ where
 /// Iterator over the RDF quads generated from a list of JSON-LD objects.
 ///
 /// If the list contains nested lists, the iterator will also emit quads for those nested lists.
-pub struct ListTriples<'a, T, B, L, M> {
-	stack: SmallVec<[ListItemTriples<'a, T, B, L, M>; 2]>,
+pub struct ListTriples<'a, T, B, L> {
+	stack: SmallVec<[ListItemTriples<'a, T, B, L>; 2]>,
 	pending: Option<Triple<T, B, L>>,
 }
 
-impl<'a, T, B, L, M> ListTriples<'a, T, B, L, M> {
-	pub fn new(list: &'a [IndexedObject<T, B, M>], head_ref: ValidId<T, B>) -> Self {
+impl<'a, T, B, L> ListTriples<'a, T, B, L> {
+	pub fn new(list: &'a [IndexedObject<T, B>], head_ref: ValidId<T, B>) -> Self {
 		let mut stack = SmallVec::new();
 		stack.push(ListItemTriples::NestedList(NestedListTriples::new(
 			list, head_ref,
@@ -565,13 +550,13 @@ impl<'a, T, B, L, M> ListTriples<'a, T, B, L, M> {
 	pub fn with<
 		'n,
 		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + LanguageTagVocabulary,
-		G: id::Generator<V, M>,
+		G: Generator<V>,
 	>(
 		self,
 		vocabulary: &'n mut V,
 		generator: G,
 		rdf_direction: Option<RdfDirection>,
-	) -> ListTriplesWith<'a, 'n, V, M, G> {
+	) -> ListTriplesWith<'a, 'n, V, G> {
 		ListTriplesWith {
 			vocabulary,
 			generator,
@@ -582,7 +567,7 @@ impl<'a, T, B, L, M> ListTriples<'a, T, B, L, M> {
 
 	pub fn next<
 		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: id::Generator<V, M>,
+		G: Generator<V>,
 	>(
 		&mut self,
 		vocabulary: &mut V,
@@ -664,21 +649,15 @@ impl<'a, T, B, L, M> ListTriples<'a, T, B, L, M> {
 	}
 }
 
-pub struct ListTriplesWith<'a, 'n, V: Vocabulary + LanguageTagVocabulary, M, G: id::Generator<V, M>>
-{
+pub struct ListTriplesWith<'a, 'n, V: Vocabulary + LanguageTagVocabulary, G: Generator<V>> {
 	vocabulary: &'n mut V,
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
-	inner: ListTriples<'a, V::Iri, V::BlankId, V::Literal, M>,
+	inner: ListTriples<'a, V::Iri, V::BlankId, V::Literal>,
 }
 
-impl<
-		'a,
-		'n,
-		N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut,
-		M,
-		G: id::Generator<N, M>,
-	> Iterator for ListTriplesWith<'a, 'n, N, M, G>
+impl<'a, 'n, N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut, G: Generator<N>> Iterator
+	for ListTriplesWith<'a, 'n, N, G>
 where
 	N::Iri: AsRef<Iri> + Clone,
 	N::BlankId: Clone,

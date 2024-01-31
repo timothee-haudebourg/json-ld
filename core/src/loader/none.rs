@@ -1,9 +1,10 @@
-use super::{Loader, RemoteDocument};
-use crate::future::{BoxFuture, FutureExt};
+use super::Loader;
 use contextual::{DisplayWithContext, WithContext};
-use rdf_types::{vocabulary::IriIndex, IriVocabulary};
+use rdf_types::IriVocabulary;
 use std::fmt;
-use std::marker::PhantomData;
+
+use crate::future::{BoxFuture, FutureExt};
+use crate::LoadingResult;
 
 /// Dummy loader.
 ///
@@ -11,18 +12,12 @@ use std::marker::PhantomData;
 /// Can be useful when you know that you will never need to load remote resource.
 ///
 /// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
-pub struct NoLoader<I = IriIndex, M = locspan::Location<I>, T = json_ld_syntax::Value<M>>(
-	PhantomData<(I, M, T)>,
-);
+#[derive(Debug, Default)]
+pub struct NoLoader;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("cannot load `{0}`")]
 pub struct CannotLoad<I>(I);
-
-impl<I: fmt::Display> fmt::Display for CannotLoad<I> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "cannot load `{}`", self.0)
-	}
-}
 
 impl<I: DisplayWithContext<N>, N> DisplayWithContext<N> for CannotLoad<I> {
 	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
@@ -30,32 +25,20 @@ impl<I: DisplayWithContext<N>, N> DisplayWithContext<N> for CannotLoad<I> {
 	}
 }
 
-impl<I, M, T> NoLoader<I, M, T> {
-	#[inline(always)]
-	pub fn new() -> Self {
-		Self(PhantomData)
-	}
-}
-
-impl<I, M, T> Default for NoLoader<I, M, T> {
-	#[inline(always)]
-	fn default() -> Self {
-		Self::new()
-	}
-}
-
-impl<I: Send, T, M> Loader<I, M> for NoLoader<I, M, T> {
-	type Output = T;
+impl<I> Loader<I> for NoLoader {
 	type Error = CannotLoad<I>;
 
 	#[inline(always)]
-	fn load_with<'a>(
+	fn load_with<'a, V>(
 		&'a mut self,
-		_namespace: &mut impl IriVocabulary<Iri = I>,
+		_vocabulary: &'a mut V,
 		url: I,
-	) -> BoxFuture<'a, Result<RemoteDocument<I, M, T>, Self::Error>>
+	) -> BoxFuture<'a, LoadingResult<I, CannotLoad<I>>>
 	where
-		I: 'a,
+		V: IriVocabulary<Iri = I>,
+		//
+		V: Send + Sync,
+		I: 'a + Send,
 	{
 		async move { Err(CannotLoad(url)) }.boxed()
 	}

@@ -1,6 +1,5 @@
 use json_ld_core::{object::Literal, LangString, Value};
 use linked_data::RdfLiteral;
-use locspan::Meta;
 use rdf_types::{literal, IriVocabularyMut, LanguageTagVocabulary};
 use xsd_types::XSD_STRING;
 
@@ -25,7 +24,7 @@ pub fn literal_to_value<V: IriVocabularyMut + LanguageTagVocabulary>(
 			}
 		},
 		RdfLiteral::Xsd(xsd) => xsd_to_value(vocabulary, xsd),
-		RdfLiteral::Json(json) => Value::Json(Meta::none(json)),
+		RdfLiteral::Json(json) => Value::Json(json),
 	}
 }
 

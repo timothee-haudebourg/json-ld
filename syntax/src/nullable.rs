@@ -1,7 +1,5 @@
 use std::fmt;
 
-use locspan_derive::StrippedPartialEq;
-
 /// Value that can be null.
 ///
 /// The `Option` type is used in this crate to indicate values that
@@ -9,7 +7,7 @@ use locspan_derive::StrippedPartialEq;
 /// Sometimes however,
 /// value can be explicitly defined as `null`,
 /// hence the need for this type.
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 pub enum Nullable<T> {
 	/// Null value.
 	Null,

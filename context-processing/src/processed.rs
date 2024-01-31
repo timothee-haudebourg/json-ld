@@ -1,19 +1,18 @@
 use iref::IriBuf;
 use json_ld_core::Context;
-use locspan::Meta;
 use rdf_types::BlankIdBuf;
 use std::ops;
 
 /// Processed context that also borrows the original, unprocessed, context.
-pub struct Processed<'l, T = IriBuf, B = BlankIdBuf, M = ()> {
-	unprocessed: Meta<&'l json_ld_syntax::context::Context<M>, &'l M>,
-	processed: Context<T, B, M>,
+pub struct Processed<'l, T = IriBuf, B = BlankIdBuf> {
+	unprocessed: &'l json_ld_syntax::context::Context,
+	processed: Context<T, B>,
 }
 
-impl<'l, T, B, M> Processed<'l, T, B, M> {
+impl<'l, T, B> Processed<'l, T, B> {
 	pub(crate) fn new(
-		unprocessed: Meta<&'l json_ld_syntax::context::Context<M>, &'l M>,
-		processed: Context<T, B, M>,
+		unprocessed: &'l json_ld_syntax::context::Context,
+		processed: Context<T, B>,
 	) -> Self {
 		Self {
 			unprocessed,
@@ -21,80 +20,77 @@ impl<'l, T, B, M> Processed<'l, T, B, M> {
 		}
 	}
 
-	pub fn unprocessed(&self) -> Meta<&'l json_ld_syntax::context::Context<M>, &'l M> {
+	pub fn unprocessed(&self) -> &'l json_ld_syntax::context::Context {
 		self.unprocessed
 	}
 
-	pub fn into_processed(self) -> Context<T, B, M> {
+	pub fn into_processed(self) -> Context<T, B> {
 		self.processed
 	}
 
-	pub fn as_ref(&self) -> ProcessedRef<'l, '_, T, B, M> {
+	pub fn as_ref(&self) -> ProcessedRef<'l, '_, T, B> {
 		ProcessedRef {
 			unprocessed: self.unprocessed,
 			processed: &self.processed,
 		}
 	}
 
-	pub fn into_owned(self) -> ProcessedOwned<T, B, M>
-	where
-		M: Clone,
-	{
+	pub fn into_owned(self) -> ProcessedOwned<T, B> {
 		ProcessedOwned {
-			unprocessed: self.unprocessed.cloned(),
+			unprocessed: self.unprocessed.clone(),
 			processed: self.processed,
 		}
 	}
 }
 
-impl<'l, T, B, M> ops::Deref for Processed<'l, T, B, M> {
-	type Target = Context<T, B, M>;
+impl<'l, T, B> ops::Deref for Processed<'l, T, B> {
+	type Target = Context<T, B>;
 
 	fn deref(&self) -> &Self::Target {
 		&self.processed
 	}
 }
 
-impl<'l, T, B, M> ops::DerefMut for Processed<'l, T, B, M> {
+impl<'l, T, B> ops::DerefMut for Processed<'l, T, B> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.processed
 	}
 }
 
 /// Reference to a processed context that also borrows the original, unprocessed, context.
-pub struct ProcessedRef<'l, 'a, T, B, M> {
-	unprocessed: Meta<&'l json_ld_syntax::context::Context<M>, &'l M>,
-	processed: &'a Context<T, B, M>,
+pub struct ProcessedRef<'l, 'a, T, B> {
+	unprocessed: &'l json_ld_syntax::context::Context,
+	processed: &'a Context<T, B>,
 }
 
-impl<'l, 'a, T, B, M> ProcessedRef<'l, 'a, T, B, M> {
-	pub fn unprocessed(&self) -> Meta<&'l json_ld_syntax::context::Context<M>, &'l M> {
+impl<'l, 'a, T, B> ProcessedRef<'l, 'a, T, B> {
+	pub fn unprocessed(&self) -> &'l json_ld_syntax::context::Context {
 		self.unprocessed
 	}
 
-	pub fn processed(&self) -> &'a Context<T, B, M> {
+	pub fn processed(&self) -> &'a Context<T, B> {
 		self.processed
 	}
 }
 
 /// Processed context that also owns the original, unprocessed, context.
-pub struct ProcessedOwned<T, B, M> {
-	unprocessed: Meta<json_ld_syntax::context::Context<M>, M>,
-	processed: Context<T, B, M>,
+pub struct ProcessedOwned<T, B> {
+	unprocessed: json_ld_syntax::context::Context,
+	processed: Context<T, B>,
 }
 
-impl<T, B, M> ProcessedOwned<T, B, M> {
-	pub fn unprocessed(&self) -> &Meta<json_ld_syntax::context::Context<M>, M> {
+impl<T, B> ProcessedOwned<T, B> {
+	pub fn unprocessed(&self) -> &json_ld_syntax::context::Context {
 		&self.unprocessed
 	}
 
-	pub fn processed(&self) -> &Context<T, B, M> {
+	pub fn processed(&self) -> &Context<T, B> {
 		&self.processed
 	}
 
-	pub fn as_ref(&self) -> ProcessedRef<T, B, M> {
+	pub fn as_ref(&self) -> ProcessedRef<T, B> {
 		ProcessedRef {
-			unprocessed: self.unprocessed.borrow(),
+			unprocessed: &self.unprocessed,
 			processed: &self.processed,
 		}
 	}

@@ -1,16 +1,15 @@
-use crate::{id, Id, MetaValidVocabularyId, MetaVocabularyId, ValidId};
-use locspan::Meta;
-use rdf_types::Vocabulary;
+use crate::{Id, ValidId, ValidVocabularyId, VocabularyId};
+use rdf_types::{Generator, Vocabulary};
 use std::collections::HashMap;
 use std::hash::Hash;
 
-pub struct Environment<'n, M, N: Vocabulary, G> {
+pub struct Environment<'n, N: Vocabulary, G> {
 	vocabulary: &'n mut N,
 	generator: G,
-	map: HashMap<N::BlankId, MetaValidVocabularyId<N, M>>,
+	map: HashMap<N::BlankId, ValidVocabularyId<N>>,
 }
 
-impl<'n, M, N: Vocabulary, G> Environment<'n, M, N, G> {
+impl<'n, N: Vocabulary, G> Environment<'n, N, G> {
 	pub fn new(vocabulary: &'n mut N, generator: G) -> Self {
 		Self {
 			vocabulary,
@@ -20,12 +19,12 @@ impl<'n, M, N: Vocabulary, G> Environment<'n, M, N, G> {
 	}
 }
 
-impl<'n, M: Clone, V: Vocabulary, G: id::Generator<V, M>> Environment<'n, M, V, G>
+impl<'n, V: Vocabulary, G: Generator<V>> Environment<'n, V, G>
 where
 	V::Iri: Clone,
 	V::BlankId: Clone + Hash + Eq,
 {
-	pub fn assign(&mut self, blank_id: V::BlankId) -> Meta<ValidId<V::Iri, V::BlankId>, M> {
+	pub fn assign(&mut self, blank_id: V::BlankId) -> ValidId<V::Iri, V::BlankId> {
 		use std::collections::hash_map::Entry;
 		match self.map.entry(blank_id) {
 			Entry::Occupied(entry) => entry.get().clone(),
@@ -37,19 +36,16 @@ where
 		}
 	}
 
-	pub fn assign_node_id(
-		&mut self,
-		r: Option<&MetaVocabularyId<V, M>>,
-	) -> Meta<Id<V::Iri, V::BlankId>, M> {
+	pub fn assign_node_id(&mut self, r: Option<&VocabularyId<V>>) -> Id<V::Iri, V::BlankId> {
 		match r {
-			Some(Meta(Id::Valid(ValidId::Blank(id)), _)) => self.assign(id.clone()).cast(),
+			Some(Id::Valid(ValidId::Blank(id))) => self.assign(id.clone()).into(),
 			Some(r) => r.clone(),
-			None => self.next().cast(),
+			None => self.next().into(),
 		}
 	}
 
 	#[allow(clippy::should_implement_trait)]
-	pub fn next(&mut self) -> Meta<ValidId<V::Iri, V::BlankId>, M> {
+	pub fn next(&mut self) -> ValidId<V::Iri, V::BlankId> {
 		self.generator.next(self.vocabulary)
 	}
 }

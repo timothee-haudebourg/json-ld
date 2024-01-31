@@ -4,40 +4,40 @@ use super::{
 };
 use crate::context_processing::{self, Process};
 use crate::expansion::{self, Expand};
-use crate::{
-	id::Generator, Context, ContextLoader, Flatten, Loader, RemoteDocument, RemoteDocumentReference,
-};
-use crate::{syntax, IntoDocumentResult};
+use crate::IntoDocumentResult;
+use crate::{Context, Flatten, Loader, RemoteDocument, RemoteDocumentReference};
 use contextual::WithContext;
 use json_ld_core::{
 	future::{BoxFuture, FutureExt},
 	Document, RemoteContextReference,
 };
-use locspan::BorrowStripped;
-use rdf_types::VocabularyMut;
+use rdf_types::{Generator, VocabularyMut};
 use std::hash::Hash;
 
-impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>> {
-	fn compare_full<'a, B, N, L>(
+impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
+	fn compare_full<'a, N, L>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		mut warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<CompareResult<I, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<CompareResult<I, L>>
 	where
-		I: Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			if json_ld_syntax::Compare::compare(self.document(), other.document()) {
@@ -52,7 +52,7 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 				let b =
 					JsonLdProcessor::expand_full(other, vocabulary, loader, options, &mut warnings)
 						.await?;
-				Ok(a.stripped() == b.stripped())
+				Ok(a == b)
 			} else {
 				Ok(false)
 			}
@@ -60,25 +60,28 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 		.boxed()
 	}
 
-	fn expand_full<'a, B, N, L>(
+	fn expand_full<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		mut options: Options<I, M>,
+		mut options: Options<I>,
 		mut warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<ExpandResult<I, B, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<ExpandResult<I, N::BlankId, L>>
 	where
-		I: Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let mut active_context =
@@ -137,25 +140,28 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 		.boxed()
 	}
 
-	fn into_document_full<'a, B, N, L>(
+	fn into_document_full<'a, N, L>(
 		self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, IntoDocumentResult<I, B, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<'a, IntoDocumentResult<I, N::BlankId, L>>
 	where
-		I: 'a + Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: 'a + Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: 'a + Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let expanded =
@@ -165,26 +171,29 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 		.boxed()
 	}
 
-	fn compact_full<'a, B, N, L>(
+	fn compact_full<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: RemoteContextReference<I, M>,
+		context: RemoteContextReference<I>,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		mut warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, CompactResult<I, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<'a, CompactResult<I, L>>
 	where
-		I: Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let expanded_input = JsonLdProcessor::expand_full(
@@ -211,27 +220,30 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 		.boxed()
 	}
 
-	fn flatten_full<'a, B, N, L>(
+	fn flatten_full<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut (impl Send + Generator<N, M>),
-		context: Option<RemoteContextReference<I, M>>,
+		generator: &'a mut (impl Send + Generator<N>),
+		context: Option<RemoteContextReference<I>>,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		mut warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<'a, FlattenResult<I, N::BlankId, L>>
 	where
-		I: Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let expanded_input = JsonLdProcessor::expand_full(
@@ -269,27 +281,30 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocument<I, M, json_syntax::Value<M>>
 	}
 }
 
-impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::Value<M>> {
-	fn compare_full<'a, B, N, L>(
+impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
+	fn compare_full<'a, N, L>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<CompareResult<I, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<CompareResult<I, L>>
 	where
-		I: Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let a = self
@@ -313,25 +328,28 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		.boxed()
 	}
 
-	fn expand_full<'a, B, N, L>(
+	fn expand_full<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<ExpandResult<I, B, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<ExpandResult<I, N::BlankId, L>>
 	where
-		I: Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let doc = self
@@ -343,25 +361,28 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		.boxed()
 	}
 
-	fn into_document_full<'a, B, N, L>(
+	fn into_document_full<'a, N, L>(
 		self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, IntoDocumentResult<I, B, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<'a, IntoDocumentResult<I, N::BlankId, L>>
 	where
-		I: 'a + Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: 'a + Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: 'a + Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let doc = self
@@ -373,26 +394,29 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		.boxed()
 	}
 
-	fn compact_full<'a, B, N, L>(
+	fn compact_full<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		context: RemoteContextReference<I, M>,
+		context: RemoteContextReference<I>,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, CompactResult<I, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<'a, CompactResult<I, L>>
 	where
-		I: Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let doc = self
@@ -412,27 +436,30 @@ impl<I, M> JsonLdProcessor<I, M> for RemoteDocumentReference<I, M, json_syntax::
 		.boxed()
 	}
 
-	fn flatten_full<'a, B, N, L>(
+	fn flatten_full<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		generator: &'a mut (impl Send + Generator<N, M>),
-		context: Option<RemoteContextReference<I, M>>,
+		generator: &'a mut (impl Send + Generator<N>),
+		context: Option<RemoteContextReference<I>>,
 		loader: &'a mut L,
-		options: Options<I, M>,
+		options: Options<I>,
 		warnings: impl 'a
 			+ Send
-			+ context_processing::WarningHandler<N, M>
-			+ expansion::WarningHandler<B, N, M>,
-	) -> BoxFuture<'a, FlattenResult<I, B, M, L>>
+			+ Sync
+			+ context_processing::WarningHandler<N>
+			+ expansion::WarningHandler<N>,
+	) -> BoxFuture<'a, FlattenResult<I, N::BlankId, L>>
 	where
-		I: Clone + Eq + Hash + Send + Sync,
-		B: 'a + Clone + Eq + Hash + Send + Sync,
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		M: Clone + Send + Sync,
-		L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
-		L::Output: Into<syntax::Value<M>>,
+		N: VocabularyMut<Iri = I>,
+		I: Clone + Eq + Hash,
+		N::BlankId: 'a + Clone + Eq + Hash,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
 		L::Error: Send,
-		L::ContextError: Send,
 	{
 		async move {
 			let doc = self

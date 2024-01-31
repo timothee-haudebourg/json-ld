@@ -1,16 +1,15 @@
 use crate::{CompactIri, Keyword};
 use iref::Iri;
-use locspan_derive::StrippedPartialEq;
 use rdf_types::BlankId;
 use std::borrow::Borrow;
 use std::fmt;
 use std::hash::Hash;
 
 /// Context key.
-#[derive(Clone, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Key(#[locspan(stripped)] String);
+pub struct Key(String);
 
 impl Key {
 	pub fn as_iri(&self) -> Option<&Iri> {

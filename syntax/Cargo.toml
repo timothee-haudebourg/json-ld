@@ -20,7 +20,6 @@ langtag.workspace = true
 rdf-types.workspace = true
 json-syntax.workspace = true
 locspan.workspace = true
-locspan-derive.workspace = true
 hashbrown.workspace = true
 educe.workspace = true
 smallvec.workspace = true

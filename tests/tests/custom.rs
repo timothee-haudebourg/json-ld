@@ -1,12 +1,9 @@
 use iref::IriBuf;
 use json_ld::{syntax::Parse, JsonLdProcessor, RemoteDocument};
-use locspan::Span;
 use static_iref::iri;
 
 async fn custom_01() {
-	let mut loader: json_ld::FsLoader<IriBuf, Span> = json_ld::FsLoader::new(|_, _, content| {
-		json_ld::syntax::Value::parse_str(content, |span| span)
-	});
+	let mut loader: json_ld::FsLoader<IriBuf> = json_ld::FsLoader::new();
 
 	loader.mount(
 		iri!("https://www.w3.org/").to_owned(),
@@ -18,11 +15,10 @@ async fn custom_01() {
 	);
 
 	let input = std::fs::read_to_string("tests/custom/t01-in.jsonld").unwrap();
-	let json = json_ld::syntax::Value::parse_str(&input, |span| span).unwrap();
+	let (json, _) = json_ld::syntax::Value::parse_str(&input).unwrap();
 	let doc = RemoteDocument::new(None, None, json);
 
-	let mut generator =
-		rdf_types::generator::Blank::new_with_prefix("b".to_string()).with_default_metadata();
+	let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
 
 	eprintln!("available stack: {:?}", stacker::remaining_stack());
 	doc.to_rdf(&mut generator, &mut loader).await.unwrap();

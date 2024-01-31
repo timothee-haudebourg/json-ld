@@ -3,29 +3,21 @@ use crate::Term;
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
 use hashbrown::HashMap;
 use iref::{Iri, IriBuf};
-use json_ld_syntax::IntoJsonWithContextMeta;
-use locspan::{Meta, StrippedHash};
-use locspan_derive::*;
+use json_ld_syntax::IntoJsonWithContext;
 use rdf_types::{
-	BlankId, BlankIdBuf, BlankIdVocabulary, InvalidBlankId, IriVocabulary, Vocabulary,
+	BlankId, BlankIdBuf, BlankIdVocabulary, Generator, InvalidBlankId, IriVocabulary, Vocabulary,
 	VocabularyMut,
 };
 use std::convert::TryFrom;
 use std::fmt;
 use std::hash::Hash;
 
-pub use rdf_types::MetaGenerator as Generator;
-
 pub use rdf_types::Id as ValidId;
 
 pub type ValidVocabularyId<V> =
 	ValidId<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>;
 
-pub type MetaValidVocabularyId<V, M> = Meta<ValidVocabularyId<V>, M>;
-
 pub type VocabularyId<V> = Id<<V as IriVocabulary>::Iri, <V as BlankIdVocabulary>::BlankId>;
-
-pub type MetaVocabularyId<V, M> = Meta<VocabularyId<V>, M>;
 
 /// Node identifier.
 ///
@@ -41,14 +33,13 @@ pub type MetaVocabularyId<V, M> = Meta<VocabularyId<V>, M>;
 ///
 /// This may be useful to define custom [`indexmap::Equivalent<Id<I, B>>`]
 /// implementation.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, StrippedPartialEq, StrippedEq)]
-#[locspan(stripped(I, B))]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Id<I = IriBuf, B = BlankIdBuf> {
 	/// Valid node identifier.
 	Valid(ValidId<I, B>),
 
 	/// Invalid reference.
-	Invalid(#[locspan(stripped)] String),
+	Invalid(String),
 }
 
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -66,15 +57,6 @@ impl<I: PartialEq, B: PartialEq> indexmap::Equivalent<Id<I, B>> for ValidId<I, B
 		match key {
 			Id::Valid(id) => self == id,
 			_ => false,
-		}
-	}
-}
-
-impl<I: Hash, B: Hash> StrippedHash for Id<I, B> {
-	fn stripped_hash<H: std::hash::Hasher>(&self, state: &mut H) {
-		match self {
-			Self::Valid(id) => id.stripped_hash(state),
-			Self::Invalid(id) => id.stripped_hash(state),
 		}
 	}
 }
@@ -115,26 +97,22 @@ impl<I> indexmap::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankIdBuf {
 	}
 }
 
-impl<I, B, M> TryFromJson<I, B, M> for Id<I, B> {
+impl<I, B> TryFromJson<I, B> for Id<I, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>,
-		Meta(value, meta): locspan::Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, locspan::Meta<InvalidExpandedJson<M>, M>> {
+		value: json_syntax::Value,
+	) -> Result<Self, InvalidExpandedJson> {
 		match value {
 			json_syntax::Value::String(s) => match Iri::new(s.as_str()) {
-				Ok(iri) => Ok(Meta(
-					Self::Valid(ValidId::Iri(vocabulary.insert(iri))),
-					meta,
-				)),
+				Ok(iri) => Ok(Self::Valid(ValidId::Iri(vocabulary.insert(iri)))),
 				Err(_) => match BlankId::new(s.as_str()) {
-					Ok(blank_id) => Ok(Meta(
-						Self::Valid(ValidId::Blank(vocabulary.insert_blank_id(blank_id))),
-						meta,
-					)),
-					Err(_) => Ok(Meta(Self::Invalid(s.to_string()), meta)),
+					Ok(blank_id) => Ok(Self::Valid(ValidId::Blank(
+						vocabulary.insert_blank_id(blank_id),
+					))),
+					Err(_) => Ok(Self::Invalid(s.to_string())),
 				},
 			},
-			_ => Err(Meta(InvalidExpandedJson::InvalidId, meta)),
+			_ => Err(InvalidExpandedJson::InvalidId),
 		}
 	}
 }
@@ -350,9 +328,9 @@ impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Id<T, B> {
 	}
 }
 
-impl<T, B, M, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N> for Id<T, B> {
-	fn into_json_meta_with(self, meta: M, context: &N) -> Meta<json_syntax::Value<M>, M> {
-		Meta(self.into_with(context).to_string().into(), meta)
+impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Id<T, B> {
+	fn into_json_with(self, context: &N) -> json_syntax::Value {
+		self.into_with(context).to_string().into()
 	}
 }
 
@@ -409,19 +387,17 @@ pub enum Ref<'a, T = IriBuf, B = BlankIdBuf> {
 	Invalid(&'a str),
 }
 
-pub trait IdentifyAll<T, B, M> {
-	fn identify_all_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N, M>>(
+pub trait IdentifyAll<T, B> {
+	fn identify_all_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
 	) where
-		M: Clone,
 		T: Eq + Hash,
 		B: Eq + Hash;
 
-	fn identify_all<G: Generator<(), M>>(&mut self, generator: &mut G)
+	fn identify_all<G: Generator>(&mut self, generator: &mut G)
 	where
-		M: Clone,
 		T: Eq + Hash,
 		B: Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
@@ -430,23 +406,21 @@ pub trait IdentifyAll<T, B, M> {
 	}
 }
 
-pub trait Relabel<T, B, M> {
-	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N, M>>(
+pub trait Relabel<T, B> {
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
-		relabeling: &mut HashMap<B, Meta<ValidId<T, B>, M>>,
+		relabeling: &mut HashMap<B, ValidId<T, B>>,
 	) where
-		M: Clone,
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash;
 
-	fn relabel<G: Generator<(), M>>(
+	fn relabel<G: Generator>(
 		&mut self,
 		generator: &mut G,
-		relabeling: &mut HashMap<B, Meta<ValidId<T, B>, M>>,
+		relabeling: &mut HashMap<B, ValidId<T, B>>,
 	) where
-		M: Clone,
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,

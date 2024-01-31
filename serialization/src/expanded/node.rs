@@ -2,7 +2,6 @@ use std::hash::Hash;
 
 use json_ld_core::{Indexed, Node};
 use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
-use locspan::{Meta, Stripped};
 use rdf_types::{
 	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
 	Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
@@ -139,7 +138,7 @@ where
 
 		self.result
 			.included_mut_or_default()
-			.insert(Stripped(Meta::none(Indexed::none(node))));
+			.insert(Indexed::none(node));
 		Ok(())
 	}
 
@@ -150,7 +149,7 @@ where
 		let serializer = SerializeGraph::new(self.vocabulary, self.interpretation);
 
 		let graph = value.visit_graph(serializer)?;
-		self.result.set_graph(Some(graph));
+		self.result.graph = Some(graph);
 		Ok(())
 	}
 

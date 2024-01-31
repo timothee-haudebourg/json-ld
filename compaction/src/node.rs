@@ -1,44 +1,45 @@
-use crate::{add_value, compact_iri, compact_property, MetaError, Options};
+use crate::{add_value, compact_iri, compact_property, Error, Options};
 use contextual::WithContext;
 use json_ld_context_processing::{Options as ProcessingOptions, Process, ProcessingMode};
-use json_ld_core::{
-	object::node::TypeEntry, Container, ContainerKind, Context, ContextLoader, Id, Loader, Node,
-	Term, Type,
-};
-use json_ld_syntax::{Entry, Keyword};
-use locspan::{Meta, Stripped};
+use json_ld_core::{Container, ContainerKind, Context, Id, Loader, Node, Term, Type};
+use json_ld_syntax::Keyword;
 use mown::Mown;
 use rdf_types::VocabularyMut;
 use std::hash::Hash;
 
-fn optional_string<M: Clone>(s: Option<Meta<String, M>>, meta: &M) -> json_syntax::MetaValue<M> {
-	s.map(Meta::cast)
-		.unwrap_or_else(|| Meta(json_syntax::Value::Null, meta.clone()))
+fn optional_string(s: Option<String>) -> json_syntax::Value {
+	s.map(Into::into)
+		.unwrap_or_else(|| json_syntax::Value::Null)
 }
 
 /// Compact the given indexed node.
-pub async fn compact_indexed_node_with<I, B, M, N, L>(
+pub async fn compact_indexed_node_with<N, L>(
 	vocabulary: &mut N,
-	Meta(node, meta): Meta<&Node<I, B, M>, &M>,
-	index: Option<&Entry<String, M>>,
-	mut active_context: &Context<I, B, M>,
-	type_scoped_context: &Context<I, B, M>,
-	active_property: Option<Meta<&str, &M>>,
+	node: &Node<N::Iri, N::BlankId>,
+	index: Option<&str>,
+	mut active_context: &Context<N::Iri, N::BlankId>,
+	type_scoped_context: &Context<N::Iri, N::BlankId>,
+	active_property: Option<&str>,
 	loader: &mut L,
 	options: Options,
-) -> Result<json_syntax::MetaValue<M>, MetaError<M, L::ContextError>>
+) -> Result<json_syntax::Value, Error<L::Error>>
 where
-	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-	I: Clone + Hash + Eq + Send + Sync,
-	B: Clone + Hash + Eq + Send + Sync,
-	M: Clone + Send + Sync,
-	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+	N: VocabularyMut,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
+	L: Loader<N::Iri>,
+	//
+	N: Send + Sync,
+	N::Iri: Send + Sync,
+	N::BlankId: Send + Sync,
+	L: Send + Sync,
+	L::Error: Send,
 {
 	// If active context has a previous context, the active context is not propagated.
 	// If element does not contain an @value entry, and element does not consist of
 	// a single @id entry, set active context to previous context from active context,
 	// as the scope of a term-scoped context does not apply when processing new node objects.
-	if !(node.is_empty() && node.id().is_some()) {
+	if !(node.is_empty() && node.id.is_some()) {
 		// does not consist of a single @id entry
 		if let Some(previous_context) = active_context.previous_context() {
 			active_context = previous_context
@@ -50,7 +51,7 @@ where
 	//       Seems that the term definition should be looked up in `type_scoped_context`.
 	let mut active_context = Mown::Borrowed(active_context);
 	if let Some(active_property) = active_property {
-		if let Some(active_property_definition) = type_scoped_context.get(*active_property) {
+		if let Some(active_property_definition) = type_scoped_context.get(active_property) {
 			if let Some(local_context) = active_property_definition.context() {
 				active_context = Mown::Owned(
 					local_context
@@ -61,8 +62,7 @@ where
 							active_property_definition.base_url().cloned(),
 							ProcessingOptions::from(options).with_override(),
 						)
-						.await
-						.map_err(Meta::cast)?
+						.await?
 						.into_processed(),
 				)
 			}
@@ -82,12 +82,11 @@ where
 			let compacted_ty = compact_iri(
 				vocabulary,
 				type_scoped_context,
-				ty.clone().map(Id::into_term).borrow(),
+				&ty.clone().into_term(),
 				true,
 				false,
 				options,
-			)
-			.map_err(Meta::cast)?;
+			)?;
 			compacted_types.push(compacted_ty)
 		}
 
@@ -107,8 +106,7 @@ where
 								term_definition.base_url().cloned(),
 								processing_options,
 							)
-							.await
-							.map_err(Meta::cast)?
+							.await?
 							.into_processed(),
 					)
 				}
@@ -130,8 +128,8 @@ where
 	}
 
 	// If expanded property is @id:
-	if let Some(id_entry) = node.id_entry() {
-		let id = id_entry.value.clone().map(Id::into_term);
+	if let Some(id_entry) = &node.id {
+		let id = id_entry.clone().into_term();
 
 		if node.is_empty() {
 			// This captures step 7:
@@ -147,7 +145,7 @@ where
 			// set result to the result of IRI compacting the value associated with the
 			// @id entry using false for vocab.
 			let type_mapping = match active_property {
-				Some(prop) => match active_context.get(*prop) {
+				Some(prop) => match active_context.get(prop) {
 					Some(def) => def.typ(),
 					None => None,
 				},
@@ -158,13 +156,12 @@ where
 				let compacted_value = compact_iri(
 					vocabulary,
 					active_context.as_ref(),
-					id.borrow(),
+					&id,
 					false,
 					false,
 					options,
-				)
-				.map_err(Meta::cast)?;
-				return Ok(optional_string(compacted_value, id.metadata()));
+				)?;
+				return Ok(optional_string(compacted_value));
 			}
 
 			// Otherwise, if the type mapping of active property is set to @vocab,
@@ -173,13 +170,12 @@ where
 				let compacted_value = compact_iri(
 					vocabulary,
 					active_context.as_ref(),
-					id.borrow(),
+					&id,
 					true,
 					false,
 					options,
-				)
-				.map_err(Meta::cast)?;
-				return Ok(optional_string(compacted_value, id.metadata()));
+				)?;
+				return Ok(optional_string(compacted_value));
 			}
 		}
 
@@ -188,35 +184,33 @@ where
 		let compacted_value = compact_iri(
 			vocabulary,
 			active_context.as_ref(),
-			id.borrow(),
+			&id,
 			false,
 			false,
 			options,
-		)
-		.map_err(Meta::cast)?;
+		)?;
 
 		// Initialize alias by IRI compacting expanded property.
 		let alias = compact_iri(
 			vocabulary,
 			active_context.as_ref(),
-			Meta(&Term::Keyword(Keyword::Id), &id_entry.key_metadata),
+			&Term::Keyword(Keyword::Id),
 			true,
 			false,
 			options,
-		)
-		.map_err(Meta::cast)?;
+		)?;
 
 		// Add an entry alias to result whose value is set to compacted value and continue
 		// to the next expanded property.
 		if let Some(key) = alias {
-			result.insert(key.cast(), optional_string(compacted_value, id.metadata()));
+			result.insert(key.into(), optional_string(compacted_value));
 		}
 	}
 
 	compact_types(
 		vocabulary,
 		&mut result,
-		node.type_entry(),
+		node.types.as_deref(),
 		active_context.as_ref(),
 		type_scoped_context,
 		options,
@@ -233,7 +227,6 @@ where
 				if let Some(local_context) = active_property_definition.context() {
 					active_context = Mown::Owned(
 						local_context
-							.value
 							.process_with(
 								vocabulary,
 								active_context.as_ref(),
@@ -241,8 +234,7 @@ where
 								active_property_definition.base_url().cloned(),
 								ProcessingOptions::from(options).with_override(),
 							)
-							.await
-							.map_err(Meta::cast)?
+							.await?
 							.into_processed(),
 					)
 				}
@@ -253,8 +245,8 @@ where
 				compact_property(
 					vocabulary,
 					&mut reverse_result,
-					expanded_property.cloned().cast(),
-					expanded_value.iter().map(Stripped::as_ref),
+					expanded_property.clone().into(),
+					expanded_value.iter(),
 					active_context.as_ref(),
 					loader,
 					true,
@@ -266,7 +258,7 @@ where
 			// For each property and value in compacted value:
 			let mut reverse_map = json_syntax::Object::default();
 			for (property, mapped_value) in reverse_result.iter_mut() {
-				let mut value = Meta(json_syntax::Value::Null, mapped_value.metadata().clone());
+				let mut value = json_syntax::Value::Null;
 				std::mem::swap(&mut value, &mut *mapped_value);
 
 				// If the term definition for property in the active context indicates that
@@ -279,17 +271,12 @@ where
 							|| !options.compact_arrays;
 
 						// Use add value to add value to the property entry in result using as array.
-						add_value(
-							&mut result,
-							property.borrow().map(AsRef::as_ref),
-							value,
-							as_array,
-						);
+						add_value(&mut result, property, value, as_array);
 						continue;
 					}
 				}
 
-				reverse_map.insert(property.clone().cast(), value);
+				reverse_map.insert(property.clone(), value);
 			}
 
 			if !reverse_map.is_empty() {
@@ -297,21 +284,14 @@ where
 				let alias = compact_iri(
 					vocabulary,
 					active_context.as_ref(),
-					Meta(
-						&Term::Keyword(Keyword::Reverse),
-						&reverse_properties.key_metadata,
-					),
+					&Term::Keyword(Keyword::Reverse),
 					true,
 					false,
 					options,
-				)
-				.map_err(Meta::cast)?;
+				)?;
 
 				// Set the value of the alias entry of result to compacted value.
-				result.insert(
-					alias.unwrap().cast(),
-					Meta(reverse_map.into(), reverse_properties.metadata().clone()),
-				);
+				result.insert(alias.unwrap().into(), reverse_map.into());
 			}
 		}
 	}
@@ -321,7 +301,7 @@ where
 	if let Some(index_entry) = index {
 		let mut index_container = false;
 		if let Some(active_property) = active_property {
-			if let Some(active_property_definition) = active_context.get(*active_property) {
+			if let Some(active_property_definition) = active_context.get(active_property) {
 				if active_property_definition
 					.container()
 					.contains(ContainerKind::Index)
@@ -338,15 +318,14 @@ where
 			let alias = compact_iri(
 				vocabulary,
 				active_context.as_ref(),
-				Meta(&Term::Keyword(Keyword::Index), &index_entry.key_metadata),
+				&Term::Keyword(Keyword::Index),
 				true,
 				false,
 				options,
-			)
-			.map_err(Meta::cast)?;
+			)?;
 
 			// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
-			result.insert(alias.unwrap().cast(), index_entry.value.clone().cast());
+			result.insert(alias.unwrap().into(), index_entry.into());
 		}
 	}
 
@@ -354,11 +333,8 @@ where
 		compact_property(
 			vocabulary,
 			&mut result,
-			Meta(
-				Term::Keyword(Keyword::Graph),
-				graph_entry.key_metadata.clone(),
-			),
-			graph_entry.value.iter().map(Stripped::as_ref),
+			Term::Keyword(Keyword::Graph),
+			graph_entry.iter(),
 			active_context.as_ref(),
 			loader,
 			false,
@@ -371,8 +347,8 @@ where
 		compact_property(
 			vocabulary,
 			&mut result,
-			expanded_property.cloned().cast(),
-			expanded_value.iter().map(Stripped::as_ref),
+			expanded_property.clone().into(),
+			expanded_value.iter(),
 			active_context.as_ref(),
 			loader,
 			false,
@@ -385,11 +361,8 @@ where
 		compact_property(
 			vocabulary,
 			&mut result,
-			Meta(
-				Term::Keyword(Keyword::Included),
-				included_entry.key_metadata.clone(),
-			),
-			included_entry.value.iter().map(Stripped::as_ref),
+			Term::Keyword(Keyword::Included),
+			included_entry.iter(),
 			active_context.as_ref(),
 			loader,
 			false,
@@ -398,44 +371,38 @@ where
 		.await?
 	}
 
-	Ok(Meta(result.into(), meta.clone()))
+	Ok(result.into())
 }
 
 /// Compact the given list of types into the given `result` compacted object.
-fn compact_types<I, B, M, N, E>(
+fn compact_types<N, E>(
 	vocabulary: &mut N,
-	result: &mut json_syntax::Object<M>,
-	type_entry: Option<&TypeEntry<I, B, M>>,
-	active_context: &Context<I, B, M>,
-	type_scoped_context: &Context<I, B, M>,
+	result: &mut json_syntax::Object,
+	types: Option<&[Id<N::Iri, N::BlankId>]>,
+	active_context: &Context<N::Iri, N::BlankId>,
+	type_scoped_context: &Context<N::Iri, N::BlankId>,
 	options: Options,
-) -> Result<(), MetaError<M, E>>
+) -> Result<(), Error<E>>
 where
-	N: VocabularyMut<Iri = I, BlankId = B>,
-	I: Clone + Hash + Eq,
-	B: Clone + Hash + Eq,
-	M: Clone,
+	N: VocabularyMut,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
 {
 	// If expanded property is @type:
-	if let Some(type_entry) = type_entry {
-		let types = &type_entry.value;
+	if let Some(types) = types {
 		if !types.is_empty() {
 			// If expanded value is a string,
 			// then initialize compacted value by IRI compacting expanded value using
 			// type-scoped context for active context.
 			let compacted_value = if types.len() == 1 {
-				optional_string(
-					compact_iri(
-						vocabulary,
-						type_scoped_context,
-						types[0].clone().map(Id::into_term).borrow(),
-						true,
-						false,
-						options,
-					)
-					.map_err(Meta::cast)?,
-					types[0].metadata(),
-				)
+				optional_string(compact_iri(
+					vocabulary,
+					type_scoped_context,
+					&types[0].clone().into_term(),
+					true,
+					false,
+					options,
+				)?)
 			} else {
 				// Otherwise, expanded value must be a @type array:
 				// Initialize compacted value to an empty array.
@@ -443,39 +410,28 @@ where
 
 				// For each item expanded type in expanded value:
 				for ty in types.iter() {
-					let ty = ty.clone().map(Id::into_term);
+					let ty = ty.clone().into_term();
 
 					// Set term by IRI compacting expanded type using type-scoped context for active context.
-					let compacted_ty = compact_iri(
-						vocabulary,
-						type_scoped_context,
-						ty.borrow(),
-						true,
-						false,
-						options,
-					)
-					.map_err(Meta::cast)?;
+					let compacted_ty =
+						compact_iri(vocabulary, type_scoped_context, &ty, true, false, options)?;
 
 					// Append term, to compacted value.
-					compacted_value.push(optional_string(compacted_ty, ty.metadata()))
+					compacted_value.push(optional_string(compacted_ty))
 				}
 
-				Meta(
-					json_syntax::Value::Array(compacted_value.into_iter().collect()),
-					types.metadata().clone(),
-				)
+				json_syntax::Value::Array(compacted_value.into_iter().collect())
 			};
 
 			// Initialize alias by IRI compacting expanded property.
 			let alias = compact_iri(
 				vocabulary,
 				active_context,
-				Meta(&Term::Keyword(Keyword::Type), &type_entry.key_metadata),
+				&Term::Keyword(Keyword::Type),
 				true,
 				false,
 				options,
-			)
-			.map_err(Meta::cast)?
+			)?
 			.unwrap();
 
 			// Initialize as array to true if processing mode is json-ld-1.1 and the
@@ -490,12 +446,7 @@ where
 				|| !options.compact_arrays;
 
 			// Use add value to add compacted value to the alias entry in result using as array.
-			add_value(
-				result,
-				alias.borrow().map(String::as_str),
-				compacted_value,
-				as_array,
-			)
+			add_value(result, &alias, compacted_value, as_array)
 		}
 	}
 

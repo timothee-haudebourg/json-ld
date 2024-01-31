@@ -1,12 +1,10 @@
 use iref::IriBuf;
 use json_ld::{syntax::Parse, Expand, RemoteDocument};
-use locspan::{Meta, Span};
-use rdf_types::BlankIdBuf;
 use static_iref::iri;
 
 #[async_std::test]
 async fn expand() {
-	let json = json_ld::syntax::Value::parse_str(
+	let (json, _) = json_ld::syntax::Value::parse_str(
 		r#"
 		{
 			"@graph": [
@@ -22,17 +20,13 @@ async fn expand() {
 			]
 		}
 	"#,
-		|span| span,
 	)
 	.unwrap();
 
 	let document_url: IriBuf =
 		iri!("https://w3c.github.io/json-ld-api/tests/0020-in.jsonld").to_owned();
-	let mut loader: json_ld::NoLoader<IriBuf, Span, json_ld::syntax::Value<Span>> =
-		json_ld::NoLoader::new();
-	let _: Meta<json_ld::ExpandedDocument<IriBuf, BlankIdBuf, _>, _> =
-		RemoteDocument::new(Some(document_url), None, json)
-			.expand(&mut loader)
-			.await
-			.unwrap();
+	RemoteDocument::new(Some(document_url), None, json)
+		.expand(&mut json_ld::NoLoader)
+		.await
+		.unwrap();
 }

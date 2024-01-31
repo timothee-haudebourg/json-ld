@@ -1,21 +1,6 @@
 use crate::Keyword;
-use locspan::Meta;
-use locspan_derive::*;
 
-#[derive(
-	Clone,
-	Copy,
-	PartialEq,
-	StrippedPartialEq,
-	Eq,
-	StrippedEq,
-	PartialOrd,
-	StrippedPartialOrd,
-	Ord,
-	StrippedOrd,
-	Hash,
-	Debug,
-)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ContainerKind {
 	#[cfg_attr(feature = "serde", serde(rename = "@graph"))]
@@ -105,42 +90,29 @@ impl From<ContainerKind> for Keyword {
 	}
 }
 
-impl<M> From<ContainerKind> for Container<M> {
+impl From<ContainerKind> for Container {
 	fn from(c: ContainerKind) -> Self {
 		Container::One(c)
 	}
 }
 
-#[derive(
-	Clone,
-	PartialEq,
-	StrippedPartialEq,
-	Eq,
-	StrippedEq,
-	PartialOrd,
-	StrippedPartialOrd,
-	Ord,
-	StrippedOrd,
-	Hash,
-	Debug,
-)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(
 	feature = "serde",
 	derive(serde::Serialize, serde::Deserialize),
-	serde(untagged, bound(deserialize = "M: Default"))
+	serde(untagged)
 )]
-#[locspan(ignore(M))]
-pub enum Container<M> {
+pub enum Container {
 	One(ContainerKind),
-	Many(Vec<Meta<ContainerKind, M>>),
+	Many(Vec<ContainerKind>),
 }
 
-impl<M> Container<M> {
+impl Container {
 	pub fn is_array(&self) -> bool {
 		matches!(self, Self::Many(_))
 	}
 
-	pub fn sub_fragments(&self) -> SubValues<M> {
+	pub fn sub_fragments(&self) -> SubValues {
 		match self {
 			Self::One(_) => SubValues::None,
 			Self::Many(m) => SubValues::Many(m.iter()),
@@ -148,13 +120,13 @@ impl<M> Container<M> {
 	}
 }
 
-pub enum SubValues<'a, M> {
+pub enum SubValues<'a> {
 	None,
-	Many(std::slice::Iter<'a, Meta<ContainerKind, M>>),
+	Many(std::slice::Iter<'a, ContainerKind>),
 }
 
-impl<'a, M> Iterator for SubValues<'a, M> {
-	type Item = &'a Meta<ContainerKind, M>;
+impl<'a> Iterator for SubValues<'a> {
+	type Item = &'a ContainerKind;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		match self {
@@ -171,9 +143,9 @@ impl<'a, M> Iterator for SubValues<'a, M> {
 	}
 }
 
-impl<'a, M> ExactSizeIterator for SubValues<'a, M> {}
+impl<'a> ExactSizeIterator for SubValues<'a> {}
 
-impl<'a, M> DoubleEndedIterator for SubValues<'a, M> {
+impl<'a> DoubleEndedIterator for SubValues<'a> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		match self {
 			Self::None => None,

@@ -1,5 +1,4 @@
 use crate::{object::InvalidExpandedJson, Direction, LenientLanguageTag, LenientLanguageTagBuf};
-use locspan::Meta;
 
 /// Language string.
 ///
@@ -115,47 +114,45 @@ impl LangString {
 		}
 	}
 
-	pub(crate) fn try_from_json<M>(
-		object: json_syntax::Object<M>,
-		value: Meta<json_syntax::Value<M>, M>,
-		language: Option<Meta<json_syntax::Value<M>, M>>,
-		direction: Option<Meta<json_syntax::Value<M>, M>>,
-	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
+	pub(crate) fn try_from_json(
+		object: json_syntax::Object,
+		value: json_syntax::Value,
+		language: Option<json_syntax::Value>,
+		direction: Option<json_syntax::Value>,
+	) -> Result<Self, InvalidExpandedJson> {
 		let data = match value {
-			Meta(json_syntax::Value::String(s), _) => s,
-			Meta(v, meta) => {
-				return Err(Meta(
-					InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String),
-					meta,
+			json_syntax::Value::String(s) => s,
+			v => {
+				return Err(InvalidExpandedJson::Unexpected(
+					v.kind(),
+					json_syntax::Kind::String,
 				))
 			}
 		};
 
 		let language = match language {
-			Some(Meta(json_syntax::Value::String(value), _)) => {
+			Some(json_syntax::Value::String(value)) => {
 				let (tag, _) = LenientLanguageTagBuf::new(value.to_string());
 				Some(tag)
 			}
-			Some(Meta(v, meta)) => {
-				return Err(Meta(
-					InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String),
-					meta,
+			Some(v) => {
+				return Err(InvalidExpandedJson::Unexpected(
+					v.kind(),
+					json_syntax::Kind::String,
 				))
 			}
 			None => None,
 		};
 
 		let direction = match direction {
-			Some(Meta(json_syntax::Value::String(value), meta)) => {
-				match Direction::try_from(value.as_str()) {
-					Ok(direction) => Some(direction),
-					Err(_) => return Err(Meta(InvalidExpandedJson::InvalidDirection, meta)),
-				}
-			}
-			Some(Meta(v, meta)) => {
-				return Err(Meta(
-					InvalidExpandedJson::Unexpected(v.kind(), json_syntax::Kind::String),
-					meta,
+			Some(json_syntax::Value::String(value)) => match Direction::try_from(value.as_str()) {
+				Ok(direction) => Some(direction),
+				Err(_) => return Err(InvalidExpandedJson::InvalidDirection),
+			},
+			Some(v) => {
+				return Err(InvalidExpandedJson::Unexpected(
+					v.kind(),
+					json_syntax::Kind::String,
 				))
 			}
 			None => None,
@@ -163,10 +160,7 @@ impl LangString {
 
 		match object.into_iter().next() {
 			None => Ok(Self::new(data, language, direction).unwrap()),
-			Some(entry) => Err(Meta(
-				InvalidExpandedJson::UnexpectedEntry,
-				entry.key.into_metadata(),
-			)),
+			Some(_) => Err(InvalidExpandedJson::UnexpectedEntry),
 		}
 	}
 }

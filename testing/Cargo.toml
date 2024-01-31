@@ -21,7 +21,6 @@ static-iref.workspace = true
 iref-enum.workspace = true
 rdf-types = { workspace = true, features = ["contextual"] }
 grdf = { workspace = true, features = ["meta"] }
-locspan.workspace = true
 contextual.workspace = true
 async-std.workspace = true
 syn = { version = "1.0", features = ["full"] }

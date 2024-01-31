@@ -1,7 +1,5 @@
 use crate::object::{InvalidExpandedJson, TryFromJson, TryFromJsonObject};
-use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta};
-use locspan::Meta;
-use locspan_derive::*;
+use json_ld_syntax::{IntoJson, IntoJsonWithContext};
 use rdf_types::VocabularyMut;
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
@@ -12,34 +10,24 @@ use std::ops::{Deref, DerefMut};
 /// This type is a wrapper around any kind of indexable data.
 ///
 /// It is a pointer type that `Deref` into the underlying value.
-#[derive(
-	Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, StrippedPartialEq, StrippedEq, StrippedHash,
-)]
-#[locspan(ignore(M))]
-pub struct Indexed<T, M = ()> {
+#[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+pub struct Indexed<T> {
 	/// Index.
-	index: Option<Entry<String, M>>,
+	index: Option<String>,
 
 	/// Value.
 	value: T,
 }
 
 impl<T> Indexed<T> {
-	/// Creates a new (maybe) indexed value without metadata.
-	pub fn new(value: T, index: Option<String>) -> Self {
-		Self::new_entry(value, index.map(Entry::new))
-	}
-
 	/// Creates a non-indexed value, without metadata.
 	pub fn none(value: T) -> Self {
 		Self::new(value, None)
 	}
-}
 
-impl<T, M> Indexed<T, M> {
 	/// Create a new (maybe) indexed value.
 	#[inline(always)]
-	pub fn new_entry(value: T, index: Option<Entry<String, M>>) -> Indexed<T, M> {
+	pub fn new(value: T, index: Option<String>) -> Self {
 		Indexed { value, index }
 	}
 
@@ -68,95 +56,84 @@ impl<T, M> Indexed<T, M> {
 		}
 	}
 
-	/// Get the index entry, if any.
-	#[inline(always)]
-	pub fn index_entry(&self) -> Option<&Entry<String, M>> {
-		self.index.as_ref()
-	}
-
 	/// Set the value index.
 	#[inline(always)]
-	pub fn set_index(&mut self, index: Option<Entry<String, M>>) {
+	pub fn set_index(&mut self, index: Option<String>) {
 		self.index = index
 	}
 
 	/// Turn this indexed value into its components: inner value and index.
 	#[inline(always)]
-	pub fn into_parts(self) -> (T, Option<Entry<String, M>>) {
+	pub fn into_parts(self) -> (T, Option<String>) {
 		(self.value, self.index)
 	}
 
 	/// Cast the inner value.
 	#[inline(always)]
-	pub fn map_inner<U, F>(self, f: F) -> Indexed<U, M>
+	pub fn map_inner<U, F>(self, f: F) -> Indexed<U>
 	where
 		F: FnOnce(T) -> U,
 	{
-		Indexed::new_entry(f(self.value), self.index)
+		Indexed::new(f(self.value), self.index)
 	}
 
 	/// Cast the inner value.
 	#[inline(always)]
-	pub fn cast<U: From<T>>(self) -> Indexed<U, M> {
-		Indexed::new_entry(self.value.into(), self.index)
+	pub fn cast<U: From<T>>(self) -> Indexed<U> {
+		Indexed::new(self.value.into(), self.index)
 	}
 
 	/// Try to cast the inner value.
 	#[inline(always)]
-	pub fn try_cast<U: TryFrom<T>>(self) -> Result<Indexed<U, M>, Indexed<U::Error, M>> {
+	pub fn try_cast<U: TryFrom<T>>(self) -> Result<Indexed<U>, Indexed<U::Error>> {
 		match self.value.try_into() {
-			Ok(value) => Ok(Indexed::new_entry(value, self.index)),
-			Err(e) => Err(Indexed::new_entry(e, self.index)),
+			Ok(value) => Ok(Indexed::new(value, self.index)),
+			Err(e) => Err(Indexed::new(e, self.index)),
 		}
 	}
 }
 
-impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJson<T, B, M> for Indexed<O, M> {
+impl<T, B, O: TryFromJsonObject<T, B>> TryFromJson<T, B> for Indexed<O> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
+		value: json_syntax::Value,
+	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::Object(object) => {
-				Self::try_from_json_object_in(vocabulary, Meta(object, meta))
-			}
-			_ => Err(Meta(InvalidExpandedJson::InvalidObject, meta)),
+			json_syntax::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
+			_ => Err(InvalidExpandedJson::InvalidObject),
 		}
 	}
 }
 
-impl<T, B, M, O: TryFromJsonObject<T, B, M>> TryFromJsonObject<T, B, M> for Indexed<O, M> {
+impl<T, B, O: TryFromJsonObject<T, B>> TryFromJsonObject<T, B> for Indexed<O> {
 	fn try_from_json_object_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		Meta(mut object, meta): Meta<json_syntax::Object<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
+		mut object: json_syntax::Object,
+	) -> Result<Self, InvalidExpandedJson> {
 		let index = match object
 			.remove_unique("@index")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
 			Some(index_entry) => match index_entry.value {
-				Meta(json_syntax::Value::String(index), meta) => Some(Entry::new_with(
-					index_entry.key.into_metadata(),
-					Meta(index.to_string(), meta),
-				)),
-				Meta(_, meta) => return Err(Meta(InvalidExpandedJson::InvalidIndex, meta)),
+				json_syntax::Value::String(index) => Some(index.to_string()),
+				_ => return Err(InvalidExpandedJson::InvalidIndex),
 			},
 			None => None,
 		};
 
-		let Meta(value, meta) = O::try_from_json_object_in(vocabulary, Meta(object, meta))?;
-		Ok(Meta(Self::new_entry(value, index), meta))
+		let value = O::try_from_json_object_in(vocabulary, object)?;
+		Ok(Self::new(value, index))
 	}
 }
 
-impl<T, M> From<T> for Indexed<T, M> {
+impl<T> From<T> for Indexed<T> {
 	#[inline(always)]
-	fn from(value: T) -> Indexed<T, M> {
-		Indexed::new_entry(value, None)
+	fn from(value: T) -> Indexed<T> {
+		Indexed::new(value, None)
 	}
 }
 
-impl<T, M> Deref for Indexed<T, M> {
+impl<T> Deref for Indexed<T> {
 	type Target = T;
 
 	#[inline(always)]
@@ -165,37 +142,34 @@ impl<T, M> Deref for Indexed<T, M> {
 	}
 }
 
-impl<T, M> DerefMut for Indexed<T, M> {
+impl<T> DerefMut for Indexed<T> {
 	#[inline(always)]
 	fn deref_mut(&mut self) -> &mut T {
 		&mut self.value
 	}
 }
 
-impl<T, M> AsRef<T> for Indexed<T, M> {
+impl<T> AsRef<T> for Indexed<T> {
 	#[inline(always)]
 	fn as_ref(&self) -> &T {
 		&self.value
 	}
 }
 
-impl<T, M> AsMut<T> for Indexed<T, M> {
+impl<T> AsMut<T> for Indexed<T> {
 	#[inline(always)]
 	fn as_mut(&mut self) -> &mut T {
 		&mut self.value
 	}
 }
 
-impl<T: IntoJsonWithContextMeta<M, N>, M, N> IntoJsonWithContextMeta<M, N> for Indexed<T, M> {
-	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
-		let mut result = self.value.into_json_meta_with(meta, vocabulary);
+impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Indexed<T> {
+	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
+		let mut result = self.value.into_json_with(vocabulary);
 
 		if let Some(obj) = result.as_object_mut() {
 			if let Some(index) = self.index {
-				obj.insert(
-					Meta("@index".into(), index.key_metadata),
-					index.value.into_json(),
-				);
+				obj.insert("@index".into(), index.into_json());
 			}
 		}
 

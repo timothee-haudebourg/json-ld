@@ -1,10 +1,8 @@
-use super::{term_definition, Entry, TermDefinition};
+use super::{term_definition, TermDefinition};
 use crate::{Direction, Keyword, LenientLanguageTagBuf, Nullable};
 use educe::Educe;
 use indexmap::IndexMap;
 use iref::IriRefBuf;
-use locspan::Meta;
-use locspan_derive::StrippedPartialEq;
 
 mod import;
 mod key;
@@ -21,31 +19,27 @@ pub use version::*;
 pub use vocab::*;
 
 /// Context definition.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Educe, Debug)]
+#[derive(PartialEq, Eq, Clone, Educe, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(bound(deserialize = "M: Default")))]
-#[locspan(ignore(M))]
 #[educe(Default)]
-pub struct Definition<M = ()> {
-	#[locspan(unwrap_deref2_stripped)]
+pub struct Definition {
 	#[cfg_attr(
 		feature = "serde",
 		serde(rename = "@base", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub base: Option<Entry<Nullable<IriRefBuf>, M>>,
+	pub base: Option<Nullable<IriRefBuf>>,
 
-	#[locspan(unwrap_deref2_stripped)]
 	#[cfg_attr(
 		feature = "serde",
 		serde(rename = "@import", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub import: Option<Entry<IriRefBuf, M>>,
+	pub import: Option<IriRefBuf>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(rename = "@language", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub language: Option<Entry<Nullable<LenientLanguageTagBuf>, M>>,
+	pub language: Option<Nullable<LenientLanguageTagBuf>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -55,7 +49,7 @@ pub struct Definition<M = ()> {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub direction: Option<Entry<Nullable<Direction>, M>>,
+	pub direction: Option<Nullable<Direction>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -65,7 +59,7 @@ pub struct Definition<M = ()> {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub propagate: Option<Entry<bool, M>>,
+	pub propagate: Option<bool>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -75,107 +69,106 @@ pub struct Definition<M = ()> {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub protected: Option<Entry<bool, M>>,
+	pub protected: Option<bool>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub type_: Option<Entry<Type<M>, M>>,
+	pub type_: Option<Type>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(rename = "@version", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub version: Option<Entry<Version, M>>,
+	pub version: Option<Version>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(rename = "@vocab", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub vocab: Option<Entry<Nullable<Vocab>, M>>,
+	pub vocab: Option<Nullable<Vocab>>,
 
 	#[cfg_attr(feature = "serde", serde(flatten))]
-	pub bindings: Bindings<M>,
+	pub bindings: Bindings,
 }
 
-impl<M> Definition<M> {
+impl Definition {
 	pub fn new() -> Self {
 		Self::default()
 	}
 
-	pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<M>> {
+	pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef> {
 		match key {
 			KeyOrKeyword::Keyword(k) => match k {
 				Keyword::Base => self
 					.base
 					.as_ref()
-					.map(|e| EntryValueRef::Base(e.as_value())),
-				Keyword::Import => self
-					.import
-					.as_ref()
-					.map(|e| EntryValueRef::Import(e.as_value())),
+					.map(Nullable::as_deref)
+					.map(EntryValueRef::Base),
+				Keyword::Import => self.import.as_deref().map(EntryValueRef::Import),
 				Keyword::Language => self
 					.language
 					.as_ref()
-					.map(|e| EntryValueRef::Language(e.as_value())),
-				Keyword::Direction => self
-					.direction
-					.as_ref()
-					.map(|e| EntryValueRef::Direction(e.as_value())),
-				Keyword::Propagate => self
-					.propagate
-					.as_ref()
-					.map(|e| EntryValueRef::Propagate(e.as_value())),
-				Keyword::Protected => self
-					.protected
-					.as_ref()
-					.map(|e| EntryValueRef::Protected(e.as_value())),
-				Keyword::Type => self
-					.type_
-					.as_ref()
-					.map(|e| EntryValueRef::Type(e.as_value())),
-				Keyword::Version => self
-					.version
-					.as_ref()
-					.map(|e| EntryValueRef::Version(e.as_value())),
+					.map(Nullable::as_ref)
+					.map(EntryValueRef::Language),
+				Keyword::Direction => self.direction.map(EntryValueRef::Direction),
+				Keyword::Propagate => self.propagate.map(EntryValueRef::Propagate),
+				Keyword::Protected => self.protected.map(EntryValueRef::Protected),
+				Keyword::Type => self.type_.map(EntryValueRef::Type),
+				Keyword::Version => self.version.map(EntryValueRef::Version),
 				Keyword::Vocab => self
 					.vocab
 					.as_ref()
-					.map(|e| EntryValueRef::Vocab(e.as_value())),
+					.map(Nullable::as_ref)
+					.map(EntryValueRef::Vocab),
 				_ => None,
 			},
-			KeyOrKeyword::Key(k) => self
-				.bindings
-				.get(k)
-				.map(|b| EntryValueRef::Definition(&b.definition)),
+			KeyOrKeyword::Key(k) => self.bindings.get(k).map(EntryValueRef::Definition),
 		}
 	}
 
-	pub fn get_binding(&self, key: &Key) -> Option<&Meta<Nullable<TermDefinition<M>>, M>> {
-		self.bindings.get(key).map(|b| &b.definition)
+	pub fn get_binding(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
+		self.bindings.get(key)
 	}
 }
 
 /// Context bindings.
 #[derive(PartialEq, Eq, Clone, Educe, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-	feature = "serde",
-	serde(transparent, bound(deserialize = "M: Default"))
-)]
+#[cfg_attr(feature = "serde", serde(transparent))]
 #[educe(Default)]
-pub struct Bindings<M = ()>(IndexMap<Key, TermBinding<M>>);
+pub struct Bindings(IndexMap<Key, Nullable<TermDefinition>>);
 
-pub type BindingsIter<'a, M> = indexmap::map::Iter<'a, Key, TermBinding<M>>;
+pub struct BindingsIter<'a>(indexmap::map::Iter<'a, Key, Nullable<TermDefinition>>);
 
-impl Bindings {
-	pub fn insert(&mut self, key: Key, def: Nullable<TermDefinition>) -> Option<TermBinding> {
-		self.0.insert(key, TermBinding::new((), Meta::none(def)))
+impl<'a> Iterator for BindingsIter<'a> {
+	type Item = (&'a Key, Nullable<&'a TermDefinition>);
+
+	fn next(&mut self) -> Option<Self::Item> {
+		self.0.next().map(|(k, d)| (k, d.as_ref()))
 	}
 }
 
-impl<M> Bindings<M> {
+impl<'a> DoubleEndedIterator for BindingsIter<'a> {
+	fn next_back(&mut self) -> Option<Self::Item> {
+		self.0.next_back().map(|(k, d)| (k, d.as_ref()))
+	}
+}
+
+impl<'a> ExactSizeIterator for BindingsIter<'a> {}
+
+impl Bindings {
+	pub fn insert(
+		&mut self,
+		key: Key,
+		def: Nullable<TermDefinition>,
+	) -> Option<Nullable<TermDefinition>> {
+		self.0.insert(key, def)
+	}
+}
+
+impl Bindings {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -188,34 +181,40 @@ impl<M> Bindings<M> {
 		self.0.is_empty()
 	}
 
-	pub fn get(&self, key: &Key) -> Option<&TermBinding<M>> {
-		self.0.get(key)
+	pub fn get(&self, key: &Key) -> Option<Nullable<&TermDefinition>> {
+		self.0.get(key).map(Nullable::as_ref)
 	}
 
-	pub fn iter(&self) -> BindingsIter<M> {
-		self.0.iter()
+	pub fn get_entry(&self, i: usize) -> Option<(&Key, Nullable<&TermDefinition>)> {
+		self.0
+			.get_index(i)
+			.map(|(key, value)| (key, value.as_ref()))
+	}
+
+	pub fn iter(&self) -> BindingsIter {
+		BindingsIter(self.0.iter())
 	}
 
 	pub fn insert_with(
 		&mut self,
-		Meta(key, key_metadata): Meta<Key, M>,
-		def: Meta<Nullable<TermDefinition<M>>, M>,
-	) -> Option<TermBinding<M>> {
-		self.0.insert(key, TermBinding::new(key_metadata, def))
+		key: Key,
+		def: Nullable<TermDefinition>,
+	) -> Option<Nullable<TermDefinition>> {
+		self.0.insert(key, def)
 	}
 }
 
-impl<M> IntoIterator for Bindings<M> {
-	type Item = (Key, TermBinding<M>);
-	type IntoIter = indexmap::map::IntoIter<Key, TermBinding<M>>;
+impl IntoIterator for Bindings {
+	type Item = (Key, Nullable<TermDefinition>);
+	type IntoIter = indexmap::map::IntoIter<Key, Nullable<TermDefinition>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
 	}
 }
 
-impl<M> FromIterator<(Key, TermBinding<M>)> for Bindings<M> {
-	fn from_iter<T: IntoIterator<Item = (Key, TermBinding<M>)>>(iter: T) -> Self {
+impl FromIterator<(Key, Nullable<TermDefinition>)> for Bindings {
+	fn from_iter<T: IntoIterator<Item = (Key, Nullable<TermDefinition>)>>(iter: T) -> Self {
 		let mut result = Self::new();
 
 		for (key, binding) in iter {
@@ -226,80 +225,22 @@ impl<M> FromIterator<(Key, TermBinding<M>)> for Bindings<M> {
 	}
 }
 
-impl FromIterator<(Key, Nullable<TermDefinition>)> for Bindings {
-	fn from_iter<T: IntoIterator<Item = (Key, Nullable<TermDefinition>)>>(iter: T) -> Self {
-		let mut result = Self::new();
-
-		for (key, definition) in iter {
-			result.insert(key, definition);
-		}
-
-		result
-	}
-}
-
-impl<M> FromIterator<(Meta<Key, M>, Meta<Nullable<TermDefinition<M>>, M>)> for Bindings<M> {
-	fn from_iter<T: IntoIterator<Item = (Meta<Key, M>, Meta<Nullable<TermDefinition<M>>, M>)>>(
-		iter: T,
-	) -> Self {
-		let mut result = Self::new();
-
-		for (key, definition) in iter {
-			result.insert_with(key, definition);
-		}
-
-		result
-	}
-}
-
-impl<M, N> locspan::StrippedPartialEq<Bindings<N>> for Bindings<M> {
-	fn stripped_eq(&self, other: &Bindings<N>) -> bool {
-		self.len() == other.len()
-			&& self
-				.iter()
-				.all(|(key, a)| other.get(key).map(|b| a.stripped_eq(b)).unwrap_or(false))
-	}
-}
-
-/// Term binding.
-#[derive(PartialEq, StrippedPartialEq, Eq, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(bound(deserialize = "M: Default")))]
-#[locspan(ignore(M))]
-#[cfg_attr(feature = "serde", serde(transparent))]
-pub struct TermBinding<M = ()> {
-	#[locspan(ignore)]
-	#[cfg_attr(feature = "serde", serde(skip))]
-	pub key_metadata: M,
-
-	pub definition: Meta<Nullable<TermDefinition<M>>, M>,
-}
-
-impl<M> TermBinding<M> {
-	pub fn new(key_metadata: M, definition: Meta<Nullable<TermDefinition<M>>, M>) -> Self {
-		Self {
-			key_metadata,
-			definition,
-		}
-	}
-}
-
 /// Context definition fragment.
-pub enum FragmentRef<'a, M> {
+pub enum FragmentRef<'a> {
 	/// Context definition entry.
-	Entry(EntryRef<'a, M>),
+	Entry(EntryRef<'a>),
 
 	/// Context definition entry key.
 	Key(EntryKeyRef<'a>),
 
 	/// Context definition entry value.
-	Value(EntryValueRef<'a, M>),
+	Value(EntryValueRef<'a>),
 
 	/// Term definition fragment.
-	TermDefinitionFragment(term_definition::FragmentRef<'a, M>),
+	TermDefinitionFragment(term_definition::FragmentRef<'a>),
 }
 
-impl<'a, M> FragmentRef<'a, M> {
+impl<'a> FragmentRef<'a> {
 	pub fn is_key(&self) -> bool {
 		match self {
 			Self::Key(_) => true,
@@ -331,7 +272,7 @@ impl<'a, M> FragmentRef<'a, M> {
 		}
 	}
 
-	pub fn sub_items(&self) -> SubItems<'a, M> {
+	pub fn sub_items(&self) -> SubItems<'a> {
 		match self {
 			Self::Entry(e) => SubItems::Entry(Some(e.key()), Some(Box::new(e.value()))),
 			Self::Key(_) => SubItems::None,
@@ -341,13 +282,13 @@ impl<'a, M> FragmentRef<'a, M> {
 	}
 }
 
-pub enum EntryValueSubItems<'a, M> {
+pub enum EntryValueSubItems<'a> {
 	None,
-	TermDefinitionFragment(Box<term_definition::Entries<'a, M>>),
+	TermDefinitionFragment(Box<term_definition::Entries<'a>>),
 }
 
-impl<'a, M> Iterator for EntryValueSubItems<'a, M> {
-	type Item = FragmentRef<'a, M>;
+impl<'a> Iterator for EntryValueSubItems<'a> {
+	type Item = FragmentRef<'a>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
@@ -359,15 +300,15 @@ impl<'a, M> Iterator for EntryValueSubItems<'a, M> {
 	}
 }
 
-pub enum SubItems<'a, M> {
+pub enum SubItems<'a> {
 	None,
-	Entry(Option<EntryKeyRef<'a>>, Option<Box<EntryValueRef<'a, M>>>),
-	Value(EntryValueSubItems<'a, M>),
-	TermDefinitionFragment(term_definition::SubFragments<'a, M>),
+	Entry(Option<EntryKeyRef<'a>>, Option<Box<EntryValueRef<'a>>>),
+	Value(EntryValueSubItems<'a>),
+	TermDefinitionFragment(term_definition::SubFragments<'a>),
 }
 
-impl<'a, M> Iterator for SubItems<'a, M> {
-	type Item = FragmentRef<'a, M>;
+impl<'a> Iterator for SubItems<'a> {
+	type Item = FragmentRef<'a>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {

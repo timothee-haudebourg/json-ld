@@ -1,6 +1,6 @@
 use contextual::WithContext;
 use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
-use rdf_types::{IndexVocabulary, IriVocabularyMut};
+use rdf_types::{vocabulary::IriIndex, IndexVocabulary, IriVocabularyMut};
 use static_iref::iri;
 
 #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/flatten-manifest.jsonld")]
@@ -102,7 +102,7 @@ impl flatten::Test {
 			"json-ld-api",
 		);
 
-		let mut options: json_ld::Options = json_ld::Options::default();
+		let mut options: json_ld::Options<IriIndex> = json_ld::Options::default();
 		if let Some(p) = self.options.processing_mode {
 			options.processing_mode = p
 		}
@@ -148,7 +148,7 @@ impl flatten::Test {
 					let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
 					expect.set_url(Some(input));
 
-					let expand_options: json_ld::Options = json_ld::Options::default();
+					let expand_options: json_ld::Options<IriIndex> = json_ld::Options::default();
 					let success = flattened
 						.compare_full(&expect, &mut vocabulary, &mut loader, expand_options, ())
 						.await

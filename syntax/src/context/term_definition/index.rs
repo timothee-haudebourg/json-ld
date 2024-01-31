@@ -1,13 +1,12 @@
 use crate::CompactIri;
 use iref::Iri;
-use locspan_derive::StrippedPartialEq;
 use std::fmt;
 use std::hash::Hash;
 
-#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Index(#[locspan(stripped)] String);
+pub struct Index(String);
 
 impl Index {
 	pub fn as_iri(&self) -> Option<&Iri> {

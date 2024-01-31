@@ -5,7 +5,7 @@
 //!
 //! The compaction algorithm is provided by the [`Compact`] trait.
 use indexmap::IndexSet;
-use json_ld_context_processing::{ContextLoader, Options as ProcessingOptions, Process};
+use json_ld_context_processing::{Options as ProcessingOptions, Process};
 use json_ld_core::{
 	context::inverse::{LangSelection, TypeSelection},
 	future::{BoxFuture, FutureExt},
@@ -14,7 +14,6 @@ use json_ld_core::{
 };
 use json_ld_syntax::{ContainerKind, ErrorCode, Keyword};
 use json_syntax::object::Entry;
-use locspan::{Meta, Stripped};
 use mown::Mown;
 use rdf_types::{vocabulary, VocabularyMut};
 use std::hash::Hash;
@@ -30,8 +29,6 @@ pub(crate) use iri::*;
 use node::*;
 use property::*;
 use value::*;
-
-pub type MetaError<M, E> = Meta<Error<E>, M>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error<E> {
@@ -67,8 +64,7 @@ impl<E> From<IriConfusedWithPrefix> for Error<E> {
 	}
 }
 
-pub type CompactFragmentResult<I, M, L> =
-	Result<json_syntax::MetaValue<M>, MetaError<M, <L as ContextLoader<I, M>>::ContextError>>;
+pub type CompactFragmentResult<I, L> = Result<json_syntax::Value, Error<<L as Loader<I>>::Error>>;
 
 /// Compaction options.
 #[derive(Clone, Copy)]
@@ -127,55 +123,46 @@ impl Default for Options {
 	}
 }
 
-pub trait CompactFragmentMeta<I, B, M> {
-	fn compact_fragment_full_meta<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
-		&'a self,
-		meta: &'a M,
-		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
-		loader: &'a mut L,
-		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
-	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
-		L: Send + Sync;
-}
-
-pub trait CompactFragment<I, B, M> {
-	fn compact_fragment_full<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+pub trait CompactFragment<I, B> {
+	fn compact_fragment_full<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
+		active_context: &'a Context<I, B>,
+		type_scoped_context: &'a Context<I, B>,
+		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
-		L: Send + Sync;
+		N: VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		B: Send + Sync,
+		L: Send + Sync,
+		L::Error: Send;
 
 	#[inline(always)]
-	fn compact_fragment_with<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+	fn compact_fragment_with<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
+		active_context: &'a Context<I, B>,
 		loader: &'a mut L,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
+		N: VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		B: Send + Sync,
 		L: Send + Sync,
+		L::Error: Send,
 	{
 		self.compact_fragment_full(
 			vocabulary,
@@ -188,17 +175,21 @@ pub trait CompactFragment<I, B, M> {
 	}
 
 	#[inline(always)]
-	fn compact_fragment<'a, L: Loader<I, M> + ContextLoader<I, M>>(
+	fn compact_fragment<'a, L>(
 		&'a self,
-		active_context: &'a Context<I, B, M>,
+		active_context: &'a Context<I, B>,
 		loader: &'a mut L,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
 		(): VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		I: Send + Sync,
+		B: Send + Sync,
 		L: Send + Sync,
+		L::Error: Send,
 	{
 		self.compact_fragment_full(
 			vocabulary::no_vocabulary_mut(),
@@ -211,83 +202,61 @@ pub trait CompactFragment<I, B, M> {
 	}
 }
 
-impl<T: CompactFragmentMeta<I, B, M>, I, B, M> CompactFragment<I, B, M> for Meta<T, M> {
-	fn compact_fragment_full<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
-		&'a self,
-		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
-		loader: &'a mut L,
-		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
-	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
-		L: Send + Sync,
-	{
-		self.0.compact_fragment_full_meta(
-			&self.1,
-			vocabulary,
-			active_context,
-			type_scoped_context,
-			active_property,
-			loader,
-			options,
-		)
-	}
-}
-
 enum TypeLangValue<'a, I> {
 	Type(TypeSelection<I>),
 	Lang(LangSelection<'a>),
 }
 
 /// Type that can be compacted with an index.
-pub trait CompactIndexedFragment<I, B, M> {
-	fn compact_indexed_fragment<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+pub trait CompactIndexedFragment<I, B> {
+	fn compact_indexed_fragment<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		meta: &'a M,
-		index: Option<&'a json_ld_syntax::Entry<String, M>>,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
+		index: Option<&'a str>,
+		active_context: &'a Context<I, B>,
+		type_scoped_context: &'a Context<I, B>,
+		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
-		L: Send + Sync;
+		N: VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		B: Send + Sync,
+		L: Send + Sync,
+		L::Error: Send;
 }
 
-impl<I, B, M, T: CompactIndexedFragment<I, B, M>> CompactFragmentMeta<I, B, M> for Indexed<T, M> {
-	fn compact_fragment_full_meta<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T> {
+	fn compact_fragment_full<'a, N, L>(
 		&'a self,
-		meta: &'a M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
+		active_context: &'a Context<I, B>,
+		type_scoped_context: &'a Context<I, B>,
+		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
+		N: VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		B: Send + Sync,
 		L: Send + Sync,
+		L::Error: Send,
 	{
 		self.inner().compact_indexed_fragment(
 			vocabulary,
-			meta,
-			self.index_entry(),
+			self.index(),
 			active_context,
 			type_scoped_context,
 			active_property,
@@ -297,31 +266,35 @@ impl<I, B, M, T: CompactIndexedFragment<I, B, M>> CompactFragmentMeta<I, B, M> f
 	}
 }
 
-impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
-	fn compact_indexed_fragment<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
+	fn compact_indexed_fragment<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		meta: &'a M,
-		index: Option<&'a json_ld_syntax::Entry<String, M>>,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
+		index: Option<&'a str>,
+		active_context: &'a Context<I, B>,
+		type_scoped_context: &'a Context<I, B>,
+		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
+		N: VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		B: Send + Sync,
 		L: Send + Sync,
+		L::Error: Send,
 	{
 		use json_ld_core::object::Ref;
 		match self.as_ref() {
 			Ref::Value(value) => async move {
 				compact_indexed_value_with(
 					vocabulary,
-					Meta(value, meta),
+					value,
 					index,
 					active_context,
 					active_property,
@@ -334,7 +307,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 			Ref::Node(node) => async move {
 				compact_indexed_node_with(
 					vocabulary,
-					Meta(node, meta),
+					node,
 					index,
 					active_context,
 					type_scoped_context,
@@ -362,12 +335,11 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 				let mut list_container = false;
 				if let Some(active_property) = active_property {
 					if let Some(active_property_definition) =
-						type_scoped_context.get(active_property.0)
+						type_scoped_context.get(active_property)
 					{
 						if let Some(local_context) = active_property_definition.context() {
 							active_context = Mown::Owned(
 								local_context
-									.value
 									.process_with(
 										vocabulary,
 										active_context.as_ref(),
@@ -375,8 +347,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 										active_property_definition.base_url().cloned(),
 										ProcessingOptions::from(options).with_override(),
 									)
-									.await
-									.map_err(Meta::cast)?
+									.await?
 									.into_processed(),
 							)
 						}
@@ -390,7 +361,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 				if list_container {
 					compact_collection_with(
 						vocabulary,
-						Meta(list.iter(), meta),
+						list.iter(),
 						active_context.as_ref(),
 						active_context.as_ref(),
 						active_property,
@@ -403,10 +374,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 					compact_property(
 						vocabulary,
 						&mut result,
-						Meta(
-							Term::Keyword(Keyword::List),
-							list.entry().key_metadata.clone(),
-						),
+						Term::Keyword(Keyword::List),
 						list,
 						active_context.as_ref(),
 						loader,
@@ -419,7 +387,7 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 					// active context that includes @index,
 					if let Some(index) = index {
 						let mut index_container = false;
-						if let Some(Meta(active_property, _)) = active_property {
+						if let Some(active_property) = active_property {
 							if let Some(active_property_definition) =
 								active_context.get(active_property)
 							{
@@ -439,25 +407,18 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 							let alias = compact_key(
 								vocabulary,
 								active_context.as_ref(),
-								Meta(&Term::Keyword(Keyword::Index), &index.key_metadata),
+								&Term::Keyword(Keyword::Index),
 								true,
 								false,
 								options,
-							)
-							.map_err(Meta::cast)?;
+							)?;
 
 							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
-							result.insert(
-								alias.unwrap(),
-								Meta(
-									json_syntax::Value::String(index.value.as_str().into()),
-									index.value.metadata().clone(),
-								),
-							);
+							result.insert(alias.unwrap(), json_syntax::Value::String(index.into()));
 						}
 					}
 
-					Ok(Meta(json_syntax::Value::Object(result), meta.clone()))
+					Ok(json_syntax::Value::Object(result))
 				}
 			}
 			.boxed(),
@@ -466,47 +427,27 @@ impl<I, B, M, T: Any<I, B, M>> CompactIndexedFragment<I, B, M> for T {
 }
 
 /// Default value of `as_array` is false.
-fn add_value<M: Clone>(
-	map: &mut json_syntax::Object<M>,
-	Meta(key, key_metadata): Meta<&str, &M>,
-	value: json_syntax::MetaValue<M>,
-	as_array: bool,
-) {
+fn add_value(map: &mut json_syntax::Object, key: &str, value: json_syntax::Value, as_array: bool) {
 	match map
 		.get_unique(key)
 		.ok()
 		.unwrap()
-		.map(|entry| entry.value().is_array())
+		.map(|entry| entry.is_array())
 	{
 		Some(false) => {
-			let Entry {
-				key,
-				value: Meta(value, meta),
-			} = map.remove_unique(key).ok().unwrap().unwrap();
-			map.insert(
-				key,
-				Meta(
-					json_syntax::Value::Array(vec![Meta(value, meta.clone())]),
-					meta,
-				),
-			);
+			let Entry { key, value } = map.remove_unique(key).ok().unwrap().unwrap();
+			map.insert(key, json_syntax::Value::Array(vec![value]));
 		}
 		None if as_array => {
-			map.insert(
-				Meta(key.into(), key_metadata.clone()),
-				Meta(
-					json_syntax::Value::Array(Vec::new()),
-					value.metadata().clone(),
-				),
-			);
+			map.insert(key.into(), json_syntax::Value::Array(Vec::new()));
 		}
 		_ => (),
 	}
 
 	match value {
-		Meta(json_syntax::Value::Array(values), _) => {
+		json_syntax::Value::Array(values) => {
 			for value in values {
-				add_value(map, Meta(key, key_metadata), value, false)
+				add_value(map, key, value, false)
 			}
 		}
 		value => {
@@ -515,43 +456,50 @@ fn add_value<M: Clone>(
 				return;
 			}
 
-			map.insert(Meta(key.into(), key_metadata.clone()), value);
+			map.insert(key.into(), value);
 		}
 	}
 }
 
 /// Get the `@value` field of a value object.
-fn value_value<I, M: Clone>(value: &Value<I, M>, meta: &M) -> json_syntax::MetaValue<M> {
+fn value_value<I>(value: &Value<I>) -> json_syntax::Value {
 	use json_ld_core::object::Literal;
 	match value {
 		Value::Literal(lit, _ty) => match lit {
-			Literal::Null => Meta(json_syntax::Value::Null, meta.clone()),
-			Literal::Boolean(b) => Meta(json_syntax::Value::Boolean(*b), meta.clone()),
-			Literal::Number(n) => Meta(json_syntax::Value::Number(n.clone()), meta.clone()),
-			Literal::String(s) => Meta(json_syntax::Value::String(s.as_str().into()), meta.clone()),
+			Literal::Null => json_syntax::Value::Null,
+			Literal::Boolean(b) => json_syntax::Value::Boolean(*b),
+			Literal::Number(n) => json_syntax::Value::Number(n.clone()),
+			Literal::String(s) => json_syntax::Value::String(s.as_str().into()),
 		},
-		Value::LangString(s) => Meta(json_syntax::Value::String(s.as_str().into()), meta.clone()),
+		Value::LangString(s) => json_syntax::Value::String(s.as_str().into()),
 		Value::Json(json) => json.clone(),
 	}
 }
 
-fn compact_collection_with<'a, T, O, I, B, M, N, L>(
+fn compact_collection_with<'a, N, L, O, T>(
 	vocabulary: &'a mut N,
-	Meta(items, meta): Meta<O, &'a M>,
-	active_context: &'a Context<I, B, M>,
-	type_scoped_context: &'a Context<I, B, M>,
-	active_property: Option<Meta<&'a str, &'a M>>,
+	items: O,
+	active_context: &'a Context<N::Iri, N::BlankId>,
+	type_scoped_context: &'a Context<N::Iri, N::BlankId>,
+	active_property: Option<&'a str>,
 	loader: &'a mut L,
 	options: Options,
-) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+) -> BoxFuture<'a, CompactFragmentResult<N::Iri, L>>
 where
-	T: 'a + CompactFragment<I, B, M> + Send + Sync,
-	O: 'a + Iterator<Item = &'a T> + Send,
-	N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-	I: Clone + Hash + Eq + Send + Sync,
-	B: Clone + Hash + Eq + Send + Sync,
-	M: Clone + Send + Sync,
-	L: Loader<I, M> + ContextLoader<I, M> + Send + Sync,
+	N: VocabularyMut,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
+	T: 'a + CompactFragment<N::Iri, N::BlankId>,
+	O: 'a + Iterator<Item = &'a T>,
+	L: Loader<N::Iri> + Send + Sync,
+	//
+	N: Send + Sync,
+	N::Iri: Send + Sync,
+	N::BlankId: Send + Sync,
+	L: Send + Sync,
+	L::Error: Send,
+	O: Send,
+	T: Send + Sync,
 {
 	async move {
 		let mut result = Vec::new();
@@ -574,7 +522,7 @@ where
 		}
 
 		let mut list_or_set = false;
-		if let Some(Meta(active_property, _)) = active_property {
+		if let Some(active_property) = active_property {
 			if let Some(active_property_definition) = active_context.get(active_property) {
 				list_or_set = active_property_definition
 					.container()
@@ -585,19 +533,14 @@ where
 			}
 		}
 
-		let stripped_active_property = active_property.map(Meta::into_value);
-
 		if result.is_empty()
 			|| result.len() > 1
 			|| !options.compact_arrays
-			|| stripped_active_property == Some("@graph")
-			|| stripped_active_property == Some("@set")
+			|| active_property == Some("@graph")
+			|| active_property == Some("@set")
 			|| list_or_set
 		{
-			return Ok(Meta(
-				json_syntax::Value::Array(result.into_iter().collect()),
-				meta.clone(),
-			));
+			return Ok(json_syntax::Value::Array(result.into_iter().collect()));
 		}
 
 		Ok(result.into_iter().next().unwrap())
@@ -605,29 +548,31 @@ where
 	.boxed()
 }
 
-impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, B, M>
-	for IndexSet<T>
-{
-	fn compact_fragment_full_meta<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for IndexSet<T> {
+	fn compact_fragment_full<'a, N, L>(
 		&'a self,
-		meta: &'a M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
+		active_context: &'a Context<I, B>,
+		type_scoped_context: &'a Context<I, B>,
+		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
+		N: VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		B: Send + Sync,
 		L: Send + Sync,
+		L::Error: Send,
 	{
 		compact_collection_with(
 			vocabulary,
-			Meta(self.iter(), meta),
+			self.iter(),
 			active_context,
 			type_scoped_context,
 			active_property,
@@ -637,27 +582,31 @@ impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, 
 	}
 }
 
-impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, B, M> for Vec<T> {
-	fn compact_fragment_full_meta<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for Vec<T> {
+	fn compact_fragment_full<'a, N, L>(
 		&'a self,
-		meta: &'a M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
+		active_context: &'a Context<I, B>,
+		type_scoped_context: &'a Context<I, B>,
+		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
+		N: VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		B: Send + Sync,
 		L: Send + Sync,
+		L::Error: Send,
 	{
 		compact_collection_with(
 			vocabulary,
-			Meta(self.iter(), meta),
+			self.iter(),
 			active_context,
 			type_scoped_context,
 			active_property,
@@ -667,55 +616,31 @@ impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, 
 	}
 }
 
-impl<T: CompactFragment<I, B, M> + Send + Sync, I, B, M> CompactFragmentMeta<I, B, M> for [T] {
-	fn compact_fragment_full_meta<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
+impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for [T] {
+	fn compact_fragment_full<'a, N, L>(
 		&'a self,
-		meta: &'a M,
 		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
+		active_context: &'a Context<I, B>,
+		type_scoped_context: &'a Context<I, B>,
+		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
+	) -> BoxFuture<'a, CompactFragmentResult<I, L>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
+		N: VocabularyMut<Iri = I, BlankId = B>,
+		I: Clone + Hash + Eq,
+		B: Clone + Hash + Eq,
+		L: Loader<I>,
+		//
+		N: Send + Sync,
+		I: Send + Sync,
+		B: Send + Sync,
 		L: Send + Sync,
+		L::Error: Send,
 	{
 		compact_collection_with(
 			vocabulary,
-			Meta(self.iter(), meta),
-			active_context,
-			type_scoped_context,
-			active_property,
-			loader,
-			options,
-		)
-	}
-}
-
-impl<T: CompactFragment<I, B, M>, I, B, M> CompactFragment<I, B, M> for Stripped<T> {
-	fn compact_fragment_full<'a, N, L: Loader<I, M> + ContextLoader<I, M>>(
-		&'a self,
-		vocabulary: &'a mut N,
-		active_context: &'a Context<I, B, M>,
-		type_scoped_context: &'a Context<I, B, M>,
-		active_property: Option<Meta<&'a str, &'a M>>,
-		loader: &'a mut L,
-		options: Options,
-	) -> BoxFuture<'a, CompactFragmentResult<I, M, L>>
-	where
-		N: Send + Sync + VocabularyMut<Iri = I, BlankId = B>,
-		I: Clone + Hash + Eq + Send + Sync,
-		B: Clone + Hash + Eq + Send + Sync,
-		M: Clone + Send + Sync,
-		L: Send + Sync,
-	{
-		self.0.compact_fragment_full(
-			vocabulary,
+			self.iter(),
 			active_context,
 			type_scoped_context,
 			active_property,

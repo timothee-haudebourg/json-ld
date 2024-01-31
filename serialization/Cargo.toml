@@ -15,7 +15,6 @@ readme = "README.md"
 json-ld-core.workspace = true
 linked-data.workspace = true
 rdf-types.workspace = true
-locspan.workspace = true
 json-syntax.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true

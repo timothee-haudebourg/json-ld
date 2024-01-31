@@ -1,17 +1,16 @@
 use crate::context::definition::KeyOrKeywordRef;
 use crate::{CompactIri, ExpandableRef, Keyword};
 use iref::Iri;
-use locspan_derive::StrippedPartialEq;
 use rdf_types::BlankId;
 use std::fmt;
 use std::hash::Hash;
 
-#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Id {
-	Keyword(#[locspan(stripped)] Keyword),
-	Term(#[locspan(stripped)] String),
+	Keyword(Keyword),
+	Term(String),
 }
 
 impl Id {

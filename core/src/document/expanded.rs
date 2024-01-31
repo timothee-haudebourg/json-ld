@@ -1,12 +1,10 @@
 use crate::object::{FragmentRef, InvalidExpandedJson, Traverse};
-use crate::{id, Id, Indexed, Node, Object, Relabel, StrippedIndexedObject};
-use crate::{IndexedObject, TryFromJson};
+use crate::{Id, Indexed, IndexedObject, Node, Object, Relabel, TryFromJson};
 use hashbrown::HashMap;
 use indexmap::IndexSet;
 use iref::IriBuf;
-use locspan::{Meta, Stripped, StrippedEq, StrippedPartialEq};
 use rdf_types::vocabulary::VocabularyMut;
-use rdf_types::{BlankIdBuf, Vocabulary};
+use rdf_types::{BlankIdBuf, Generator, Vocabulary};
 use std::collections::HashSet;
 use std::hash::Hash;
 
@@ -14,18 +12,16 @@ use std::hash::Hash;
 ///
 /// It is just an alias for a set of (indexed) objects.
 #[derive(Debug, Clone)]
-pub struct ExpandedDocument<T = IriBuf, B = BlankIdBuf, M = ()>(
-	IndexSet<StrippedIndexedObject<T, B, M>>,
-);
+pub struct ExpandedDocument<T = IriBuf, B = BlankIdBuf>(IndexSet<IndexedObject<T, B>>);
 
-impl<T, B, M> Default for ExpandedDocument<T, B, M> {
+impl<T, B> Default for ExpandedDocument<T, B> {
 	#[inline(always)]
 	fn default() -> Self {
 		Self(IndexSet::new())
 	}
 }
 
-impl<T, B, M> ExpandedDocument<T, B, M> {
+impl<T, B> ExpandedDocument<T, B> {
 	#[inline(always)]
 	pub fn new() -> Self {
 		Self::default()
@@ -42,39 +38,38 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 
 	#[inline(always)]
-	pub fn objects(&self) -> &IndexSet<StrippedIndexedObject<T, B, M>> {
+	pub fn objects(&self) -> &IndexSet<IndexedObject<T, B>> {
 		&self.0
 	}
 
 	#[inline(always)]
-	pub fn into_objects(self) -> IndexSet<StrippedIndexedObject<T, B, M>> {
+	pub fn into_objects(self) -> IndexSet<IndexedObject<T, B>> {
 		self.0
 	}
 
 	#[inline(always)]
-	pub fn iter(&self) -> indexmap::set::Iter<'_, StrippedIndexedObject<T, B, M>> {
+	pub fn iter(&self) -> indexmap::set::Iter<'_, IndexedObject<T, B>> {
 		self.0.iter()
 	}
 
 	#[inline(always)]
-	pub fn traverse(&self) -> Traverse<T, B, M> {
+	pub fn traverse(&self) -> Traverse<T, B> {
 		Traverse::new(self.iter().map(|o| FragmentRef::IndexedObject(o)))
 	}
 
 	#[inline(always)]
-	pub fn count(&self, f: impl FnMut(&FragmentRef<T, B, M>) -> bool) -> usize {
+	pub fn count(&self, f: impl FnMut(&FragmentRef<T, B>) -> bool) -> usize {
 		self.traverse().filter(f).count()
 	}
 
 	/// Give an identifier (`@id`) to every nodes using the given generator to
 	/// generate fresh identifiers for anonymous nodes.
 	#[inline(always)]
-	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
+	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
-		M: Clone,
 		T: Eq + Hash,
 		B: Eq + Hash,
 	{
@@ -88,9 +83,8 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	/// Give an identifier (`@id`) to every nodes using the given generator to
 	/// generate fresh identifiers for anonymous nodes.
 	#[inline(always)]
-	pub fn identify_all<G: id::Generator<(), M>>(&mut self, generator: &mut G)
+	pub fn identify_all<G: Generator>(&mut self, generator: &mut G)
 	where
-		M: Clone,
 		T: Eq + Hash,
 		B: Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
@@ -102,15 +96,11 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	/// literals using the given generator to generate fresh identifiers for
 	/// anonymous nodes.
 	#[inline(always)]
-	pub fn relabel_and_canonicalize_with<
-		V: Vocabulary<Iri = T, BlankId = B>,
-		G: id::Generator<V, M>,
-	>(
+	pub fn relabel_and_canonicalize_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
-		M: Clone,
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 	{
@@ -128,9 +118,8 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	/// literals using the given generator to generate fresh identifiers for
 	/// anonymous nodes.
 	#[inline(always)]
-	pub fn relabel_and_canonicalize<G: id::Generator<(), M>>(&mut self, generator: &mut G)
+	pub fn relabel_and_canonicalize<G: Generator>(&mut self, generator: &mut G)
 	where
-		M: Clone,
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
@@ -140,12 +129,11 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 
 	/// Relabels nodes.
 	#[inline(always)]
-	pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
+	pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
-		M: Clone,
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 	{
@@ -159,9 +147,8 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 
 	/// Relabels nodes.
 	#[inline(always)]
-	pub fn relabel<G: id::Generator<(), M>>(&mut self, generator: &mut G)
+	pub fn relabel<G: Generator>(&mut self, generator: &mut G)
 	where
-		M: Clone,
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
@@ -209,10 +196,10 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	///
 	/// The main node is the unique top level (root) node object. If multiple
 	/// node objects are on the root, `None` is returned.
-	pub fn main_node(&self) -> Option<&Node<T, B, M>> {
+	pub fn main_node(&self) -> Option<&Node<T, B>> {
 		let mut result = None;
 
-		for Stripped(Meta(object, _)) in self {
+		for object in self {
 			if let Object::Node(node) = object.inner() {
 				if result.is_some() {
 					return None;
@@ -229,16 +216,16 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	///
 	/// The main node is the unique top level (root) node object. If multiple
 	/// node objects are on the root, `None` is returned.
-	pub fn into_main_node(self) -> Option<Meta<Node<T, B, M>, M>> {
+	pub fn into_main_node(self) -> Option<Node<T, B>> {
 		let mut result = None;
 
-		for Meta(object, meta) in self {
+		for object in self {
 			if let Object::Node(node) = object.into_inner() {
 				if result.is_some() {
 					return None;
 				}
 
-				result = Some(Meta(*node, meta))
+				result = Some(*node)
 			}
 		}
 
@@ -246,30 +233,28 @@ impl<T, B, M> ExpandedDocument<T, B, M> {
 	}
 }
 
-impl<T: Hash + Eq, B: Hash + Eq, M> ExpandedDocument<T, B, M> {
+impl<T: Hash + Eq, B: Hash + Eq> ExpandedDocument<T, B> {
 	#[inline(always)]
-	pub fn insert(&mut self, object: IndexedObject<T, B, M>) -> bool {
-		self.0.insert(locspan::Stripped(object))
+	pub fn insert(&mut self, object: IndexedObject<T, B>) -> bool {
+		self.0.insert(object)
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> From<Meta<Indexed<Node<T, B, M>, M>, M>>
-	for ExpandedDocument<T, B, M>
-{
-	fn from(value: Meta<Indexed<Node<T, B, M>, M>, M>) -> Self {
+impl<T: Eq + Hash, B: Eq + Hash> From<Indexed<Node<T, B>>> for ExpandedDocument<T, B> {
+	fn from(value: Indexed<Node<T, B>>) -> Self {
 		let mut result = Self::default();
 
-		result.insert(value.map(|n| n.map_inner(Object::node)));
+		result.insert(value.map_inner(Object::node));
 
 		result
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for ExpandedDocument<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ExpandedDocument<T, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
+		value: json_syntax::Value,
+	) -> Result<Self, InvalidExpandedJson> {
 		match value {
 			json_syntax::Value::Array(items) => {
 				let mut result = Self::new();
@@ -278,37 +263,28 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJson<T, B, M> for ExpandedDocument<T,
 					result.insert(Indexed::try_from_json_in(vocabulary, item)?);
 				}
 
-				Ok(Meta(result, meta))
+				Ok(result)
 			}
-			other => Err(Meta(
-				InvalidExpandedJson::Unexpected(other.kind(), json_syntax::Kind::Array),
-				meta,
+			other => Err(InvalidExpandedJson::Unexpected(
+				other.kind(),
+				json_syntax::Kind::Array,
 			)),
 		}
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> PartialEq for ExpandedDocument<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash> PartialEq for ExpandedDocument<T, B> {
 	/// Comparison between two expanded documents.
 	fn eq(&self, other: &Self) -> bool {
 		self.0.eq(&other.0)
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> Eq for ExpandedDocument<T, B, M> {}
+impl<T: Eq + Hash, B: Eq + Hash> Eq for ExpandedDocument<T, B> {}
 
-impl<T: Eq + Hash, B: Eq + Hash, M> StrippedPartialEq for ExpandedDocument<T, B, M> {
-	/// Comparison between two expanded documents.
-	fn stripped_eq(&self, other: &Self) -> bool {
-		self.0.eq(&other.0)
-	}
-}
-
-impl<T: Eq + Hash, B: Eq + Hash, M> StrippedEq for ExpandedDocument<T, B, M> {}
-
-impl<T, B, M> IntoIterator for ExpandedDocument<T, B, M> {
-	type IntoIter = IntoIter<T, B, M>;
-	type Item = IndexedObject<T, B, M>;
+impl<T, B> IntoIterator for ExpandedDocument<T, B> {
+	type IntoIter = IntoIter<T, B>;
+	type Item = IndexedObject<T, B>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -316,41 +292,39 @@ impl<T, B, M> IntoIterator for ExpandedDocument<T, B, M> {
 	}
 }
 
-impl<'a, T, B, M> IntoIterator for &'a ExpandedDocument<T, B, M> {
-	type IntoIter = indexmap::set::Iter<'a, StrippedIndexedObject<T, B, M>>;
-	type Item = &'a StrippedIndexedObject<T, B, M>;
+impl<'a, T, B> IntoIterator for &'a ExpandedDocument<T, B> {
+	type IntoIter = indexmap::set::Iter<'a, IndexedObject<T, B>>;
+	type Item = &'a IndexedObject<T, B>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
-pub struct IntoIter<T, B, M>(indexmap::set::IntoIter<StrippedIndexedObject<T, B, M>>);
+pub struct IntoIter<T, B>(indexmap::set::IntoIter<IndexedObject<T, B>>);
 
-impl<T, B, M> Iterator for IntoIter<T, B, M> {
-	type Item = IndexedObject<T, B, M>;
+impl<T, B> Iterator for IntoIter<T, B> {
+	type Item = IndexedObject<T, B>;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.0.next().map(|s| s.0)
+		self.0.next()
 	}
 }
 
-impl<T: Hash + Eq, B: Hash + Eq, M> FromIterator<IndexedObject<T, B, M>>
-	for ExpandedDocument<T, B, M>
-{
-	fn from_iter<I: IntoIterator<Item = IndexedObject<T, B, M>>>(iter: I) -> Self {
-		Self(iter.into_iter().map(locspan::Stripped).collect())
+impl<T: Hash + Eq, B: Hash + Eq> FromIterator<IndexedObject<T, B>> for ExpandedDocument<T, B> {
+	fn from_iter<I: IntoIterator<Item = IndexedObject<T, B>>>(iter: I) -> Self {
+		Self(iter.into_iter().collect())
 	}
 }
 
-impl<T: Hash + Eq, B: Hash + Eq, M> Extend<IndexedObject<T, B, M>> for ExpandedDocument<T, B, M> {
-	fn extend<I: IntoIterator<Item = IndexedObject<T, B, M>>>(&mut self, iter: I) {
-		self.0.extend(iter.into_iter().map(locspan::Stripped))
+impl<T: Hash + Eq, B: Hash + Eq> Extend<IndexedObject<T, B>> for ExpandedDocument<T, B> {
+	fn extend<I: IntoIterator<Item = IndexedObject<T, B>>>(&mut self, iter: I) {
+		self.0.extend(iter)
 	}
 }
 
-impl<T, B, M> From<IndexSet<StrippedIndexedObject<T, B, M>>> for ExpandedDocument<T, B, M> {
-	fn from(set: IndexSet<StrippedIndexedObject<T, B, M>>) -> Self {
+impl<T, B> From<IndexSet<IndexedObject<T, B>>> for ExpandedDocument<T, B> {
+	fn from(set: IndexSet<IndexedObject<T, B>>) -> Self {
 		Self(set)
 	}
 }

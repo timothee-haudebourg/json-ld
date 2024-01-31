@@ -1,9 +1,9 @@
-use futures::future::{BoxFuture, FutureExt};
-use json_syntax::Value;
-use locspan::Location;
 use std::fmt;
 
-use super::{Loader, LoadingResult};
+use crate::future::{BoxFuture, FutureExt};
+use crate::LoadingResult;
+
+use super::Loader;
 
 /// * [`ChainLoader`]: loads document from the first loader, otherwise falls back to the second one.
 ///
@@ -22,27 +22,27 @@ impl<L1, L2> ChainLoader<L1, L2> {
 	}
 }
 
-impl<I, L1, L2> Loader<I, Location<I>> for ChainLoader<L1, L2>
+impl<I, L1, L2> Loader<I> for ChainLoader<L1, L2>
 where
 	I: Clone + Send + Sync,
-	L1: Loader<I, Location<I>, Output = Value<Location<I>>> + Send,
-	L2: Loader<I, Location<I>, Output = Value<Location<I>>> + Send,
-	L1::Error: fmt::Debug + Send,
-	L2::Error: fmt::Debug,
+	L1: Loader<I> + Send,
+	L2: Loader<I> + Send,
+	L1::Error: Send,
 {
-	type Output = Value<Location<I>>;
-
 	type Error = Error<L1::Error, L2::Error>;
 
-	fn load_with<'a>(
+	fn load_with<'a, V>(
 		&'a mut self,
-		vocabulary: &'a mut (impl Sync + Send + rdf_types::IriVocabularyMut<Iri = I>),
+		vocabulary: &'a mut V,
 		url: I,
-	) -> BoxFuture<'a, LoadingResult<I, Location<I>, Self::Output, Self::Error>>
+	) -> BoxFuture<'a, LoadingResult<I, Self::Error>>
 	where
-		I: 'a,
+		V: rdf_types::IriVocabularyMut<Iri = I>,
+		//
+		V: Send + Sync,
+		I: 'a + Send,
 	{
-		async {
+		async move {
 			match self.0.load_with(vocabulary, url.clone()).await {
 				Ok(doc) => Ok(doc),
 				Err(err1) => match self.1.load_with(vocabulary, url).await {
@@ -52,20 +52,6 @@ where
 			}
 		}
 		.boxed()
-	}
-
-	fn load<'a>(
-		&'a mut self,
-		url: I,
-	) -> futures::future::BoxFuture<
-		'a,
-		crate::LoadingResult<I, Location<I>, Self::Output, Self::Error>,
-	>
-	where
-		I: 'a,
-		(): rdf_types::IriVocabulary<Iri = I>,
-	{
-		self.load_with(rdf_types::vocabulary::no_vocabulary_mut(), url)
 	}
 }
 

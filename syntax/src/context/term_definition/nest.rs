@@ -1,14 +1,13 @@
-use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
 use crate::is_keyword;
 
-#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialOrd, Ord, Debug)]
 pub enum Nest {
 	Nest,
 
 	/// Must not be a keyword.
-	Term(#[locspan(stripped)] String),
+	Term(String),
 }
 
 impl Nest {

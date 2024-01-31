@@ -5,7 +5,6 @@ use json_ld_core::{
 	object, Container, Context, Indexed, Nullable, Object, ProcessingMode, Term, Type, Value,
 };
 use json_ld_syntax::{is_keyword, is_keyword_like};
-use locspan::Meta;
 use rdf_types::Vocabulary;
 use std::hash::Hash;
 
@@ -14,20 +13,20 @@ pub struct IriConfusedWithPrefix;
 /// Compact the given term without considering any value.
 ///
 /// Calls [`compact_iri_full`] with `None` for `value`.
-pub(crate) fn compact_iri<I, B, M>(
-	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
-	active_context: &Context<I, B, M>,
-	var: Meta<&Term<I, B>, &M>,
+pub(crate) fn compact_iri<N>(
+	vocabulary: &N,
+	active_context: &Context<N::Iri, N::BlankId>,
+	var: &Term<N::Iri, N::BlankId>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<Option<Meta<String, M>>, Meta<IriConfusedWithPrefix, M>>
+) -> Result<Option<String>, IriConfusedWithPrefix>
 where
-	I: Clone + Hash + Eq,
-	B: Clone + Hash + Eq,
-	M: Clone,
+	N: Vocabulary,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
 {
-	compact_iri_full::<I, B, M, Object<I, B, M>>(
+	compact_iri_full::<N, Object<N::Iri, N::BlankId>>(
 		vocabulary,
 		active_context,
 		var,
@@ -38,38 +37,39 @@ where
 	)
 }
 
-pub(crate) fn compact_key<I, B, M>(
-	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
-	active_context: &Context<I, B, M>,
-	var: Meta<&Term<I, B>, &M>,
+pub(crate) fn compact_key<N>(
+	vocabulary: &N,
+	active_context: &Context<N::Iri, N::BlankId>,
+	var: &Term<N::Iri, N::BlankId>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<Option<Meta<json_syntax::object::Key, M>>, Meta<IriConfusedWithPrefix, M>>
+) -> Result<Option<json_syntax::object::Key>, IriConfusedWithPrefix>
 where
-	I: Clone + Hash + Eq,
-	B: Clone + Hash + Eq,
-	M: Clone,
+	N: Vocabulary,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
 {
-	Ok(compact_iri(vocabulary, active_context, var, vocab, reverse, options)?.map(Meta::cast))
+	Ok(compact_iri(vocabulary, active_context, var, vocab, reverse, options)?.map(Into::into))
 }
 
 /// Compact the given term considering the given value object.
 ///
 /// Calls [`compact_iri_full`] with `Some(value)`.
-pub(crate) fn compact_iri_with<I, B, M, O: object::Any<I, B, M>>(
-	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
-	active_context: &Context<I, B, M>,
-	var: Meta<&Term<I, B>, &M>,
-	value: &Indexed<O, M>,
+pub(crate) fn compact_iri_with<N, O>(
+	vocabulary: &N,
+	active_context: &Context<N::Iri, N::BlankId>,
+	var: &Term<N::Iri, N::BlankId>,
+	value: &Indexed<O>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<Option<Meta<String, M>>, Meta<IriConfusedWithPrefix, M>>
+) -> Result<Option<String>, IriConfusedWithPrefix>
 where
-	I: Clone + Hash + Eq,
-	B: Clone + Hash + Eq,
-	M: Clone,
+	N: Vocabulary,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
+	O: object::Any<N::Iri, N::BlankId>,
 {
 	compact_iri_full(
 		vocabulary,
@@ -85,19 +85,20 @@ where
 /// Compact the given term.
 ///
 /// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
-pub(crate) fn compact_iri_full<I, B, M, O: object::Any<I, B, M>>(
-	vocabulary: &impl Vocabulary<Iri = I, BlankId = B>,
-	active_context: &Context<I, B, M>,
-	Meta(var, meta): Meta<&Term<I, B>, &M>,
-	value: Option<&Indexed<O, M>>,
+pub(crate) fn compact_iri_full<N, O>(
+	vocabulary: &N,
+	active_context: &Context<N::Iri, N::BlankId>,
+	var: &Term<N::Iri, N::BlankId>,
+	value: Option<&Indexed<O>>,
 	vocab: bool,
 	reverse: bool,
 	options: Options,
-) -> Result<Option<Meta<String, M>>, Meta<IriConfusedWithPrefix, M>>
+) -> Result<Option<String>, IriConfusedWithPrefix>
 where
-	I: Clone + Hash + Eq,
-	B: Clone + Hash + Eq,
-	M: Clone,
+	N: Vocabulary,
+	N::Iri: Clone + Hash + Eq,
+	N::BlankId: Clone + Hash + Eq,
+	O: object::Any<N::Iri, N::BlankId>,
 {
 	if var.is_null() {
 		return Ok(None);
@@ -220,7 +221,7 @@ where
 							containers.push(Container::GraphIndexSet);
 						}
 
-						if node.id().is_some() {
+						if node.id.is_some() {
 							// If value contains an @id entry, append the values @graph@id and
 							// @graph@id@set to containers.
 							containers.push(Container::GraphId);
@@ -239,7 +240,7 @@ where
 							containers.push(Container::GraphIndexSet);
 						}
 
-						if node.id().is_none() {
+						if node.id.is_none() {
 							// If the value does not contain an @id entry, append the values
 							// @graph@id and @graph@id@set to containers.
 							containers.push(Container::GraphId);
@@ -312,7 +313,7 @@ where
 			} else {
 				match type_lang_value {
 					Some(TypeLangValue::Type(type_value)) => {
-						let mut selection: Vec<TypeSelection<I>> = Vec::new();
+						let mut selection: Vec<TypeSelection<N::Iri>> = Vec::new();
 
 						if type_value == TypeSelection::Reverse {
 							selection.push(TypeSelection::Reverse);
@@ -320,16 +321,16 @@ where
 
 						let mut has_id_type = false;
 						if let Some(value) = value {
-							if let Some(Meta(id, meta)) = value.id() {
+							if let Some(id) = value.id() {
 								if type_value == TypeSelection::Type(Type::Id)
 									|| type_value == TypeSelection::Reverse
 								{
 									has_id_type = true;
 									let mut vocab = false;
-									let Meta(compacted_iri, _) = compact_iri::<_, _, M>(
+									let compacted_iri = compact_iri(
 										vocabulary,
 										active_context,
-										Meta(&id.clone().into_term(), meta),
+										&id.clone().into_term(),
 										true,
 										false,
 										options,
@@ -387,7 +388,7 @@ where
 			};
 
 			if let Some(term) = entry.select(&containers, &selection) {
-				return Ok(Some(Meta(term.to_string(), meta.clone())));
+				return Ok(Some(term.to_string()));
 			}
 		}
 
@@ -403,7 +404,7 @@ where
 				.strip_prefix(vocab_mapping.with(vocabulary).as_str())
 			{
 				if !suffix.is_empty() && active_context.get(suffix).is_none() {
-					return Ok(Some(Meta(suffix.into(), meta.clone())));
+					return Ok(Some(suffix.into()));
 				}
 			}
 		}
@@ -463,7 +464,7 @@ where
 
 	// If compact IRI is not null, return compact IRI.
 	if !compact_iri.is_empty() {
-		return Ok(Some(Meta(compact_iri.as_str().into(), meta.clone())));
+		return Ok(Some(compact_iri.as_str().into()));
 	}
 
 	// To ensure that the IRI var is not confused with a compact IRI,
@@ -473,7 +474,7 @@ where
 	if let Some(iri) = var.as_iri() {
 		let iri = vocabulary.iri(iri).unwrap();
 		if active_context.contains_term(iri.scheme().as_str()) {
-			return Err(Meta(IriConfusedWithPrefix, meta.clone()));
+			return Err(IriConfusedWithPrefix);
 		}
 	}
 
@@ -485,16 +486,15 @@ where
 			let base_iri = vocabulary.iri(base_iri).unwrap();
 			if let Some(iri) = var.as_iri() {
 				let iri = vocabulary.iri(iri).unwrap();
-				return Ok(Some(Meta(
-					disambiguate_keyword(iri.relative_to(base_iri).as_str().into()),
-					meta.clone(),
+				return Ok(Some(disambiguate_keyword(
+					iri.relative_to(base_iri).as_str().into(),
 				)));
 			}
 		}
 	}
 
 	// Finally, return var as is.
-	Ok(Some(Meta(var.with(vocabulary).to_string(), meta.clone())))
+	Ok(Some(var.with(vocabulary).to_string()))
 }
 
 fn disambiguate_keyword(s: String) -> String {

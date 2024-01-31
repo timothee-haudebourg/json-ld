@@ -1,7 +1,6 @@
 use contextual::WithContext;
 use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference, TryFromJson};
-use locspan::BorrowStripped;
-use rdf_types::{IndexVocabulary, IriVocabularyMut};
+use rdf_types::{vocabulary::IriIndex, IndexVocabulary, IriVocabularyMut};
 use static_iref::iri;
 
 #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld")]
@@ -94,7 +93,7 @@ impl expand::Test {
 			"json-ld-api",
 		);
 
-		let mut options: json_ld::Options = json_ld::Options::default();
+		let mut options: json_ld::Options<IriIndex> = json_ld::Options::default();
 		if let Some(p) = self.options.processing_mode {
 			options.processing_mode = p
 		}
@@ -124,7 +123,7 @@ impl expand::Test {
 				let expected =
 					json_ld::ExpandedDocument::try_from_json_in(&mut vocabulary, expected).unwrap();
 
-				let success = expanded.stripped() == expected.stripped();
+				let success = expanded == expected;
 
 				if !success {
 					eprintln!("test failed");

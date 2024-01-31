@@ -1,8 +1,7 @@
 use std::hash::Hash;
 
-use json_ld_core::{object::node::Multiset, Indexed, StrippedIndexedNode, StrippedIndexedObject};
+use json_ld_core::{object::node::Multiset, Indexed, IndexedNode, IndexedObject};
 use linked_data::{AsRdfLiteral, LinkedDataResource};
-use locspan::Meta;
 use rdf_types::{
 	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
 	Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Vocabulary,
@@ -15,7 +14,7 @@ use super::{object::serialize_object_with, serialize_node_with};
 pub struct SerializeProperty<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
-	result: Multiset<StrippedIndexedObject<V::Iri, V::BlankId>>,
+	result: Multiset<IndexedObject<V::Iri, V::BlankId>>,
 }
 
 impl<'a, I, V: Vocabulary> SerializeProperty<'a, I, V> {
@@ -40,7 +39,7 @@ where
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,
 {
-	type Ok = Multiset<StrippedIndexedObject<V::Iri, V::BlankId>>;
+	type Ok = Multiset<IndexedObject<V::Iri, V::BlankId>>;
 	type Error = Error;
 
 	fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
@@ -48,8 +47,7 @@ where
 		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		let object = serialize_object_with(self.vocabulary, self.interpretation, value)?;
-		self.result
-			.insert(locspan::Stripped(Meta::none(Indexed::none(object))));
+		self.result.insert(Indexed::none(object));
 		Ok(())
 	}
 
@@ -61,7 +59,7 @@ where
 pub struct SerializeReverseProperty<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
-	result: Multiset<StrippedIndexedNode<V::Iri, V::BlankId>>,
+	result: Multiset<IndexedNode<V::Iri, V::BlankId>>,
 }
 
 impl<'a, I, V: Vocabulary> SerializeReverseProperty<'a, I, V> {
@@ -86,7 +84,7 @@ where
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,
 {
-	type Ok = Multiset<StrippedIndexedNode<V::Iri, V::BlankId>>;
+	type Ok = Multiset<IndexedNode<V::Iri, V::BlankId>>;
 	type Error = Error;
 
 	fn object<T>(&mut self, value: &T) -> Result<(), Self::Error>
@@ -94,8 +92,7 @@ where
 		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		let object = serialize_node_with(self.vocabulary, self.interpretation, value)?;
-		self.result
-			.insert(locspan::Stripped(Meta::none(Indexed::none(object))));
+		self.result.insert(Indexed::none(object));
 		Ok(())
 	}
 

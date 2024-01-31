@@ -1,4 +1,4 @@
-use std::hash::{BuildHasher, Hash, Hasher};
+use std::hash::{BuildHasher, Hash};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DeterministicHasherBuilder;
@@ -11,8 +11,7 @@ impl BuildHasher for DeterministicHasherBuilder {
 	}
 }
 
-use json_ld_syntax::{IntoJsonWithContext, IntoJsonWithContextMeta};
-use locspan::{Meta, StrippedEq, StrippedHash, StrippedPartialEq};
+use json_ld_syntax::IntoJsonWithContext;
 
 /// Multi-set of values.
 #[derive(Debug, Clone)]
@@ -107,24 +106,6 @@ impl<T: Hash, S: BuildHasher> Multiset<T, S> {
 	}
 }
 
-// impl<T, S> Multiset<locspan::Stripped<T>, S> {
-// 	pub fn into_unstripped(self) -> Multiset<T, S> {
-// 		Multiset { data: unsafe { core::mem::transmute(self.data) }, hasher: self.hasher }
-// 	}
-// }
-
-// impl<T, S> From<Multiset<locspan::Stripped<T>, S>> for Multiset<T, S> {
-// 	fn from(m: Multiset<locspan::Stripped<T>, S>) -> Self {
-// 		m.into_unstripped()
-// 	}
-// }
-
-// impl<T, S> From<Multiset<T, S>> for Multiset<locspan::Stripped<T>, S> {
-// 	fn from(m: Multiset<T, S>) -> Self {
-// 		m.into_stripped()
-// 	}
-// }
-
 impl<'a, T, S> IntoIterator for &'a Multiset<T, S> {
 	type Item = &'a T;
 	type IntoIter = core::slice::Iter<'a, T>;
@@ -178,12 +159,6 @@ impl<T: PartialEq<U>, U, S, P> PartialEq<Multiset<U, P>> for Multiset<T, S> {
 	}
 }
 
-impl<T: StrippedPartialEq<U>, U, S, P> StrippedPartialEq<Multiset<U, P>> for Multiset<T, S> {
-	fn stripped_eq(&self, other: &Multiset<U, P>) -> bool {
-		compare_stripped_unordered(&self.data, &other.data)
-	}
-}
-
 pub(crate) fn compare_unordered<T: PartialEq<U>, U>(a: &[T], b: &[U]) -> bool {
 	if a.len() == b.len() {
 		let mut free_indexes = Vec::new();
@@ -214,80 +189,26 @@ pub(crate) fn compare_unordered_opt<T: PartialEq<U>, U>(a: Option<&[T]>, b: Opti
 	}
 }
 
-pub(crate) fn compare_stripped_unordered<T: StrippedPartialEq<U>, U>(a: &[T], b: &[U]) -> bool {
-	if a.len() == b.len() {
-		let mut free_indexes = Vec::new();
-		free_indexes.resize(a.len(), true);
-
-		for item in a {
-			match free_indexes
-				.iter_mut()
-				.enumerate()
-				.find(|(i, free)| **free && item.stripped_eq(&b[*i]))
-			{
-				Some((_, free)) => *free = false,
-				None => return false,
-			}
-		}
-
-		true
-	} else {
-		false
-	}
-}
-
-pub(crate) fn compare_stripped_unordered_opt<T: StrippedPartialEq<U>, U>(
-	a: Option<&[T]>,
-	b: Option<&[U]>,
-) -> bool {
-	match (a, b) {
-		(Some(a), Some(b)) => compare_stripped_unordered(a, b),
-		(None, None) => true,
-		_ => false,
-	}
-}
-
 impl<T: Eq, S> Eq for Multiset<T, S> {}
-
-impl<T: StrippedEq, S> StrippedEq for Multiset<T, S> {}
 
 impl<T: Hash, S: BuildHasher> Hash for Multiset<T, S> {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		let mut hash = 0u64;
 
 		for item in self {
-			let mut hasher = self.hasher.build_hasher();
-			item.hash(&mut hasher);
-			hash = hash.wrapping_add(hasher.finish());
+			hash = hash.wrapping_add(self.hasher.hash_one(item));
 		}
 
 		state.write_u64(hash)
 	}
 }
 
-impl<T: StrippedHash, S: BuildHasher> StrippedHash for Multiset<T, S> {
-	fn stripped_hash<H: std::hash::Hasher>(&self, state: &mut H) {
-		let mut hash = 0u64;
-
-		for item in self {
-			let mut hasher = self.hasher.build_hasher();
-			item.stripped_hash(&mut hasher);
-			hash = hash.wrapping_add(hasher.finish());
-		}
-
-		state.write_u64(hash)
-	}
-}
-
-impl<T: IntoJsonWithContext<M, N>, S, M, N> IntoJsonWithContextMeta<M, N> for Multiset<T, S> {
-	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
-		Meta(
-			json_syntax::Value::Array(
-				self.into_iter()
-					.map(|item| item.into_json_with(vocabulary))
-					.collect(),
-			),
-			meta,
+impl<T: IntoJsonWithContext<N>, S, N> IntoJsonWithContext<N> for Multiset<T, S> {
+	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
+		json_syntax::Value::Array(
+			self.into_iter()
+				.map(|item| item.into_json_with(vocabulary))
+				.collect(),
 		)
 	}
 }

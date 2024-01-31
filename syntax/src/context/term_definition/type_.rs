@@ -1,14 +1,13 @@
 use crate::{CompactIri, ExpandableRef, Keyword};
 use iref::Iri;
-use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
-#[derive(Clone, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Type {
-	Term(#[locspan(stripped)] String),
-	Keyword(#[locspan(stripped)] TypeKeyword),
+	Term(String),
+	Keyword(TypeKeyword),
 }
 
 impl Type {
@@ -77,7 +76,7 @@ impl From<String> for Type {
 
 /// Subset of keyword acceptable for as value for the `@type` entry
 /// of an expanded term definition.
-#[derive(Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TypeKeyword {
 	#[cfg_attr(feature = "serde", serde(rename = "@id"))]

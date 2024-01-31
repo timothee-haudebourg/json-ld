@@ -29,45 +29,6 @@
 //! Before diving into the various processing functions usage, here are some
 //! must-know design choices of this library.
 //!
-//! ## Code mapping and metadata
-//!
-//! One important feature of this library is the preservation of the code
-//! mapping information extracted from any source JSON document through the
-//! diverse transformation algorithms. This is done using:
-//!   - The [`locspan`](crates.io/crates/locspan) parsing utility library that
-//!     provides the [`Meta`] type associating a value to some metadata. The
-//!     metadata is intended to be code mapping information, but you ultimately
-//!     can decide what it is.
-//!   - The [`json_syntax`](https://crates.io/crates/json-syntax) library that
-//!     parse JSON documents while preserving the code mapping information
-//!     using the [`Meta`] type.
-//!
-//! This is particularly useful to provide error messages that can
-//! pinpoint the source of the error in the original source file.
-//!
-//! ### Example
-//!
-//! Here is a example usage of the [`Meta`] that may come in handy when using
-//! this library.
-//!
-//! ```
-//! use locspan::Meta;
-//!
-//! // build a value associated with its metadata.
-//! let value_with_metadata = Meta("value", "metadata");
-//!
-//! // get a reference to the value.
-//! let value = value_with_metadata.value();
-//!
-//! // get a reference to the metadata.
-//! let metadata = value_with_metadata.metadata();
-//!
-//! // deconstruct.
-//! let Meta(value, metadata) = value_with_metadata;
-//! ```
-//!
-//! [`Meta`]: https://docs.rs/locspan/latest/locspan/struct.Meta.html
-//!
 //! ## IRIs and Blank Node Identifiers
 //!
 //! This library gives you the opportunity to use any datatype you want to
@@ -143,7 +104,6 @@
 //! ```
 //! use iref::IriBuf;
 //! use static_iref::iri;
-//! use locspan::Span;
 //! use json_ld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
 //!
 //! # #[async_std::main]
@@ -164,13 +124,11 @@
 //!       },
 //!       "@id": "https://www.rust-lang.org",
 //!       "name": "Rust Programming Language"
-//!     }"#,
-//!     |span| span // keep the source `Span` of each element as metadata.
-//!   ).expect("unable to parse file")
+//!     }"#).expect("unable to parse file").0
 //! );
 //!
 //! // Use `NoLoader` as we won't need to load any remote document.
-//! let mut loader = json_ld::NoLoader::<IriBuf, Span>::new();
+//! let mut loader = json_ld::NoLoader;
 //!
 //! // Expand the "remote" document.
 //! let expanded = input
@@ -178,7 +136,7 @@
 //!   .await
 //!   .expect("expansion failed");
 //!
-//! for object in expanded.into_value() {
+//! for object in expanded {
 //!   if let Some(id) = object.id() {
 //!     let name = object.as_node().unwrap()
 //!       .get_any(&iri!("http://xmlns.com/foaf/0.1/name")).unwrap()
@@ -244,7 +202,7 @@
 //! // `foaf:name` property identifier.
 //! let name_id = Subject::Iri(vocabulary.insert(iri!("http://xmlns.com/foaf/0.1/name")));
 //!
-//! for object in expanded.into_value() {
+//! for object in expanded {
 //!   if let Some(id) = object.id() {
 //!     let name = object.as_node().unwrap()
 //!       .get_any(&name_id).unwrap()
@@ -282,13 +240,13 @@
 //!
 //! ```
 //! use static_iref::iri;
-//! use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
+//! use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, syntax::Print};
 //!
 //! # #[async_std::main]
 //! # async fn main() {
 //! let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
 //!
-//! let context = RemoteDocumentReference::context_iri(iri!("https://example.com/context.jsonld").to_owned());
+//! let context = RemoteContextReference::iri(iri!("https://example.com/context.jsonld").to_owned());
 //!
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
@@ -340,7 +298,6 @@
 //! ```
 //! use static_iref::iri;
 //! use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
-//! use locspan::{Location, Span};
 //!
 //! # #[async_std::main]
 //! # async fn main() {
@@ -351,10 +308,7 @@
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
 //!
-//! let mut generator = rdf_types::generator::Blank::new().with_metadata(
-//!   // Each blank id will be associated to the document URL with a dummy span.
-//!   Location::new(iri!("https://example.com/").to_owned(), Span::default())
-//! );
+//! let mut generator = rdf_types::generator::Blank::new();
 //!
 //! let nodes = input
 //!   .flatten(&mut generator, &mut loader)

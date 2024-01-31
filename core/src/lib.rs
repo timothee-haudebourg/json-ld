@@ -1,5 +1,4 @@
 //! JSON-LD core types.
-pub use json_ld_syntax::Entry;
 pub use json_ld_syntax::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable};
 
 mod container;
@@ -32,12 +31,15 @@ pub use indexed::*;
 pub use lang_string::*;
 pub use loader::*;
 pub use mode::*;
-pub use object::{
-	IndexedNode, IndexedObject, Node, Nodes, Object, Objects, StrippedIndexedNode,
-	StrippedIndexedObject, TryFromJson, Value,
-};
+pub use object::{IndexedNode, IndexedObject, Node, Nodes, Object, Objects, TryFromJson, Value};
 pub use print::Print;
 pub use quad::LdQuads;
 pub use rdf::RdfQuads;
 pub use term::*;
 pub use ty::*;
+
+pub struct Environment<'a, N, L, W> {
+	pub vocabulary: &'a mut N,
+	pub loader: &'a mut L,
+	pub warnings: &'a mut W,
+}

@@ -1,19 +1,19 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
+use crate::future::{BoxFuture, FutureExt};
+use crate::LoadingResult;
 use crate::Profile;
 
 use super::{Loader, RemoteDocument};
-use crate::future::{BoxFuture, FutureExt};
-use bytes::Bytes;
 use hashbrown::HashSet;
 use iref::Iri;
-use locspan::{Meta, Span};
+use json_syntax::Parse;
 use once_cell::sync::OnceCell;
 use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
 use reqwest::{
 	header::{ACCEPT, CONTENT_TYPE, LINK, LOCATION},
 	StatusCode,
 };
-use std::{fmt, hash::Hash, string::FromUtf8Error};
+use std::{hash::Hash, string::FromUtf8Error};
 
 mod content_type;
 mod link;
@@ -44,52 +44,39 @@ impl<I> Default for Options<I> {
 }
 
 /// Loading error.
-#[derive(Debug)]
-pub enum Error<E> {
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+	#[error(transparent)]
 	Reqwest(reqwest::Error),
 
 	/// The server returned a `303 See Other` redirection status code.
+	#[error("invalid redirection: 303")]
 	Redirection303,
 
+	#[error("missing redirection location")]
 	MissingRedirectionLocation,
 
+	#[error("invalid redirection URL `{0}`")]
 	InvalidRedirectionUrl(String),
 
+	#[error("invalid redirection URL encoding")]
 	InvalidRedirectionUrlEncoding,
 
+	#[error("query failed: status code {0}")]
 	QueryFailed(StatusCode),
 
+	#[error("invalid content type")]
 	InvalidContentType,
 
+	#[error("multiple context link headers")]
 	MultipleContextLinkHeaders,
 
+	#[error("too many redirections")]
 	TooManyRedirections,
 
-	Parse(E),
+	#[error("JSON parse error: {0}")]
+	Parse(json_syntax::parse::Error<std::io::Error>),
 }
-
-impl<E: fmt::Display> fmt::Display for Error<E> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::Reqwest(e) => e.fmt(f),
-			Self::Redirection303 => write!(f, "invalid redirection: 303"),
-			Self::MissingRedirectionLocation => write!(f, "invalid redirection: missing location"),
-			Self::InvalidRedirectionUrl(e) => write!(f, "invalid redirection URL: {e}"),
-			Self::InvalidRedirectionUrlEncoding => write!(f, "invalid redirection URL encoding"),
-			Self::QueryFailed(e) => write!(f, "query failed: status code {e}"),
-			Self::InvalidContentType => write!(f, "invalid content type"),
-			Self::MultipleContextLinkHeaders => write!(f, "multiple context link headers"),
-			Self::TooManyRedirections => write!(f, "too many redirections"),
-			Self::Parse(e) => write!(f, "parse error: {e}"),
-		}
-	}
-}
-
-/// Dynamic parser type.
-type DynParser<I, M, T, E> = dyn 'static
-	+ Send
-	+ Sync
-	+ FnMut(&dyn IriVocabulary<Iri = I>, &I, Bytes) -> Result<Meta<T, M>, E>;
 
 /// `reqwest`-based loader.
 ///
@@ -99,38 +86,26 @@ type DynParser<I, M, T, E> = dyn 'static
 ///
 /// Loaded documents are not cached: a new network query is made each time
 /// an URL is loaded even if it has already been queried before.
-pub struct ReqwestLoader<
-	I = IriIndex,
-	M = locspan::Location<I>,
-	T = json_ld_syntax::Value<M>,
-	E = ParseError<M>,
-> {
-	parser: Box<DynParser<I, M, T, E>>,
+pub struct ReqwestLoader<I = IriIndex> {
 	options: Options<I>,
 	data: OnceCell<Data>,
 }
 
-impl<I, M, T, E> ReqwestLoader<I, M, T, E> {
+impl<I> Default for ReqwestLoader<I> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
+impl<I> ReqwestLoader<I> {
 	/// Creates a new loader with the given parsing function.
-	pub fn new(
-		parser: impl 'static
-			+ Send
-			+ Sync
-			+ FnMut(&dyn IriVocabulary<Iri = I>, &I, Bytes) -> Result<Meta<T, M>, E>,
-	) -> Self {
-		Self::new_using(parser, Options::default())
+	pub fn new() -> Self {
+		Self::new_using(Options::default())
 	}
 
 	/// Creates a new leader with the given parsing function and options.
-	pub fn new_using(
-		parser: impl 'static
-			+ Send
-			+ Sync
-			+ FnMut(&dyn IriVocabulary<Iri = I>, &I, Bytes) -> Result<Meta<T, M>, E>,
-		options: Options<I>,
-	) -> Self {
+	pub fn new_using(options: Options<I>) -> Self {
 		Self {
-			parser: Box::new(parser),
 			options,
 			data: OnceCell::new(),
 		}
@@ -172,66 +147,31 @@ impl Data {
 	}
 }
 
-impl<I: Clone, M> ReqwestLoader<I, M, json_ld_syntax::Value<M>, ParseError<M>> {
-	/// Creates a new loader with the default parser and given metadata map
-	/// function.
-	pub fn new_with_metadata_map(
-		f: impl 'static + Send + Sync + Fn(&dyn IriVocabulary<Iri = I>, &I, Span) -> M,
-	) -> Self {
-		use json_syntax::Parse;
-		Self::new(move |vocab, file: &I, bytes| {
-			let content = String::from_utf8(bytes.to_vec()).map_err(ParseError::InvalidEncoding)?;
-			json_syntax::Value::parse_str(&content, |span| f(vocab, file, span))
-				.map_err(ParseError::Json)
-		})
-	}
-}
-
-impl<I: Clone> Default
-	for ReqwestLoader<
-		I,
-		locspan::Location<I>,
-		json_ld_syntax::Value<locspan::Location<I>>,
-		ParseError<locspan::Location<I>>,
-	>
-{
-	fn default() -> Self {
-		Self::new_with_metadata_map(|_, file, span| locspan::Location::new(file.clone(), span))
-	}
-}
-
 /// HTTP body parse error.
-#[derive(Debug)]
-pub enum ParseError<M> {
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
 	/// Invalid encoding.
+	#[error("invalid encoding")]
 	InvalidEncoding(FromUtf8Error),
 
 	/// JSON parse error.
-	Json(json_ld_syntax::parse::MetaError<M>),
+	#[error("JSON parse error: {0}")]
+	Json(json_ld_syntax::parse::Error),
 }
 
-impl<M> fmt::Display for ParseError<M> {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::InvalidEncoding(_) => write!(f, "invalid encoding"),
-			Self::Json(e) => e.fmt(f),
-		}
-	}
-}
+impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
+	type Error = Error;
 
-impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, M>
-	for ReqwestLoader<I, M, T, E>
-{
-	type Output = T;
-	type Error = Error<E>;
-
-	fn load_with<'a>(
+	fn load_with<'a, V>(
 		&'a mut self,
-		vocabulary: &'a mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
+		vocabulary: &'a mut V,
 		mut url: I,
-	) -> BoxFuture<'a, Result<RemoteDocument<I, M, T>, Self::Error>>
+	) -> BoxFuture<'a, LoadingResult<I, Error>>
 	where
-		I: 'a,
+		V: IriVocabularyMut<Iri = I>,
+		//
+		V: Send + Sync,
+		I: 'a + Send,
 	{
 		async move {
 			let data = self
@@ -296,7 +236,9 @@ impl<I: Clone + Eq + Hash + Send + Sync, T: Clone + Send, M: Send, E> Loader<I, 
 								}
 
 								let bytes = response.bytes().await.map_err(Error::Reqwest)?;
-								let document = (*self.parser)(vocabulary, &url, bytes)
+
+								let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
+								let (document, _) = json_syntax::Value::parse_utf8(decoder)
 									.map_err(Error::Parse)?;
 
 								break Ok(RemoteDocument::new_full(

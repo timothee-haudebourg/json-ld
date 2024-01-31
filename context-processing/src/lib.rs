@@ -1,16 +1,16 @@
 //! JSON-LD context processing types and algorithms.
 pub use json_ld_core::{
 	future::{BoxFuture, FutureExt},
-	warning, Context, ContextLoader, ProcessingMode,
+	warning, Context, ProcessingMode,
 };
+use json_ld_core::{ExtractContextError, Loader};
 use json_ld_syntax::ErrorCode;
-use locspan::Meta;
 use rdf_types::VocabularyMut;
 use std::fmt;
 
+pub mod algorithm;
 mod processed;
 mod stack;
-pub mod syntax;
 
 pub use processed::*;
 pub use stack::ProcessingStack;
@@ -38,12 +38,9 @@ impl<N> contextual::DisplayWithContext<N> for Warning {
 	}
 }
 
-/// Located warning.
-pub type MetaWarning<M> = Meta<Warning, M>;
+pub trait WarningHandler<N>: json_ld_core::warning::Handler<N, Warning> {}
 
-pub trait WarningHandler<N, M>: json_ld_core::warning::Handler<N, MetaWarning<M>> {}
-
-impl<N, M, H> WarningHandler<N, M> for H where H: json_ld_core::warning::Handler<N, MetaWarning<M>> {}
+impl<N, H> WarningHandler<N> for H where H: json_ld_core::warning::Handler<N, Warning> {}
 
 /// Errors that can happen during context processing.
 #[derive(Debug, thiserror::Error)]
@@ -107,6 +104,9 @@ pub enum Error<E> {
 
 	#[error("Remote context loading failed: {0}")]
 	ContextLoadingFailed(E),
+
+	#[error("Unable to extract JSON-LD context: {0}")]
+	ContextExtractionFailed(ExtractContextError),
 }
 
 impl<E> Error<E> {
@@ -132,70 +132,62 @@ impl<E> Error<E> {
 			Self::InvalidScopedContext => ErrorCode::InvalidScopedContext,
 			Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
 			Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
+			Self::ContextExtractionFailed(_) => ErrorCode::LoadingRemoteContextFailed,
 		}
 	}
 }
 
-/// Located error.
-pub type MetaError<M, E> = Meta<Error<E>, M>;
-
 /// Result of context processing functions.
-pub type ProcessingResult<'a, T, B, M, E> = Result<Processed<'a, T, B, M>, MetaError<M, E>>;
+pub type ProcessingResult<'a, T, B, E> = Result<Processed<'a, T, B>, Error<E>>;
 
-/// Context processing functions.
-pub trait ProcessMeta<T, B, M> {
+pub trait Process {
 	/// Process the local context with specific options.
-	fn process_meta<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'l self,
-		meta: &'l M,
-		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, M>,
-		stack: ProcessingStack<T>,
-		loader: &'a mut L,
-		base_url: Option<T>,
+	#[allow(async_fn_in_trait)]
+	async fn process_full<N, L, W>(
+		&self,
+		vocabulary: &mut N,
+		active_context: &Context<N::Iri, N::BlankId>,
+		loader: &mut L,
+		base_url: Option<N::Iri>,
 		options: Options,
-		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
+		warnings: W,
+	) -> Result<Processed<N::Iri, N::BlankId>, Error<L::Error>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
-		T: Clone + PartialEq + Send + Sync,
-		B: Clone + PartialEq + Send + Sync,
-		M: 'a + Clone + Send + Sync;
-}
-
-pub trait Process<T, B, M>: Send + Sync {
-	/// Process the local context with specific options.
-	#[allow(clippy::type_complexity)]
-	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'l self,
-		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, M>,
-		loader: &'a mut L,
-		base_url: Option<T>,
-		options: Options,
-		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
-	where
-		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
-		T: Clone + PartialEq + Send + Sync,
-		B: Clone + PartialEq + Send + Sync,
-		M: 'a + Clone + Send + Sync;
+		N: VocabularyMut,
+		N::Iri: Clone + PartialEq,
+		N::BlankId: Clone + PartialEq,
+		L: Loader<N::Iri>,
+		W: WarningHandler<N>,
+		//
+		N: Send + Sync,
+		N::Iri: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
+		L::Error: Send,
+		W: Send + Sync;
 
 	/// Process the local context with specific options.
 	#[allow(clippy::type_complexity)]
-	fn process_with<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'l self,
-		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, M>,
-		loader: &'a mut L,
-		base_url: Option<T>,
+	#[allow(async_fn_in_trait)]
+	async fn process_with<N, L>(
+		&self,
+		vocabulary: &mut N,
+		active_context: &Context<N::Iri, N::BlankId>,
+		loader: &mut L,
+		base_url: Option<N::Iri>,
 		options: Options,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
+	) -> Result<Processed<N::Iri, N::BlankId>, Error<L::Error>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
-		T: Clone + PartialEq + Send + Sync,
-		B: Clone + PartialEq + Send + Sync,
-		M: 'a + Clone + Send + Sync,
+		N: VocabularyMut,
+		N::Iri: Clone + PartialEq,
+		N::BlankId: Clone + PartialEq,
+		L: Loader<N::Iri>,
+		//
+		N: Send + Sync,
+		N::Iri: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
+		L::Error: Send,
 	{
 		self.process_full(
 			vocabulary,
@@ -205,96 +197,40 @@ pub trait Process<T, B, M>: Send + Sync {
 			options,
 			warning::Print,
 		)
+		.await
 	}
 
 	/// Process the local context with the given initial active context with the default options:
 	/// `is_remote` is `false`, `override_protected` is `false` and `propagate` is `true`.
-	#[allow(clippy::type_complexity)]
-	fn process<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'l self,
-		vocabulary: &'a mut N,
-		loader: &'a mut L,
-		base_url: Option<T>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
+	#[allow(async_fn_in_trait)]
+	async fn process<N, L>(
+		&self,
+		vocabulary: &mut N,
+		loader: &mut L,
+		base_url: Option<N::Iri>,
+	) -> Result<Processed<N::Iri, N::BlankId>, Error<L::Error>>
 	where
-		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
-		T: 'a + Clone + PartialEq + Send + Sync,
-		B: 'a + Clone + PartialEq + Send + Sync,
-		M: 'a + Clone + Send + Sync,
+		N: VocabularyMut,
+		N::Iri: Clone + PartialEq,
+		N::BlankId: Clone + PartialEq,
+		L: Loader<N::Iri>,
+		//
+		N: Send + Sync,
+		N::Iri: Send + Sync,
+		N::BlankId: Send + Sync,
+		L: Send + Sync,
+		L::Error: Send,
 	{
-		async move {
-			let active_context = Context::default();
-			self.process_full(
-				vocabulary,
-				&active_context,
-				loader,
-				base_url,
-				Options::default(),
-				warning::Print,
-			)
-			.await
-		}
-		.boxed()
-	}
-}
-
-impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<json_ld_syntax::context::Context<M>, M> {
-	/// Process the local context with specific options.
-	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'l self,
-		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, M>,
-		loader: &'a mut L,
-		base_url: Option<T>,
-		options: Options,
-		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
-	where
-		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
-		T: Clone + PartialEq + Send + Sync,
-		B: Clone + PartialEq + Send + Sync,
-		M: 'a + Clone,
-	{
-		self.value().process_meta(
-			self.metadata(),
+		let active_context = Context::default();
+		self.process_full(
 			vocabulary,
-			active_context,
-			ProcessingStack::new(),
+			&active_context,
 			loader,
 			base_url,
-			options,
-			warnings,
+			Options::default(),
+			warning::Print,
 		)
-	}
-}
-
-impl<T, B, M: Send + Sync> Process<T, B, M> for Meta<Box<json_ld_syntax::context::Context<M>>, M> {
-	/// Process the local context with specific options.
-	fn process_full<'l: 'a, 'a, N, L: ContextLoader<T, M> + Send + Sync>(
-		&'l self,
-		vocabulary: &'a mut N,
-		active_context: &'a Context<T, B, M>,
-		loader: &'a mut L,
-		base_url: Option<T>,
-		options: Options,
-		warnings: impl 'a + Send + WarningHandler<N, M>,
-	) -> BoxFuture<'a, ProcessingResult<'l, T, B, M, L::ContextError>>
-	where
-		N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
-		T: Clone + PartialEq + Send + Sync,
-		B: Clone + PartialEq + Send + Sync,
-		M: 'a + Clone,
-	{
-		self.value().process_meta(
-			self.metadata(),
-			vocabulary,
-			active_context,
-			ProcessingStack::new(),
-			loader,
-			base_url,
-			options,
-			warnings,
-		)
+		.await
 	}
 }
 

@@ -1,5 +1,5 @@
 use contextual::DisplayWithContext;
-use json_ld_context_processing::syntax::MalformedIri;
+use json_ld_context_processing::algorithm::MalformedIri;
 use rdf_types::BlankIdVocabulary;
 use std::fmt;
 

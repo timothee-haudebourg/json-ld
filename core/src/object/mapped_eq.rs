@@ -1,6 +1,5 @@
 use crate::{Id, Indexed, ValidId};
 use indexmap::IndexSet;
-use locspan::BorrowStripped;
 use std::hash::Hash;
 
 pub trait MappedEq<T: ?Sized = Self> {
@@ -94,36 +93,6 @@ impl<T: MappedEq> MappedEq for Option<T> {
 	}
 }
 
-impl<T: MappedEq, M> MappedEq for locspan::Meta<T, M> {
-	type BlankId = T::BlankId;
-
-	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(
-		&'a self,
-		other: &Self,
-		f: F,
-	) -> bool
-	where
-		Self::BlankId: 'a + 'b,
-	{
-		self.value().mapped_eq(other.value(), f)
-	}
-}
-
-impl<T: MappedEq> MappedEq for locspan::Stripped<T> {
-	type BlankId = T::BlankId;
-
-	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(
-		&'a self,
-		other: &Self,
-		f: F,
-	) -> bool
-	where
-		Self::BlankId: 'a + 'b,
-	{
-		self.0.mapped_eq(&other.0, f)
-	}
-}
-
 impl<T: MappedEq> UnorderedMappedEq for Vec<T> {
 	type Item = T;
 
@@ -197,22 +166,7 @@ impl<T: MappedEq> MappedEq for IndexSet<T> {
 	}
 }
 
-impl<T: MappedEq, M> MappedEq for json_ld_syntax::Entry<T, M> {
-	type BlankId = T::BlankId;
-
-	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(
-		&'a self,
-		other: &Self,
-		f: F,
-	) -> bool
-	where
-		Self::BlankId: 'a + 'b,
-	{
-		self.value.value().mapped_eq(other.value.value(), f)
-	}
-}
-
-impl<T: MappedEq, M> MappedEq for Indexed<T, M> {
+impl<T: MappedEq> MappedEq for Indexed<T> {
 	type BlankId = T::BlankId;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(
@@ -265,7 +219,7 @@ impl<T: PartialEq, B: PartialEq> MappedEq for ValidId<T, B> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::Object<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash> MappedEq for super::Object<T, B> {
 	type BlankId = B;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a B) -> &'b B>(&'a self, other: &Self, f: F) -> bool
@@ -273,7 +227,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::Object<T, B, M> {
 		B: 'a + 'b,
 	{
 		match (self, other) {
-			(Self::Value(a), Self::Value(b)) => a.stripped() == b.stripped(),
+			(Self::Value(a), Self::Value(b)) => a == b,
 			(Self::Node(a), Self::Node(b)) => a.mapped_eq(b, f),
 			(Self::List(a), Self::List(b)) => a.mapped_eq(b, f),
 			_ => false,
@@ -296,14 +250,14 @@ where
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::Node<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash> MappedEq for super::Node<T, B> {
 	type BlankId = B;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a B) -> &'b B>(&'a self, other: &Self, f: F) -> bool
 	where
 		B: 'a + 'b,
 	{
-		opt_mapped_eq(self.id_entry(), other.id_entry(), f.clone())
+		opt_mapped_eq(self.id.as_ref(), other.id.as_ref(), f.clone())
 			&& opt_mapped_eq(self.included_entry(), other.included_entry(), f.clone())
 			&& opt_mapped_eq(self.graph_entry(), other.graph_entry(), f.clone())
 			&& self.properties().mapped_eq(other.properties(), f.clone())
@@ -315,7 +269,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::Node<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::node::Properties<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash> MappedEq for super::node::Properties<T, B> {
 	type BlankId = B;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a B) -> &'b B>(&'a self, other: &Self, f: F) -> bool
@@ -331,7 +285,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::node::Properties<T, B, M
 				for (i, sel) in selected.iter_mut().enumerate() {
 					let (other_prop, other_objects) = other_vec.get(i).unwrap();
 					if !*sel
-						&& prop.0.mapped_eq(other_prop.0, f.clone())
+						&& prop.mapped_eq(other_prop, f.clone())
 						&& objects.unordered_mapped_eq(other_objects, f.clone())
 					{
 						*sel = true;
@@ -349,7 +303,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::node::Properties<T, B, M
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::node::ReverseProperties<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash> MappedEq for super::node::ReverseProperties<T, B> {
 	type BlankId = B;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a B) -> &'b B>(&'a self, other: &Self, f: F) -> bool
@@ -365,7 +319,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> MappedEq for super::node::ReverseProperties<
 				for (i, sel) in selected.iter_mut().enumerate() {
 					let (other_prop, other_nodes) = other_vec.get(i).unwrap();
 					if !*sel
-						&& prop.0.mapped_eq(other_prop.0, f.clone())
+						&& prop.mapped_eq(other_prop, f.clone())
 						&& nodes.unordered_mapped_eq(other_nodes, f.clone())
 					{
 						*sel = true;

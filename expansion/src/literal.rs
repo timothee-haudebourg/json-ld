@@ -1,10 +1,10 @@
 use crate::{expand_iri, node_id_of_term, ActiveProperty, WarningHandler};
 use json_ld_core::{
-	object::value::Literal, Context, IndexedObject, LangString, Node, Object, Type, Value,
+	object::value::Literal, Context, Environment, IndexedObject, LangString, Node, Object, Type,
+	Value,
 };
-use json_ld_syntax::{Entry, ErrorCode, LenientLanguageTag, Nullable};
+use json_ld_syntax::{ErrorCode, LenientLanguageTag, Nullable};
 use json_syntax::Number;
-use locspan::{At, Meta};
 use rdf_types::VocabularyMut;
 
 pub(crate) enum GivenLiteralValue<'a> {
@@ -14,7 +14,7 @@ pub(crate) enum GivenLiteralValue<'a> {
 }
 
 impl<'a> GivenLiteralValue<'a> {
-	pub fn new<M>(value: &'a json_syntax::Value<M>) -> Self {
+	pub fn new(value: &'a json_syntax::Value) -> Self {
 		match value {
 			json_syntax::Value::Boolean(b) => Self::Boolean(*b),
 			json_syntax::Value::Number(n) => Self::Number(n),
@@ -56,7 +56,7 @@ impl<'a> LiteralValue<'a> {
 	}
 }
 
-pub(crate) type ExpandedLiteral<T, B, M> = IndexedObject<T, B, M>;
+pub(crate) type ExpandedLiteral<T, B> = IndexedObject<T, B>;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LiteralExpansionError {
@@ -72,23 +72,21 @@ impl LiteralExpansionError {
 	}
 }
 
-pub(crate) type LiteralExpansionResult<T, B, M> =
-	Result<ExpandedLiteral<T, B, M>, Meta<LiteralExpansionError, M>>;
+pub(crate) type LiteralExpansionResult<T, B> = Result<ExpandedLiteral<T, B>, LiteralExpansionError>;
 
 /// Expand a literal value.
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
-pub(crate) fn expand_literal<T, B, M, N>(
-	vocabulary: &mut N,
-	active_context: &Context<T, B, M>,
-	active_property: ActiveProperty<'_, M>,
-	Meta(value, meta): Meta<LiteralValue, &M>,
-	warnings: &mut impl WarningHandler<B, N, M>,
-) -> LiteralExpansionResult<T, B, M>
+pub(crate) fn expand_literal<N, L, W>(
+	mut env: Environment<N, L, W>,
+	active_context: &Context<N::Iri, N::BlankId>,
+	active_property: ActiveProperty<'_>,
+	value: LiteralValue,
+) -> LiteralExpansionResult<N::Iri, N::BlankId>
 where
-	T: Clone,
-	B: Clone,
-	M: Clone,
-	N: VocabularyMut<Iri = T, BlankId = B>,
+	N: VocabularyMut,
+	N::Iri: Clone,
+	N::BlankId: Clone,
+	W: WarningHandler<N>,
 {
 	let active_property_definition = active_property.get_from(active_context);
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
@@ -106,16 +104,15 @@ where
 		Some(Type::Id) if value.is_string() => {
 			let mut node = Node::new();
 			let id = node_id_of_term(expand_iri(
-				vocabulary,
+				&mut env,
 				active_context,
-				Meta(Nullable::Some(value.as_str().unwrap().into()), meta),
+				Nullable::Some(value.as_str().unwrap().into()),
 				true,
 				false,
-				warnings,
 			));
 
-			node.set_id(id.map(|id| Entry::new_with(id.metadata().clone(), id)));
-			Ok(Meta(Object::node(node).into(), meta.clone()))
+			node.id = id;
+			Ok(Object::node(node).into())
 		}
 
 		// If `active_property` has a type mapping in active context that is `@vocab`, and the
@@ -125,16 +122,15 @@ where
 		Some(Type::Vocab) if value.is_string() => {
 			let mut node = Node::new();
 			let id = node_id_of_term(expand_iri(
-				vocabulary,
+				&mut env,
 				active_context,
-				Meta(Nullable::Some(value.as_str().unwrap().into()), meta),
+				Nullable::Some(value.as_str().unwrap().into()),
 				true,
 				true,
-				warnings,
 			));
 
-			node.set_id(id.map(|id| Entry::new_with(id.metadata().clone(), id)));
-			Ok(Meta(Object::node(node).into(), meta.clone()))
+			node.id = id;
+			Ok(Object::node(node).into())
 		}
 
 		_ => {
@@ -165,7 +161,7 @@ where
 						let language =
 							if let Some(active_property_definition) = active_property_definition {
 								if let Some(language) = active_property_definition.language() {
-									language.as_ref().cloned().option()
+									language.cloned().option()
 								} else {
 									active_context
 										.default_language()
@@ -196,14 +192,10 @@ where
 						// If `direction` is not null, add `@direction` to result with the
 						// value `direction`.
 						return match LangString::new(s, language, direction) {
-							Ok(lang_str) => Ok(Meta(
-								Object::Value(Value::LangString(lang_str)).into(),
-								meta.clone(),
-							)),
-							Err(s) => Ok(Meta(
-								Object::Value(Value::Literal(Literal::String(s), None)).into(),
-								meta.clone(),
-							)),
+							Ok(lang_str) => Ok(Object::Value(Value::LangString(lang_str)).into()),
+							Err(s) => {
+								Ok(Object::Value(Value::Literal(Literal::String(s), None)).into())
+							}
 						};
 					}
 				}
@@ -212,15 +204,12 @@ where
 					if let Ok(t) = t.into_iri() {
 						ty = Some(t)
 					} else {
-						return Err(LiteralExpansionError::InvalidTypeValue.at(meta.clone()));
+						return Err(LiteralExpansionError::InvalidTypeValue);
 					}
 				}
 			}
 
-			Ok(Meta(
-				Object::Value(Value::Literal(result, ty)).into(),
-				meta.clone(),
-			))
+			Ok(Object::Value(Value::Literal(result, ty)).into())
 		}
 	}
 }

@@ -16,7 +16,6 @@ iref.workspace = true
 static-iref.workspace = true
 rdf-types.workspace = true
 contextual.workspace = true
-locspan.workspace = true
 log.workspace = true
 tokio = { version = "1.23", features = ["rt-multi-thread", "net", "macros"] }
 stderrlog = "0.5"

@@ -18,6 +18,6 @@ iref.workspace = true
 rdf-types.workspace = true
 futures.workspace = true
 mown.workspace = true
-locspan.workspace = true
 contextual.workspace = true
 thiserror.workspace = true
+owning_ref = "0.4.1"

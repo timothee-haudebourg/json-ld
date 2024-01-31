@@ -2,7 +2,6 @@ use linked_data::{
 	xsd_types, CowRdfTerm, LinkedData, LinkedDataGraph, LinkedDataPredicateObjects,
 	LinkedDataResource, LinkedDataSubject, RdfLiteral, RdfLiteralRef, ResourceInterpretation,
 };
-use locspan::Meta;
 use rdf_types::{Interpretation, LanguageTagVocabularyMut, Term, Vocabulary};
 
 use crate::{
@@ -11,7 +10,7 @@ use crate::{
 	Value,
 };
 
-impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri, M>
+impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri>
 where
 	V: LanguageTagVocabularyMut,
 {
@@ -85,17 +84,14 @@ where
 					xsd_types::ValueRef::String(s.as_str()),
 				))),
 			},
-			Self::Json(Meta(json, _)) => {
-				let json = json.clone().map_metadata(|_| ());
-				CowRdfTerm::Owned(Term::Literal(RdfLiteral::Json(json)))
-			}
+			Self::Json(json) => CowRdfTerm::Borrowed(Term::Literal(RdfLiteralRef::Json(json))),
 		};
 
 		ResourceInterpretation::Uninterpreted(Some(term))
 	}
 }
 
-impl<T, M, V: Vocabulary, I: Interpretation> LinkedDataSubject<I, V> for Value<T, M> {
+impl<T, V: Vocabulary, I: Interpretation> LinkedDataSubject<I, V> for Value<T> {
 	fn visit_subject<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
 		S: linked_data::SubjectVisitor<I, V>,
@@ -104,7 +100,7 @@ impl<T, M, V: Vocabulary, I: Interpretation> LinkedDataSubject<I, V> for Value<T
 	}
 }
 
-impl<T, M, V: Vocabulary, I: Interpretation> LinkedDataPredicateObjects<I, V> for Value<T, M> {
+impl<T, V: Vocabulary, I: Interpretation> LinkedDataPredicateObjects<I, V> for Value<T> {
 	fn visit_objects<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
 		S: linked_data::PredicateObjectsVisitor<I, V>,
@@ -113,7 +109,7 @@ impl<T, M, V: Vocabulary, I: Interpretation> LinkedDataPredicateObjects<I, V> fo
 	}
 }
 
-impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedDataGraph<I, V> for Value<V::Iri, M>
+impl<V: Vocabulary, I: Interpretation> LinkedDataGraph<I, V> for Value<V::Iri>
 where
 	V: LanguageTagVocabularyMut,
 {
@@ -126,7 +122,7 @@ where
 	}
 }
 
-impl<M: Clone, V: Vocabulary, I: Interpretation> LinkedData<I, V> for Value<V::Iri, M>
+impl<V: Vocabulary, I: Interpretation> LinkedData<I, V> for Value<V::Iri>
 where
 	V: LanguageTagVocabularyMut,
 {

@@ -1,14 +1,13 @@
 use super::Term;
 use crate::{Id, ValidId};
 use json_ld_syntax::Keyword;
-use locspan_derive::{StrippedEq, StrippedHash, StrippedPartialEq};
 use std::convert::TryFrom;
 use std::fmt;
 
 /// Object type.
 ///
 /// This is the value of a `@type` entry.
-#[derive(Clone, PartialEq, Eq, Hash, StrippedPartialEq, StrippedEq, StrippedHash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum Type<I> {
 	/// `@id`.
 	///

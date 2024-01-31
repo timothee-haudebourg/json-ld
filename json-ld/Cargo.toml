@@ -25,6 +25,7 @@ json-ld-serialization.workspace = true
 json-syntax.workspace = true
 futures.workspace = true
 locspan.workspace = true
+iref.workspace = true
 rdf-types.workspace = true
 contextual.workspace = true
 thiserror.workspace = true

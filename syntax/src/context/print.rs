@@ -3,7 +3,7 @@ use crate::{Container, ContextEntry, Nullable};
 use json_syntax::print::{string_literal, Options, PrecomputeSize, Print, PrintWithSize, Size};
 use std::fmt;
 
-impl<M> Print for super::Context<M> {
+impl Print for super::Context {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		let mut sizes = Vec::with_capacity(
 			self.traverse()
@@ -16,10 +16,10 @@ impl<M> Print for super::Context<M> {
 	}
 }
 
-impl<M> PrecomputeSize for super::Context<M> {
+impl PrecomputeSize for super::Context {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
-			Self::One(context) => (*context.value()).pre_compute_size(options, sizes),
+			Self::One(context) => context.pre_compute_size(options, sizes),
 			Self::Many(contexts) => {
 				json_syntax::print::pre_compute_array_size(contexts, options, sizes)
 			}
@@ -27,7 +27,7 @@ impl<M> PrecomputeSize for super::Context<M> {
 	}
 }
 
-impl<M> PrintWithSize for super::Context<M> {
+impl PrintWithSize for super::Context {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -37,9 +37,7 @@ impl<M> PrintWithSize for super::Context<M> {
 		index: &mut usize,
 	) -> fmt::Result {
 		match self {
-			Self::One(context) => {
-				(*context.value()).fmt_with_size(f, options, indent, sizes, index)
-			}
+			Self::One(context) => context.fmt_with_size(f, options, indent, sizes, index),
 			Self::Many(contexts) => {
 				json_syntax::print::print_array(contexts, f, options, indent, sizes, index)
 			}
@@ -47,17 +45,17 @@ impl<M> PrintWithSize for super::Context<M> {
 	}
 }
 
-// struct ForMeta<T, M>(T, PhantomData<M>);
+// struct ForMeta<T, M>(T, PhantomData);
 
 // trait IntoForMeta: Sized {
-// 	fn for_meta<M>(self) -> ForMeta<Self, M> {
+// 	fn for_meta(self) -> ForMeta<Self, M> {
 // 		ForMeta(self, PhantomData)
 // 	}
 // }
 
 // impl<T> IntoForMeta for T {}
 
-impl<M> PrecomputeSize for ContextEntry<M> {
+impl PrecomputeSize for ContextEntry {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			ContextEntry::Null => Size::Width(4),
@@ -76,7 +74,7 @@ impl<M> PrecomputeSize for ContextEntry<M> {
 	}
 }
 
-impl<M> PrintWithSize for ContextEntry<M> {
+impl PrintWithSize for ContextEntry {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -103,7 +101,7 @@ impl<M> PrintWithSize for ContextEntry<M> {
 	}
 }
 
-impl<'a, M> PrecomputeSize for definition::EntryValueRef<'a, M> {
+impl<'a> PrecomputeSize for definition::EntryValueRef<'a> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Base(v) => v.pre_compute_size(options, sizes),
@@ -120,7 +118,7 @@ impl<'a, M> PrecomputeSize for definition::EntryValueRef<'a, M> {
 	}
 }
 
-impl<'a, M> PrintWithSize for definition::EntryValueRef<'a, M> {
+impl<'a> PrintWithSize for definition::EntryValueRef<'a> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -144,7 +142,7 @@ impl<'a, M> PrintWithSize for definition::EntryValueRef<'a, M> {
 	}
 }
 
-impl<M> PrecomputeSize for definition::Type<M> {
+impl PrecomputeSize for definition::Type {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		json_syntax::print::pre_compute_object_size(
 			self.iter().map(|entry| (entry.key().as_str(), entry)),
@@ -154,7 +152,7 @@ impl<M> PrecomputeSize for definition::Type<M> {
 	}
 }
 
-impl<M> PrintWithSize for definition::Type<M> {
+impl PrintWithSize for definition::Type {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -174,7 +172,7 @@ impl<M> PrintWithSize for definition::Type<M> {
 	}
 }
 
-impl<'a, M> PrecomputeSize for definition::ContextTypeEntry<'a, M> {
+impl PrecomputeSize for definition::ContextTypeEntry {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Container(c) => c.pre_compute_size(options, sizes),
@@ -183,7 +181,7 @@ impl<'a, M> PrecomputeSize for definition::ContextTypeEntry<'a, M> {
 	}
 }
 
-impl<'a, M> PrintWithSize for definition::ContextTypeEntry<'a, M> {
+impl PrintWithSize for definition::ContextTypeEntry {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -239,7 +237,7 @@ impl Print for definition::Vocab {
 	}
 }
 
-impl PrecomputeSize for Nullable<definition::Vocab> {
+impl<'a> PrecomputeSize for Nullable<&'a definition::Vocab> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -248,7 +246,7 @@ impl PrecomputeSize for Nullable<definition::Vocab> {
 	}
 }
 
-impl Print for Nullable<definition::Vocab> {
+impl<'a> Print for Nullable<&'a definition::Vocab> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -257,7 +255,7 @@ impl Print for Nullable<definition::Vocab> {
 	}
 }
 
-impl<M> PrecomputeSize for Nullable<TermDefinition<M>> {
+impl<'a> PrecomputeSize for Nullable<&'a TermDefinition> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -266,7 +264,7 @@ impl<M> PrecomputeSize for Nullable<TermDefinition<M>> {
 	}
 }
 
-impl<M> PrecomputeSize for TermDefinition<M> {
+impl PrecomputeSize for TermDefinition {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Simple(s) => s.pre_compute_size(options, sizes),
@@ -281,7 +279,7 @@ impl PrecomputeSize for term_definition::Simple {
 	}
 }
 
-impl<M> PrintWithSize for TermDefinition<M> {
+impl PrintWithSize for TermDefinition {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -303,7 +301,7 @@ impl Print for term_definition::Simple {
 	}
 }
 
-impl<M> PrintWithSize for Nullable<TermDefinition<M>> {
+impl<'a> PrintWithSize for Nullable<&'a TermDefinition> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -319,7 +317,7 @@ impl<M> PrintWithSize for Nullable<TermDefinition<M>> {
 	}
 }
 
-impl<M> PrecomputeSize for term_definition::Expanded<M> {
+impl PrecomputeSize for term_definition::Expanded {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		json_syntax::print::pre_compute_object_size(
 			self.iter().map(|entry| (entry.key().as_str(), entry)),
@@ -329,7 +327,7 @@ impl<M> PrecomputeSize for term_definition::Expanded<M> {
 	}
 }
 
-impl<M> PrintWithSize for term_definition::Expanded<M> {
+impl PrintWithSize for term_definition::Expanded {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -349,7 +347,7 @@ impl<M> PrintWithSize for term_definition::Expanded<M> {
 	}
 }
 
-impl<'a, M> PrecomputeSize for term_definition::EntryRef<'a, M> {
+impl<'a> PrecomputeSize for term_definition::EntryRef<'a> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Id(v) => v.pre_compute_size(options, sizes),
@@ -368,7 +366,7 @@ impl<'a, M> PrecomputeSize for term_definition::EntryRef<'a, M> {
 	}
 }
 
-impl<'a, M> PrintWithSize for term_definition::EntryRef<'a, M> {
+impl<'a> PrintWithSize for term_definition::EntryRef<'a> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -406,7 +404,7 @@ impl Print for term_definition::Id {
 	}
 }
 
-impl PrecomputeSize for Nullable<term_definition::Id> {
+impl<'a> PrecomputeSize for Nullable<&'a term_definition::Id> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -415,7 +413,7 @@ impl PrecomputeSize for Nullable<term_definition::Id> {
 	}
 }
 
-impl Print for Nullable<term_definition::Id> {
+impl<'a> Print for Nullable<&'a term_definition::Id> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -436,7 +434,7 @@ impl Print for term_definition::Type {
 	}
 }
 
-impl PrecomputeSize for Nullable<term_definition::Type> {
+impl<'a> PrecomputeSize for Nullable<&'a term_definition::Type> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -445,7 +443,7 @@ impl PrecomputeSize for Nullable<term_definition::Type> {
 	}
 }
 
-impl Print for Nullable<term_definition::Type> {
+impl<'a> Print for Nullable<&'a term_definition::Type> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -502,7 +500,7 @@ impl Print for term_definition::Nest {
 	}
 }
 
-impl<M> PrecomputeSize for Nullable<Container<M>> {
+impl<'a> PrecomputeSize for Nullable<&'a Container> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -511,7 +509,7 @@ impl<M> PrecomputeSize for Nullable<Container<M>> {
 	}
 }
 
-impl<M> PrintWithSize for Nullable<Container<M>> {
+impl<'a> PrintWithSize for Nullable<&'a Container> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -527,7 +525,7 @@ impl<M> PrintWithSize for Nullable<Container<M>> {
 	}
 }
 
-impl<M> PrecomputeSize for Container<M> {
+impl PrecomputeSize for Container {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::One(c) => c.pre_compute_size(options, sizes),
@@ -536,7 +534,7 @@ impl<M> PrecomputeSize for Container<M> {
 	}
 }
 
-impl<M> PrintWithSize for Container<M> {
+impl PrintWithSize for Container {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,

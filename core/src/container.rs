@@ -1,12 +1,9 @@
-use json_ld_syntax::{context::definition::TypeContainer, Nullable};
-use locspan::Meta;
-use locspan_derive::StrippedPartialEq;
-
 pub use json_ld_syntax::ContainerKind;
+use json_ld_syntax::{context::definition::TypeContainer, Nullable};
 
 pub struct InvalidContainer;
 
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Container {
 	// Empty container
 	None,
@@ -42,21 +39,16 @@ impl Container {
 		Container::None
 	}
 
-	pub fn from_syntax<M>(
-		r: Nullable<&json_ld_syntax::Container<M>>,
-	) -> Result<Self, Meta<InvalidContainer, M>>
-	where
-		M: Clone,
-	{
+	pub fn from_syntax(r: Nullable<&json_ld_syntax::Container>) -> Result<Self, InvalidContainer> {
 		match r {
 			Nullable::Null => Ok(Self::None),
 			Nullable::Some(json_ld_syntax::Container::One(c)) => Ok((*c).into()),
 			Nullable::Some(json_ld_syntax::Container::Many(m)) => {
 				let mut container = Container::new();
 
-				for Meta(t, t_meta) in m {
+				for t in m {
 					if !container.add(*t) {
-						return Err(Meta(InvalidContainer, t_meta.clone()));
+						return Err(InvalidContainer);
 					}
 				}
 
@@ -187,18 +179,13 @@ impl Container {
 		}
 	}
 
-	pub fn into_syntax<M: Clone>(self, meta: M) -> Option<Meta<json_ld_syntax::Container<M>, M>> {
+	pub fn into_syntax(self) -> Option<json_ld_syntax::Container> {
 		let slice = self.as_slice();
 
 		match slice.len() {
 			0 => None,
-			1 => Some(Meta(json_ld_syntax::Container::One(slice[0]), meta)),
-			_ => Some(Meta(
-				json_ld_syntax::Container::Many(
-					slice.iter().map(|k| Meta(*k, meta.clone())).collect(),
-				),
-				meta,
-			)),
+			1 => Some(json_ld_syntax::Container::One(slice[0])),
+			_ => Some(json_ld_syntax::Container::Many(slice.to_vec())),
 		}
 	}
 }

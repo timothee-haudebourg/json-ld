@@ -21,7 +21,6 @@ iref.workspace = true
 rdf-types.workspace = true
 futures.workspace = true
 mown.workspace = true
-locspan = { workspace = true, features = ["contextual"] }
 educe.workspace = true
 contextual.workspace = true
 thiserror.workspace = true

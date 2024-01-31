@@ -1,14 +1,13 @@
-use super::{DefinedTerms, Merged};
+use super::{DefinedTerms, Environment, Merged};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
 use iref::{Iri, IriRef};
 use json_ld_core::{
 	future::{BoxFuture, FutureExt},
-	Context, ContextLoader, Id, Term,
+	warning, Context, Id, Loader, Term,
 };
 use json_ld_syntax::{self as syntax, context::definition::Key, ExpandableRef, Nullable};
-use locspan::Meta;
-use rdf_types::{BlankId, VocabularyMut};
+use rdf_types::{BlankId, Vocabulary, VocabularyMut};
 use syntax::{context::definition::KeyOrKeywordRef, is_keyword_like, CompactIri};
 
 pub struct MalformedIri(pub String);
@@ -20,37 +19,41 @@ impl From<MalformedIri> for Warning {
 }
 
 /// Result of the [`expand_iri_with`] function.
-pub type ExpandIriResult<T, B, W, E> = Result<(Term<T, B>, W), Error<E>>;
+pub type ExpandIriResult<T, B, E> = Result<Term<T, B>, Error<E>>;
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri_with<
-	'a,
-	T: Clone + Send + Sync + PartialEq,
-	B: Clone + Send + Sync + PartialEq,
-	M: 'a + Clone + Send + Sync,
-	N: Send + Sync + VocabularyMut<Iri = T, BlankId = B>,
-	L: ContextLoader<T, M> + Send + Sync,
-	W: 'a + Send + WarningHandler<N, M>,
->(
-	vocabulary: &'a mut N,
-	active_context: &'a mut Context<T, B, M>,
-	Meta(value, loc): Meta<Nullable<ExpandableRef<'a>>, &'a M>,
+pub fn expand_iri_with<'a, N, L, W>(
+	mut env: Environment<'a, N, L, W>,
+	active_context: &'a mut Context<N::Iri, N::BlankId>,
+	value: Nullable<ExpandableRef<'a>>,
 	document_relative: bool,
 	vocab: bool,
-	local_context: &'a Merged<M>,
-	defined: &'a mut DefinedTerms<M>,
-	remote_contexts: ProcessingStack<T>,
-	loader: &'a mut L,
+	local_context: &'a Merged<'a>,
+	defined: &'a mut DefinedTerms,
+	remote_contexts: ProcessingStack<N::Iri>,
 	options: Options,
-	mut warnings: W,
-) -> BoxFuture<'a, ExpandIriResult<T, B, W, L::ContextError>> {
+) -> BoxFuture<'a, ExpandIriResult<N::Iri, N::BlankId, L::Error>>
+where
+	N: VocabularyMut,
+	N::Iri: Clone + PartialEq,
+	N::BlankId: Clone + PartialEq,
+	L: Loader<N::Iri>,
+	W: WarningHandler<N>,
+	//
+	N: Send + Sync,
+	N::Iri: Send + Sync,
+	N::BlankId: Send + Sync,
+	L: Send + Sync,
+	L::Error: Send,
+	W: Send + Sync,
+{
 	async move {
 		match value {
-			Nullable::Null => Ok((Term::Null, warnings)),
-			Nullable::Some(ExpandableRef::Keyword(k)) => Ok((Term::Keyword(k), warnings)),
+			Nullable::Null => Ok(Term::Null),
+			Nullable::Some(ExpandableRef::Keyword(k)) => Ok(Term::Keyword(k)),
 			Nullable::Some(ExpandableRef::String(value)) => {
 				if is_keyword_like(value) {
-					return Ok((Term::Null, warnings));
+					return Ok(Term::Null);
 				}
 
 				// If `local_context` is not null, it contains an entry with a key that equals value, and the
@@ -58,18 +61,20 @@ pub fn expand_iri_with<
 				// algorithm, passing active context, local context, value as term, and defined. This will
 				// ensure that a term definition is created for value in active context during Context
 				// Processing.
-				warnings = super::define(
-					vocabulary,
+				super::define(
+					Environment {
+						vocabulary: env.vocabulary,
+						loader: env.loader,
+						warnings: env.warnings,
+					},
 					active_context,
 					local_context,
-					Meta(value.into(), loc),
+					value.into(),
 					defined,
 					remote_contexts.clone(),
-					loader,
 					None,
 					false,
 					options.with_no_override(),
-					warnings,
 				)
 				.await?;
 
@@ -78,7 +83,7 @@ pub fn expand_iri_with<
 					// is a keyword, return that keyword.
 					if let Some(value) = term_definition.value() {
 						if value.is_keyword() {
-							return Ok((value.clone(), warnings));
+							return Ok(value.clone());
 						}
 					}
 
@@ -86,22 +91,21 @@ pub fn expand_iri_with<
 					// associated IRI mapping.
 					if vocab {
 						return match term_definition.value() {
-							Some(value) => Ok((value.clone(), warnings)),
-							None => Ok((Term::Null, warnings)),
+							Some(value) => Ok(value.clone()),
+							None => Ok(Term::Null),
 						};
 					}
 				}
 
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
-						return Ok((
-							Term::Id(Id::blank(vocabulary.insert_blank_id(blank_id))),
-							warnings,
-						));
+						return Ok(Term::Id(Id::blank(
+							env.vocabulary.insert_blank_id(blank_id),
+						)));
 					}
 
 					if value == "_:" {
-						return Ok((Term::Id(Id::Invalid("_:".to_string())), warnings));
+						return Ok(Term::Id(Id::Invalid("_:".to_string())));
 					}
 
 					if let Ok(compact_iri) = CompactIri::new(value) {
@@ -110,18 +114,20 @@ pub fn expand_iri_with<
 						// algorithm, passing active context, local context, prefix as term, and defined.
 						// This will ensure that a term definition is created for prefix in active context
 						// during Context Processing.
-						warnings = super::define(
-							vocabulary,
+						super::define(
+							Environment {
+								vocabulary: env.vocabulary,
+								loader: env.loader,
+								warnings: env.warnings,
+							},
 							active_context,
 							local_context,
-							Meta(KeyOrKeywordRef::Key(compact_iri.prefix().into()), loc),
+							KeyOrKeywordRef::Key(compact_iri.prefix().into()),
 							defined,
 							remote_contexts,
-							loader,
 							None,
 							false,
 							options.with_no_override(),
-							warnings,
 						)
 						.await?;
 
@@ -133,20 +139,20 @@ pub fn expand_iri_with<
 							if term_definition.prefix {
 								if let Some(mapping) = &term_definition.value {
 									let mut result =
-										mapping.with(&*vocabulary).as_str().to_string();
+										mapping.with(&*env.vocabulary).as_str().to_string();
 									result.push_str(compact_iri.suffix());
 
-									return Ok((
-										Term::Id(Id::from_string_in(vocabulary, result)),
-										warnings,
-									));
+									return Ok(Term::Id(Id::from_string_in(
+										env.vocabulary,
+										result,
+									)));
 								}
 							}
 						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Ok((Term::Id(Id::iri(vocabulary.insert(iri))), warnings));
+						return Ok(Term::Id(Id::iri(env.vocabulary.insert(iri))));
 					}
 				}
 
@@ -155,21 +161,12 @@ pub fn expand_iri_with<
 				if vocab {
 					match active_context.vocabulary() {
 						Some(Term::Id(mapping)) => {
-							let mut result = mapping.with(&*vocabulary).as_str().to_string();
+							let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
 							result.push_str(value);
 
-							return Ok((
-								Term::Id(Id::from_string_in(vocabulary, result)),
-								warnings,
-							));
+							return Ok(Term::Id(Id::from_string_in(env.vocabulary, result)));
 						}
-						Some(_) => {
-							return Ok(invalid_iri(
-								vocabulary,
-								Meta(value.to_string(), loc.clone()),
-								warnings,
-							))
-						}
+						Some(_) => return Ok(invalid_iri(&mut env, value.to_string())),
 						None => (),
 					}
 				}
@@ -183,58 +180,54 @@ pub fn expand_iri_with<
 				if document_relative {
 					if let Ok(iri_ref) = IriRef::new(value) {
 						if let Some(iri) =
-							super::resolve_iri(vocabulary, iri_ref, active_context.base_iri())
+							super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri())
 						{
-							return Ok((Term::from(iri), warnings));
+							return Ok(Term::from(iri));
 						}
 					}
 				}
 
 				// Return value as is.
-				Ok(invalid_iri(
-					vocabulary,
-					Meta(value.to_string(), loc.clone()),
-					warnings,
-				))
+				Ok(invalid_iri(&mut env, value.to_string()))
 			}
 		}
 	}
 	.boxed()
 }
 
-fn invalid_iri<T, B, N, M, H: json_ld_core::warning::Handler<N, Meta<Warning, M>>>(
-	vocabulary: &N,
-	Meta(value, loc): Meta<String, M>,
-	mut warnings: H,
-) -> (Term<T, B>, H) {
-	warnings.handle(vocabulary, Meta(MalformedIri(value.clone()).into(), loc));
-
-	(Term::Id(Id::Invalid(value)), warnings)
+fn invalid_iri<N, L, W: json_ld_core::warning::Handler<N, Warning>>(
+	env: &mut Environment<N, L, W>,
+	value: String,
+) -> Term<N::Iri, N::BlankId>
+where
+	N: Vocabulary,
+{
+	env.warnings
+		.handle(env.vocabulary, MalformedIri(value.clone()).into());
+	Term::Id(Id::Invalid(value))
 }
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
-pub fn expand_iri_simple<
-	'a,
-	T: Clone,
-	B: Clone,
-	M: Clone,
-	N: VocabularyMut<Iri = T, BlankId = B>,
-	W: From<MalformedIri>,
-	H: json_ld_core::warning::Handler<N, Meta<W, M>>,
->(
-	vocabulary: &'a mut N,
-	active_context: &'a Context<T, B, M>,
-	Meta(value, meta): Meta<Nullable<ExpandableRef<'a>>, &'a M>,
+pub fn expand_iri_simple<W, N, L, H>(
+	env: &mut Environment<N, L, H>,
+	active_context: &Context<N::Iri, N::BlankId>,
+	value: Nullable<ExpandableRef>,
 	document_relative: bool,
 	vocab: bool,
-	warnings: &mut H,
-) -> Meta<Term<T, B>, M> {
+) -> Term<N::Iri, N::BlankId>
+where
+	N: VocabularyMut,
+	N::Iri: Clone,
+	N::BlankId: Clone,
+	W: From<MalformedIri>,
+	H: warning::Handler<N, W>,
+{
 	match value {
-		Nullable::Null => Meta(Term::Null, meta.clone()),
-		Nullable::Some(ExpandableRef::Keyword(k)) => Meta(Term::Keyword(k), meta.clone()),
+		Nullable::Null => Term::Null,
+		Nullable::Some(ExpandableRef::Keyword(k)) => Term::Keyword(k),
 		Nullable::Some(ExpandableRef::String(value)) => {
 			if is_keyword_like(value) {
-				return Meta(Term::Null, meta.clone());
+				return Term::Null;
 			}
 
 			if let Some(term_definition) = active_context.get(value) {
@@ -242,7 +235,7 @@ pub fn expand_iri_simple<
 				// is a keyword, return that keyword.
 				if let Some(value) = term_definition.value() {
 					if value.is_keyword() {
-						return Meta(value.clone(), meta.clone());
+						return value.clone();
 					}
 				}
 
@@ -250,22 +243,19 @@ pub fn expand_iri_simple<
 				// associated IRI mapping.
 				if vocab {
 					return match term_definition.value() {
-						Some(value) => Meta(value.clone(), meta.clone()),
-						None => Meta(Term::Null, meta.clone()),
+						Some(value) => value.clone(),
+						None => Term::Null,
 					};
 				}
 			}
 
 			if value.find(':').map(|i| i > 0).unwrap_or(false) {
 				if let Ok(blank_id) = BlankId::new(value) {
-					return Meta(
-						Term::Id(Id::blank(vocabulary.insert_blank_id(blank_id))),
-						meta.clone(),
-					);
+					return Term::Id(Id::blank(env.vocabulary.insert_blank_id(blank_id)));
 				}
 
 				if value == "_:" {
-					return Meta(Term::Id(Id::Invalid("_:".to_string())), meta.clone());
+					return Term::Id(Id::Invalid("_:".to_string()));
 				}
 
 				if let Ok(compact_iri) = CompactIri::new(value) {
@@ -276,20 +266,18 @@ pub fn expand_iri_simple<
 					if let Some(term_definition) = active_context.get_normal(&prefix_key) {
 						if term_definition.prefix {
 							if let Some(mapping) = &term_definition.value {
-								let mut result = mapping.with(&*vocabulary).as_str().to_string();
+								let mut result =
+									mapping.with(&*env.vocabulary).as_str().to_string();
 								result.push_str(compact_iri.suffix());
 
-								return Meta(
-									Term::Id(Id::from_string_in(vocabulary, result)),
-									meta.clone(),
-								);
+								return Term::Id(Id::from_string_in(env.vocabulary, result));
 							}
 						}
 					}
 				}
 
 				if let Ok(iri) = Iri::new(value) {
-					return Meta(Term::Id(Id::iri(vocabulary.insert(iri))), meta.clone());
+					return Term::Id(Id::iri(env.vocabulary.insert(iri)));
 				}
 			}
 
@@ -298,21 +286,12 @@ pub fn expand_iri_simple<
 			if vocab {
 				match active_context.vocabulary() {
 					Some(Term::Id(mapping)) => {
-						let mut result = mapping.with(&*vocabulary).as_str().to_string();
+						let mut result = mapping.with(&*env.vocabulary).as_str().to_string();
 						result.push_str(value);
 
-						return Meta(
-							Term::Id(Id::from_string_in(vocabulary, result)),
-							meta.clone(),
-						);
+						return Term::Id(Id::from_string_in(env.vocabulary, result));
 					}
-					Some(_) => {
-						return invalid_iri_simple(
-							vocabulary,
-							Meta(value.to_string(), meta.clone()),
-							warnings,
-						)
-					}
+					Some(_) => return invalid_iri_simple(env, value.to_string()),
 					None => (),
 				}
 			}
@@ -326,34 +305,29 @@ pub fn expand_iri_simple<
 			if document_relative {
 				if let Ok(iri_ref) = IriRef::new(value) {
 					if let Some(iri) =
-						super::resolve_iri(vocabulary, iri_ref, active_context.base_iri())
+						super::resolve_iri(env.vocabulary, iri_ref, active_context.base_iri())
 					{
-						return Meta(Term::from(iri), meta.clone());
+						return Term::from(iri);
 					}
 				}
 			}
 
 			// Return value as is.
-			invalid_iri_simple(vocabulary, Meta(value.to_string(), meta.clone()), warnings)
+			invalid_iri_simple(env, value.to_string())
 		}
 	}
 }
 
-fn invalid_iri_simple<
-	T,
-	B,
-	N,
-	M: Clone,
+fn invalid_iri_simple<W, N, L, H>(
+	env: &mut Environment<N, L, H>,
+	value: String,
+) -> Term<N::Iri, N::BlankId>
+where
+	N: Vocabulary,
 	W: From<MalformedIri>,
-	H: json_ld_core::warning::Handler<N, Meta<W, M>>,
->(
-	vocabulary: &N,
-	Meta(value, meta): Meta<String, M>,
-	warnings: &mut H,
-) -> Meta<Term<T, B>, M> {
-	warnings.handle(
-		vocabulary,
-		Meta(MalformedIri(value.clone()).into(), meta.clone()),
-	);
-	Meta(Term::Id(Id::Invalid(value)), meta)
+	H: warning::Handler<N, W>,
+{
+	env.warnings
+		.handle(env.vocabulary, MalformedIri(value.clone()).into());
+	Term::Id(Id::Invalid(value))
 }

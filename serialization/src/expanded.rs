@@ -1,6 +1,5 @@
 use json_ld_core::{ExpandedDocument, Indexed, Node, Object};
 use linked_data::{AsRdfLiteral, CowRdfTerm};
-use locspan::Meta;
 use rdf_types::{
 	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
 	Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
@@ -81,9 +80,8 @@ where
 
 		let graph = value.visit_graph(serializer)?;
 
-		node.set_graph(Some(graph));
-		self.result
-			.insert(Meta::none(Indexed::new(Object::node(node), None)));
+		node.graph = Some(graph);
+		self.result.insert(Indexed::new(Object::node(node), None));
 
 		Ok(())
 	}

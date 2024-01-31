@@ -6,10 +6,9 @@ use json_ld_core::{
 		Graph, List,
 	},
 	rdf::{RDF_FIRST, RDF_REST},
-	Entry, Indexed, IndexedObject, Node, Object,
+	Indexed, IndexedObject, Node, Object,
 };
 use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
-use locspan::{Meta, Stripped};
 use rdf_types::{
 	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
 	Id, Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
@@ -172,8 +171,7 @@ where
 		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		let node = serialize_node_with(self.vocabulary, self.interpretation, value)?;
-		self.included
-			.insert(Stripped(Meta::none(Indexed::none(node))));
+		self.included.insert(Indexed::none(node));
 		Ok(())
 	}
 
@@ -193,7 +191,7 @@ where
 			&& self.graph.is_none()
 		{
 			let mut items = self.rest.unwrap();
-			items.push(Meta::none(Indexed::none(self.first.unwrap())));
+			items.push(Indexed::none(self.first.unwrap()));
 			items.reverse();
 			Ok(Object::List(List::new(items)))
 		} else {
@@ -215,14 +213,14 @@ where
 			*node.properties_mut() = self.properties;
 
 			if !self.reverse_properties.is_empty() {
-				node.set_reverse_properties(Some(Entry::new(self.reverse_properties)));
+				node.set_reverse_properties(Some(self.reverse_properties));
 			}
 
 			if !self.included.is_empty() {
-				node.set_included(Some(Entry::new(self.included)));
+				node.set_included(Some(self.included));
 			}
 
-			node.set_graph(self.graph);
+			node.graph = self.graph;
 
 			Ok(Object::node(node))
 		}

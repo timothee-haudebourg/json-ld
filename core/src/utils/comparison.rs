@@ -1,7 +1,6 @@
 use json_syntax::Value;
-use locspan::Meta;
 
-pub fn simple_json_ld_eq<M, N>(a: &Value<M>, b: &Value<N>) -> bool {
+pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
 	match (a, b) {
 		(Value::Array(a), Value::Array(b)) if a.len() == b.len() => {
 			let mut selected = Vec::with_capacity(a.len());
@@ -22,9 +21,9 @@ pub fn simple_json_ld_eq<M, N>(a: &Value<M>, b: &Value<N>) -> bool {
 		}
 		(Value::Object(a), Value::Object(b)) if a.len() == b.len() => {
 			for entry in a.iter() {
-				let key = entry.key.value();
-				let value_a = entry.value.value();
-				if let Some(Meta(value_b, _)) = b.get(key).next() {
+				let key = &entry.key;
+				let value_a = &entry.value;
+				if let Some(value_b) = b.get(key).next() {
 					if key == "@list" {
 						match (value_a, value_b) {
 							(Value::Array(item_a), Value::Array(item_b))
@@ -33,7 +32,7 @@ pub fn simple_json_ld_eq<M, N>(a: &Value<M>, b: &Value<N>) -> bool {
 								if !item_a
 									.iter()
 									.zip(item_b)
-									.all(|(a, b)| simple_json_ld_eq(a.value(), b.value()))
+									.all(|(a, b)| simple_json_ld_eq(a, b))
 								{
 									return false;
 								}

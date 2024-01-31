@@ -1,137 +1,40 @@
-use super::{BindingsIter, Definition, EntryValueSubItems, Key, TermBinding, Type, Version, Vocab};
-use crate::{
-	context::{self, TermDefinition},
-	Direction, LenientLanguageTagBuf, Nullable,
-};
-use context::Entry;
+use super::{BindingsIter, Definition, EntryValueSubItems, Key, Type, Version, Vocab};
+use crate::{context::TermDefinition, Direction, LenientLanguageTagBuf, Nullable};
 
-use iref::IriRefBuf;
-use locspan::Meta;
+use iref::IriRef;
 
-// pub type BaseEntryRef<'a, M> = Entry<Nullable<IriRef<'a>>, M>;
-
-// pub type ImportEntryRef<'a, M> = Entry<IriRef<'a>, M>;
-
-// pub type LanguageEntryRef<'a, M> = Entry<Nullable<LenientLanguageTag<'a>>, M>;
-
-// pub type DirectionEntry<M> = Entry<Nullable<Direction>, M>;
-
-// pub type PropagateEntry<M> = Entry<bool, M>;
-
-// pub type ProtectedEntry<M> = Entry<bool, M>;
-
-// pub type TypeEntry<M> = Entry<Type<M>, M>;
-
-// pub type VersionEntry<M> = Entry<Version, M>;
-
-// pub type VocabEntryRef<'a, M> = Entry<Nullable<VocabRef<'a>>, M>;
-
-// pub enum BindingsIter<'a, M> {
-// 	Map(indexmap::map::Iter<'a, Key, TermBinding<M>>),
-// 	Slice(core::slice::Iter<'a, (KeyRef<'a>, TermBindingRef<'a, M>)>),
-// }
-
-// impl<'a, M: Clone> Iterator for BindingsIter<'a, M> {
-// 	type Item = (KeyRef<'a>, TermBindingRef<'a, M>);
-
-// 	fn size_hint(&self) -> (usize, Option<usize>) {
-// 		match self {
-// 			Self::Map(m) => m.size_hint(),
-// 			Self::Slice(s) => s.size_hint(),
-// 		}
-// 	}
-
-// 	fn next(&mut self) -> Option<Self::Item> {
-// 		match self {
-// 			Self::Map(m) => m.next().map(|(k, v)| (k.into(), v.into())),
-// 			Self::Slice(s) => s.next().cloned(),
-// 		}
-// 	}
-// }
-
-// impl<'a, M: Clone> ExactSizeIterator for BindingsIter<'a, M> {}
-
-// pub trait AnyDefinition<M>: Sized {
-// 	fn base(&self) -> Option<BaseEntryRef<M>>;
-// 	fn import(&self) -> Option<ImportEntryRef<M>>;
-// 	fn language(&self) -> Option<LanguageEntryRef<M>>;
-// 	fn direction(&self) -> Option<DirectionEntry<M>>;
-// 	fn propagate(&self) -> Option<PropagateEntry<M>>;
-// 	fn protected(&self) -> Option<ProtectedEntry<M>>;
-// 	fn type_(&self) -> Option<TypeEntry<M>>;
-// 	fn version(&self) -> Option<VersionEntry<M>>;
-// 	fn vocab(&self) -> Option<VocabEntryRef<M>>;
-// 	fn bindings(&self) -> BindingsIter<M>;
-// 	fn get_binding(&self, key: &Key) -> Option<TermBindingRef<M>>;
-
-// 	fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<M>> {
-// 		match key {
-// 			KeyOrKeyword::Keyword(k) => match k {
-// 				Keyword::Base => self.base().map(|e| EntryValueRef::Base(e.value)),
-// 				Keyword::Import => self.import().map(|e| EntryValueRef::Import(e.value)),
-// 				Keyword::Language => self.language().map(|e| EntryValueRef::Language(e.value)),
-// 				Keyword::Direction => self.direction().map(|e| EntryValueRef::Direction(e.value)),
-// 				Keyword::Propagate => self.propagate().map(|e| EntryValueRef::Propagate(e.value)),
-// 				Keyword::Protected => self.protected().map(|e| EntryValueRef::Protected(e.value)),
-// 				Keyword::Type => self.type_().map(|e| EntryValueRef::Type(e.value)),
-// 				Keyword::Version => self.version().map(|e| EntryValueRef::Version(e.value)),
-// 				Keyword::Vocab => self.vocab().map(|e| EntryValueRef::Vocab(e.value)),
-// 				_ => None,
-// 			},
-// 			KeyOrKeyword::Key(k) => self
-// 				.get_binding(k)
-// 				.map(|b| EntryValueRef::Definition(b.definition)),
-// 		}
-// 	}
-
-// 	fn entries(&self) -> Entries<M> {
-// 		Entries {
-// 			base: self.base(),
-// 			import: self.import(),
-// 			language: self.language(),
-// 			direction: self.direction(),
-// 			propagate: self.propagate(),
-// 			protected: self.protected(),
-// 			type_: self.type_(),
-// 			version: self.version(),
-// 			vocab: self.vocab(),
-// 			bindings: self.bindings(),
-// 		}
-// 	}
-// }
-
-impl<M> Definition<M> {
-	pub fn iter(&self) -> Entries<M> {
+impl Definition {
+	pub fn iter(&self) -> Entries {
 		Entries {
-			base: self.base.as_ref(),
-			import: self.import.as_ref(),
-			language: self.language.as_ref(),
-			direction: self.direction.as_ref(),
-			propagate: self.propagate.as_ref(),
-			protected: self.protected.as_ref(),
-			type_: self.type_.as_ref(),
-			version: self.version.as_ref(),
-			vocab: self.vocab.as_ref(),
+			base: self.base.as_ref().map(Nullable::as_deref),
+			import: self.import.as_deref(),
+			language: self.language.as_ref().map(Nullable::as_ref),
+			direction: self.direction,
+			propagate: self.propagate,
+			protected: self.protected,
+			type_: self.type_,
+			version: self.version,
+			vocab: self.vocab.as_ref().map(Nullable::as_ref),
 			bindings: self.bindings.iter(),
 		}
 	}
 }
 
-pub struct Entries<'a, M> {
-	base: Option<&'a Entry<Nullable<IriRefBuf>, M>>,
-	import: Option<&'a Entry<IriRefBuf, M>>,
-	language: Option<&'a Entry<Nullable<LenientLanguageTagBuf>, M>>,
-	direction: Option<&'a Entry<Nullable<Direction>, M>>,
-	propagate: Option<&'a Entry<bool, M>>,
-	protected: Option<&'a Entry<bool, M>>,
-	type_: Option<&'a Entry<Type<M>, M>>,
-	version: Option<&'a Entry<Version, M>>,
-	vocab: Option<&'a Entry<Nullable<Vocab>, M>>,
-	bindings: BindingsIter<'a, M>,
+pub struct Entries<'a> {
+	base: Option<Nullable<&'a IriRef>>,
+	import: Option<&'a IriRef>,
+	language: Option<Nullable<&'a LenientLanguageTagBuf>>,
+	direction: Option<Nullable<Direction>>,
+	propagate: Option<bool>,
+	protected: Option<bool>,
+	type_: Option<Type>,
+	version: Option<Version>,
+	vocab: Option<Nullable<&'a Vocab>>,
+	bindings: BindingsIter<'a>,
 }
 
-impl<'a, M> Iterator for Entries<'a, M> {
-	type Item = EntryRef<'a, M>;
+impl<'a> Iterator for Entries<'a> {
+	type Item = EntryRef<'a>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = self.bindings.len();
@@ -210,33 +113,33 @@ impl<'a, M> Iterator for Entries<'a, M> {
 	}
 }
 
-impl<'a, M> ExactSizeIterator for Entries<'a, M> {}
+impl<'a> ExactSizeIterator for Entries<'a> {}
 
-pub enum EntryValueRef<'a, M> {
-	Base(&'a Meta<Nullable<IriRefBuf>, M>),
-	Import(&'a Meta<IriRefBuf, M>),
-	Language(&'a Meta<Nullable<LenientLanguageTagBuf>, M>),
-	Direction(&'a Meta<Nullable<Direction>, M>),
-	Propagate(&'a Meta<bool, M>),
-	Protected(&'a Meta<bool, M>),
-	Type(&'a Meta<Type<M>, M>),
-	Version(&'a Meta<Version, M>),
-	Vocab(&'a Meta<Nullable<Vocab>, M>),
-	Definition(&'a Meta<Nullable<TermDefinition<M>>, M>),
+pub enum EntryValueRef<'a> {
+	Base(Nullable<&'a IriRef>),
+	Import(&'a IriRef),
+	Language(Nullable<&'a LenientLanguageTagBuf>),
+	Direction(Nullable<Direction>),
+	Propagate(bool),
+	Protected(bool),
+	Type(Type),
+	Version(Version),
+	Vocab(Nullable<&'a Vocab>),
+	Definition(Nullable<&'a TermDefinition>),
 }
 
-impl<'a, M> EntryValueRef<'a, M> {
+impl<'a> EntryValueRef<'a> {
 	pub fn is_object(&self) -> bool {
 		match self {
 			Self::Type(_) => true,
-			Self::Definition(Meta(Nullable::Some(d), _)) => d.is_object(),
+			Self::Definition(Nullable::Some(d)) => d.is_object(),
 			_ => false,
 		}
 	}
 
-	pub fn sub_items(&self) -> EntryValueSubItems<'a, M> {
+	pub fn sub_items(&self) -> EntryValueSubItems<'a> {
 		match self {
-			Self::Definition(Meta(Nullable::Some(TermDefinition::Expanded(e)), _)) => {
+			Self::Definition(Nullable::Some(TermDefinition::Expanded(e))) => {
 				EntryValueSubItems::TermDefinitionFragment(Box::new(e.iter()))
 			}
 			_ => EntryValueSubItems::None,
@@ -244,17 +147,17 @@ impl<'a, M> EntryValueRef<'a, M> {
 	}
 }
 
-pub enum EntryRef<'a, M> {
-	Base(&'a Entry<Nullable<IriRefBuf>, M>),
-	Import(&'a Entry<IriRefBuf, M>),
-	Language(&'a Entry<Nullable<LenientLanguageTagBuf>, M>),
-	Direction(&'a Entry<Nullable<Direction>, M>),
-	Propagate(&'a Entry<bool, M>),
-	Protected(&'a Entry<bool, M>),
-	Type(&'a Entry<Type<M>, M>),
-	Version(&'a Entry<Version, M>),
-	Vocab(&'a Entry<Nullable<Vocab>, M>),
-	Definition(&'a Key, &'a TermBinding<M>),
+pub enum EntryRef<'a> {
+	Base(Nullable<&'a IriRef>),
+	Import(&'a IriRef),
+	Language(Nullable<&'a LenientLanguageTagBuf>),
+	Direction(Nullable<Direction>),
+	Propagate(bool),
+	Protected(bool),
+	Type(Type),
+	Version(Version),
+	Vocab(Nullable<&'a Vocab>),
+	Definition(&'a Key, Nullable<&'a TermDefinition>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -288,7 +191,7 @@ impl<'a> EntryKeyRef<'a> {
 	}
 }
 
-impl<'a, M> EntryRef<'a, M> {
+impl<'a> EntryRef<'a> {
 	pub fn into_key(self) -> EntryKeyRef<'a> {
 		match self {
 			Self::Base(_) => EntryKeyRef::Base,
@@ -319,82 +222,54 @@ impl<'a, M> EntryRef<'a, M> {
 		}
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a, M> {
+	pub fn into_value(self) -> EntryValueRef<'a> {
 		match self {
-			Self::Base(v) => EntryValueRef::Base(&v.value),
-			Self::Import(v) => EntryValueRef::Import(&v.value),
-			Self::Language(v) => EntryValueRef::Language(&v.value),
-			Self::Direction(v) => EntryValueRef::Direction(&v.value),
-			Self::Propagate(v) => EntryValueRef::Propagate(&v.value),
-			Self::Protected(v) => EntryValueRef::Protected(&v.value),
-			Self::Type(v) => EntryValueRef::Type(&v.value),
-			Self::Version(v) => EntryValueRef::Version(&v.value),
-			Self::Vocab(v) => EntryValueRef::Vocab(&v.value),
-			Self::Definition(_, b) => EntryValueRef::Definition(&b.definition),
+			Self::Base(v) => EntryValueRef::Base(v),
+			Self::Import(v) => EntryValueRef::Import(v),
+			Self::Language(v) => EntryValueRef::Language(v),
+			Self::Direction(v) => EntryValueRef::Direction(v),
+			Self::Propagate(v) => EntryValueRef::Propagate(v),
+			Self::Protected(v) => EntryValueRef::Protected(v),
+			Self::Type(v) => EntryValueRef::Type(v),
+			Self::Version(v) => EntryValueRef::Version(v),
+			Self::Vocab(v) => EntryValueRef::Vocab(v),
+			Self::Definition(_, b) => EntryValueRef::Definition(b),
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a, M> {
+	pub fn value(&self) -> EntryValueRef<'a> {
 		match self {
-			Self::Base(v) => EntryValueRef::Base(&v.value),
-			Self::Import(v) => EntryValueRef::Import(&v.value),
-			Self::Language(v) => EntryValueRef::Language(&v.value),
-			Self::Direction(v) => EntryValueRef::Direction(&v.value),
-			Self::Propagate(v) => EntryValueRef::Propagate(&v.value),
-			Self::Protected(v) => EntryValueRef::Protected(&v.value),
-			Self::Type(v) => EntryValueRef::Type(&v.value),
-			Self::Version(v) => EntryValueRef::Version(&v.value),
-			Self::Vocab(v) => EntryValueRef::Vocab(&v.value),
-			Self::Definition(_, b) => EntryValueRef::Definition(&b.definition),
+			Self::Base(v) => EntryValueRef::Base(*v),
+			Self::Import(v) => EntryValueRef::Import(v),
+			Self::Language(v) => EntryValueRef::Language(*v),
+			Self::Direction(v) => EntryValueRef::Direction(*v),
+			Self::Propagate(v) => EntryValueRef::Propagate(*v),
+			Self::Protected(v) => EntryValueRef::Protected(*v),
+			Self::Type(v) => EntryValueRef::Type(*v),
+			Self::Version(v) => EntryValueRef::Version(*v),
+			Self::Vocab(v) => EntryValueRef::Vocab(*v),
+			Self::Definition(_, b) => EntryValueRef::Definition(*b),
 		}
 	}
 
-	pub fn into_key_value(self) -> (Meta<EntryKeyRef<'a>, &'a M>, EntryValueRef<'a, M>) {
+	pub fn into_key_value(self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
 		self.key_value()
 	}
 
-	pub fn key_value(&self) -> (Meta<EntryKeyRef<'a>, &'a M>, EntryValueRef<'a, M>) {
+	pub fn key_value(&self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
 		match self {
-			Self::Base(v) => (
-				Meta(EntryKeyRef::Base, &v.key_metadata),
-				EntryValueRef::Base(&v.value),
-			),
-			Self::Import(v) => (
-				Meta(EntryKeyRef::Import, &v.key_metadata),
-				EntryValueRef::Import(&v.value),
-			),
-			Self::Language(v) => (
-				Meta(EntryKeyRef::Language, &v.key_metadata),
-				EntryValueRef::Language(&v.value),
-			),
-			Self::Direction(v) => (
-				Meta(EntryKeyRef::Direction, &v.key_metadata),
-				EntryValueRef::Direction(&v.value),
-			),
-			Self::Propagate(v) => (
-				Meta(EntryKeyRef::Propagate, &v.key_metadata),
-				EntryValueRef::Propagate(&v.value),
-			),
-			Self::Protected(v) => (
-				Meta(EntryKeyRef::Protected, &v.key_metadata),
-				EntryValueRef::Protected(&v.value),
-			),
-			Self::Type(v) => (
-				Meta(EntryKeyRef::Type, &v.key_metadata),
-				EntryValueRef::Type(&v.value),
-			),
-			Self::Version(v) => (
-				Meta(EntryKeyRef::Version, &v.key_metadata),
-				EntryValueRef::Version(&v.value),
-			),
-			Self::Vocab(v) => (
-				Meta(EntryKeyRef::Vocab, &v.key_metadata),
-				EntryValueRef::Vocab(&v.value),
-			),
-			Self::Definition(key, b) => (
-				Meta(EntryKeyRef::Definition(key), &b.key_metadata),
-				EntryValueRef::Definition(&b.definition),
-			),
+			Self::Base(v) => (EntryKeyRef::Base, EntryValueRef::Base(*v)),
+			Self::Import(v) => (EntryKeyRef::Import, EntryValueRef::Import(v)),
+			Self::Language(v) => (EntryKeyRef::Language, EntryValueRef::Language(*v)),
+			Self::Direction(v) => (EntryKeyRef::Direction, EntryValueRef::Direction(*v)),
+			Self::Propagate(v) => (EntryKeyRef::Propagate, EntryValueRef::Propagate(*v)),
+			Self::Protected(v) => (EntryKeyRef::Protected, EntryValueRef::Protected(*v)),
+			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(*v)),
+			Self::Version(v) => (EntryKeyRef::Version, EntryValueRef::Version(*v)),
+			Self::Vocab(v) => (EntryKeyRef::Vocab, EntryValueRef::Vocab(*v)),
+			Self::Definition(key, b) => {
+				(EntryKeyRef::Definition(key), EntryValueRef::Definition(*b))
+			}
 		}
 	}
 }

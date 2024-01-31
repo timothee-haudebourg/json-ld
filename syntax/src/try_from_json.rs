@@ -2,38 +2,31 @@ use crate::{
 	context::InvalidContext, Container, ContainerKind, Direction, LenientLanguageTagBuf, Nullable,
 };
 use iref::IriRefBuf;
-use locspan::Meta;
 
-pub trait TryFromJson<M>: Sized {
+pub trait TryFromJson: Sized {
 	type Error;
 
-	fn try_from_json(
-		value: Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<Self::Error, M>>;
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, Self::Error>;
 }
 
-pub trait TryFromStrippedJson<M>: Sized {
-	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext>;
-}
-
-impl<M> crate::TryFromJson<M> for bool {
+impl crate::TryFromJson for bool {
 	type Error = crate::Unexpected;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<Self::Error, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, Self::Error> {
 		match value {
-			json_syntax::Value::Boolean(b) => Ok(Meta(b, meta)),
-			unexpected => Err(Meta(
-				crate::Unexpected(unexpected.kind(), &[json_syntax::Kind::Boolean]),
-				meta,
+			json_syntax::Value::Boolean(b) => Ok(b),
+			unexpected => Err(crate::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::Boolean],
 			)),
 		}
 	}
 }
 
-impl<M> TryFromStrippedJson<M> for IriRefBuf {
-	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext> {
+impl TryFromJson for IriRefBuf {
+	type Error = InvalidContext;
+
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => match IriRefBuf::new(s.into_string()) {
 				Ok(iri_ref) => Ok(iri_ref),
@@ -47,27 +40,10 @@ impl<M> TryFromStrippedJson<M> for IriRefBuf {
 	}
 }
 
-impl<M> TryFromJson<M> for IriRefBuf {
+impl TryFromJson for LenientLanguageTagBuf {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
-		match value {
-			json_syntax::Value::String(s) => match IriRefBuf::new(s.into_string()) {
-				Ok(iri_ref) => Ok(Meta(iri_ref, meta)),
-				Err(e) => Err(Meta(InvalidContext::InvalidIriRef(e.0), meta)),
-			},
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String]),
-				meta,
-			)),
-		}
-	}
-}
-
-impl<M> TryFromStrippedJson<M> for LenientLanguageTagBuf {
-	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => {
 				let (lang, _) = LenientLanguageTagBuf::new(s.into_string());
@@ -81,8 +57,10 @@ impl<M> TryFromStrippedJson<M> for LenientLanguageTagBuf {
 	}
 }
 
-impl<M> TryFromStrippedJson<M> for Direction {
-	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext> {
+impl TryFromJson for Direction {
+	type Error = InvalidContext;
+
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => match Direction::try_from(s.as_str()) {
 				Ok(d) => Ok(d),
@@ -96,57 +74,48 @@ impl<M> TryFromStrippedJson<M> for Direction {
 	}
 }
 
-impl<M, T: TryFromStrippedJson<M>> TryFromJson<M> for Nullable<T> {
-	type Error = InvalidContext;
+impl<T: TryFromJson> TryFromJson for Nullable<T> {
+	type Error = T::Error;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, Self::Error> {
 		match value {
-			json_syntax::Value::Null => Ok(Meta(Self::Null, meta)),
-			some => match T::try_from_stripped_json(some) {
-				Ok(some) => Ok(Meta(Self::Some(some), meta)),
-				Err(e) => Err(Meta(e, meta)),
-			},
+			json_syntax::Value::Null => Ok(Self::Null),
+			some => T::try_from_json(some).map(Self::Some),
 		}
 	}
 }
 
-impl<M> TryFromJson<M> for Container<M> {
+impl TryFromJson for Container {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		value: Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
-			Meta(json_syntax::Value::Array(a), meta) => {
+			json_syntax::Value::Array(a) => {
 				let mut container = Vec::new();
 
 				for item in a {
 					container.push(ContainerKind::try_from_json(item)?)
 				}
 
-				Ok(Meta(Self::Many(container), meta))
+				Ok(Self::Many(container))
 			}
-			other => ContainerKind::try_from_json(other).map(Meta::cast),
+			other => ContainerKind::try_from_json(other).map(Into::into),
 		}
 	}
 }
 
-impl<M> TryFromJson<M> for ContainerKind {
+impl TryFromJson for ContainerKind {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => match ContainerKind::try_from(s.as_str()) {
-				Ok(t) => Ok(Meta(t, meta)),
-				Err(_) => Err(Meta(InvalidContext::InvalidTermDefinition, meta)),
+				Ok(t) => Ok(t),
+				Err(_) => Err(InvalidContext::InvalidTermDefinition),
 			},
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String]),
-				meta,
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::String],
 			)),
 		}
 	}

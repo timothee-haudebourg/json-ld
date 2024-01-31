@@ -1,10 +1,8 @@
 use crate::{object, Direction, LangString, LenientLanguageTag};
 use educe::Educe;
 use iref::{Iri, IriBuf};
-use json_ld_syntax::{IntoJsonWithContextMeta, Keyword};
+use json_ld_syntax::{IntoJsonWithContext, Keyword};
 use json_syntax::{Number, NumberBuf};
-use locspan::Meta;
-use locspan_derive::*;
 use rdf_types::{IriVocabulary, IriVocabularyMut};
 use std::{hash::Hash, marker::PhantomData};
 
@@ -93,7 +91,7 @@ impl Literal {
 		}
 	}
 
-	pub fn into_json<M>(self) -> json_syntax::Value<M> {
+	pub fn into_json(self) -> json_syntax::Value {
 		match self {
 			Self::Null => json_syntax::Value::Null,
 			Self::Boolean(b) => json_syntax::Value::Boolean(b),
@@ -121,34 +119,19 @@ impl Literal {
 /// Value object.
 ///
 /// Either a typed literal value, or an internationalized language string.
-#[derive(
-	Debug,
-	Clone,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Hash,
-	StrippedPartialEq,
-	StrippedEq,
-	StrippedPartialOrd,
-	StrippedOrd,
-	StrippedHash,
-)]
-#[locspan(ignore(M))]
-#[locspan(stripped(T), fixed(T))]
-pub enum Value<T = IriBuf, M = ()> {
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Value<T = IriBuf> {
 	/// Typed literal value.
-	Literal(#[locspan(stripped)] Literal, #[locspan(stripped)] Option<T>),
+	Literal(Literal, Option<T>),
 
 	/// Language tagged string.
-	LangString(#[locspan(stripped)] LangString),
+	LangString(LangString),
 
 	/// JSON literal value.
-	Json(Meta<json_syntax::Value<M>, M>),
+	Json(json_syntax::Value),
 }
 
-impl<T, M> Value<T, M> {
+impl<T> Value<T> {
 	/// Creates a `null` value object.
 	#[inline(always)]
 	pub fn null() -> Self {
@@ -251,7 +234,7 @@ impl<T, M> Value<T, M> {
 	}
 
 	#[inline(always)]
-	pub fn entries(&self) -> Entries<T, M> {
+	pub fn entries(&self) -> Entries<T> {
 		match self {
 			Self::Literal(l, ty) => Entries {
 				value: Some(ValueEntryRef::Literal(l)),
@@ -276,27 +259,26 @@ impl<T, M> Value<T, M> {
 
 	pub(crate) fn try_from_json_object_in(
 		vocabulary: &mut impl IriVocabularyMut<Iri = T>,
-		mut object: json_syntax::Object<M>,
-		value_entry: json_syntax::object::Entry<M>,
-	) -> Result<Self, Meta<InvalidExpandedJson<M>, M>> {
+		mut object: json_syntax::Object,
+		value_entry: json_syntax::object::Entry,
+	) -> Result<Self, InvalidExpandedJson> {
 		match object
 			.remove_unique("@type")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
 			Some(type_entry) => match type_entry.value {
-				Meta(json_syntax::Value::String(ty), ty_meta) => match ty.as_str() {
+				json_syntax::Value::String(ty) => match ty.as_str() {
 					"@json" => Ok(Self::Json(value_entry.value)),
 					iri => match Iri::new(iri) {
 						Ok(iri) => {
 							let ty = vocabulary.insert(iri);
-							let Meta(value, meta) = value_entry.value;
-							let lit = value.try_into().map_err(|e| Meta(e, meta))?;
+							let lit = value_entry.value.try_into()?;
 							Ok(Self::Literal(lit, Some(ty)))
 						}
-						Err(_) => Err(Meta(InvalidExpandedJson::InvalidValueType, ty_meta)),
+						Err(_) => Err(InvalidExpandedJson::InvalidValueType),
 					},
 				},
-				Meta(_, meta) => Err(Meta(InvalidExpandedJson::InvalidValueType, meta)),
+				_ => Err(InvalidExpandedJson::InvalidValueType),
 			},
 			None => {
 				let language = object
@@ -316,8 +298,7 @@ impl<T, M> Value<T, M> {
 						direction,
 					)?))
 				} else {
-					let Meta(value, meta) = value_entry.value;
-					let lit = value.try_into().map_err(|e| Meta(e, meta))?;
+					let lit = value_entry.value.try_into()?;
 					Ok(Self::Literal(lit, None))
 				}
 			}
@@ -343,10 +324,10 @@ impl<T, M> Value<T, M> {
 	}
 }
 
-impl<M> TryFrom<json_syntax::Value<M>> for Literal {
-	type Error = InvalidExpandedJson<M>;
+impl TryFrom<json_syntax::Value> for Literal {
+	type Error = InvalidExpandedJson;
 
-	fn try_from(value: json_syntax::Value<M>) -> Result<Self, Self::Error> {
+	fn try_from(value: json_syntax::Value) -> Result<Self, Self::Error> {
 		match value {
 			json_syntax::Value::Null => Ok(Self::Null),
 			json_syntax::Value::Boolean(b) => Ok(Self::Boolean(b)),
@@ -357,23 +338,23 @@ impl<M> TryFrom<json_syntax::Value<M>> for Literal {
 	}
 }
 
-impl<T, B, M> object::Any<T, B, M> for Value<T, M> {
+impl<T, B> object::Any<T, B> for Value<T> {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref<T, B, M> {
+	fn as_ref(&self) -> object::Ref<T, B> {
 		object::Ref::Value(self)
 	}
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryRef<'a, T, M> {
-	Value(ValueEntryRef<'a, M>),
+pub enum EntryRef<'a, T> {
+	Value(ValueEntryRef<'a>),
 	Type(TypeRef<'a, T>),
 	Language(LenientLanguageTag<'a>),
 	Direction(Direction),
 }
 
-impl<'a, T, M> EntryRef<'a, T, M> {
+impl<'a, T> EntryRef<'a, T> {
 	pub fn into_key(self) -> EntryKey {
 		match self {
 			Self::Value(_) => EntryKey::Value,
@@ -387,7 +368,7 @@ impl<'a, T, M> EntryRef<'a, T, M> {
 		self.into_key()
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a, T, M> {
+	pub fn into_value(self) -> EntryValueRef<'a, T> {
 		match self {
 			Self::Value(v) => EntryValueRef::Value(v),
 			Self::Type(v) => EntryValueRef::Type(v),
@@ -396,7 +377,7 @@ impl<'a, T, M> EntryRef<'a, T, M> {
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a, T, M> {
+	pub fn value(&self) -> EntryValueRef<'a, T> {
 		match self {
 			Self::Value(v) => EntryValueRef::Value(*v),
 			Self::Type(v) => EntryValueRef::Type(*v),
@@ -408,25 +389,25 @@ impl<'a, T, M> EntryRef<'a, T, M> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryValueRef<'a, T, M> {
-	Value(ValueEntryRef<'a, M>),
+pub enum EntryValueRef<'a, T> {
+	Value(ValueEntryRef<'a>),
 	Type(TypeRef<'a, T>),
 	Language(LenientLanguageTag<'a>),
 	Direction(Direction),
 }
-pub enum ValueEntryRef<'a, M> {
+pub enum ValueEntryRef<'a> {
 	Literal(&'a Literal),
 	LangString(&'a str),
-	Json(&'a Meta<json_syntax::Value<M>, M>),
+	Json(&'a json_syntax::Value),
 }
 
-impl<'a, M> Clone for ValueEntryRef<'a, M> {
+impl<'a> Clone for ValueEntryRef<'a> {
 	fn clone(&self) -> Self {
 		*self
 	}
 }
 
-impl<'a, M> Copy for ValueEntryRef<'a, M> {}
+impl<'a> Copy for ValueEntryRef<'a> {}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EntryKey {
@@ -466,15 +447,15 @@ impl EntryKey {
 
 #[derive(Educe)]
 #[educe(Clone)]
-pub struct Entries<'a, T, M> {
-	value: Option<ValueEntryRef<'a, M>>,
+pub struct Entries<'a, T> {
+	value: Option<ValueEntryRef<'a>>,
 	type_: Option<TypeRef<'a, T>>,
 	language: Option<LenientLanguageTag<'a>>,
 	direction: Option<Direction>,
 }
 
-impl<'a, T, M> Iterator for Entries<'a, T, M> {
-	type Item = EntryRef<'a, T, M>;
+impl<'a, T> Iterator for Entries<'a, T> {
+	type Item = EntryRef<'a, T>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = 0;
@@ -510,9 +491,9 @@ impl<'a, T, M> Iterator for Entries<'a, T, M> {
 	}
 }
 
-impl<'a, T, M> ExactSizeIterator for Entries<'a, T, M> {}
+impl<'a, T> ExactSizeIterator for Entries<'a, T> {}
 
-impl<'a, T, M> DoubleEndedIterator for Entries<'a, T, M> {
+impl<'a, T> DoubleEndedIterator for Entries<'a, T> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.direction.take().map(EntryRef::Direction).or_else(|| {
 			self.language.take().map(EntryRef::Language).or_else(|| {
@@ -526,21 +507,21 @@ impl<'a, T, M> DoubleEndedIterator for Entries<'a, T, M> {
 }
 
 /// Reference to any fragment that can appear in a value object.
-pub enum FragmentRef<'a, T, M> {
+pub enum FragmentRef<'a, T> {
 	/// Value object entry.
-	Entry(EntryRef<'a, T, M>),
+	Entry(EntryRef<'a, T>),
 
 	/// Value object entry key.
 	Key(EntryKey),
 
 	/// Value object entry value.
-	Value(EntryValueRef<'a, T, M>),
+	Value(EntryValueRef<'a, T>),
 
 	/// JSON fragment in a "@json" typed value.
-	JsonFragment(json_syntax::FragmentRef<'a, M>),
+	JsonFragment(json_syntax::FragmentRef<'a>),
 }
 
-impl<'a, T, M> FragmentRef<'a, T, M> {
+impl<'a, T> FragmentRef<'a, T> {
 	pub fn into_iri(self) -> Option<&'a T> {
 		match self {
 			Self::Value(EntryValueRef::Type(TypeRef::Id(id))) => Some(id),
@@ -571,10 +552,10 @@ impl<'a, T, M> FragmentRef<'a, T, M> {
 		}
 	}
 
-	pub fn sub_fragments(&self) -> SubFragments<'a, T, M> {
+	pub fn sub_fragments(&self) -> SubFragments<'a, T> {
 		match self {
 			Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),
-			Self::Value(EntryValueRef::Value(ValueEntryRef::Json(Meta(json, _)))) => match json {
+			Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => match json {
 				json_syntax::Value::Array(a) => {
 					SubFragments::JsonFragment(json_syntax::SubFragments::Array(a.iter()))
 				}
@@ -589,14 +570,14 @@ impl<'a, T, M> FragmentRef<'a, T, M> {
 	}
 }
 
-pub enum SubFragments<'a, T, M> {
+pub enum SubFragments<'a, T> {
 	None(PhantomData<T>),
-	Entry(Option<EntryKey>, Option<EntryValueRef<'a, T, M>>),
-	JsonFragment(json_syntax::SubFragments<'a, M>),
+	Entry(Option<EntryKey>, Option<EntryValueRef<'a, T>>),
+	JsonFragment(json_syntax::SubFragments<'a>),
 }
 
-impl<'a, T: 'a, M> Iterator for SubFragments<'a, T, M> {
-	type Item = FragmentRef<'a, T, M>;
+impl<'a, T: 'a> Iterator for SubFragments<'a, T> {
+	type Item = FragmentRef<'a, T>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
@@ -610,50 +591,37 @@ impl<'a, T: 'a, M> Iterator for SubFragments<'a, T, M> {
 	}
 }
 
-impl<T, M: Clone, N: IriVocabulary<Iri = T>> IntoJsonWithContextMeta<M, N> for Value<T, M> {
-	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
+impl<T, N: IriVocabulary<Iri = T>> IntoJsonWithContext<N> for Value<T> {
+	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
 		let mut obj = json_syntax::Object::new();
 
 		let value = match self {
 			Self::Literal(lit, ty) => {
 				if let Some(ty) = ty {
-					obj.insert(
-						Meta("@type".into(), meta.clone()),
-						Meta(vocabulary.iri(&ty).unwrap().as_str().into(), meta.clone()),
-					);
+					obj.insert("@type".into(), vocabulary.iri(&ty).unwrap().as_str().into());
 				}
 
-				Meta(lit.into_json(), meta.clone())
+				lit.into_json()
 			}
 			Self::LangString(s) => {
 				if let Some(language) = s.language() {
-					obj.insert(
-						Meta("@language".into(), meta.clone()),
-						Meta(language.as_str().into(), meta.clone()),
-					);
+					obj.insert("@language".into(), language.as_str().into());
 				}
 
 				if let Some(direction) = s.direction() {
-					obj.insert(
-						Meta("@direction".into(), meta.clone()),
-						Meta(direction.as_str().into(), meta.clone()),
-					);
+					obj.insert("@direction".into(), direction.as_str().into());
 				}
 
-				Meta(s.as_str().into(), meta.clone())
+				s.as_str().into()
 			}
 			Self::Json(json) => {
-				obj.insert(
-					Meta("@type".into(), meta.clone()),
-					Meta("@json".into(), meta.clone()),
-				);
+				obj.insert("@type".into(), "@json".into());
 
 				json
 			}
 		};
 
-		obj.insert(Meta("@value".into(), meta.clone()), value);
-
-		Meta(obj.into(), meta)
+		obj.insert("@value".into(), value);
+		obj.into()
 	}
 }

@@ -1,10 +1,9 @@
 use json_ld_syntax::ErrorCode;
-use locspan::Meta;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error<M, E> {
+pub enum Error<E> {
 	#[error("Invalid context: {0}")]
-	ContextSyntax(json_ld_syntax::context::InvalidContext),
+	ContextSyntax(#[from] json_ld_syntax::context::InvalidContext),
 
 	#[error("Context processing failed: {0}")]
 	ContextProcessing(json_ld_context_processing::Error<E>),
@@ -46,7 +45,7 @@ pub enum Error<M, E> {
 	InvalidNestValue,
 
 	#[error("Duplicate key `{0}`")]
-	DuplicateKey(Meta<json_syntax::object::Key, M>),
+	DuplicateKey(json_syntax::object::Key),
 
 	#[error(transparent)]
 	Literal(crate::LiteralExpansionError),
@@ -55,7 +54,7 @@ pub enum Error<M, E> {
 	Value(crate::InvalidValue),
 }
 
-impl<M, E> Error<M, E> {
+impl<E> Error<E> {
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::ContextSyntax(e) => e.code(),
@@ -79,29 +78,29 @@ impl<M, E> Error<M, E> {
 	}
 }
 
-impl<M: Clone, E> Error<M, E> {
+impl<E> Error<E> {
 	pub fn duplicate_key_ref(
-		json_syntax::object::Duplicate(a, b): json_syntax::object::Duplicate<
-			&json_syntax::object::Entry<M>,
+		json_syntax::object::Duplicate(a, _b): json_syntax::object::Duplicate<
+			&json_syntax::object::Entry,
 		>,
-	) -> Meta<Self, M> {
-		Meta(Self::DuplicateKey(a.key.clone()), b.key.metadata().clone())
+	) -> Self {
+		Self::DuplicateKey(a.key.clone())
 	}
 }
 
-impl<M, E> From<json_ld_context_processing::Error<E>> for Error<M, E> {
+impl<E> From<json_ld_context_processing::Error<E>> for Error<E> {
 	fn from(e: json_ld_context_processing::Error<E>) -> Self {
 		Self::ContextProcessing(e)
 	}
 }
 
-impl<M, E> From<crate::LiteralExpansionError> for Error<M, E> {
+impl<E> From<crate::LiteralExpansionError> for Error<E> {
 	fn from(e: crate::LiteralExpansionError) -> Self {
 		Self::Literal(e)
 	}
 }
 
-impl<M, E> From<crate::InvalidValue> for Error<M, E> {
+impl<E> From<crate::InvalidValue> for Error<E> {
 	fn from(e: crate::InvalidValue) -> Self {
 		Self::Value(e)
 	}

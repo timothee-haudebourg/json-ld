@@ -1,7 +1,6 @@
-use locspan_derive::StrippedPartialEq;
 use std::hash::Hash;
 
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct Import;
 
 impl Import {

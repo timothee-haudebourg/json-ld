@@ -1,11 +1,10 @@
 use super::{
 	definition,
 	term_definition::{self, InvalidNest},
-	Context, ContextEntry, Definition, Entry, TermDefinition,
+	Context, ContextEntry, Definition, TermDefinition,
 };
-use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson, TryFromStrippedJson};
+use crate::{Container, ErrorCode, Keyword, Nullable, TryFromJson};
 use iref::IriRefBuf;
-use locspan::Meta;
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum InvalidContext {
@@ -47,122 +46,71 @@ impl From<crate::Unexpected> for InvalidContext {
 	}
 }
 
-impl<M: Clone> TryFromJson<M> for TermDefinition<M> {
+impl TryFromJson for TermDefinition {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
-			json_syntax::Value::String(s) => Ok(Meta(
-				Self::Simple(term_definition::Simple(s.to_string())),
-				meta,
-			)),
+			json_syntax::Value::String(s) => {
+				Ok(Self::Simple(term_definition::Simple(s.to_string())))
+			}
 			json_syntax::Value::Object(o) => {
 				let mut def = term_definition::Expanded::new();
 
-				for json_syntax::object::Entry {
-					key: Meta(key, key_metadata),
-					value,
-				} in o
-				{
+				for json_syntax::object::Entry { key, value } in o {
 					match Keyword::try_from(key.as_str()) {
-						Ok(Keyword::Id) => {
-							def.id = Some(Entry::new_with(
-								key_metadata,
-								Nullable::try_from_json(value)?,
-							))
-						}
-						Ok(Keyword::Type) => {
-							def.type_ = Some(Entry::new_with(
-								key_metadata,
-								Nullable::try_from_json(value)?,
-							))
-						}
+						Ok(Keyword::Id) => def.id = Some(Nullable::try_from_json(value)?),
+						Ok(Keyword::Type) => def.type_ = Some(Nullable::try_from_json(value)?),
 						Ok(Keyword::Context) => {
-							def.context = Some(Entry::new_with(
-								key_metadata,
-								Context::try_from_json(value)?.map(Box::new),
-							))
+							def.context = Some(Box::new(Context::try_from_json(value)?))
 						}
 						Ok(Keyword::Reverse) => {
-							def.reverse = Some(Entry::new_with(
-								key_metadata,
-								definition::Key::try_from_json(value)?,
-							))
+							def.reverse = Some(definition::Key::try_from_json(value)?)
 						}
 						Ok(Keyword::Index) => {
-							def.index = Some(Entry::new_with(
-								key_metadata,
-								term_definition::Index::try_from_json(value)?,
-							))
+							def.index = Some(term_definition::Index::try_from_json(value)?)
 						}
 						Ok(Keyword::Language) => {
-							def.language = Some(Entry::new_with(
-								key_metadata,
-								Nullable::try_from_json(value)?,
-							))
+							def.language = Some(Nullable::try_from_json(value)?)
 						}
 						Ok(Keyword::Direction) => {
-							def.direction = Some(Entry::new_with(
-								key_metadata,
-								Nullable::try_from_json(value)?,
-							))
+							def.direction = Some(Nullable::try_from_json(value)?)
 						}
 						Ok(Keyword::Container) => {
 							let container = match value {
-								Meta(json_syntax::Value::Null, meta) => Meta(Nullable::Null, meta),
+								json_syntax::Value::Null => Nullable::Null,
 								other => {
-									let Meta(container, meta) = Container::try_from_json(other)?;
-									Meta(Nullable::Some(container), meta)
+									let container = Container::try_from_json(other)?;
+									Nullable::Some(container)
 								}
 							};
 
-							def.container = Some(Entry::new_with(key_metadata, container))
+							def.container = Some(container)
 						}
 						Ok(Keyword::Nest) => {
-							def.nest = Some(Entry::new_with(
-								key_metadata,
-								term_definition::Nest::try_from_json(value)?,
-							))
+							def.nest = Some(term_definition::Nest::try_from_json(value)?)
 						}
-						Ok(Keyword::Prefix) => {
-							def.prefix = Some(Entry::new_with(
-								key_metadata,
-								bool::try_from_json(value).map_err(Meta::cast)?,
-							))
-						}
-						Ok(Keyword::Propagate) => {
-							def.propagate = Some(Entry::new_with(
-								key_metadata,
-								bool::try_from_json(value).map_err(Meta::cast)?,
-							))
-						}
-						Ok(Keyword::Protected) => {
-							def.protected = Some(Entry::new_with(
-								key_metadata,
-								bool::try_from_json(value).map_err(Meta::cast)?,
-							))
-						}
-						_ => return Err(Meta(InvalidContext::InvalidTermDefinition, key_metadata)),
+						Ok(Keyword::Prefix) => def.prefix = Some(bool::try_from_json(value)?),
+						Ok(Keyword::Propagate) => def.propagate = Some(bool::try_from_json(value)?),
+						Ok(Keyword::Protected) => def.protected = Some(bool::try_from_json(value)?),
+						_ => return Err(InvalidContext::InvalidTermDefinition),
 					}
 				}
 
-				Ok(Meta(Self::Expanded(Box::new(def)), meta))
+				Ok(Self::Expanded(Box::new(def)))
 			}
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(
-					unexpected.kind(),
-					&[json_syntax::Kind::String, json_syntax::Kind::Object],
-				),
-				meta,
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::String, json_syntax::Kind::Object],
 			)),
 		}
 	}
 }
 
-impl<M> TryFromStrippedJson<M> for term_definition::Type {
-	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext> {
+impl TryFromJson for term_definition::Type {
+	type Error = InvalidContext;
+
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
 			unexpected => Err(InvalidContext::Unexpected(
@@ -173,102 +121,88 @@ impl<M> TryFromStrippedJson<M> for term_definition::Type {
 	}
 }
 
-impl<M> TryFromJson<M> for definition::TypeContainer {
+impl TryFromJson for definition::TypeContainer {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => match Keyword::try_from(s.as_str()) {
-				Ok(Keyword::Set) => Ok(Meta(Self::Set, meta)),
-				_ => Err(Meta(InvalidContext::InvalidTermDefinition, meta)),
+				Ok(Keyword::Set) => Ok(Self::Set),
+				_ => Err(InvalidContext::InvalidTermDefinition),
 			},
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String]),
-				meta,
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::String],
 			)),
 		}
 	}
 }
 
-impl<M> TryFromJson<M> for definition::Type<M> {
+impl TryFromJson for definition::Type {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::Object(o) => {
 				let mut container = None;
 				let mut protected = None;
 
-				for json_syntax::object::Entry {
-					key: Meta(key, key_metadata),
-					value,
-				} in o
-				{
+				for json_syntax::object::Entry { key, value } in o {
 					match Keyword::try_from(key.as_str()) {
 						Ok(Keyword::Container) => {
-							if let Some(prev) = container.replace(Entry::new_with(
-								key_metadata,
-								definition::TypeContainer::try_from_json(value)?,
-							)) {
-								return Err(Meta(InvalidContext::DuplicateKey, prev.key_metadata));
+							if container
+								.replace(definition::TypeContainer::try_from_json(value)?)
+								.is_some()
+							{
+								return Err(InvalidContext::DuplicateKey);
 							}
 						}
 						Ok(Keyword::Protected) => {
-							if let Some(prev) = protected.replace(Entry::new_with(
-								key_metadata,
-								bool::try_from_json(value).map_err(Meta::cast)?,
-							)) {
-								return Err(Meta(InvalidContext::DuplicateKey, prev.key_metadata));
+							if protected.replace(bool::try_from_json(value)?).is_some() {
+								return Err(InvalidContext::DuplicateKey);
 							}
 						}
-						_ => return Err(Meta(InvalidContext::InvalidTermDefinition, key_metadata)),
+						_ => return Err(InvalidContext::InvalidTermDefinition),
 					}
 				}
 
 				match container {
-					Some(container) => Ok(Meta(
-						Self {
-							container,
-							protected,
-						},
-						meta,
-					)),
-					None => Err(Meta(InvalidContext::InvalidTermDefinition, meta)),
+					Some(container) => Ok(Self {
+						container,
+						protected,
+					}),
+					None => Err(InvalidContext::InvalidTermDefinition),
 				}
 			}
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::Object]),
-				meta,
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::Object],
 			)),
 		}
 	}
 }
 
-impl<M> TryFromJson<M> for definition::Version {
+impl TryFromJson for definition::Version {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::Number(n) => match n.as_str() {
-				"1.1" => Ok(Meta(Self::V1_1, meta)),
-				_ => Err(Meta(InvalidContext::InvalidTermDefinition, meta)),
+				"1.1" => Ok(Self::V1_1),
+				_ => Err(InvalidContext::InvalidTermDefinition),
 			},
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::Number]),
-				meta,
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::Number],
 			)),
 		}
 	}
 }
 
-impl<M> TryFromStrippedJson<M> for definition::Vocab {
-	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext> {
+impl TryFromJson for definition::Vocab {
+	type Error = InvalidContext;
+
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
 			unexpected => Err(InvalidContext::Unexpected(
@@ -279,8 +213,10 @@ impl<M> TryFromStrippedJson<M> for definition::Vocab {
 	}
 }
 
-impl<M> TryFromStrippedJson<M> for term_definition::Id {
-	fn try_from_stripped_json(value: json_syntax::Value<M>) -> Result<Self, InvalidContext> {
+impl TryFromJson for term_definition::Id {
+	type Error = InvalidContext;
+
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
 			unexpected => Err(InvalidContext::Unexpected(
@@ -291,63 +227,55 @@ impl<M> TryFromStrippedJson<M> for term_definition::Id {
 	}
 }
 
-impl<M> TryFromJson<M> for definition::Key {
+impl TryFromJson for definition::Key {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<Self::Error, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, Self::Error> {
 		match value {
-			json_syntax::Value::String(s) => Ok(Meta(Self::from(s.into_string()), meta)),
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String]),
-				meta,
+			json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::String],
 			)),
 		}
 	}
 }
 
-impl<M> TryFromJson<M> for term_definition::Index {
+impl TryFromJson for term_definition::Index {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
-			json_syntax::Value::String(s) => Ok(Meta(Self::from(s.into_string()), meta)),
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String]),
-				meta,
+			json_syntax::Value::String(s) => Ok(Self::from(s.into_string())),
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::String],
 			)),
 		}
 	}
 }
 
-impl<M> TryFromJson<M> for term_definition::Nest {
+impl TryFromJson for term_definition::Nest {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => match Self::try_from(s.into_string()) {
-				Ok(nest) => Ok(Meta(nest, meta)),
-				Err(InvalidNest(s)) => Err(Meta(InvalidContext::InvalidNestValue(s), meta)),
+				Ok(nest) => Ok(nest),
+				Err(InvalidNest(s)) => Err(InvalidContext::InvalidNestValue(s)),
 			},
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(unexpected.kind(), &[json_syntax::Kind::String]),
-				meta,
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[json_syntax::Kind::String],
 			)),
 		}
 	}
 }
 
-impl<M: Clone> TryFromJson<M> for Context<M> {
+impl TryFromJson for Context {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::Array(a) => {
 				let mut many = Vec::with_capacity(a.len());
@@ -356,122 +284,67 @@ impl<M: Clone> TryFromJson<M> for Context<M> {
 					many.push(ContextEntry::try_from_json(item)?)
 				}
 
-				Ok(Meta(Self::Many(many), meta))
+				Ok(Self::Many(many))
 			}
-			context => Ok(Meta(
-				Self::One(ContextEntry::try_from_json(Meta(context, meta.clone()))?),
-				meta,
-			)),
+			context => Ok(Self::One(ContextEntry::try_from_json(context)?)),
 		}
 	}
 }
 
-impl<M: Clone> TryFromJson<M> for ContextEntry<M> {
+impl TryFromJson for ContextEntry {
 	type Error = InvalidContext;
 
-	fn try_from_json(
-		Meta(value, meta): Meta<json_syntax::Value<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidContext, M>> {
+	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
-			json_syntax::Value::Null => Ok(Meta(Self::Null, meta)),
+			json_syntax::Value::Null => Ok(Self::Null),
 			json_syntax::Value::String(s) => match IriRefBuf::new(s.into_string()) {
-				Ok(iri_ref) => Ok(Meta(Self::IriRef(iri_ref), meta)),
-				Err(e) => Err(Meta(InvalidContext::InvalidIriRef(e.0), meta)),
+				Ok(iri_ref) => Ok(Self::IriRef(iri_ref)),
+				Err(e) => Err(InvalidContext::InvalidIriRef(e.0)),
 			},
 			json_syntax::Value::Object(o) => {
 				let mut def = Definition::new();
 
-				for json_syntax::object::Entry {
-					key: Meta(key, key_metadata),
-					value,
-				} in o
-				{
+				for json_syntax::object::Entry { key, value } in o {
 					match Keyword::try_from(key.as_str()) {
-						Ok(Keyword::Base) => {
-							def.base = Some(Entry::new_with(
-								key_metadata,
-								Nullable::try_from_json(value)?,
-							))
-						}
-						Ok(Keyword::Import) => {
-							def.import = Some(Entry::new_with(
-								key_metadata,
-								IriRefBuf::try_from_json(value)?,
-							))
-						}
+						Ok(Keyword::Base) => def.base = Some(Nullable::try_from_json(value)?),
+						Ok(Keyword::Import) => def.import = Some(IriRefBuf::try_from_json(value)?),
 						Ok(Keyword::Language) => {
-							def.language = Some(Entry::new_with(
-								key_metadata,
-								Nullable::try_from_json(value)?,
-							))
+							def.language = Some(Nullable::try_from_json(value)?)
 						}
 						Ok(Keyword::Direction) => {
-							def.direction = Some(Entry::new_with(
-								key_metadata,
-								Nullable::try_from_json(value)?,
-							))
+							def.direction = Some(Nullable::try_from_json(value)?)
 						}
-						Ok(Keyword::Propagate) => {
-							def.propagate = Some(Entry::new_with(
-								key_metadata,
-								bool::try_from_json(value).map_err(Meta::cast)?,
-							))
-						}
-						Ok(Keyword::Protected) => {
-							def.protected = Some(Entry::new_with(
-								key_metadata,
-								bool::try_from_json(value).map_err(Meta::cast)?,
-							))
-						}
+						Ok(Keyword::Propagate) => def.propagate = Some(bool::try_from_json(value)?),
+						Ok(Keyword::Protected) => def.protected = Some(bool::try_from_json(value)?),
 						Ok(Keyword::Type) => {
-							def.type_ = Some(Entry::new_with(
-								key_metadata,
-								definition::Type::try_from_json(value)?,
-							))
+							def.type_ = Some(definition::Type::try_from_json(value)?)
 						}
 						Ok(Keyword::Version) => {
-							def.version = Some(Entry::new_with(
-								key_metadata,
-								definition::Version::try_from_json(value)?,
-							))
+							def.version = Some(definition::Version::try_from_json(value)?)
 						}
-						Ok(Keyword::Vocab) => {
-							def.vocab = Some(Entry::new_with(
-								key_metadata,
-								Nullable::try_from_json(value)?,
-							))
-						}
+						Ok(Keyword::Vocab) => def.vocab = Some(Nullable::try_from_json(value)?),
 						_ => {
 							let term_def = match value {
-								Meta(json_syntax::Value::Null, meta) => Meta(Nullable::Null, meta),
-								other => TermDefinition::try_from_json(other)?.map(Nullable::Some),
+								json_syntax::Value::Null => Nullable::Null,
+								other => Nullable::Some(TermDefinition::try_from_json(other)?),
 							};
 
-							if let Some(binding) = def
-								.bindings
-								.insert_with(Meta(key.into(), key_metadata), term_def)
-							{
-								return Err(Meta(
-									InvalidContext::DuplicateKey,
-									binding.key_metadata,
-								));
+							if def.bindings.insert_with(key.into(), term_def).is_some() {
+								return Err(InvalidContext::DuplicateKey);
 							}
 						}
 					}
 				}
 
-				Ok(Meta(Self::Definition(def), meta))
+				Ok(Self::Definition(def))
 			}
-			unexpected => Err(Meta(
-				InvalidContext::Unexpected(
-					unexpected.kind(),
-					&[
-						json_syntax::Kind::Null,
-						json_syntax::Kind::String,
-						json_syntax::Kind::Object,
-					],
-				),
-				meta,
+			unexpected => Err(InvalidContext::Unexpected(
+				unexpected.kind(),
+				&[
+					json_syntax::Kind::Null,
+					json_syntax::Kind::String,
+					json_syntax::Kind::Object,
+				],
 			)),
 		}
 	}

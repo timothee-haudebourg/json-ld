@@ -1,9 +1,7 @@
 use hashbrown::HashSet;
 use iref::Iri;
-use json_ld_syntax::Entry;
 use json_syntax::Parse;
 use linked_data::{grdf, FromLinkedDataError, LinkedDataDeserialize};
-use locspan::{Meta, Stripped};
 use rdf_types::{
 	interpretation::ReverseIriInterpretation, literal, BlankIdVocabulary, IriVocabulary,
 	LanguageTagVocabulary, Quad, ReverseIdInterpretation, ReverseTermInterpretation, Term,
@@ -215,10 +213,7 @@ fn is_anonymous<I: ReverseTermInterpretation>(interpretation: &I, id: &I::Resour
 }
 
 pub enum SerializationError {
-	InvalidJson(
-		linked_data::ContextIris,
-		json_syntax::parse::Error<(), std::convert::Infallible>,
-	),
+	InvalidJson(linked_data::ContextIris, json_syntax::parse::Error),
 	InvalidBoolean(linked_data::ContextIris, String),
 	Number(linked_data::ContextIris, String),
 }
@@ -435,13 +430,13 @@ where
 					)?);
 				}
 
-				Ok(Meta::none(Indexed::none(Object::List(List::new(objects)))))
+				Ok(Indexed::none(Object::List(List::new(objects))))
 			}
 			None => {
 				let mut node: Node<V::Iri, V::BlankId> = Node::new();
 
 				if let Some(id) = id_of(interpretation, id) {
-					node.set_id(Some(Entry::new(id)))
+					node.id = Some(id)
 				}
 
 				let mut types = Vec::with_capacity(resource.types.len());
@@ -452,12 +447,12 @@ where
 					};
 
 					if let Some(ty_id) = id_of(interpretation, ty_resource) {
-						types.push(Meta(ty_id, ()))
+						types.push(ty_id)
 					}
 				}
 
 				if !types.is_empty() {
-					node.set_type(Some(types));
+					node.types = Some(types);
 				}
 
 				if let Some(graph) = &resource.graph {
@@ -465,7 +460,7 @@ where
 
 					for (id, resource) in &graph.resources {
 						if resource.references != 1 && !resource.is_empty() {
-							value.insert(Stripped(render_object(
+							value.insert(render_object(
 								vocabulary,
 								interpretation,
 								rdf_terms,
@@ -473,11 +468,11 @@ where
 								id,
 								resource,
 								context,
-							)?));
+							)?);
 						}
 					}
 
-					node.set_graph(Some(value));
+					node.graph = Some(value)
 				}
 
 				for (prop, objects) in &resource.properties {
@@ -521,7 +516,7 @@ where
 					)?;
 				}
 
-				Ok(Meta::none(Indexed::none(Object::node(node))))
+				Ok(Indexed::none(Object::node(node)))
 			}
 		}
 	}
@@ -556,7 +551,7 @@ where
 
 			while values.len() > 1 {
 				let value = values.next().unwrap();
-				let Meta(v, _) = render_object_or_reference(
+				let v = render_object_or_reference(
 					vocabulary,
 					interpretation,
 					rdf_terms,
@@ -568,7 +563,7 @@ where
 			}
 
 			if let Some(value) = values.next() {
-				let Meta(v, _) = render_object_or_reference(
+				let v = render_object_or_reference(
 					vocabulary,
 					interpretation,
 					rdf_terms,
@@ -640,9 +635,9 @@ where
 	I::Resource: Ord,
 {
 	match term_of(vocabulary, interpretation, id, context)? {
-		Some(Term::Id(id)) => Ok(Meta::none(Indexed::none(Object::node(Node::with_id(id))))),
-		Some(Term::Literal(value)) => Ok(Meta::none(Indexed::none(Object::Value(value)))),
-		None => Ok(Meta::none(Indexed::none(Object::node(Node::new())))),
+		Some(Term::Id(id)) => Ok(Indexed::none(Object::node(Node::with_id(id)))),
+		Some(Term::Literal(value)) => Ok(Indexed::none(Object::Value(value))),
+		None => Ok(Indexed::none(Object::node(Node::new()))),
 	}
 }
 
@@ -693,8 +688,8 @@ where
 					literal::Type::Any(i) => {
 						let ty = vocabulary.iri(i).unwrap();
 						if ty == RDF_JSON {
-							let json = json_syntax::Value::parse_str(l.value().as_ref(), |_| ())
-								.map_err(|Meta(e, _)| {
+							let (json, _) = json_syntax::Value::parse_str(l.value().as_ref())
+								.map_err(|e| {
 									SerializationError::InvalidJson(
 										context.into_iris(vocabulary, interpretation),
 										e,

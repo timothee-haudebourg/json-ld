@@ -1,15 +1,11 @@
 use super::{InvalidExpandedJson, Traverse, TryFromJson, TryFromJsonObject};
-use crate::{
-	id, object, utils, Id, Indexed, IndexedObject, Object, Objects, Relabel, StrippedIndexedObject,
-	Term,
-};
+use crate::{object, utils, Id, Indexed, IndexedObject, Object, Objects, Relabel, Term};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
 use indexmap::IndexSet;
 use iref::IriBuf;
-use json_ld_syntax::{Entry, IntoJson, IntoJsonWithContextMeta, Keyword};
-use locspan::{BorrowStripped, Meta, Stripped, StrippedEq, StrippedPartialEq};
-use rdf_types::{BlankIdBuf, Subject, Vocabulary, VocabularyMut};
+use json_ld_syntax::{IntoJson, IntoJsonWithContext, Keyword};
+use rdf_types::{BlankIdBuf, Generator, Subject, Vocabulary, VocabularyMut};
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
@@ -21,47 +17,11 @@ pub use multiset::Multiset;
 pub use properties::Properties;
 pub use reverse_properties::ReverseProperties;
 
-pub type Graph<T, B, M = ()> = IndexSet<StrippedIndexedObject<T, B, M>>;
+pub type Graph<T, B> = IndexSet<IndexedObject<T, B>>;
 
-pub type Included<T, B, M = ()> = IndexSet<StrippedIndexedNode<T, B, M>>;
+pub type Included<T, B> = IndexSet<IndexedNode<T, B>>;
 
-/// Node parts.
-pub struct Parts<T = IriBuf, B = BlankIdBuf, M = ()> {
-	/// Identifier.
-	///
-	/// This is the `@id` field.
-	pub id: Option<Entry<Id<T, B>, M>>,
-
-	/// Types.
-	///
-	/// This is the `@type` field.
-	pub types: Option<TypeEntry<T, B, M>>,
-
-	/// Associated graph.
-	///
-	/// This is the `@graph` field.
-	pub graph: Option<GraphEntry<T, B, M>>,
-
-	/// Included nodes.
-	///
-	/// This is the `@included` field.
-	pub included: Option<IncludedEntry<T, B, M>>,
-
-	/// Properties.
-	///
-	/// Any non-keyword field.
-	pub properties: Properties<T, B, M>,
-
-	/// Reverse properties.
-	///
-	/// This is the `@reverse` field.
-	pub reverse_properties: Option<Entry<ReverseProperties<T, B, M>, M>>,
-}
-
-pub type IndexedNode<T = IriBuf, B = BlankIdBuf, M = ()> = Meta<Indexed<Node<T, B, M>, M>, M>;
-
-/// Indexed node, without regard for its metadata.
-pub type StrippedIndexedNode<T = IriBuf, B = BlankIdBuf, M = ()> = Stripped<IndexedNode<T, B, M>>;
+pub type IndexedNode<T = IriBuf, B = BlankIdBuf> = Indexed<Node<T, B>>;
 
 /// Node object.
 ///
@@ -72,40 +32,40 @@ pub type StrippedIndexedNode<T = IriBuf, B = BlankIdBuf, M = ()> = Stripped<Inde
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
 #[derive(Educe, Debug, Clone)]
-#[educe(Eq(bound = "T: Eq + Hash, B: Eq + Hash, M: Eq"))]
-pub struct Node<T = IriBuf, B = BlankIdBuf, M = ()> {
+#[educe(Eq(bound = "T: Eq + Hash, B: Eq + Hash"))]
+pub struct Node<T = IriBuf, B = BlankIdBuf> {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
-	pub(crate) id: Option<Entry<Id<T, B>, M>>,
+	pub id: Option<Id<T, B>>,
 
 	/// Types.
 	///
 	/// This is the `@type` field.
-	pub(crate) types: Option<TypeEntry<T, B, M>>,
+	pub types: Option<Vec<Id<T, B>>>,
 
 	/// Associated graph.
 	///
 	/// This is the `@graph` field.
-	pub(crate) graph: Option<GraphEntry<T, B, M>>,
+	pub graph: Option<Graph<T, B>>,
 
 	/// Included nodes.
 	///
 	/// This is the `@included` field.
-	pub(crate) included: Option<IncludedEntry<T, B, M>>,
+	pub included: Option<Included<T, B>>,
 
 	/// Properties.
 	///
 	/// Any non-keyword field.
-	pub(crate) properties: Properties<T, B, M>,
+	pub properties: Properties<T, B>,
 
 	/// Reverse properties.
 	///
 	/// This is the `@reverse` field.
-	pub(crate) reverse_properties: Option<Entry<ReverseProperties<T, B, M>, M>>,
+	pub reverse_properties: Option<ReverseProperties<T, B>>,
 }
 
-impl<T, B, M> Default for Node<T, B, M> {
+impl<T, B> Default for Node<T, B> {
 	#[inline(always)]
 	fn default() -> Self {
 		Self::new()
@@ -113,52 +73,6 @@ impl<T, B, M> Default for Node<T, B, M> {
 }
 
 impl<T, B> Node<T, B> {
-	/// Creates a new empty node with the given id.
-	#[inline(always)]
-	pub fn with_id(id: Id<T, B>) -> Self {
-		Self {
-			id: Some(Entry::new(id)),
-			types: None,
-			graph: None,
-			included: None,
-			properties: Properties::new(),
-			reverse_properties: None,
-		}
-	}
-
-	/// Sets the `@type` of the node.
-	pub fn set_type(&mut self, value: Option<Vec<Meta<Id<T, B>, ()>>>) {
-		self.types = value.map(Entry::new)
-	}
-
-	/// Set the graph.
-	#[inline(always)]
-	pub fn set_graph(&mut self, graph: Option<Graph<T, B>>) {
-		self.set_graph_entry(graph.map(Entry::new))
-	}
-
-	/// Returns a mutable reference to the reverse properties of the node.
-	///
-	/// If no `@reverse` entry is present, one is created.
-	#[inline(always)]
-	pub fn reverse_properties_mut_or_default(&mut self) -> &mut ReverseProperties<T, B> {
-		self.reverse_properties
-			.get_or_insert_with(|| Entry::new(ReverseProperties::new()))
-			.value_mut()
-	}
-
-	/// Returns a mutable reference to the included nodes.
-	///
-	/// If no `@included` entry is present, one is created.
-	#[inline(always)]
-	pub fn included_mut_or_default(&mut self) -> &mut Included<T, B> {
-		self.included
-			.get_or_insert_with(|| Entry::new(Included::new()))
-			.value_mut()
-	}
-}
-
-impl<T, B, M> Node<T, B, M> {
 	/// Creates a new empty node.
 	#[inline(always)]
 	pub fn new() -> Self {
@@ -172,9 +86,9 @@ impl<T, B, M> Node<T, B, M> {
 		}
 	}
 
-	/// Creates a new empty node with the given id entry.
+	/// Creates a new empty node with the given id.
 	#[inline(always)]
-	pub fn with_id_entry(id: Entry<Id<T, B>, M>) -> Self {
+	pub fn with_id(id: Id<T, B>) -> Self {
 		Self {
 			id: Some(id),
 			types: None,
@@ -186,7 +100,7 @@ impl<T, B, M> Node<T, B, M> {
 	}
 
 	/// Creates a new graph node.
-	pub fn new_graph(id: Entry<Id<T, B>, M>, graph: GraphEntry<T, B, M>) -> Self {
+	pub fn new_graph(id: Id<T, B>, graph: Graph<T, B>) -> Self {
 		Self {
 			id: Some(id),
 			types: None,
@@ -197,67 +111,38 @@ impl<T, B, M> Node<T, B, M> {
 		}
 	}
 
-	pub fn from_parts(parts: Parts<T, B, M>) -> Self {
-		Self {
-			id: parts.id,
-			types: parts.types,
-			graph: parts.graph,
-			included: parts.included,
-			properties: parts.properties,
-			reverse_properties: parts.reverse_properties,
-		}
-	}
-
-	pub fn into_parts(self) -> Parts<T, B, M> {
-		Parts {
-			id: self.id,
-			types: self.types,
-			graph: self.graph,
-			included: self.included,
-			properties: self.properties,
-			reverse_properties: self.reverse_properties,
-		}
-	}
-
-	/// Get the identifier of the node.
+	/// Returns a mutable reference to the reverse properties of the node.
 	///
-	/// This correspond to the `@id` field of the JSON object.
+	/// If no `@reverse` entry is present, one is created.
 	#[inline(always)]
-	pub fn id(&self) -> Option<&Meta<Id<T, B>, M>> {
-		self.id.as_ref().map(Entry::as_value)
+	pub fn reverse_properties_mut_or_default(&mut self) -> &mut ReverseProperties<T, B> {
+		self.reverse_properties
+			.get_or_insert_with(ReverseProperties::default)
 	}
 
-	/// Get the identifier of the node.
+	/// Returns a mutable reference to the included nodes.
 	///
-	/// This correspond to the `@id` field of the JSON object.
+	/// If no `@included` entry is present, one is created.
 	#[inline(always)]
-	pub fn id_entry(&self) -> Option<&Entry<Id<T, B>, M>> {
-		self.id.as_ref()
-	}
-
-	/// Sets the idntifier of this node.
-	#[inline(always)]
-	pub fn set_id(&mut self, id: Option<Entry<Id<T, B>, M>>) {
-		self.id = id
+	pub fn included_mut_or_default(&mut self) -> &mut Included<T, B> {
+		self.included.get_or_insert_with(Included::default)
 	}
 
 	/// Assigns an identifier to this node and every other node included in this
 	/// one using the given `generator`.
-	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: id::Generator<V, M>>(
+	pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
 	) where
-		M: Clone,
 		T: Eq + Hash,
 		B: Eq + Hash,
 	{
 		if self.id.is_none() {
-			let value = generator.next(vocabulary);
-			self.id = Some(Entry::new_with(value.metadata().clone(), value.cast()))
+			self.id = Some(generator.next(vocabulary).into())
 		}
 
-		if let Some(Meta(graph, _)) = self.graph_mut() {
+		if let Some(graph) = self.graph_mut() {
 			*graph = std::mem::take(graph)
 				.into_iter()
 				.map(|mut o| {
@@ -267,7 +152,7 @@ impl<T, B, M> Node<T, B, M> {
 				.collect();
 		}
 
-		if let Some(Meta(included, _)) = self.included_mut() {
+		if let Some(included) = self.included_mut() {
 			*included = std::mem::take(included)
 				.into_iter()
 				.map(|mut n| {
@@ -293,9 +178,8 @@ impl<T, B, M> Node<T, B, M> {
 	}
 
 	/// Assigns an identifier to this node and every other node included in this one using the given `generator`.
-	pub fn identify_all<G: id::Generator<(), M>>(&mut self, generator: &mut G)
+	pub fn identify_all<G: Generator>(&mut self, generator: &mut G)
 	where
-		M: Clone,
 		T: Eq + Hash,
 		B: Eq + Hash,
 		(): Vocabulary<Iri = T, BlankId = B>,
@@ -357,53 +241,35 @@ impl<T, B, M> Node<T, B, M> {
 
 	/// Get the list of the node's types.
 	#[inline(always)]
-	pub fn types(&self) -> &[Meta<Id<T, B>, M>] {
+	pub fn types(&self) -> &[Id<T, B>] {
 		match self.types.as_ref() {
-			Some(entry) => &entry.value,
+			Some(entry) => entry,
 			None => &[],
 		}
 	}
 
 	/// Returns a mutable reference to the node's types.
 	#[inline(always)]
-	pub fn types_mut(&mut self) -> &mut [Meta<Id<T, B>, M>] {
+	pub fn types_mut(&mut self) -> &mut [Id<T, B>] {
 		match self.types.as_mut() {
-			Some(entry) => &mut entry.value,
+			Some(entry) => entry,
 			None => &mut [],
 		}
 	}
 
-	pub fn type_entry_or_default(
-		&mut self,
-		key_metadata: M,
-		value_metadata: M,
-	) -> &mut TypeEntry<T, B, M> {
-		self.types
-			.get_or_insert_with(|| Entry::new_with(key_metadata, Meta(Vec::new(), value_metadata)))
+	pub fn types_mut_or_default(&mut self) -> &mut Vec<Id<T, B>> {
+		self.types.get_or_insert_with(Vec::new)
 	}
 
-	pub fn type_entry_or_insert(
-		&mut self,
-		key_metadata: M,
-		value: TypeEntryValue<T, B, M>,
-	) -> &mut TypeEntry<T, B, M> {
-		self.types
-			.get_or_insert_with(|| Entry::new_with(key_metadata, value))
+	pub fn types_mut_or_insert(&mut self, value: Vec<Id<T, B>>) -> &mut Vec<Id<T, B>> {
+		self.types.get_or_insert(value)
 	}
 
-	pub fn type_entry_or_insert_with(
+	pub fn types_mut_or_insert_with(
 		&mut self,
-		f: impl FnOnce() -> TypeEntry<T, B, M>,
-	) -> &mut TypeEntry<T, B, M> {
+		f: impl FnOnce() -> Vec<Id<T, B>>,
+	) -> &mut Vec<Id<T, B>> {
 		self.types.get_or_insert_with(f)
-	}
-
-	pub fn type_entry(&self) -> Option<&TypeEntry<T, B, M>> {
-		self.types.as_ref()
-	}
-
-	pub fn set_type_entry(&mut self, entry: Option<TypeEntry<T, B, M>>) {
-		self.types = entry
 	}
 
 	/// Checks if the node has the given type.
@@ -413,7 +279,7 @@ impl<T, B, M> Node<T, B, M> {
 		Id<T, B>: PartialEq<U>,
 	{
 		for self_ty in self.types() {
-			if self_ty.value() == ty {
+			if self_ty == ty {
 				return true;
 			}
 		}
@@ -453,31 +319,31 @@ impl<T, B, M> Node<T, B, M> {
 
 	/// If the node is a graph object, get the graph.
 	#[inline(always)]
-	pub fn graph(&self) -> Option<&Meta<Graph<T, B, M>, M>> {
-		self.graph.as_deref()
-	}
-
-	/// If the node is a graph object, get the mutable graph.
-	#[inline(always)]
-	pub fn graph_mut(&mut self) -> Option<&mut Meta<Graph<T, B, M>, M>> {
-		self.graph.as_deref_mut()
-	}
-
-	/// If the node is a graph object, get the graph.
-	#[inline(always)]
-	pub fn graph_entry(&self) -> Option<&GraphEntry<T, B, M>> {
+	pub fn graph(&self) -> Option<&Graph<T, B>> {
 		self.graph.as_ref()
 	}
 
 	/// If the node is a graph object, get the mutable graph.
 	#[inline(always)]
-	pub fn graph_entry_mut(&mut self) -> Option<&mut GraphEntry<T, B, M>> {
+	pub fn graph_mut(&mut self) -> Option<&mut Graph<T, B>> {
+		self.graph.as_mut()
+	}
+
+	/// If the node is a graph object, get the graph.
+	#[inline(always)]
+	pub fn graph_entry(&self) -> Option<&Graph<T, B>> {
+		self.graph.as_ref()
+	}
+
+	/// If the node is a graph object, get the mutable graph.
+	#[inline(always)]
+	pub fn graph_entry_mut(&mut self) -> Option<&mut Graph<T, B>> {
 		self.graph.as_mut()
 	}
 
 	/// Set the graph.
 	#[inline(always)]
-	pub fn set_graph_entry(&mut self, graph: Option<GraphEntry<T, B, M>>) {
+	pub fn set_graph_entry(&mut self, graph: Option<Graph<T, B>>) {
 		self.graph = graph
 	}
 
@@ -485,7 +351,7 @@ impl<T, B, M> Node<T, B, M> {
 	///
 	/// This correspond to the `@included` field in the JSON representation.
 	#[inline(always)]
-	pub fn included_entry(&self) -> Option<&IncludedEntry<T, B, M>> {
+	pub fn included_entry(&self) -> Option<&Included<T, B>> {
 		self.included.as_ref()
 	}
 
@@ -493,60 +359,57 @@ impl<T, B, M> Node<T, B, M> {
 	///
 	/// This correspond to the `@included` field in the JSON representation.
 	#[inline(always)]
-	pub fn included_entry_mut(&mut self) -> Option<&mut IncludedEntry<T, B, M>> {
+	pub fn included_entry_mut(&mut self) -> Option<&mut Included<T, B>> {
 		self.included.as_mut()
 	}
 
 	/// Returns a reference to the set of `@included` nodes.
-	pub fn included(&self) -> Option<&Meta<Included<T, B, M>, M>> {
-		self.included.as_deref()
+	pub fn included(&self) -> Option<&Included<T, B>> {
+		self.included.as_ref()
 	}
 
 	/// Returns a mutable reference to the set of `@included` nodes.
-	pub fn included_mut(&mut self) -> Option<&mut Meta<Included<T, B, M>, M>> {
-		self.included.as_deref_mut()
+	pub fn included_mut(&mut self) -> Option<&mut Included<T, B>> {
+		self.included.as_mut()
 	}
 
 	/// Set the set of nodes included by the node.
 	#[inline(always)]
-	pub fn set_included(&mut self, included: Option<IncludedEntry<T, B, M>>) {
+	pub fn set_included(&mut self, included: Option<Included<T, B>>) {
 		self.included = included
 	}
 
 	/// Returns a reference to the properties of the node.
 	#[inline(always)]
-	pub fn properties(&self) -> &Properties<T, B, M> {
+	pub fn properties(&self) -> &Properties<T, B> {
 		&self.properties
 	}
 
 	/// Returns a mutable reference to the properties of the node.
 	#[inline(always)]
-	pub fn properties_mut(&mut self) -> &mut Properties<T, B, M> {
+	pub fn properties_mut(&mut self) -> &mut Properties<T, B> {
 		&mut self.properties
 	}
 
 	/// Returns a reference to the properties of the node.
 	#[inline(always)]
-	pub fn reverse_properties(&self) -> Option<&Meta<ReverseProperties<T, B, M>, M>> {
-		self.reverse_properties.as_ref().map(Entry::as_value)
+	pub fn reverse_properties(&self) -> Option<&ReverseProperties<T, B>> {
+		self.reverse_properties.as_ref()
 	}
 
 	/// Returns a reference to the reverse properties of the node.
 	#[inline(always)]
-	pub fn reverse_properties_entry(&self) -> Option<&Entry<ReverseProperties<T, B, M>, M>> {
+	pub fn reverse_properties_entry(&self) -> Option<&ReverseProperties<T, B>> {
 		self.reverse_properties.as_ref()
 	}
 
 	/// Returns a mutable reference to the reverse properties of the node.
 	#[inline(always)]
-	pub fn reverse_properties_mut(&mut self) -> Option<&mut Entry<ReverseProperties<T, B, M>, M>> {
+	pub fn reverse_properties_mut(&mut self) -> Option<&mut ReverseProperties<T, B>> {
 		self.reverse_properties.as_mut()
 	}
 
-	pub fn set_reverse_properties(
-		&mut self,
-		reverse_properties: Option<Entry<ReverseProperties<T, B, M>, M>>,
-	) {
+	pub fn set_reverse_properties(&mut self, reverse_properties: Option<ReverseProperties<T, B>>) {
 		self.reverse_properties = reverse_properties
 	}
 
@@ -570,7 +433,7 @@ impl<T, B, M> Node<T, B, M> {
 	/// Fails and returns itself if the node is *not* an unnamed graph.
 	#[allow(clippy::result_large_err)]
 	#[inline(always)]
-	pub fn into_unnamed_graph(self) -> Result<Entry<Graph<T, B, M>, M>, Self> {
+	pub fn into_unnamed_graph(self) -> Result<Graph<T, B>, Self> {
 		if self.is_unnamed_graph() {
 			Ok(self.graph.unwrap())
 		} else {
@@ -578,19 +441,19 @@ impl<T, B, M> Node<T, B, M> {
 		}
 	}
 
-	pub fn traverse(&self) -> Traverse<T, B, M> {
+	pub fn traverse(&self) -> Traverse<T, B> {
 		Traverse::new(Some(super::FragmentRef::Node(self)))
 	}
 
 	#[inline(always)]
-	pub fn count(&self, f: impl FnMut(&super::FragmentRef<T, B, M>) -> bool) -> usize {
+	pub fn count(&self, f: impl FnMut(&super::FragmentRef<T, B>) -> bool) -> usize {
 		self.traverse().filter(f).count()
 	}
 
-	pub fn entries(&self) -> Entries<T, B, M> {
+	pub fn entries(&self) -> Entries<T, B> {
 		Entries {
 			id: self.id.as_ref(),
-			type_: self.types.as_ref(),
+			type_: self.types.as_deref(),
 			graph: self.graph.as_ref(),
 			included: self.included.as_ref(),
 			reverse: self.reverse_properties.as_ref(),
@@ -600,27 +463,6 @@ impl<T, B, M> Node<T, B, M> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
-	/// Associates the given object to the node through the given property.
-	#[inline(always)]
-	pub fn insert(&mut self, prop: Id<T, B>, value: Indexed<Object<T, B>>) {
-		self.properties.insert(prop, value)
-	}
-
-	/// Associates all the given objects to the node through the given property.
-	///
-	/// If there already exists objects associated to the given reverse property,
-	/// `reverse_value` is added to the list. Duplicate objects are not removed.
-	#[inline(always)]
-	pub fn insert_all<Objects: Iterator<Item = Indexed<Object<T, B>>>>(
-		&mut self,
-		prop: Id<T, B>,
-		values: Objects,
-	) {
-		self.properties.insert_all(prop, values)
-	}
-}
-
-impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// Checks if the node object has the given term as key.
 	///
 	/// # Example
@@ -652,7 +494,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	pub fn get<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
-	) -> Objects<T, B, M>
+	) -> Objects<T, B>
 	where
 		T: 'a,
 	{
@@ -667,7 +509,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	pub fn get_any<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
-	) -> Option<&IndexedObject<T, B, M>>
+	) -> Option<&IndexedObject<T, B>>
 	where
 		T: 'a,
 	{
@@ -676,8 +518,8 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert_with(&mut self, prop: Meta<Id<T, B>, M>, value: IndexedObject<T, B, M>) {
-		self.properties.insert_with(prop, value)
+	pub fn insert(&mut self, prop: Id<T, B>, value: IndexedObject<T, B>) {
+		self.properties.insert(prop, value)
 	}
 
 	/// Associates all the given objects to the node through the given property.
@@ -685,37 +527,30 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// If there already exists objects associated to the given reverse property,
 	/// `reverse_value` is added to the list. Duplicate objects are not removed.
 	#[inline(always)]
-	pub fn insert_all_with<Objects: Iterator<Item = IndexedObject<T, B, M>>>(
+	pub fn insert_all<Objects: Iterator<Item = IndexedObject<T, B>>>(
 		&mut self,
-		prop: Meta<Id<T, B>, M>,
+		prop: Id<T, B>,
 		values: Objects,
 	) {
-		self.properties.insert_all_with(prop, values)
+		self.properties.insert_all(prop, values)
 	}
 
 	pub fn reverse_properties_or_insert(
 		&mut self,
-		key_metadata: M,
-		props: Meta<ReverseProperties<T, B, M>, M>,
-	) -> &mut Entry<ReverseProperties<T, B, M>, M> {
-		self.reverse_properties
-			.get_or_insert_with(|| Entry::new_with(key_metadata, props))
+		props: ReverseProperties<T, B>,
+	) -> &mut ReverseProperties<T, B> {
+		self.reverse_properties.get_or_insert(props)
 	}
 
-	pub fn reverse_properties_or_default(
-		&mut self,
-		key_metadata: M,
-		value_metadata: M,
-	) -> &mut Entry<ReverseProperties<T, B, M>, M> {
-		self.reverse_properties.get_or_insert_with(|| {
-			Entry::new_with(key_metadata, Meta(ReverseProperties::new(), value_metadata))
-		})
+	pub fn reverse_properties_or_default(&mut self) -> &mut ReverseProperties<T, B> {
+		self.reverse_properties
+			.get_or_insert_with(ReverseProperties::default)
 	}
 
 	pub fn reverse_properties_or_insert_with(
 		&mut self,
-		f: impl FnOnce() -> Entry<ReverseProperties<T, B, M>, M>,
-	) -> &mut Entry<ReverseProperties<T, B, M>, M> {
+		f: impl FnOnce() -> ReverseProperties<T, B>,
+	) -> &mut ReverseProperties<T, B> {
 		self.reverse_properties.get_or_insert_with(f)
 	}
 
@@ -724,39 +559,35 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Node<T, B, M> {
 	/// Equivalence is different from equality for anonymous objects.
 	/// Anonymous node objects have an implicit unlabeled blank nodes and thus never equivalent.
 	pub fn equivalent(&self, other: &Self) -> bool {
-		if self.id_entry().is_some() && other.id_entry().is_some() {
-			self.stripped() == other.stripped()
+		if self.id.is_some() && other.id.is_some() {
+			self == other
 		} else {
 			false
 		}
 	}
 }
 
-impl<T, B, M> Relabel<T, B, M> for Node<T, B, M> {
-	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: rdf_types::MetaGenerator<N, M>>(
+impl<T, B> Relabel<T, B> for Node<T, B> {
+	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
 		&mut self,
 		vocabulary: &mut N,
 		generator: &mut G,
-		relabeling: &mut hashbrown::HashMap<B, Meta<Subject<T, B>, M>>,
+		relabeling: &mut hashbrown::HashMap<B, Subject<T, B>>,
 	) where
-		M: Clone,
 		T: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
 	{
 		self.id = match self.id.take() {
-			Some(Entry {
-				key_metadata,
-				value: Meta(Id::Valid(Subject::Blank(b)), _),
-			}) => {
+			Some(Id::Valid(Subject::Blank(b))) => {
 				let value = relabeling
 					.entry(b)
 					.or_insert_with(|| generator.next(vocabulary))
 					.clone();
-				Some(Entry::new_with(key_metadata, value.cast()))
+				Some(value.into())
 			}
 			None => {
 				let value = generator.next(vocabulary);
-				Some(Entry::new_with(value.metadata().clone(), value.cast()))
+				Some(value.into())
 			}
 			id => id,
 		};
@@ -767,11 +598,11 @@ impl<T, B, M> Relabel<T, B, M> for Node<T, B, M> {
 					.entry(b)
 					.or_insert_with(|| generator.next(vocabulary))
 					.clone()
-					.cast();
+					.into();
 			}
 		}
 
-		if let Some(Meta(graph, _)) = self.graph_mut() {
+		if let Some(graph) = self.graph_mut() {
 			*graph = std::mem::take(graph)
 				.into_iter()
 				.map(|mut o| {
@@ -781,7 +612,7 @@ impl<T, B, M> Relabel<T, B, M> for Node<T, B, M> {
 				.collect();
 		}
 
-		if let Some(Meta(included, _)) = self.included_mut() {
+		if let Some(included) = self.included_mut() {
 			*included = std::mem::take(included)
 				.into_iter()
 				.map(|mut n| {
@@ -807,50 +638,19 @@ impl<T, B, M> Relabel<T, B, M> for Node<T, B, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M: PartialEq> PartialEq for Node<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash> PartialEq for Node<T, B> {
 	fn eq(&self, other: &Self) -> bool {
 		self.id.eq(&other.id)
-			&& multiset::compare_unordered_opt(
-				self.types.as_ref().map(|t| t.as_slice()),
-				other.types.as_ref().map(|t| t.as_slice()),
-			) && self.graph.as_ref().map(Entry::as_value).map(Meta::value)
-			== other.graph.as_ref().map(Entry::as_value).map(Meta::value)
-			&& self.included.as_ref().map(Entry::as_value).map(Meta::value)
-				== other
-					.included
-					.as_ref()
-					.map(Entry::as_value)
-					.map(Meta::value)
+			&& multiset::compare_unordered_opt(self.types.as_deref(), other.types.as_deref())
+			&& self.graph.as_ref() == other.graph.as_ref()
+			&& self.included.as_ref() == other.included.as_ref()
 			&& self.properties.eq(&other.properties)
 			&& self.reverse_properties.eq(&other.reverse_properties)
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> StrippedPartialEq for Node<T, B, M> {
-	fn stripped_eq(&self, other: &Self) -> bool {
-		self.id.stripped_eq(&other.id)
-			&& multiset::compare_stripped_unordered_opt(
-				self.types.as_ref().map(|t| t.as_slice()),
-				other.types.as_ref().map(|t| t.as_slice()),
-			) && self.graph.as_ref().map(Entry::as_value).map(Meta::value)
-			== other.graph.as_ref().map(Entry::as_value).map(Meta::value)
-			&& self.included.as_ref().map(Entry::as_value).map(Meta::value)
-				== other
-					.included
-					.as_ref()
-					.map(Entry::as_value)
-					.map(Meta::value)
-			&& self.properties.stripped_eq(&other.properties)
-			&& self
-				.reverse_properties
-				.stripped_eq(&other.reverse_properties)
-	}
-}
-
-impl<T: Eq + Hash, B: Eq + Hash, M> StrippedEq for Node<T, B, M> {}
-
-impl<T, B, M> Indexed<Node<T, B, M>, M> {
-	pub fn entries(&self) -> IndexedEntries<T, B, M> {
+impl<T, B> Indexed<Node<T, B>> {
+	pub fn entries(&self) -> IndexedEntries<T, B> {
 		IndexedEntries {
 			index: self.index(),
 			inner: self.inner().entries(),
@@ -858,7 +658,7 @@ impl<T, B, M> Indexed<Node<T, B, M>, M> {
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> Indexed<Node<T, B, M>, M> {
+impl<T: Eq + Hash, B: Eq + Hash> Indexed<Node<T, B>> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
@@ -866,16 +666,16 @@ impl<T: Eq + Hash, B: Eq + Hash, M> Indexed<Node<T, B, M>, M> {
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
-pub enum EntryKeyRef<'a, T, B, M> {
+pub enum EntryKeyRef<'a, T, B> {
 	Id,
 	Type,
 	Graph,
 	Included,
 	Reverse,
-	Property(Meta<&'a Id<T, B>, &'a M>),
+	Property(&'a Id<T, B>),
 }
 
-impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
+impl<'a, T, B> EntryKeyRef<'a, T, B> {
 	pub fn into_keyword(self) -> Option<Keyword> {
 		match self {
 			Self::Id => Some(Keyword::Id),
@@ -915,8 +715,8 @@ impl<'a, T, B, M> EntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, str, N>
-	for EntryKeyRef<'a, T, B, M>
+impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, N>
+	for EntryKeyRef<'a, T, B>
 {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
 		match self {
@@ -925,23 +725,23 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, st
 			EntryKeyRef::Graph => "@graph",
 			EntryKeyRef::Included => "@included",
 			EntryKeyRef::Reverse => "@reverse",
-			EntryKeyRef::Property(p) => p.0.with(vocabulary).as_str(),
+			EntryKeyRef::Property(p) => p.with(vocabulary).as_str(),
 		}
 	}
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryValueRef<'a, T, B, M> {
-	Id(Meta<&'a Id<T, B>, &'a M>),
-	Type(&'a TypeEntryValue<T, B, M>),
-	Graph(&'a IndexSet<StrippedIndexedObject<T, B, M>>),
-	Included(&'a IndexSet<StrippedIndexedNode<T, B, M>>),
-	Reverse(&'a ReverseProperties<T, B, M>),
-	Property(&'a [StrippedIndexedObject<T, B, M>]),
+pub enum EntryValueRef<'a, T, B> {
+	Id(&'a Id<T, B>),
+	Type(&'a [Id<T, B>]),
+	Graph(&'a IndexSet<IndexedObject<T, B>>),
+	Included(&'a IndexSet<IndexedNode<T, B>>),
+	Reverse(&'a ReverseProperties<T, B>),
+	Property(&'a [IndexedObject<T, B>]),
 }
 
-impl<'a, T, B, M> EntryValueRef<'a, T, B, M> {
+impl<'a, T, B> EntryValueRef<'a, T, B> {
 	pub fn is_json_array(&self) -> bool {
 		matches!(
 			self,
@@ -953,7 +753,7 @@ impl<'a, T, B, M> EntryValueRef<'a, T, B, M> {
 		matches!(self, Self::Reverse(_))
 	}
 
-	fn sub_fragments(&self) -> SubFragments<'a, T, B, M> {
+	fn sub_fragments(&self) -> SubFragments<'a, T, B> {
 		match self {
 			Self::Type(l) => SubFragments::Type(l.iter()),
 			Self::Graph(g) => SubFragments::Graph(g.iter()),
@@ -967,20 +767,17 @@ impl<'a, T, B, M> EntryValueRef<'a, T, B, M> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryRef<'a, T, B, M> {
-	Id(&'a Entry<Id<T, B>, M>),
-	Type(&'a TypeEntry<T, B, M>),
-	Graph(&'a GraphEntry<T, B, M>),
-	Included(&'a IncludedEntry<T, B, M>),
-	Reverse(&'a Entry<ReverseProperties<T, B, M>, M>),
-	Property(
-		Meta<&'a Id<T, B>, &'a M>,
-		&'a [StrippedIndexedObject<T, B, M>],
-	),
+pub enum EntryRef<'a, T, B> {
+	Id(&'a Id<T, B>),
+	Type(&'a [Id<T, B>]),
+	Graph(&'a Graph<T, B>),
+	Included(&'a Included<T, B>),
+	Reverse(&'a ReverseProperties<T, B>),
+	Property(&'a Id<T, B>, &'a [IndexedObject<T, B>]),
 }
 
-impl<'a, T, B, M> EntryRef<'a, T, B, M> {
-	pub fn into_key(self) -> EntryKeyRef<'a, T, B, M> {
+impl<'a, T, B> EntryRef<'a, T, B> {
+	pub fn into_key(self) -> EntryKeyRef<'a, T, B> {
 		match self {
 			Self::Id(_) => EntryKeyRef::Id,
 			Self::Type(_) => EntryKeyRef::Type,
@@ -991,14 +788,14 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn key(&self) -> EntryKeyRef<'a, T, B, M> {
+	pub fn key(&self) -> EntryKeyRef<'a, T, B> {
 		self.into_key()
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a, T, B, M> {
+	pub fn into_value(self) -> EntryValueRef<'a, T, B> {
 		match self {
-			Self::Id(v) => EntryValueRef::Id(Meta(&v.value, &v.key_metadata)),
-			Self::Type(v) => EntryValueRef::Type(&v.value),
+			Self::Id(v) => EntryValueRef::Id(v),
+			Self::Type(v) => EntryValueRef::Type(v),
 			Self::Graph(v) => EntryValueRef::Graph(v),
 			Self::Included(v) => EntryValueRef::Included(v),
 			Self::Reverse(v) => EntryValueRef::Reverse(v),
@@ -1006,17 +803,14 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a, T, B, M> {
+	pub fn value(&self) -> EntryValueRef<'a, T, B> {
 		self.into_value()
 	}
 
-	pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B, M>, EntryValueRef<'a, T, B, M>) {
+	pub fn into_key_value(self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
 		match self {
-			Self::Id(v) => (
-				EntryKeyRef::Id,
-				EntryValueRef::Id(Meta(&v.value, &v.key_metadata)),
-			),
-			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(&v.value)),
+			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
+			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(v)),
 			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
 			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
 			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(v)),
@@ -1024,39 +818,31 @@ impl<'a, T, B, M> EntryRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B, M>, EntryValueRef<'a, T, B, M>) {
+	pub fn as_key_value(&self) -> (EntryKeyRef<'a, T, B>, EntryValueRef<'a, T, B>) {
 		match self {
-			Self::Id(v) => (
-				EntryKeyRef::Id,
-				EntryValueRef::Id(Meta(&v.value, &v.key_metadata)),
-			),
-			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(&v.value)),
-			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
-			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
-			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(v)),
+			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(*v)),
+			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(v)),
+			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(*v)),
+			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(*v)),
+			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(*v)),
 			Self::Property(k, v) => (EntryKeyRef::Property(*k), EntryValueRef::Property(v)),
 		}
 	}
 }
 
-pub type TypeEntryValue<T, B, M> = Meta<Vec<Meta<Id<T, B>, M>>, M>;
-pub type TypeEntry<T, B, M> = Entry<Vec<Meta<Id<T, B>, M>>, M>;
-pub type GraphEntry<T, B, M> = Entry<Graph<T, B, M>, M>;
-pub type IncludedEntry<T, B, M> = Entry<Included<T, B, M>, M>;
-
 #[derive(Educe)]
 #[educe(Clone)]
-pub struct Entries<'a, T, B, M> {
-	id: Option<&'a Entry<Id<T, B>, M>>,
-	type_: Option<&'a TypeEntry<T, B, M>>,
-	graph: Option<&'a GraphEntry<T, B, M>>,
-	included: Option<&'a IncludedEntry<T, B, M>>,
-	reverse: Option<&'a Entry<ReverseProperties<T, B, M>, M>>,
-	properties: properties::Iter<'a, T, B, M>,
+pub struct Entries<'a, T, B> {
+	id: Option<&'a Id<T, B>>,
+	type_: Option<&'a [Id<T, B>]>,
+	graph: Option<&'a Graph<T, B>>,
+	included: Option<&'a Included<T, B>>,
+	reverse: Option<&'a ReverseProperties<T, B>>,
+	properties: properties::Iter<'a, T, B>,
 }
 
-impl<'a, T, B, M> Iterator for Entries<'a, T, B, M> {
-	type Item = EntryRef<'a, T, B, M>;
+impl<'a, T, B> Iterator for Entries<'a, T, B> {
+	type Item = EntryRef<'a, T, B>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = self.properties.len();
@@ -1101,17 +887,17 @@ impl<'a, T, B, M> Iterator for Entries<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, M> ExactSizeIterator for Entries<'a, T, B, M> {}
+impl<'a, T, B> ExactSizeIterator for Entries<'a, T, B> {}
 
 #[derive(Educe)]
 #[educe(Clone)]
-pub struct IndexedEntries<'a, T, B, M> {
+pub struct IndexedEntries<'a, T, B> {
 	index: Option<&'a str>,
-	inner: Entries<'a, T, B, M>,
+	inner: Entries<'a, T, B>,
 }
 
-impl<'a, T, B, M> Iterator for IndexedEntries<'a, T, B, M> {
-	type Item = IndexedEntryRef<'a, T, B, M>;
+impl<'a, T, B> Iterator for IndexedEntries<'a, T, B> {
+	type Item = IndexedEntryRef<'a, T, B>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let len = self.inner.len() + usize::from(self.index.is_some());
@@ -1126,16 +912,16 @@ impl<'a, T, B, M> Iterator for IndexedEntries<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, M> ExactSizeIterator for IndexedEntries<'a, T, B, M> {}
+impl<'a, T, B> ExactSizeIterator for IndexedEntries<'a, T, B> {}
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryKeyRef<'a, T, B, M> {
+pub enum IndexedEntryKeyRef<'a, T, B> {
 	Index,
-	Node(EntryKeyRef<'a, T, B, M>),
+	Node(EntryKeyRef<'a, T, B>),
 }
 
-impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
+impl<'a, T, B> IndexedEntryKeyRef<'a, T, B> {
 	pub fn into_keyword(self) -> Option<Keyword> {
 		match self {
 			Self::Index => Some(Keyword::Index),
@@ -1167,8 +953,8 @@ impl<'a, T, B, M> IndexedEntryKeyRef<'a, T, B, M> {
 	}
 }
 
-impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, str, N>
-	for IndexedEntryKeyRef<'a, T, B, M>
+impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoRefWithContext<'a, str, N>
+	for IndexedEntryKeyRef<'a, T, B>
 {
 	fn into_ref_with(self, vocabulary: &'a N) -> &'a str {
 		match self {
@@ -1180,47 +966,42 @@ impl<'a, T, B, N: Vocabulary<Iri = T, BlankId = B>, M> IntoRefWithContext<'a, st
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryValueRef<'a, T, B, M> {
+pub enum IndexedEntryValueRef<'a, T, B> {
 	Index(&'a str),
-	Node(EntryValueRef<'a, T, B, M>),
+	Node(EntryValueRef<'a, T, B>),
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryRef<'a, T, B, M> {
+pub enum IndexedEntryRef<'a, T, B> {
 	Index(&'a str),
-	Node(EntryRef<'a, T, B, M>),
+	Node(EntryRef<'a, T, B>),
 }
 
-impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
-	pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B, M> {
+impl<'a, T, B> IndexedEntryRef<'a, T, B> {
+	pub fn into_key(self) -> IndexedEntryKeyRef<'a, T, B> {
 		match self {
 			Self::Index(_) => IndexedEntryKeyRef::Index,
 			Self::Node(e) => IndexedEntryKeyRef::Node(e.key()),
 		}
 	}
 
-	pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B, M> {
+	pub fn key(&self) -> IndexedEntryKeyRef<'a, T, B> {
 		self.into_key()
 	}
 
-	pub fn into_value(self) -> IndexedEntryValueRef<'a, T, B, M> {
+	pub fn into_value(self) -> IndexedEntryValueRef<'a, T, B> {
 		match self {
 			Self::Index(v) => IndexedEntryValueRef::Index(v),
 			Self::Node(e) => IndexedEntryValueRef::Node(e.value()),
 		}
 	}
 
-	pub fn value(&self) -> IndexedEntryValueRef<'a, T, B, M> {
+	pub fn value(&self) -> IndexedEntryValueRef<'a, T, B> {
 		self.into_value()
 	}
 
-	pub fn into_key_value(
-		self,
-	) -> (
-		IndexedEntryKeyRef<'a, T, B, M>,
-		IndexedEntryValueRef<'a, T, B, M>,
-	) {
+	pub fn into_key_value(self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
 		match self {
 			Self::Index(v) => (IndexedEntryKeyRef::Index, IndexedEntryValueRef::Index(v)),
 			Self::Node(e) => {
@@ -1230,33 +1011,28 @@ impl<'a, T, B, M> IndexedEntryRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn as_key_value(
-		&self,
-	) -> (
-		IndexedEntryKeyRef<'a, T, B, M>,
-		IndexedEntryValueRef<'a, T, B, M>,
-	) {
+	pub fn as_key_value(&self) -> (IndexedEntryKeyRef<'a, T, B>, IndexedEntryValueRef<'a, T, B>) {
 		self.into_key_value()
 	}
 }
 
 /// Node object fragment reference.
-pub enum FragmentRef<'a, T, B, M> {
+pub enum FragmentRef<'a, T, B> {
 	/// Node object entry.
-	Entry(EntryRef<'a, T, B, M>),
+	Entry(EntryRef<'a, T, B>),
 
 	/// Node object entry key.
-	Key(EntryKeyRef<'a, T, B, M>),
+	Key(EntryKeyRef<'a, T, B>),
 
 	/// Node object entry value.
-	Value(EntryValueRef<'a, T, B, M>),
+	Value(EntryValueRef<'a, T, B>),
 
 	/// "@type" entry value fragment.
-	TypeFragment(Meta<&'a Id<T, B>, &'a M>),
+	TypeFragment(&'a Id<T, B>),
 }
 
-impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
-	pub fn into_id(self) -> Option<Meta<&'a Id<T, B>, &'a M>> {
+impl<'a, T, B> FragmentRef<'a, T, B> {
+	pub fn into_id(self) -> Option<&'a Id<T, B>> {
 		match self {
 			Self::Key(EntryKeyRef::Property(id)) => Some(id),
 			Self::Value(EntryValueRef::Id(id)) => Some(id),
@@ -1288,7 +1064,7 @@ impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
 		}
 	}
 
-	pub fn sub_fragments(&self) -> SubFragments<'a, T, B, M> {
+	pub fn sub_fragments(&self) -> SubFragments<'a, T, B> {
 		match self {
 			Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),
 			Self::Value(v) => v.sub_fragments(),
@@ -1297,21 +1073,21 @@ impl<'a, T, B, M> FragmentRef<'a, T, B, M> {
 	}
 }
 
-pub enum SubFragments<'a, T, B, M> {
+pub enum SubFragments<'a, T, B> {
 	None,
 	Entry(
-		Option<EntryKeyRef<'a, T, B, M>>,
-		Option<EntryValueRef<'a, T, B, M>>,
+		Option<EntryKeyRef<'a, T, B>>,
+		Option<EntryValueRef<'a, T, B>>,
 	),
-	Type(std::slice::Iter<'a, Meta<Id<T, B>, M>>),
-	Graph(indexmap::set::Iter<'a, StrippedIndexedObject<T, B, M>>),
-	Included(indexmap::set::Iter<'a, StrippedIndexedNode<T, B, M>>),
-	Reverse(reverse_properties::Iter<'a, T, B, M>),
-	Property(std::slice::Iter<'a, StrippedIndexedObject<T, B, M>>),
+	Type(std::slice::Iter<'a, Id<T, B>>),
+	Graph(indexmap::set::Iter<'a, IndexedObject<T, B>>),
+	Included(indexmap::set::Iter<'a, IndexedNode<T, B>>),
+	Reverse(reverse_properties::Iter<'a, T, B>),
+	Property(std::slice::Iter<'a, IndexedObject<T, B>>),
 }
 
-impl<'a, T, B, M> Iterator for SubFragments<'a, T, B, M> {
-	type Item = super::FragmentRef<'a, T, B, M>;
+impl<'a, T, B> Iterator for SubFragments<'a, T, B> {
+	type Item = super::FragmentRef<'a, T, B>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
@@ -1325,7 +1101,7 @@ impl<'a, T, B, M> Iterator for SubFragments<'a, T, B, M> {
 				}),
 			Self::Type(l) => l
 				.next_back()
-				.map(|t| super::FragmentRef::NodeFragment(FragmentRef::TypeFragment(t.borrow()))),
+				.map(|t| super::FragmentRef::NodeFragment(FragmentRef::TypeFragment(t))),
 			Self::Graph(g) => g.next().map(|o| super::FragmentRef::IndexedObject(o)),
 			Self::Included(i) => i.next().map(|n| super::FragmentRef::IndexedNode(n)),
 			Self::Reverse(r) => r
@@ -1336,18 +1112,18 @@ impl<'a, T, B, M> Iterator for SubFragments<'a, T, B, M> {
 	}
 }
 
-impl<T, B, M> object::Any<T, B, M> for Node<T, B, M> {
+impl<T, B> object::Any<T, B> for Node<T, B> {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref<T, B, M> {
+	fn as_ref(&self) -> object::Ref<T, B> {
 		object::Ref::Node(self)
 	}
 }
 
-impl<T, B, M> TryFrom<Object<T, B, M>> for Node<T, B, M> {
-	type Error = Object<T, B, M>;
+impl<T, B> TryFrom<Object<T, B>> for Node<T, B> {
+	type Error = Object<T, B>;
 
 	#[inline(always)]
-	fn try_from(obj: Object<T, B, M>) -> Result<Node<T, B, M>, Object<T, B, M>> {
+	fn try_from(obj: Object<T, B>) -> Result<Node<T, B>, Object<T, B>> {
 		match obj {
 			Object::Node(node) => Ok(*node),
 			obj => Err(obj),
@@ -1355,148 +1131,50 @@ impl<T, B, M> TryFrom<Object<T, B, M>> for Node<T, B, M> {
 	}
 }
 
-impl<T: Hash, B: Hash, M: Hash> Hash for Node<T, B, M> {
+impl<T: Hash, B: Hash> Hash for Node<T, B> {
 	#[inline]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		self.id.hash(h);
-		utils::hash_set_opt(self.types.as_ref().map(Entry::as_value).map(Meta::value), h);
-		utils::hash_set_opt(self.graph.as_ref().map(Entry::as_value).map(Meta::value), h);
-		utils::hash_set_opt(
-			self.included.as_ref().map(Entry::as_value).map(Meta::value),
-			h,
-		);
+		utils::hash_set_opt(self.types.as_ref(), h);
+		utils::hash_set_opt(self.graph.as_ref(), h);
+		utils::hash_set_opt(self.included.as_ref(), h);
 		self.properties.hash(h);
 		self.reverse_properties.hash(h)
 	}
 }
 
-impl<T: Hash, B: Hash, M> locspan::StrippedHash for Node<T, B, M> {
-	#[inline]
-	fn stripped_hash<H: Hasher>(&self, h: &mut H) {
-		self.id.stripped_hash(h);
-		utils::hash_set_stripped_opt(self.types.as_ref().map(Entry::as_value).map(Meta::value), h);
-		utils::hash_set_opt(self.graph.as_ref().map(Entry::as_value).map(Meta::value), h);
-		utils::hash_set_opt(
-			self.included.as_ref().map(Entry::as_value).map(Meta::value),
-			h,
-		);
-		self.properties.stripped_hash(h);
-		self.reverse_properties.stripped_hash(h)
-	}
-}
-
-// impl<J: JsonHash + JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K> for Node<T, B, M> {
-// 	fn as_json_with(
-// 		&self,
-// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-// 	) -> K {
-// 		let mut obj = <K as Json>::Object::default();
-
-// 		if let Some(id) = &self.id {
-// 			obj.insert(
-// 				K::new_key(Keyword::Id.into_str(), meta(None)),
-// 				id.as_json_with(meta.clone()),
-// 			);
-// 		}
-
-// 		if !self.types.is_empty() {
-// 			obj.insert(
-// 				K::new_key(Keyword::Type.into_str(), meta(None)),
-// 				self.types.as_json_with(meta.clone()),
-// 			);
-// 		}
-
-// 		if let Some(graph) = &self.graph {
-// 			obj.insert(
-// 				K::new_key(Keyword::Graph.into_str(), meta(None)),
-// 				graph.as_json_with(meta.clone()),
-// 			);
-// 		}
-
-// 		if let Some(included) = &self.included {
-// 			obj.insert(
-// 				K::new_key(Keyword::Included.into_str(), meta(None)),
-// 				included.as_json_with(meta.clone()),
-// 			);
-// 		}
-
-// 		if !self.reverse_properties.is_empty() {
-// 			let mut reverse = <K as Json>::Object::default();
-// 			for (key, value) in &self.reverse_properties {
-// 				reverse.insert(
-// 					K::new_key(key.as_str(), meta(None)),
-// 					value.as_json_with(meta.clone()),
-// 				);
-// 			}
-
-// 			obj.insert(
-// 				K::new_key(Keyword::Reverse.into_str(), meta(None)),
-// 				K::object(reverse, meta(None)),
-// 			);
-// 		}
-
-// 		for (key, value) in &self.properties {
-// 			obj.insert(
-// 				K::new_key(key.as_str(), meta(None)),
-// 				value.as_json_with(meta.clone()),
-// 			);
-// 		}
-
-// 		K::object(obj, meta(None))
-// 	}
-// }
-
-// impl<J: JsonHash + JsonClone, K: utils::JsonFrom<J>, T: Id> utils::AsJson<J, K>
-// 	for HashSet<IndexedNode<T, B, M>>
-// {
-// 	#[inline(always)]
-// 	fn as_json_with(
-// 		&self,
-// 		meta: impl Clone + Fn(Option<&J::MetaData>) -> <K as Json>::MetaData,
-// 	) -> K {
-// 		let array = self
-// 			.iter()
-// 			.map(|value| value.as_json_with(meta.clone()))
-// 			.collect();
-// 		K::array(array, meta(None))
-// 	}
-// }
-
 /// Iterator through indexed nodes.
-pub struct Nodes<'a, T, B, M>(Option<std::slice::Iter<'a, Stripped<IndexedNode<T, B, M>>>>);
+pub struct Nodes<'a, T, B>(Option<std::slice::Iter<'a, IndexedNode<T, B>>>);
 
-impl<'a, T, B, M> Nodes<'a, T, B, M> {
+impl<'a, T, B> Nodes<'a, T, B> {
 	#[inline(always)]
-	pub(crate) fn new(inner: Option<std::slice::Iter<'a, Stripped<IndexedNode<T, B, M>>>>) -> Self {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, IndexedNode<T, B>>>) -> Self {
 		Self(inner)
 	}
 }
 
-impl<'a, T, B, M> Iterator for Nodes<'a, T, B, M> {
-	type Item = &'a IndexedNode<T, B, M>;
+impl<'a, T, B> Iterator for Nodes<'a, T, B> {
+	type Item = &'a IndexedNode<T, B>;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a IndexedNode<T, B, M>> {
+	fn next(&mut self) -> Option<&'a IndexedNode<T, B>> {
 		match &mut self.0 {
 			None => None,
-			Some(it) => it.next().map(|n| &n.0),
+			Some(it) => it.next(),
 		}
 	}
 }
 
-impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M> {
+impl<T: Eq + Hash, B: Eq + Hash> TryFromJsonObject<T, B> for Node<T, B> {
 	fn try_from_json_object_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		mut object: Meta<json_syntax::Object<M>, M>,
-	) -> Result<Meta<Self, M>, Meta<InvalidExpandedJson<M>, M>> {
+		mut object: json_syntax::Object,
+	) -> Result<Self, InvalidExpandedJson> {
 		let id = match object
 			.remove_unique("@id")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new_with(
-				entry.key.into_metadata(),
-				Id::try_from_json_in(vocabulary, entry.value)?,
-			)),
+			Some(entry) => Some(Id::try_from_json_in(vocabulary, entry.value)?),
 			None => None,
 		};
 
@@ -1504,10 +1182,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@type")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new_with(
-				entry.key.into_metadata(),
-				Vec::try_from_json_in(vocabulary, entry.value)?,
-			)),
+			Some(entry) => Some(Vec::try_from_json_in(vocabulary, entry.value)?),
 			None => None,
 		};
 
@@ -1515,10 +1190,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@graph")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new_with(
-				entry.key.into_metadata(),
-				IndexSet::try_from_json_in(vocabulary, entry.value)?,
-			)),
+			Some(entry) => Some(IndexSet::try_from_json_in(vocabulary, entry.value)?),
 			None => None,
 		};
 
@@ -1526,10 +1198,7 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@included")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new_with(
-				entry.key.into_metadata(),
-				IndexSet::try_from_json_in(vocabulary, entry.value)?,
-			)),
+			Some(entry) => Some(IndexSet::try_from_json_in(vocabulary, entry.value)?),
 			None => None,
 		};
 
@@ -1537,40 +1206,32 @@ impl<T: Eq + Hash, B: Eq + Hash, M> TryFromJsonObject<T, B, M> for Node<T, B, M>
 			.remove_unique("@reverse")
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
-			Some(entry) => Some(Entry::new_with(
-				entry.key.into_metadata(),
-				ReverseProperties::try_from_json_in(vocabulary, entry.value)?,
-			)),
+			Some(entry) => Some(ReverseProperties::try_from_json_in(
+				vocabulary,
+				entry.value,
+			)?),
 			None => None,
 		};
 
-		let Meta(properties, meta) = Properties::try_from_json_object_in(vocabulary, object)?;
+		let properties = Properties::try_from_json_object_in(vocabulary, object)?;
 
-		Ok(Meta(
-			Self {
-				id,
-				types,
-				graph,
-				included,
-				reverse_properties,
-				properties,
-			},
-			meta,
-		))
+		Ok(Self {
+			id,
+			types,
+			graph,
+			included,
+			reverse_properties,
+			properties,
+		})
 	}
 }
 
-impl<T, B, M: Clone, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMeta<M, N>
-	for Node<T, B, M>
-{
-	fn into_json_meta_with(self, meta: M, vocabulary: &N) -> Meta<json_syntax::Value<M>, M> {
+impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Node<T, B> {
+	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
 		let mut obj = json_syntax::Object::new();
 
 		if let Some(id) = self.id {
-			obj.insert(
-				Meta("@id".into(), id.key_metadata),
-				id.value.into_with(vocabulary).into_json(),
-			);
+			obj.insert("@id".into(), id.into_with(vocabulary).into_json());
 		}
 
 		if let Some(types) = self.types {
@@ -1580,40 +1241,37 @@ impl<T, B, M: Clone, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContextMet
 				// } else {
 				// 	types.value.0.into_iter().next().unwrap().into_with(vocabulary).into_json()
 				// };
-				let value = types.value.into_with(vocabulary).into_json();
+				let value = types.into_with(vocabulary).into_json();
 
-				obj.insert(Meta("@type".into(), types.key_metadata), value);
+				obj.insert("@type".into(), value);
 			}
 		}
 
 		if let Some(graph) = self.graph {
-			obj.insert(
-				Meta("@graph".into(), graph.key_metadata),
-				graph.value.into_with(vocabulary).into_json(),
-			);
+			obj.insert("@graph".into(), graph.into_with(vocabulary).into_json());
 		}
 
 		if let Some(included) = self.included {
 			obj.insert(
-				Meta("@include".into(), included.key_metadata),
-				included.value.into_with(vocabulary).into_json(),
+				"@include".into(),
+				included.into_with(vocabulary).into_json(),
 			);
 		}
 
 		if let Some(reverse_properties) = self.reverse_properties {
 			obj.insert(
-				Meta("@reverse".into(), reverse_properties.key_metadata),
-				reverse_properties.value.into_with(vocabulary).into_json(),
+				"@reverse".into(),
+				reverse_properties.into_with(vocabulary).into_json(),
 			);
 		}
 
-		for (Meta(prop, meta), objects) in self.properties {
+		for (prop, objects) in self.properties {
 			obj.insert(
-				Meta(prop.with(vocabulary).to_string().into(), meta.clone()),
-				objects.into_json_meta_with(meta, vocabulary),
+				prop.with(vocabulary).to_string().into(),
+				objects.into_json_with(vocabulary),
 			);
 		}
 
-		Meta(obj.into(), meta)
+		obj.into()
 	}
 }

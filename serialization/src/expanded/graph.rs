@@ -2,7 +2,6 @@ use std::hash::Hash;
 
 use json_ld_core::{object::Graph, Indexed};
 use linked_data::{AsRdfLiteral, LinkedDataResource};
-use locspan::{Meta, Stripped};
 use rdf_types::{
 	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
 	Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Vocabulary,
@@ -48,8 +47,7 @@ where
 		T: ?Sized + LinkedDataResource<I, V> + linked_data::LinkedDataSubject<I, V>,
 	{
 		let object = serialize_object_with(self.vocabulary, self.interpretation, value)?;
-		self.result
-			.insert(Stripped(Meta::none(Indexed::new(object, None))));
+		self.result.insert(Indexed::new(object, None));
 		Ok(())
 	}
 

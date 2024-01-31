@@ -5,7 +5,6 @@ use clap::Parser;
 use contextual::WithContext;
 use iref::IriBuf;
 use json_ld::{syntax::Parse, JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference};
-use locspan::{Location, Span};
 use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
 
 #[derive(Parser)]
@@ -75,14 +74,6 @@ impl FromStr for IriOrPath {
 	}
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-enum Source {
-	Nowhere,
-	StdIn,
-	Path,
-	Iri(IriIndex),
-}
-
 #[tokio::main]
 async fn main() {
 	// Parse options.
@@ -92,10 +83,8 @@ async fn main() {
 	stderrlog::new().verbosity(args.verbosity).init().unwrap();
 
 	let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
-	let mut loader: json_ld::loader::ReqwestLoader<IriIndex, Location<Source, Span>> =
-		json_ld::loader::ReqwestLoader::new_with_metadata_map(|_, url, span| {
-			Location::new(Source::Iri(*url), span)
-		});
+	let mut loader: json_ld::loader::ReqwestLoader<IriIndex> =
+		json_ld::loader::ReqwestLoader::new();
 
 	match args.command {
 		Command::Fetch { url } => {
@@ -138,8 +127,7 @@ async fn main() {
 				Ok(mut expanded) => {
 					if relabel {
 						let mut generator =
-							rdf_types::generator::Blank::new_with_prefix("b".to_string())
-								.with_metadata(*expanded.metadata());
+							rdf_types::generator::Blank::new_with_prefix("b".to_string());
 
 						if canonicalize {
 							expanded.relabel_and_canonicalize_with(&mut vocabulary, &mut generator)
@@ -164,8 +152,7 @@ async fn main() {
 		} => {
 			let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url);
 
-			let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string())
-				.with_metadata(Location::new(Source::Nowhere, Span::default()));
+			let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
 
 			match remote_document
 				.flatten_with(&mut vocabulary, &mut generator, &mut loader)
@@ -187,7 +174,7 @@ fn get_remote_document(
 	vocabulary: &mut impl IriVocabularyMut<Iri = IriIndex>,
 	url_or_path: Option<IriOrPath>,
 	base_url: Option<IriBuf>,
-) -> RemoteDocumentReference<IriIndex, Location<Source, Span>> {
+) -> RemoteDocumentReference<IriIndex> {
 	match url_or_path {
 		Some(IriOrPath::Iri(url)) => {
 			let url = vocabulary.insert(url.as_iri());
@@ -195,24 +182,19 @@ fn get_remote_document(
 		}
 		Some(IriOrPath::Path(path)) => {
 			let url = base_url.map(|iri| vocabulary.insert(iri.as_iri()));
-			let source = url.map(Source::Iri).unwrap_or(Source::Path);
 
 			match std::fs::read_to_string(path) {
-				Ok(content) => {
-					match json_ld::syntax::Value::parse_str(&content, |span| {
-						Location::new(source, span)
-					}) {
-						Ok(document) => RemoteDocumentReference::Loaded(RemoteDocument::new(
-							url,
-							Some("application/ld+json".parse().unwrap()),
-							document,
-						)),
-						Err(e) => {
-							eprintln!("error: {e}");
-							std::process::exit(1);
-						}
+				Ok(content) => match json_ld::syntax::Value::parse_str(&content) {
+					Ok((document, _)) => RemoteDocumentReference::Loaded(RemoteDocument::new(
+						url,
+						Some("application/ld+json".parse().unwrap()),
+						document,
+					)),
+					Err(e) => {
+						eprintln!("error: {e}");
+						std::process::exit(1);
 					}
-				}
+				},
 				Err(e) => {
 					eprintln!("error: {e}");
 					std::process::exit(1);
@@ -221,24 +203,19 @@ fn get_remote_document(
 		}
 		None => {
 			let url = base_url.map(|iri| vocabulary.insert(iri.as_iri()));
-			let source = url.map(Source::Iri).unwrap_or(Source::StdIn);
 
 			match std::io::read_to_string(std::io::stdin()) {
-				Ok(content) => {
-					match json_ld::syntax::Value::parse_str(&content, |span| {
-						Location::new(source, span)
-					}) {
-						Ok(document) => RemoteDocumentReference::Loaded(RemoteDocument::new(
-							url,
-							Some("application/ld+json".parse().unwrap()),
-							document,
-						)),
-						Err(e) => {
-							eprintln!("error: {e}");
-							std::process::exit(1);
-						}
+				Ok(content) => match json_ld::syntax::Value::parse_str(&content) {
+					Ok((document, _)) => RemoteDocumentReference::Loaded(RemoteDocument::new(
+						url,
+						Some("application/ld+json".parse().unwrap()),
+						document,
+					)),
+					Err(e) => {
+						eprintln!("error: {e}");
+						std::process::exit(1);
 					}
-				}
+				},
 				Err(e) => {
 					eprintln!("error: {e}");
 					std::process::exit(1);

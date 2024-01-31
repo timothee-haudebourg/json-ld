@@ -1,4 +1,3 @@
-use locspan_derive::StrippedPartialEq;
 use std::{hash::Hash, str::FromStr};
 
 #[derive(Debug, thiserror::Error)]
@@ -8,7 +7,7 @@ pub struct UnknownVersion(pub String);
 /// Version number.
 ///
 /// The only allowed value is a number with the value `1.1`.
-#[derive(Clone, Copy, StrippedPartialEq, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, PartialOrd, Ord, Debug)]
 pub enum Version {
 	V1_1,
 }

@@ -1,4 +1,3 @@
-use locspan_derive::StrippedPartialEq;
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
@@ -7,7 +6,7 @@ use std::fmt;
 pub struct NotAKeyword<T>(pub T);
 
 /// JSON-LD keywords.
-#[derive(Clone, Copy, PartialEq, StrippedPartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Keyword {
 	/// `@base`.
