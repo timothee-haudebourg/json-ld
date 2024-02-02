@@ -186,7 +186,7 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
 	/// Removes and returns all the values associated to the given reverse property.
 	#[inline(always)]
 	pub fn remove(&mut self, prop: &Id<T, B>) -> Option<ReversePropertyNodes<T, B>> {
-		self.0.remove(prop)
+		self.0.swap_remove(prop)
 	}
 }
 

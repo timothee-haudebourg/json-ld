@@ -225,7 +225,7 @@ impl EmbedContext for json_syntax::Value {
 				&& !json_context.is_null()
 				&& !json_context.is_empty_array_or_object()
 			{
-				obj.insert("@context".into(), json_context);
+				obj.insert_front("@context".into(), json_context);
 			}
 
 			*self = obj.into()

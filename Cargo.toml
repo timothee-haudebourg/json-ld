@@ -32,7 +32,7 @@ json-ld-expansion = { path = "expansion", version = "0.15.1" }
 json-ld-compaction = { path = "compaction", version = "0.15.1" }
 json-ld-serialization = { path = "serialization", version = "0.15.1" }
 json-ld-testing = { path = "testing", version = "0.15.1" }
-json-syntax = "0.11.1"
+json-syntax = "0.11.2"
 iref = "3.1.2"
 static-iref = "3.0"
 langtag = "0.3"

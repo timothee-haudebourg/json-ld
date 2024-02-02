@@ -181,7 +181,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
 		&mut self,
 		prop: &Q,
 	) -> Option<PropertyObjects<T, B>> {
-		self.0.remove(prop)
+		self.0.swap_remove(prop)
 	}
 }
 
