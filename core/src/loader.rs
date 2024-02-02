@@ -22,7 +22,7 @@ pub use self::reqwest::ReqwestLoader;
 
 pub type LoadingResult<I, E> = Result<RemoteDocument<I>, E>;
 
-pub type RemoteContextReference<I> = RemoteDocumentReference<I, json_ld_syntax::Context>;
+pub type RemoteContextReference<I = IriBuf> = RemoteDocumentReference<I, json_ld_syntax::Context>;
 
 /// Remote document, loaded or not.
 ///
