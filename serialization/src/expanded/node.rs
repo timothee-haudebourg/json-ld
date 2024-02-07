@@ -1,11 +1,12 @@
-use std::hash::Hash;
-
-use json_ld_core::{Indexed, Node};
+use iref::Iri;
+use json_ld_core::{object::node::Multiset, Indexed, Node, Object};
 use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
 use rdf_types::{
 	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
-	Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
+	Interpretation, IriVocabulary, IriVocabularyMut, ReverseLiteralInterpretation, Term,
+	Vocabulary, RDF_TYPE,
 };
+use std::hash::Hash;
 
 use crate::Error;
 
@@ -102,7 +103,25 @@ where
 		let serializer = SerializeProperty::new(self.vocabulary, self.interpretation);
 
 		let objects = value.visit_objects(serializer)?;
-		self.result.properties_mut().set(prop, objects);
+
+		if is_iri(self.vocabulary, &prop, RDF_TYPE) {
+			let mut non_iri_objects = Multiset::new();
+
+			for obj in objects {
+				match into_type_value(obj) {
+					Ok(ty) => self.result.types_mut_or_default().push(ty),
+					Err(obj) => {
+						non_iri_objects.insert(obj);
+					}
+				}
+			}
+
+			if !non_iri_objects.is_empty() {
+				self.result.properties_mut().set(prop, non_iri_objects);
+			}
+		} else {
+			self.result.properties_mut().set(prop, objects);
+		}
 
 		Ok(())
 	}
@@ -155,5 +174,36 @@ where
 
 	fn end(self) -> Result<Self::Ok, Self::Error> {
 		Ok(self.result)
+	}
+}
+
+fn into_type_value<I, B>(
+	obj: Indexed<Object<I, B>>,
+) -> Result<json_ld_core::Id<I, B>, Indexed<Object<I, B>>> {
+	match obj.index() {
+		Some(_) => Err(obj),
+		None => match obj.into_inner() {
+			Object::Node(node) => {
+				if node.is_empty() && node.id.is_some() {
+					Ok(node.id.unwrap())
+				} else {
+					Err(Indexed::none(Object::Node(node)))
+				}
+			}
+			obj => Err(Indexed::none(obj)),
+		},
+	}
+}
+
+fn is_iri<V, B>(vocabulary: &V, id: &json_ld_core::Id<V::Iri, B>, iri: &Iri) -> bool
+where
+	V: IriVocabulary,
+{
+	match id {
+		json_ld_core::Id::Valid(rdf_types::Id::Iri(i)) => match vocabulary.iri(i) {
+			Some(i) => i == iri,
+			None => false,
+		},
+		_ => false,
 	}
 }

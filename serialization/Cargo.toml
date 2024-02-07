@@ -14,6 +14,7 @@ readme = "README.md"
 [dependencies]
 json-ld-core.workspace = true
 linked-data.workspace = true
+iref.workspace = true
 rdf-types.workspace = true
 json-syntax.workspace = true
 indexmap.workspace = true
