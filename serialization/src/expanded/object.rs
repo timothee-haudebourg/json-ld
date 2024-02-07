@@ -2,10 +2,10 @@ use std::hash::Hash;
 
 use json_ld_core::{
 	object::{
-		node::{Included, Properties, ReverseProperties},
+		node::{Included, Multiset, Properties, ReverseProperties},
 		Graph, List,
 	},
-	rdf::{RDF_FIRST, RDF_REST},
+	rdf::{RDF_FIRST, RDF_REST, RDF_TYPE},
 	Indexed, IndexedObject, Node, Object,
 };
 use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
@@ -19,7 +19,7 @@ use crate::Error;
 use super::{
 	graph::SerializeGraph,
 	list::{SerializeListFirst, SerializeListRest},
-	node::SerializeNode,
+	node::{into_type_value, is_iri, SerializeNode},
 	property::{SerializeProperty, SerializeReverseProperty},
 	serialize_node_with,
 	value::literal_to_value,
@@ -71,6 +71,7 @@ where
 pub struct SerializeObject<'a, I, V: Vocabulary> {
 	vocabulary: &'a mut V,
 	interpretation: &'a mut I,
+	types: Vec<json_ld_core::Id<V::Iri, V::BlankId>>,
 	properties: Properties<V::Iri, V::BlankId>,
 	reverse_properties: ReverseProperties<V::Iri, V::BlankId>,
 	included: Included<V::Iri, V::BlankId>,
@@ -84,6 +85,7 @@ impl<'a, I, V: Vocabulary> SerializeObject<'a, I, V> {
 		Self {
 			vocabulary,
 			interpretation,
+			types: Vec::new(),
 			properties: Properties::new(),
 			reverse_properties: ReverseProperties::new(),
 			included: Included::new(),
@@ -140,7 +142,25 @@ where
 		let serializer = SerializeProperty::new(self.vocabulary, self.interpretation);
 
 		let objects = value.visit_objects(serializer)?;
-		self.properties.set(prop, objects);
+
+		if is_iri(self.vocabulary, &prop, RDF_TYPE) {
+			let mut non_iri_objects = Multiset::new();
+
+			for obj in objects {
+				match into_type_value(obj) {
+					Ok(ty) => self.types.push(ty),
+					Err(obj) => {
+						non_iri_objects.insert(obj);
+					}
+				}
+			}
+
+			if !non_iri_objects.is_empty() {
+				self.properties.set(prop, non_iri_objects);
+			}
+		} else {
+			self.properties.set(prop, objects);
+		}
 
 		Ok(())
 	}
@@ -187,6 +207,7 @@ where
 	fn end(mut self) -> Result<Self::Ok, Self::Error> {
 		if self.first.is_some()
 			&& self.rest.is_some()
+			&& self.types.is_empty()
 			&& self.properties.is_empty()
 			&& self.graph.is_none()
 		{
@@ -210,6 +231,11 @@ where
 			}
 
 			let mut node = Node::new();
+
+			if !self.types.is_empty() {
+				node.types = Some(self.types)
+			}
+
 			*node.properties_mut() = self.properties;
 
 			if !self.reverse_properties.is_empty() {

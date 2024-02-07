@@ -177,7 +177,7 @@ where
 	}
 }
 
-fn into_type_value<I, B>(
+pub(crate) fn into_type_value<I, B>(
 	obj: Indexed<Object<I, B>>,
 ) -> Result<json_ld_core::Id<I, B>, Indexed<Object<I, B>>> {
 	match obj.index() {
@@ -195,7 +195,7 @@ fn into_type_value<I, B>(
 	}
 }
 
-fn is_iri<V, B>(vocabulary: &V, id: &json_ld_core::Id<V::Iri, B>, iri: &Iri) -> bool
+pub(crate) fn is_iri<V, B>(vocabulary: &V, id: &json_ld_core::Id<V::Iri, B>, iri: &Iri) -> bool
 where
 	V: IriVocabulary,
 {
