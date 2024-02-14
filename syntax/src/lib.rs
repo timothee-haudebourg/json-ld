@@ -17,7 +17,7 @@ mod try_from_json;
 pub use compact_iri::*;
 pub use compare::*;
 pub use container::{Container, ContainerKind};
-pub use context::{Context, ContextEntry};
+pub use context::{Context, ContextDocument, ContextEntry};
 pub use direction::*;
 pub use error::*;
 pub use expandable::*;
