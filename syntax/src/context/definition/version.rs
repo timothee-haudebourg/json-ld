@@ -72,13 +72,37 @@ impl FromStr for Version {
 	}
 }
 
+impl TryFrom<f32> for Version {
+	type Error = UnknownVersion;
+
+	fn try_from(value: f32) -> Result<Self, Self::Error> {
+		if value == 1.1 {
+			Ok(Version::V1_1)
+		} else {
+			Err(UnknownVersion(value.to_string()))
+		}
+	}
+}
+
+impl TryFrom<f64> for Version {
+	type Error = UnknownVersion;
+
+	fn try_from(value: f64) -> Result<Self, Self::Error> {
+		if value == 1.1 {
+			Ok(Version::V1_1)
+		} else {
+			Err(UnknownVersion(value.to_string()))
+		}
+	}
+}
+
 #[cfg(feature = "serde")]
 impl serde::Serialize for Version {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: serde::Serializer,
 	{
-		self.into_str().serialize(serializer)
+		1.1f32.serialize(serializer)
 	}
 }
 
@@ -97,11 +121,18 @@ impl<'de> serde::Deserialize<'de> for Version {
 				formatter.write_str("JSON-LD version")
 			}
 
-			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+			fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
 			where
 				E: serde::de::Error,
 			{
-				v.parse().map_err(|e| E::custom(e))
+				v.try_into().map_err(|e| E::custom(e))
+			}
+
+			fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+			where
+				E: serde::de::Error,
+			{
+				v.try_into().map_err(|e| E::custom(e))
 			}
 		}
 
