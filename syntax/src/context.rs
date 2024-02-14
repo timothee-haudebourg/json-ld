@@ -329,7 +329,6 @@ impl<'a> Iterator for Traverse<'a> {
 /// `@context` entry.
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(untagged))]
 pub struct ContextDocument {
 	#[cfg_attr(feature = "serde", serde(rename = "@context"))]
 	pub context: Context,
