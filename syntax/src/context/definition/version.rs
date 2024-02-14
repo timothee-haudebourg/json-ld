@@ -136,6 +136,6 @@ impl<'de> serde::Deserialize<'de> for Version {
 			}
 		}
 
-		deserializer.deserialize_str(Visitor)
+		deserializer.deserialize_f32(Visitor)
 	}
 }
