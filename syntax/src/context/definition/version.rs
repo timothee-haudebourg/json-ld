@@ -60,6 +60,18 @@ impl From<Version> for json_syntax::NumberBuf {
 	}
 }
 
+impl TryFrom<json_syntax::NumberBuf> for Version {
+	type Error = UnknownVersion;
+
+	fn try_from(value: json_syntax::NumberBuf) -> Result<Self, Self::Error> {
+		if value.trimmed().as_str() == "1.1" {
+			Ok(Self::V1_1)
+		} else {
+			Err(UnknownVersion(value.to_string()))
+		}
+	}
+}
+
 impl FromStr for Version {
 	type Err = UnknownVersion;
 
@@ -112,30 +124,8 @@ impl<'de> serde::Deserialize<'de> for Version {
 	where
 		D: serde::Deserializer<'de>,
 	{
-		struct Visitor;
-
-		impl<'de> serde::de::Visitor<'de> for Visitor {
-			type Value = Version;
-
-			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-				formatter.write_str("JSON-LD version")
-			}
-
-			fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				v.try_into().map_err(|e| E::custom(e))
-			}
-
-			fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				v.try_into().map_err(|e| E::custom(e))
-			}
-		}
-
-		deserializer.deserialize_f32(Visitor)
+		json_syntax::NumberBuf::deserialize(deserializer)?
+			.try_into()
+			.map_err(serde::de::Error::custom)
 	}
 }
