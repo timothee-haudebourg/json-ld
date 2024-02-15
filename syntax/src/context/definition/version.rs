@@ -102,7 +102,7 @@ impl serde::Serialize for Version {
 	where
 		S: serde::Serializer,
 	{
-		1.1f32.serialize(serializer)
+		self.into_json_number().serialize(serializer)
 	}
 }
 
