@@ -430,56 +430,32 @@ pub trait Loader<I = IriBuf> {
 	}
 }
 
-// /// Context document loader.
-// ///
-// /// This is a subclass of loaders able to extract a local context from a loaded
-// /// JSON-LD document.
-// ///
-// /// It is implemented for any loader where the output type implements
-// /// [`ExtractContext`].
-// pub trait ContextLoader<I = IriBuf> {
-// 	/// Error type.
-// 	type ContextError;
+impl<'l, I, L: Loader<I>> Loader<I> for &'l mut L {
+	type Error = L::Error;
 
-// 	/// Loads the context behind the given IRI, using the given vocabulary.
-// 	fn load_context_with<'a>(
-// 		&'a mut self,
-// 		vocabulary: &'a mut (impl Send + Sync + IriVocabularyMut<Iri = I>),
-// 		url: I,
-// 	) -> BoxFuture<'a, LoadingResult<I, M, json_ld_syntax::context::Context, Self::ContextError>>
-// 	where
-// 		I: 'a,
-// 		M: 'a;
+	fn load_with<'a, V>(
+		&'a mut self,
+		vocabulary: &'a mut V,
+		url: I,
+	) -> BoxFuture<'a, LoadingResult<I, Self::Error>>
+	where
+		V: IriVocabularyMut<Iri = I>,
+		//
+		V: Send + Sync,
+		I: 'a + Send,
+	{
+		L::load_with(self, vocabulary, url)
+	}
 
-// 	/// Loads the context behind the given IRI.
-// 	fn load_context<'a>(
-// 		&'a mut self,
-// 		url: I,
-// 	) -> BoxFuture<'a, LoadingResult<I, M, json_ld_syntax::context::Context, Self::ContextError>>
-// 	where
-// 		I: 'a,
-// 		M: 'a,
-// 		(): IriVocabulary<Iri = I>,
-// 	{
-// 		self.load_context_with(rdf_types::vocabulary::no_vocabulary_mut(), url)
-// 	}
-// }
-
-// /// Context extraction method.
-// ///
-// /// Implemented by documents containing a JSON-LD context definition, providing
-// /// a method to extract this context.
-// pub trait ExtractContext: Sized {
-// 	/// Error type.
-// 	///
-// 	/// May be raised if the inner context is missing or invalid.
-// 	type Error;
-
-// 	/// Extract the context definition.
-// 	fn extract_context(
-// 		self,
-// 	) -> Result<json_ld_syntax::context::Context, Self::Error>;
-// }
+	async fn load(&mut self, url: I) -> Result<RemoteDocument<I>, Self::Error>
+	where
+		(): IriVocabulary<Iri = I>,
+		//
+		I: Send,
+	{
+		L::load(self, url).await
+	}
+}
 
 /// Context extraction error.
 #[derive(Debug, thiserror::Error)]
