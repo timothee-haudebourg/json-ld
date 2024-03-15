@@ -19,7 +19,7 @@ rdf-types.workspace = true
 json-syntax.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
-xsd-types = { git = "https://github.com/timothee-haudebourg/xsd-types.git" }
+xsd-types = "0.9.1"
 
 [dev-dependencies]
 linked-data = { workspace = true, features = [ "derive" ] }
