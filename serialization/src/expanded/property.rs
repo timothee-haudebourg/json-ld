@@ -1,10 +1,13 @@
 use std::hash::Hash;
 
 use json_ld_core::{object::node::Multiset, Indexed, IndexedNode, IndexedObject};
-use linked_data::{AsRdfLiteral, LinkedDataResource};
+use linked_data::LinkedDataResource;
 use rdf_types::{
-	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
-	Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Vocabulary,
+	interpretation::{
+		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
+	},
+	vocabulary::IriVocabularyMut,
+	Interpretation, Vocabulary,
 };
 
 use crate::Error;
@@ -33,8 +36,6 @@ where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::LanguageTag: Clone,
-	V::Value: AsRdfLiteral<V>,
 	I: ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,
@@ -78,8 +79,6 @@ where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::LanguageTag: Clone,
-	V::Value: AsRdfLiteral<V>,
 	I: ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,

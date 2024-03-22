@@ -1,6 +1,7 @@
 use contextual::DisplayWithContext;
 use json_ld_context_processing::algorithm::MalformedIri;
-use rdf_types::BlankIdVocabulary;
+use langtag::InvalidLangTag;
+use rdf_types::vocabulary::BlankIdVocabulary;
 use std::fmt;
 
 #[derive(Debug)]
@@ -8,7 +9,7 @@ pub enum Warning<B> {
 	MalformedIri(String),
 	EmptyTerm,
 	BlankNodeIdProperty(B),
-	MalformedLanguageTag(String, langtag::Error),
+	MalformedLanguageTag(String, InvalidLangTag<String>),
 }
 
 impl<B> From<MalformedIri> for Warning<B> {

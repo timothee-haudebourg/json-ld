@@ -2,7 +2,7 @@ use super::BindingRef;
 use super::Context;
 use super::Key;
 use crate::{
-	Container, Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable, Term, Type,
+	Container, Direction, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type,
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -67,7 +67,7 @@ impl<T> InverseType<T> {
 	}
 }
 
-type LangDir = Nullable<(Option<LenientLanguageTagBuf>, Option<Direction>)>;
+type LangDir = Nullable<(Option<LenientLangTagBuf>, Option<Direction>)>;
 
 struct InverseLang {
 	any: Option<Key>,
@@ -77,7 +77,7 @@ struct InverseLang {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LangSelection<'a> {
 	Any,
-	Lang(Nullable<(Option<LenientLanguageTag<'a>>, Option<Direction>)>),
+	Lang(Nullable<(Option<&'a LenientLangTag>, Option<Direction>)>),
 }
 
 impl InverseLang {
@@ -103,7 +103,7 @@ impl InverseLang {
 
 	fn set(
 		&mut self,
-		lang_dir: Nullable<(Option<LenientLanguageTag>, Option<Direction>)>,
+		lang_dir: Nullable<(Option<&LenientLangTag>, Option<Direction>)>,
 		term: &Key,
 	) {
 		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
@@ -337,14 +337,17 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>>
 												Nullable::Some(direction),
 											) => lang_map.set(
 												Nullable::Some((
-													Some(language.as_ref()),
+													Some(language.as_lenient_lang_tag_ref()),
 													Some(*direction),
 												)),
 												term,
 											),
 											(Nullable::Some(language), Nullable::Null) => lang_map
 												.set(
-													Nullable::Some((Some(language.as_ref()), None)),
+													Nullable::Some((
+														Some(language.as_lenient_lang_tag_ref()),
+														None,
+													)),
 													term,
 												),
 											(Nullable::Null, Nullable::Some(direction)) => lang_map
@@ -362,7 +365,10 @@ impl<'a, T: Clone + Hash + Eq, B: Clone + Hash + Eq> From<&'a Context<T, B>>
 										// be null):
 										match language {
 											Nullable::Some(language) => lang_map.set(
-												Nullable::Some((Some(language.as_ref()), None)),
+												Nullable::Some((
+													Some(language.as_lenient_lang_tag_ref()),
+													None,
+												)),
 												term,
 											),
 											Nullable::Null => lang_map.set(Nullable::Null, term),

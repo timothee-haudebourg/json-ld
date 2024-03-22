@@ -1,4 +1,4 @@
-use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Nullable};
+use crate::{Direction, LenientLangTag, LenientLangTagBuf, Nullable};
 use iref::{IriRef, IriRefBuf};
 use json_syntax::print::{
 	printed_string_size, string_literal, Options, PrecomputeSize, Print, Size,
@@ -17,25 +17,25 @@ impl Print for Direction {
 	}
 }
 
-impl PrecomputeSize for LenientLanguageTagBuf {
+impl PrecomputeSize for LenientLangTagBuf {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		Size::Width(printed_string_size(self.as_str()))
 	}
 }
 
-impl Print for LenientLanguageTagBuf {
+impl Print for LenientLangTagBuf {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		string_literal(self.as_str(), f)
 	}
 }
 
-impl<'a> PrecomputeSize for LenientLanguageTag<'a> {
+impl PrecomputeSize for LenientLangTag {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		Size::Width(printed_string_size(self.as_str()))
 	}
 }
 
-impl<'a> Print for LenientLanguageTag<'a> {
+impl Print for LenientLangTag {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		string_literal(self.as_str(), f)
 	}
@@ -95,7 +95,7 @@ impl Print for Nullable<bool> {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<&'a LenientLanguageTagBuf> {
+impl<'a> PrecomputeSize for Nullable<&'a LenientLangTagBuf> {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -104,7 +104,7 @@ impl<'a> PrecomputeSize for Nullable<&'a LenientLanguageTagBuf> {
 	}
 }
 
-impl<'a> Print for Nullable<&'a LenientLanguageTagBuf> {
+impl<'a> Print for Nullable<&'a LenientLangTagBuf> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),

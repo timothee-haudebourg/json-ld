@@ -22,7 +22,6 @@ rdf-types.workspace = true
 locspan.workspace = true
 async-std = { workspace = true, features = ["attributes"] }
 log.workspace = true
-grdf = { workspace = true, features = ["meta"] }
 contextual.workspace = true
 
-nquads-syntax = "0.17"
+nquads-syntax = "0.19"

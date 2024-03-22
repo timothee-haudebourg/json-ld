@@ -1,6 +1,6 @@
 use crate::{
 	container, context, CompactIri, CompactIriBuf, Container, ContainerKind, Direction, Keyword,
-	LenientLanguageTag, LenientLanguageTagBuf, Nullable,
+	LenientLangTag, LenientLangTagBuf, Nullable,
 };
 use educe::Educe;
 use iref::{Iri, IriBuf};
@@ -132,7 +132,7 @@ pub struct Expanded {
 		feature = "serde",
 		serde(rename = "@language", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub language: Option<Nullable<LenientLanguageTagBuf>>,
+	pub language: Option<Nullable<LenientLangTagBuf>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -261,10 +261,10 @@ impl Expanded {
 			context: self.context.as_deref(),
 			reverse: self.reverse.as_ref(),
 			index: self.index.as_ref(),
-			language: self
-				.language
-				.as_ref()
-				.map(|n| n.as_ref().map(LenientLanguageTagBuf::as_ref)),
+			language: self.language.as_ref().map(|n| {
+				n.as_ref()
+					.map(LenientLangTagBuf::as_lenient_lang_tag_ref)
+			}),
 			direction: self.direction,
 			container: self.container.as_ref().map(Nullable::as_ref),
 			nest: self.nest.as_ref(),
@@ -284,7 +284,7 @@ pub struct ExpandedRef<'a> {
 	pub context: Option<&'a context::Context>,
 	pub reverse: Option<&'a context::definition::Key>,
 	pub index: Option<&'a Index>,
-	pub language: Option<Nullable<LenientLanguageTag<'a>>>,
+	pub language: Option<Nullable<&'a LenientLangTag>>,
 	pub direction: Option<Nullable<Direction>>,
 	pub container: Option<Nullable<&'a Container>>,
 	pub nest: Option<&'a Nest>,
@@ -312,7 +312,7 @@ pub struct Entries<'a> {
 	context: Option<&'a context::Context>,
 	reverse: Option<&'a context::definition::Key>,
 	index: Option<&'a Index>,
-	language: Option<Nullable<&'a LenientLanguageTagBuf>>,
+	language: Option<Nullable<&'a LenientLangTagBuf>>,
 	direction: Option<Nullable<Direction>>,
 	container: Option<Nullable<&'a Container>>,
 	nest: Option<&'a Nest>,
@@ -327,7 +327,7 @@ pub enum EntryRef<'a> {
 	Context(&'a context::Context),
 	Reverse(&'a context::definition::Key),
 	Index(&'a Index),
-	Language(Nullable<&'a LenientLanguageTagBuf>),
+	Language(Nullable<&'a LenientLangTagBuf>),
 	Direction(Nullable<Direction>),
 	Container(Nullable<&'a Container>),
 	Nest(&'a Nest),
@@ -458,7 +458,7 @@ pub enum EntryValueRef<'a> {
 	Context(&'a context::Context),
 	Reverse(&'a context::definition::Key),
 	Index(&'a Index),
-	Language(Nullable<&'a LenientLanguageTagBuf>),
+	Language(Nullable<&'a LenientLangTagBuf>),
 	Direction(Nullable<Direction>),
 	Container(Nullable<&'a Container>),
 	Nest(&'a Nest),

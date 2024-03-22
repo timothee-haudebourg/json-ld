@@ -13,6 +13,7 @@ mod lang;
 mod nullable;
 mod print_ld;
 mod try_from_json;
+mod utils;
 
 pub use compact_iri::*;
 pub use compare::*;

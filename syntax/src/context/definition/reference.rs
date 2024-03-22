@@ -1,5 +1,5 @@
 use super::{BindingsIter, Definition, EntryValueSubItems, Key, Type, Version, Vocab};
-use crate::{context::TermDefinition, Direction, LenientLanguageTagBuf, Nullable};
+use crate::{context::TermDefinition, Direction, LenientLangTagBuf, Nullable};
 
 use iref::IriRef;
 
@@ -23,7 +23,7 @@ impl Definition {
 pub struct Entries<'a> {
 	base: Option<Nullable<&'a IriRef>>,
 	import: Option<&'a IriRef>,
-	language: Option<Nullable<&'a LenientLanguageTagBuf>>,
+	language: Option<Nullable<&'a LenientLangTagBuf>>,
 	direction: Option<Nullable<Direction>>,
 	propagate: Option<bool>,
 	protected: Option<bool>,
@@ -118,7 +118,7 @@ impl<'a> ExactSizeIterator for Entries<'a> {}
 pub enum EntryValueRef<'a> {
 	Base(Nullable<&'a IriRef>),
 	Import(&'a IriRef),
-	Language(Nullable<&'a LenientLanguageTagBuf>),
+	Language(Nullable<&'a LenientLangTagBuf>),
 	Direction(Nullable<Direction>),
 	Propagate(bool),
 	Protected(bool),
@@ -150,7 +150,7 @@ impl<'a> EntryValueRef<'a> {
 pub enum EntryRef<'a> {
 	Base(Nullable<&'a IriRef>),
 	Import(&'a IriRef),
-	Language(Nullable<&'a LenientLanguageTagBuf>),
+	Language(Nullable<&'a LenientLangTagBuf>),
 	Direction(Nullable<Direction>),
 	Propagate(bool),
 	Protected(bool),

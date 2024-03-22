@@ -5,7 +5,7 @@ use clap::Parser;
 use contextual::WithContext;
 use iref::IriBuf;
 use json_ld::{syntax::Parse, JsonLdProcessor, Print, RemoteDocument, RemoteDocumentReference};
-use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
+use rdf_types::vocabulary::{IriIndex, IriVocabulary, IriVocabularyMut};
 
 #[derive(Parser)]
 #[clap(name="json-ld", author, version, about, long_about = None)]
@@ -82,7 +82,8 @@ async fn main() {
 	// Init logger.
 	stderrlog::new().verbosity(args.verbosity).init().unwrap();
 
-	let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	let mut vocabulary: rdf_types::vocabulary::IndexVocabulary =
+		rdf_types::vocabulary::IndexVocabulary::new();
 	let mut loader: json_ld::loader::ReqwestLoader<IriIndex> =
 		json_ld::loader::ReqwestLoader::new();
 

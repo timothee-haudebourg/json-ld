@@ -1,6 +1,6 @@
 use contextual::WithContext;
 use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
-use rdf_types::{vocabulary::IriIndex, IndexVocabulary, IriVocabularyMut};
+use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use static_iref::iri;
 
 #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/flatten-manifest.jsonld")]
@@ -129,8 +129,7 @@ impl flatten::Test {
 				// with flatten_tin03. TODO proper fix.
 				for i in 0..10 {
 					let mut generator =
-						rdf_types::generator::Blank::new_with_prefix("b".to_string())
-							.with_metadata(locspan::Location::new(input, locspan::Span::default()));
+						rdf_types::generator::Blank::new_with_prefix("b".to_string());
 					let flattened = json_ld
 						.flatten_full(
 							&mut vocabulary,
@@ -177,11 +176,7 @@ impl flatten::Test {
 				match loader.load_with(&mut vocabulary, input).await {
 					Ok(json_ld) => {
 						let mut generator =
-							rdf_types::generator::Blank::new_with_prefix("b".to_string())
-								.with_metadata(locspan::Location::new(
-									input,
-									locspan::Span::default(),
-								));
+							rdf_types::generator::Blank::new_with_prefix("b".to_string());
 						let result = json_ld
 							.flatten_full(
 								&mut vocabulary,

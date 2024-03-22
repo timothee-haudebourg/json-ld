@@ -1,9 +1,9 @@
-use crate::{object, Direction, LangString, LenientLanguageTag};
+use crate::{object, Direction, LangString, LenientLangTag};
 use educe::Educe;
 use iref::{Iri, IriBuf};
 use json_ld_syntax::{IntoJsonWithContext, Keyword};
 use json_syntax::{Number, NumberBuf};
-use rdf_types::{IriVocabulary, IriVocabularyMut};
+use rdf_types::vocabulary::{IriVocabulary, IriVocabularyMut};
 use std::{hash::Hash, marker::PhantomData};
 
 use super::InvalidExpandedJson;
@@ -215,7 +215,7 @@ impl<T> Value<T> {
 	///
 	/// Returns `None` if the value is not a language tagged string.
 	#[inline(always)]
-	pub fn language(&self) -> Option<LenientLanguageTag> {
+	pub fn language(&self) -> Option<&LenientLangTag> {
 		match self {
 			Value::LangString(tag) => tag.language(),
 			_ => None,
@@ -350,7 +350,7 @@ impl<T, B> object::Any<T, B> for Value<T> {
 pub enum EntryRef<'a, T> {
 	Value(ValueEntryRef<'a>),
 	Type(TypeRef<'a, T>),
-	Language(LenientLanguageTag<'a>),
+	Language(&'a LenientLangTag),
 	Direction(Direction),
 }
 
@@ -381,7 +381,7 @@ impl<'a, T> EntryRef<'a, T> {
 		match self {
 			Self::Value(v) => EntryValueRef::Value(*v),
 			Self::Type(v) => EntryValueRef::Type(*v),
-			Self::Language(v) => EntryValueRef::Language(*v),
+			Self::Language(v) => EntryValueRef::Language(v),
 			Self::Direction(v) => EntryValueRef::Direction(*v),
 		}
 	}
@@ -392,7 +392,7 @@ impl<'a, T> EntryRef<'a, T> {
 pub enum EntryValueRef<'a, T> {
 	Value(ValueEntryRef<'a>),
 	Type(TypeRef<'a, T>),
-	Language(LenientLanguageTag<'a>),
+	Language(&'a LenientLangTag),
 	Direction(Direction),
 }
 pub enum ValueEntryRef<'a> {
@@ -450,7 +450,7 @@ impl EntryKey {
 pub struct Entries<'a, T> {
 	value: Option<ValueEntryRef<'a>>,
 	type_: Option<TypeRef<'a, T>>,
-	language: Option<LenientLanguageTag<'a>>,
+	language: Option<&'a LenientLangTag>,
 	direction: Option<Direction>,
 }
 

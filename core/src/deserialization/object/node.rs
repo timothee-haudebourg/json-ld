@@ -2,7 +2,7 @@ use linked_data::{
 	LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject,
 	ResourceInterpretation,
 };
-use rdf_types::{Interpretation, IriVocabularyMut, LanguageTagVocabularyMut, Vocabulary};
+use rdf_types::{vocabulary::IriVocabularyMut, Interpretation, Vocabulary};
 
 use crate::{rdf::RDF_TYPE, IndexedNode, IndexedObject, Node};
 
@@ -27,7 +27,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataSubject<I, V> fo
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_subject<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -70,7 +70,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -85,7 +85,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V> for 
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -110,7 +110,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V> for Node<
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -133,7 +133,7 @@ impl<'a, T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObj
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -156,7 +156,7 @@ impl<'a, T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObj
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -177,7 +177,7 @@ impl<'a, T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObj
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_objects<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where

@@ -1,5 +1,5 @@
 //! Nodes, lists and values.
-use crate::{Id, Indexed, LenientLanguageTag, Relabel};
+use crate::{Id, Indexed, LenientLangTag, Relabel};
 use contextual::{IntoRefWithContext, WithContext};
 use educe::Educe;
 use indexmap::IndexSet;
@@ -35,7 +35,7 @@ pub trait Any<T, B> {
 	}
 
 	#[inline]
-	fn language<'a>(&'a self) -> Option<LenientLanguageTag>
+	fn language<'a>(&'a self) -> Option<&LenientLangTag>
 	where
 		T: 'a,
 		B: 'a,
@@ -349,7 +349,7 @@ impl<T, B> Object<T, B> {
 	/// If the object is a language-tagged value,
 	/// Return its associated language.
 	#[inline(always)]
-	pub fn language(&self) -> Option<LenientLanguageTag> {
+	pub fn language(&self) -> Option<&LenientLangTag> {
 		match self {
 			Object::Value(value) => value.language(),
 			_ => None,

@@ -1,9 +1,14 @@
-use crate::{vocab, BlankIdIndex, Error, IndexVocabulary, IriIndex, TestSpec, Vocab};
+use crate::{
+	vocab, vocab::IndexTerm, BlankIdIndex, Error, IndexVocabulary, IriIndex, TestSpec, Vocab,
+};
 use contextual::AsRefWithContext;
 use json_ld::ValidId;
 use proc_macro2::TokenStream;
 use quote::quote;
-use rdf_types::{vocabulary::LiteralIndex, IriVocabulary, LiteralVocabulary};
+use rdf_types::{
+	dataset::{IndexedBTreeDataset, PatternMatchingDataset},
+	vocabulary::{IriVocabulary, LiteralIndex, LiteralVocabulary},
+};
 use std::collections::HashMap;
 
 mod parse;
@@ -61,7 +66,7 @@ impl Type {
 		&self,
 		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
-		dataset: &OwnedDataset,
+		dataset: &IndexedBTreeDataset<IndexTerm>,
 		value: &json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
 	) -> Result<TokenStream, Box<Error>> {
 		match self {
@@ -69,11 +74,11 @@ impl Type {
 				let b = match value {
 					json_ld::rdf::Value::Literal(l) => {
 						let literal = vocabulary.literal(l).unwrap();
-						if *literal.type_()
-							== rdf_types::literal::Type::Any(IriIndex::Iri(Vocab::Xsd(
+						if literal.type_
+							== rdf_types::LiteralType::Any(IriIndex::Iri(Vocab::Xsd(
 								vocab::Xsd::Boolean,
 							))) {
-							match literal.value().as_str() {
+							match literal.value {
 								"true" => true,
 								"false" => false,
 								_ => {
@@ -91,9 +96,7 @@ impl Type {
 			}
 			Self::String => {
 				let s = match value {
-					json_ld::rdf::Value::Literal(lit) => {
-						vocabulary.literal(lit).unwrap().value().as_str()
-					}
+					json_ld::rdf::Value::Literal(lit) => vocabulary.literal(lit).unwrap().value,
 					json_ld::rdf::Value::Id(id) => id.as_ref_with(vocabulary),
 				};
 
@@ -110,11 +113,11 @@ impl Type {
 				let s = match value {
 					json_ld::rdf::Value::Literal(l) => {
 						let literal = vocabulary.literal(l).unwrap();
-						if *literal.type_()
-							== rdf_types::literal::Type::Any(IriIndex::Iri(Vocab::Xsd(
+						if literal.type_
+							== rdf_types::LiteralType::Any(IriIndex::Iri(Vocab::Xsd(
 								vocab::Xsd::String,
 							))) {
-							literal.value().as_str()
+							literal.value
 						} else {
 							return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
 						}
@@ -138,11 +141,11 @@ impl Type {
 				let s = match value {
 					json_ld::rdf::Value::Literal(l) => {
 						let literal = vocabulary.literal(l).unwrap();
-						if *literal.type_()
-							== rdf_types::literal::Type::Any(IriIndex::Iri(Vocab::Xsd(
+						if literal.type_
+							== rdf_types::LiteralType::Any(IriIndex::Iri(Vocab::Xsd(
 								vocab::Xsd::String,
 							))) {
-							literal.value().as_str()
+							literal.value
 						} else {
 							return Err(Box::new(Error::InvalidValue(self.clone(), *value)));
 						}
@@ -166,7 +169,13 @@ impl Type {
 				json_ld::rdf::Value::Id(id) => {
 					let d = spec.types.get(r).unwrap();
 					let mod_id = &spec.id;
-					d.generate(vocabulary, spec, dataset, *id, quote! { #mod_id :: #r })
+					d.generate(
+						vocabulary,
+						spec,
+						dataset,
+						IndexTerm::Id(*id),
+						quote! { #mod_id :: #r },
+					)
 				}
 				_ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 			},
@@ -179,8 +188,8 @@ impl Struct {
 		&self,
 		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
-		dataset: &OwnedDataset,
-		id: ValidId<IriIndex, BlankIdIndex>,
+		dataset: &IndexedBTreeDataset<IndexTerm>,
+		id: IndexTerm,
 		path: TokenStream,
 	) -> Result<TokenStream, Box<Error>> {
 		let mut fields = Vec::new();
@@ -198,9 +207,8 @@ impl Struct {
 					let mod_id = &spec.id;
 					ty.generate(vocabulary, spec, dataset, id, quote! { #mod_id :: #ty_id })?
 				} else {
-					let mut objects = dataset
-						.default_graph()
-						.objects(&id, &ValidId::Iri(*field_iri));
+					let field_predicate = IndexTerm::iri(*field_iri);
+					let mut objects = dataset.quad_objects(None, &id, &field_predicate);
 
 					if field.multiple {
 						let mut items = Vec::new();
@@ -238,29 +246,23 @@ impl Struct {
 	}
 }
 
-type OwnedDataset<'a> = grdf::HashDataset<
-	ValidId<IriIndex, BlankIdIndex>,
-	ValidId<IriIndex, BlankIdIndex>,
-	json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
-	&'a ValidId<IriIndex, BlankIdIndex>,
->;
-
 impl Definition {
 	pub(crate) fn generate(
 		&self,
 		vocabulary: &IndexVocabulary,
 		spec: &TestSpec,
-		dataset: &OwnedDataset,
-		id: ValidId<IriIndex, BlankIdIndex>,
+		dataset: &IndexedBTreeDataset<IndexTerm>,
+		id: IndexTerm,
 		path: TokenStream,
 	) -> Result<TokenStream, Box<Error>> {
 		match self {
 			Self::Struct(s) => s.generate(vocabulary, spec, dataset, id, path),
 			Self::Enum(e) => {
 				let mut variant = None;
-				let node_types = dataset.default_graph().objects(
+				let node_types = dataset.quad_objects(
+					None,
 					&id,
-					&ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))),
+					&IndexTerm::Id(ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type)))),
 				);
 
 				for ty_iri in node_types {

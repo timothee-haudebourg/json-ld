@@ -60,10 +60,10 @@
 //! method you can display such value like this:
 //! ```
 //! use static_iref::iri;
-//! use rdf_types::IriVocabularyMut;
+//! use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 //! use contextual::WithContext;
 //!
-//! let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+//! let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 //! let i = vocabulary.insert(iri!("https://docs.rs/contextual"));
 //! let value = rdf_types::Subject::Iri(i);
 //!
@@ -178,13 +178,13 @@
 //! ```
 //! # use static_iref::iri;
 //! # use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
-//! use rdf_types::{IriVocabularyMut, Subject};
+//! use rdf_types::{Subject, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 //! use contextual::WithContext;
 //! # #[async_std::main]
 //! # async fn main() {
 //! // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 //! // to an actual `IriBuf`.
-//! let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+//! let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 //!
 //! let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 //! let input = RemoteDocumentReference::iri(iri_index);

@@ -12,7 +12,7 @@ use json_ld_core::{
 	Container, Context, Environment, Id, Indexed, IndexedObject, LangString, Loader, Node, Object,
 	ProcessingMode, Term, Type, Value,
 };
-use json_ld_syntax::{ContainerKind, Keyword, LenientLanguageTagBuf, Nullable};
+use json_ld_syntax::{ContainerKind, Keyword, LenientLangTagBuf, Nullable};
 use json_syntax::object::Entry;
 use mown::Mown;
 use rdf_types::VocabularyMut;
@@ -602,7 +602,7 @@ where
 													None
 												} else {
 													let (language, error) =
-														LenientLanguageTagBuf::new(
+														LenientLangTagBuf::new(
 															language.to_string(),
 														);
 

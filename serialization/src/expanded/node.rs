@@ -1,10 +1,12 @@
 use iref::Iri;
 use json_ld_core::{object::node::Multiset, Indexed, Node, Object};
-use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
+use linked_data::{CowRdfTerm, LinkedDataResource};
 use rdf_types::{
-	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
-	Interpretation, IriVocabulary, IriVocabularyMut, ReverseLiteralInterpretation, Term,
-	Vocabulary, RDF_TYPE,
+	interpretation::{
+		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
+	},
+	vocabulary::{IriVocabulary, IriVocabularyMut},
+	Interpretation, Term, Vocabulary, RDF_TYPE,
 };
 use std::hash::Hash;
 
@@ -26,8 +28,6 @@ where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::LanguageTag: Clone,
-	V::Value: AsRdfLiteral<V>,
 	I: ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,
@@ -78,8 +78,6 @@ where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::LanguageTag: Clone,
-	V::Value: AsRdfLiteral<V>,
 	I: ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,

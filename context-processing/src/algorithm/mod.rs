@@ -7,7 +7,7 @@ use json_ld_core::{
 	Context, Environment, ExtractContext, Loader, ProcessingMode, Term,
 };
 use json_ld_syntax::{self as syntax, Nullable};
-use rdf_types::{IriVocabularyMut, VocabularyMut};
+use rdf_types::{vocabulary::IriVocabularyMut, VocabularyMut};
 
 mod define;
 mod iri;

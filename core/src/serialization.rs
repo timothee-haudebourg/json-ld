@@ -1,11 +1,14 @@
 use hashbrown::HashSet;
 use iref::Iri;
 use json_syntax::Parse;
-use linked_data::{grdf, FromLinkedDataError, LinkedDataDeserialize};
+use linked_data::{FromLinkedDataError, LinkedDataDeserialize};
 use rdf_types::{
-	interpretation::ReverseIriInterpretation, literal, BlankIdVocabulary, IriVocabulary,
-	LanguageTagVocabulary, Quad, ReverseIdInterpretation, ReverseTermInterpretation, Term,
-	Vocabulary,
+	dataset::{PatternMatchingDataset, TraversableDataset},
+	interpretation::{
+		ReverseIdInterpretation, ReverseIriInterpretation, ReverseTermInterpretation,
+	},
+	vocabulary::{BlankIdVocabulary, IriVocabulary},
+	LiteralTypeRef, Quad, Term, Vocabulary,
 };
 use static_iref::iri;
 use std::{
@@ -235,16 +238,11 @@ impl<I, B> ExpandedDocument<I, B> {
 		context: linked_data::Context<T>,
 	) -> Result<Self, SerializationError>
 	where
-		V: Vocabulary<
-			Iri = I,
-			BlankId = B,
-			Type = literal::Type<I, <V as LanguageTagVocabulary>::LanguageTag>,
-		>,
+		V: Vocabulary<Iri = I, BlankId = B>,
 		T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal>,
 		T::Resource: 'a + Ord + Hash,
 		I: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
-		V::Value: AsRef<str>,
 	{
 		let mut node_map: SerDataset<&'a T::Resource> = SerDataset::new();
 
@@ -372,16 +370,11 @@ impl<I, B> ExpandedDocument<I, B> {
 		>,
 	) -> Result<Self, SerializationError>
 	where
-		V: Vocabulary<
-			Iri = I,
-			BlankId = B,
-			Type = literal::Type<I, <V as LanguageTagVocabulary>::LanguageTag>,
-		>,
+		V: Vocabulary<Iri = I, BlankId = B>,
 		T: ReverseTermInterpretation<Iri = I, BlankId = B, Literal = V::Literal>,
 		T::Resource: 'a + Ord + Hash,
 		I: Clone + Eq + Hash,
 		B: Clone + Eq + Hash,
-		V::Value: AsRef<str>,
 	{
 		Self::from_interpreted_quads_in(
 			vocabulary,
@@ -402,13 +395,10 @@ fn render_object<V, I>(
 	context: linked_data::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
-	V: Vocabulary<
-		Type = literal::Type<<V as IriVocabulary>::Iri, <V as LanguageTagVocabulary>::LanguageTag>,
-	>,
+	V: Vocabulary,
 	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::Value: AsRef<str>,
 	I::Resource: Ord,
 {
 	let context = context.with_subject(id);
@@ -533,13 +523,10 @@ fn insert_property<'a, V, I, O>(
 	context: linked_data::Context<I>,
 ) -> Result<(), SerializationError>
 where
-	V: Vocabulary<
-		Type = literal::Type<<V as IriVocabulary>::Iri, <V as LanguageTagVocabulary>::LanguageTag>,
-	>,
+	V: Vocabulary,
 	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::Value: AsRef<str>,
 	I::Resource: 'a + Ord,
 	O: IntoIterator<Item = &'a I::Resource>,
 	O::IntoIter: ExactSizeIterator,
@@ -589,13 +576,10 @@ fn render_object_or_reference<V, I>(
 	context: linked_data::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
-	V: Vocabulary<
-		Type = literal::Type<<V as IriVocabulary>::Iri, <V as LanguageTagVocabulary>::LanguageTag>,
-	>,
+	V: Vocabulary,
 	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::Value: AsRef<str>,
 	I::Resource: Ord,
 {
 	match graph.get(&id) {
@@ -625,13 +609,10 @@ fn render_reference<V, I>(
 	context: linked_data::Context<I>,
 ) -> Result<IndexedObject<V::Iri, V::BlankId>, SerializationError>
 where
-	V: Vocabulary<
-		Type = literal::Type<<V as IriVocabulary>::Iri, <V as LanguageTagVocabulary>::LanguageTag>,
-	>,
+	V: Vocabulary,
 	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
 	V::Iri: Clone,
 	V::BlankId: Clone,
-	V::Value: AsRef<str>,
 	I::Resource: Ord,
 {
 	match term_of(vocabulary, interpretation, id, context)? {
@@ -671,25 +652,22 @@ fn term_of<V, T>(
 	context: linked_data::Context<T>,
 ) -> Result<Option<ResourceTerm<V>>, SerializationError>
 where
-	V: Vocabulary<
-		Type = literal::Type<<V as IriVocabulary>::Iri, <V as LanguageTagVocabulary>::LanguageTag>,
-	>,
+	V: Vocabulary,
 	T: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
 	V::Iri: Clone,
 	V::BlankId: Clone,
-	V::Value: AsRef<str>,
 {
 	match id_of(interpretation, resource) {
 		Some(id) => Ok(Some(Term::Id(id))),
 		None => match interpretation.literals_of(resource).next() {
 			Some(l) => {
 				let l = vocabulary.literal(l).unwrap();
-				let value = match l.type_() {
-					literal::Type::Any(i) => {
+				let value = match l.type_ {
+					LiteralTypeRef::Any(i) => {
 						let ty = vocabulary.iri(i).unwrap();
 						if ty == RDF_JSON {
-							let (json, _) = json_syntax::Value::parse_str(l.value().as_ref())
-								.map_err(|e| {
+							let (json, _) =
+								json_syntax::Value::parse_str(l.value).map_err(|e| {
 									SerializationError::InvalidJson(
 										context.into_iris(vocabulary, interpretation),
 										e,
@@ -723,17 +701,9 @@ where
 							Value::Literal(Literal::String(l.as_ref().into()), Some(i.clone()))
 						}
 					}
-					literal::Type::LangString(t) => {
-						let tag = vocabulary.language_tag(t).unwrap();
-						Value::LangString(
-							LangString::new(
-								l.value().as_ref().into(),
-								Some(tag.cloned().into()),
-								None,
-							)
-							.unwrap(),
-						)
-					}
+					LiteralTypeRef::LangString(tag) => Value::LangString(
+						LangString::new(l.value.into(), Some(tag.to_owned().into()), None).unwrap(),
+					),
 				};
 
 				Ok(Some(Term::Literal(value)))
@@ -745,24 +715,16 @@ where
 
 impl<V, I> LinkedDataDeserialize<V, I> for ExpandedDocument<V::Iri, V::BlankId>
 where
-	V: Vocabulary<
-		Type = literal::Type<<V as IriVocabulary>::Iri, <V as LanguageTagVocabulary>::LanguageTag>,
-	>,
+	V: Vocabulary,
 	I: ReverseTermInterpretation<Iri = V::Iri, BlankId = V::BlankId, Literal = V::Literal>,
 	I::Resource: Ord + Hash,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::Value: AsRef<str>,
 {
 	fn deserialize_dataset_in(
 		vocabulary: &V,
 		interpretation: &I,
-		dataset: &impl grdf::Dataset<
-			Subject = I::Resource,
-			Predicate = I::Resource,
-			Object = I::Resource,
-			GraphLabel = I::Resource,
-		>,
+		dataset: &(impl TraversableDataset<Resource = I::Resource> + PatternMatchingDataset),
 		context: linked_data::Context<I>,
 	) -> Result<Self, FromLinkedDataError> {
 		Self::from_interpreted_quads(vocabulary, interpretation, dataset.quads()).map_err(|_| {

@@ -1,8 +1,11 @@
 use json_ld_core::{ExpandedDocument, Indexed, Node, Object};
-use linked_data::{AsRdfLiteral, CowRdfTerm};
+use linked_data::CowRdfTerm;
 use rdf_types::{
-	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
-	Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
+	interpretation::{
+		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
+	},
+	vocabulary::IriVocabularyMut,
+	Interpretation, Term, Vocabulary,
 };
 use std::hash::Hash;
 
@@ -44,8 +47,6 @@ where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::LanguageTag: Clone,
-	V::Value: AsRdfLiteral<V>,
 	I: ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,

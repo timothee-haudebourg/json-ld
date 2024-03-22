@@ -1,5 +1,7 @@
 use std::fmt;
 
+use rdf_types::vocabulary::IriVocabularyMut;
+
 use crate::future::{BoxFuture, FutureExt};
 use crate::LoadingResult;
 
@@ -37,7 +39,7 @@ where
 		url: I,
 	) -> BoxFuture<'a, LoadingResult<I, Self::Error>>
 	where
-		V: rdf_types::IriVocabularyMut<Iri = I>,
+		V: IriVocabularyMut<Iri = I>,
 		//
 		V: Send + Sync,
 		I: 'a + Send,

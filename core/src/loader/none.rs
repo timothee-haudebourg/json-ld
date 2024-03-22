@@ -1,6 +1,6 @@
 use super::Loader;
 use contextual::{DisplayWithContext, WithContext};
-use rdf_types::IriVocabulary;
+use rdf_types::vocabulary::IriVocabulary;
 use std::fmt;
 
 use crate::future::{BoxFuture, FutureExt};

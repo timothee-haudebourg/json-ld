@@ -1,11 +1,17 @@
 use contextual::WithContext;
 use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference};
-use locspan::Strip;
-use nquads_syntax::Parse;
+use nquads_syntax::{strip_quad, Parse};
 use rdf_types::{
-	vocabulary::IriIndex, IndexVocabulary, InsertIntoVocabulary, IriVocabularyMut, MapLiteral,
+	dataset::{isomorphism::are_isomorphic_with, IndexedBTreeDataset},
+	interpretation::VocabularyInterpretation,
+	vocabulary::{
+		BlankIdIndex, EmbedIntoVocabulary, IndexVocabulary, IriIndex, IriVocabularyMut,
+		LiteralIndex,
+	},
 };
 use static_iref::iri;
+
+type IndexTerm = rdf_types::Term<rdf_types::Id<IriIndex, BlankIdIndex>, LiteralIndex>;
 
 #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/toRdf-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
@@ -129,14 +135,13 @@ impl to_rdf::Test {
 			to_rdf::Description::Positive { expect } => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 
-				let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string())
-					.with_metadata(locspan::Location::new(input, locspan::Span::default()));
+				let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
 				let mut to_rdf = json_ld
 					.to_rdf_full(&mut vocabulary, &mut generator, &mut loader, options, ())
 					.await
 					.unwrap();
 
-				let dataset: grdf::HashDataset<_, _, _, _> = to_rdf
+				let dataset: IndexedBTreeDataset<IndexTerm> = to_rdf
 					.quads()
 					.cloned()
 					.map(|rdf_types::Quad(s, p, o, g)| {
@@ -153,29 +158,29 @@ impl to_rdf::Test {
 				let expected_content =
 					std::fs::read_to_string(loader.filepath(&vocabulary, &expect_url).unwrap())
 						.unwrap();
-				let expected_dataset: grdf::HashDataset<_, _, _, _> =
-					nquads_syntax::GrdfDocument::parse_str(&expected_content, |span| span)
+				let expected_dataset: IndexedBTreeDataset<IndexTerm> =
+					nquads_syntax::GrdfDocument::parse_str(&expected_content)
 						.unwrap()
 						.into_value()
 						.into_iter()
-						.map(|q| {
-							q.strip()
-								.map_literal(|l| l.insert_type_into_vocabulary(&mut vocabulary))
-								.insert_into_vocabulary(&mut vocabulary)
-						})
+						.map(|q| strip_quad(q.into_value()).embed_into_vocabulary(&mut vocabulary))
 						.collect();
 
-				let success = dataset.is_isomorphic_to(&expected_dataset);
+				let success = are_isomorphic_with(
+					&VocabularyInterpretation::<IndexVocabulary>::new(),
+					&dataset,
+					&expected_dataset,
+				);
 
 				if !success {
 					eprintln!("test failed");
 					eprintln!("output=");
-					for q in dataset.into_quads() {
+					for q in dataset {
 						eprintln!("{}", q.with(&vocabulary));
 					}
 
 					eprintln!("expected=");
-					for q in expected_dataset.into_quads() {
+					for q in expected_dataset {
 						eprintln!("{}", q.with(&vocabulary));
 					}
 				}

@@ -1,5 +1,5 @@
 use crate::{
-	context::InvalidContext, Container, ContainerKind, Direction, LenientLanguageTagBuf, Nullable,
+	context::InvalidContext, Container, ContainerKind, Direction, LenientLangTagBuf, Nullable,
 };
 use iref::IriRefBuf;
 
@@ -40,13 +40,13 @@ impl TryFromJson for IriRefBuf {
 	}
 }
 
-impl TryFromJson for LenientLanguageTagBuf {
+impl TryFromJson for LenientLangTagBuf {
 	type Error = InvalidContext;
 
 	fn try_from_json(value: json_syntax::Value) -> Result<Self, InvalidContext> {
 		match value {
 			json_syntax::Value::String(s) => {
-				let (lang, _) = LenientLanguageTagBuf::new(s.into_string());
+				let (lang, _) = LenientLangTagBuf::new(s.into_string());
 				Ok(lang)
 			}
 			unexpected => Err(InvalidContext::Unexpected(

@@ -2,7 +2,10 @@ use super::Environment;
 use crate::{object, ExpandedDocument, Id, Indexed, IndexedNode, IndexedObject, Node, Object};
 use educe::Educe;
 use indexmap::IndexSet;
-use rdf_types::{BlankIdVocabulary, Generator, IriVocabulary, Vocabulary};
+use rdf_types::{
+	vocabulary::{BlankIdVocabulary, IriVocabulary},
+	Generator, Vocabulary,
+};
 use std::collections::HashMap;
 use std::hash::Hash;
 

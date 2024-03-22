@@ -1,6 +1,6 @@
 use contextual::WithContext;
 use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference, TryFromJson};
-use rdf_types::{vocabulary::IriIndex, IndexVocabulary, IriVocabularyMut};
+use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use static_iref::iri;
 
 #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld")]

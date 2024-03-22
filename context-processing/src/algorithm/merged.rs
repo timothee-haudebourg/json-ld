@@ -40,7 +40,7 @@ impl<'a> Merged<'a> {
 			.map(Nullable::as_ref)
 	}
 
-	pub fn language(&self) -> Option<syntax::Nullable<&syntax::LenientLanguageTagBuf>> {
+	pub fn language(&self) -> Option<syntax::Nullable<&syntax::LenientLangTagBuf>> {
 		self.base
 			.language
 			.as_ref()

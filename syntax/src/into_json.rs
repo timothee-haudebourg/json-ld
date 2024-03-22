@@ -1,5 +1,5 @@
 use crate::{
-	context, Container, ContainerKind, ContextEntry, Direction, Keyword, LenientLanguageTagBuf,
+	context, Container, ContainerKind, ContextEntry, Direction, Keyword, LenientLangTagBuf,
 	Nullable,
 };
 use contextual::Contextual;
@@ -84,7 +84,7 @@ impl IntoJson for String {
 	}
 }
 
-impl IntoJson for LenientLanguageTagBuf {
+impl IntoJson for LenientLangTagBuf {
 	fn into_json(self) -> json_syntax::Value {
 		json_syntax::Value::String(self.into_string().into())
 	}

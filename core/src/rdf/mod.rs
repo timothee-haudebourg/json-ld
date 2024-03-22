@@ -3,10 +3,10 @@ use std::str::FromStr;
 use crate::{object::value, Direction, Id, Indexed, IndexedObject, Node, Object, ValidId};
 use iref::{Iri, IriBuf};
 use json_syntax::Print;
-use langtag::LanguageTagBuf;
+use langtag::LangTagBuf;
 use rdf_types::{
-	Generator, IriVocabularyMut, LanguageTagVocabulary, LanguageTagVocabularyMut,
-	LiteralVocabularyMut, Vocabulary,
+	vocabulary::{IriVocabularyMut, LiteralVocabularyMut},
+	Generator, Literal, Vocabulary,
 };
 use smallvec::SmallVec;
 use static_iref::iri;
@@ -132,20 +132,14 @@ pub struct CompoundLiteral<T, B, L> {
 }
 
 impl<T: Clone> crate::object::Value<T> {
-	fn rdf_value_with<
-		V: Vocabulary<Iri = T> + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: Generator<V>,
-	>(
+	fn rdf_value_with<V: Vocabulary<Iri = T> + IriVocabularyMut, G: Generator<V>>(
 		&self,
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundLiteral<T, V::BlankId, V::Literal>>
 	where
-		V: LiteralVocabularyMut<
-			Type = rdf_types::literal::Type<V::Iri, V::LanguageTag>,
-			Value = String,
-		>,
+		V: LiteralVocabularyMut,
 	{
 		match self {
 			Self::Json(json) => {
@@ -153,7 +147,7 @@ impl<T: Clone> crate::object::Value<T> {
 				Some(CompoundLiteral {
 					value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(
 						json.compact_print().to_string(),
-						rdf_types::literal::Type::Any(ty),
+						rdf_types::LiteralType::Any(ty),
 					))),
 					triples: None,
 				})
@@ -162,8 +156,8 @@ impl<T: Clone> crate::object::Value<T> {
 				let (string, language, direction) = lang_string.parts();
 
 				let language = match language {
-					Some(language) => match language.as_language_tag() {
-						Some(tag) => Some(tag.cloned()),
+					Some(language) => match language.as_well_formed() {
+						Some(tag) => Some(tag.to_owned()),
 						None => return None,
 					},
 					None => None,
@@ -177,7 +171,7 @@ impl<T: Clone> crate::object::Value<T> {
 								value: Value::Literal(vocabulary.insert_owned_literal(
 									Literal::new(
 										string.to_string(),
-										rdf_types::literal::Type::Any(ty),
+										rdf_types::LiteralType::Any(ty),
 									),
 								)),
 								triples: None,
@@ -191,25 +185,22 @@ impl<T: Clone> crate::object::Value<T> {
 							})
 						}
 						None => match language {
-							Some(language) => {
-								let tag = vocabulary.insert_owned_language_tag(language);
-								Some(CompoundLiteral {
-									value: Value::Literal(vocabulary.insert_owned_literal(
-										Literal::new(
-											string.to_string(),
-											rdf_types::literal::Type::LangString(tag),
-										),
-									)),
-									triples: None,
-								})
-							}
+							Some(tag) => Some(CompoundLiteral {
+								value: Value::Literal(vocabulary.insert_owned_literal(
+									Literal::new(
+										string.to_string(),
+										rdf_types::LiteralType::LangString(tag),
+									),
+								)),
+								triples: None,
+							}),
 							None => {
 								let ty = vocabulary.insert(XSD_STRING);
 								Some(CompoundLiteral {
 									value: Value::Literal(vocabulary.insert_owned_literal(
 										Literal::new(
 											string.to_string(),
-											rdf_types::literal::Type::Any(ty),
+											rdf_types::LiteralType::Any(ty),
 										),
 									)),
 									triples: None,
@@ -218,25 +209,20 @@ impl<T: Clone> crate::object::Value<T> {
 						},
 					},
 					None => match language {
-						Some(language) => {
-							let tag = vocabulary.insert_owned_language_tag(language);
-							Some(CompoundLiteral {
-								value: Value::Literal(vocabulary.insert_owned_literal(
-									Literal::new(
-										string.to_string(),
-										rdf_types::literal::Type::LangString(tag),
-									),
-								)),
-								triples: None,
-							})
-						}
+						Some(tag) => Some(CompoundLiteral {
+							value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(
+								string.to_string(),
+								rdf_types::LiteralType::LangString(tag),
+							))),
+							triples: None,
+						}),
 						None => {
 							let ty = vocabulary.insert(XSD_STRING);
 							Some(CompoundLiteral {
 								value: Value::Literal(vocabulary.insert_owned_literal(
 									Literal::new(
 										string.to_string(),
-										rdf_types::literal::Type::Any(ty),
+										rdf_types::LiteralType::Any(ty),
 									),
 								)),
 								triples: None,
@@ -284,13 +270,13 @@ impl<T: Clone> crate::object::Value<T> {
 					value: match rdf_ty {
 						Some(ty) => Value::Literal(vocabulary.insert_owned_literal(Literal::new(
 							rdf_lit,
-							rdf_types::literal::Type::Any(ty),
+							rdf_types::LiteralType::Any(ty),
 						))),
 						None => {
 							let ty = vocabulary.insert(XSD_STRING);
 							Value::Literal(vocabulary.insert_owned_literal(Literal::new(
 								rdf_lit,
-								rdf_types::literal::Type::Any(ty),
+								rdf_types::LiteralType::Any(ty),
 							)))
 						}
 					},
@@ -313,20 +299,14 @@ impl<T: Clone, B: Clone> Node<T, B> {
 }
 
 impl<T: Clone, B: Clone> Object<T, B> {
-	fn rdf_value_with<
-		V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: Generator<V>,
-	>(
+	fn rdf_value_with<V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut, G: Generator<V>>(
 		&self,
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundValue<T, B, V::Literal>>
 	where
-		V: LiteralVocabularyMut<
-			Type = rdf_types::literal::Type<V::Iri, V::LanguageTag>,
-			Value = String,
-		>,
+		V: LiteralVocabularyMut,
 	{
 		match self {
 			Self::Value(value) => value
@@ -366,20 +346,14 @@ pub struct CompoundValue<'a, T, B, L> {
 }
 
 impl<'a, T: Clone, B: Clone> crate::quad::ObjectRef<'a, T, B> {
-	pub fn rdf_value_with<
-		V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut + LanguageTagVocabularyMut,
-		G: Generator<V>,
-	>(
+	pub fn rdf_value_with<V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut, G: Generator<V>>(
 		&self,
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundValue<'a, T, B, V::Literal>>
 	where
-		V: LiteralVocabularyMut<
-			Type = rdf_types::literal::Type<V::Iri, V::LanguageTag>,
-			Value = String,
-		>,
+		V: LiteralVocabularyMut,
 	{
 		match self {
 			Self::Object(object) => object.rdf_value_with(vocabulary, generator, rdf_direction),
@@ -459,11 +433,7 @@ impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
 		Self::Literal(Box::new(l))
 	}
 
-	pub fn with<
-		'n,
-		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + LanguageTagVocabulary,
-		G: Generator<V>,
-	>(
+	pub fn with<'n, V: Vocabulary<Iri = T, BlankId = B, Literal = L>, G: Generator<V>>(
 		self,
 		vocabulary: &'n mut V,
 		generator: G,
@@ -478,7 +448,7 @@ impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
 	}
 
 	pub fn next<
-		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut + LanguageTagVocabularyMut,
+		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut,
 		G: Generator<V>,
 	>(
 		&mut self,
@@ -490,7 +460,7 @@ impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
 		T: Clone,
 		B: Clone,
 		L: Clone,
-		V: LiteralVocabularyMut<Type = rdf_types::literal::Type<T, V::LanguageTag>, Value = String>,
+		V: LiteralVocabularyMut,
 	{
 		match self {
 			Self::Literal(l) => l.next(vocabulary),
@@ -499,24 +469,20 @@ impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
 	}
 }
 
-pub struct CompoundValueTriplesWith<'a, 'n, N: Vocabulary + LanguageTagVocabulary, G: Generator<N>>
-{
+pub struct CompoundValueTriplesWith<'a, 'n, N: Vocabulary, G: Generator<N>> {
 	vocabulary: &'n mut N,
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
 	inner: CompoundValueTriples<'a, N::Iri, N::BlankId, N::Literal>,
 }
 
-impl<'a, 'n, N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut, G: Generator<N>> Iterator
+impl<'a, 'n, N: Vocabulary + IriVocabularyMut, G: Generator<N>> Iterator
 	for CompoundValueTriplesWith<'a, 'n, N, G>
 where
 	N::Iri: AsRef<Iri> + Clone,
 	N::BlankId: Clone,
 	N::Literal: Clone,
-	N: LiteralVocabularyMut<
-		Type = rdf_types::literal::Type<N::Iri, N::LanguageTag>,
-		Value = String,
-	>,
+	N: LiteralVocabularyMut,
 {
 	type Item = Triple<N::Iri, N::BlankId, N::Literal>;
 
@@ -547,11 +513,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
 		}
 	}
 
-	pub fn with<
-		'n,
-		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + LanguageTagVocabulary,
-		G: Generator<V>,
-	>(
+	pub fn with<'n, V: Vocabulary<Iri = T, BlankId = B, Literal = L>, G: Generator<V>>(
 		self,
 		vocabulary: &'n mut V,
 		generator: G,
@@ -566,7 +528,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
 	}
 
 	pub fn next<
-		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut + LanguageTagVocabularyMut,
+		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut,
 		G: Generator<V>,
 	>(
 		&mut self,
@@ -578,10 +540,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
 		T: Clone,
 		B: Clone,
 		L: Clone,
-		V: LiteralVocabularyMut<
-			Type = rdf_types::literal::Type<V::Iri, V::LanguageTag>,
-			Value = String,
-		>,
+		V: LiteralVocabularyMut,
 	{
 		loop {
 			if let Some(pending) = self.pending.take() {
@@ -649,23 +608,20 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
 	}
 }
 
-pub struct ListTriplesWith<'a, 'n, V: Vocabulary + LanguageTagVocabulary, G: Generator<V>> {
+pub struct ListTriplesWith<'a, 'n, V: Vocabulary, G: Generator<V>> {
 	vocabulary: &'n mut V,
 	generator: G,
 	rdf_direction: Option<RdfDirection>,
 	inner: ListTriples<'a, V::Iri, V::BlankId, V::Literal>,
 }
 
-impl<'a, 'n, N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut, G: Generator<N>> Iterator
+impl<'a, 'n, N: Vocabulary + IriVocabularyMut, G: Generator<N>> Iterator
 	for ListTriplesWith<'a, 'n, N, G>
 where
 	N::Iri: AsRef<Iri> + Clone,
 	N::BlankId: Clone,
 	N::Literal: Clone,
-	N: LiteralVocabularyMut<
-		Type = rdf_types::literal::Type<N::Iri, N::LanguageTag>,
-		Value = String,
-	>,
+	N: LiteralVocabularyMut,
 {
 	type Item = Triple<N::Iri, N::BlankId, N::Literal>;
 
@@ -675,9 +631,7 @@ where
 	}
 }
 
-pub type Literal<T, L> = rdf_types::Literal<rdf_types::literal::Type<T, L>>;
-
-fn i18n(language: Option<LanguageTagBuf>, direction: Direction) -> IriBuf {
+fn i18n(language: Option<LangTagBuf>, direction: Direction) -> IriBuf {
 	let iri = match &language {
 		Some(language) => format!("https://www.w3.org/ns/i18n#{language}_{direction}"),
 		None => format!("https://www.w3.org/ns/i18n#{direction}"),

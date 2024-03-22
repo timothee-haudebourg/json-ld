@@ -8,10 +8,13 @@ use json_ld_core::{
 	rdf::{RDF_FIRST, RDF_REST, RDF_TYPE},
 	Indexed, IndexedObject, Node, Object,
 };
-use linked_data::{AsRdfLiteral, CowRdfTerm, LinkedDataResource};
+use linked_data::{CowRdfTerm, LinkedDataResource};
 use rdf_types::{
-	interpretation::{ReverseBlankIdInterpretation, ReverseIriInterpretation},
-	Id, Interpretation, IriVocabularyMut, ReverseLiteralInterpretation, Term, Vocabulary,
+	interpretation::{
+		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
+	},
+	vocabulary::IriVocabularyMut,
+	Id, Interpretation, Term, Vocabulary,
 };
 
 use crate::Error;
@@ -36,8 +39,6 @@ where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::LanguageTag: Clone,
-	V::Value: AsRdfLiteral<V>,
 	I: ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,
@@ -102,8 +103,6 @@ where
 	V: IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	V::LanguageTag: Clone,
-	V::Value: AsRdfLiteral<V>,
 	I: ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,

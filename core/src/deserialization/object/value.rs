@@ -2,7 +2,7 @@ use linked_data::{
 	xsd_types, CowRdfTerm, LinkedData, LinkedDataGraph, LinkedDataPredicateObjects,
 	LinkedDataResource, LinkedDataSubject, RdfLiteral, RdfLiteralRef, ResourceInterpretation,
 };
-use rdf_types::{Interpretation, LanguageTagVocabularyMut, Term, Vocabulary};
+use rdf_types::{Interpretation, Term, Vocabulary};
 
 use crate::{
 	object::Literal,
@@ -10,10 +10,7 @@ use crate::{
 	Value,
 };
 
-impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri>
-where
-	V: LanguageTagVocabularyMut,
-{
+impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri> {
 	fn interpretation(
 		&self,
 		vocabulary: &mut V,
@@ -72,14 +69,11 @@ where
 					))),
 				},
 			},
-			Self::LangString(s) => match s.language().and_then(|l| l.as_language_tag()) {
-				Some(tag) => {
-					let tag = vocabulary.insert_language_tag(tag);
-					CowRdfTerm::Owned(Term::Literal(RdfLiteral::Any(
-						s.as_str().to_owned(),
-						rdf_types::literal::Type::LangString(tag),
-					)))
-				}
+			Self::LangString(s) => match s.language().and_then(|l| l.as_well_formed()) {
+				Some(tag) => CowRdfTerm::Owned(Term::Literal(RdfLiteral::Any(
+					s.as_str().to_owned(),
+					rdf_types::LiteralType::LangString(tag.to_owned()),
+				))),
 				None => CowRdfTerm::Borrowed(Term::Literal(RdfLiteralRef::Xsd(
 					xsd_types::ValueRef::String(s.as_str()),
 				))),
@@ -109,10 +103,7 @@ impl<T, V: Vocabulary, I: Interpretation> LinkedDataPredicateObjects<I, V> for V
 	}
 }
 
-impl<V: Vocabulary, I: Interpretation> LinkedDataGraph<I, V> for Value<V::Iri>
-where
-	V: LanguageTagVocabularyMut,
-{
+impl<V: Vocabulary, I: Interpretation> LinkedDataGraph<I, V> for Value<V::Iri> {
 	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
 		S: linked_data::GraphVisitor<I, V>,
@@ -122,10 +113,7 @@ where
 	}
 }
 
-impl<V: Vocabulary, I: Interpretation> LinkedData<I, V> for Value<V::Iri>
-where
-	V: LanguageTagVocabularyMut,
-{
+impl<V: Vocabulary, I: Interpretation> LinkedData<I, V> for Value<V::Iri> {
 	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
 		S: linked_data::Visitor<I, V>,

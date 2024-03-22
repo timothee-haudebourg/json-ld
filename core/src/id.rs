@@ -5,8 +5,8 @@ use hashbrown::HashMap;
 use iref::{Iri, IriBuf};
 use json_ld_syntax::IntoJsonWithContext;
 use rdf_types::{
-	BlankId, BlankIdBuf, BlankIdVocabulary, Generator, InvalidBlankId, IriVocabulary, Vocabulary,
-	VocabularyMut,
+	vocabulary::{BlankIdVocabulary, IriVocabulary},
+	BlankId, BlankIdBuf, Generator, InvalidBlankId, Vocabulary, VocabularyMut,
 };
 use std::convert::TryFrom;
 use std::fmt;

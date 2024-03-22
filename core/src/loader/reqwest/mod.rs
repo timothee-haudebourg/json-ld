@@ -5,10 +5,10 @@ use crate::Profile;
 
 use super::{Loader, RemoteDocument};
 use hashbrown::HashSet;
-use iref::Iri;
+use iref::{Iri, IriBuf};
 use json_syntax::Parse;
 use once_cell::sync::OnceCell;
-use rdf_types::{vocabulary::IriIndex, IriVocabulary, IriVocabularyMut};
+use rdf_types::vocabulary::{IriVocabulary, IriVocabularyMut};
 use reqwest::{
 	header::{ACCEPT, CONTENT_TYPE, LINK, LOCATION},
 	StatusCode,
@@ -86,7 +86,7 @@ pub enum Error {
 ///
 /// Loaded documents are not cached: a new network query is made each time
 /// an URL is loaded even if it has already been queried before.
-pub struct ReqwestLoader<I = IriIndex> {
+pub struct ReqwestLoader<I = IriBuf> {
 	options: Options<I>,
 	data: OnceCell<Data>,
 }

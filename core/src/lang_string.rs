@@ -1,4 +1,4 @@
-use crate::{object::InvalidExpandedJson, Direction, LenientLanguageTag, LenientLanguageTagBuf};
+use crate::{object::InvalidExpandedJson, Direction, LenientLangTag, LenientLangTagBuf};
 
 /// Language string.
 ///
@@ -9,7 +9,7 @@ use crate::{object::InvalidExpandedJson, Direction, LenientLanguageTag, LenientL
 pub struct LangString {
 	/// Actual content of the string.
 	data: json_ld_syntax::String,
-	language: Option<LenientLanguageTagBuf>,
+	language: Option<LenientLangTagBuf>,
 	direction: Option<Direction>,
 }
 
@@ -21,7 +21,7 @@ impl LangString {
 	/// Create a new language string.
 	pub fn new(
 		data: json_ld_syntax::String,
-		language: Option<LenientLanguageTagBuf>,
+		language: Option<LenientLangTagBuf>,
 		direction: Option<Direction>,
 	) -> Result<Self, json_ld_syntax::String> {
 		if language.is_some() || direction.is_some() {
@@ -39,13 +39,13 @@ impl LangString {
 		self,
 	) -> (
 		json_ld_syntax::String,
-		Option<LenientLanguageTagBuf>,
+		Option<LenientLangTagBuf>,
 		Option<Direction>,
 	) {
 		(self.data, self.language, self.direction)
 	}
 
-	pub fn parts(&self) -> (&str, Option<&LenientLanguageTagBuf>, Option<&Direction>) {
+	pub fn parts(&self) -> (&str, Option<&LenientLangTagBuf>, Option<&Direction>) {
 		(&self.data, self.language.as_ref(), self.direction.as_ref())
 	}
 
@@ -57,8 +57,10 @@ impl LangString {
 
 	/// Gets the associated language tag, if any.
 	#[inline(always)]
-	pub fn language(&self) -> Option<LenientLanguageTag> {
-		self.language.as_ref().map(|tag| tag.as_ref())
+	pub fn language(&self) -> Option<&LenientLangTag> {
+		self.language
+			.as_ref()
+			.map(|tag| tag.as_lenient_lang_tag_ref())
 	}
 
 	/// Sets the associated language tag.
@@ -67,7 +69,7 @@ impl LangString {
 	/// otherwise this function will fail with an [`InvalidLangString`] error.
 	pub fn set_language(
 		&mut self,
-		language: Option<LenientLanguageTagBuf>,
+		language: Option<LenientLangTagBuf>,
 	) -> Result<(), InvalidLangString> {
 		if self.direction.is_some() || language.is_some() {
 			self.language = language;
@@ -102,7 +104,7 @@ impl LangString {
 	/// this function will fail with an [`InvalidLangString`] error.
 	pub fn set(
 		&mut self,
-		language: Option<LenientLanguageTagBuf>,
+		language: Option<LenientLangTagBuf>,
 		direction: Option<Direction>,
 	) -> Result<(), InvalidLangString> {
 		if direction.is_some() || language.is_some() {
@@ -132,7 +134,7 @@ impl LangString {
 
 		let language = match language {
 			Some(json_syntax::Value::String(value)) => {
-				let (tag, _) = LenientLanguageTagBuf::new(value.to_string());
+				let (tag, _) = LenientLangTagBuf::new(value.to_string());
 				Some(tag)
 			}
 			Some(v) => {

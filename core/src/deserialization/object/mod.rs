@@ -5,7 +5,7 @@ mod value;
 use linked_data::{
 	LinkedData, LinkedDataGraph, LinkedDataPredicateObjects, LinkedDataResource, LinkedDataSubject,
 };
-use rdf_types::{Interpretation, IriVocabularyMut, LanguageTagVocabularyMut, Vocabulary};
+use rdf_types::{vocabulary::IriVocabularyMut, Interpretation, Vocabulary};
 
 use crate::Object;
 
@@ -13,7 +13,6 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataResource<I, V> f
 where
 	T: LinkedDataResource<I, V>,
 	B: LinkedDataResource<I, V>,
-	V: LanguageTagVocabularyMut,
 {
 	fn interpretation(
 		&self,
@@ -32,7 +31,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataSubject<I, V> fo
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_subject<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -51,7 +50,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataPredicateObjects
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_objects<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -69,7 +68,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V> for 
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_graph<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -87,7 +86,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V> for Objec
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
 	where

@@ -2,7 +2,7 @@ use super::{Loader, RemoteDocument};
 use crate::future::{BoxFuture, FutureExt};
 use crate::LoadingResult;
 use json_syntax::Parse;
-use rdf_types::{vocabulary::IriIndex, IriVocabulary};
+use rdf_types::vocabulary::{IriIndex, IriVocabulary};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read};

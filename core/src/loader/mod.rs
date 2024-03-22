@@ -2,7 +2,7 @@ use crate::future::BoxFuture;
 use hashbrown::HashSet;
 use iref::{Iri, IriBuf};
 use mime::Mime;
-use rdf_types::{IriVocabulary, IriVocabularyMut};
+use rdf_types::vocabulary::{IriVocabulary, IriVocabularyMut};
 use static_iref::iri;
 use std::borrow::Cow;
 

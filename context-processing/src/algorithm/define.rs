@@ -11,7 +11,7 @@ use json_ld_syntax::{
 		definition::{EntryValueRef, KeyOrKeyword, KeyOrKeywordRef},
 		term_definition::{self, IdRef},
 	},
-	CompactIri, ContainerKind, ExpandableRef, Keyword, LenientLanguageTag, Nullable,
+	CompactIri, ContainerKind, ExpandableRef, Keyword, LenientLangTag, Nullable,
 };
 use rdf_types::{BlankId, VocabularyMut};
 use std::collections::HashMap;
@@ -711,7 +711,7 @@ where
 								// processing is aborted.
 								// Set the `language` mapping of definition to `language`.
 								definition.language =
-									Some(language_value.map(LenientLanguageTag::to_owned));
+									Some(language_value.map(LenientLangTag::to_owned));
 							}
 
 							// If `value` contains the entry `@direction` and does not contain the

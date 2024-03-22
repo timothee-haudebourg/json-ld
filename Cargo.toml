@@ -35,8 +35,8 @@ json-ld-testing = { path = "testing", version = "0.15.1" }
 json-syntax = "0.12"
 iref = "3.1.2"
 static-iref = "3.0"
-langtag = "0.3"
-rdf-types = "0.18"
+langtag = "0.4"
+rdf-types = "0.22"
 contextual = "0.1.4"
 locspan = "0.8"
 educe = "0.4.23"
@@ -50,7 +50,6 @@ serde = "1.0"
 indexmap = "2.0"
 
 iref-enum = "3.0"
-grdf = "0.22"
 async-std = "1.12"
 
-linked-data = { git = "https://github.com/spruceid/linked-data-rs.git" }
+linked-data = "0.1"

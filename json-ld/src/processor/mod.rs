@@ -10,7 +10,9 @@ use json_ld_core::{
 	future::{BoxFuture, FutureExt},
 	Document, RdfQuads, RemoteContextReference,
 };
-use rdf_types::{vocabulary, BlankIdBuf, Generator, IriVocabulary, Vocabulary, VocabularyMut};
+use rdf_types::{
+	vocabulary, vocabulary::IriVocabulary, BlankIdBuf, Generator, Vocabulary, VocabularyMut,
+};
 use std::hash::Hash;
 
 mod remote_document;
@@ -337,12 +339,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::IriVocabularyMut;
-	/// use locspan::Meta;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input1 = RemoteDocumentReference::iri(iri);
@@ -396,12 +397,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
-	/// use rdf_types::IriVocabularyMut;
-	/// use locspan::Meta;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input1 = RemoteDocumentReference::iri(iri);
@@ -452,12 +452,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
-	/// use rdf_types::IriVocabularyMut;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// use locspan::Meta;
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input1 = RemoteDocumentReference::iri(iri);
@@ -604,12 +604,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::IriVocabularyMut;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -664,12 +664,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::IriVocabularyMut;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -721,12 +721,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::IriVocabularyMut;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -944,12 +944,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-	/// use rdf_types::IriVocabularyMut;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1010,12 +1010,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-	/// use rdf_types::IriVocabularyMut;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1074,12 +1074,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, warning};
-	/// use rdf_types::IriVocabularyMut;
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1249,14 +1249,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::IriVocabularyMut;
-	/// use locspan::{Location, Span};
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1266,10 +1265,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten_full(
@@ -1328,14 +1324,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::IriVocabularyMut;
-	/// use locspan::{Location, Span};
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1345,10 +1340,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten_with_using(
@@ -1403,14 +1395,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::IriVocabularyMut;
-	/// use locspan::{Location, Span};
+	/// use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1420,10 +1411,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten_with(
@@ -1475,7 +1463,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use locspan::{Location, Span};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
@@ -1487,10 +1474,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(iri!("https://example.com/").to_owned(), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten_using(
@@ -1539,7 +1523,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use locspan::{Location, Span};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
@@ -1551,10 +1534,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(iri!("https://example.com/").to_owned(), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let nodes = input
 	///   .flatten(
@@ -1604,14 +1584,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::{IriVocabularyMut, Quad};
-	/// use locspan::{Location, Span};
+	/// use rdf_types::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1621,10 +1600,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf_full(
@@ -1709,14 +1685,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::{IriVocabularyMut, Quad};
-	/// use locspan::{Location, Span};
+	/// use rdf_types::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1726,10 +1701,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf_with_using(
@@ -1794,14 +1766,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// ```
 	/// use static_iref::iri;
 	/// use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, warning};
-	/// use rdf_types::{IriVocabularyMut, Quad};
-	/// use locspan::{Location, Span};
+	/// use rdf_types::{Quad, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 	///
 	/// # #[async_std::main]
 	/// # async fn main() {
 	/// // Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
 	/// // to an actual `IriBuf`.
-	/// let mut vocabulary: rdf_types::IndexVocabulary = rdf_types::IndexVocabulary::new();
+	/// let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 	///
 	/// let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
 	/// let input = RemoteDocumentReference::iri(iri_index);
@@ -1811,10 +1782,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(vocabulary.insert(iri!("https://example.com/")), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf_with(
@@ -1888,10 +1856,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(iri!("https://example.com/").to_owned(), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf_using(
@@ -1975,10 +1940,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
-	/// let mut generator = rdf_types::generator::Blank::new().with_metadata(
-	///   // Each blank id will be associated to the document URL with a dummy span.
-	///   Location::new(iri!("https://example.com/").to_owned(), Span::default())
-	/// );
+	/// let mut generator = rdf_types::generator::Blank::new();
 	///
 	/// let mut rdf = input
 	///   .to_rdf(

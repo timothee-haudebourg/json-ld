@@ -7,7 +7,11 @@ use json_ld::{Expand, ValidId};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
-use rdf_types::{vocabulary::LiteralIndex, IriVocabulary, IriVocabularyMut, Quad, Triple};
+use rdf_types::{
+	dataset::IndexedBTreeDataset,
+	vocabulary::{IriVocabulary, IriVocabularyMut, LiteralIndex},
+	Quad,
+};
 use std::collections::HashMap;
 use std::fmt;
 use std::path::PathBuf;
@@ -15,13 +19,13 @@ use syn::parse::ParseStream;
 use syn::spanned::Spanned;
 
 mod vocab;
-use vocab::{BlankIdIndex, IriIndex, Vocab};
+use vocab::{BlankIdIndex, IndexQuad, IndexTerm, IriIndex, Vocab};
 mod ty;
 use ty::{Type, UnknownType};
 
 type FsLoader = json_ld::FsLoader<IriIndex>;
 
-type IndexVocabulary = rdf_types::IndexVocabulary<IriIndex, BlankIdIndex>;
+type IndexVocabulary = rdf_types::vocabulary::IndexVocabulary<IriIndex, BlankIdIndex>;
 
 struct MountAttribute {
 	_paren: syn::token::Paren,
@@ -483,8 +487,8 @@ enum Error {
 		json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
 	),
 	InvalidTypeField,
-	NoTypeVariants(ValidId<IriIndex, BlankIdIndex>),
-	MultipleTypeVariants(ValidId<IriIndex, BlankIdIndex>),
+	NoTypeVariants(IndexTerm),
+	MultipleTypeVariants(IndexTerm),
 }
 
 impl From<syn::Error> for Error {
@@ -544,26 +548,30 @@ async fn generate_test_suite(
 	expanded_json_ld.identify_all_with(vocabulary, &mut generator);
 
 	let rdf_quads = expanded_json_ld.rdf_quads_with(vocabulary, &mut generator, None);
-	let dataset: grdf::HashDataset<_, _, _, _> = rdf_quads.map(quad_to_owned).collect();
+	let dataset: IndexedBTreeDataset<IndexTerm> = rdf_quads.map(quad_to_owned).collect();
 
 	let mut tests = HashMap::new();
 
-	for Triple(subject, predicate, object) in dataset.default_graph() {
-		if let ValidId::Iri(id) = subject {
-			if *predicate == ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))) {
-				if let json_ld::rdf::Value::Id(ValidId::Iri(ty)) = object {
-					if let Some(type_id) = spec.type_map.get(ty) {
-						match spec.ignore.get(id) {
-							Some(link) => {
-								println!(
-									"    {} test `{}` (see {})",
-									yansi::Paint::yellow("Ignoring").bold(),
-									vocabulary.iri(id).unwrap(),
-									link
-								);
-							}
-							None => {
-								tests.insert(*id, type_id);
+	for Quad(subject, predicate, object, graph) in &dataset {
+		if graph.is_none() {
+			if let IndexTerm::Id(ValidId::Iri(id)) = subject {
+				if *predicate
+					== IndexTerm::Id(ValidId::Iri(IriIndex::Iri(Vocab::Rdf(vocab::Rdf::Type))))
+				{
+					if let json_ld::rdf::Value::Id(ValidId::Iri(ty)) = object {
+						if let Some(type_id) = spec.type_map.get(ty) {
+							match spec.ignore.get(id) {
+								Some(link) => {
+									println!(
+										"    {} test `{}` (see {})",
+										yansi::Paint::yellow("Ignoring").bold(),
+										vocabulary.iri(id).unwrap(),
+										link
+									);
+								}
+								None => {
+									tests.insert(*id, type_id);
+								}
 							}
 						}
 					}
@@ -580,7 +588,7 @@ async fn generate_test_suite(
 			vocabulary,
 			&spec,
 			&dataset,
-			ValidId::Iri(test),
+			IndexTerm::iri(test),
 			quote! { #id :: #type_id },
 		)?;
 
@@ -638,19 +646,17 @@ fn func_name(prefix: &str, id: &str) -> String {
 	name
 }
 
-type OwnedQuad<'a> = rdf_types::Quad<
-	ValidId<IriIndex, BlankIdIndex>,
-	ValidId<IriIndex, BlankIdIndex>,
-	json_ld::rdf::Value<IriIndex, BlankIdIndex, LiteralIndex>,
-	&'a ValidId<IriIndex, BlankIdIndex>,
->;
-
 fn quad_to_owned(
 	rdf_types::Quad(subject, predicate, object, graph): json_ld::rdf::QuadRef<
 		IriIndex,
 		BlankIdIndex,
 		LiteralIndex,
 	>,
-) -> OwnedQuad {
-	Quad(*subject.as_ref(), *predicate.as_ref(), object, graph)
+) -> IndexQuad {
+	Quad(
+		IndexTerm::Id(*subject.as_ref()),
+		IndexTerm::Id(*predicate.as_ref()),
+		object,
+		graph.copied().map(IndexTerm::Id),
+	)
 }

@@ -3,7 +3,7 @@ use json_ld_core::{
 	object::value::Literal, Context, Environment, IndexedObject, LangString, Node, Object, Type,
 	Value,
 };
-use json_ld_syntax::{ErrorCode, LenientLanguageTag, Nullable};
+use json_ld_syntax::{ErrorCode, LenientLangTag, Nullable};
 use json_syntax::Number;
 use rdf_types::VocabularyMut;
 
@@ -165,12 +165,12 @@ where
 								} else {
 									active_context
 										.default_language()
-										.map(LenientLanguageTag::to_owned)
+										.map(LenientLangTag::to_owned)
 								}
 							} else {
 								active_context
 									.default_language()
-									.map(LenientLanguageTag::to_owned)
+									.map(LenientLangTag::to_owned)
 							};
 
 						// Initialize `direction` to the direction mapping for

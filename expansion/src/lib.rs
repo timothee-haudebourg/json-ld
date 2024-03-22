@@ -12,7 +12,7 @@ use json_ld_core::{
 	Environment, ExpandedDocument, Loader, RemoteDocument,
 };
 use json_syntax::Value;
-use rdf_types::{vocabulary, BlankIdBuf, BlankIdVocabulary, VocabularyMut};
+use rdf_types::{vocabulary, vocabulary::BlankIdVocabulary, BlankIdBuf, VocabularyMut};
 
 mod array;
 mod document;

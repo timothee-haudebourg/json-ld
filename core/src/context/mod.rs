@@ -2,7 +2,7 @@
 mod definition;
 pub mod inverse;
 
-use crate::{Direction, LenientLanguageTag, LenientLanguageTagBuf, Term};
+use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term};
 use contextual::WithContext;
 use json_ld_syntax::{KeywordType, Nullable};
 use once_cell::sync::OnceCell;
@@ -23,7 +23,7 @@ pub struct Context<T, B> {
 	original_base_url: Option<T>,
 	base_iri: Option<T>,
 	vocabulary: Option<Term<T, B>>,
-	default_language: Option<LenientLanguageTagBuf>,
+	default_language: Option<LenientLangTagBuf>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
 	definitions: Definitions<T, B>,
@@ -118,8 +118,10 @@ impl<T, B> Context<T, B> {
 	}
 
 	/// Returns the default `@language` value.
-	pub fn default_language(&self) -> Option<LenientLanguageTag> {
-		self.default_language.as_ref().map(|tag| tag.as_ref())
+	pub fn default_language(&self) -> Option<&LenientLangTag> {
+		self.default_language
+			.as_ref()
+			.map(|tag| tag.as_lenient_lang_tag_ref())
 	}
 
 	/// Returns the default `@direction` value.
@@ -198,7 +200,7 @@ impl<T, B> Context<T, B> {
 	}
 
 	/// Sets the default `@language` value.
-	pub fn set_default_language(&mut self, lang: Option<LenientLanguageTagBuf>) {
+	pub fn set_default_language(&mut self, lang: Option<LenientLangTagBuf>) {
 		self.inverse.take();
 		self.default_language = lang;
 	}

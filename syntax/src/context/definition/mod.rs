@@ -1,5 +1,5 @@
 use super::{term_definition, TermDefinition};
-use crate::{Direction, Keyword, LenientLanguageTagBuf, Nullable};
+use crate::{Direction, Keyword, LenientLangTagBuf, Nullable};
 use educe::Educe;
 use indexmap::IndexMap;
 use iref::IriRefBuf;
@@ -39,7 +39,7 @@ pub struct Definition {
 		feature = "serde",
 		serde(rename = "@language", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub language: Option<Nullable<LenientLanguageTagBuf>>,
+	pub language: Option<Nullable<LenientLangTagBuf>>,
 
 	#[cfg_attr(
 		feature = "serde",

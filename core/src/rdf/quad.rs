@@ -2,8 +2,8 @@ use super::{RdfDirection, ValidId, Value};
 use crate::{flattening::NodeMap, ExpandedDocument, FlattenedDocument, LdQuads};
 use rdf_types::vocabulary::IriVocabularyMut;
 use rdf_types::{
-	BlankIdVocabulary, Generator, IriVocabulary, LanguageTagVocabularyMut, LiteralVocabulary,
-	LiteralVocabularyMut, Triple, Vocabulary,
+	vocabulary::{BlankIdVocabulary, IriVocabulary, LiteralVocabulary, LiteralVocabularyMut},
+	Generator, Triple, Vocabulary,
 };
 use std::borrow::Cow;
 use std::convert::TryInto;
@@ -47,16 +47,13 @@ impl<'a, 'n, 'g, N: Vocabulary, G: Generator<N>> Quads<'a, 'n, 'g, N, G> {
 	}
 }
 
-impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut, G: Generator<N>>
-	Iterator for Quads<'a, 'n, 'g, N, G>
+impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut, G: Generator<N>> Iterator
+	for Quads<'a, 'n, 'g, N, G>
 where
 	N::Iri: Clone,
 	N::BlankId: Clone,
 	N::Literal: Clone,
-	N: LiteralVocabularyMut<
-		Type = rdf_types::literal::Type<N::Iri, N::LanguageTag>,
-		Value = String,
-	>,
+	N: LiteralVocabularyMut,
 {
 	type Item = QuadRef<'a, N::Iri, N::BlankId, N::Literal>;
 
@@ -141,16 +138,13 @@ pub struct ClonedQuads<'a, 'n, 'g, N: Vocabulary, G: Generator<N>> {
 	inner: Quads<'a, 'n, 'g, N, G>,
 }
 
-impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut + LanguageTagVocabularyMut, G: Generator<N>>
-	Iterator for ClonedQuads<'a, 'n, 'g, N, G>
+impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut, G: Generator<N>> Iterator
+	for ClonedQuads<'a, 'n, 'g, N, G>
 where
 	N::Iri: Clone,
 	N::BlankId: Clone,
 	N::Literal: Clone,
-	N: LiteralVocabularyMut<
-		Type = rdf_types::literal::Type<N::Iri, N::LanguageTag>,
-		Value = String,
-	>,
+	N: LiteralVocabularyMut,
 {
 	type Item = Quad<N::Iri, N::BlankId, N::Literal>;
 

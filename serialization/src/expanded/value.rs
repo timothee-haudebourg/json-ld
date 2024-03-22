@@ -1,15 +1,15 @@
 use json_ld_core::{object::Literal, LangString, Value};
 use linked_data::RdfLiteral;
-use rdf_types::{literal, IriVocabularyMut, LanguageTagVocabulary};
+use rdf_types::{vocabulary::IriVocabularyMut, LiteralType};
 use xsd_types::XSD_STRING;
 
-pub fn literal_to_value<V: IriVocabularyMut + LanguageTagVocabulary>(
+pub fn literal_to_value<V: IriVocabularyMut>(
 	vocabulary: &mut V,
 	lit: RdfLiteral<V>,
 ) -> Value<V::Iri> {
 	match lit {
 		RdfLiteral::Any(s, ty) => match ty {
-			literal::Type::Any(iri) => {
+			LiteralType::Any(iri) => {
 				let literal_ty = if vocabulary.iri(&iri).unwrap() == XSD_STRING {
 					None
 				} else {
@@ -18,8 +18,7 @@ pub fn literal_to_value<V: IriVocabularyMut + LanguageTagVocabulary>(
 
 				Value::Literal(Literal::String(s.into()), literal_ty)
 			}
-			literal::Type::LangString(lang) => {
-				let language = vocabulary.owned_language_tag(lang).ok().unwrap();
+			LiteralType::LangString(language) => {
 				Value::LangString(LangString::new(s.into(), Some(language.into()), None).unwrap())
 			}
 		},

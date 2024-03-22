@@ -3,7 +3,7 @@ use json_ld_core::{
 	object::value::Literal, Context, Environment, Id, Indexed, IndexedObject, LangString, Object,
 	Term, ValidId, Value,
 };
-use json_ld_syntax::{Direction, ErrorCode, Keyword, LenientLanguageTagBuf, Nullable};
+use json_ld_syntax::{Direction, ErrorCode, Keyword, LenientLangTagBuf, Nullable};
 use rdf_types::VocabularyMut;
 
 #[derive(Debug, thiserror::Error)]
@@ -195,7 +195,7 @@ where
 		if let Literal::String(s) = result {
 			let lang = match language {
 				Some(language) => {
-					let (language, error) = LenientLanguageTagBuf::new(language);
+					let (language, error) = LenientLangTagBuf::new(language);
 
 					if let Some(error) = error {
 						env.warnings.handle(

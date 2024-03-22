@@ -1,5 +1,5 @@
 use linked_data::{LinkedData, LinkedDataGraph, LinkedDataResource, LinkedDataSubject};
-use rdf_types::{Interpretation, IriVocabularyMut, LanguageTagVocabularyMut, Vocabulary};
+use rdf_types::{vocabulary::IriVocabularyMut, Interpretation, Vocabulary};
 
 use crate::ExpandedDocument;
 
@@ -10,7 +10,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V>
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where
@@ -28,7 +28,7 @@ impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V> for Expan
 where
 	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
 	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 {
 	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
 	where

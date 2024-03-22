@@ -1,9 +1,13 @@
 use iref_enum::IriEnum;
+pub use rdf_types::vocabulary::LiteralIndex;
 
 pub type IriIndex = rdf_types::vocabulary::IriOrIndex<Vocab>;
 pub type BlankIdIndex = rdf_types::vocabulary::BlankIdIndex;
 
-#[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+pub type IndexTerm = rdf_types::Term<rdf_types::Id<IriIndex, BlankIdIndex>, LiteralIndex>;
+pub type IndexQuad = rdf_types::Quad<IndexTerm>;
+
+#[derive(Debug, IriEnum, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Vocab {
 	Rdf(Rdf),
 	Rdfs(Rdfs),
@@ -12,21 +16,21 @@ pub enum Vocab {
 	Test(Test),
 }
 
-#[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, IriEnum, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[iri_prefix("rdf" = "http://www.w3.org/1999/02/22-rdf-syntax-ns#")]
 pub enum Rdf {
 	#[iri("rdf:type")]
 	Type,
 }
 
-#[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, IriEnum, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
 pub enum Rdfs {
 	#[iri("rdfs:comment")]
 	Comment,
 }
 
-#[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, IriEnum, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[iri_prefix("xsd" = "http://www.w3.org/2001/XMLSchema#")]
 pub enum Xsd {
 	#[iri("xsd:boolean")]
@@ -36,7 +40,7 @@ pub enum Xsd {
 	String,
 }
 
-#[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, IriEnum, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
 pub enum Manifest {
 	#[iri("manifest:name")]
@@ -49,7 +53,7 @@ pub enum Manifest {
 	Result,
 }
 
-#[derive(IriEnum, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, IriEnum, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
 pub enum Test {
 	#[iri("test:PositiveEvaluationTest")]

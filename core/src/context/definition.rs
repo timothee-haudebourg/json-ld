@@ -1,5 +1,5 @@
 use super::{IntoSyntax, Nest};
-use crate::{Container, Direction, LenientLanguageTagBuf, Nullable, Term, Type};
+use crate::{Container, Direction, LenientLangTagBuf, Nullable, Term, Type};
 use contextual::WithContext;
 use json_ld_syntax::{
 	context::{
@@ -8,7 +8,7 @@ use json_ld_syntax::{
 	},
 	KeywordType,
 };
-use rdf_types::{IriVocabulary, Vocabulary};
+use rdf_types::{vocabulary::IriVocabulary, Vocabulary};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::{borrow::Borrow, fmt};
@@ -377,7 +377,7 @@ impl<T, B> TermDefinition<T, B> {
 		}
 	}
 
-	pub fn language(&self) -> Option<Nullable<&LenientLanguageTagBuf>> {
+	pub fn language(&self) -> Option<Nullable<&LenientLangTagBuf>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.language.as_ref().map(Nullable::as_ref),
@@ -477,7 +477,7 @@ impl<'a, T, B> TermDefinitionRef<'a, T, B> {
 		}
 	}
 
-	pub fn language(&self) -> Option<Nullable<&'a LenientLanguageTagBuf>> {
+	pub fn language(&self) -> Option<Nullable<&'a LenientLangTagBuf>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.language.as_ref().map(Nullable::as_ref),
@@ -538,7 +538,7 @@ pub struct NormalTermDefinition<T, B> {
 	pub index: Option<Index>,
 
 	// Optional language mapping.
-	pub language: Option<Nullable<LenientLanguageTagBuf>>,
+	pub language: Option<Nullable<LenientLangTagBuf>>,
 
 	// Optional nest value.
 	pub nest: Option<Nest>,

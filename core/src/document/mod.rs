@@ -3,9 +3,7 @@ use std::{borrow::Borrow, hash::Hash};
 
 use iref::IriBuf;
 use linked_data::{LinkedData, LinkedDataGraph, LinkedDataResource, LinkedDataSubject};
-use rdf_types::{
-	BlankIdBuf, Interpretation, IriVocabularyMut, LanguageTagVocabularyMut, Vocabulary,
-};
+use rdf_types::{vocabulary::IriVocabularyMut, BlankIdBuf, Interpretation, Vocabulary};
 
 pub mod expanded;
 pub mod flattened;
@@ -103,7 +101,7 @@ impl<I, B> serde::Serialize for Document<I, B> {
 
 impl<V: Vocabulary, I: Interpretation> LinkedData<I, V> for Document<V::Iri, V::BlankId>
 where
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 	V::Iri: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
 	V::BlankId: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
 {
@@ -117,7 +115,7 @@ where
 
 impl<V: Vocabulary, I: Interpretation> LinkedDataGraph<I, V> for Document<V::Iri, V::BlankId>
 where
-	V: IriVocabularyMut + LanguageTagVocabularyMut,
+	V: IriVocabularyMut,
 	V::Iri: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
 	V::BlankId: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
 {
