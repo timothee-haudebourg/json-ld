@@ -1,9 +1,7 @@
 use super::BindingRef;
 use super::Context;
 use super::Key;
-use crate::{
-	Container, Direction, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type,
-};
+use crate::{Container, Direction, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt;

@@ -511,8 +511,8 @@ impl DisplayWithContext<IndexVocabulary> for Error {
 			Self::Load(e) => e.fmt(f),
 			Self::Expand(e) => e.fmt(f),
 			Self::InvalidIri(i) => write!(f, "invalid IRI `{i}`"),
-			Self::InvalidValue(_, value) => {
-				write!(f, "invalid value {}", value.with(vocabulary))
+			Self::InvalidValue(ty, value) => {
+				write!(f, "invalid value {} for type {ty}", value.with(vocabulary))
 			}
 			Self::InvalidTypeField => write!(f, "invalid type field"),
 			Self::NoTypeVariants(r) => {

@@ -601,10 +601,9 @@ where
 												{
 													None
 												} else {
-													let (language, error) =
-														LenientLangTagBuf::new(
-															language.to_string(),
-														);
+													let (language, error) = LenientLangTagBuf::new(
+														language.to_string(),
+													);
 
 													if let Some(error) = error {
 														env.warnings.handle(

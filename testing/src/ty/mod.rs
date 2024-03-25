@@ -2,6 +2,7 @@ use crate::{
 	vocab, vocab::IndexTerm, BlankIdIndex, Error, IndexVocabulary, IriIndex, TestSpec, Vocab,
 };
 use contextual::AsRefWithContext;
+use core::fmt;
 use json_ld::ValidId;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -179,6 +180,19 @@ impl Type {
 				}
 				_ => Err(Box::new(Error::InvalidValue(self.clone(), *value))),
 			},
+		}
+	}
+}
+
+impl fmt::Display for Type {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			Self::Bool => write!(f, "bool"),
+			Self::String => write!(f, "str"),
+			Self::Iri => write!(f, "Iri"),
+			Self::ProcessingMode => write!(f, "ProcessingMode"),
+			Self::RdfDirection => write!(f, "RdfDirection"),
+			Self::Ref(id) => id.fmt(f),
 		}
 	}
 }

@@ -261,10 +261,10 @@ impl Expanded {
 			context: self.context.as_deref(),
 			reverse: self.reverse.as_ref(),
 			index: self.index.as_ref(),
-			language: self.language.as_ref().map(|n| {
-				n.as_ref()
-					.map(LenientLangTagBuf::as_lenient_lang_tag_ref)
-			}),
+			language: self
+				.language
+				.as_ref()
+				.map(|n| n.as_ref().map(LenientLangTagBuf::as_lenient_lang_tag_ref)),
 			direction: self.direction,
 			container: self.container.as_ref().map(Nullable::as_ref),
 			nest: self.nest.as_ref(),
