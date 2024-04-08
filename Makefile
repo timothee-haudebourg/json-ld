@@ -1,33 +1,33 @@
-.PHONY: readme clean syntax/README.md core/README.md context-processing/README.md expansion/README.md compaction/README.md testing/README.md tests/README.md json-ld/README.md README.md
+.PHONY: readme clean crates/syntax/README.md crates/core/README.md crates/context-processing/README.md crates/expansion/README.md crates/compaction/README.md crates/serialization/README.md crates/testing/README.md crates/tests/README.md crates/cli/README.md README.md
 
-readme: syntax/README.md core/README.md context-processing/README.md expansion/README.md compaction/README.md testing/README.md tests/README.md README.md
+readme: crates/syntax/README.md crates/core/README.md crates/context-processing/README.md crates/expansion/README.md crates/compaction/README.md crates/serialization/README.md crates/testing/README.md crates/tests/README.md crates/cli/README.md README.md
 
-syntax/README.md:
-	make -C syntax readme
+crates/syntax/README.md: crates/syntax/src/lib.rs
+	make -C crates/syntax readme
 
-core/README.md:
-	make -C core readme
+crates/core/README.md: crates/core/src/lib.rs
+	make -C crates/core readme
 
-context-processing/README.md:
-	make -C context-processing readme
+crates/context-processing/README.md: crates/context-processing/src/lib.rs
+	make -C crates/context-processing readme
 
-expansion/README.md:
-	make -C expansion readme
+crates/expansion/README.md: crates/expansion/src/lib.rs
+	make -C crates/expansion readme
 
-compaction/README.md:
-	make -C compaction readme
+crates/compaction/README.md: crates/compaction/src/lib.rs
+	make -C crates/compaction readme
 
-json-ld/README.md:
-	make -C json-ld readme
+crates/serialization/README.md: crates/serialization/src/lib.rs
+	make -C crates/serialization readme
 
-testing/README.md:
-	make -C testing readme
+crates/cli/README.md: crates/cli/src/main.rs
+	make -C crates/cli/json-ld readme
 
-tests/README.md:
-	make -C tests readme
+crates/testing/README.md: crates/testing/src/lib.rs
+	make -C crates/testing readme
 
-README.md: json-ld/README.md
-	cp json-ld/README.md .
+README.md: src/lib.rs
+	cargo rdme
 
 clean:
 	rm README.md

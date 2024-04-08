@@ -1,6 +1,2 @@
-target
-**/*.rs.bk
+/target
 Cargo.lock
-tests/expand.rs
-tests/compact.rs
-tests/flatten.rs

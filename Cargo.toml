@@ -1,15 +1,50 @@
+[package]
+name = "json-ld"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+categories.workspace = true
+keywords.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "A JSON-LD implementation"
+documentation = "https://docs.rs/json-ld"
+readme = "README.md"
+
+[features]
+reqwest = ["json-ld-core/reqwest"]
+serde = ["json-ld-syntax/serde", "json-ld-core/serde"]
+
+[dependencies]
+json-ld-syntax.workspace = true
+json-ld-core.workspace = true
+json-ld-context-processing.workspace = true
+json-ld-expansion.workspace = true
+json-ld-compaction.workspace = true
+json-ld-serialization.workspace = true
+json-syntax.workspace = true
+futures.workspace = true
+locspan.workspace = true
+iref.workspace = true
+rdf-types.workspace = true
+contextual.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+json-ld-testing.workspace = true
+log.workspace = true
+async-std = { workspace = true, features = ["attributes"] }
+iref.workspace = true
+static-iref.workspace = true
+nquads-syntax = "0.19"
+stacker = "0.1.15"
+
+[package.metadata.docs.rs]
+all-features = true
+
 [workspace]
 members = [
-	"syntax",
-	"core",
-	"context-processing",
-	"expansion",
-	"compaction",
-	"serialization",
-	"testing",
-	"tests",
-	"json-ld",
-	"cli"
+	"crates/*"
 ]
 
 resolver = "2"
@@ -24,14 +59,14 @@ repository = "https://github.com/timothee-haudebourg/json-ld"
 license = "MIT/Apache-2.0"
 
 [workspace.dependencies]
-json-ld = { path = "json-ld", version = "0.15.1" }
-json-ld-syntax = { path = "syntax", version = "0.15.1" }
-json-ld-core = { path = "core", version = "0.15.1" }
-json-ld-context-processing = { path = "context-processing", version = "0.15.1" }
-json-ld-expansion = { path = "expansion", version = "0.15.1" }
-json-ld-compaction = { path = "compaction", version = "0.15.1" }
-json-ld-serialization = { path = "serialization", version = "0.15.1" }
-json-ld-testing = { path = "testing", version = "0.15.1" }
+json-ld = { path = ".", version = "0.15.1" }
+json-ld-syntax = { path = "crates/syntax", version = "0.15.1" }
+json-ld-core = { path = "crates/core", version = "0.15.1" }
+json-ld-context-processing = { path = "crates/context-processing", version = "0.15.1" }
+json-ld-expansion = { path = "crates/expansion", version = "0.15.1" }
+json-ld-compaction = { path = "crates/compaction", version = "0.15.1" }
+json-ld-serialization = { path = "crates/serialization", version = "0.15.1" }
+json-ld-testing = { path = "crates/testing", version = "0.15.1" }
 json-syntax = "0.12"
 iref = "3.1.2"
 static-iref = "3.0"

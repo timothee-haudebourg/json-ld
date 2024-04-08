@@ -1,1 +1,0 @@
-awk -i inplace -v r="$(cat .toc.md)" '{gsub(/<!-- toc -->/,r)}1' README.md
