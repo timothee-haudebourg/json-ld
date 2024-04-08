@@ -1,8 +1,9 @@
 # A JSON-LD implementation for Rust
 
-[![CI](https://github.com/timothee-haudebourg/json-ld/workflows/Continuous%20Integration/badge.svg)](https://github.com/timothee-haudebourg/json-ld/actions)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/spruceid/json-ld/ci.yml?style=flat-square&logo=github)](https://github.com/spruceid/json-ld/actions)
 [![Crate informations](https://img.shields.io/crates/v/json-ld.svg?style=flat-square)](https://crates.io/crates/json-ld)
-[![License](https://img.shields.io/crates/l/json-ld.svg?style=flat-square)](https://github.com/timothee-haudebourg/json-ld#license)
+[![Crates.io MSRV](https://img.shields.io/crates/msrv/json-ld?style=flat-square)](https://crates.io/crates/json-ld)
+[![License](https://img.shields.io/crates/l/json-ld.svg?style=flat-square)](https://github.com/spruceid/json-ld#license)
 [![Documentation](https://img.shields.io/badge/docs-latest-blue.svg?style=flat-square)](https://docs.rs/json-ld)
 
 

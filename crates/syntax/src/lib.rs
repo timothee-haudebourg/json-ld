@@ -23,7 +23,9 @@ pub use direction::*;
 pub use error::*;
 pub use expandable::*;
 pub use into_json::*;
-pub use json_syntax::*;
+pub use json_syntax::{
+	object, parse, print, Kind, Number, NumberBuf, Object, Parse, Print, String, Value,
+};
 pub use keyword::*;
 pub use lang::*;
 pub use nullable::*;

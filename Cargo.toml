@@ -1,12 +1,13 @@
 [package]
 name = "json-ld"
-version.workspace = true
 edition.workspace = true
 authors.workspace = true
 categories.workspace = true
 keywords.workspace = true
 repository.workspace = true
 license.workspace = true
+rust-version.workspace = true
+version.workspace = true
 description = "A JSON-LD implementation"
 documentation = "https://docs.rs/json-ld"
 readme = "README.md"
@@ -50,13 +51,14 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.15.1"
-edition = "2021"
 authors = ["Timothée Haudebourg <timothee@haudebourg.net>"]
 categories = ["web-programming", "database", "data-structures"]
 keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 repository = "https://github.com/timothee-haudebourg/json-ld"
 license = "MIT/Apache-2.0"
+edition = "2021"
+rust-version = "1.77.0"
+version = "0.15.1"
 
 [workspace.dependencies]
 json-ld = { path = ".", version = "0.15.1" }
