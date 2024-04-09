@@ -5,6 +5,66 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2024-04-09
+
+### Added
+
+- [17266de] Impl  `linked-data::LinkedData*`.
+- [773fc2b] Add `serde` support for context syntax types.
+- [8ff9083] Implement serialization from (interpreted) RDF
+- [18fb2aa] Add `ExpandedDocument::main_node` method.
+- [28edd71] Add `Document` type.
+- [28edd71] Add `serde` feature.
+- [b795872] Add `into_document_*` functions.
+- [0997428] Add `ExpandedDocument::into_main_node`.
+- [e59f3d6] Add `RemoteDocument::document_mut`
+- [ece6f0d] Impl `Clone` and `Debug` for expanded docs.
+- [ec7664b] Impl `PrintWithContext` for `Node`.
+- [a6de88b] Add default value for `RemoteContextReference` Iri parameter.
+- [9d51cae] Add `syntax::ContextDocument` type.
+- [8fc4a23] Impl `Loader` for `&mut L`.
+- [7fc9875] Add `MapLoader`.
+- [38d3444] Impl `std::error::Error`for `SerializationError`.
+
+### Build
+
+- [e42003e] Upgrade `iref`, simplify API, serializer.
+- [368b09e] Upgrade `rdf-types` to version 0.17.3
+- [368b09e] Upgrade `grdf` to version 0.21
+- [368b09e] Upgrade `nquads-syntax` to version 0.16
+- [1ba0d65] Upgrade `locspan` to version 0.8
+- [1ba0d65] Upgrade `rdf-types` to version 0.18
+- [1ba0d65] Upgrade `json-syntax` to version 0.10
+- [1ba0d65] Upgrade `grdf` to version 0.22
+- [1ba0d65] Upgrade `nquads-syntax` 0.17
+- [cc7691d] Upgrade `json-syntax` to version 0.12
+- [78c0116] Upgrade `xsd-types`to version 0.9.1.
+
+### Changed
+
+- [d358b11] Change default type values for remote docs.
+- [8104479] Change `enum LenientLanguageTag` type to unsized `struct LenientLangTag`.
+- [8104479] Change `enum LenientLanguageTagBuf` to `struct LenientLangTagBuf`.
+
+### Fixed
+
+- [f9cb306] Fix warnings.
+- [9f6327c] Fix warnings.
+- [2354040] Fix object serialization.
+- [63b573b] Fix `ContextDocument` serialization.
+- [08971f1] Fix `@version` de/serialization.
+- [b648e04] Fix `@version` deserialization.
+- [d437133] Fix formatting.
+- [c43744a] Fixes #59
+
+### Removed
+
+- [baa6e3b] Remove locspan patch.
+- [f13208d] Remove `test.jsonld`
+- [ab8f40a] Remove metadata from JSON-LD objects.
+- [f234530] Remove dead link in README.md.
+- [0b4a87b] Remove unnecessary `Send` bounds in `leader` module.
+
 ## [0.15.1] - 2023-12-06
 
 ### Added
