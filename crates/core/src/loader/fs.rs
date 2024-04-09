@@ -65,7 +65,7 @@ impl<I> FsLoader<I> {
 	}
 }
 
-impl<I: Send> Loader<I> for FsLoader<I> {
+impl<I> Loader<I> for FsLoader<I> {
 	type Error = Error;
 
 	async fn load_with<V>(&mut self, vocabulary: &mut V, url: I) -> LoadingResult<I, Error>

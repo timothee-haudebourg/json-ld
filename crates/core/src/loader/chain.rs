@@ -23,10 +23,9 @@ impl<L1, L2> ChainLoader<L1, L2> {
 
 impl<I, L1, L2> Loader<I> for ChainLoader<L1, L2>
 where
-	I: Clone + Send + Sync,
-	L1: Loader<I> + Send,
-	L2: Loader<I> + Send,
-	L1::Error: Send,
+	I: Clone,
+	L1: Loader<I>,
+	L2: Loader<I>,
 {
 	type Error = Error<L1::Error, L2::Error>;
 
