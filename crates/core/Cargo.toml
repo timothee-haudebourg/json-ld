@@ -7,8 +7,8 @@ categories.workspace = true
 keywords.workspace = true
 repository.workspace = true
 license.workspace = true
-description = "A JSON-LD implementation"
-documentation = "https://docs.rs/json-ld"
+description = "JSON-LD core types and traits"
+documentation = "https://docs.rs/json-ld-core"
 readme = "README.md"
 
 [features]

@@ -8,7 +8,7 @@ keywords.workspace = true
 repository.workspace = true
 license.workspace = true
 description = "JSON-LD serialization"
-documentation = "https://docs.rs/json-ld-serializer"
+documentation = "https://docs.rs/json-ld-serialization"
 readme = "README.md"
 
 [dependencies]

@@ -7,7 +7,7 @@ categories.workspace = true
 keywords.workspace = true
 repository.workspace = true
 license.workspace = true
-description = "A JSON-LD document compaction implementation"
+description = "JSON-LD document compaction implementation"
 documentation = "https://docs.rs/json-ld-compaction"
 readme = "README.md"
 

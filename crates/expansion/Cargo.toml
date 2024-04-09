@@ -7,8 +7,8 @@ categories.workspace = true
 keywords.workspace = true
 repository.workspace = true
 license.workspace = true
-description = "A JSON-LD document expansion implementation"
-documentation = "https://docs.rs/json-ld-context-processing"
+description = "JSON-LD document expansion implementation"
+documentation = "https://docs.rs/json-ld-expansion"
 readme = "README.md"
 
 [dependencies]

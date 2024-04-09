@@ -8,8 +8,8 @@ repository.workspace = true
 license.workspace = true
 rust-version.workspace = true
 version.workspace = true
-description = "A JSON-LD implementation"
-documentation = "https://docs.rs/json-ld"
+documentation.workspace = true
+description = "JSON-LD implementation"
 readme = "README.md"
 
 [features]
@@ -55,6 +55,7 @@ authors = ["Timothée Haudebourg <timothee@haudebourg.net>"]
 categories = ["web-programming", "database", "data-structures"]
 keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 repository = "https://github.com/timothee-haudebourg/json-ld"
+documentation = "https://docs.rs/json-ld"
 license = "MIT/Apache-2.0"
 edition = "2021"
 rust-version = "1.77.0"
