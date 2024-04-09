@@ -215,9 +215,15 @@ fn is_anonymous<I: ReverseTermInterpretation>(interpretation: &I, id: &I::Resour
 	interpretation.iris_of(id).next().is_none() && interpretation.literals_of(id).next().is_none()
 }
 
+#[derive(Debug, thiserror::Error)]
 pub enum SerializationError {
+	#[error("invalid JSON")]
 	InvalidJson(linked_data::ContextIris, json_syntax::parse::Error),
+
+	#[error("invalid boolean value")]
 	InvalidBoolean(linked_data::ContextIris, String),
+
+	#[error("invalid number value")]
 	Number(linked_data::ContextIris, String),
 }
 
