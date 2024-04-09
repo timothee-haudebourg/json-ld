@@ -378,15 +378,20 @@ impl<I> Profile<I> {
 /// Document loader.
 ///
 /// A document loader is required by most processing functions to fetch remote
-/// documents identified by an IRI.
+/// documents identified by an IRI. In particular, the loader is in charge of
+/// fetching all the remote contexts imported in a `@context` entry.
 ///
 /// This library provides a few default loader implementations:
 ///   - [`NoLoader`] dummy loader that always fail. Perfect if you are certain
 ///     that the processing will not require any loading.
-///   - [`FsLoader`] that redirect registered IRI prefixes to a local directory
-///     on the file system. This way no network calls are performed and the
-///     loaded content can be trusted.
-///   - `ReqwestLoader` that actually download the remote documents using the
+///   - Standard [`HashMap`](std::collection::HashMap) and
+///     [`BTreeMap`](std::collection::BTreeMap) mapping IRIs to pre-loaded
+///     documents. This way no network calls are performed and the loaded
+///     content can be trusted.
+///   - [`FsLoader`] that redirecting registered IRI prefixes to a local
+///     directory on the file system. This also avoids network calls. The loaded
+///     content can be trusted as long as the file system is trusted.
+///   - `ReqwestLoader` actually downloading the remote documents using the
 ///     [`reqwest`](https://crates.io/crates/reqwest) library.
 ///     This requires the `reqwest` feature to be enabled.
 pub trait Loader<I = IriBuf> {

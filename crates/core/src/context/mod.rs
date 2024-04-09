@@ -18,7 +18,13 @@ pub use json_ld_syntax::context::{
 pub use definition::*;
 pub use inverse::InverseContext;
 
-/// JSON-LD context.
+/// Processed JSON-LD context.
+///
+/// Represents the result of the [context processing algorithm][1] implemented
+/// by the [`json-ld-context-processing`] crate.
+///
+/// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
+/// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
 pub struct Context<T, B> {
 	original_base_url: Option<T>,
 	base_iri: Option<T>,
