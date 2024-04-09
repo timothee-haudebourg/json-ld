@@ -7,6 +7,7 @@ use std::borrow::Cow;
 
 pub mod chain;
 pub mod fs;
+pub mod map;
 pub mod none;
 
 pub use chain::ChainLoader;
