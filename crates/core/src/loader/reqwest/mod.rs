@@ -9,9 +9,10 @@ use json_syntax::Parse;
 use once_cell::sync::OnceCell;
 use rdf_types::vocabulary::{IriVocabulary, IriVocabularyMut};
 use reqwest::{
-	header::{ACCEPT, CONTENT_TYPE, LINK, LOCATION},
+	header::{ACCEPT, CONTENT_TYPE, LINK},
 	StatusCode,
 };
+use reqwest_middleware::ClientWithMiddleware;
 use std::{hash::Hash, string::FromUtf8Error};
 
 mod content_type;
@@ -27,10 +28,19 @@ pub struct Options<I> {
 	/// (See [IANA Considerations](https://www.w3.org/TR/json-ld11/#iana-considerations)).
 	pub request_profile: Vec<Profile<I>>,
 
-	/// Maximum number of allowed redirections before the loader fails.
+	/// Maximum number of allowed `Link` header redirections before the loader
+	/// fails.
 	///
 	/// Defaults to 8.
+	///
+	/// Note: this only controls how many times the loader will use a `Link`
+	/// HTTP header to find the target JSON-LD document. The number of allowed
+	/// regular HTTP redirections is controlled by the HTTP
+	/// [`client`](Self::client).
 	pub max_redirections: usize,
+
+	/// HTTP client.
+	pub client: ClientWithMiddleware,
 }
 
 impl<I> Default for Options<I> {
@@ -38,6 +48,7 @@ impl<I> Default for Options<I> {
 		Self {
 			request_profile: Vec::new(),
 			max_redirections: 8,
+			client: reqwest_middleware::ClientBuilder::new(reqwest::Client::default()).build(),
 		}
 	}
 }
@@ -46,20 +57,7 @@ impl<I> Default for Options<I> {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
 	#[error(transparent)]
-	Reqwest(reqwest::Error),
-
-	/// The server returned a `303 See Other` redirection status code.
-	#[error("invalid redirection: 303")]
-	Redirection303,
-
-	#[error("missing redirection location")]
-	MissingRedirectionLocation,
-
-	#[error("invalid redirection URL `{0}`")]
-	InvalidRedirectionUrl(String),
-
-	#[error("invalid redirection URL encoding")]
-	InvalidRedirectionUrlEncoding,
+	Reqwest(reqwest_middleware::Error),
 
 	#[error("query failed: status code {0}")]
 	QueryFailed(StatusCode),
@@ -92,17 +90,20 @@ pub struct ReqwestLoader<I = IriBuf> {
 
 impl<I> Default for ReqwestLoader<I> {
 	fn default() -> Self {
-		Self::new()
+		Self {
+			options: Options::default(),
+			data: OnceCell::new(),
+		}
 	}
 }
 
 impl<I> ReqwestLoader<I> {
 	/// Creates a new loader with the given parsing function.
 	pub fn new() -> Self {
-		Self::new_using(Options::default())
+		Self::default()
 	}
 
-	/// Creates a new leader with the given parsing function and options.
+	/// Creates a new leader with the given options.
 	pub fn new_using(options: Options<I>) -> Self {
 		Self {
 			options,
@@ -176,8 +177,9 @@ impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
 			}
 
 			log::debug!("downloading: {}", vocabulary.iri(&url).unwrap().as_str());
-			let client = reqwest::Client::new();
-			let request = client
+			let request = self
+				.options
+				.client
 				.get(vocabulary.iri(&url).unwrap().as_str())
 				.header(ACCEPT, &data.accept_header);
 
@@ -225,7 +227,10 @@ impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
 								}
 							}
 
-							let bytes = response.bytes().await.map_err(Error::Reqwest)?;
+							let bytes = response
+								.bytes()
+								.await
+								.map_err(|e| Error::Reqwest(e.into()))?;
 
 							let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
 							let (document, _) =
@@ -256,24 +261,6 @@ impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
 							}
 
 							break Err(Error::InvalidContentType);
-						}
-					}
-				}
-				code if code.is_redirection() => {
-					if response.status() == StatusCode::SEE_OTHER {
-						break Err(Error::Redirection303);
-					} else {
-						match response.headers().get(LOCATION) {
-							Some(location) => match std::str::from_utf8(location.as_bytes()) {
-								Ok(location) => {
-									let u = Iri::new(location).map_err(|e| {
-										Error::InvalidRedirectionUrl(e.0.to_string())
-									})?;
-									url = vocabulary.insert(u);
-								}
-								Err(_e) => return Err(Error::InvalidRedirectionUrlEncoding),
-							},
-							None => break Err(Error::MissingRedirectionLocation),
 						}
 					}
 				}
