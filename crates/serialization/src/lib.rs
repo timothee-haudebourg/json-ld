@@ -1,7 +1,7 @@
 //! This crate implements JSON-LD serialization (from RDF dataset to JSON-LD)
 //! through the [`linked_data`](https://github.com/spruceid/linked-data-rs)
 //! crate.
-//! The input value can be an RDF dataset, or any type implementing 
+//! The input value can be an RDF dataset, or any type implementing
 //! [`linked_data::LinkedData`].
 use std::hash::Hash;
 
@@ -47,16 +47,17 @@ pub fn serialize(value: &impl LinkedData) -> Result<ExpandedDocument, Error> {
 
 /// Serialize the given Linked-Data value into a JSON-LD document using a
 /// custom vocabulary and interpretation.
-pub fn serialize_with<V: Vocabulary, I: Interpretation>(
+pub fn serialize_with<V, I>(
 	vocabulary: &mut V,
 	interpretation: &mut I,
 	value: &impl LinkedData<I, V>,
 ) -> Result<ExpandedDocument<V::Iri, V::BlankId>, Error>
 where
-	V: IriVocabularyMut,
+	V: Vocabulary + IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
-	I: ReverseIriInterpretation<Iri = V::Iri>
+	I: Interpretation
+		+ ReverseIriInterpretation<Iri = V::Iri>
 		+ ReverseBlankIdInterpretation<BlankId = V::BlankId>
 		+ ReverseLiteralInterpretation<Literal = V::Literal>,
 {

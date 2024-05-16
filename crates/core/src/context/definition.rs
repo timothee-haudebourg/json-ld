@@ -111,9 +111,9 @@ impl<T, B> Definitions<T, B> {
 	}
 
 	/// Returns a reference to the definition of the given `term`, if any.
-	pub fn get<Q: ?Sized>(&self, term: &Q) -> Option<TermDefinitionRef<T, B>>
+	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<T, B>>
 	where
-		Q: Hash + Eq,
+		Q: ?Sized + Hash + Eq,
 		Key: Borrow<Q>,
 		KeywordType: Borrow<Q>,
 	{
@@ -125,9 +125,9 @@ impl<T, B> Definitions<T, B> {
 	}
 
 	/// Returns a reference to the normal definition of the given `term`, if any.
-	pub fn get_normal<Q: ?Sized>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B>>
+	pub fn get_normal<Q>(&self, term: &Q) -> Option<&NormalTermDefinition<T, B>>
 	where
-		Q: Hash + Eq,
+		Q: ?Sized + Hash + Eq,
 		Key: Borrow<Q>,
 	{
 		self.normal.get(term)
@@ -138,9 +138,9 @@ impl<T, B> Definitions<T, B> {
 		self.type_.as_ref()
 	}
 
-	pub fn contains_term<Q: ?Sized>(&self, term: &Q) -> bool
+	pub fn contains_term<Q>(&self, term: &Q) -> bool
 	where
-		Q: Hash + Eq,
+		Q: ?Sized + Hash + Eq,
 		Key: Borrow<Q>,
 		KeywordType: Borrow<Q>,
 	{

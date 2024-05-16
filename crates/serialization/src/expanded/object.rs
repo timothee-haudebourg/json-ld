@@ -30,13 +30,13 @@ use super::{
 
 /// Serialize the given Linked-Data value into a JSON-LD object using a
 /// custom vocabulary and interpretation.
-pub fn serialize_object_with<I: Interpretation, V: Vocabulary, T>(
+pub fn serialize_object_with<I, V, T>(
 	vocabulary: &mut V,
 	interpretation: &mut I,
 	value: &T,
 ) -> Result<Object<V::Iri, V::BlankId>, Error>
 where
-	V: IriVocabularyMut,
+	V: Vocabulary + IriVocabularyMut,
 	V::Iri: Clone + Eq + Hash,
 	V::BlankId: Clone + Eq + Hash,
 	I: ReverseIriInterpretation<Iri = V::Iri>

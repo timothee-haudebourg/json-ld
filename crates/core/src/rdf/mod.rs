@@ -132,14 +132,14 @@ pub struct CompoundLiteral<T, B, L> {
 }
 
 impl<T: Clone> crate::object::Value<T> {
-	fn rdf_value_with<V: Vocabulary<Iri = T> + IriVocabularyMut, G: Generator<V>>(
+	fn rdf_value_with<V, G: Generator<V>>(
 		&self,
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundLiteral<T, V::BlankId, V::Literal>>
 	where
-		V: LiteralVocabularyMut,
+		V: Vocabulary<Iri = T> + IriVocabularyMut + LiteralVocabularyMut,
 	{
 		match self {
 			Self::Json(json) => {
@@ -299,14 +299,14 @@ impl<T: Clone, B: Clone> Node<T, B> {
 }
 
 impl<T: Clone, B: Clone> Object<T, B> {
-	fn rdf_value_with<V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut, G: Generator<V>>(
+	fn rdf_value_with<V, G: Generator<V>>(
 		&self,
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundValue<T, B, V::Literal>>
 	where
-		V: LiteralVocabularyMut,
+		V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut + LiteralVocabularyMut,
 	{
 		match self {
 			Self::Value(value) => value
@@ -346,14 +346,14 @@ pub struct CompoundValue<'a, T, B, L> {
 }
 
 impl<'a, T: Clone, B: Clone> crate::quad::ObjectRef<'a, T, B> {
-	pub fn rdf_value_with<V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut, G: Generator<V>>(
+	pub fn rdf_value_with<V, G: Generator<V>>(
 		&self,
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
 	) -> Option<CompoundValue<'a, T, B, V::Literal>>
 	where
-		V: LiteralVocabularyMut,
+		V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut + LiteralVocabularyMut,
 	{
 		match self {
 			Self::Object(object) => object.rdf_value_with(vocabulary, generator, rdf_direction),
@@ -447,10 +447,7 @@ impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
 		}
 	}
 
-	pub fn next<
-		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut,
-		G: Generator<V>,
-	>(
+	pub fn next<V, G: Generator<V>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
@@ -460,7 +457,7 @@ impl<'a, T, B, L> CompoundValueTriples<'a, T, B, L> {
 		T: Clone,
 		B: Clone,
 		L: Clone,
-		V: LiteralVocabularyMut,
+		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut + LiteralVocabularyMut,
 	{
 		match self {
 			Self::Literal(l) => l.next(vocabulary),
@@ -527,10 +524,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
 		}
 	}
 
-	pub fn next<
-		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut,
-		G: Generator<V>,
-	>(
+	pub fn next<V, G: Generator<V>>(
 		&mut self,
 		vocabulary: &mut V,
 		generator: &mut G,
@@ -540,7 +534,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
 		T: Clone,
 		B: Clone,
 		L: Clone,
-		V: LiteralVocabularyMut,
+		V: Vocabulary<Iri = T, BlankId = B, Literal = L> + IriVocabularyMut + LiteralVocabularyMut,
 	{
 		loop {
 			if let Some(pending) = self.pending.take() {
