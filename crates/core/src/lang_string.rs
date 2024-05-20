@@ -6,10 +6,22 @@ use crate::{object::InvalidExpandedJson, Direction, LenientLangTag, LenientLangT
 ///
 /// A valid language string is associated to either a language tag or a direction, or both.
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct LangString {
 	/// Actual content of the string.
+	#[cfg_attr(feature = "serde", serde(rename = "@value"))]
 	data: json_ld_syntax::String,
+
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@language", skip_serializing_if = "Option::is_none")
+	)]
 	language: Option<LenientLangTagBuf>,
+
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@direction", skip_serializing_if = "Option::is_none")
+	)]
 	direction: Option<Direction>,
 }
 
@@ -116,6 +128,15 @@ impl LangString {
 		}
 	}
 
+	/// Returns a reference to this lang string as a [`LangStr`].
+	pub fn as_lang_str(&self) -> LangStr {
+		LangStr {
+			data: &self.data,
+			language: self.language.as_deref(),
+			direction: self.direction,
+		}
+	}
+
 	pub(crate) fn try_from_json(
 		object: json_syntax::Object,
 		value: json_syntax::Value,
@@ -164,5 +185,93 @@ impl LangString {
 			None => Ok(Self::new(data, language, direction).unwrap()),
 			Some(_) => Err(InvalidExpandedJson::UnexpectedEntry),
 		}
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for LangString {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		#[derive(serde::Deserialize)]
+		struct Value {
+			#[serde(rename = "@value")]
+			data: json_ld_syntax::String,
+			#[serde(rename = "@language")]
+			language: Option<LenientLangTagBuf>,
+			#[serde(rename = "@direction")]
+			direction: Option<Direction>,
+		}
+
+		let value = Value::deserialize(deserializer)?;
+
+		Self::new(value.data, value.language, value.direction).map_err(serde::de::Error::custom)
+	}
+}
+
+/// Language string reference.
+///
+/// A language string is a string tagged with language and reading direction information.
+///
+/// A valid language string is associated to either a language tag or a direction, or both.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+pub struct LangStr<'a> {
+	/// Actual content of the string.
+	#[cfg_attr(feature = "serde", serde(rename = "@value"))]
+	data: &'a str,
+
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@language", skip_serializing_if = "Option::is_none")
+	)]
+	language: Option<&'a LenientLangTag>,
+
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@direction", skip_serializing_if = "Option::is_none")
+	)]
+	direction: Option<Direction>,
+}
+
+impl<'a> LangStr<'a> {
+	/// Create a new language string reference.
+	pub fn new(
+		data: &'a str,
+		language: Option<&'a LenientLangTag>,
+		direction: Option<Direction>,
+	) -> Result<Self, InvalidLangString> {
+		if language.is_some() || direction.is_some() {
+			Ok(Self {
+				data,
+				language,
+				direction,
+			})
+		} else {
+			Err(InvalidLangString)
+		}
+	}
+
+	pub fn into_parts(self) -> (&'a str, Option<&'a LenientLangTag>, Option<Direction>) {
+		(self.data, self.language, self.direction)
+	}
+
+	/// Reference to the underlying `str`.
+	#[inline(always)]
+	pub fn as_str(&self) -> &'a str {
+		self.data
+	}
+
+	/// Gets the associated language tag, if any.
+	#[inline(always)]
+	pub fn language(&self) -> Option<&'a LenientLangTag> {
+		self.language
+	}
+
+	/// Gets the associated direction, if any.
+	#[inline(always)]
+	pub fn direction(&self) -> Option<Direction> {
+		self.direction
 	}
 }
