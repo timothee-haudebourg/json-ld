@@ -5,6 +5,8 @@ use crate::utils::{case_insensitive_cmp, case_insensitive_eq, case_insensitive_h
 
 /// Language tag that may not be well-formed.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct LenientLangTag(str);
 
 impl LenientLangTag {
