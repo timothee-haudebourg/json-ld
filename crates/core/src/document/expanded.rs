@@ -182,6 +182,24 @@ impl<T, B> ExpandedDocument<T, B> {
 		self.canonicalize_with(&mut buffer)
 	}
 
+	/// Map the identifiers present in this expanded document (recursively).
+	pub fn map_ids<U, C>(
+		self,
+		mut map_iri: impl FnMut(T) -> U,
+		mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> ExpandedDocument<U, C>
+	where
+		U: Eq + Hash,
+		C: Eq + Hash,
+	{
+		ExpandedDocument(
+			self.0
+				.into_iter()
+				.map(|i| i.map_inner(|o| o.map_ids(&mut map_iri, &mut map_id)))
+				.collect(),
+		)
+	}
+
 	/// Returns the set of all blank identifiers in the given document.
 	pub fn blank_ids(&self) -> HashSet<&B>
 	where

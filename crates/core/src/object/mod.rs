@@ -401,6 +401,35 @@ impl<T, B> Object<T, B> {
 			Self::Node(node) => Entries::Node(node.entries()),
 		}
 	}
+
+	/// Map the identifiers present in this object (recursively).
+	pub fn map_ids<U, C>(
+		self,
+		mut map_iri: impl FnMut(T) -> U,
+		mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> Object<U, C>
+	where
+		U: Eq + Hash,
+		C: Eq + Hash,
+	{
+		self.map_ids_with(&mut map_iri, &mut map_id)
+	}
+
+	fn map_ids_with<U, C>(
+		self,
+		map_iri: &mut impl FnMut(T) -> U,
+		map_id: &mut impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> Object<U, C>
+	where
+		U: Eq + Hash,
+		C: Eq + Hash,
+	{
+		match self {
+			Self::Value(value) => Object::Value(value.map_ids(map_iri)),
+			Self::List(list) => Object::List(list.map_ids_with(map_iri, map_id)),
+			Self::Node(node) => Object::Node(Box::new((*node).map_ids_with(map_iri, map_id))),
+		}
+	}
 }
 
 impl<T, B> Relabel<T, B> for Object<T, B> {

@@ -190,6 +190,19 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
 	}
 }
 
+impl<T: Eq + Hash, B: Eq + Hash, N> FromIterator<(Id<T, B>, N)> for ReverseProperties<T, B>
+where
+	N: IntoIterator<Item = IndexedNode<T, B>>,
+{
+	fn from_iter<I: IntoIterator<Item = (Id<T, B>, N)>>(iter: I) -> Self {
+		let mut result = Self::default();
+		for (id, values) in iter {
+			result.insert_all(id, values);
+		}
+		result
+	}
+}
+
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ReverseProperties<T, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,

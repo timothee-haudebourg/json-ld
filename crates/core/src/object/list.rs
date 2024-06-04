@@ -1,5 +1,5 @@
 use super::{Any, InvalidExpandedJson, MappedEq};
-use crate::{IndexedObject, Relabel, TryFromJson};
+use crate::{Id, IndexedObject, Relabel, TryFromJson};
 use contextual::WithContext;
 use educe::Educe;
 use json_ld_syntax::{IntoJson, IntoJsonWithContext};
@@ -84,6 +84,38 @@ impl<T, B> List<T, B> {
 	pub fn canonicalize(&mut self) {
 		let mut buffer = ryu_js::Buffer::new();
 		self.canonicalize_with(&mut buffer)
+	}
+
+	/// Map the identifiers present in this list (recursively).
+	pub fn map_ids<U, C>(
+		self,
+		mut map_iri: impl FnMut(T) -> U,
+		mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> List<U, C>
+	where
+		U: Eq + Hash,
+		C: Eq + Hash,
+	{
+		self.map_ids_with(&mut map_iri, &mut map_id)
+	}
+
+	pub(crate) fn map_ids_with<U, C>(
+		self,
+		map_iri: &mut impl FnMut(T) -> U,
+		map_id: &mut impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> List<U, C>
+	where
+		U: Eq + Hash,
+		C: Eq + Hash,
+	{
+		List::new(
+			self.entry
+				.into_iter()
+				.map(|indexed_object| {
+					indexed_object.map_inner(|object| object.map_ids_with(map_iri, map_id))
+				})
+				.collect(),
+		)
 	}
 }
 

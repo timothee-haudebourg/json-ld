@@ -322,6 +322,15 @@ impl<T> Value<T> {
 		let mut buffer = ryu_js::Buffer::new();
 		self.canonicalize_with(&mut buffer)
 	}
+
+	/// Map the type IRI of this value, if any.
+	pub fn map_ids<U>(self, map_iri: impl FnOnce(T) -> U) -> Value<U> {
+		match self {
+			Self::Literal(l, type_) => Value::Literal(l, type_.map(map_iri)),
+			Self::LangString(s) => Value::LangString(s),
+			Self::Json(json) => Value::Json(json),
+		}
+	}
 }
 
 impl TryFrom<json_syntax::Value> for Literal {

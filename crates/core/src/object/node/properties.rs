@@ -185,6 +185,19 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
 	}
 }
 
+impl<T: Eq + Hash, B: Eq + Hash, O> FromIterator<(Id<T, B>, O)> for Properties<T, B>
+where
+	O: IntoIterator<Item = IndexedObject<T, B>>,
+{
+	fn from_iter<I: IntoIterator<Item = (Id<T, B>, O)>>(iter: I) -> Self {
+		let mut result = Self::default();
+		for (id, values) in iter {
+			result.insert_all(id, values);
+		}
+		result
+	}
+}
+
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for Properties<T, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,

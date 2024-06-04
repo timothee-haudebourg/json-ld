@@ -460,6 +460,72 @@ impl<T, B> Node<T, B> {
 			properties: self.properties.iter(),
 		}
 	}
+
+	/// Map the identifiers present in this list (recursively).
+	pub fn map_ids<U, C>(
+		self,
+		mut map_iri: impl FnMut(T) -> U,
+		mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> Node<U, C>
+	where
+		U: Eq + Hash,
+		C: Eq + Hash,
+	{
+		self.map_ids_with(&mut map_iri, &mut map_id)
+	}
+
+	pub(crate) fn map_ids_with<U, C>(
+		self,
+		map_iri: &mut impl FnMut(T) -> U,
+		map_id: &mut impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> Node<U, C>
+	where
+		U: Eq + Hash,
+		C: Eq + Hash,
+	{
+		Node {
+			id: self.id.map(&mut *map_id),
+			types: self
+				.types
+				.map(|t| t.into_iter().map(&mut *map_id).collect()),
+			graph: self.graph.map(|g| {
+				g.into_iter()
+					.map(|o| o.map_inner(|o| o.map_ids_with(map_iri, map_id)))
+					.collect()
+			}),
+			included: self.included.map(|i| {
+				i.into_iter()
+					.map(|o| o.map_inner(|o| o.map_ids_with(map_iri, map_id)))
+					.collect()
+			}),
+			properties: self
+				.properties
+				.into_iter()
+				.map(|(id, values)| {
+					(
+						map_id(id),
+						values
+							.into_iter()
+							.map(|o| o.map_inner(|o| o.map_ids_with(map_iri, map_id)))
+							.collect::<Vec<_>>(),
+					)
+				})
+				.collect(),
+			reverse_properties: self.reverse_properties.map(|r| {
+				r.into_iter()
+					.map(|(id, values)| {
+						(
+							map_id(id),
+							values
+								.into_iter()
+								.map(|o| o.map_inner(|o| o.map_ids_with(map_iri, map_id)))
+								.collect::<Vec<_>>(),
+						)
+					})
+					.collect()
+			}),
+		}
+	}
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
