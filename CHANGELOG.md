@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2024-06-04
+
+### Added
+
+- [f4aca7d] Add `map_ids` methods.
+
+## [0.17.0] - 2024-05-20
+
+### Added
+
+- [8a9b3f4] Add `client` option to the `ReqwestLoader`.
+- [c483397] Impl `Serialize` for `LenientLangTag`.
+- [4c52747] Impl `Serialize`/`Deserialize` for `LangString`.
+
+### Fixed
+
+- [ef3fb9d] Fix README badges.
+
 ## [0.16.0] - 2024-04-09
 
 ### Added
@@ -43,8 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - [d358b11] Change default type values for remote docs.
-- [8104479] Change `enum LenientLanguageTag` type to unsized `struct LenientLangTag`.
-- [8104479] Change `enum LenientLanguageTagBuf` to `struct LenientLangTagBuf`.
 
 ### Fixed
 
@@ -55,7 +71,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [08971f1] Fix `@version` de/serialization.
 - [b648e04] Fix `@version` deserialization.
 - [d437133] Fix formatting.
-- [c43744a] Fixes #59
 
 ### Removed
 
@@ -239,19 +254,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- [9c86d04] Remove a lot of clippy warnings.
 - [2b9d456] Remove old expansion code.
 - [6710a47] Remove old tests.
 - [532c0e9] Remove `flattening` folder.
 - [bc5b54d] Remove `Lexicon` datatype.
 - [b1b7272] Remove traces of the `generic_json` crate.
 - [deec55e] Remove `reqwest` feature (for now).
-
-## [0.6.1] - 2022-01-24
-
-### Fixed
-
-- [2ccb23e] Fix #33.
 
 ## [0.6.0] - 2022-01-14
 
@@ -280,9 +288,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [7eb7d09] Add `Lenient::map`.
 - [9fe900e] Add a compact method and example.
 - [448791e] Add strict expansion mode
-- [db2cb79] Add strict expansion mode
 - [6c48bcb] Add semicolon after warn
-- [121564e] Add semicolon after warn
 - [a3a0caa] Add `+nightly` in workflow.
 - [429f688] Add custom tests.
 - [2c8a48b] Add sort-jsonld-array utility script.
@@ -315,7 +321,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [4493bbe] Fix clippy warnings.
 - [b4d8616] Fix custom test warning.
 - [c1c3c06] Fix Spruce link
-- [0126652] Fix Spruce link
 - [652d107] Fixing tests...
 - [b260d7c] Fix clippy warnings.
 - [092eb69] Fix warnings in `compaction` example.
@@ -324,7 +329,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [590c489] Fix json-ld comparison function.
 - [4479778] Fix typo.
 - [955a957] Fix iteration of merged contexts.
-- [1de01c3] Fixes #23
 - [b274216] Fix clippy warning.
 - [d4cedca] Fix README
 
