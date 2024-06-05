@@ -39,7 +39,7 @@ impl<I> Type<I> {
 	}
 
 	/// Maps the IRI of this type.
-	pub fn map<U, F: FnOnce(&I) -> U>(&self, f: F) -> Type<U> {
+	pub fn map<U>(self, f: impl FnOnce(I) -> U) -> Type<U> {
 		match self {
 			Type::Id => Type::Id,
 			Type::Json => Type::Json,

@@ -8,7 +8,7 @@ use json_ld_syntax::{
 	},
 	KeywordType,
 };
-use rdf_types::{vocabulary::IriVocabulary, Vocabulary};
+use rdf_types::{vocabulary::IriVocabulary, Id, Vocabulary};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::{borrow::Borrow, fmt};
@@ -200,6 +200,21 @@ impl<T, B> Definitions<T, B> {
 		Iter {
 			type_: self.type_.as_ref(),
 			normal: self.normal.iter(),
+		}
+	}
+
+	pub fn map_ids<U, C>(
+		self,
+		mut map_iri: impl FnMut(T) -> U,
+		mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> Definitions<U, C> {
+		Definitions {
+			normal: self
+				.normal
+				.into_iter()
+				.map(|(key, d)| (key, d.map_ids(&mut map_iri, &mut map_id)))
+				.collect(),
+			type_: self.type_,
 		}
 	}
 }
@@ -622,6 +637,27 @@ impl<T, B> NormalTermDefinition<T, B> {
 			protected: if self.protected { Some(true) } else { None },
 		}
 		.simplify()
+	}
+
+	fn map_ids<U, C>(
+		self,
+		mut map_iri: impl FnMut(T) -> U,
+		map_id: impl FnOnce(Id<T, B>) -> Id<U, C>,
+	) -> NormalTermDefinition<U, C> {
+		NormalTermDefinition {
+			value: self.value.map(|t| t.map_id(map_id)),
+			prefix: self.prefix,
+			protected: self.protected,
+			reverse_property: self.reverse_property,
+			base_url: self.base_url.map(&mut map_iri),
+			context: self.context,
+			container: self.container,
+			direction: self.direction,
+			index: self.index,
+			language: self.language,
+			nest: self.nest,
+			typ: self.typ.map(|t| t.map(map_iri)),
+		}
 	}
 }
 

@@ -45,6 +45,17 @@ impl<I, B> Term<I, B> {
 			_ => None,
 		}
 	}
+
+	pub fn map_id<U, C>(
+		self,
+		f: impl FnOnce(rdf_types::Id<I, B>) -> rdf_types::Id<U, C>,
+	) -> Term<U, C> {
+		match self {
+			Self::Null => Term::Null,
+			Self::Keyword(k) => Term::Keyword(k),
+			Self::Id(id) => Term::Id(id.map(f)),
+		}
+	}
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> DisplayWithContext<N> for Term<T, B> {

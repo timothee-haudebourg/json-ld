@@ -158,11 +158,11 @@ impl<I> RemoteContextReference<I> {
 #[derive(Debug, Clone)]
 pub struct RemoteDocument<I = IriBuf, T = json_syntax::Value> {
 	/// The final URL of the loaded document, after eventual redirection.
-	url: Option<I>,
+	pub url: Option<I>,
 
 	/// The HTTP `Content-Type` header value of the loaded document, exclusive
 	/// of any optional parameters.
-	content_type: Option<Mime>,
+	pub content_type: Option<Mime>,
 
 	/// If available, the value of the HTTP `Link Header` [RFC 8288] using the
 	/// `http://www.w3.org/ns/json-ld#context` link relation in the response.
@@ -173,12 +173,12 @@ pub struct RemoteDocument<I = IriBuf, T = json_syntax::Value> {
 	/// loader fails with a `multiple context link headers` error.
 	///
 	/// [RFC 8288]: https://www.rfc-editor.org/rfc/rfc8288
-	context_url: Option<I>,
+	pub context_url: Option<I>,
 
-	profile: HashSet<Profile<I>>,
+	pub profile: HashSet<Profile<I>>,
 
 	/// The retrieved document.
-	document: T,
+	pub document: T,
 }
 
 pub type RemoteContext<I = IriBuf> = RemoteDocument<I, json_ld_syntax::context::Context>;

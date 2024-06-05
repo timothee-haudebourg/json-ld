@@ -205,6 +205,13 @@ impl<I, B> Id<I, B> {
 			Self::Invalid(id) => Ref::Invalid(id.as_str()),
 		}
 	}
+
+	pub fn map<J, C>(self, f: impl FnOnce(rdf_types::Id<I, B>) -> rdf_types::Id<J, C>) -> Id<J, C> {
+		match self {
+			Self::Valid(id) => Id::Valid(f(id)),
+			Self::Invalid(id) => Id::Invalid(id),
+		}
+	}
 }
 
 impl<I: AsRef<str>, B: AsRef<str>> Id<I, B> {

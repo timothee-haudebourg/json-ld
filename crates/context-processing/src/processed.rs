@@ -5,12 +5,12 @@ use std::ops;
 
 /// Processed context that also borrows the original, unprocessed, context.
 pub struct Processed<'l, T = IriBuf, B = BlankIdBuf> {
-	unprocessed: &'l json_ld_syntax::context::Context,
-	processed: Context<T, B>,
+	pub unprocessed: &'l json_ld_syntax::context::Context,
+	pub processed: Context<T, B>,
 }
 
 impl<'l, T, B> Processed<'l, T, B> {
-	pub(crate) fn new(
+	pub fn new(
 		unprocessed: &'l json_ld_syntax::context::Context,
 		processed: Context<T, B>,
 	) -> Self {
@@ -59,11 +59,21 @@ impl<'l, T, B> ops::DerefMut for Processed<'l, T, B> {
 
 /// Reference to a processed context that also borrows the original, unprocessed, context.
 pub struct ProcessedRef<'l, 'a, T, B> {
-	unprocessed: &'l json_ld_syntax::context::Context,
-	processed: &'a Context<T, B>,
+	pub unprocessed: &'l json_ld_syntax::context::Context,
+	pub processed: &'a Context<T, B>,
 }
 
 impl<'l, 'a, T, B> ProcessedRef<'l, 'a, T, B> {
+	pub fn new(
+		unprocessed: &'l json_ld_syntax::context::Context,
+		processed: &'a Context<T, B>,
+	) -> Self {
+		Self {
+			unprocessed,
+			processed,
+		}
+	}
+
 	pub fn unprocessed(&self) -> &'l json_ld_syntax::context::Context {
 		self.unprocessed
 	}
@@ -75,11 +85,18 @@ impl<'l, 'a, T, B> ProcessedRef<'l, 'a, T, B> {
 
 /// Processed context that also owns the original, unprocessed, context.
 pub struct ProcessedOwned<T, B> {
-	unprocessed: json_ld_syntax::context::Context,
-	processed: Context<T, B>,
+	pub unprocessed: json_ld_syntax::context::Context,
+	pub processed: Context<T, B>,
 }
 
 impl<T, B> ProcessedOwned<T, B> {
+	pub fn new(unprocessed: json_ld_syntax::context::Context, processed: Context<T, B>) -> Self {
+		Self {
+			unprocessed,
+			processed,
+		}
+	}
+
 	pub fn unprocessed(&self) -> &json_ld_syntax::context::Context {
 		&self.unprocessed
 	}

@@ -6,7 +6,7 @@ use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term};
 use contextual::WithContext;
 use json_ld_syntax::{KeywordType, Nullable};
 use once_cell::sync::OnceCell;
-use rdf_types::Vocabulary;
+use rdf_types::{Id, Vocabulary};
 use std::borrow::Borrow;
 use std::hash::Hash;
 
@@ -250,6 +250,33 @@ impl<T, B> Context<T, B> {
 				.into_iter()
 				.map(|(key, definition)| (key, definition.into_syntax_definition(vocabulary)))
 				.collect(),
+		}
+	}
+
+	pub fn map_ids<U, C>(
+		self,
+		mut map_iri: impl FnMut(T) -> U,
+		mut map_id: impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> Context<U, C> {
+		self.map_ids_with(&mut map_iri, &mut map_id)
+	}
+
+	fn map_ids_with<U, C>(
+		self,
+		map_iri: &mut impl FnMut(T) -> U,
+		map_id: &mut impl FnMut(Id<T, B>) -> Id<U, C>,
+	) -> Context<U, C> {
+		Context {
+			original_base_url: self.original_base_url.map(&mut *map_iri),
+			base_iri: self.base_iri.map(&mut *map_iri),
+			vocabulary: self.vocabulary.map(|v| v.map_id(&mut *map_id)),
+			default_language: self.default_language,
+			default_base_direction: self.default_base_direction,
+			previous_context: self
+				.previous_context
+				.map(|c| Box::new((*c).map_ids_with(map_iri, map_id))),
+			definitions: self.definitions.map_ids(map_iri, map_id),
+			inverse: OnceCell::new(),
 		}
 	}
 }
