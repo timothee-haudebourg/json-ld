@@ -2,7 +2,7 @@ use super::{Loader, RemoteDocument};
 use crate::{LoaderError, LoadingResult};
 use iref::IriBuf;
 use json_syntax::Parse;
-use rdf_types::vocabulary::{IriIndex, IriVocabulary};
+use rdf_types::vocabulary::IriVocabulary;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -40,7 +40,7 @@ impl LoaderError for Error {
 ///
 /// Loaded documents are not cached: a new file system read is made each time
 /// an URL is loaded even if it has already been queried before.
-pub struct FsLoader<I = IriIndex> {
+pub struct FsLoader<I = IriBuf> {
 	mount_points: Vec<(PathBuf, I)>,
 }
 

@@ -4,9 +4,10 @@ pub mod inverse;
 
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term};
 use contextual::WithContext;
+use iref::IriBuf;
 use json_ld_syntax::{KeywordType, Nullable};
 use once_cell::sync::OnceCell;
-use rdf_types::{Id, Vocabulary};
+use rdf_types::{BlankIdBuf, Id, Vocabulary};
 use std::borrow::Borrow;
 use std::hash::Hash;
 
@@ -25,7 +26,7 @@ pub use inverse::InverseContext;
 ///
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
-pub struct Context<T, B> {
+pub struct Context<T = IriBuf, B = BlankIdBuf> {
 	original_base_url: Option<T>,
 	base_iri: Option<T>,
 	vocabulary: Option<Term<T, B>>,
@@ -51,7 +52,7 @@ impl<T, B> Default for Context<T, B> {
 	}
 }
 
-pub type DefinitionEntryRef<'a, T, B> = (&'a Key, &'a TermDefinition<T, B>);
+pub type DefinitionEntryRef<'a, T = IriBuf, B = BlankIdBuf> = (&'a Key, &'a TermDefinition<T, B>);
 
 impl<T, B> Context<T, B> {
 	/// Create a new context with the given base IRI.
@@ -282,7 +283,7 @@ impl<T, B> Context<T, B> {
 }
 
 /// Context fragment to syntax method.
-pub trait IntoSyntax<T, B> {
+pub trait IntoSyntax<T = IriBuf, B = BlankIdBuf> {
 	fn into_syntax(
 		self,
 		vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,

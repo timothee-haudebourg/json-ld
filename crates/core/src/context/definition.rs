@@ -1,6 +1,7 @@
 use super::{IntoSyntax, Nest};
 use crate::{Container, Direction, LenientLangTagBuf, Nullable, Term, Type};
 use contextual::WithContext;
+use iref::IriBuf;
 use json_ld_syntax::{
 	context::{
 		definition::{Key, TypeContainer},
@@ -8,13 +9,13 @@ use json_ld_syntax::{
 	},
 	KeywordType,
 };
-use rdf_types::{vocabulary::IriVocabulary, Id, Vocabulary};
+use rdf_types::{vocabulary::IriVocabulary, BlankIdBuf, Id, Vocabulary};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::{borrow::Borrow, fmt};
 
 /// Term binding.
-pub enum Binding<T, B> {
+pub enum Binding<T = IriBuf, B = BlankIdBuf> {
 	/// Normal term definition.
 	Normal(Key, NormalTermDefinition<T, B>),
 
@@ -416,7 +417,7 @@ impl<T, B> TermDefinition<T, B> {
 
 /// Term definition reference.
 #[derive(PartialEq, Eq)]
-pub enum TermDefinitionRef<'a, T, B> {
+pub enum TermDefinitionRef<'a, T = IriBuf, B = BlankIdBuf> {
 	/// `@type` definition.
 	Type(&'a TypeTermDefinition),
 
@@ -524,7 +525,7 @@ impl<'a, T, B> Copy for TermDefinitionRef<'a, T, B> {}
 
 // A term definition.
 #[derive(PartialEq, Eq, Clone)]
-pub struct NormalTermDefinition<T, B> {
+pub struct NormalTermDefinition<T = IriBuf, B = BlankIdBuf> {
 	// IRI mapping.
 	pub value: Option<Term<T, B>>,
 
