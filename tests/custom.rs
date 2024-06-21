@@ -44,7 +44,7 @@ async fn custom_01() {
 #[test]
 fn custom_01_high_memory() {
 	let child = std::thread::Builder::new()
-		.stack_size(2 * 512 * 1024)
+		.stack_size(3 * 512 * 1024)
 		.spawn(|| async_std::task::block_on(custom_01()))
 		.unwrap();
 
