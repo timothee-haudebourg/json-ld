@@ -59,10 +59,7 @@ impl<I> FsLoader<I> {
 		let url = vocabulary.iri(url).unwrap();
 		for (path, target_url) in &self.mount_points {
 			let target_url = vocabulary.iri(target_url).unwrap().as_iri_ref();
-			if let Some((suffix, _, _)) = url
-				.as_iri_ref()
-				.suffix(target_url)
-			{
+			if let Some((suffix, _, _)) = url.as_iri_ref().suffix(target_url) {
 				let mut filepath = path.clone();
 				for seg in suffix.as_path().segments() {
 					filepath.push(seg.as_str())

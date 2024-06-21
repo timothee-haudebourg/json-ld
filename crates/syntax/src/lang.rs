@@ -12,7 +12,7 @@ pub struct LenientLangTag(str);
 impl LenientLangTag {
 	pub fn new(s: &str) -> (&Self, Option<InvalidLangTag<&str>>) {
 		let err = LangTag::new(s).err();
-		(unsafe { std::mem::transmute(s) }, err)
+		(unsafe { std::mem::transmute::<&str, &Self>(s) }, err)
 	}
 
 	pub fn as_bytes(&self) -> &[u8] {
