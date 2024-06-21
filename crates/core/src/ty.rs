@@ -1,5 +1,6 @@
 use super::Term;
 use crate::{Id, ValidId};
+use iref::IriBuf;
 use json_ld_syntax::Keyword;
 use std::convert::TryFrom;
 use std::fmt;
@@ -8,7 +9,7 @@ use std::fmt;
 ///
 /// This is the value of a `@type` entry.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-pub enum Type<I> {
+pub enum Type<I = IriBuf> {
 	/// `@id`.
 	///
 	/// The value must be interpreted as an IRI.

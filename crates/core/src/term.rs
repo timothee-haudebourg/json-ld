@@ -1,12 +1,13 @@
 use crate::{Id, ValidId};
 use contextual::{AsRefWithContext, DisplayWithContext, WithContext};
+use iref::IriBuf;
 use json_ld_syntax::Keyword;
-use rdf_types::vocabulary::Vocabulary;
+use rdf_types::{vocabulary::Vocabulary, BlankIdBuf};
 use std::fmt;
 
 /// Identifier, keyword or `@null`.
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Term<T, B> {
+pub enum Term<T = IriBuf, B = BlankIdBuf> {
 	/// `@null` value.
 	Null,
 

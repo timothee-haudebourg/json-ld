@@ -315,3 +315,10 @@ pub use expansion::Expand;
 
 mod processor;
 pub use processor::*;
+
+#[doc(hidden)]
+pub use iref;
+pub use iref::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
+
+pub use rdf_types;
+pub use rdf_types::{BlankId, BlankIdBuf};

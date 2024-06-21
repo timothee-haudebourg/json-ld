@@ -96,7 +96,7 @@ impl flatten::Test {
 		}
 
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-		let mut loader: json_ld::FsLoader = json_ld::FsLoader::default();
+		let mut loader: json_ld::FsLoader<IriIndex> = json_ld::FsLoader::default();
 		loader.mount(
 			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api")),
 			"tests/json-ld-api",

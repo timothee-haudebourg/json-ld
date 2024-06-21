@@ -1,3 +1,5 @@
+use iref::IriBuf;
+
 use super::BindingRef;
 use super::Context;
 use super::Key;
@@ -8,7 +10,7 @@ use std::fmt;
 use std::hash::Hash;
 
 #[derive(Clone, PartialEq, Eq)]
-pub enum TypeSelection<T> {
+pub enum TypeSelection<T = IriBuf> {
 	Reverse,
 	Any,
 	Type(Type<T>),
