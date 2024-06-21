@@ -16,7 +16,7 @@ impl From<MalformedIri> for Warning {
 }
 
 /// Result of the [`expand_iri_with`] function.
-pub type ExpandIriResult<T, B, E> = Result<Term<T, B>, Error<E>>;
+pub type ExpandIriResult<T, B> = Result<Term<T, B>, Error>;
 
 /// Default values for `document_relative` and `vocab` should be `false` and `true`.
 #[allow(clippy::too_many_arguments)]
@@ -30,7 +30,7 @@ pub async fn expand_iri_with<'a, N, L, W>(
 	defined: &'a mut DefinedTerms,
 	remote_contexts: ProcessingStack<N::Iri>,
 	options: Options,
-) -> ExpandIriResult<N::Iri, N::BlankId, L::Error>
+) -> ExpandIriResult<N::Iri, N::BlankId>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + PartialEq,

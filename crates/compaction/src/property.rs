@@ -24,7 +24,7 @@ async fn compact_property_list<N, L>(
 	active_context: &Context<N::Iri, N::BlankId>,
 	loader: &mut L,
 	options: Options,
-) -> Result<(), Error<L::Error>>
+) -> Result<(), Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
@@ -109,7 +109,7 @@ async fn compact_property_graph<N, L>(
 	active_context: &Context<N::Iri, N::BlankId>,
 	loader: &mut L,
 	options: Options,
-) -> Result<(), Error<L::Error>>
+) -> Result<(), Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
@@ -300,12 +300,12 @@ where
 	Ok(())
 }
 
-fn select_nest_result<'a, I, B, E>(
+fn select_nest_result<'a, I, B>(
 	result: &'a mut json_syntax::Object,
 	active_context: &Context<I, B>,
 	item_active_property: &str,
 	compact_arrays: bool,
-) -> Result<(&'a mut json_syntax::Object, Container, bool), Error<E>>
+) -> Result<(&'a mut json_syntax::Object, Container, bool), Error>
 where
 	I: Clone + Hash + Eq,
 	B: Clone + Hash + Eq,
@@ -392,7 +392,7 @@ pub async fn compact_property<'a, N, L, O, T>(
 	loader: &mut L,
 	inside_reverse: bool,
 	options: Options,
-) -> Result<(), Error<L::Error>>
+) -> Result<(), Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,

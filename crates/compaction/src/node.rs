@@ -23,7 +23,7 @@ pub async fn compact_indexed_node_with<N, L>(
 	active_property: Option<&str>,
 	loader: &mut L,
 	options: Options,
-) -> Result<json_syntax::Value, Error<L::Error>>
+) -> Result<json_syntax::Value, Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
@@ -370,14 +370,14 @@ where
 }
 
 /// Compact the given list of types into the given `result` compacted object.
-fn compact_types<N, E>(
+fn compact_types<N>(
 	vocabulary: &mut N,
 	result: &mut json_syntax::Object,
 	types: Option<&[Id<N::Iri, N::BlankId>]>,
 	active_context: &Context<N::Iri, N::BlankId>,
 	type_scoped_context: &Context<N::Iri, N::BlankId>,
 	options: Options,
-) -> Result<(), Error<E>>
+) -> Result<(), Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,

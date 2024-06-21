@@ -1,12 +1,12 @@
 use json_ld_syntax::ErrorCode;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error<E> {
+pub enum Error {
 	#[error("Invalid context: {0}")]
 	ContextSyntax(#[from] json_ld_syntax::context::InvalidContext),
 
 	#[error("Context processing failed: {0}")]
-	ContextProcessing(json_ld_context_processing::Error<E>),
+	ContextProcessing(json_ld_context_processing::Error),
 
 	#[error("Invalid `@index` value")]
 	InvalidIndexValue,
@@ -54,7 +54,7 @@ pub enum Error<E> {
 	Value(crate::InvalidValue),
 }
 
-impl<E> Error<E> {
+impl Error {
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::ContextSyntax(e) => e.code(),
@@ -78,7 +78,7 @@ impl<E> Error<E> {
 	}
 }
 
-impl<E> Error<E> {
+impl Error {
 	pub fn duplicate_key_ref(
 		json_syntax::object::Duplicate(a, _b): json_syntax::object::Duplicate<
 			&json_syntax::object::Entry,
@@ -88,19 +88,19 @@ impl<E> Error<E> {
 	}
 }
 
-impl<E> From<json_ld_context_processing::Error<E>> for Error<E> {
-	fn from(e: json_ld_context_processing::Error<E>) -> Self {
+impl From<json_ld_context_processing::Error> for Error {
+	fn from(e: json_ld_context_processing::Error) -> Self {
 		Self::ContextProcessing(e)
 	}
 }
 
-impl<E> From<crate::LiteralExpansionError> for Error<E> {
+impl From<crate::LiteralExpansionError> for Error {
 	fn from(e: crate::LiteralExpansionError) -> Self {
 		Self::Literal(e)
 	}
 }
 
-impl<E> From<crate::InvalidValue> for Error<E> {
+impl From<crate::InvalidValue> for Error {
 	fn from(e: crate::InvalidValue) -> Self {
 		Self::Value(e)
 	}

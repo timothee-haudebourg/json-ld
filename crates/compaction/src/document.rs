@@ -8,8 +8,7 @@ use crate::{
 	CompactFragment,
 };
 
-pub type CompactDocumentResult<I, L> =
-	Result<json_syntax::Value, crate::Error<<L as Loader<I>>::Error>>;
+pub type CompactDocumentResult = Result<json_syntax::Value, crate::Error>;
 
 /// Context embeding method.
 ///
@@ -41,7 +40,7 @@ pub trait Compact<I, B> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> CompactDocumentResult<I, L>
+	) -> CompactDocumentResult
 	where
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -56,7 +55,7 @@ pub trait Compact<I, B> {
 		vocabulary: &'a mut N,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
 		loader: &'a mut L,
-	) -> CompactDocumentResult<I, L>
+	) -> CompactDocumentResult
 	where
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -73,7 +72,7 @@ pub trait Compact<I, B> {
 		&'a self,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
 		loader: &'a mut L,
-	) -> CompactDocumentResult<I, L>
+	) -> CompactDocumentResult
 	where
 		(): rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -92,7 +91,7 @@ impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> CompactDocumentResult<I, L>
+	) -> CompactDocumentResult
 	where
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -124,7 +123,7 @@ impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
 		loader: &'a mut L,
 		options: crate::Options,
-	) -> CompactDocumentResult<I, L>
+	) -> CompactDocumentResult
 	where
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,

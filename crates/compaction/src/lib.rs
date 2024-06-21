@@ -30,7 +30,7 @@ use property::*;
 use value::*;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error<E> {
+pub enum Error {
 	#[error("IRI confused with prefix")]
 	IriConfusedWithPrefix,
 
@@ -38,10 +38,10 @@ pub enum Error<E> {
 	InvalidNestValue,
 
 	#[error("Context processing failed: {0}")]
-	ContextProcessing(json_ld_context_processing::Error<E>),
+	ContextProcessing(json_ld_context_processing::Error),
 }
 
-impl<E> Error<E> {
+impl Error {
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::IriConfusedWithPrefix => ErrorCode::IriConfusedWithPrefix,
@@ -51,19 +51,19 @@ impl<E> Error<E> {
 	}
 }
 
-impl<E> From<json_ld_context_processing::Error<E>> for Error<E> {
-	fn from(e: json_ld_context_processing::Error<E>) -> Self {
+impl From<json_ld_context_processing::Error> for Error {
+	fn from(e: json_ld_context_processing::Error) -> Self {
 		Self::ContextProcessing(e)
 	}
 }
 
-impl<E> From<IriConfusedWithPrefix> for Error<E> {
+impl From<IriConfusedWithPrefix> for Error {
 	fn from(_: IriConfusedWithPrefix) -> Self {
 		Self::IriConfusedWithPrefix
 	}
 }
 
-pub type CompactFragmentResult<I, L> = Result<json_syntax::Value, Error<<L as Loader<I>>::Error>>;
+pub type CompactFragmentResult = Result<json_syntax::Value, Error>;
 
 /// Compaction options.
 #[derive(Clone, Copy)]
@@ -132,7 +132,7 @@ pub trait CompactFragment<I, B> {
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -146,7 +146,7 @@ pub trait CompactFragment<I, B> {
 		vocabulary: &'a mut N,
 		active_context: &'a Context<I, B>,
 		loader: &'a mut L,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -170,7 +170,7 @@ pub trait CompactFragment<I, B> {
 		&'a self,
 		active_context: &'a Context<I, B>,
 		loader: &'a mut L,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		(): VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -207,7 +207,7 @@ pub trait CompactIndexedFragment<I, B> {
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -224,7 +224,7 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -255,7 +255,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -454,7 +454,7 @@ async fn compact_collection_with<'a, N, L, O, T>(
 	active_property: Option<&'a str>,
 	loader: &'a mut L,
 	options: Options,
-) -> CompactFragmentResult<N::Iri, L>
+) -> CompactFragmentResult
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
@@ -515,7 +515,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -544,7 +544,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
@@ -573,7 +573,7 @@ impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for [T]
 		active_property: Option<&'a str>,
 		loader: &'a mut L,
 		options: Options,
-	) -> CompactFragmentResult<I, L>
+	) -> CompactFragmentResult
 	where
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,

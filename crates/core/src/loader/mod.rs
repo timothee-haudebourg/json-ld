@@ -93,12 +93,19 @@ impl<I> RemoteDocumentReference<I> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum ContextLoadError<E> {
-	#[error("loading document failed: {0}")]
-	LoadingDocumentFailed(E),
+pub enum ContextLoadError {
+	#[error("loading document `{0}` failed: {0}")]
+	LoadingDocumentFailed(IriBuf, String),
 
 	#[error("context extraction failed")]
 	ContextExtractionFailed(#[from] ExtractContextError),
+}
+
+impl ContextLoadError {
+	fn from_loader_error(e: impl LoaderError) -> Self {
+		let (iri, message) = e.into_iri_and_message();
+		Self::LoadingDocumentFailed(iri, message)
+	}
 }
 
 impl<I> RemoteContextReference<I> {
@@ -110,7 +117,7 @@ impl<I> RemoteContextReference<I> {
 		self,
 		vocabulary: &mut V,
 		loader: &mut L,
-	) -> Result<RemoteContext<I>, ContextLoadError<L::Error>>
+	) -> Result<RemoteContext<I>, ContextLoadError>
 	where
 		V: IriVocabularyMut<Iri = I>,
 	{
@@ -118,7 +125,10 @@ impl<I> RemoteContextReference<I> {
 			Self::Iri(r) => Ok(loader
 				.load_with(vocabulary, r)
 				.await
-				.map_err(ContextLoadError::LoadingDocumentFailed)?
+				.map_err(|e| {
+					let (iri, message) = e.into_iri_and_message();
+					ContextLoadError::LoadingDocumentFailed(iri, message)
+				})?
 				.try_map(|d| d.into_ld_context())?),
 			Self::Loaded(doc) => Ok(doc),
 		}
@@ -134,7 +144,7 @@ impl<I> RemoteContextReference<I> {
 		&self,
 		vocabulary: &mut V,
 		loader: &mut L,
-	) -> Result<Cow<'_, RemoteContext<I>>, ContextLoadError<L::Error>>
+	) -> Result<Cow<'_, RemoteContext<I>>, ContextLoadError>
 	where
 		V: IriVocabularyMut<Iri = I>,
 		I: Clone,
@@ -144,7 +154,7 @@ impl<I> RemoteContextReference<I> {
 				loader
 					.load_with(vocabulary, r.clone())
 					.await
-					.map_err(ContextLoadError::LoadingDocumentFailed)?
+					.map_err(ContextLoadError::from_loader_error)?
 					.try_map(|d| d.into_ld_context())?,
 			)),
 			Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
@@ -375,6 +385,11 @@ impl<I> Profile<I> {
 	}
 }
 
+/// Loader error.
+pub trait LoaderError {
+	fn into_iri_and_message(self) -> (IriBuf, String);
+}
+
 /// Document loader.
 ///
 /// A document loader is required by most processing functions to fetch remote
@@ -396,7 +411,7 @@ impl<I> Profile<I> {
 ///     This requires the `reqwest` feature to be enabled.
 pub trait Loader<I = IriBuf> {
 	/// Error type.
-	type Error;
+	type Error: LoaderError;
 
 	/// Loads the document behind the given IRI, using the given vocabulary.
 	#[allow(async_fn_in_trait)]

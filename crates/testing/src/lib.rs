@@ -480,7 +480,7 @@ fn parse_enum_type(
 enum Error {
 	Parse(syn::Error),
 	Load(json_ld::loader::fs::Error),
-	Expand(json_ld::expansion::Error<json_ld::fs::Error>),
+	Expand(json_ld::expansion::Error),
 	InvalidIri(String),
 	InvalidValue(
 		Type,

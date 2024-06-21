@@ -24,7 +24,7 @@ impl Process for syntax::context::Context {
 		base_url: Option<N::Iri>,
 		options: Options,
 		mut warnings: W,
-	) -> Result<Processed<N::Iri, N::BlankId>, Error<L::Error>>
+	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
 		N::Iri: Clone + PartialEq,
@@ -75,7 +75,7 @@ async fn process_context<'l: 'a, 'a, N, L, W>(
 	mut remote_contexts: ProcessingStack<N::Iri>,
 	base_url: Option<N::Iri>,
 	mut options: Options,
-) -> ProcessingResult<'l, N::Iri, N::BlankId, L::Error>
+) -> ProcessingResult<'l, N::Iri, N::BlankId>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + PartialEq,
@@ -141,7 +141,7 @@ where
 				// a loading document failed error has been detected and processing is aborted.
 				let context_iri =
 					resolve_iri(env.vocabulary, iri_ref.as_iri_ref(), base_url.as_ref())
-						.ok_or_else(|| Error::LoadingDocumentFailed)?;
+						.ok_or(Error::LoadingDocumentFailed)?;
 
 				// If the number of entries in the `remote_contexts` array exceeds a processor
 				// defined limit, a context overflow error has been detected and processing is
@@ -168,7 +168,7 @@ where
 						.loader
 						.load_with(env.vocabulary, context_iri.clone())
 						.await
-						.map_err(Error::ContextLoadingFailed)?
+						.map_err(Error::from_context_loader_error)?
 						.into_document()
 						.into_ld_context()
 						.map_err(Error::ContextExtractionFailed)?;
@@ -227,14 +227,14 @@ where
 							import_value.as_iri_ref(),
 							base_url.as_ref(),
 						)
-						.ok_or_else(|| Error::InvalidImportValue)?;
+						.ok_or(Error::InvalidImportValue)?;
 
 						// 5.6.4) Dereference import.
 						let import_context = env
 							.loader
-							.load_with(env.vocabulary, import)
+							.load_with(env.vocabulary, import.clone())
 							.await
-							.map_err(Error::ContextLoadingFailed)?
+							.map_err(Error::from_context_loader_error)?
 							.into_document()
 							.into_ld_context()
 							.map_err(Error::ContextExtractionFailed)?;
@@ -284,7 +284,7 @@ where
 								None => {
 									let resolved =
 										resolve_iri(env.vocabulary, iri_ref, result.base_iri())
-											.ok_or_else(|| Error::InvalidBaseIri)?;
+											.ok_or(Error::InvalidBaseIri)?;
 									result.set_base_iri(Some(resolved))
 								}
 							},

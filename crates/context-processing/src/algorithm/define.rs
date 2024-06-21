@@ -55,7 +55,7 @@ impl DefinedTerms {
 		Self::default()
 	}
 
-	pub fn begin<E>(&mut self, key: &KeyOrKeyword) -> Result<bool, Error<E>> {
+	pub fn begin(&mut self, key: &KeyOrKeyword) -> Result<bool, Error> {
 		match self.0.get(key) {
 			Some(d) => {
 				if d.pending {
@@ -81,8 +81,6 @@ pub struct DefinedTerm {
 	pending: bool,
 }
 
-pub type DefineResult<E> = Result<(), Error<E>>;
-
 /// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.
 /// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
 #[allow(clippy::too_many_arguments)]
@@ -96,7 +94,7 @@ pub async fn define<'a, N, L, W>(
 	base_url: Option<N::Iri>,
 	protected: bool,
 	options: Options,
-) -> DefineResult<L::Error>
+) -> Result<(), Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + PartialEq,

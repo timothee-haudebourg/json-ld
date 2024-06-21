@@ -36,7 +36,7 @@ pub(crate) use node::*;
 pub(crate) use value::*;
 
 /// Result of the document expansion.
-pub type ExpansionResult<T, B, L> = Result<ExpandedDocument<T, B>, Error<<L as Loader<T>>::Error>>;
+pub type ExpansionResult<T, B> = Result<ExpandedDocument<T, B>, Error>;
 
 /// Handler for the possible warnings emitted during the expansion
 /// of a JSON-LD document.
@@ -123,7 +123,7 @@ pub trait Expand<Iri> {
 		loader: &'a mut L,
 		options: Options,
 		warnings_handler: W,
-	) -> ExpansionResult<N::Iri, N::BlankId, L>
+	) -> ExpansionResult<N::Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
@@ -143,7 +143,7 @@ pub trait Expand<Iri> {
 		&'a self,
 		vocabulary: &'a mut N,
 		loader: &'a mut L,
-	) -> ExpansionResult<Iri, N::BlankId, L>
+	) -> ExpansionResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
@@ -168,7 +168,7 @@ pub trait Expand<Iri> {
 	/// The expansion algorithm is called with an empty initial context with
 	/// a base URL given by [`Expand::default_base_url`].
 	#[allow(async_fn_in_trait)]
-	async fn expand<'a, L>(&'a self, loader: &'a mut L) -> ExpansionResult<Iri, BlankIdBuf, L>
+	async fn expand<'a, L>(&'a self, loader: &'a mut L) -> ExpansionResult<Iri, BlankIdBuf>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
@@ -193,7 +193,7 @@ impl<Iri> Expand<Iri> for Value {
 		loader: &'a mut L,
 		options: Options,
 		mut warnings_handler: W,
-	) -> ExpansionResult<Iri, N::BlankId, L>
+	) -> ExpansionResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
@@ -233,7 +233,7 @@ impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
 		loader: &'a mut L,
 		options: Options,
 		warnings_handler: W,
-	) -> ExpansionResult<Iri, N::BlankId, L>
+	) -> ExpansionResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,

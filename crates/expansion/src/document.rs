@@ -16,7 +16,7 @@ pub(crate) async fn expand<'a, N, L, W>(
 	active_context: Context<N::Iri, N::BlankId>,
 	base_url: Option<&'a N::Iri>,
 	options: Options,
-) -> Result<ExpandedDocument<N::Iri, N::BlankId>, Error<L::Error>>
+) -> Result<ExpandedDocument<N::Iri, N::BlankId>, Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,

@@ -1,4 +1,5 @@
-use crate::LoadingResult;
+use crate::{LoaderError, LoadingResult};
+use iref::IriBuf;
 use rdf_types::vocabulary::IriVocabularyMut;
 use std::fmt;
 
@@ -50,8 +51,17 @@ pub struct Error<E1, E2>(E1, E2);
 impl<E1: fmt::Display, E2: fmt::Display> fmt::Display for Error<E1, E2> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let Error(e1, e2) = self;
-		write!(f, "First: {e1} / Second: {e2}")
+		write!(f, "{e1}, then {e2}")
 	}
 }
 
 impl<E1: std::error::Error, E2: std::error::Error> std::error::Error for Error<E1, E2> {}
+
+impl<E1: LoaderError, E2: LoaderError> LoaderError for Error<E1, E2> {
+	fn into_iri_and_message(self) -> (IriBuf, String) {
+		let (iri, m1) = self.0.into_iri_and_message();
+		let (_, m2) = self.1.into_iri_and_message();
+
+		(iri, format!("{m1}, then {m2}"))
+	}
+}
