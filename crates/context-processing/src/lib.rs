@@ -1,6 +1,7 @@
 //! JSON-LD context processing types and algorithms.
+use iref::IriBuf;
 pub use json_ld_core::{warning, Context, ProcessingMode};
-use json_ld_core::{ExtractContextError, Loader};
+use json_ld_core::{ExtractContextError, Loader, LoaderError};
 use json_ld_syntax::ErrorCode;
 use rdf_types::VocabularyMut;
 use std::fmt;
@@ -41,7 +42,7 @@ impl<N, H> WarningHandler<N> for H where H: json_ld_core::warning::Handler<N, Wa
 
 /// Errors that can happen during context processing.
 #[derive(Debug, thiserror::Error)]
-pub enum Error<E> {
+pub enum Error {
 	#[error("Invalid context nullification")]
 	InvalidContextNullification,
 
@@ -99,14 +100,19 @@ pub enum Error<E> {
 	#[error("Protected term redefinition")]
 	ProtectedTermRedefinition,
 
-	#[error("Remote context loading failed: {0}")]
-	ContextLoadingFailed(E),
+	#[error("Remote context `{0}` loading failed: {1}")]
+	ContextLoadingFailed(IriBuf, String),
 
 	#[error("Unable to extract JSON-LD context: {0}")]
 	ContextExtractionFailed(ExtractContextError),
 }
 
-impl<E> Error<E> {
+impl Error {
+	pub fn from_context_loader_error(e: impl LoaderError) -> Self {
+		let (iri, message) = e.into_iri_and_message();
+		Self::ContextLoadingFailed(iri, message)
+	}
+
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::InvalidContextNullification => ErrorCode::InvalidContextNullification,
@@ -128,14 +134,14 @@ impl<E> Error<E> {
 			Self::InvalidContainerMapping => ErrorCode::InvalidContainerMapping,
 			Self::InvalidScopedContext => ErrorCode::InvalidScopedContext,
 			Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
-			Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
+			Self::ContextLoadingFailed(_, _) => ErrorCode::LoadingRemoteContextFailed,
 			Self::ContextExtractionFailed(_) => ErrorCode::LoadingRemoteContextFailed,
 		}
 	}
 }
 
 /// Result of context processing functions.
-pub type ProcessingResult<'a, T, B, E> = Result<Processed<'a, T, B>, Error<E>>;
+pub type ProcessingResult<'a, T, B> = Result<Processed<'a, T, B>, Error>;
 
 pub trait Process {
 	/// Process the local context with specific options.
@@ -148,7 +154,7 @@ pub trait Process {
 		base_url: Option<N::Iri>,
 		options: Options,
 		warnings: W,
-	) -> Result<Processed<N::Iri, N::BlankId>, Error<L::Error>>
+	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
 		N::Iri: Clone + PartialEq,
@@ -166,7 +172,7 @@ pub trait Process {
 		loader: &mut L,
 		base_url: Option<N::Iri>,
 		options: Options,
-	) -> Result<Processed<N::Iri, N::BlankId>, Error<L::Error>>
+	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
 		N::Iri: Clone + PartialEq,
@@ -192,7 +198,7 @@ pub trait Process {
 		vocabulary: &mut N,
 		loader: &mut L,
 		base_url: Option<N::Iri>,
-	) -> Result<Processed<N::Iri, N::BlankId>, Error<L::Error>>
+	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
 		N::Iri: Clone + PartialEq,

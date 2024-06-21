@@ -19,7 +19,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		loader: &'a mut L,
 		options: Options<I>,
 		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> CompareResult<I, L>
+	) -> CompareResult
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
@@ -49,7 +49,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		loader: &'a mut L,
 		mut options: Options<I>,
 		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> ExpandResult<I, N::BlankId, L>
+	) -> ExpandResult<I, N::BlankId>
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
@@ -115,7 +115,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		loader: &'a mut L,
 		options: Options<I>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> IntoDocumentResult<I, N::BlankId, L>
+	) -> IntoDocumentResult<I, N::BlankId>
 	where
 		N: VocabularyMut<Iri = I>,
 		I: 'a + Clone + Eq + Hash,
@@ -134,7 +134,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		loader: &'a mut L,
 		options: Options<I>,
 		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> CompactResult<I, L>
+	) -> CompactResult
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
@@ -171,7 +171,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		loader: &'a mut L,
 		options: Options<I>,
 		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> FlattenResult<I, N::BlankId, L>
+	) -> FlattenResult<I, N::BlankId>
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
@@ -219,7 +219,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		loader: &'a mut L,
 		options: Options<I>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> CompareResult<I, L>
+	) -> CompareResult
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
@@ -229,11 +229,11 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		let a = self
 			.loaded_with(vocabulary, loader)
 			.await
-			.map_err(ExpandError::Loading)?;
+			.map_err(ExpandError::from_loader_error)?;
 		let b = other
 			.loaded_with(vocabulary, loader)
 			.await
-			.map_err(ExpandError::Loading)?;
+			.map_err(ExpandError::from_loader_error)?;
 		JsonLdProcessor::compare_full(
 			a.as_ref(),
 			b.as_ref(),
@@ -251,7 +251,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		loader: &'a mut L,
 		options: Options<I>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> ExpandResult<I, N::BlankId, L>
+	) -> ExpandResult<I, N::BlankId>
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
@@ -261,7 +261,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		let doc = self
 			.loaded_with(vocabulary, loader)
 			.await
-			.map_err(ExpandError::Loading)?;
+			.map_err(ExpandError::from_loader_error)?;
 		JsonLdProcessor::expand_full(doc.as_ref(), vocabulary, loader, options, warnings).await
 	}
 
@@ -271,7 +271,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		loader: &'a mut L,
 		options: Options<I>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> IntoDocumentResult<I, N::BlankId, L>
+	) -> IntoDocumentResult<I, N::BlankId>
 	where
 		N: VocabularyMut<Iri = I>,
 		I: 'a + Clone + Eq + Hash,
@@ -281,7 +281,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		let doc = self
 			.load_with(vocabulary, loader)
 			.await
-			.map_err(ExpandError::Loading)?;
+			.map_err(ExpandError::from_loader_error)?;
 		JsonLdProcessor::into_document_full(doc, vocabulary, loader, options, warnings).await
 	}
 
@@ -292,7 +292,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		loader: &'a mut L,
 		options: Options<I>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> CompactResult<I, L>
+	) -> CompactResult
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
@@ -302,7 +302,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		let doc = self
 			.loaded_with(vocabulary, loader)
 			.await
-			.map_err(CompactError::Loading)?;
+			.map_err(CompactError::from_loader_error)?;
 		JsonLdProcessor::compact_full(doc.as_ref(), vocabulary, context, loader, options, warnings)
 			.await
 	}
@@ -315,7 +315,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		loader: &'a mut L,
 		options: Options<I>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> FlattenResult<I, N::BlankId, L>
+	) -> FlattenResult<I, N::BlankId>
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
@@ -325,7 +325,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		let doc = self
 			.loaded_with(vocabulary, loader)
 			.await
-			.map_err(FlattenError::Loading)?;
+			.map_err(FlattenError::from_loader_error)?;
 		JsonLdProcessor::flatten_full(
 			doc.as_ref(),
 			vocabulary,

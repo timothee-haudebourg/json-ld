@@ -15,7 +15,7 @@ pub(crate) async fn expand_array<N, L, W>(
 	base_url: Option<&N::Iri>,
 	options: Options,
 	from_map: bool,
-) -> Result<Expanded<N::Iri, N::BlankId>, Error<L::Error>>
+) -> Result<Expanded<N::Iri, N::BlankId>, Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,

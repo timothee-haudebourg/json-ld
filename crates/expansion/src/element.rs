@@ -62,8 +62,7 @@ impl<'a> PartialEq<Keyword> for ActiveProperty<'a> {
 }
 
 /// Result of the expansion of a single element in a JSON-LD document.
-pub(crate) type ElementExpansionResult<T, B, L> =
-	Result<Expanded<T, B>, Error<<L as Loader<T>>::Error>>;
+pub(crate) type ElementExpansionResult<T, B> = Result<Expanded<T, B>, Error>;
 
 /// Expand an element.
 ///
@@ -78,7 +77,7 @@ pub(crate) async fn expand_element<'a, N, L, W>(
 	base_url: Option<&'a N::Iri>,
 	options: Options,
 	from_map: bool,
-) -> ElementExpansionResult<N::Iri, N::BlankId, L>
+) -> ElementExpansionResult<N::Iri, N::BlankId>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,

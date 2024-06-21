@@ -15,7 +15,7 @@ pub async fn compact_indexed_value_with<N, L>(
 	active_property: Option<&str>,
 	loader: &mut L,
 	options: Options,
-) -> Result<json_syntax::Value, Error<L::Error>>
+) -> Result<json_syntax::Value, Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,

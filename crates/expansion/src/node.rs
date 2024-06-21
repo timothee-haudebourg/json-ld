@@ -35,7 +35,7 @@ pub(crate) async fn expand_node<'a, N, L, W>(
 	expanded_entries: Vec<ExpandedEntry<'a, N::Iri, N::BlankId>>,
 	base_url: Option<&'a N::Iri>,
 	options: Options,
-) -> Result<Option<Indexed<Node<N::Iri, N::BlankId>>>, Error<L::Error>>
+) -> Result<Option<Indexed<Node<N::Iri, N::BlankId>>>, Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,
@@ -100,8 +100,7 @@ where
 type ExpandedNode<T, B> = (Indexed<Node<T, B>>, bool);
 
 /// Result of the `expand_node_entries` function.
-type NodeEntriesExpensionResult<T, B, L> =
-	Result<ExpandedNode<T, B>, Error<<L as Loader<T>>::Error>>;
+type NodeEntriesExpensionResult<T, B> = Result<ExpandedNode<T, B>, Error>;
 
 #[allow(clippy::too_many_arguments)]
 async fn expand_node_entries<'a, N, L, W>(
@@ -114,7 +113,7 @@ async fn expand_node_entries<'a, N, L, W>(
 	expanded_entries: Vec<ExpandedEntry<'a, N::Iri, N::BlankId>>,
 	base_url: Option<&'a N::Iri>,
 	options: Options,
-) -> NodeEntriesExpensionResult<N::Iri, N::BlankId, L>
+) -> NodeEntriesExpensionResult<N::Iri, N::BlankId>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,

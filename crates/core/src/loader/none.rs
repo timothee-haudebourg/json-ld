@@ -1,8 +1,7 @@
 use super::Loader;
-use crate::LoadingResult;
-use contextual::{DisplayWithContext, WithContext};
+use crate::{LoaderError, LoadingResult};
+use iref::IriBuf;
 use rdf_types::vocabulary::IriVocabulary;
-use std::fmt;
 
 /// Dummy loader.
 ///
@@ -14,23 +13,23 @@ use std::fmt;
 pub struct NoLoader;
 
 #[derive(Debug, thiserror::Error)]
-#[error("cannot load `{0}`")]
-pub struct CannotLoad<I>(I);
+#[error("no loader for `{0}`")]
+pub struct CannotLoad(pub IriBuf);
 
-impl<I: DisplayWithContext<N>, N> DisplayWithContext<N> for CannotLoad<I> {
-	fn fmt_with(&self, vocabulary: &N, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "cannot load `{}`", self.0.with(vocabulary))
+impl LoaderError for CannotLoad {
+	fn into_iri_and_message(self) -> (IriBuf, String) {
+		(self.0, "no loader".to_string())
 	}
 }
 
 impl<I> Loader<I> for NoLoader {
-	type Error = CannotLoad<I>;
+	type Error = CannotLoad;
 
 	#[inline(always)]
-	async fn load_with<V>(&mut self, _vocabulary: &mut V, url: I) -> LoadingResult<I, CannotLoad<I>>
+	async fn load_with<V>(&mut self, vocabulary: &mut V, url: I) -> LoadingResult<I, CannotLoad>
 	where
 		V: IriVocabulary<Iri = I>,
 	{
-		Err(CannotLoad(url))
+		Err(CannotLoad(vocabulary.owned_iri(url).ok().unwrap()))
 	}
 }
