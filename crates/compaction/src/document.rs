@@ -38,7 +38,7 @@ pub trait Compact<I, B> {
 		&'a self,
 		vocabulary: &'a mut N,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: crate::Options,
 	) -> CompactDocumentResult
 	where
@@ -54,7 +54,7 @@ pub trait Compact<I, B> {
 		&'a self,
 		vocabulary: &'a mut N,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
-		loader: &'a mut L,
+		loader: &'a L,
 	) -> CompactDocumentResult
 	where
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
@@ -71,7 +71,7 @@ pub trait Compact<I, B> {
 	async fn compact<'a, L>(
 		&'a self,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
-		loader: &'a mut L,
+		loader: &'a L,
 	) -> CompactDocumentResult
 	where
 		(): rdf_types::VocabularyMut<Iri = I, BlankId = B>,
@@ -89,7 +89,7 @@ impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
 		&'a self,
 		vocabulary: &'a mut N,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: crate::Options,
 	) -> CompactDocumentResult
 	where
@@ -121,7 +121,7 @@ impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
 		&'a self,
 		vocabulary: &'a mut N,
 		context: json_ld_context_processing::ProcessedRef<'a, 'a, I, B>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: crate::Options,
 	) -> CompactDocumentResult
 	where

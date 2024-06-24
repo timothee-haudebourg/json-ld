@@ -22,7 +22,7 @@ impl Process for syntax::context::Context {
 		&self,
 		vocabulary: &mut N,
 		active_context: &Context<N::Iri, N::BlankId>,
-		loader: &mut L,
+		loader: &L,
 		base_url: Option<N::Iri>,
 		options: Options,
 		mut warnings: W,
@@ -169,8 +169,7 @@ where
 					let loaded_context = env
 						.loader
 						.load_with(env.vocabulary, context_iri.clone())
-						.await
-						.map_err(Error::from_context_loader_error)?
+						.await?
 						.into_document()
 						.into_ld_context()
 						.map_err(Error::ContextExtractionFailed)?;
@@ -235,8 +234,7 @@ where
 						let import_context = env
 							.loader
 							.load_with(env.vocabulary, import.clone())
-							.await
-							.map_err(Error::from_context_loader_error)?
+							.await?
 							.into_document()
 							.into_ld_context()
 							.map_err(Error::ContextExtractionFailed)?;

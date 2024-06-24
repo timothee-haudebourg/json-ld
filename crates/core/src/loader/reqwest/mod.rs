@@ -1,5 +1,5 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
-use crate::LoaderError;
+use crate::LoadError;
 use crate::LoadingResult;
 use crate::Profile;
 
@@ -55,38 +55,23 @@ impl Default for Options {
 /// Loading error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-	#[error("internal error: {1}")]
-	Reqwest(IriBuf, reqwest_middleware::Error),
+	#[error("internal error: {0}")]
+	Reqwest(reqwest_middleware::Error),
 
-	#[error("query failed: status code {1}")]
-	QueryFailed(IriBuf, StatusCode),
+	#[error("query failed: status code {0}")]
+	QueryFailed(StatusCode),
 
 	#[error("invalid content type")]
-	InvalidContentType(IriBuf),
+	InvalidContentType,
 
 	#[error("multiple context link headers")]
-	MultipleContextLinkHeaders(IriBuf),
+	MultipleContextLinkHeaders,
 
 	#[error("too many redirections")]
-	TooManyRedirections(IriBuf),
+	TooManyRedirections,
 
 	#[error("JSON parse error: {0}")]
-	Parse(IriBuf, json_syntax::parse::Error<std::io::Error>),
-}
-
-impl LoaderError for Error {
-	fn into_iri_and_message(self) -> (IriBuf, String) {
-		match self {
-			Self::Reqwest(iri, e) => (iri, format!("internal error: {e}")),
-			Self::QueryFailed(iri, e) => (iri, format!("query failed with status code: {e}")),
-			Self::InvalidContentType(iri) => (iri, "invalid content type".to_owned()),
-			Self::MultipleContextLinkHeaders(iri) => {
-				(iri, "multiple context link headers".to_owned())
-			}
-			Self::TooManyRedirections(iri) => (iri, "too many redirections".to_owned()),
-			Self::Parse(iri, e) => (iri, format!("JSON parse error: {e}")),
-		}
-	}
+	Parse(json_syntax::parse::Error<std::io::Error>),
 }
 
 /// `reqwest`-based loader.
@@ -99,7 +84,7 @@ impl LoaderError for Error {
 /// an URL is loaded even if it has already been queried before.
 pub struct ReqwestLoader {
 	options: Options,
-	accept_header: String
+	accept_header: String,
 }
 
 impl Default for ReqwestLoader {
@@ -158,14 +143,12 @@ pub enum ParseError {
 }
 
 impl Loader for ReqwestLoader {
-	type Error = Error;
-
-	async fn load(&mut self, url: &Iri) -> LoadingResult<IriBuf, Error> {
+	async fn load(&self, url: &Iri) -> LoadingResult<IriBuf> {
 		let mut redirection_number = 0;
 		let mut url = url.to_owned();
 		'next_url: loop {
 			if redirection_number > self.options.max_redirections {
-				return Err(Error::TooManyRedirections(url.clone()));
+				return Err(LoadError::new(url.clone(), Error::TooManyRedirections));
 			}
 
 			log::debug!("downloading: {}", url);
@@ -178,7 +161,7 @@ impl Loader for ReqwestLoader {
 			let response = request
 				.send()
 				.await
-				.map_err(|e| Error::Reqwest(url.clone(), e))?;
+				.map_err(|e| LoadError::new(url.clone(), e))?;
 
 			match response.status() {
 				StatusCode::OK => {
@@ -198,7 +181,10 @@ impl Loader for ReqwestLoader {
 											== Some(b"http://www.w3.org/ns/json-ld#context")
 										{
 											if context_url.is_some() {
-												return Err(Error::MultipleContextLinkHeaders(url));
+												return Err(LoadError::new(
+													url,
+													Error::MultipleContextLinkHeaders,
+												));
 											}
 
 											context_url = Some(link.href().resolved(&url));
@@ -220,14 +206,13 @@ impl Loader for ReqwestLoader {
 								}
 							}
 
-							let bytes = response
-								.bytes()
-								.await
-								.map_err(|e| Error::Reqwest(url.clone(), e.into()))?;
+							let bytes = response.bytes().await.map_err(|e| {
+								LoadError::new(url.clone(), Error::Reqwest(e.into()))
+							})?;
 
 							let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
 							let (document, _) = json_syntax::Value::parse_utf8(decoder)
-								.map_err(|e| Error::Parse(url.clone(), e))?;
+								.map_err(|e| LoadError::new(url.clone(), Error::Parse(e)))?;
 
 							break Ok(RemoteDocument::new_full(
 								Some(url),
@@ -252,11 +237,11 @@ impl Loader for ReqwestLoader {
 								}
 							}
 
-							break Err(Error::InvalidContentType(url));
+							break Err(LoadError::new(url, Error::InvalidContentType));
 						}
 					}
 				}
-				code => break Err(Error::QueryFailed(url, code)),
+				code => break Err(LoadError::new(url, Error::QueryFailed(code))),
 			}
 		}
 	}

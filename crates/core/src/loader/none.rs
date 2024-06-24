@@ -1,6 +1,6 @@
 use super::Loader;
-use crate::{LoaderError, LoadingResult};
-use iref::{Iri, IriBuf};
+use crate::{LoadError, LoadingResult};
+use iref::Iri;
 
 /// Dummy loader.
 ///
@@ -12,20 +12,12 @@ use iref::{Iri, IriBuf};
 pub struct NoLoader;
 
 #[derive(Debug, thiserror::Error)]
-#[error("no loader for `{0}`")]
-pub struct CannotLoad(pub IriBuf);
-
-impl LoaderError for CannotLoad {
-	fn into_iri_and_message(self) -> (IriBuf, String) {
-		(self.0, "no loader".to_string())
-	}
-}
+#[error("no loader")]
+pub struct CannotLoad;
 
 impl Loader for NoLoader {
-	type Error = CannotLoad;
-
 	#[inline(always)]
-	async fn load(&mut self, url: &Iri) -> LoadingResult<IriBuf, CannotLoad> {
-		Err(CannotLoad(url.to_owned()))
+	async fn load(&self, url: &Iri) -> LoadingResult {
+		Err(LoadError::new(url.to_owned(), CannotLoad))
 	}
 }

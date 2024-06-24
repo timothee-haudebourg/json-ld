@@ -130,7 +130,7 @@ pub trait CompactFragment<I, B> {
 		active_context: &'a Context<I, B>,
 		type_scoped_context: &'a Context<I, B>,
 		active_property: Option<&'a str>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 	) -> CompactFragmentResult
 	where
@@ -205,7 +205,7 @@ pub trait CompactIndexedFragment<I, B> {
 		active_context: &'a Context<I, B>,
 		type_scoped_context: &'a Context<I, B>,
 		active_property: Option<&'a str>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 	) -> CompactFragmentResult
 	where
@@ -222,7 +222,7 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
 		active_context: &'a Context<I, B>,
 		type_scoped_context: &'a Context<I, B>,
 		active_property: Option<&'a str>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 	) -> CompactFragmentResult
 	where
@@ -253,7 +253,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
 		active_context: &'a Context<I, B>,
 		type_scoped_context: &'a Context<I, B>,
 		active_property: Option<&'a str>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 	) -> CompactFragmentResult
 	where
@@ -452,7 +452,7 @@ async fn compact_collection_with<'a, N, L, O, T>(
 	active_context: &'a Context<N::Iri, N::BlankId>,
 	type_scoped_context: &'a Context<N::Iri, N::BlankId>,
 	active_property: Option<&'a str>,
-	loader: &'a mut L,
+	loader: &'a L,
 	options: Options,
 ) -> CompactFragmentResult
 where
@@ -513,7 +513,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
 		active_context: &'a Context<I, B>,
 		type_scoped_context: &'a Context<I, B>,
 		active_property: Option<&'a str>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 	) -> CompactFragmentResult
 	where
@@ -542,7 +542,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
 		active_context: &'a Context<I, B>,
 		type_scoped_context: &'a Context<I, B>,
 		active_property: Option<&'a str>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 	) -> CompactFragmentResult
 	where
@@ -571,7 +571,7 @@ impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for [T]
 		active_context: &'a Context<I, B>,
 		type_scoped_context: &'a Context<I, B>,
 		active_property: Option<&'a str>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 	) -> CompactFragmentResult
 	where

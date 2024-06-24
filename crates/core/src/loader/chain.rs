@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::{LoaderError, LoadingResult};
+use crate::{LoadError, LoadErrorCause, LoadingResult};
 use iref::{Iri, IriBuf};
 
 use super::Loader;
@@ -27,14 +27,12 @@ where
 	L1: Loader,
 	L2: Loader,
 {
-	type Error = Error<L1::Error, L2::Error>;
-
-	async fn load(&mut self, url: &Iri) -> LoadingResult<IriBuf, Self::Error> {
+	async fn load(&self, url: &Iri) -> LoadingResult<IriBuf> {
 		match self.0.load(url).await {
 			Ok(doc) => Ok(doc),
-			Err(err1) => match self.1.load(url).await {
+			Err(LoadError { cause: e1, .. }) => match self.1.load(url).await {
 				Ok(doc) => Ok(doc),
-				Err(err2) => Err(Error(err1, err2)),
+				Err(LoadError { target, cause: e2 }) => Err(LoadError::new(target, Error(e1, e2))),
 			},
 		}
 	}
@@ -42,22 +40,13 @@ where
 
 /// Either-or error.
 #[derive(Debug)]
-pub struct Error<E1, E2>(E1, E2);
+pub struct Error(pub LoadErrorCause, pub LoadErrorCause);
 
-impl<E1: fmt::Display, E2: fmt::Display> fmt::Display for Error<E1, E2> {
+impl fmt::Display for Error {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		let Error(e1, e2) = self;
 		write!(f, "{e1}, then {e2}")
 	}
 }
 
-impl<E1: std::error::Error, E2: std::error::Error> std::error::Error for Error<E1, E2> {}
-
-impl<E1: LoaderError, E2: LoaderError> LoaderError for Error<E1, E2> {
-	fn into_iri_and_message(self) -> (IriBuf, String) {
-		let (iri, m1) = self.0.into_iri_and_message();
-		let (_, m2) = self.1.into_iri_and_message();
-
-		(iri, format!("{m1}, then {m2}"))
-	}
-}
+impl std::error::Error for Error {}

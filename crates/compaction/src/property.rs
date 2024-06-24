@@ -22,7 +22,7 @@ async fn compact_property_list<N, L>(
 	as_array: bool,
 	item_active_property: &str,
 	active_context: &Context<N::Iri, N::BlankId>,
-	loader: &mut L,
+	loader: &L,
 	options: Options,
 ) -> Result<(), Error>
 where
@@ -107,7 +107,7 @@ async fn compact_property_graph<N, L>(
 	as_array: bool,
 	item_active_property: &str,
 	active_context: &Context<N::Iri, N::BlankId>,
-	loader: &mut L,
+	loader: &L,
 	options: Options,
 ) -> Result<(), Error>
 where
@@ -389,7 +389,7 @@ pub async fn compact_property<'a, N, L, O, T>(
 	expanded_property: Term<N::Iri, N::BlankId>,
 	expanded_value: O,
 	active_context: &Context<N::Iri, N::BlankId>,
-	loader: &mut L,
+	loader: &L,
 	inside_reverse: bool,
 	options: Options,
 ) -> Result<(), Error>

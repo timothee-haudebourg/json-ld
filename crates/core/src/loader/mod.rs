@@ -20,7 +20,7 @@ pub mod reqwest;
 #[cfg(feature = "reqwest")]
 pub use self::reqwest::ReqwestLoader;
 
-pub type LoadingResult<I, E> = Result<RemoteDocument<I>, E>;
+pub type LoadingResult<I = IriBuf> = Result<RemoteDocument<I>, LoadError>;
 
 pub type RemoteContextReference<I = IriBuf> = RemoteDocumentReference<I, json_ld_syntax::Context>;
 
@@ -51,14 +51,10 @@ impl<I> RemoteDocumentReference<I> {
 	///
 	/// If the document is already [`Self::Loaded`], simply returns the inner
 	/// [`RemoteDocument`].
-	pub async fn load_with<V, L: Loader>(
-		self,
-		vocabulary: &mut V,
-		loader: &mut L,
-	) -> Result<RemoteDocument<I>, L::Error>
+	pub async fn load_with<V>(self, vocabulary: &mut V, loader: &impl Loader) -> LoadingResult<I>
 	where
 		V: IriVocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash
+		I: Clone + Eq + Hash,
 	{
 		match self {
 			Self::Iri(r) => Ok(loader.load_with(vocabulary, r).await?.map(Into::into)),
@@ -72,14 +68,14 @@ impl<I> RemoteDocumentReference<I> {
 	/// [`Cow::Owned`].
 	/// For [`Self::Loaded`] returns a reference to the inner [`RemoteDocument`]
 	/// with [`Cow::Borrowed`].
-	pub async fn loaded_with<V, L: Loader>(
+	pub async fn loaded_with<V>(
 		&self,
 		vocabulary: &mut V,
-		loader: &mut L,
-	) -> Result<Cow<'_, RemoteDocument<V::Iri>>, L::Error>
+		loader: &impl Loader,
+	) -> Result<Cow<'_, RemoteDocument<V::Iri>>, LoadError>
 	where
 		V: IriVocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash
+		I: Clone + Eq + Hash,
 	{
 		match self {
 			Self::Iri(r) => Ok(Cow::Owned(
@@ -95,18 +91,11 @@ impl<I> RemoteDocumentReference<I> {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ContextLoadError {
-	#[error("loading document `{0}` failed: {0}")]
-	LoadingDocumentFailed(IriBuf, String),
+	#[error(transparent)]
+	LoadingDocumentFailed(#[from] LoadError),
 
 	#[error("context extraction failed")]
 	ContextExtractionFailed(#[from] ExtractContextError),
-}
-
-impl ContextLoadError {
-	fn from_loader_error(e: impl LoaderError) -> Self {
-		let (iri, message) = e.into_iri_and_message();
-		Self::LoadingDocumentFailed(iri, message)
-	}
 }
 
 impl<I> RemoteContextReference<I> {
@@ -117,20 +106,16 @@ impl<I> RemoteContextReference<I> {
 	pub async fn load_context_with<V, L: Loader>(
 		self,
 		vocabulary: &mut V,
-		loader: &mut L,
+		loader: &L,
 	) -> Result<RemoteContext<I>, ContextLoadError>
 	where
 		V: IriVocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash
+		I: Clone + Eq + Hash,
 	{
 		match self {
 			Self::Iri(r) => Ok(loader
 				.load_with(vocabulary, r)
-				.await
-				.map_err(|e| {
-					let (iri, message) = e.into_iri_and_message();
-					ContextLoadError::LoadingDocumentFailed(iri, message)
-				})?
+				.await?
 				.try_map(|d| d.into_ld_context())?),
 			Self::Loaded(doc) => Ok(doc),
 		}
@@ -145,7 +130,7 @@ impl<I> RemoteContextReference<I> {
 	pub async fn loaded_context_with<V, L: Loader>(
 		&self,
 		vocabulary: &mut V,
-		loader: &mut L,
+		loader: &L,
 	) -> Result<Cow<'_, RemoteContext<I>>, ContextLoadError>
 	where
 		V: IriVocabularyMut<Iri = I>,
@@ -155,8 +140,7 @@ impl<I> RemoteContextReference<I> {
 			Self::Iri(r) => Ok(Cow::Owned(
 				loader
 					.load_with(vocabulary, r.clone())
-					.await
-					.map_err(ContextLoadError::from_loader_error)?
+					.await?
 					.try_map(|d| d.into_ld_context())?,
 			)),
 			Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
@@ -260,13 +244,17 @@ impl<I, T> RemoteDocument<I, T> {
 	/// Maps all the IRIs.
 	pub fn map_iris<J>(self, mut f: impl FnMut(I) -> J) -> RemoteDocument<J, T>
 	where
-		J: Eq + Hash
+		J: Eq + Hash,
 	{
 		RemoteDocument {
 			url: self.url.map(&mut f),
 			content_type: self.content_type,
 			context_url: self.context_url.map(&mut f),
-			profile: self.profile.into_iter().map(|p| p.map_iri(&mut f)).collect(),
+			profile: self
+				.profile
+				.into_iter()
+				.map(|p| p.map_iri(&mut f))
+				.collect(),
 			document: self.document,
 		}
 	}
@@ -396,7 +384,7 @@ impl Profile {
 	pub fn iri(&self) -> &Iri {
 		match self {
 			Self::Standard(s) => s.iri(),
-			Self::Custom(c) => c
+			Self::Custom(c) => c,
 		}
 	}
 }
@@ -419,14 +407,28 @@ impl<I> Profile<I> {
 	pub fn map_iri<J>(self, f: impl FnOnce(I) -> J) -> Profile<J> {
 		match self {
 			Self::Standard(p) => Profile::Standard(p),
-			Self::Custom(i) => Profile::Custom(f(i))
+			Self::Custom(i) => Profile::Custom(f(i)),
 		}
 	}
 }
 
-/// Loader error.
-pub trait LoaderError {
-	fn into_iri_and_message(self) -> (IriBuf, String);
+pub type LoadErrorCause = Box<dyn std::error::Error + Send + Sync>;
+
+/// Loading error.
+#[derive(Debug, thiserror::Error)]
+#[error("loading document `{target}` failed: {cause}")]
+pub struct LoadError {
+	pub target: IriBuf,
+	pub cause: LoadErrorCause,
+}
+
+impl LoadError {
+	pub fn new(target: IriBuf, cause: impl 'static + std::error::Error + Send + Sync) -> Self {
+		Self {
+			target,
+			cause: Box::new(cause),
+		}
+	}
 }
 
 /// Document loader.
@@ -449,40 +451,33 @@ pub trait LoaderError {
 ///     [`reqwest`](https://crates.io/crates/reqwest) library.
 ///     This requires the `reqwest` feature to be enabled.
 pub trait Loader {
-	/// Error type.
-	type Error: LoaderError;
-
 	/// Loads the document behind the given IRI, using the given vocabulary.
 	#[allow(async_fn_in_trait)]
-	async fn load_with<V>(&mut self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
+	async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri>
 	where
 		V: IriVocabularyMut,
-		V::Iri: Clone + Eq + Hash
+		V::Iri: Clone + Eq + Hash,
 	{
 		let lexical_url = vocabulary.iri(&url).unwrap();
 		let document = self.load(lexical_url).await?;
-		Ok(document.map_iris(|i| {
-			vocabulary.insert_owned(i)
-		}))
+		Ok(document.map_iris(|i| vocabulary.insert_owned(i)))
 	}
 
 	/// Loads the document behind the given IRI.
 	#[allow(async_fn_in_trait)]
-	async fn load(&mut self, url: &Iri) -> Result<RemoteDocument<IriBuf>, Self::Error>;
+	async fn load(&self, url: &Iri) -> Result<RemoteDocument<IriBuf>, LoadError>;
 }
 
 impl<'l, L: Loader> Loader for &'l mut L {
-	type Error = L::Error;
-
-	async fn load_with<V>(&mut self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri, Self::Error>
+	async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri>
 	where
 		V: IriVocabularyMut,
-		V::Iri: Clone + Eq + Hash
+		V::Iri: Clone + Eq + Hash,
 	{
 		L::load_with(self, vocabulary, url).await
 	}
 
-	async fn load(&mut self, url: &Iri) -> Result<RemoteDocument<IriBuf>, Self::Error> {
+	async fn load(&self, url: &Iri) -> Result<RemoteDocument<IriBuf>, LoadError> {
 		L::load(self, url).await
 	}
 }

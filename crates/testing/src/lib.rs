@@ -3,7 +3,7 @@
 use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
 use iref::{IriBuf, IriRefBuf};
-use json_ld::{Expand, FsLoader, ValidId};
+use json_ld::{Expand, FsLoader, LoadError, ValidId};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
@@ -477,7 +477,7 @@ fn parse_enum_type(
 
 enum Error {
 	Parse(syn::Error),
-	Load(json_ld::loader::fs::Error),
+	Load(LoadError),
 	Expand(json_ld::expansion::Error),
 	InvalidIri(String),
 	InvalidValue(
@@ -527,7 +527,7 @@ impl DisplayWithContext<IndexVocabulary> for Error {
 
 async fn generate_test_suite(
 	vocabulary: &mut IndexVocabulary,
-	mut loader: FsLoader,
+	loader: FsLoader,
 	spec: TestSpec,
 ) -> Result<TokenStream, Box<Error>> {
 	use json_ld::{Loader, RdfQuads};
@@ -538,7 +538,7 @@ async fn generate_test_suite(
 		.map_err(Error::Load)?;
 
 	let mut expanded_json_ld: json_ld::ExpandedDocument<IriIndex, BlankIdIndex> = json_ld
-		.expand_with(vocabulary, &mut loader)
+		.expand_with(vocabulary, &loader)
 		.await
 		.map_err(Error::Expand)?;
 

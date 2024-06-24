@@ -120,7 +120,7 @@ pub trait Expand<Iri> {
 		vocabulary: &'a mut N,
 		context: Context<Iri, N::BlankId>,
 		base_url: Option<&'a N::Iri>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 		warnings_handler: W,
 	) -> ExpansionResult<N::Iri, N::BlankId>
@@ -142,7 +142,7 @@ pub trait Expand<Iri> {
 	async fn expand_with<'a, N, L>(
 		&'a self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a L,
 	) -> ExpansionResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
@@ -168,7 +168,7 @@ pub trait Expand<Iri> {
 	/// The expansion algorithm is called with an empty initial context with
 	/// a base URL given by [`Expand::default_base_url`].
 	#[allow(async_fn_in_trait)]
-	async fn expand<'a, L>(&'a self, loader: &'a mut L) -> ExpansionResult<Iri, BlankIdBuf>
+	async fn expand<'a, L>(&'a self, loader: &'a L) -> ExpansionResult<Iri, BlankIdBuf>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
@@ -190,7 +190,7 @@ impl<Iri> Expand<Iri> for Value {
 		vocabulary: &'a mut N,
 		context: Context<Iri, N::BlankId>,
 		base_url: Option<&'a Iri>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 		mut warnings_handler: W,
 	) -> ExpansionResult<Iri, N::BlankId>
@@ -230,7 +230,7 @@ impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
 		vocabulary: &'a mut N,
 		context: Context<Iri, N::BlankId>,
 		base_url: Option<&'a Iri>,
-		loader: &'a mut L,
+		loader: &'a L,
 		options: Options,
 		warnings_handler: W,
 	) -> ExpansionResult<Iri, N::BlankId>

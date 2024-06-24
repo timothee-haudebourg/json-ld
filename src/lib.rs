@@ -132,7 +132,7 @@
 //! // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 //! // the local `example` directory. No HTTP query.
 //! let mut loader = json_ld::FsLoader::default();
-//! loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+//! loader.mount(iri!("https://example.com/").to_owned(), "examples");
 //!
 //! let expanded = input
 //!   .expand_with(&mut vocabulary, &mut loader)

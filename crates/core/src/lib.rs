@@ -39,6 +39,6 @@ pub use ty::*;
 
 pub struct Environment<'a, N, L, W> {
 	pub vocabulary: &'a mut N,
-	pub loader: &'a mut L,
+	pub loader: &'a L,
 	pub warnings: &'a mut W,
 }

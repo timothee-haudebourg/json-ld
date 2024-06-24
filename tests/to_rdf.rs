@@ -155,8 +155,7 @@ impl to_rdf::Test {
 					.collect();
 
 				let expected_content =
-					std::fs::read_to_string(loader.filepath(&expect).unwrap())
-						.unwrap();
+					std::fs::read_to_string(loader.filepath(&expect).unwrap()).unwrap();
 				let expected_dataset: IndexedBTreeDataset<IndexTerm> =
 					nquads_syntax::GrdfDocument::parse_str(&expected_content)
 						.unwrap()

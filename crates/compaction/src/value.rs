@@ -13,7 +13,7 @@ pub async fn compact_indexed_value_with<N, L>(
 	index: Option<&str>,
 	active_context: &Context<N::Iri, N::BlankId>,
 	active_property: Option<&str>,
-	loader: &mut L,
+	loader: &L,
 	options: Options,
 ) -> Result<json_syntax::Value, Error>
 where
