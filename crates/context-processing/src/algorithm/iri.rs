@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use super::{DefinedTerms, Environment, Merged};
 use crate::{Error, Options, ProcessingStack, Warning, WarningHandler};
 use contextual::WithContext;
@@ -33,9 +35,9 @@ pub async fn expand_iri_with<'a, N, L, W>(
 ) -> ExpandIriResult<N::Iri, N::BlankId>
 where
 	N: VocabularyMut,
-	N::Iri: Clone + PartialEq,
+	N::Iri: Clone + Eq + Hash,
 	N::BlankId: Clone + PartialEq,
-	L: Loader<N::Iri>,
+	L: Loader,
 	W: WarningHandler<N>,
 {
 	match value {

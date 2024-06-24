@@ -29,7 +29,7 @@ where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
 	N::BlankId: Clone + Hash + Eq,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	// If expanded item is a list object:
 	let mut compacted_item = Box::pin(compact_collection_with(
@@ -114,7 +114,7 @@ where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
 	N::BlankId: Clone + Hash + Eq,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	// If expanded item is a graph object
 	let mut compacted_item = Box::pin(node.graph().unwrap().compact_fragment_full(
@@ -399,7 +399,7 @@ where
 	N::BlankId: Clone + Hash + Eq,
 	O: IntoIterator<Item = &'a Indexed<T>>,
 	T: 'a + object::Any<N::Iri, N::BlankId>,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	let mut is_empty = true;
 

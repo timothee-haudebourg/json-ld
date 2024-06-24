@@ -1,7 +1,6 @@
 use super::Loader;
 use crate::{LoaderError, LoadingResult};
-use iref::IriBuf;
-use rdf_types::vocabulary::IriVocabulary;
+use iref::{Iri, IriBuf};
 
 /// Dummy loader.
 ///
@@ -22,14 +21,11 @@ impl LoaderError for CannotLoad {
 	}
 }
 
-impl<I> Loader<I> for NoLoader {
+impl Loader for NoLoader {
 	type Error = CannotLoad;
 
 	#[inline(always)]
-	async fn load_with<V>(&mut self, vocabulary: &mut V, url: I) -> LoadingResult<I, CannotLoad>
-	where
-		V: IriVocabulary<Iri = I>,
-	{
-		Err(CannotLoad(vocabulary.owned_iri(url).ok().unwrap()))
+	async fn load(&mut self, url: &Iri) -> LoadingResult<IriBuf, CannotLoad> {
+		Err(CannotLoad(url.to_owned()))
 	}
 }

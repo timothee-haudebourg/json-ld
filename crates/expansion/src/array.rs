@@ -20,7 +20,7 @@ where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,
 	N::BlankId: Clone + Eq + Hash,
-	L: Loader<N::Iri>,
+	L: Loader,
 	W: WarningHandler<N>,
 {
 	// Initialize an empty array, result.

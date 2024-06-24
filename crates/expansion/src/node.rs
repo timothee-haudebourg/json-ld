@@ -40,7 +40,7 @@ where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,
 	N::BlankId: Clone + Eq + Hash,
-	L: Loader<N::Iri>,
+	L: Loader,
 	W: WarningHandler<N>,
 {
 	// Initialize two empty maps, `result` and `nests`.
@@ -118,7 +118,7 @@ where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,
 	N::BlankId: Clone + Eq + Hash,
-	L: Loader<N::Iri>,
+	L: Loader,
 	W: WarningHandler<N>,
 {
 	// For each `key` and `value` in `element`, ordered lexicographically by key

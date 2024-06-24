@@ -383,7 +383,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		L: Loader;
 
 	/// Compare this document against `other` with a custom vocabulary using the
 	/// given `options`.
@@ -430,7 +430,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.compare_full(other, vocabulary, loader, options, ())
 			.await
@@ -480,7 +480,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.compare_with_using(other, vocabulary, loader, Options::default())
 			.await
@@ -525,7 +525,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.compare_with_using(
 			other,
@@ -570,7 +570,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.compare_with(other, rdf_types::vocabulary::no_vocabulary_mut(), loader)
 			.await
@@ -624,7 +624,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		L: Loader;
 
 	/// Expand the document with the given `vocabulary` and `loader`, using
 	/// the given `options`.
@@ -673,7 +673,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.expand_full(vocabulary, loader, options, ()).await
 	}
@@ -723,7 +723,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.expand_with_using(vocabulary, loader, Options::default())
 			.await
@@ -768,7 +768,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.expand_with_using(vocabulary::no_vocabulary_mut(), loader, options)
 			.await
@@ -807,7 +807,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.expand_with(vocabulary::no_vocabulary_mut(), loader)
 			.await
@@ -825,7 +825,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		L: Loader;
 
 	#[allow(async_fn_in_trait)]
 	async fn into_document_with_using<'a, N, L>(
@@ -838,7 +838,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.into_document_full(vocabulary, loader, options, ())
 			.await
@@ -854,7 +854,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.into_document_with_using(vocabulary, loader, Options::default())
 			.await
@@ -865,7 +865,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.into_document_with(vocabulary::no_vocabulary_mut(), loader)
 			.await
@@ -925,7 +925,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		L: Loader;
 
 	/// Compact the document relative to `context` with the given `vocabulary`
 	/// and `loader`, using the given `options`.
@@ -980,7 +980,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.compact_full(vocabulary, context, loader, options, ())
 			.await
@@ -1038,7 +1038,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.compact_with_using(vocabulary, context, loader, Options::default())
 			.await
@@ -1090,7 +1090,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.compact_with_using(vocabulary::no_vocabulary_mut(), context, loader, options)
 			.await
@@ -1140,7 +1140,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader)
 			.await
@@ -1211,7 +1211,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		L: Loader;
 
 	/// Flatten the document with the given `vocabulary`, `generator`
 	/// and `loader`, using the given `options`.
@@ -1273,7 +1273,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.flatten_full(vocabulary, generator, None, loader, options, ())
 			.await
@@ -1338,7 +1338,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.flatten_with_using(vocabulary, generator, loader, Options::default())
 			.await
@@ -1396,7 +1396,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.flatten_with_using(vocabulary::no_vocabulary_mut(), generator, loader, options)
 			.await
@@ -1452,7 +1452,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.flatten_with(vocabulary::no_vocabulary_mut(), generator, loader)
 			.await
@@ -1528,7 +1528,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
 		G: Generator<N>,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		let rdf_direction = options.rdf_direction;
 		let produce_generalized_rdf = options.produce_generalized_rdf;
@@ -1613,7 +1613,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
 		G: Generator<N>,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.to_rdf_full(vocabulary, generator, loader, options, ())
 			.await
@@ -1686,7 +1686,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
 		G: Generator<N>,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.to_rdf_full(vocabulary, generator, loader, Options::default(), ())
 			.await
@@ -1759,7 +1759,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		G: Generator,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.to_rdf_with_using(
 			rdf_types::vocabulary::no_vocabulary_mut(),
@@ -1837,7 +1837,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		G: Generator,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.to_rdf_using(generator, loader, Options::default())
 			.await
@@ -1941,7 +1941,7 @@ where
 	N::Iri: Clone + Eq + Hash,
 	N::BlankId: 'a + Clone + Eq + Hash,
 	T: Compact<N::Iri, N::BlankId>,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	let context_base = url.or(options.base.as_ref());
 

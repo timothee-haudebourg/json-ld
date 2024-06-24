@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::{
 	Error, Options, Process, Processed, ProcessingResult, ProcessingStack, WarningHandler,
 };
@@ -27,9 +29,9 @@ impl Process for syntax::context::Context {
 	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
-		N::Iri: Clone + PartialEq,
+		N::Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + PartialEq,
-		L: Loader<N::Iri>,
+		L: Loader,
 		W: WarningHandler<N>,
 	{
 		process_context(
@@ -78,9 +80,9 @@ async fn process_context<'l: 'a, 'a, N, L, W>(
 ) -> ProcessingResult<'l, N::Iri, N::BlankId>
 where
 	N: VocabularyMut,
-	N::Iri: Clone + PartialEq,
+	N::Iri: Clone + Eq + Hash,
 	N::BlankId: Clone + PartialEq,
-	L: Loader<N::Iri>,
+	L: Loader,
 	W: WarningHandler<N>,
 {
 	// 1) Initialize result to the result of cloning active context.

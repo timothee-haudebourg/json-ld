@@ -24,7 +24,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		if json_ld_syntax::Compare::compare(self.document(), other.document()) {
 			let a = JsonLdProcessor::expand_full(
@@ -54,7 +54,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let mut active_context = Context::new(options.base.clone().or_else(|| self.url().cloned()));
 
@@ -120,7 +120,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		N: VocabularyMut<Iri = I>,
 		I: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let expanded =
 			JsonLdProcessor::expand_full(&self, vocabulary, loader, options, warnings).await?;
@@ -139,7 +139,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let expanded_input = JsonLdProcessor::expand_full(
 			self,
@@ -176,7 +176,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let expanded_input = JsonLdProcessor::expand_full(
 			self,
@@ -224,7 +224,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let a = self
 			.loaded_with(vocabulary, loader)
@@ -256,7 +256,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let doc = self
 			.loaded_with(vocabulary, loader)
@@ -276,7 +276,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		N: VocabularyMut<Iri = I>,
 		I: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let doc = self
 			.load_with(vocabulary, loader)
@@ -297,7 +297,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let doc = self
 			.loaded_with(vocabulary, loader)
@@ -320,7 +320,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let doc = self
 			.loaded_with(vocabulary, loader)

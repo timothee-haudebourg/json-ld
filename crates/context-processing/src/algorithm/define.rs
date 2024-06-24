@@ -13,7 +13,7 @@ use json_ld_syntax::{
 	CompactIri, ContainerKind, ExpandableRef, Keyword, LenientLangTag, Nullable,
 };
 use rdf_types::{BlankId, VocabularyMut};
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 fn is_gen_delim(c: char) -> bool {
 	matches!(c, ':' | '/' | '?' | '#' | '[' | ']' | '@')
@@ -97,9 +97,9 @@ pub async fn define<'a, N, L, W>(
 ) -> Result<(), Error>
 where
 	N: VocabularyMut,
-	N::Iri: Clone + PartialEq,
+	N::Iri: Clone + Eq + Hash,
 	N::BlankId: Clone + PartialEq,
-	L: Loader<N::Iri>,
+	L: Loader,
 	W: WarningHandler<N>,
 {
 	let term = term.to_owned();

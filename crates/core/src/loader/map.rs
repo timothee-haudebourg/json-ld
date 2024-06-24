@@ -1,9 +1,7 @@
 use super::{Loader, RemoteDocument};
 use crate::{LoaderError, LoadingResult};
-use iref::IriBuf;
-use rdf_types::vocabulary::IriVocabulary;
+use iref::{Iri, IriBuf};
 use std::collections::{BTreeMap, HashMap};
-use std::hash::Hash;
 
 /// Error returned using [`HashMap`] or [`BTreeMap`] as a [`Loader`] with the
 /// requested document is not found.
@@ -17,30 +15,24 @@ impl LoaderError for EntryNotFound {
 	}
 }
 
-impl<I: Clone + Eq + Hash> Loader<I> for HashMap<I, RemoteDocument<I>> {
+impl Loader for HashMap<IriBuf, RemoteDocument> {
 	type Error = EntryNotFound;
 
-	async fn load_with<V>(&mut self, vocabulary: &mut V, url: I) -> LoadingResult<I, Self::Error>
-	where
-		V: IriVocabulary<Iri = I>,
-	{
-		match self.get(&url) {
+	async fn load(&mut self, url: &Iri) -> LoadingResult<IriBuf, Self::Error> {
+		match self.get(url) {
 			Some(document) => Ok(document.clone()),
-			None => Err(EntryNotFound(vocabulary.owned_iri(url).ok().unwrap())),
+			None => Err(EntryNotFound(url.to_owned())),
 		}
 	}
 }
 
-impl<I: Clone + Ord> Loader<I> for BTreeMap<I, RemoteDocument<I>> {
+impl Loader for BTreeMap<IriBuf, RemoteDocument> {
 	type Error = EntryNotFound;
 
-	async fn load_with<V>(&mut self, vocabulary: &mut V, url: I) -> LoadingResult<I, Self::Error>
-	where
-		V: IriVocabulary<Iri = I>,
-	{
-		match self.get(&url) {
+	async fn load(&mut self, url: &Iri) -> LoadingResult<IriBuf, Self::Error> {
+		match self.get(url) {
 			Some(document) => Ok(document.clone()),
-			None => Err(EntryNotFound(vocabulary.owned_iri(url).ok().unwrap())),
+			None => Err(EntryNotFound(url.to_owned())),
 		}
 	}
 }

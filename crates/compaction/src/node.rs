@@ -28,7 +28,7 @@ where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
 	N::BlankId: Clone + Hash + Eq,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	// If active context has a previous context, the active context is not propagated.
 	// If element does not contain an @value entry, and element does not consist of

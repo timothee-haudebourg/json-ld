@@ -137,7 +137,7 @@ pub trait CompactFragment<I, B> {
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>;
+		L: Loader;
 
 	#[allow(async_fn_in_trait)]
 	#[inline(always)]
@@ -151,7 +151,7 @@ pub trait CompactFragment<I, B> {
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		self.compact_fragment_full(
 			vocabulary,
@@ -175,7 +175,7 @@ pub trait CompactFragment<I, B> {
 		(): VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		self.compact_fragment_full(
 			vocabulary::no_vocabulary_mut(),
@@ -212,7 +212,7 @@ pub trait CompactIndexedFragment<I, B> {
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>;
+		L: Loader;
 }
 
 impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T> {
@@ -229,7 +229,7 @@ impl<I, B, T: CompactIndexedFragment<I, B>> CompactFragment<I, B> for Indexed<T>
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		self.inner()
 			.compact_indexed_fragment(
@@ -260,7 +260,7 @@ impl<I, B, T: Any<I, B>> CompactIndexedFragment<I, B> for T {
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		use json_ld_core::object::Ref;
 		match self.as_ref() {
@@ -461,7 +461,7 @@ where
 	N::BlankId: Clone + Hash + Eq,
 	T: 'a + CompactFragment<N::Iri, N::BlankId>,
 	O: 'a + Iterator<Item = &'a T>,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	let mut result = Vec::new();
 
@@ -520,7 +520,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for IndexSet<T> {
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		compact_collection_with(
 			vocabulary,
@@ -549,7 +549,7 @@ impl<T: CompactFragment<I, B>, I, B> CompactFragment<I, B> for Vec<T> {
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		compact_collection_with(
 			vocabulary,
@@ -578,7 +578,7 @@ impl<T: CompactFragment<I, B> + Send + Sync, I, B> CompactFragment<I, B> for [T]
 		N: VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		compact_collection_with(
 			vocabulary,

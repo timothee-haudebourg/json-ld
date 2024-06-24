@@ -84,8 +84,7 @@ async fn main() {
 
 	let mut vocabulary: rdf_types::vocabulary::IndexVocabulary =
 		rdf_types::vocabulary::IndexVocabulary::new();
-	let mut loader: json_ld::loader::ReqwestLoader<IriIndex> =
-		json_ld::loader::ReqwestLoader::new();
+	let mut loader: json_ld::loader::ReqwestLoader = json_ld::loader::ReqwestLoader::new();
 
 	match args.command {
 		Command::Fetch { url } => {

@@ -4,7 +4,7 @@ pub use json_ld_core::{warning, Context, ProcessingMode};
 use json_ld_core::{ExtractContextError, Loader, LoaderError};
 use json_ld_syntax::ErrorCode;
 use rdf_types::VocabularyMut;
-use std::fmt;
+use std::{fmt, hash::Hash};
 
 pub mod algorithm;
 mod processed;
@@ -157,9 +157,9 @@ pub trait Process {
 	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
-		N::Iri: Clone + PartialEq,
+		N::Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + PartialEq,
-		L: Loader<N::Iri>,
+		L: Loader,
 		W: WarningHandler<N>;
 
 	/// Process the local context with specific options.
@@ -175,9 +175,9 @@ pub trait Process {
 	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
-		N::Iri: Clone + PartialEq,
+		N::Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + PartialEq,
-		L: Loader<N::Iri>,
+		L: Loader
 	{
 		self.process_full(
 			vocabulary,
@@ -201,9 +201,9 @@ pub trait Process {
 	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
-		N::Iri: Clone + PartialEq,
+		N::Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + PartialEq,
-		L: Loader<N::Iri>,
+		L: Loader
 	{
 		let active_context = Context::default();
 		self.process_full(

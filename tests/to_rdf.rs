@@ -110,9 +110,9 @@ impl to_rdf::Test {
 		}
 
 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-		let mut loader: json_ld::FsLoader<IriIndex> = json_ld::FsLoader::default();
+		let mut loader = json_ld::FsLoader::default();
 		loader.mount(
-			vocabulary.insert(iri!("https://w3c.github.io/json-ld-api")),
+			iri!("https://w3c.github.io/json-ld-api").to_owned(),
 			"tests/json-ld-api",
 		);
 
@@ -154,9 +154,8 @@ impl to_rdf::Test {
 					})
 					.collect();
 
-				let expect_url = vocabulary.insert(expect);
 				let expected_content =
-					std::fs::read_to_string(loader.filepath(&vocabulary, &expect_url).unwrap())
+					std::fs::read_to_string(loader.filepath(&expect).unwrap())
 						.unwrap();
 				let expected_dataset: IndexedBTreeDataset<IndexTerm> =
 					nquads_syntax::GrdfDocument::parse_str(&expected_content)

@@ -1,7 +1,7 @@
+use core::fmt;
+
 use crate::{LoaderError, LoadingResult};
-use iref::IriBuf;
-use rdf_types::vocabulary::IriVocabularyMut;
-use std::fmt;
+use iref::{Iri, IriBuf};
 
 use super::Loader;
 
@@ -22,21 +22,17 @@ impl<L1, L2> ChainLoader<L1, L2> {
 	}
 }
 
-impl<I, L1, L2> Loader<I> for ChainLoader<L1, L2>
+impl<L1, L2> Loader for ChainLoader<L1, L2>
 where
-	I: Clone,
-	L1: Loader<I>,
-	L2: Loader<I>,
+	L1: Loader,
+	L2: Loader,
 {
 	type Error = Error<L1::Error, L2::Error>;
 
-	async fn load_with<V>(&mut self, vocabulary: &mut V, url: I) -> LoadingResult<I, Self::Error>
-	where
-		V: IriVocabularyMut<Iri = I>,
-	{
-		match self.0.load_with(vocabulary, url.clone()).await {
+	async fn load(&mut self, url: &Iri) -> LoadingResult<IriBuf, Self::Error> {
+		match self.0.load(url).await {
 			Ok(doc) => Ok(doc),
-			Err(err1) => match self.1.load_with(vocabulary, url).await {
+			Err(err1) => match self.1.load(url).await {
 				Ok(doc) => Ok(doc),
 				Err(err2) => Err(Error(err1, err2)),
 			},

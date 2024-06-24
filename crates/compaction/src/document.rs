@@ -45,7 +45,7 @@ pub trait Compact<I, B> {
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>;
+		L: Loader;
 
 	/// Compacts the input document with the given `vocabulary` to
 	/// interpret identifiers.
@@ -60,7 +60,7 @@ pub trait Compact<I, B> {
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		self.compact_full(vocabulary, context, loader, crate::Options::default())
 			.await
@@ -77,7 +77,7 @@ pub trait Compact<I, B> {
 		(): rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader)
 			.await
@@ -96,7 +96,7 @@ impl<I, B> Compact<I, B> for ExpandedDocument<I, B> {
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let mut compacted_output = self
 			.objects()
@@ -128,7 +128,7 @@ impl<I, B> Compact<I, B> for FlattenedDocument<I, B> {
 		N: rdf_types::VocabularyMut<Iri = I, BlankId = B>,
 		I: Clone + Hash + Eq,
 		B: Clone + Hash + Eq,
-		L: Loader<I>,
+		L: Loader,
 	{
 		let mut compacted_output = self
 			.compact_fragment_full(

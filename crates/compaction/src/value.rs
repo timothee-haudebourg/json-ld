@@ -20,7 +20,7 @@ where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
 	N::BlankId: Clone + Hash + Eq,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	// If the term definition for active property in active context has a local context:
 	let mut active_context = Mown::Borrowed(active_context);

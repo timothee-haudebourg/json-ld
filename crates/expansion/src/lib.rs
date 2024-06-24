@@ -128,7 +128,7 @@ pub trait Expand<Iri> {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 		W: 'a + WarningHandler<N>;
 
 	/// Expand the input JSON-LD document with the given `vocabulary`
@@ -148,7 +148,7 @@ pub trait Expand<Iri> {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.expand_full(
 			vocabulary,
@@ -172,7 +172,7 @@ pub trait Expand<Iri> {
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 	{
 		self.expand_with(vocabulary::no_vocabulary_mut(), loader)
 			.await
@@ -198,7 +198,7 @@ impl<Iri> Expand<Iri> for Value {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 		W: 'a + WarningHandler<N>,
 	{
 		document::expand(
@@ -238,7 +238,7 @@ impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
+		L: Loader,
 		W: 'a + WarningHandler<N>,
 	{
 		self.document()
