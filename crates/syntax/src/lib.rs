@@ -24,12 +24,16 @@ pub use error::*;
 pub use expandable::*;
 pub use into_json::*;
 pub use json_syntax::{
-	object, parse, print, Kind, Number, NumberBuf, Object, Parse, Print, String, Value,
+	object, parse, print, BorrowUnordered, Kind, Number, NumberBuf, Object, Parse, Print, String,
+	Unordered, UnorderedEq, UnorderedHash, UnorderedPartialEq, Value,
 };
 pub use keyword::*;
 pub use lang::*;
 pub use nullable::*;
 pub use try_from_json::*;
+
+#[cfg(feature = "serde")]
+pub use json_syntax::{from_value, to_value};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]);
