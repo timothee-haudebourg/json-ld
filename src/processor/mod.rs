@@ -5,7 +5,7 @@ use crate::syntax::ErrorCode;
 use crate::{flattening::ConflictingIndexes, Context, ExpandedDocument, Loader, ProcessingMode};
 use iref::IriBuf;
 use json_ld_core::rdf::RdfDirection;
-use json_ld_core::{ContextLoadError, LoaderError};
+use json_ld_core::{ContextLoadError, LoadError};
 use json_ld_core::{Document, RdfQuads, RemoteContextReference};
 use rdf_types::{vocabulary, BlankIdBuf, Generator, Vocabulary, VocabularyMut};
 use std::hash::Hash;
@@ -154,25 +154,20 @@ pub enum ExpandError {
 	ContextProcessing(context_processing::Error),
 
 	/// Remote document loading failed with the given precise error.
-	#[error("Remote document `{0}` loading failed: {1}")]
-	Loading(IriBuf, String),
+	#[error(transparent)]
+	Loading(#[from] LoadError),
 
 	#[error(transparent)]
 	ContextLoading(ContextLoadError),
 }
 
 impl ExpandError {
-	pub fn from_loader_error(e: impl LoaderError) -> Self {
-		let (iri, message) = e.into_iri_and_message();
-		Self::Loading(iri, message)
-	}
-
 	/// Returns the code of this error.
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::Expansion(e) => e.code(),
 			Self::ContextProcessing(e) => e.code(),
-			Self::Loading(_, _) => ErrorCode::LoadingDocumentFailed,
+			Self::Loading(_) => ErrorCode::LoadingDocumentFailed,
 			Self::ContextLoading(_) => ErrorCode::LoadingRemoteContextFailed,
 		}
 	}
@@ -200,26 +195,21 @@ pub enum CompactError {
 	Compaction(compaction::Error),
 
 	/// Remote document loading failed.
-	#[error("Remote document `{0}` loading failed: {1}")]
-	Loading(IriBuf, String),
+	#[error(transparent)]
+	Loading(#[from] LoadError),
 
 	#[error(transparent)]
 	ContextLoading(ContextLoadError),
 }
 
 impl CompactError {
-	pub fn from_loader_error(e: impl LoaderError) -> Self {
-		let (iri, message) = e.into_iri_and_message();
-		Self::Loading(iri, message)
-	}
-
 	/// Returns the code of this error.
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::Expand(e) => e.code(),
 			Self::ContextProcessing(e) => e.code(),
 			Self::Compaction(e) => e.code(),
-			Self::Loading(_, _) => ErrorCode::LoadingDocumentFailed,
+			Self::Loading(_) => ErrorCode::LoadingDocumentFailed,
 			Self::ContextLoading(_) => ErrorCode::LoadingRemoteContextFailed,
 		}
 	}
@@ -240,26 +230,21 @@ pub enum FlattenError<I, B> {
 	#[error("Conflicting indexes: {0}")]
 	ConflictingIndexes(ConflictingIndexes<I, B>),
 
-	#[error("Remote document loading failed: {0}")]
-	Loading(IriBuf, String),
+	#[error(transparent)]
+	Loading(#[from] LoadError),
 
 	#[error(transparent)]
 	ContextLoading(ContextLoadError),
 }
 
 impl<I, B> FlattenError<I, B> {
-	pub fn from_loader_error(e: impl LoaderError) -> Self {
-		let (iri, message) = e.into_iri_and_message();
-		Self::Loading(iri, message)
-	}
-
 	/// Returns the code of this error.
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::Expand(e) => e.code(),
 			Self::Compact(e) => e.code(),
 			Self::ConflictingIndexes(_) => ErrorCode::ConflictingIndexes,
-			Self::Loading(_, _) => ErrorCode::LoadingDocumentFailed,
+			Self::Loading(_) => ErrorCode::LoadingDocumentFailed,
 			Self::ContextLoading(_) => ErrorCode::LoadingRemoteContextFailed,
 		}
 	}
@@ -332,7 +317,7 @@ pub type CompareResult = Result<bool, ExpandError>;
 /// let mut loader = json_ld::FsLoader::default();
 /// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 ///
-/// let expanded = input.expand(&mut loader)
+/// let expanded = input.expand(&loader)
 ///   .await
 ///   .expect("expansion failed");
 /// # }
@@ -359,31 +344,30 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///  
 	/// assert!(input1.compare_full(
 	///   &input2,
 	///   &mut vocabulary,
-	///   &mut loader,
+	///   &loader,
 	///   Options::default(),
 	///   warning::PrintWith
 	/// ).await.expect("comparison failed"));
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compare_full<'a, N, L>(
+	async fn compare_full<'a, N>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> CompareResult
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		N::BlankId: 'a + Clone + Eq + Hash;
 
 	/// Compare this document against `other` with a custom vocabulary using the
 	/// given `options`.
@@ -408,29 +392,28 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///  
 	/// assert!(input1.compare_with_using(
 	///   &input2,
 	///   &mut vocabulary,
-	///   &mut loader,
+	///   &loader,
 	///   Options::default()
 	/// ).await.expect("comparison failed"));
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compare_with_using<'a, N, L>(
+	async fn compare_with_using<'a, N>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> CompareResult
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.compare_full(other, vocabulary, loader, options, ())
 			.await
@@ -460,27 +443,26 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///  
 	/// assert!(input1.compare_with(
 	///   &input2,
 	///   &mut vocabulary,
-	///   &mut loader
+	///   &loader
 	/// ).await.expect("comparison failed"));
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compare_with<'a, N, L>(
+	async fn compare_with<'a, N>(
 		&'a self,
 		other: &'a Self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> CompareResult
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.compare_with_using(other, vocabulary, loader, Options::default())
 			.await
@@ -510,22 +492,21 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///  
 	/// assert!(input1.compare_using(
 	///   &input2,
-	///   &mut loader,
+	///   &loader,
 	///   Options::default()
 	/// ).await.expect("comparison failed"));
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compare_using<'a, L>(
+	async fn compare_using<'a>(
 		&'a self,
 		other: &'a Self,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> CompareResult
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.compare_with_using(
 			other,
@@ -561,16 +542,15 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///  
 	/// assert!(input1.compare(
 	///   &input2,
-	///   &mut loader
+	///   &loader
 	/// ).await.expect("comparison failed"));
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compare<'a, L>(&'a self, other: &'a Self, loader: &'a mut L) -> CompareResult
+	async fn compare<'a>(&'a self, other: &'a Self, loader: &'a impl Loader) -> CompareResult
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.compare_with(other, rdf_types::vocabulary::no_vocabulary_mut(), loader)
 			.await
@@ -599,12 +579,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let expanded = input
 	///   .expand_full(
 	///     &mut vocabulary,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default(),
 	///     warning::PrintWith
 	///   )
@@ -613,18 +593,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn expand_full<'a, N, L>(
+	async fn expand_full<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> ExpandResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		N::BlankId: 'a + Clone + Eq + Hash;
 
 	/// Expand the document with the given `vocabulary` and `loader`, using
 	/// the given `options`.
@@ -650,12 +629,12 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let expanded = input
 	///   .expand_with_using(
 	///     &mut vocabulary,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default()
 	///   )
 	///   .await
@@ -663,17 +642,16 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn expand_with_using<'a, N, L>(
+	async fn expand_with_using<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> ExpandResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.expand_full(vocabulary, loader, options, ()).await
 	}
@@ -702,28 +680,27 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let expanded = input
 	///   .expand_with(
 	///     &mut vocabulary,
-	///     &mut loader
+	///     &loader
 	///   )
 	///   .await
 	///   .expect("expansion failed");
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn expand_with<'a, N, L>(
+	async fn expand_with<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> ExpandResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.expand_with_using(vocabulary, loader, Options::default())
 			.await
@@ -752,7 +729,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///
 	/// let expanded = input
 	///   .expand_using(
-	///     &mut loader,
+	///     &loader,
 	///     Options::default()
 	///   )
 	///   .await
@@ -760,15 +737,14 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn expand_using<'a, L>(
+	async fn expand_using<'a>(
 		&'a self,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> ExpandResult<Iri, BlankIdBuf>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.expand_with_using(vocabulary::no_vocabulary_mut(), loader, options)
 			.await
@@ -797,75 +773,70 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let expanded = input
-	///   .expand(&mut loader)
+	///   .expand(&loader)
 	///   .await
 	///   .expect("expansion failed");
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn expand<'a, L>(&'a self, loader: &'a mut L) -> ExpandResult<Iri, BlankIdBuf>
+	async fn expand<'a>(&'a self, loader: &'a impl Loader) -> ExpandResult<Iri, BlankIdBuf>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.expand_with(vocabulary::no_vocabulary_mut(), loader)
 			.await
 	}
 
 	#[allow(async_fn_in_trait)]
-	async fn into_document_full<'a, N, L>(
+	async fn into_document_full<'a, N>(
 		self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> IntoDocumentResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		N::BlankId: 'a + Clone + Eq + Hash;
 
 	#[allow(async_fn_in_trait)]
-	async fn into_document_with_using<'a, N, L>(
+	async fn into_document_with_using<'a, N>(
 		self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> IntoDocumentResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.into_document_full(vocabulary, loader, options, ())
 			.await
 	}
 
 	#[allow(async_fn_in_trait)]
-	async fn into_document_with<'a, N, L>(
+	async fn into_document_with<'a, N>(
 		self,
 		vocabulary: &'a mut N,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> IntoDocumentResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.into_document_with_using(vocabulary, loader, Options::default())
 			.await
 	}
 
 	#[allow(async_fn_in_trait)]
-	async fn into_document<'a, L>(self, loader: &'a mut L) -> IntoDocumentResult<Iri, BlankIdBuf>
+	async fn into_document<'a>(self, loader: &'a impl Loader) -> IntoDocumentResult<Iri, BlankIdBuf>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.into_document_with(vocabulary::no_vocabulary_mut(), loader)
 			.await
@@ -898,13 +869,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let compact = input
 	///   .compact_full(
 	///     &mut vocabulary,
 	///     context,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default(),
 	///     warning::PrintWith
 	///   )
@@ -913,19 +884,18 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compact_full<'a, N, L>(
+	async fn compact_full<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
 		context: RemoteContextReference<Iri>,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> CompactResult
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		N::BlankId: 'a + Clone + Eq + Hash;
 
 	/// Compact the document relative to `context` with the given `vocabulary`
 	/// and `loader`, using the given `options`.
@@ -955,13 +925,13 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let compact = input
 	///   .compact_with_using(
 	///     &mut vocabulary,
 	///     context,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default()
 	///   )
 	///   .await
@@ -969,18 +939,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compact_with_using<'a, N, L>(
+	async fn compact_with_using<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
 		context: RemoteContextReference<Iri>,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> CompactResult
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.compact_full(vocabulary, context, loader, options, ())
 			.await
@@ -1015,30 +984,29 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let compact = input
 	///   .compact_with(
 	///     &mut vocabulary,
 	///     context,
-	///     &mut loader
+	///     &loader
 	///   )
 	///   .await
 	///   .expect("compaction failed");
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compact_with<'a, N, L>(
+	async fn compact_with<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
 		context: RemoteContextReference<Iri>,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> CompactResult
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.compact_with_using(vocabulary, context, loader, Options::default())
 			.await
@@ -1073,7 +1041,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let compact = input
 	///   .compact_using(
 	///     context,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default()
 	///   )
 	///   .await
@@ -1081,16 +1049,15 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compact_using<'a, L>(
+	async fn compact_using<'a>(
 		&'a self,
 		context: RemoteContextReference<Iri>,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> CompactResult
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.compact_with_using(vocabulary::no_vocabulary_mut(), context, loader, options)
 			.await
@@ -1125,22 +1092,21 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let compact = input
 	///   .compact(
 	///     context,
-	///     &mut loader
+	///     &loader
 	///   )
 	///   .await
 	///   .expect("compaction failed");
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compact<'a, L>(
+	async fn compact<'a>(
 		&'a self,
 		context: RemoteContextReference<Iri>,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> CompactResult
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.compact_with(vocabulary::no_vocabulary_mut(), context, loader)
 			.await
@@ -1180,7 +1146,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let mut generator = rdf_types::generator::Blank::new();
 	///
@@ -1189,7 +1155,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///     &mut vocabulary,
 	///     &mut generator,
 	///     None,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default(),
 	///     warning::PrintWith
 	///   )
@@ -1198,20 +1164,19 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn flatten_full<'a, N, L>(
+	async fn flatten_full<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut impl Generator<N>,
 		context: Option<RemoteContextReference<Iri>>,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> FlattenResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>;
+		N::BlankId: 'a + Clone + Eq + Hash;
 
 	/// Flatten the document with the given `vocabulary`, `generator`
 	/// and `loader`, using the given `options`.
@@ -1246,7 +1211,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let mut generator = rdf_types::generator::Blank::new();
 	///
@@ -1254,7 +1219,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///   .flatten_with_using(
 	///     &mut vocabulary,
 	///     &mut generator,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default()
 	///   )
 	///   .await
@@ -1262,18 +1227,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn flatten_with_using<'a, N, L>(
+	async fn flatten_with_using<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut impl Generator<N>,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> FlattenResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.flatten_full(vocabulary, generator, None, loader, options, ())
 			.await
@@ -1313,7 +1277,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let mut generator = rdf_types::generator::Blank::new();
 	///
@@ -1321,24 +1285,23 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///   .flatten_with(
 	///     &mut vocabulary,
 	///     &mut generator,
-	///     &mut loader
+	///     &loader
 	///   )
 	///   .await
 	///   .expect("flattening failed");
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn flatten_with<'a, N, L>(
+	async fn flatten_with<'a, N>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut impl Generator<N>,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> FlattenResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.flatten_with_using(vocabulary, generator, loader, Options::default())
 			.await
@@ -1379,7 +1342,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let nodes = input
 	///   .flatten_using(
 	///     &mut generator,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default()
 	///   )
 	///   .await
@@ -1387,16 +1350,15 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn flatten_using<'a, L>(
+	async fn flatten_using<'a>(
 		&'a self,
 		generator: &'a mut impl Generator,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> FlattenResult<Iri, BlankIdBuf>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.flatten_with_using(vocabulary::no_vocabulary_mut(), generator, loader, options)
 			.await
@@ -1437,22 +1399,21 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let nodes = input
 	///   .flatten(
 	///     &mut generator,
-	///     &mut loader
+	///     &loader
 	///   )
 	///   .await
 	///   .expect("flattening failed");
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn flatten<'a, L>(
+	async fn flatten<'a>(
 		&'a self,
 		generator: &'a mut impl Generator,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> FlattenResult<Iri, BlankIdBuf>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		L: Loader<Iri>,
 	{
 		self.flatten_with(vocabulary::no_vocabulary_mut(), generator, loader)
 			.await
@@ -1494,7 +1455,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let mut generator = rdf_types::generator::Blank::new();
 	///
@@ -1502,7 +1463,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///   .to_rdf_full(
 	///     &mut vocabulary,
 	///     &mut generator,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default(),
 	///     warning::PrintWith
 	///   )
@@ -1515,11 +1476,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_full<'a, N, G, L>(
+	async fn to_rdf_full<'a, N, G>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut G,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> ToRdfResult<'a, N, G>
@@ -1528,7 +1489,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
 		G: Generator<N>,
-		L: Loader<Iri>,
 	{
 		let rdf_direction = options.rdf_direction;
 		let produce_generalized_rdf = options.produce_generalized_rdf;
@@ -1581,7 +1541,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let mut generator = rdf_types::generator::Blank::new();
 	///
@@ -1589,7 +1549,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///   .to_rdf_with_using(
 	///     &mut vocabulary,
 	///     &mut generator,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default()
 	///   )
 	///   .await
@@ -1601,11 +1561,11 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_with_using<'a, N, G, L>(
+	async fn to_rdf_with_using<'a, N, G>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut G,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> ToRdfResult<'a, N, G>
 	where
@@ -1613,7 +1573,6 @@ pub trait JsonLdProcessor<Iri>: Sized {
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
 		G: Generator<N>,
-		L: Loader<Iri>,
 	{
 		self.to_rdf_full(vocabulary, generator, loader, options, ())
 			.await
@@ -1656,7 +1615,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // Use `FsLoader` to redirect any URL starting with `https://example.com/` to
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
-	/// loader.mount(vocabulary.insert(iri!("https://example.com/")), "examples");
+	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
 	///
 	/// let mut generator = rdf_types::generator::Blank::new();
 	///
@@ -1664,7 +1623,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	///   .to_rdf_with(
 	///     &mut vocabulary,
 	///     &mut generator,
-	///     &mut loader
+	///     &loader
 	///   )
 	///   .await
 	///   .expect("flattening failed");
@@ -1675,18 +1634,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_with<'a, N, G, L>(
+	async fn to_rdf_with<'a, N, G>(
 		&'a self,
 		vocabulary: &'a mut N,
 		generator: &'a mut G,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> ToRdfResult<'a, N, G>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		N::BlankId: 'a + Clone + Eq + Hash,
 		G: Generator<N>,
-		L: Loader<Iri>,
 	{
 		self.to_rdf_full(vocabulary, generator, loader, Options::default(), ())
 			.await
@@ -1731,7 +1689,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut rdf = input
 	///   .to_rdf_using(
 	///     &mut generator,
-	///     &mut loader,
+	///     &loader,
 	///     Options::default()
 	///   )
 	///   .await
@@ -1749,17 +1707,16 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_using<'a, G, L>(
+	async fn to_rdf_using<'a, G>(
 		&'a self,
 		generator: &'a mut G,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 		options: Options<Iri>,
 	) -> ToRdfResult<'a, (), G>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		G: Generator,
-		L: Loader<Iri>,
 	{
 		self.to_rdf_with_using(
 			rdf_types::vocabulary::no_vocabulary_mut(),
@@ -1811,7 +1768,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// let mut rdf = input
 	///   .to_rdf(
 	///     &mut generator,
-	///     &mut loader
+	///     &loader
 	///   )
 	///   .await
 	///   .expect("flattening failed");
@@ -1828,16 +1785,15 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf<'a, G, L>(
+	async fn to_rdf<'a, G>(
 		&'a self,
 		generator: &'a mut G,
-		loader: &'a mut L,
+		loader: &'a impl Loader,
 	) -> ToRdfResult<'a, (), G>
 	where
 		(): VocabularyMut<Iri = Iri>,
 		Iri: 'a + Clone + Eq + Hash,
 		G: Generator,
-		L: Loader<Iri>,
 	{
 		self.to_rdf_using(generator, loader, Options::default())
 			.await
@@ -1932,7 +1888,7 @@ async fn compact_expanded_full<'a, T, N, L>(
 	url: Option<&'a N::Iri>,
 	vocabulary: &'a mut N,
 	context: RemoteContextReference<N::Iri>,
-	loader: &'a mut L,
+	loader: &'a L,
 	options: Options<N::Iri>,
 	warnings: impl context_processing::WarningHandler<N>,
 ) -> Result<json_syntax::Value, CompactError>
@@ -1941,7 +1897,7 @@ where
 	N::Iri: Clone + Eq + Hash,
 	N::BlankId: 'a + Clone + Eq + Hash,
 	T: Compact<N::Iri, N::BlankId>,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	let context_base = url.or(options.base.as_ref());
 

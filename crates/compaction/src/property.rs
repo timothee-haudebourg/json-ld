@@ -22,14 +22,14 @@ async fn compact_property_list<N, L>(
 	as_array: bool,
 	item_active_property: &str,
 	active_context: &Context<N::Iri, N::BlankId>,
-	loader: &mut L,
+	loader: &L,
 	options: Options,
 ) -> Result<(), Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
 	N::BlankId: Clone + Hash + Eq,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	// If expanded item is a list object:
 	let mut compacted_item = Box::pin(compact_collection_with(
@@ -107,14 +107,14 @@ async fn compact_property_graph<N, L>(
 	as_array: bool,
 	item_active_property: &str,
 	active_context: &Context<N::Iri, N::BlankId>,
-	loader: &mut L,
+	loader: &L,
 	options: Options,
 ) -> Result<(), Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
 	N::BlankId: Clone + Hash + Eq,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	// If expanded item is a graph object
 	let mut compacted_item = Box::pin(node.graph().unwrap().compact_fragment_full(
@@ -389,7 +389,7 @@ pub async fn compact_property<'a, N, L, O, T>(
 	expanded_property: Term<N::Iri, N::BlankId>,
 	expanded_value: O,
 	active_context: &Context<N::Iri, N::BlankId>,
-	loader: &mut L,
+	loader: &L,
 	inside_reverse: bool,
 	options: Options,
 ) -> Result<(), Error>
@@ -399,7 +399,7 @@ where
 	N::BlankId: Clone + Hash + Eq,
 	O: IntoIterator<Item = &'a Indexed<T>>,
 	T: 'a + object::Any<N::Iri, N::BlankId>,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	let mut is_empty = true;
 

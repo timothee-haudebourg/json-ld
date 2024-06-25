@@ -1,5 +1,5 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
-use crate::LoaderError;
+use crate::LoadError;
 use crate::LoadingResult;
 use crate::Profile;
 
@@ -7,14 +7,12 @@ use super::{Loader, RemoteDocument};
 use hashbrown::HashSet;
 use iref::{Iri, IriBuf};
 use json_syntax::Parse;
-use once_cell::sync::OnceCell;
-use rdf_types::vocabulary::{IriVocabulary, IriVocabularyMut};
 use reqwest::{
 	header::{ACCEPT, CONTENT_TYPE, LINK},
 	StatusCode,
 };
 use reqwest_middleware::ClientWithMiddleware;
-use std::{hash::Hash, string::FromUtf8Error};
+use std::string::FromUtf8Error;
 
 mod content_type;
 mod link;
@@ -23,11 +21,11 @@ use content_type::*;
 use link::*;
 
 /// Loader options.
-pub struct Options<I> {
+pub struct Options {
 	/// One or more IRIs to use in the request as a profile parameter.
 	///
 	/// (See [IANA Considerations](https://www.w3.org/TR/json-ld11/#iana-considerations)).
-	pub request_profile: Vec<Profile<I>>,
+	pub request_profile: Vec<Profile>,
 
 	/// Maximum number of allowed `Link` header redirections before the loader
 	/// fails.
@@ -44,7 +42,7 @@ pub struct Options<I> {
 	pub client: ClientWithMiddleware,
 }
 
-impl<I> Default for Options<I> {
+impl Default for Options {
 	fn default() -> Self {
 		Self {
 			request_profile: Vec::new(),
@@ -57,38 +55,23 @@ impl<I> Default for Options<I> {
 /// Loading error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-	#[error("internal error: {1}")]
-	Reqwest(IriBuf, reqwest_middleware::Error),
+	#[error("internal error: {0}")]
+	Reqwest(reqwest_middleware::Error),
 
-	#[error("query failed: status code {1}")]
-	QueryFailed(IriBuf, StatusCode),
+	#[error("query failed: status code {0}")]
+	QueryFailed(StatusCode),
 
 	#[error("invalid content type")]
-	InvalidContentType(IriBuf),
+	InvalidContentType,
 
 	#[error("multiple context link headers")]
-	MultipleContextLinkHeaders(IriBuf),
+	MultipleContextLinkHeaders,
 
 	#[error("too many redirections")]
-	TooManyRedirections(IriBuf),
+	TooManyRedirections,
 
 	#[error("JSON parse error: {0}")]
-	Parse(IriBuf, json_syntax::parse::Error<std::io::Error>),
-}
-
-impl LoaderError for Error {
-	fn into_iri_and_message(self) -> (IriBuf, String) {
-		match self {
-			Self::Reqwest(iri, e) => (iri, format!("internal error: {e}")),
-			Self::QueryFailed(iri, e) => (iri, format!("query failed with status code: {e}")),
-			Self::InvalidContentType(iri) => (iri, "invalid content type".to_owned()),
-			Self::MultipleContextLinkHeaders(iri) => {
-				(iri, "multiple context link headers".to_owned())
-			}
-			Self::TooManyRedirections(iri) => (iri, "too many redirections".to_owned()),
-			Self::Parse(iri, e) => (iri, format!("JSON parse error: {e}")),
-		}
-	}
+	Parse(json_syntax::parse::Error<std::io::Error>),
 }
 
 /// `reqwest`-based loader.
@@ -99,42 +82,25 @@ impl LoaderError for Error {
 ///
 /// Loaded documents are not cached: a new network query is made each time
 /// an URL is loaded even if it has already been queried before.
-pub struct ReqwestLoader<I = IriBuf> {
-	options: Options<I>,
-	data: OnceCell<Data>,
+pub struct ReqwestLoader {
+	options: Options,
+	accept_header: String,
 }
 
-impl<I> Default for ReqwestLoader<I> {
+impl Default for ReqwestLoader {
 	fn default() -> Self {
-		Self {
-			options: Options::default(),
-			data: OnceCell::new(),
-		}
+		Self::new_using(Options::default())
 	}
 }
 
-impl<I> ReqwestLoader<I> {
+impl ReqwestLoader {
 	/// Creates a new loader with the given parsing function.
 	pub fn new() -> Self {
 		Self::default()
 	}
 
 	/// Creates a new leader with the given options.
-	pub fn new_using(options: Options<I>) -> Self {
-		Self {
-			options,
-			data: OnceCell::new(),
-		}
-	}
-}
-
-/// Precomputed data.
-struct Data {
-	accept_header: String,
-}
-
-impl Data {
-	fn new<I>(options: &Options<I>, vocabulary: &impl IriVocabulary<Iri = I>) -> Self {
+	pub fn new_using(options: Options) -> Self {
 		let mut json_ld_params = String::new();
 
 		if !options.request_profile.is_empty() {
@@ -149,7 +115,7 @@ impl Data {
 					json_ld_params.push(' ');
 				}
 
-				json_ld_params.push_str(p.iri(vocabulary).as_str());
+				json_ld_params.push_str(p.iri().as_str());
 			}
 
 			if options.request_profile.len() > 1 {
@@ -158,6 +124,7 @@ impl Data {
 		}
 
 		Self {
+			options,
 			accept_header: format!("application/ld+json{json_ld_params}, application/json"),
 		}
 	}
@@ -175,23 +142,13 @@ pub enum ParseError {
 	Json(json_ld_syntax::parse::Error),
 }
 
-impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
-	type Error = Error;
-
-	async fn load_with<V>(&mut self, vocabulary: &mut V, mut url_id: I) -> LoadingResult<I, Error>
-	where
-		V: IriVocabularyMut<Iri = I>,
-	{
-		let data = self
-			.data
-			.get_or_init(|| Data::new(&self.options, vocabulary));
+impl Loader for ReqwestLoader {
+	async fn load(&self, url: &Iri) -> LoadingResult<IriBuf> {
 		let mut redirection_number = 0;
-
+		let mut url = url.to_owned();
 		'next_url: loop {
-			let url = vocabulary.iri(&url_id).unwrap().to_owned();
-
 			if redirection_number > self.options.max_redirections {
-				return Err(Error::TooManyRedirections(url.to_owned()));
+				return Err(LoadError::new(url.clone(), Error::TooManyRedirections));
 			}
 
 			log::debug!("downloading: {}", url);
@@ -199,12 +156,12 @@ impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
 				.options
 				.client
 				.get(url.as_str())
-				.header(ACCEPT, &data.accept_header);
+				.header(ACCEPT, &self.accept_header);
 
 			let response = request
 				.send()
 				.await
-				.map_err(|e| Error::Reqwest(url.clone(), e))?;
+				.map_err(|e| LoadError::new(url.clone(), e))?;
 
 			match response.status() {
 				StatusCode::OK => {
@@ -224,11 +181,13 @@ impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
 											== Some(b"http://www.w3.org/ns/json-ld#context")
 										{
 											if context_url.is_some() {
-												return Err(Error::MultipleContextLinkHeaders(url));
+												return Err(LoadError::new(
+													url,
+													Error::MultipleContextLinkHeaders,
+												));
 											}
 
-											let u = link.href().resolved(&url);
-											context_url = Some(vocabulary.insert(u.as_iri()));
+											context_url = Some(link.href().resolved(&url));
 										}
 									}
 								}
@@ -242,22 +201,21 @@ impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
 							{
 								if let Ok(p) = std::str::from_utf8(p) {
 									if let Ok(iri) = Iri::new(p) {
-										profile.insert(Profile::new(iri, vocabulary));
+										profile.insert(Profile::new(iri));
 									}
 								}
 							}
 
-							let bytes = response
-								.bytes()
-								.await
-								.map_err(|e| Error::Reqwest(url.clone(), e.into()))?;
+							let bytes = response.bytes().await.map_err(|e| {
+								LoadError::new(url.clone(), Error::Reqwest(e.into()))
+							})?;
 
 							let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
 							let (document, _) = json_syntax::Value::parse_utf8(decoder)
-								.map_err(|e| Error::Parse(url.clone(), e))?;
+								.map_err(|e| LoadError::new(url.clone(), Error::Parse(e)))?;
 
 							break Ok(RemoteDocument::new_full(
-								Some(url_id),
+								Some(url),
 								Some(content_type.into_media_type()),
 								context_url,
 								profile,
@@ -272,19 +230,18 @@ impl<I: Clone + Eq + Hash> Loader<I> for ReqwestLoader<I> {
 										&& link.type_() == Some(b"application/ld+json")
 									{
 										log::debug!("link found");
-										let u = link.href().resolved(&url);
-										url_id = vocabulary.insert(u.as_iri());
+										url = link.href().resolved(&url);
 										redirection_number += 1;
 										continue 'next_url;
 									}
 								}
 							}
 
-							break Err(Error::InvalidContentType(url));
+							break Err(LoadError::new(url, Error::InvalidContentType));
 						}
 					}
 				}
-				code => break Err(Error::QueryFailed(url, code)),
+				code => break Err(LoadError::new(url, Error::QueryFailed(code))),
 			}
 		}
 	}

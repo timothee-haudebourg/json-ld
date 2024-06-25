@@ -21,14 +21,14 @@ pub async fn compact_indexed_node_with<N, L>(
 	mut active_context: &Context<N::Iri, N::BlankId>,
 	type_scoped_context: &Context<N::Iri, N::BlankId>,
 	active_property: Option<&str>,
-	loader: &mut L,
+	loader: &L,
 	options: Options,
 ) -> Result<json_syntax::Value, Error>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Hash + Eq,
 	N::BlankId: Clone + Hash + Eq,
-	L: Loader<N::Iri>,
+	L: Loader,
 {
 	// If active context has a previous context, the active context is not propagated.
 	// If element does not contain an @value entry, and element does not consist of

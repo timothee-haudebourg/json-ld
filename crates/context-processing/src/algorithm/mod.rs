@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use crate::{
 	Error, Options, Process, Processed, ProcessingResult, ProcessingStack, WarningHandler,
 };
@@ -20,16 +22,16 @@ impl Process for syntax::context::Context {
 		&self,
 		vocabulary: &mut N,
 		active_context: &Context<N::Iri, N::BlankId>,
-		loader: &mut L,
+		loader: &L,
 		base_url: Option<N::Iri>,
 		options: Options,
 		mut warnings: W,
 	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
-		N::Iri: Clone + PartialEq,
+		N::Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + PartialEq,
-		L: Loader<N::Iri>,
+		L: Loader,
 		W: WarningHandler<N>,
 	{
 		process_context(
@@ -78,9 +80,9 @@ async fn process_context<'l: 'a, 'a, N, L, W>(
 ) -> ProcessingResult<'l, N::Iri, N::BlankId>
 where
 	N: VocabularyMut,
-	N::Iri: Clone + PartialEq,
+	N::Iri: Clone + Eq + Hash,
 	N::BlankId: Clone + PartialEq,
-	L: Loader<N::Iri>,
+	L: Loader,
 	W: WarningHandler<N>,
 {
 	// 1) Initialize result to the result of cloning active context.
@@ -167,8 +169,7 @@ where
 					let loaded_context = env
 						.loader
 						.load_with(env.vocabulary, context_iri.clone())
-						.await
-						.map_err(Error::from_context_loader_error)?
+						.await?
 						.into_document()
 						.into_ld_context()
 						.map_err(Error::ContextExtractionFailed)?;
@@ -233,8 +234,7 @@ where
 						let import_context = env
 							.loader
 							.load_with(env.vocabulary, import.clone())
-							.await
-							.map_err(Error::from_context_loader_error)?
+							.await?
 							.into_document()
 							.into_ld_context()
 							.map_err(Error::ContextExtractionFailed)?;

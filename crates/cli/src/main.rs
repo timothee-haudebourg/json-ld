@@ -84,14 +84,13 @@ async fn main() {
 
 	let mut vocabulary: rdf_types::vocabulary::IndexVocabulary =
 		rdf_types::vocabulary::IndexVocabulary::new();
-	let mut loader: json_ld::loader::ReqwestLoader<IriIndex> =
-		json_ld::loader::ReqwestLoader::new();
+	let loader = json_ld::loader::ReqwestLoader::new();
 
 	match args.command {
 		Command::Fetch { url } => {
 			let url = vocabulary.insert(url.as_iri());
 			match RemoteDocumentReference::iri(url)
-				.load_with(&mut vocabulary, &mut loader)
+				.load_with(&mut vocabulary, &loader)
 				.await
 			{
 				Ok(remote_document) => {
@@ -122,7 +121,7 @@ async fn main() {
 			};
 
 			match remote_document
-				.expand_with_using(&mut vocabulary, &mut loader, options)
+				.expand_with_using(&mut vocabulary, &loader, options)
 				.await
 			{
 				Ok(mut expanded) => {
@@ -156,7 +155,7 @@ async fn main() {
 			let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
 
 			match remote_document
-				.flatten_with(&mut vocabulary, &mut generator, &mut loader)
+				.flatten_with(&mut vocabulary, &mut generator, &loader)
 				.await
 			{
 				Ok(flattened) => {

@@ -1,9 +1,8 @@
-use iref::IriBuf;
 use json_ld::{syntax::Parse, JsonLdProcessor, RemoteDocument};
 use static_iref::iri;
 
 async fn custom_01() {
-	let mut loader: json_ld::FsLoader<IriBuf> = json_ld::FsLoader::new();
+	let mut loader = json_ld::FsLoader::new();
 
 	loader.mount(
 		iri!("https://www.w3.org/").to_owned(),

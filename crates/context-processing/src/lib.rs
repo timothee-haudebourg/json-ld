@@ -1,10 +1,9 @@
 //! JSON-LD context processing types and algorithms.
-use iref::IriBuf;
 pub use json_ld_core::{warning, Context, ProcessingMode};
-use json_ld_core::{ExtractContextError, Loader, LoaderError};
+use json_ld_core::{ExtractContextError, LoadError, Loader};
 use json_ld_syntax::ErrorCode;
 use rdf_types::VocabularyMut;
-use std::fmt;
+use std::{fmt, hash::Hash};
 
 pub mod algorithm;
 mod processed;
@@ -100,19 +99,14 @@ pub enum Error {
 	#[error("Protected term redefinition")]
 	ProtectedTermRedefinition,
 
-	#[error("Remote context `{0}` loading failed: {1}")]
-	ContextLoadingFailed(IriBuf, String),
+	#[error(transparent)]
+	ContextLoadingFailed(#[from] LoadError),
 
 	#[error("Unable to extract JSON-LD context: {0}")]
 	ContextExtractionFailed(ExtractContextError),
 }
 
 impl Error {
-	pub fn from_context_loader_error(e: impl LoaderError) -> Self {
-		let (iri, message) = e.into_iri_and_message();
-		Self::ContextLoadingFailed(iri, message)
-	}
-
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::InvalidContextNullification => ErrorCode::InvalidContextNullification,
@@ -134,7 +128,7 @@ impl Error {
 			Self::InvalidContainerMapping => ErrorCode::InvalidContainerMapping,
 			Self::InvalidScopedContext => ErrorCode::InvalidScopedContext,
 			Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
-			Self::ContextLoadingFailed(_, _) => ErrorCode::LoadingRemoteContextFailed,
+			Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
 			Self::ContextExtractionFailed(_) => ErrorCode::LoadingRemoteContextFailed,
 		}
 	}
@@ -150,16 +144,16 @@ pub trait Process {
 		&self,
 		vocabulary: &mut N,
 		active_context: &Context<N::Iri, N::BlankId>,
-		loader: &mut L,
+		loader: &L,
 		base_url: Option<N::Iri>,
 		options: Options,
 		warnings: W,
 	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
-		N::Iri: Clone + PartialEq,
+		N::Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + PartialEq,
-		L: Loader<N::Iri>,
+		L: Loader,
 		W: WarningHandler<N>;
 
 	/// Process the local context with specific options.
@@ -169,15 +163,15 @@ pub trait Process {
 		&self,
 		vocabulary: &mut N,
 		active_context: &Context<N::Iri, N::BlankId>,
-		loader: &mut L,
+		loader: &L,
 		base_url: Option<N::Iri>,
 		options: Options,
 	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
-		N::Iri: Clone + PartialEq,
+		N::Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + PartialEq,
-		L: Loader<N::Iri>,
+		L: Loader,
 	{
 		self.process_full(
 			vocabulary,
@@ -196,14 +190,14 @@ pub trait Process {
 	async fn process<N, L>(
 		&self,
 		vocabulary: &mut N,
-		loader: &mut L,
+		loader: &L,
 		base_url: Option<N::Iri>,
 	) -> Result<Processed<N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
-		N::Iri: Clone + PartialEq,
+		N::Iri: Clone + Eq + Hash,
 		N::BlankId: Clone + PartialEq,
-		L: Loader<N::Iri>,
+		L: Loader,
 	{
 		let active_context = Context::default();
 		self.process_full(

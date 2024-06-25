@@ -3,7 +3,7 @@
 use async_std::task;
 use contextual::{DisplayWithContext, WithContext};
 use iref::{IriBuf, IriRefBuf};
-use json_ld::{Expand, ValidId};
+use json_ld::{Expand, FsLoader, LoadError, ValidId};
 use proc_macro2::TokenStream;
 use proc_macro_error::proc_macro_error;
 use quote::quote;
@@ -22,8 +22,6 @@ mod vocab;
 use vocab::{BlankIdIndex, IndexQuad, IndexTerm, IriIndex, Vocab};
 mod ty;
 use ty::{Type, UnknownType};
-
-type FsLoader = json_ld::FsLoader<IriIndex>;
 
 type IndexVocabulary = rdf_types::vocabulary::IndexVocabulary<IriIndex, BlankIdIndex>;
 
@@ -235,7 +233,7 @@ fn parse_input(
 	for attr in attrs {
 		if attr.path.is_ident("mount") {
 			let mount: MountAttribute = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
-			loader.mount(vocabulary.insert(mount.prefix.as_iri()), mount.target)
+			loader.mount(mount.prefix.as_iri().to_owned(), mount.target)
 		} else if attr.path.is_ident("iri_prefix") {
 			let attr: PrefixBinding = syn::parse2(attr.tokens).map_err(|e| Box::new(e.into()))?;
 			bindings.insert(attr.prefix, vocabulary.insert(attr.iri.as_iri()));
@@ -479,7 +477,7 @@ fn parse_enum_type(
 
 enum Error {
 	Parse(syn::Error),
-	Load(json_ld::loader::fs::Error),
+	Load(LoadError),
 	Expand(json_ld::expansion::Error),
 	InvalidIri(String),
 	InvalidValue(
@@ -529,7 +527,7 @@ impl DisplayWithContext<IndexVocabulary> for Error {
 
 async fn generate_test_suite(
 	vocabulary: &mut IndexVocabulary,
-	mut loader: FsLoader,
+	loader: FsLoader,
 	spec: TestSpec,
 ) -> Result<TokenStream, Box<Error>> {
 	use json_ld::{Loader, RdfQuads};
@@ -540,7 +538,7 @@ async fn generate_test_suite(
 		.map_err(Error::Load)?;
 
 	let mut expanded_json_ld: json_ld::ExpandedDocument<IriIndex, BlankIdIndex> = json_ld
-		.expand_with(vocabulary, &mut loader)
+		.expand_with(vocabulary, &loader)
 		.await
 		.map_err(Error::Expand)?;
 
