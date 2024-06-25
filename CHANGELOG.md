@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2024-06-25
+
+### Changed
+
+- [3f00670] Change `Loader::load` receiver from `&mut self` to `&self` ([#77](https://github.com/timothee-haudebourg/json-ld/issues/77))
+
+### Removed
+
+- [3f00670] Remove `Loader` type parameter ([#77](https://github.com/timothee-haudebourg/json-ld/issues/77))
+
 ## [0.18.0] - 2024-06-21
 
 ### Fixed
@@ -13,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- [cb43034] Remove generics on error types. ([#75](https://github.com/timothee-haudebourg/grdf/issues/75))
+- [cb43034] Remove generics on error types. ([#75](https://github.com/timothee-haudebourg/json-ld/issues/75))
 
 ## [0.17.2] - 2024-06-05
 
@@ -263,7 +273,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [bf08768] Fix CI.
 - [d0b8a0f] Fix tests README.
 - [6c461e8] Fix formatting
-- [d78d366] Fix Spruce sponsor ([#42](https://github.com/timothee-haudebourg/grdf/issues/42))
+- [d78d366] Fix Spruce sponsor ([#42](https://github.com/timothee-haudebourg/json-ld/issues/42))
 
 ### Removed
 
