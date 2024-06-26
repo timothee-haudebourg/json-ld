@@ -1,4 +1,5 @@
 //! JSON-LD context processing types and algorithms.
+use algorithm::{Action, RejectVocab};
 pub use json_ld_core::{warning, Context, ProcessingMode};
 use json_ld_core::{ExtractContextError, LoadError, Loader};
 use json_ld_syntax::ErrorCode;
@@ -104,6 +105,15 @@ pub enum Error {
 
 	#[error("Unable to extract JSON-LD context: {0}")]
 	ContextExtractionFailed(ExtractContextError),
+
+	#[error("Use of forbidden `@vocab`")]
+	ForbiddenVocab,
+}
+
+impl From<RejectVocab> for Error {
+	fn from(_value: RejectVocab) -> Self {
+		Self::ForbiddenVocab
+	}
 }
 
 impl Error {
@@ -130,6 +140,7 @@ impl Error {
 			Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
 			Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
 			Self::ContextExtractionFailed(_) => ErrorCode::LoadingRemoteContextFailed,
+			Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
 		}
 	}
 }
@@ -223,6 +234,9 @@ pub struct Options {
 
 	/// Propagate the processed context.
 	pub propagate: bool,
+
+	/// Forbid the use of `@vocab` to expand terms.
+	pub vocab: Action,
 }
 
 impl Options {
@@ -257,6 +271,7 @@ impl Default for Options {
 			processing_mode: ProcessingMode::default(),
 			override_protected: false,
 			propagate: true,
+			vocab: Action::Keep,
 		}
 	}
 }

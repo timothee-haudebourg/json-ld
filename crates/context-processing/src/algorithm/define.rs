@@ -209,7 +209,7 @@ where
 							active_context,
 							type_.cast(),
 							false,
-							true,
+							Some(options.vocab),
 							local_context,
 							defined,
 							remote_contexts.clone(),
@@ -217,21 +217,23 @@ where
 						)
 						.await?;
 
-						// If the expanded type is @json or @none, and processing mode is
-						// json-ld-1.0, an invalid type mapping error has been detected and
-						// processing is aborted.
-						if options.processing_mode == ProcessingMode::JsonLd1_0
-							&& (typ == Term::Keyword(Keyword::Json)
-								|| typ == Term::Keyword(Keyword::None))
-						{
-							return Err(Error::InvalidTypeMapping);
-						}
+						if let Some(typ) = typ {
+							// If the expanded type is @json or @none, and processing mode is
+							// json-ld-1.0, an invalid type mapping error has been detected and
+							// processing is aborted.
+							if options.processing_mode == ProcessingMode::JsonLd1_0
+								&& (typ == Term::Keyword(Keyword::Json)
+									|| typ == Term::Keyword(Keyword::None))
+							{
+								return Err(Error::InvalidTypeMapping);
+							}
 
-						if let Ok(typ) = typ.try_into() {
-							// Set the type mapping for definition to type.
-							definition.typ = Some(typ);
-						} else {
-							return Err(Error::InvalidTypeMapping);
+							if let Ok(typ) = typ.try_into() {
+								// Set the type mapping for definition to type.
+								definition.typ = Some(typ);
+							} else {
+								return Err(Error::InvalidTypeMapping);
+							}
 						}
 					}
 
@@ -264,7 +266,7 @@ where
 							active_context,
 							Nullable::Some(reverse_value.as_str().into()),
 							false,
-							true,
+							Some(options.vocab),
 							local_context,
 							defined,
 							remote_contexts,
@@ -272,7 +274,7 @@ where
 						)
 						.await?
 						{
-							Term::Id(mapping) if mapping.is_valid() => {
+							Some(Term::Id(mapping)) if mapping.is_valid() => {
 								definition.value = Some(Term::Id(mapping))
 							}
 							_ => return Err(Error::InvalidIriMapping),
@@ -348,7 +350,7 @@ where
 										active_context,
 										Nullable::Some(id_value.into()),
 										false,
-										true,
+										Some(options.vocab),
 										local_context,
 										defined,
 										remote_contexts.clone(),
@@ -356,19 +358,19 @@ where
 									)
 									.await?
 									{
-										Term::Keyword(Keyword::Context) => {
+										Some(Term::Keyword(Keyword::Context)) => {
 											// if it equals `@context`, an invalid keyword alias error has
 											// been detected and processing is aborted.
 											return Err(Error::InvalidKeywordAlias);
 										}
-										Term::Id(prop) if !prop.is_valid() => {
+										Some(Term::Id(prop)) if !prop.is_valid() => {
 											// If the resulting IRI mapping is neither a keyword,
 											// nor an IRI, nor a blank node identifier, an
 											// invalid IRI mapping error has been detected and processing
 											// is aborted;
 											return Err(Error::InvalidIriMapping);
 										}
-										value => Some(value),
+										value => value,
 									};
 
 									// If `term` contains a colon (:) anywhere but as the first or
@@ -394,14 +396,14 @@ where
 											active_context,
 											Nullable::Some((&term).into()),
 											false,
-											true,
+											Some(options.vocab),
 											local_context,
 											defined,
 											remote_contexts.clone(),
 											options,
 										)
 										.await?;
-										if definition.value != Some(expanded_term) {
+										if definition.value != expanded_term {
 											return Err(Error::InvalidIriMapping);
 										}
 									}
@@ -507,11 +509,11 @@ where
 															iri_ref.as_str(),
 														)),
 														false,
-														true,
-													) {
-														Term::Id(Id::Valid(ValidId::Iri(id))) => {
-															definition.value = Some(id.into())
-														}
+														Some(options.vocab),
+													)? {
+														Some(Term::Id(Id::Valid(
+															ValidId::Iri(id),
+														))) => definition.value = Some(id.into()),
 														// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
 														// error has been detected and processing is aborted.
 														_ => return Err(Error::InvalidIriMapping),
@@ -637,9 +639,9 @@ where
 							active_context,
 							Nullable::Some(index_value.as_str().into()),
 							false,
-							true,
-						) {
-							Term::Id(Id::Valid(ValidId::Iri(_))) => (),
+							Some(options.vocab),
+						)? {
+							Some(Term::Id(Id::Valid(ValidId::Iri(_)))) => (),
 							_ => return Err(Error::InvalidTermDefinition),
 						}
 

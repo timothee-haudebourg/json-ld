@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"@vocab": "https://example.org/"
+	},
+	"foo": "Hello World!"
+}

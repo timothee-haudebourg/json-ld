@@ -1,5 +1,7 @@
 use json_ld_core::ProcessingMode;
 
+pub use json_ld_context_processing::algorithm::Action;
+
 /// Expansion options.
 #[derive(Clone, Copy, Default)]
 pub struct Options {
@@ -47,42 +49,25 @@ impl From<Options> for json_ld_context_processing::Options {
 /// expanded document, or to forbid them completely by raising an error.
 /// You can define your preferred policy using one of this type variant
 /// with the [`Options::policy`] field.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Policy {
-	/// Relaxed policy.
-	///
-	/// Undefined keys are always kept in the expanded document
-	/// using the [`Id::Invalid`](json_ld_core::Id::Invalid) variant.
-	Relaxed,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Policy {
+	/// How to expand invalid terms.
+	pub invalid: Action,
 
-	/// Standard policy.
-	///
-	/// Every key that cannot be expanded into an
-	/// IRI or a blank node identifier is dropped unless it contains a `:` character.
-	Standard,
+	/// How to expand valid terms that need a vocabulary mapping
+	/// (`@vocab` keyword).
+	pub vocab: Action,
 
-	/// Strict policy.
-	///
-	/// Every key that cannot be expanded into an IRI or a blank node identifier
-	/// will raise an error unless the term contains a `:` character.
-	Strict,
-
-	/// Strictest policy.
-	///
-	/// Every key that cannot be expanded into an IRI or a blank node identifier
-	/// will raise an error.
-	Strictest,
-}
-
-impl Policy {
-	/// Returns `true` is the policy is `Strict` or `Strictest`.
-	pub fn is_strict(&self) -> bool {
-		matches!(self, Self::Strict | Self::Strictest)
-	}
+	/// How to expand valid terms when there is no vocabulary mapping.
+	pub allow_undefined: bool,
 }
 
 impl Default for Policy {
 	fn default() -> Self {
-		Self::Standard
+		Self {
+			invalid: Action::Keep,
+			vocab: Action::Keep,
+			allow_undefined: true,
+		}
 	}
 }

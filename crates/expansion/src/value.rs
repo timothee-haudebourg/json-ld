@@ -1,4 +1,5 @@
-use crate::{expand_iri, ExpandedEntry, Warning, WarningHandler};
+use crate::{expand_iri, Action, ExpandedEntry, Warning, WarningHandler};
+use json_ld_context_processing::algorithm::RejectVocab;
 use json_ld_core::{
 	object::value::Literal, Context, Environment, Id, Indexed, IndexedObject, LangString, Object,
 	Term, ValidId, Value,
@@ -28,6 +29,9 @@ pub enum InvalidValue {
 
 	#[error("Invalid language tagged value")]
 	LanguageTaggedValue,
+
+	#[error("Forbidden use of `@vocab`")]
+	ForbiddenVocab,
 }
 
 impl InvalidValue {
@@ -40,7 +44,14 @@ impl InvalidValue {
 			Self::ValueObject => ErrorCode::InvalidValueObject,
 			Self::ValueObjectValue => ErrorCode::InvalidValueObjectValue,
 			Self::LanguageTaggedValue => ErrorCode::InvalidLanguageTaggedValue,
+			Self::ForbiddenVocab => ErrorCode::InvalidTypeValue,
 		}
+	}
+}
+
+impl From<RejectVocab> for InvalidValue {
+	fn from(_value: RejectVocab) -> Self {
+		Self::ForbiddenVocab
 	}
 }
 
@@ -49,6 +60,7 @@ pub type ValueExpansionResult<T, B> = Result<Option<IndexedObject<T, B>>, Invali
 /// Expand a value object.
 pub(crate) fn expand_value<N, L, W>(
 	env: &mut Environment<N, L, W>,
+	vocab_policy: Action,
 	input_type: Option<Term<N::Iri, N::BlankId>>,
 	type_scoped_context: &Context<N::Iri, N::BlankId>,
 	expanded_entries: Vec<ExpandedEntry<N::Iri, N::BlankId>>,
@@ -124,14 +136,14 @@ where
 						type_scoped_context,
 						Nullable::Some(ty_value.into()),
 						true,
-						true,
-					);
+						Some(vocab_policy),
+					)?;
 
 					match expanded_ty {
-						Term::Keyword(Keyword::Json) => {
+						Some(Term::Keyword(Keyword::Json)) => {
 							is_json = true;
 						}
-						Term::Id(Id::Valid(ValidId::Iri(expanded_ty))) => {
+						Some(Term::Id(Id::Valid(ValidId::Iri(expanded_ty)))) => {
 							is_json = false;
 							ty = Some(expanded_ty)
 						}

@@ -181,6 +181,7 @@ where
 						processing_mode: options.processing_mode,
 						override_protected: false,
 						propagate: true,
+						vocab: options.vocab,
 					};
 
 					let r = Box::pin(process_context(
@@ -313,9 +314,11 @@ where
 								&result,
 								Nullable::Some(value.into()),
 								true,
-								true,
-							) {
-								Term::Id(vocab) => result.set_vocabulary(Some(Term::Id(vocab))),
+								Some(options.vocab),
+							)? {
+								Some(Term::Id(vocab)) => {
+									result.set_vocabulary(Some(Term::Id(vocab)))
+								}
 								_ => return Err(Error::InvalidVocabMapping),
 							}
 						}
