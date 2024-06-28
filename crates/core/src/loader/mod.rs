@@ -468,6 +468,20 @@ pub trait Loader {
 	async fn load(&self, url: &Iri) -> Result<RemoteDocument<IriBuf>, LoadError>;
 }
 
+impl<'l, L: Loader> Loader for &'l L {
+	async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri>
+	where
+		V: IriVocabularyMut,
+		V::Iri: Clone + Eq + Hash,
+	{
+		L::load_with(self, vocabulary, url).await
+	}
+
+	async fn load(&self, url: &Iri) -> Result<RemoteDocument<IriBuf>, LoadError> {
+		L::load(self, url).await
+	}
+}
+
 impl<'l, L: Loader> Loader for &'l mut L {
 	async fn load_with<V>(&self, vocabulary: &mut V, url: V::Iri) -> LoadingResult<V::Iri>
 	where
