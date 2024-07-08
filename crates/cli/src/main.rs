@@ -44,6 +44,12 @@ pub enum Command {
 		/// Put the expanded document in canonical form.
 		#[clap(short, long)]
 		canonicalize: bool,
+
+		#[clap(long = "no-vocab")]
+		no_vocab: bool,
+
+		#[clap(long = "no-undef")]
+		no_undef: bool,
 	},
 
 	Flatten {
@@ -112,11 +118,21 @@ async fn main() {
 			base_url,
 			relabel,
 			canonicalize,
+			no_vocab,
+			no_undef,
 		} => {
 			let remote_document = get_remote_document(&mut vocabulary, url_or_path, base_url);
 
 			let options = json_ld::Options {
-				expansion_policy: json_ld::expansion::Policy::Strictest,
+				expansion_policy: json_ld::expansion::Policy {
+					invalid: json_ld::expansion::Action::Reject,
+					vocab: if no_vocab {
+						json_ld::expansion::Action::Reject
+					} else {
+						json_ld::expansion::Action::Keep
+					},
+					allow_undefined: !no_undef,
+				},
 				..Default::default()
 			};
 

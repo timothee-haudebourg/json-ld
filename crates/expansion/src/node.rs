@@ -1,6 +1,6 @@
 use crate::{
-	expand_element, expand_iri, expand_literal, filter_top_level_item, ActiveProperty, Error,
-	Expanded, ExpandedEntry, LiteralValue, Options, Policy, Warning, WarningHandler,
+	expand_element, expand_iri, expand_literal, filter_top_level_item, Action, ActiveProperty,
+	Error, Expanded, ExpandedEntry, LiteralValue, Options, Warning, WarningHandler,
 };
 use contextual::WithContext;
 use indexmap::IndexSet;
@@ -164,13 +164,14 @@ where
 							// Otherwise, set `expanded_value` to the result of IRI
 							// expanding value using true for document relative and
 							// false for vocab.
-							result.id = node_id_of_term(expand_iri(
+							result.id = expand_iri(
 								&mut env,
 								active_context,
 								Nullable::Some(str_value.into()),
 								true,
-								false,
-							))
+								None,
+							)?
+							.and_then(node_id_of_term);
 						} else {
 							return Err(Error::InvalidIdValue);
 						}
@@ -186,18 +187,28 @@ where
 						// context, and true for document relative.
 						for ty in value {
 							if let Some(str_ty) = ty.as_str() {
-								if let Ok(ty) = expand_iri(
+								if let Some(ty) = expand_iri(
 									&mut env,
 									type_scoped_context,
 									Nullable::Some(str_ty.into()),
 									true,
-									true,
-								)
-								.try_into()
-								{
-									result.types_mut_or_default().push(ty)
-								} else {
-									return Err(Error::InvalidTypeValue);
+									Some(options.policy.vocab),
+								)? {
+									if let Ok(ty) = ty.try_into() {
+										if let Id::Invalid(_) = &ty {
+											match options.policy.invalid {
+												Action::Keep => (),
+												Action::Drop => continue,
+												Action::Reject => {
+													return Err(Error::InvalidTypeValue)
+												}
+											}
+										}
+
+										result.types_mut_or_default().push(ty)
+									} else {
+										return Err(Error::InvalidTypeValue);
+									}
 								}
 							} else {
 								return Err(Error::InvalidTypeValue);
@@ -310,24 +321,29 @@ where
 									active_context,
 									Nullable::Some(reverse_key.as_str().into()),
 									false,
-									true,
-								) {
-									Term::Keyword(_) => {
+									Some(options.policy.vocab),
+								)? {
+									Some(Term::Keyword(_)) => {
 										return Err(Error::InvalidReversePropertyMap)
 									}
-									Term::Id(Id::Invalid(_))
-										if options.policy == Policy::Strictest =>
-									{
-										return Err(Error::KeyExpansionFailed(
-											reverse_key.to_string(),
-										))
-									}
-									Term::Id(reverse_prop)
+									Some(Term::Id(reverse_prop))
 										if reverse_prop
 											.with(&*env.vocabulary)
 											.as_str()
-											.contains(':') || options.policy == Policy::Relaxed =>
+											.contains(':') =>
 									{
+										if !reverse_prop.is_valid() {
+											match options.policy.invalid {
+												Action::Keep => (),
+												Action::Drop => continue,
+												Action::Reject => {
+													return Err(Error::KeyExpansionFailed(
+														reverse_key.to_string(),
+													))
+												}
+											}
+										}
+
 										let reverse_expanded_value = Box::pin(expand_element(
 											Environment {
 												vocabulary: env.vocabulary,
@@ -378,11 +394,18 @@ where
 										}
 									}
 									_ => {
-										if options.policy.is_strict() {
+										if options.policy.invalid.is_reject() {
 											return Err(Error::KeyExpansionFailed(
 												reverse_key.to_string(),
 											));
 										}
+
+										if !options.policy.allow_undefined {
+											return Err(Error::KeyExpansionFailed(
+												reverse_key.to_string(),
+											));
+										}
+
 										// otherwise the key is just dropped.
 									}
 								}
@@ -445,17 +468,22 @@ where
 
 								let nested_expanded_entries = nested_entries
 									.into_iter()
-									.map(|Entry { key, value }| {
-										let expanded_key = expand_iri(
+									.filter_map(|Entry { key, value }| {
+										expand_iri(
 											&mut env,
 											active_context.as_ref(),
 											Nullable::Some(key.as_str().into()),
 											false,
-											true,
-										);
-										ExpandedEntry(key, expanded_key, value)
+											Some(options.policy.vocab),
+										)
+										.map(|e| {
+											e.map(|expanded_key| {
+												ExpandedEntry(key, expanded_key, value)
+											})
+										})
+										.transpose()
 									})
-									.collect();
+									.collect::<Result<_, _>>()?;
 
 								let (new_result, new_has_value_object_entries) =
 									Box::pin(expand_node_entries(
@@ -487,14 +515,15 @@ where
 				}
 			}
 
-			Term::Id(Id::Invalid(name)) if options.policy == Policy::Strictest => {
-				return Err(Error::KeyExpansionFailed(name))
-			}
+			Term::Id(prop) if prop.with(&*env.vocabulary).as_str().contains(':') => {
+				if let Id::Invalid(name) = &prop {
+					match options.policy.invalid {
+						Action::Keep => (),
+						Action::Drop => continue,
+						Action::Reject => return Err(Error::KeyExpansionFailed(name.to_owned())),
+					}
+				}
 
-			Term::Id(prop)
-				if prop.with(&*env.vocabulary).as_str().contains(':')
-					|| options.policy == Policy::Relaxed =>
-			{
 				let mut container_mapping = Container::new();
 
 				let key_definition = active_context.get(key);
@@ -571,9 +600,10 @@ where
 												active_context,
 												Nullable::Some(language.as_str().into()),
 												false,
-												true,
-											) == Term::Keyword(Keyword::None)
-											{
+												Some(options.policy.vocab),
+											)? == Some(Term::Keyword(
+												Keyword::None,
+											)) {
 												None
 											} else {
 												let (language, error) =
@@ -722,10 +752,10 @@ where
 									active_context,
 									Nullable::Some(index.as_str().into()),
 									false,
-									true,
-								) {
-									Term::Null | Term::Keyword(Keyword::None) => None,
-									key => Some(key),
+									Some(options.policy.vocab),
+								)? {
+									Some(Term::Null) | Some(Term::Keyword(Keyword::None)) => None,
+									key => key,
 								};
 
 								// If index value is not an array set index value to
@@ -787,6 +817,7 @@ where
 													loader: env.loader,
 													warnings: env.warnings,
 												},
+												options.policy.vocab,
 												active_context,
 												ActiveProperty::Some(index_key),
 												LiteralValue::Inferred(index.as_str().into()),
@@ -799,9 +830,9 @@ where
 												active_context,
 												Nullable::Some(index_key.into()),
 												false,
-												true,
-											) {
-												Term::Id(prop) => prop,
+												Some(options.policy.vocab),
+											)? {
+												Some(Term::Id(prop)) => prop,
 												_ => continue,
 											};
 
@@ -837,13 +868,14 @@ where
 											// result of IRI expanding index using true for
 											// document relative and false for vocab.
 											if let Object::Node(ref mut node) = *item {
-												node.id = node_id_of_term(expand_iri(
+												node.id = expand_iri(
 													&mut env,
 													active_context,
 													Nullable::Some(index.as_str().into()),
 													true,
-													false,
-												))
+													None,
+												)?
+												.and_then(node_id_of_term);
 											}
 										} else if container_mapping.contains(ContainerKind::Type) {
 											// Otherwise, if container mapping includes
@@ -954,12 +986,19 @@ where
 			}
 
 			Term::Id(prop) => {
-				if options.policy.is_strict() {
+				// non-keyword properties that does not include a ':' are skipped.
+				if let Id::Invalid(name) = &prop {
+					match options.policy.invalid {
+						Action::Drop | Action::Keep => (),
+						Action::Reject => return Err(Error::KeyExpansionFailed(name.to_owned())),
+					}
+				}
+
+				if !options.policy.allow_undefined {
 					return Err(Error::KeyExpansionFailed(
-						prop.with(&*env.vocabulary).to_string(),
+						prop.with(env.vocabulary).to_string(),
 					));
 				}
-				// non-keyword properties that does not include a ':' are skipped.
 			}
 		}
 	}

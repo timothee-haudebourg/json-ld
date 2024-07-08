@@ -1,3 +1,4 @@
+use json_ld_context_processing::algorithm::RejectVocab;
 use json_ld_syntax::ErrorCode;
 
 #[derive(Debug, thiserror::Error)]
@@ -52,6 +53,15 @@ pub enum Error {
 
 	#[error(transparent)]
 	Value(crate::InvalidValue),
+
+	#[error("Forbidden use of `@vocab`")]
+	ForbiddenVocab,
+}
+
+impl From<RejectVocab> for Error {
+	fn from(_value: RejectVocab) -> Self {
+		Self::ForbiddenVocab
+	}
 }
 
 impl Error {
@@ -74,6 +84,7 @@ impl Error {
 			Self::DuplicateKey(_) => ErrorCode::DuplicateKey,
 			Self::Literal(e) => e.code(),
 			Self::Value(e) => e.code(),
+			Self::ForbiddenVocab => ErrorCode::InvalidVocabMapping,
 		}
 	}
 }

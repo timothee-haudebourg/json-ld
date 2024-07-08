@@ -137,10 +137,12 @@ where
 					active_context,
 					Nullable::Some(key.as_str().into()),
 					false,
-					true,
-				) {
-					Term::Keyword(Keyword::Value) => preliminary_value_entry = Some(value.clone()),
-					Term::Keyword(Keyword::Id) => preliminary_id_entry = Some(value.clone()),
+					Some(options.policy.vocab),
+				)? {
+					Some(Term::Keyword(Keyword::Value)) => {
+						preliminary_value_entry = Some(value.clone())
+					}
+					Some(Term::Keyword(Keyword::Id)) => preliminary_id_entry = Some(value.clone()),
 					_ => (),
 				}
 			}
@@ -223,10 +225,10 @@ where
 					active_context.as_ref(),
 					Nullable::Some(key.as_str().into()),
 					false,
-					true,
-				);
+					Some(options.policy.vocab),
+				)?;
 
-				if let Term::Keyword(Keyword::Type) = expanded_key {
+				if let Some(Term::Keyword(Keyword::Type)) = expanded_key {
 					type_entries.push(entry);
 				}
 			}
@@ -290,15 +292,19 @@ where
 			let input_type = if let Some(Entry { value, .. }) = type_entries.first() {
 				let value = Value::force_as_array(value);
 				if let Some(input_type) = value.last() {
-					input_type.as_string().map(|input_type_str| {
-						expand_iri(
-							&mut env,
-							active_context.as_ref(),
-							Nullable::Some(input_type_str.into()),
-							false,
-							true,
-						)
-					})
+					input_type
+						.as_string()
+						.map(|input_type_str| {
+							expand_iri(
+								&mut env,
+								active_context.as_ref(),
+								Nullable::Some(input_type_str.into()),
+								false,
+								Some(options.policy.vocab),
+							)
+						})
+						.transpose()?
+						.flatten()
 				} else {
 					None
 				}
@@ -321,25 +327,27 @@ where
 					active_context.as_ref(),
 					Nullable::Some(key.as_str().into()),
 					false,
-					true,
-				);
+					Some(options.policy.vocab),
+				)?;
 
-				match &expanded_key {
-					Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
-					Term::Keyword(Keyword::List) => {
-						if active_property.is_some() && active_property != Keyword::Graph {
-							list_entry = Some(value.clone())
+				if let Some(expanded_key) = expanded_key {
+					match &expanded_key {
+						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
+						Term::Keyword(Keyword::List) => {
+							if active_property.is_some() && active_property != Keyword::Graph {
+								list_entry = Some(value.clone())
+							}
 						}
+						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
+						Term::Id(Id::Valid(ValidId::Blank(id))) => {
+							env.warnings
+								.handle(env.vocabulary, Warning::BlankNodeIdProperty(id.clone()));
+						}
+						_ => (),
 					}
-					Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
-					Term::Id(Id::Valid(ValidId::Blank(id))) => {
-						env.warnings
-							.handle(env.vocabulary, Warning::BlankNodeIdProperty(id.clone()));
-					}
-					_ => (),
-				}
 
-				expanded_entries.push(ExpandedEntry(key, expanded_key, value))
+					expanded_entries.push(ExpandedEntry(key, expanded_key, value))
+				}
 			}
 
 			if let Some(list_entry) = list_entry {
@@ -414,6 +422,7 @@ where
 				// Value objects.
 				let expanded_value = expand_value(
 					&mut env,
+					options.policy.vocab,
 					input_type,
 					type_scoped_context,
 					expanded_entries,
@@ -486,6 +495,7 @@ where
 			// `active_property`, and `element` as value.
 			Ok(Expanded::Object(expand_literal(
 				env,
+				options.policy.vocab,
 				active_context.as_ref(),
 				active_property,
 				LiteralValue::Given(GivenLiteralValue::new(element)),

@@ -1,4 +1,5 @@
 use crate::{expand_iri, node_id_of_term, ActiveProperty, WarningHandler};
+use json_ld_context_processing::algorithm::{Action, RejectVocab};
 use json_ld_core::{
 	object::value::Literal, Context, Environment, IndexedObject, LangString, Node, Object, Type,
 	Value,
@@ -62,13 +63,23 @@ pub(crate) type ExpandedLiteral<T, B> = IndexedObject<T, B>;
 pub enum LiteralExpansionError {
 	#[error("Invalid `@type` value")]
 	InvalidTypeValue,
+
+	#[error("Forbidden use of `@vocab`")]
+	ForbiddenVocab,
 }
 
 impl LiteralExpansionError {
 	pub fn code(&self) -> ErrorCode {
 		match self {
 			Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
+			Self::ForbiddenVocab => ErrorCode::InvalidTypeValue,
 		}
+	}
+}
+
+impl From<RejectVocab> for LiteralExpansionError {
+	fn from(_value: RejectVocab) -> Self {
+		Self::ForbiddenVocab
 	}
 }
 
@@ -78,6 +89,7 @@ pub(crate) type LiteralExpansionResult<T, B> = Result<ExpandedLiteral<T, B>, Lit
 /// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 pub(crate) fn expand_literal<N, L, W>(
 	mut env: Environment<N, L, W>,
+	vocab_policy: Action,
 	active_context: &Context<N::Iri, N::BlankId>,
 	active_property: ActiveProperty<'_>,
 	value: LiteralValue,
@@ -103,13 +115,17 @@ where
 		// `false` for vocab.
 		Some(Type::Id) if value.is_string() => {
 			let mut node = Node::new();
-			let id = node_id_of_term(expand_iri(
-				&mut env,
-				active_context,
-				Nullable::Some(value.as_str().unwrap().into()),
-				true,
-				false,
-			));
+			let id = node_id_of_term(
+				expand_iri(
+					&mut env,
+					active_context,
+					Nullable::Some(value.as_str().unwrap().into()),
+					true,
+					None,
+				)
+				.unwrap()
+				.unwrap(),
+			);
 
 			node.id = id;
 			Ok(Object::node(node).into())
@@ -121,15 +137,20 @@ where
 		// document relative.
 		Some(Type::Vocab) if value.is_string() => {
 			let mut node = Node::new();
-			let id = node_id_of_term(expand_iri(
+
+			let ty = expand_iri(
 				&mut env,
 				active_context,
 				Nullable::Some(value.as_str().unwrap().into()),
 				true,
-				true,
-			));
+				Some(vocab_policy),
+			)?;
 
-			node.id = id;
+			if let Some(ty) = ty {
+				let id = node_id_of_term(ty);
+				node.id = id;
+			}
+
 			Ok(Object::node(node).into())
 		}
 
