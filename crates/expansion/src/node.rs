@@ -195,6 +195,16 @@ where
 									Some(options.policy.vocab),
 								)? {
 									if let Ok(ty) = ty.try_into() {
+										if let Id::Invalid(_) = &ty {
+											match options.policy.invalid {
+												Action::Keep => (),
+												Action::Drop => continue,
+												Action::Reject => {
+													return Err(Error::InvalidTypeValue)
+												}
+											}
+										}
+
 										result.types_mut_or_default().push(ty)
 									} else {
 										return Err(Error::InvalidTypeValue);
