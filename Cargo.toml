@@ -59,16 +59,16 @@ documentation = "https://docs.rs/json-ld"
 license = "MIT/Apache-2.0"
 edition = "2021"
 rust-version = "1.77.0"
-version = "0.19.2"
+version = "0.20.0"
 
 [workspace.dependencies]
-json-ld = { path = ".", version = "0.19.2" }
-json-ld-syntax = { path = "crates/syntax", version = "0.19.2" }
-json-ld-core = { path = "crates/core", version = "0.19.2" }
-json-ld-context-processing = { path = "crates/context-processing", version = "0.19.2" }
-json-ld-expansion = { path = "crates/expansion", version = "0.19.2" }
-json-ld-compaction = { path = "crates/compaction", version = "0.19.2" }
-json-ld-serialization = { path = "crates/serialization", version = "0.19.2" }
+json-ld = { path = ".", version = "0.20.0" }
+json-ld-syntax = { path = "crates/syntax", version = "0.20.0" }
+json-ld-core = { path = "crates/core", version = "0.20.0" }
+json-ld-context-processing = { path = "crates/context-processing", version = "0.20.0" }
+json-ld-expansion = { path = "crates/expansion", version = "0.20.0" }
+json-ld-compaction = { path = "crates/compaction", version = "0.20.0" }
+json-ld-serialization = { path = "crates/serialization", version = "0.20.0" }
 json-ld-testing = { path = "crates/testing" }
 json-syntax = "0.12"
 iref = "3.1.2"
