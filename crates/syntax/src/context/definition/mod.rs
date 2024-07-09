@@ -25,7 +25,12 @@ pub use vocab::*;
 pub struct Definition {
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@base", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@base",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub base: Option<Nullable<IriRefBuf>>,
 
@@ -37,7 +42,12 @@ pub struct Definition {
 
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@language", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@language",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub language: Option<Nullable<LenientLangTagBuf>>,
 
@@ -46,6 +56,7 @@ pub struct Definition {
 		serde(
 			rename = "@direction",
 			default,
+			deserialize_with = "Nullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
@@ -85,7 +96,12 @@ pub struct Definition {
 
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@vocab", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@vocab",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub vocab: Option<Nullable<Vocab>>,
 
@@ -320,5 +336,25 @@ impl<'a> Iterator for SubItems<'a> {
 			Self::Value(d) => d.next(),
 			Self::TermDefinitionFragment(d) => d.next().map(FragmentRef::TermDefinitionFragment),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::Definition;
+
+	#[test]
+	fn deserialize_null_vocab() {
+		let definition: Definition = json_syntax::from_value(json_syntax::json!({
+			"@vocab": null
+		}))
+		.unwrap();
+		assert_eq!(definition.vocab, Some(crate::Nullable::Null))
+	}
+
+	#[test]
+	fn deserialize_no_vocab() {
+		let definition: Definition = json_syntax::from_value(json_syntax::json!({})).unwrap();
+		assert_eq!(definition.vocab, None)
 	}
 }

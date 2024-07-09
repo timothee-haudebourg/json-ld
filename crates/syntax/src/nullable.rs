@@ -174,3 +174,15 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Nullable<T> {
 		Ok(Option::<T>::deserialize(deserializer)?.into())
 	}
 }
+
+#[cfg(feature = "serde")]
+impl<T> Nullable<T> {
+	pub fn optional<'de, D>(deserializer: D) -> Result<Option<Self>, D::Error>
+	where
+		T: serde::Deserialize<'de>,
+		D: serde::Deserializer<'de>,
+	{
+		use serde::Deserialize;
+		Ok(Some(Option::<T>::deserialize(deserializer)?.into()))
+	}
+}
