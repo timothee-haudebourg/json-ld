@@ -12,18 +12,18 @@ use rdf_types::{Generator, VocabularyMut};
 use std::hash::Hash;
 
 impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
-	async fn compare_full<'a, N>(
-		&'a self,
-		other: &'a Self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
+	async fn compare_full<N>(
+		&self,
+		other: &Self,
+		vocabulary: &mut N,
+		loader: &impl Loader,
 		options: Options<I>,
-		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
+		mut warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> CompareResult
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 	{
 		if json_ld_syntax::Compare::compare(self.document(), other.document()) {
 			let a = JsonLdProcessor::expand_full(
@@ -42,17 +42,17 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 		}
 	}
 
-	async fn expand_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
+	async fn expand_full<N>(
+		&self,
+		vocabulary: &mut N,
+		loader: &impl Loader,
 		mut options: Options<I>,
-		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
+		mut warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> ExpandResult<I, N::BlankId>
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 	{
 		let mut active_context = Context::new(options.base.clone().or_else(|| self.url().cloned()));
 
@@ -207,18 +207,18 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 }
 
 impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
-	async fn compare_full<'a, N>(
-		&'a self,
-		other: &'a Self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
+	async fn compare_full<N>(
+		&self,
+		other: &Self,
+		vocabulary: &mut N,
+		loader: &impl Loader,
 		options: Options<I>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
+		warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> CompareResult
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 	{
 		let a = self.loaded_with(vocabulary, loader).await?;
 		let b = other.loaded_with(vocabulary, loader).await?;
@@ -233,17 +233,17 @@ impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
 		.await
 	}
 
-	async fn expand_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
+	async fn expand_full<N>(
+		&self,
+		vocabulary: &mut N,
+		loader: &impl Loader,
 		options: Options<I>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
+		warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> ExpandResult<I, N::BlankId>
 	where
 		N: VocabularyMut<Iri = I>,
 		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 	{
 		let doc = self.loaded_with(vocabulary, loader).await?;
 		JsonLdProcessor::expand_full(doc.as_ref(), vocabulary, loader, options, warnings).await

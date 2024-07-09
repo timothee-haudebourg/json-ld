@@ -115,21 +115,21 @@ pub trait Expand<Iri> {
 	/// The `options` are used to tweak the expansion algorithm.
 	/// The `warning_handler` is called each time a warning is emitted during expansion.
 	#[allow(async_fn_in_trait)]
-	async fn expand_full<'a, N, L, W>(
-		&'a self,
-		vocabulary: &'a mut N,
+	async fn expand_full<N, L, W>(
+		&self,
+		vocabulary: &mut N,
 		context: Context<Iri, N::BlankId>,
-		base_url: Option<&'a N::Iri>,
-		loader: &'a L,
+		base_url: Option<&N::Iri>,
+		loader: &L,
 		options: Options,
 		warnings_handler: W,
 	) -> ExpansionResult<N::Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 		L: Loader,
-		W: 'a + WarningHandler<N>;
+		W: WarningHandler<N>;
 
 	/// Expand the input JSON-LD document with the given `vocabulary`
 	/// to interpret identifiers.
@@ -185,21 +185,21 @@ impl<Iri> Expand<Iri> for Value {
 		None
 	}
 
-	async fn expand_full<'a, N, L, W>(
-		&'a self,
-		vocabulary: &'a mut N,
+	async fn expand_full<N, L, W>(
+		&self,
+		vocabulary: &mut N,
 		context: Context<Iri, N::BlankId>,
-		base_url: Option<&'a Iri>,
-		loader: &'a L,
+		base_url: Option<&Iri>,
+		loader: &L,
 		options: Options,
 		mut warnings_handler: W,
 	) -> ExpansionResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
-		Iri: 'a + Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		Iri: Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 		L: Loader,
-		W: 'a + WarningHandler<N>,
+		W: WarningHandler<N>,
 	{
 		document::expand(
 			Environment {
@@ -225,21 +225,21 @@ impl<Iri> Expand<Iri> for RemoteDocument<Iri> {
 		self.url()
 	}
 
-	async fn expand_full<'a, N, L, W>(
-		&'a self,
-		vocabulary: &'a mut N,
+	async fn expand_full<N, L, W>(
+		&self,
+		vocabulary: &mut N,
 		context: Context<Iri, N::BlankId>,
-		base_url: Option<&'a Iri>,
-		loader: &'a L,
+		base_url: Option<&Iri>,
+		loader: &L,
 		options: Options,
 		warnings_handler: W,
 	) -> ExpansionResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 		L: Loader,
-		W: 'a + WarningHandler<N>,
+		W: WarningHandler<N>,
 	{
 		self.document()
 			.expand_full(
