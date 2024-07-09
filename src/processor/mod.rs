@@ -271,7 +271,7 @@ impl ToRdfError {
 }
 
 /// Error that can be raised by the [`JsonLdProcessor::to_rdf`] function.
-pub type ToRdfResult<'a, V, G> = Result<ToRdf<'a, 'a, V, G>, ToRdfError>;
+pub type ToRdfResult<V, G> = Result<ToRdf<V, G>, ToRdfError>;
 
 /// Result of the [`JsonLdProcessor::compare`] function.
 pub type CompareResult = Result<bool, ExpandError>;
@@ -356,18 +356,18 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn compare_full<'a, N>(
-		&'a self,
-		other: &'a Self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
+	async fn compare_full<N>(
+		&self,
+		other: &Self,
+		vocabulary: &mut N,
+		loader: &impl Loader,
 		options: Options<Iri>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
+		warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> CompareResult
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash;
+		N::BlankId: Clone + Eq + Hash;
 
 	/// Compare this document against `other` with a custom vocabulary using the
 	/// given `options`.
@@ -593,17 +593,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn expand_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
+	async fn expand_full<N>(
+		&self,
+		vocabulary: &mut N,
+		loader: &impl Loader,
 		options: Options<Iri>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
+		warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
 	) -> ExpandResult<Iri, N::BlankId>
 	where
 		N: VocabularyMut<Iri = Iri>,
 		Iri: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash;
+		N::BlankId: Clone + Eq + Hash;
 
 	/// Expand the document with the given `vocabulary` and `loader`, using
 	/// the given `options`.
@@ -1476,24 +1476,24 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_full<'a, N, G>(
-		&'a self,
-		vocabulary: &'a mut N,
-		generator: &'a mut G,
-		loader: &'a impl Loader,
+	async fn to_rdf_full<N, G>(
+		&self,
+		mut vocabulary: N,
+		generator: G,
+		loader: &impl Loader,
 		options: Options<Iri>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> ToRdfResult<'a, N, G>
+		warnings: impl context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
+	) -> ToRdfResult<N, G>
 	where
 		N: VocabularyMut<Iri = Iri>,
-		Iri: 'a + Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		Iri: Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 		G: Generator<N>,
 	{
 		let rdf_direction = options.rdf_direction;
 		let produce_generalized_rdf = options.produce_generalized_rdf;
 		let expanded_input = self
-			.expand_full(&mut *vocabulary, loader, options.unordered(), warnings)
+			.expand_full(&mut vocabulary, loader, options.unordered(), warnings)
 			.await
 			.map_err(ToRdfError::Expand)?;
 		Ok(ToRdf::new(
@@ -1561,17 +1561,17 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_with_using<'a, N, G>(
-		&'a self,
-		vocabulary: &'a mut N,
-		generator: &'a mut G,
-		loader: &'a impl Loader,
+	async fn to_rdf_with_using<N, G>(
+		&self,
+		vocabulary: N,
+		generator: G,
+		loader: &impl Loader,
 		options: Options<Iri>,
-	) -> ToRdfResult<'a, N, G>
+	) -> ToRdfResult<N, G>
 	where
 		N: VocabularyMut<Iri = Iri>,
-		Iri: 'a + Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		Iri: Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 		G: Generator<N>,
 	{
 		self.to_rdf_full(vocabulary, generator, loader, options, ())
@@ -1634,16 +1634,16 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_with<'a, N, G>(
-		&'a self,
-		vocabulary: &'a mut N,
-		generator: &'a mut G,
-		loader: &'a impl Loader,
-	) -> ToRdfResult<'a, N, G>
+	async fn to_rdf_with<N, G>(
+		&self,
+		vocabulary: N,
+		generator: G,
+		loader: &impl Loader,
+	) -> ToRdfResult<N, G>
 	where
 		N: VocabularyMut<Iri = Iri>,
-		Iri: 'a + Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
+		Iri: Clone + Eq + Hash,
+		N::BlankId: Clone + Eq + Hash,
 		G: Generator<N>,
 	{
 		self.to_rdf_full(vocabulary, generator, loader, Options::default(), ())
@@ -1707,24 +1707,18 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_using<'a, G>(
-		&'a self,
-		generator: &'a mut G,
-		loader: &'a impl Loader,
+	async fn to_rdf_using<G>(
+		&self,
+		generator: G,
+		loader: &impl Loader,
 		options: Options<Iri>,
-	) -> ToRdfResult<'a, (), G>
+	) -> ToRdfResult<(), G>
 	where
 		(): VocabularyMut<Iri = Iri>,
-		Iri: 'a + Clone + Eq + Hash,
+		Iri: Clone + Eq + Hash,
 		G: Generator,
 	{
-		self.to_rdf_with_using(
-			rdf_types::vocabulary::no_vocabulary_mut(),
-			generator,
-			loader,
-			options,
-		)
-		.await
+		self.to_rdf_with_using((), generator, loader, options).await
 	}
 
 	/// Serializes the document into an RDF dataset.
@@ -1785,14 +1779,10 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// # }
 	/// ```
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf<'a, G>(
-		&'a self,
-		generator: &'a mut G,
-		loader: &'a impl Loader,
-	) -> ToRdfResult<'a, (), G>
+	async fn to_rdf<G>(&self, generator: G, loader: &impl Loader) -> ToRdfResult<(), G>
 	where
 		(): VocabularyMut<Iri = Iri>,
-		Iri: 'a + Clone + Eq + Hash,
+		Iri: Clone + Eq + Hash,
 		G: Generator,
 	{
 		self.to_rdf_using(generator, loader, Options::default())
@@ -1800,18 +1790,18 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	}
 }
 
-pub struct ToRdf<'v, 'g, V: Vocabulary, G> {
-	vocabulary: &'v mut V,
-	generator: &'g mut G,
+pub struct ToRdf<V: Vocabulary, G> {
+	vocabulary: V,
+	generator: G,
 	doc: ExpandedDocument<V::Iri, V::BlankId>,
 	rdf_direction: Option<RdfDirection>,
 	produce_generalized_rdf: bool,
 }
 
-impl<'v, 'g, V: Vocabulary, G: rdf_types::Generator<V>> ToRdf<'v, 'g, V, G> {
+impl<V: Vocabulary, G: rdf_types::Generator<V>> ToRdf<V, G> {
 	fn new(
-		vocabulary: &'v mut V,
-		generator: &'g mut G,
+		mut vocabulary: V,
+		mut generator: G,
 		mut doc: ExpandedDocument<V::Iri, V::BlankId>,
 		rdf_direction: Option<RdfDirection>,
 		produce_generalized_rdf: bool,
@@ -1820,7 +1810,7 @@ impl<'v, 'g, V: Vocabulary, G: rdf_types::Generator<V>> ToRdf<'v, 'g, V, G> {
 		V::Iri: Clone + Eq + Hash,
 		V::BlankId: Clone + Eq + Hash,
 	{
-		doc.relabel_and_canonicalize_with(vocabulary, generator);
+		doc.relabel_and_canonicalize_with(&mut vocabulary, &mut generator);
 		Self {
 			vocabulary,
 			generator,
@@ -1830,43 +1820,41 @@ impl<'v, 'g, V: Vocabulary, G: rdf_types::Generator<V>> ToRdf<'v, 'g, V, G> {
 		}
 	}
 
-	pub fn quads<'a: 'v + 'g>(&'a mut self) -> json_ld_core::rdf::Quads<'a, 'v, 'g, V, G> {
+	pub fn quads(&mut self) -> json_ld_core::rdf::Quads<'_, V, G> {
 		self.doc.rdf_quads_full(
-			self.vocabulary,
-			self.generator,
+			&mut self.vocabulary,
+			&mut self.generator,
 			self.rdf_direction,
 			self.produce_generalized_rdf,
 		)
 	}
 
 	#[inline(always)]
-	pub fn cloned_quads<'a: 'v + 'g>(
-		&'a mut self,
-	) -> json_ld_core::rdf::ClonedQuads<'a, 'v, 'g, V, G> {
+	pub fn cloned_quads<'a>(&'a mut self) -> json_ld_core::rdf::ClonedQuads<'a, V, G> {
 		self.quads().cloned()
 	}
 
 	pub fn vocabulary(&self) -> &V {
-		self.vocabulary
+		&self.vocabulary
 	}
 
 	pub fn vocabulary_mut(&mut self) -> &mut V {
-		self.vocabulary
+		&mut self.vocabulary
 	}
 
-	pub fn into_vocabulary(self) -> &'v mut V {
+	pub fn into_vocabulary(self) -> V {
 		self.vocabulary
 	}
 
 	pub fn generator(&self) -> &G {
-		self.generator
+		&self.generator
 	}
 
 	pub fn generator_mut(&mut self) -> &mut G {
-		self.generator
+		&mut self.generator
 	}
 
-	pub fn into_generator(self) -> &'g mut G {
+	pub fn into_generator(self) -> G {
 		self.generator
 	}
 
@@ -1937,4 +1925,26 @@ where
 		)
 		.await
 		.map_err(CompactError::Compaction)
+}
+
+#[cfg(test)]
+mod tests {
+	use futures::Future;
+	use json_ld_core::{NoLoader, RemoteDocument};
+	use json_syntax::Value;
+	use rdf_types::generator;
+
+	use crate::JsonLdProcessor;
+
+	async fn assert_send<F: Future + Send>(f: F) -> F::Output {
+		f.await
+	}
+
+	#[async_std::test]
+	async fn to_rdf_is_send() {
+		let generator = generator::Blank::new();
+		let document = RemoteDocument::new(None, None, Value::Null);
+		let f = document.to_rdf(generator, &NoLoader);
+		let _ = assert_send(f).await;
+	}
 }

@@ -32,23 +32,22 @@ type VocabularyCompoundLiteral<'a, N> = Compound<
 >;
 
 /// Iterator over the RDF Quads of a JSON-LD document.
-pub struct Quads<'a, 'n, 'g, N: Vocabulary, G: Generator<N>> {
-	vocabulary: &'n mut N,
-	generator: &'g mut G,
+pub struct Quads<'a, N: Vocabulary, G: Generator<N>> {
+	vocabulary: &'a mut N,
+	generator: &'a mut G,
 	rdf_direction: Option<RdfDirection>,
 	compound_value: Option<VocabularyCompoundLiteral<'a, N>>,
 	quads: crate::quad::Quads<'a, N::Iri, N::BlankId>,
 	produce_generalized_rdf: bool,
 }
 
-impl<'a, 'n, 'g, N: Vocabulary, G: Generator<N>> Quads<'a, 'n, 'g, N, G> {
-	pub fn cloned(self) -> ClonedQuads<'a, 'n, 'g, N, G> {
+impl<'a, N: Vocabulary, G: Generator<N>> Quads<'a, N, G> {
+	pub fn cloned(self) -> ClonedQuads<'a, N, G> {
 		ClonedQuads { inner: self }
 	}
 }
 
-impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut, G: Generator<N>> Iterator
-	for Quads<'a, 'n, 'g, N, G>
+impl<'a, N: Vocabulary + IriVocabularyMut, G: Generator<N>> Iterator for Quads<'a, N, G>
 where
 	N::Iri: Clone,
 	N::BlankId: Clone,
@@ -134,12 +133,11 @@ where
 
 /// Iterator over the RDF Quads of a JSON-LD document where borrowed values are
 /// cloned.
-pub struct ClonedQuads<'a, 'n, 'g, N: Vocabulary, G: Generator<N>> {
-	inner: Quads<'a, 'n, 'g, N, G>,
+pub struct ClonedQuads<'a, N: Vocabulary, G: Generator<N>> {
+	inner: Quads<'a, N, G>,
 }
 
-impl<'a, 'n, 'g, N: Vocabulary + IriVocabularyMut, G: Generator<N>> Iterator
-	for ClonedQuads<'a, 'n, 'g, N, G>
+impl<'a, N: Vocabulary + IriVocabularyMut, G: Generator<N>> Iterator for ClonedQuads<'a, N, G>
 where
 	N::Iri: Clone,
 	N::BlankId: Clone,
@@ -156,28 +154,28 @@ where
 }
 
 pub trait RdfQuads<T, B> {
-	fn rdf_quads_full<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
-		&self,
-		vocabulary: &'n mut V,
-		generator: &'g mut G,
+	fn rdf_quads_full<'a, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+		&'a self,
+		vocabulary: &'a mut V,
+		generator: &'a mut G,
 		rdf_direction: Option<RdfDirection>,
 		produce_generalized_rdf: bool,
-	) -> Quads<'_, 'n, 'g, V, G>;
+	) -> Quads<'a, V, G>;
 
-	fn rdf_quads_with<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
-		&self,
-		vocabulary: &'n mut V,
-		generator: &'g mut G,
+	fn rdf_quads_with<'a, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+		&'a self,
+		vocabulary: &'a mut V,
+		generator: &'a mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'n, 'g, V, G> {
+	) -> Quads<'a, V, G> {
 		self.rdf_quads_full(vocabulary, generator, rdf_direction, false)
 	}
 
-	fn rdf_quads<'g, G: Generator>(
-		&self,
-		generator: &'g mut G,
+	fn rdf_quads<'a, G: Generator>(
+		&'a self,
+		generator: &'a mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Quads<'_, 'static, 'g, (), G>
+	) -> Quads<'a, (), G>
 	where
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
@@ -190,13 +188,13 @@ pub trait RdfQuads<T, B> {
 }
 
 impl<T, B> RdfQuads<T, B> for ExpandedDocument<T, B> {
-	fn rdf_quads_full<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
-		&self,
-		vocabulary: &'n mut V,
-		generator: &'g mut G,
+	fn rdf_quads_full<'a, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+		&'a self,
+		vocabulary: &'a mut V,
+		generator: &'a mut G,
 		rdf_direction: Option<RdfDirection>,
 		produce_generalized_rdf: bool,
-	) -> Quads<'_, 'n, 'g, V, G> {
+	) -> Quads<'a, V, G> {
 		Quads {
 			vocabulary,
 			generator,
@@ -209,13 +207,13 @@ impl<T, B> RdfQuads<T, B> for ExpandedDocument<T, B> {
 }
 
 impl<T, B> RdfQuads<T, B> for FlattenedDocument<T, B> {
-	fn rdf_quads_full<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
-		&self,
-		vocabulary: &'n mut V,
-		generator: &'g mut G,
+	fn rdf_quads_full<'a, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+		&'a self,
+		vocabulary: &'a mut V,
+		generator: &'a mut G,
 		rdf_direction: Option<RdfDirection>,
 		produce_generalized_rdf: bool,
-	) -> Quads<'_, 'n, 'g, V, G> {
+	) -> Quads<'a, V, G> {
 		Quads {
 			vocabulary,
 			generator,
@@ -228,13 +226,13 @@ impl<T, B> RdfQuads<T, B> for FlattenedDocument<T, B> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> RdfQuads<T, B> for NodeMap<T, B> {
-	fn rdf_quads_full<'n, 'g, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
-		&self,
-		vocabulary: &'n mut V,
-		generator: &'g mut G,
+	fn rdf_quads_full<'a, V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
+		&'a self,
+		vocabulary: &'a mut V,
+		generator: &'a mut G,
 		rdf_direction: Option<RdfDirection>,
 		produce_generalized_rdf: bool,
-	) -> Quads<'_, 'n, 'g, V, G> {
+	) -> Quads<'a, V, G> {
 		Quads {
 			vocabulary,
 			generator,
