@@ -1830,7 +1830,7 @@ impl<V: Vocabulary, G: rdf_types::Generator<V>> ToRdf<V, G> {
 	}
 
 	#[inline(always)]
-	pub fn cloned_quads<'a>(&'a mut self) -> json_ld_core::rdf::ClonedQuads<'a, V, G> {
+	pub fn cloned_quads(&mut self) -> json_ld_core::rdf::ClonedQuads<'_, V, G> {
 		self.quads().cloned()
 	}
 
