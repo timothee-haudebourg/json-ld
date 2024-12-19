@@ -2,7 +2,7 @@ use linked_data::{
 	xsd_types, CowRdfTerm, LinkedData, LinkedDataGraph, LinkedDataPredicateObjects,
 	LinkedDataResource, LinkedDataSubject, RdfLiteral, RdfLiteralRef, ResourceInterpretation,
 };
-use rdf_types::{Interpretation, Term, Vocabulary};
+use rdf_types::{Interpretation, LiteralTypeRef, Term, Vocabulary};
 
 use crate::{
 	object::Literal,
@@ -62,11 +62,18 @@ impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri
 
 					CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(value)))
 				}
-				Literal::String(s) => match ty {
-					Some(ty) => CowRdfTerm::from_str(vocabulary, s.as_str(), ty),
-					None => CowRdfTerm::Borrowed(Term::Literal(RdfLiteralRef::Xsd(
-						xsd_types::ValueRef::String(s),
-					))),
+				Literal::String(s) => {
+					CowRdfTerm::Borrowed(Term::Literal(match ty {
+						Some(ty) => {
+							RdfLiteralRef::Any(
+								s.as_str(),
+								LiteralTypeRef::Any(ty)
+							)
+						},
+						None => RdfLiteralRef::Xsd(
+							xsd_types::ValueRef::String(s),
+						),
+					}))
 				},
 			},
 			Self::LangString(s) => match s.language().and_then(|l| l.as_well_formed()) {
