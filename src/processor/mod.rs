@@ -53,15 +53,17 @@ pub struct Options<I = IriBuf> {
 	/// to and from RDF.
 	///
 	///   - If set to [`RdfDirection::I18nDatatype`], an RDF literal is
-	/// generated using a datatype IRI based on <https://www.w3.org/ns/i18n#>
-	/// with both the language tag (if present) and base direction encoded. When
-	/// transforming from RDF, this datatype is decoded to create a value object
-	/// containing `@language` (if present) and `@direction`.
+	///     generated using a datatype IRI based on
+	///     <https://www.w3.org/ns/i18n#> with both the language tag (if
+	///     present) and base direction encoded. When transforming from RDF,
+	///     this datatype is decoded to create a value object containing
+	///     `@language` (if present) and `@direction`.
 	///   - If set to [`RdfDirection::CompoundLiteral`], a blank node is emitted
-	/// instead of a literal, where the blank node is the subject of
-	/// `rdf:value`, `rdf:direction`, and `rdf:language` (if present)
-	/// properties. When transforming from RDF, this object is decoded to create
-	/// a value object containing `@language` (if present) and `@direction`.
+	///     instead of a literal, where the blank node is the subject of
+	///     `rdf:value`, `rdf:direction`, and `rdf:language` (if present)
+	///     properties. When transforming from RDF, this object is decoded to
+	///     create a value object containing `@language` (if present) and
+	///     `@direction`.
 	pub rdf_direction: Option<RdfDirection>,
 
 	/// If set to `true`, the JSON-LD processor may emit blank nodes for triple

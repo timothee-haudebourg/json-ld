@@ -35,7 +35,7 @@ pub trait Any<T, B> {
 	}
 
 	#[inline]
-	fn language<'a>(&'a self) -> Option<&LenientLangTag>
+	fn language<'a>(&'a self) -> Option<&'a LenientLangTag>
 	where
 		T: 'a,
 		B: 'a,
