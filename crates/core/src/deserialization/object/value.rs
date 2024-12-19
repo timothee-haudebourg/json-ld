@@ -62,19 +62,10 @@ impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri
 
 					CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(value)))
 				}
-				Literal::String(s) => {
-					CowRdfTerm::Borrowed(Term::Literal(match ty {
-						Some(ty) => {
-							RdfLiteralRef::Any(
-								s.as_str(),
-								LiteralTypeRef::Any(ty)
-							)
-						},
-						None => RdfLiteralRef::Xsd(
-							xsd_types::ValueRef::String(s),
-						),
-					}))
-				},
+				Literal::String(s) => CowRdfTerm::Borrowed(Term::Literal(match ty {
+					Some(ty) => RdfLiteralRef::Any(s.as_str(), LiteralTypeRef::Any(ty)),
+					None => RdfLiteralRef::Xsd(xsd_types::ValueRef::String(s)),
+				})),
 			},
 			Self::LangString(s) => match s.language().and_then(|l| l.as_well_formed()) {
 				Some(tag) => CowRdfTerm::Owned(Term::Literal(RdfLiteral::Any(

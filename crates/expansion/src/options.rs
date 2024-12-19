@@ -42,6 +42,7 @@ impl From<Options> for json_ld_context_processing::Options {
 /// is to drop keys that are not defined in the context unless:
 ///   - there is a vocabulary mapping (`@vocab`) defined in the context; or
 ///   - the term contains a `:` character.
+/// 
 /// In other words, a key that cannot be expanded into an
 /// IRI or a blank node identifier is dropped unless it contains a `:` character.
 ///
