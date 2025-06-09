@@ -672,6 +672,8 @@ where
 				let value = match l.type_ {
 					LiteralTypeRef::Any(i) => {
 						let ty = vocabulary.iri(i).unwrap();
+
+						log::info!("Literal Type Ref: {ty:?}");
 						if ty == RDF_JSON {
 							let (json, _) =
 								json_syntax::Value::parse_str(l.value).map_err(|e| {
@@ -701,6 +703,7 @@ where
 									l.as_ref().to_owned(),
 								)
 							})?;
+							log::info!("Serializing Integer: {n:?}");
 							Value::Literal(Literal::Number(n), Some(i.clone()))
 						} else if ty == XSD_STRING {
 							Value::Literal(Literal::String(l.as_ref().into()), None)

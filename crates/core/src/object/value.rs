@@ -104,6 +104,7 @@ impl Literal {
 	///
 	/// The buffer is used to compute the canonical form of numbers.
 	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
+		log::info!("Canonicalizing number");
 		if let Self::Number(n) = self {
 			*n = NumberBuf::from_number(n.canonical_with(buffer))
 		}

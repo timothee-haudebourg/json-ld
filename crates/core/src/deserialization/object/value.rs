@@ -16,6 +16,7 @@ impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri
 		vocabulary: &mut V,
 		_interpretation: &mut I,
 	) -> ResourceInterpretation<I, V> {
+		log::info!("Found interpretation");
 		let term = match self {
 			Self::Literal(l, ty) => match l {
 				Literal::Null => CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(
@@ -44,11 +45,14 @@ impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri
 						.as_ref()
 						.and_then(|t| vocabulary.iri(t))
 						.map(|iri| {
+							log::info!("Parsing Numeric Type: {iri:?}");
+
 							if iri == XSD_INTEGER {
 								NumericType::Integer
 							} else if iri == XSD_DOUBLE {
 								NumericType::Double
 							} else if iri == XSD_UNSIGNED_INT {
+								log::info!("Found Unsigned Integer");
 								NumericType::UnsignedInt
 							} else {
 								NumericType::Unknown

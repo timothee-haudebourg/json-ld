@@ -25,6 +25,7 @@ educe.workspace = true
 contextual.workspace = true
 thiserror.workspace = true
 indexmap.workspace = true
+log.workspace = true
 
 [dev-dependencies]
 async-std = { workspace = true, features = ["attributes"] }

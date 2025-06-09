@@ -100,6 +100,7 @@ where
 	N::BlankId: Clone,
 	W: WarningHandler<N>,
 {
+	log::info!("Expand Literal");
 	let active_property_definition = active_property.get_from(active_context);
 	let active_property_type = if let Some(active_property_definition) = active_property_definition
 	{
@@ -167,6 +168,8 @@ where
 				},
 				LiteralValue::Inferred(s) => Literal::String(s),
 			};
+
+			log::info!("Expand literal Fallback: {result:?}");
 
 			// If `active_property` has a type mapping in active context, other than `@id`,
 			// `@vocab`, or `@none`, add `@type` to `result` and set its value to the value
