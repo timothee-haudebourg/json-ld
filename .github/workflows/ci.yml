@@ -2,9 +2,9 @@ name: Continuous Integration
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
     types:
       - opened
       - reopened
@@ -44,7 +44,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.81.0
+        uses: dtolnay/rust-toolchain@1.87.0
         with:
           components: rustfmt, clippy
       - name: Check formatting
