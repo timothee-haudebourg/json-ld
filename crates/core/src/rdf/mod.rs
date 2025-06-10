@@ -27,6 +27,7 @@ pub const XSD_BOOLEAN: &Iri = iri!("http://www.w3.org/2001/XMLSchema#boolean");
 pub const XSD_INTEGER: &Iri = iri!("http://www.w3.org/2001/XMLSchema#integer");
 pub const XSD_DOUBLE: &Iri = iri!("http://www.w3.org/2001/XMLSchema#double");
 pub const XSD_STRING: &Iri = iri!("http://www.w3.org/2001/XMLSchema#string");
+pub const XSD_UNSIGNED_INT: &Iri = iri!("http://www.w3.org/2001/XMLSchema#unsignedInt");
 
 /// JSON-LD to RDF triple.
 pub type Triple<T, B, L> = rdf_types::Triple<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>>;
