@@ -41,7 +41,7 @@ impl Print for LenientLangTag {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<&'a IriRef> {
+impl PrecomputeSize for Nullable<&IriRef> {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -50,7 +50,7 @@ impl<'a> PrecomputeSize for Nullable<&'a IriRef> {
 	}
 }
 
-impl<'a> Print for Nullable<&'a IriRef> {
+impl Print for Nullable<&IriRef> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -95,7 +95,7 @@ impl Print for Nullable<bool> {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<&'a LenientLangTagBuf> {
+impl PrecomputeSize for Nullable<&LenientLangTagBuf> {
 	fn pre_compute_size(&self, _options: &Options, _sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -104,7 +104,7 @@ impl<'a> PrecomputeSize for Nullable<&'a LenientLangTagBuf> {
 	}
 }
 
-impl<'a> Print for Nullable<&'a LenientLangTagBuf> {
+impl Print for Nullable<&LenientLangTagBuf> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, _options: &Options, _indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),

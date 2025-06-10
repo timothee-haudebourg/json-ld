@@ -124,7 +124,7 @@ impl compact::Test {
 			compact::Description::Positive { expect } => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 				let compacted = json_ld
-					.compact_full(&mut vocabulary, context, &mut loader, options, ())
+					.compact_full(&mut vocabulary, context, &loader, options, ())
 					.await
 					.unwrap();
 				let compacted = RemoteDocument::new(Some(input), None, compacted);
@@ -135,7 +135,7 @@ impl compact::Test {
 
 				let expand_options: json_ld::Options<IriIndex> = json_ld::Options::default();
 				let success = compacted
-					.compare_full(&expect, &mut vocabulary, &mut loader, expand_options, ())
+					.compare_full(&expect, &mut vocabulary, &loader, expand_options, ())
 					.await
 					.unwrap();
 
@@ -159,7 +159,7 @@ impl compact::Test {
 				match loader.load_with(&mut vocabulary, input).await {
 					Ok(json_ld) => {
 						let result: Result<_, _> = json_ld
-							.compact_full(&mut vocabulary, context, &mut loader, options, ())
+							.compact_full(&mut vocabulary, context, &loader, options, ())
 							.await;
 
 						match result {

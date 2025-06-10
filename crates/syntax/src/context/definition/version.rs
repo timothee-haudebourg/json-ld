@@ -48,7 +48,7 @@ impl Hash for Version {
 	}
 }
 
-impl<'a> From<Version> for &'a json_syntax::Number {
+impl From<Version> for &json_syntax::Number {
 	fn from(v: Version) -> Self {
 		v.into_json_number()
 	}

@@ -59,7 +59,7 @@ where
 	}
 }
 
-impl<'u, 't, U, T: MappedEq<U>> MappedEq<&'u U> for &'t T {
+impl<'u, U, T: MappedEq<U>> MappedEq<&'u U> for &T {
 	type BlankId = T::BlankId;
 
 	fn mapped_eq<'a, 'b, F: Clone + Fn(&'a Self::BlankId) -> &'b Self::BlankId>(

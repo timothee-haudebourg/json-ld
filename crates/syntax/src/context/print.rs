@@ -237,7 +237,7 @@ impl Print for definition::Vocab {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<&'a definition::Vocab> {
+impl PrecomputeSize for Nullable<&definition::Vocab> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -246,7 +246,7 @@ impl<'a> PrecomputeSize for Nullable<&'a definition::Vocab> {
 	}
 }
 
-impl<'a> Print for Nullable<&'a definition::Vocab> {
+impl Print for Nullable<&definition::Vocab> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -255,7 +255,7 @@ impl<'a> Print for Nullable<&'a definition::Vocab> {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<&'a TermDefinition> {
+impl PrecomputeSize for Nullable<&TermDefinition> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -301,7 +301,7 @@ impl Print for term_definition::Simple {
 	}
 }
 
-impl<'a> PrintWithSize for Nullable<&'a TermDefinition> {
+impl PrintWithSize for Nullable<&TermDefinition> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,
@@ -404,7 +404,7 @@ impl Print for term_definition::Id {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<&'a term_definition::Id> {
+impl PrecomputeSize for Nullable<&term_definition::Id> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -413,7 +413,7 @@ impl<'a> PrecomputeSize for Nullable<&'a term_definition::Id> {
 	}
 }
 
-impl<'a> Print for Nullable<&'a term_definition::Id> {
+impl Print for Nullable<&term_definition::Id> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -434,7 +434,7 @@ impl Print for term_definition::Type {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<&'a term_definition::Type> {
+impl PrecomputeSize for Nullable<&term_definition::Type> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -443,7 +443,7 @@ impl<'a> PrecomputeSize for Nullable<&'a term_definition::Type> {
 	}
 }
 
-impl<'a> Print for Nullable<&'a term_definition::Type> {
+impl Print for Nullable<&term_definition::Type> {
 	fn fmt_with(&self, f: &mut fmt::Formatter, options: &Options, indent: usize) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
@@ -500,7 +500,7 @@ impl Print for term_definition::Nest {
 	}
 }
 
-impl<'a> PrecomputeSize for Nullable<&'a Container> {
+impl PrecomputeSize for Nullable<&Container> {
 	fn pre_compute_size(&self, options: &Options, sizes: &mut Vec<Size>) -> Size {
 		match self {
 			Self::Null => Size::Width(4),
@@ -509,7 +509,7 @@ impl<'a> PrecomputeSize for Nullable<&'a Container> {
 	}
 }
 
-impl<'a> PrintWithSize for Nullable<&'a Container> {
+impl PrintWithSize for Nullable<&Container> {
 	fn fmt_with_size(
 		&self,
 		f: &mut fmt::Formatter,

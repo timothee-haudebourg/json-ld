@@ -51,7 +51,7 @@ impl<I> Type<I> {
 	}
 }
 
-impl<'a, I: Clone> Type<&'a I> {
+impl<I: Clone> Type<&I> {
 	/// Clones the referenced IRI.
 	pub fn cloned(self) -> Type<I> {
 		match self {

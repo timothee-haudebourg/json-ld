@@ -339,7 +339,7 @@ impl<'a> Iterator for SubItems<'a> {
 	}
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "serde"))]
 mod tests {
 	use super::Definition;
 
