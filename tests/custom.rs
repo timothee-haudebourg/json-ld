@@ -20,7 +20,7 @@ async fn custom_01() {
 	let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
 
 	eprintln!("available stack: {:?}", stacker::remaining_stack());
-	doc.to_rdf(&mut generator, &mut loader).await.unwrap();
+	doc.to_rdf(&mut generator, &loader).await.unwrap();
 }
 
 // This may fail depending on the default stack size.

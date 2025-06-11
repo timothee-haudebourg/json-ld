@@ -33,13 +33,13 @@ pub trait IntoJson: Sized {
 	fn into_json(self) -> json_syntax::Value;
 }
 
-impl<'n, T: IntoJsonWithContext<N>, N> IntoJson for Contextual<T, &'n N> {
+impl<T: IntoJsonWithContext<N>, N> IntoJson for Contextual<T, &N> {
 	fn into_json(self) -> json_syntax::Value {
 		T::into_json_with(self.0, self.1)
 	}
 }
 
-impl<'n, T: IntoJsonWithContext<N>, N> IntoJson for Contextual<T, &'n mut N> {
+impl<T: IntoJsonWithContext<N>, N> IntoJson for Contextual<T, &mut N> {
 	fn into_json(self) -> json_syntax::Value {
 		T::into_json_with(self.0, self.1)
 	}

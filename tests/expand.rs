@@ -110,7 +110,7 @@ impl expand::Test {
 			expand::Description::Positive { expect } => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 				let expanded = json_ld
-					.expand_full(&mut vocabulary, &mut loader, options, ())
+					.expand_full(&mut vocabulary, &loader, options, ())
 					.await
 					.unwrap();
 
@@ -138,7 +138,7 @@ impl expand::Test {
 			} => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 				let result: Result<_, _> = json_ld
-					.expand_full(&mut vocabulary, &mut loader, options, ())
+					.expand_full(&mut vocabulary, &loader, options, ())
 					.await;
 
 				match result {

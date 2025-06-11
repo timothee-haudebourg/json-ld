@@ -14,7 +14,7 @@ impl<N, W> Handler<N, W> for () {
 	fn handle(&mut self, _vocabulary: &N, _warning: W) {}
 }
 
-impl<'a, N, W, H: Handler<N, W>> Handler<N, W> for &'a mut H {
+impl<N, W, H: Handler<N, W>> Handler<N, W> for &mut H {
 	fn handle(&mut self, vocabulary: &N, warning: W) {
 		H::handle(*self, vocabulary, warning)
 	}

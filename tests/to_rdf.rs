@@ -137,7 +137,7 @@ impl to_rdf::Test {
 
 				let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
 				let mut to_rdf = json_ld
-					.to_rdf_full(&mut vocabulary, &mut generator, &mut loader, options, ())
+					.to_rdf_full(&mut vocabulary, &mut generator, &loader, options, ())
 					.await
 					.unwrap();
 
@@ -155,7 +155,7 @@ impl to_rdf::Test {
 					.collect();
 
 				let expected_content =
-					std::fs::read_to_string(loader.filepath(&expect).unwrap()).unwrap();
+					std::fs::read_to_string(loader.filepath(expect).unwrap()).unwrap();
 				let expected_dataset: IndexedBTreeDataset<IndexTerm> =
 					nquads_syntax::GrdfDocument::parse_str(&expected_content)
 						.unwrap()
@@ -190,7 +190,7 @@ impl to_rdf::Test {
 			} => {
 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
 				let result: Result<_, _> = json_ld
-					.expand_full(&mut vocabulary, &mut loader, options, ())
+					.expand_full(&mut vocabulary, &loader, options, ())
 					.await;
 
 				match result {

@@ -4,11 +4,7 @@ use linked_data::{
 };
 use rdf_types::{Interpretation, LiteralTypeRef, Term, Vocabulary};
 
-use crate::{
-	object::Literal,
-	rdf::{XSD_DOUBLE, XSD_INTEGER},
-	Value,
-};
+use crate::{object::Literal, Value};
 
 impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri> {
 	fn interpretation(
@@ -24,44 +20,23 @@ impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri
 				Literal::Boolean(b) => CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(
 					xsd_types::Value::Boolean((*b).into()),
 				))),
-				Literal::Number(n) => {
-					#[derive(Clone, Copy, Default, PartialEq)]
-					enum NumericType {
-						Integer,
-						Double,
-						#[default]
-						Unknown,
+				Literal::Number(n) => match ty {
+					Some(ty) => match typed_number_interpretation(vocabulary, ty, n) {
+						Some(value) => CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(value))),
+						None => CowRdfTerm::Borrowed(Term::Literal(RdfLiteralRef::Any(
+							n.as_str(),
+							LiteralTypeRef::Any(ty),
+						))),
+					},
+					None => {
+						let value = match n.as_i64() {
+							Some(i) => xsd_types::Value::Integer(i.into()),
+							None => xsd_types::Value::Double(n.as_f64_lossy().into()),
+						};
+
+						CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(value)))
 					}
-
-					impl NumericType {
-						pub fn matches(self, other: Self) -> bool {
-							self == other || self == Self::Unknown
-						}
-					}
-
-					let ty = ty
-						.as_ref()
-						.and_then(|t| vocabulary.iri(t))
-						.map(|iri| {
-							if iri == XSD_INTEGER {
-								NumericType::Integer
-							} else if iri == XSD_DOUBLE {
-								NumericType::Double
-							} else {
-								NumericType::Unknown
-							}
-						})
-						.unwrap_or_default();
-
-					let value = match n.as_i64() {
-						Some(i) if ty.matches(NumericType::Integer) => {
-							xsd_types::Value::Integer(i.into())
-						}
-						_ => xsd_types::Value::Double(n.as_f64_lossy().into()),
-					};
-
-					CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(value)))
-				}
+				},
 				Literal::String(s) => CowRdfTerm::Borrowed(Term::Literal(match ty {
 					Some(ty) => RdfLiteralRef::Any(s.as_str(), LiteralTypeRef::Any(ty)),
 					None => RdfLiteralRef::Xsd(xsd_types::ValueRef::String(s)),
@@ -81,6 +56,16 @@ impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri
 
 		ResourceInterpretation::Uninterpreted(Some(term))
 	}
+}
+
+fn typed_number_interpretation<V: Vocabulary>(
+	vocabulary: &V,
+	ty: &V::Iri,
+	n: &json_syntax::Number,
+) -> Option<xsd_types::Value> {
+	let iri = vocabulary.iri(ty)?;
+	let xsd_ty = xsd_types::Datatype::from_iri(iri)?;
+	xsd_ty.parse(n).ok()
 }
 
 impl<T, V: Vocabulary, I: Interpretation> LinkedDataSubject<I, V> for Value<T> {

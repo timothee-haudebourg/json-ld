@@ -61,7 +61,7 @@ impl<I: PartialEq, B: PartialEq> indexmap::Equivalent<Id<I, B>> for ValidId<I, B
 	}
 }
 
-impl<'a, B> indexmap::Equivalent<Id<IriBuf, B>> for &'a Iri {
+impl<B> indexmap::Equivalent<Id<IriBuf, B>> for &Iri {
 	fn equivalent(&self, key: &Id<IriBuf, B>) -> bool {
 		match key {
 			Id::Valid(ValidId::Iri(iri)) => *self == iri,

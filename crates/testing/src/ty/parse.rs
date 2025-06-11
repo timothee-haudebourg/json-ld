@@ -216,9 +216,9 @@ fn is_option_arguments(args: &syn::PathArguments) -> bool {
 
 fn path_into_option(p: syn::TypePath) -> Result<syn::Type, syn::TypePath> {
 	if is_option_path(&p) {
-		match p.path.segments.into_iter().last().unwrap().arguments {
+		match p.path.segments.into_iter().next_back().unwrap().arguments {
 			syn::PathArguments::AngleBracketed(args) => {
-				match args.args.into_iter().last().unwrap() {
+				match args.args.into_iter().next_back().unwrap() {
 					syn::GenericArgument::Type(ty) => Ok(ty),
 					_ => unreachable!(),
 				}
