@@ -1,16 +1,17 @@
 use std::{hash::Hash, str::FromStr};
 
+/// Context type.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Type {
+pub struct ContextType {
 	#[cfg_attr(feature = "serde", serde(rename = "@container"))]
-	pub container: TypeContainer,
+	pub container: ContextTypeContainer,
 
 	#[cfg_attr(feature = "serde", serde(rename = "@protected"))]
 	pub protected: Option<bool>,
 }
 
-impl Type {
+impl ContextType {
 	pub fn iter(&self) -> ContextTypeEntries {
 		ContextTypeEntries {
 			container: Some(self.container),
@@ -20,7 +21,7 @@ impl Type {
 }
 
 pub struct ContextTypeEntries {
-	container: Option<TypeContainer>,
+	container: Option<ContextTypeContainer>,
 	protected: Option<bool>,
 }
 
@@ -52,7 +53,7 @@ impl Iterator for ContextTypeEntries {
 impl ExactSizeIterator for ContextTypeEntries {}
 
 pub enum ContextTypeEntry {
-	Container(TypeContainer),
+	Container(ContextTypeContainer),
 	Protected(bool),
 }
 
@@ -84,11 +85,11 @@ impl ContextTypeKey {
 pub struct InvalidTypeContainer<T = String>(pub T);
 
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
-pub enum TypeContainer {
+pub enum ContextTypeContainer {
 	Set,
 }
 
-impl TypeContainer {
+impl ContextTypeContainer {
 	pub fn as_str(&self) -> &'static str {
 		match self {
 			Self::Set => "@set",
@@ -100,21 +101,21 @@ impl TypeContainer {
 	}
 }
 
-impl PartialEq for TypeContainer {
+impl PartialEq for ContextTypeContainer {
 	fn eq(&self, _other: &Self) -> bool {
 		true
 	}
 }
 
-impl Eq for TypeContainer {}
+impl Eq for ContextTypeContainer {}
 
-impl Hash for TypeContainer {
+impl Hash for ContextTypeContainer {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.into_str().hash(state)
 	}
 }
 
-impl FromStr for TypeContainer {
+impl FromStr for ContextTypeContainer {
 	type Err = InvalidTypeContainer;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -126,7 +127,7 @@ impl FromStr for TypeContainer {
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for TypeContainer {
+impl serde::Serialize for ContextTypeContainer {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: serde::Serializer,
@@ -136,7 +137,7 @@ impl serde::Serialize for TypeContainer {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for TypeContainer {
+impl<'de> serde::Deserialize<'de> for ContextTypeContainer {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: serde::Deserializer<'de>,
@@ -144,7 +145,7 @@ impl<'de> serde::Deserialize<'de> for TypeContainer {
 		struct Visitor;
 
 		impl<'de> serde::de::Visitor<'de> for Visitor {
-			type Value = TypeContainer;
+			type Value = ContextTypeContainer;
 
 			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
 				formatter.write_str("JSON-LD type container")

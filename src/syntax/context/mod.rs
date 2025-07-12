@@ -1,14 +1,8 @@
 use iref::{Iri, IriRef, IriRefBuf};
-use smallvec::SmallVec;
 
-pub mod definition;
-// mod print;
-pub mod term_definition;
-mod try_from_json;
+mod definition;
 
-pub use definition::Definition;
-pub use term_definition::TermDefinition;
-pub use try_from_json::InvalidContext;
+pub use definition::*;
 
 /// JSON-LD Context.
 ///
@@ -44,7 +38,7 @@ impl Context {
 	}
 
 	/// Creates a new context with a single context definition entry.
-	pub fn definition(def: Definition) -> Self {
+	pub fn definition(def: ContextDefinition) -> Self {
 		Self::one(ContextEntry::Definition(def))
 	}
 }
@@ -80,13 +74,6 @@ impl Context {
 
 	pub fn is_array(&self) -> bool {
 		matches!(self, Self::Many(_))
-	}
-
-	pub fn traverse(&self) -> Traverse {
-		match self {
-			Self::One(c) => Traverse::new(FragmentRef::Context(c)),
-			Self::Many(m) => Traverse::new(FragmentRef::ContextArray(m)),
-		}
 	}
 
 	pub fn iter(&self) -> std::slice::Iter<ContextEntry> {
@@ -161,8 +148,8 @@ impl<'a> From<&'a Iri> for Context {
 	}
 }
 
-impl From<Definition> for Context {
-	fn from(c: Definition) -> Self {
+impl From<ContextDefinition> for Context {
+	fn from(c: ContextDefinition) -> Self {
 		Self::One(ContextEntry::Definition(c))
 	}
 }
@@ -177,17 +164,10 @@ impl From<Definition> for Context {
 pub enum ContextEntry {
 	Null,
 	IriRef(IriRefBuf),
-	Definition(Definition),
+	Definition(ContextDefinition),
 }
 
 impl ContextEntry {
-	fn sub_items(&self) -> ContextSubFragments {
-		match self {
-			Self::Definition(d) => ContextSubFragments::Definition(Box::new(d.iter())),
-			_ => ContextSubFragments::None,
-		}
-	}
-
 	pub fn is_object(&self) -> bool {
 		matches!(self, Self::Definition(_))
 	}
@@ -217,109 +197,9 @@ impl<'a> From<&'a Iri> for ContextEntry {
 	}
 }
 
-impl From<Definition> for ContextEntry {
-	fn from(c: Definition) -> Self {
+impl From<ContextDefinition> for ContextEntry {
+	fn from(c: ContextDefinition) -> Self {
 		ContextEntry::Definition(c)
-	}
-}
-
-/// Context value fragment.
-pub enum FragmentRef<'a> {
-	/// Context array.
-	ContextArray(&'a [ContextEntry]),
-
-	/// Context.
-	Context(&'a ContextEntry),
-
-	/// Context definition fragment.
-	DefinitionFragment(definition::FragmentRef<'a>),
-}
-
-impl<'a> FragmentRef<'a> {
-	pub fn is_array(&self) -> bool {
-		match self {
-			Self::ContextArray(_) => true,
-			Self::DefinitionFragment(i) => i.is_array(),
-			_ => false,
-		}
-	}
-
-	pub fn is_object(&self) -> bool {
-		match self {
-			Self::Context(c) => c.is_object(),
-			Self::DefinitionFragment(i) => i.is_object(),
-			_ => false,
-		}
-	}
-
-	pub fn sub_items(&self) -> SubFragments<'a> {
-		match self {
-			Self::ContextArray(a) => SubFragments::ContextArray(a.iter()),
-			Self::Context(c) => SubFragments::Context(c.sub_items()),
-			Self::DefinitionFragment(d) => SubFragments::Definition(Box::new(d.sub_items())),
-		}
-	}
-}
-
-pub enum ContextSubFragments<'a> {
-	None,
-	Definition(Box<definition::Entries<'a>>),
-}
-
-impl<'a> Iterator for ContextSubFragments<'a> {
-	type Item = FragmentRef<'a>;
-
-	fn next(&mut self) -> Option<Self::Item> {
-		match self {
-			Self::None => None,
-			Self::Definition(e) => e
-				.next()
-				.map(|e| FragmentRef::DefinitionFragment(definition::FragmentRef::Entry(e))),
-		}
-	}
-}
-
-pub enum SubFragments<'a> {
-	ContextArray(std::slice::Iter<'a, ContextEntry>),
-	Context(ContextSubFragments<'a>),
-	Definition(Box<definition::SubItems<'a>>),
-}
-
-impl<'a> Iterator for SubFragments<'a> {
-	type Item = FragmentRef<'a>;
-
-	fn next(&mut self) -> Option<Self::Item> {
-		match self {
-			Self::ContextArray(a) => a.next().map(FragmentRef::Context),
-			Self::Context(i) => i.next(),
-			Self::Definition(i) => i.next().map(FragmentRef::DefinitionFragment),
-		}
-	}
-}
-
-pub struct Traverse<'a> {
-	stack: SmallVec<[FragmentRef<'a>; 8]>,
-}
-
-impl<'a> Traverse<'a> {
-	pub(crate) fn new(item: FragmentRef<'a>) -> Self {
-		let mut stack = SmallVec::new();
-		stack.push(item);
-		Self { stack }
-	}
-}
-
-impl<'a> Iterator for Traverse<'a> {
-	type Item = FragmentRef<'a>;
-
-	fn next(&mut self) -> Option<Self::Item> {
-		match self.stack.pop() {
-			Some(item) => {
-				self.stack.extend(item.sub_items());
-				Some(item)
-			}
-			None => None,
-		}
 	}
 }
 
@@ -329,7 +209,7 @@ impl<'a> Iterator for Traverse<'a> {
 /// `@context` entry.
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ContextDocument {
+pub struct ContextDocumentValue {
 	#[cfg_attr(feature = "serde", serde(rename = "@context"))]
 	pub context: Context,
 }

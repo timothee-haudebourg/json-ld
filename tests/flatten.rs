@@ -1,5 +1,5 @@
 use contextual::WithContext;
-use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
+use json_ld::{JsonLdProcessor, Loader, Print, Document, RemoteDocumentReference};
 use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use static_iref::iri;
 
@@ -141,7 +141,7 @@ impl flatten::Test {
 						)
 						.await
 						.unwrap();
-					let flattened = RemoteDocument::new(Some(input), None, flattened);
+					let flattened = Document::new(Some(input), None, flattened);
 
 					let expect = vocabulary.insert(expect);
 					let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();

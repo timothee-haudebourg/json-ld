@@ -5,7 +5,6 @@ mod compare;
 pub mod container;
 pub mod context;
 mod direction;
-mod error;
 mod expandable;
 mod keyword;
 mod lang;
@@ -14,21 +13,17 @@ mod utils;
 
 pub use compact_iri::*;
 pub use compare::*;
-pub use container::{Container, ContainerKind};
-pub use context::{Context, ContextDocument, ContextEntry};
+pub use container::{Container, ContainerItem};
+pub use context::{Context, ContextDocumentValue, ContextEntry};
 pub use direction::*;
-pub use error::*;
 pub use expandable::*;
 pub use json_syntax::{
-	lexical, object, parse, print, try_from, Kind, Number, NumberBuf, Object, Parse, Print, String,
-	Value,
+	lexical, object, parse, print, try_from, JsonString, Kind, Number, NumberBuf, Object, Parse,
+	Print, Value,
 };
 pub use keyword::*;
 pub use lang::*;
 pub use nullable::*;
 
 #[cfg(feature = "serde")]
-pub use json_syntax::{from_value, to_value};
-
-#[derive(Clone, Copy, Debug)]
-pub struct Unexpected(json_syntax::Kind, &'static [json_syntax::Kind]);
+pub use json_syntax::{from_value, serde, to_value};

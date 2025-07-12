@@ -1,6 +1,8 @@
 use std::fmt;
 
-use super::{context::definition::KeyOrKeyword, Keyword};
+use crate::syntax::context::KeyOrKeyword;
+
+use super::Keyword;
 
 pub enum Expandable {
 	Keyword(Keyword),
@@ -14,15 +16,6 @@ pub enum ExpandableRef<'a> {
 	/// Other term.
 	String(&'a str),
 }
-
-// impl<'a> From<KeyOrKeywordRef<'a>> for ExpandableRef<'a> {
-// 	fn from(k: KeyOrKeywordRef<'a>) -> Self {
-// 		match k {
-// 			KeyOrKeywordRef::Keyword(k) => Self::Keyword(k),
-// 			KeyOrKeywordRef::Key(k) => Self::String(k.as_str()),
-// 		}
-// 	}
-// }
 
 impl<'a> From<&'a KeyOrKeyword> for ExpandableRef<'a> {
 	fn from(k: &'a KeyOrKeyword) -> Self {

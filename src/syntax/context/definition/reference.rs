@@ -1,9 +1,11 @@
-use super::{BindingsIter, Definition, EntryValueSubItems, Key, Type, Version, Vocab};
-use crate::syntax::{context::TermDefinition, Direction, LenientLangTagBuf, Nullable};
+use super::{
+	BindingsIter, ContextDefinition, ContextTerm, ContextType, TermDefinition, Version, Vocab,
+};
+use crate::syntax::{Direction, LenientLangTagBuf, Nullable};
 
 use iref::IriRef;
 
-impl Definition {
+impl ContextDefinition {
 	pub fn iter(&self) -> Entries {
 		Entries {
 			base: self.base.as_ref().map(Nullable::as_deref),
@@ -27,7 +29,7 @@ pub struct Entries<'a> {
 	direction: Option<Nullable<Direction>>,
 	propagate: Option<bool>,
 	protected: Option<bool>,
-	type_: Option<Type>,
+	type_: Option<ContextType>,
 	version: Option<Version>,
 	vocab: Option<Nullable<&'a Vocab>>,
 	bindings: BindingsIter<'a>,
@@ -122,7 +124,7 @@ pub enum EntryValueRef<'a> {
 	Direction(Nullable<Direction>),
 	Propagate(bool),
 	Protected(bool),
-	Type(Type),
+	Type(ContextType),
 	Version(Version),
 	Vocab(Nullable<&'a Vocab>),
 	Definition(Nullable<&'a TermDefinition>),
@@ -136,15 +138,6 @@ impl<'a> EntryValueRef<'a> {
 			_ => false,
 		}
 	}
-
-	pub fn sub_items(&self) -> EntryValueSubItems<'a> {
-		match self {
-			Self::Definition(Nullable::Some(TermDefinition::Expanded(e))) => {
-				EntryValueSubItems::TermDefinitionFragment(Box::new(e.iter()))
-			}
-			_ => EntryValueSubItems::None,
-		}
-	}
 }
 
 pub enum EntryRef<'a> {
@@ -154,10 +147,10 @@ pub enum EntryRef<'a> {
 	Direction(Nullable<Direction>),
 	Propagate(bool),
 	Protected(bool),
-	Type(Type),
+	Type(ContextType),
 	Version(Version),
 	Vocab(Nullable<&'a Vocab>),
-	Definition(&'a Key, Nullable<&'a TermDefinition>),
+	Definition(&'a ContextTerm, Nullable<&'a TermDefinition>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -171,7 +164,7 @@ pub enum EntryKeyRef<'a> {
 	Type,
 	Version,
 	Vocab,
-	Definition(&'a Key),
+	Definition(&'a ContextTerm),
 }
 
 impl<'a> EntryKeyRef<'a> {

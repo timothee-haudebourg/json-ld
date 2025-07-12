@@ -302,7 +302,14 @@
 //!
 //! [`contextual::DisplayWithContext`]: https://docs.rs/contextual/latest/contextual/trait.DisplayWithContext.html
 //! [`contextual::WithContext`]: https://docs.rs/contextual/latest/contextual/trait.WithContext.html
+#[cfg(feature = "algorithms")]
+pub mod algorithms;
+mod core;
 pub mod syntax;
+
+#[cfg(feature = "algorithms")]
+pub use algorithms::{Error, ErrorCode, Warning};
+pub use core::*;
 // pub use json_ld_compaction as compaction;
 // pub use json_ld_context_processing as context_processing;
 // pub use json_ld_core::*;

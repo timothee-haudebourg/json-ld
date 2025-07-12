@@ -134,20 +134,22 @@ impl<'a, T: Clone> Nullable<&'a T> {
 	}
 }
 
+impl<'a, T: Copy> Nullable<&'a T> {
+	/// Copy the referenced inner value.
+	#[inline(always)]
+	pub fn copied(&self) -> Nullable<T> {
+		match self {
+			Nullable::Null => Nullable::Null,
+			Nullable::Some(t) => Nullable::Some(**t),
+		}
+	}
+}
+
 impl<T: fmt::Display> fmt::Display for Nullable<T> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Null => write!(f, "null"),
 			Self::Some(v) => v.fmt(f),
-		}
-	}
-}
-
-impl<T: contextual::DisplayWithContext<V>, V> contextual::DisplayWithContext<V> for Nullable<T> {
-	fn fmt_with(&self, vocabulary: &V, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Self::Null => write!(f, "null"),
-			Self::Some(v) => v.fmt_with(vocabulary, f),
 		}
 	}
 }

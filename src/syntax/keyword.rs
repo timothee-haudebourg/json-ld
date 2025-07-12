@@ -1,99 +1,131 @@
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug)]
-pub struct NotAKeyword<T>(pub T);
+pub struct NotAKeyword<T = String>(pub T);
 
-/// JSON-LD keywords.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum Keyword {
+impl<T: ?Sized + ToOwned> NotAKeyword<&T> {
+	pub fn into_owned(self) -> NotAKeyword<T::Owned> {
+		NotAKeyword(self.0.to_owned())
+	}
+}
+
+macro_rules! keyword {
+	{
+		$(
+			$(#[$meta:meta])*
+			$ident:ident : $lit:literal
+		),*
+	} => {
+		/// JSON-LD keywords.
+		#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+		#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+		pub enum Keyword {
+			$(
+				$(#[$meta])*
+				#[cfg_attr(feature = "serde", serde(rename = $lit))]
+				$ident
+			),*
+		}
+
+		impl Keyword {
+			pub fn into_str(self) -> &'static str {
+				match self {
+					$(
+						Self::$ident => $lit
+					),*
+				}
+			}
+		}
+
+		impl<'a> TryFrom<&'a str> for Keyword {
+			type Error = NotAKeyword<&'a str>;
+
+			fn try_from(input: &'a str) -> Result<Keyword, NotAKeyword<&'a str>> {
+				match input {
+					$(
+						$lit => Ok(Self::$ident),
+					)*
+					_ => Err(NotAKeyword(input))
+				}
+			}
+		}
+    };
+}
+
+keyword! {
 	/// `@base`.
 	/// Used to set the base IRI against which to resolve those relative IRI references
 	/// which are otherwise interpreted relative to the document.
-	#[cfg_attr(feature = "serde", serde(rename = "@base"))]
-	Base,
+	Base : "@base",
 
 	/// `@container`.
 	/// Used to set the default container type for a term.
-	#[cfg_attr(feature = "serde", serde(rename = "@container"))]
-	Container,
+	Container : "@container",
 
 	/// `@context`.
 	/// Used to define the short-hand names that are used throughout a JSON-LD document.
-	#[cfg_attr(feature = "serde", serde(rename = "@context"))]
-	Context,
+	Context : "@context",
 
 	/// `@direction`.
 	/// Used to set the base direction of a JSON-LD value, which are not typed values.
 	/// (e.g. strings, or language-tagged strings).
-	#[cfg_attr(feature = "serde", serde(rename = "@direction"))]
-	Direction,
+	Direction : "@direction",
 
 	/// `@graph`.
 	/// Used to express a graph.
-	#[cfg_attr(feature = "serde", serde(rename = "@graph"))]
-	Graph,
+	Graph : "@graph",
 
 	/// `@id`.
 	/// Used to uniquely identify node objects that are being described in the document with IRIs
 	/// or blank node identifiers.
-	#[cfg_attr(feature = "serde", serde(rename = "@id"))]
-	Id,
+	Id : "@id",
 
 	/// `@import`.
 	/// Used in a context definition to load an external context within which the containing
 	/// context definition is merged.
-	#[cfg_attr(feature = "serde", serde(rename = "@import"))]
-	Import,
+	Import : "@import",
 
 	/// `@included`.
 	/// Used in a top-level node object to define an included block, for including secondary node
 	/// objects within another node object.
-	#[cfg_attr(feature = "serde", serde(rename = "@included"))]
-	Included,
+	Included : "@included",
 
 	/// `@index`.
 	/// Used to specify that a container is used to index information and that processing should
 	/// continue deeper into a JSON data structure.
-	#[cfg_attr(feature = "serde", serde(rename = "@index"))]
-	Index,
+	Index : "@index",
 
 	/// `@json`.
 	/// Used as the @type value of a JSON literal.
-	#[cfg_attr(feature = "serde", serde(rename = "@json"))]
-	Json,
+	Json : "@json",
 
 	/// `@language`.
 	/// Used to specify the language for a particular string value or the default language of a
 	/// JSON-LD document.
-	#[cfg_attr(feature = "serde", serde(rename = "@language"))]
-	Language,
+	Language : "@language",
 
 	/// `@list`.
 	/// Used to express an ordered set of data.
-	#[cfg_attr(feature = "serde", serde(rename = "@list"))]
-	List,
+	List : "@list",
 
 	/// `@nest`.
 	/// Used to define a property of a node object that groups together properties of that node,
 	/// but is not an edge in the graph.
-	#[cfg_attr(feature = "serde", serde(rename = "@nest"))]
-	Nest,
+	Nest : "@nest",
 
 	/// `@none`.
 	/// Used as an index value in an index map, id map, language map, type map, or elsewhere where
 	/// a map is used to index into other values, when the indexed node does not have the feature
 	/// being indexed.
-	#[cfg_attr(feature = "serde", serde(rename = "@none"))]
-	None,
+	None : "@none",
 
 	/// `@prefix`.
 	/// With the value true, allows this term to be used to construct a compact IRI when
 	/// compacting.
-	#[cfg_attr(feature = "serde", serde(rename = "@prefix"))]
-	Prefix,
+	Prefix : "@prefix",
 
 	/// `@propagate`.
 	/// Used in a context definition to change the scope of that context.
@@ -102,108 +134,49 @@ pub enum Keyword {
 	/// (other than for type-scoped contexts, which default to false).
 	/// Setting this to false causes term definitions created within that context to be removed
 	/// when entering a new node object.
-	#[cfg_attr(feature = "serde", serde(rename = "@propagate"))]
-	Propagate,
+	Propagate : "@propagate",
 
 	/// `@protected`.
 	/// Used to prevent term definitions of a context to be overridden by other contexts.
-	#[cfg_attr(feature = "serde", serde(rename = "@protected"))]
-	Protected,
+	Protected : "@protected",
 
 	/// `@reverse`.
 	/// Used to express reverse properties.
-	#[cfg_attr(feature = "serde", serde(rename = "@reverse"))]
-	Reverse,
+	Reverse : "@reverse",
 
 	/// `@set`.
 	/// Used to express an unordered set of data and to ensure that values are always represented
 	/// as arrays.
-	#[cfg_attr(feature = "serde", serde(rename = "@set"))]
-	Set,
+	Set : "@set",
 
 	/// `@type`.
 	/// Used to set the type of a node or the datatype of a typed value.
-	#[cfg_attr(feature = "serde", serde(rename = "@type"))]
-	Type,
+	Type : "@type",
 
 	/// `@value`.
 	/// Used to specify the data that is associated with a particular property in the graph.
-	#[cfg_attr(feature = "serde", serde(rename = "@value"))]
-	Value,
+	Value : "@value",
 
 	/// `@version`.
 	/// Used in a context definition to set the processing mode.
-	#[cfg_attr(feature = "serde", serde(rename = "@version"))]
-	Version,
+	Version : "@version",
 
 	/// `@vocab`.
 	/// Used to expand properties and values in @type with a common prefix IRI.
-	#[cfg_attr(feature = "serde", serde(rename = "@vocab"))]
-	Vocab,
+	Vocab : "@vocab"
 }
 
 impl Keyword {
-	pub fn into_str(self) -> &'static str {
-		use Keyword::*;
-		match self {
-			Base => "@base",
-			Container => "@container",
-			Context => "@context",
-			Direction => "@direction",
-			Graph => "@graph",
-			Id => "@id",
-			Import => "@import",
-			Included => "@included",
-			Index => "@index",
-			Json => "@json",
-			Language => "@language",
-			List => "@list",
-			Nest => "@nest",
-			None => "@none",
-			Prefix => "@prefix",
-			Propagate => "@propagate",
-			Protected => "@protected",
-			Reverse => "@reverse",
-			Set => "@set",
-			Type => "@type",
-			Value => "@value",
-			Version => "@version",
-			Vocab => "@vocab",
-		}
+	pub fn as_str(&self) -> &'static str {
+		self.into_str()
 	}
 }
 
-impl<'a> TryFrom<&'a str> for Keyword {
-	type Error = NotAKeyword<&'a str>;
+impl FromStr for Keyword {
+	type Err = NotAKeyword;
 
-	fn try_from(s: &'a str) -> Result<Keyword, NotAKeyword<&'a str>> {
-		use Keyword::*;
-		match s {
-			"@base" => Ok(Base),
-			"@container" => Ok(Container),
-			"@context" => Ok(Context),
-			"@direction" => Ok(Direction),
-			"@graph" => Ok(Graph),
-			"@id" => Ok(Id),
-			"@import" => Ok(Import),
-			"@included" => Ok(Included),
-			"@index" => Ok(Index),
-			"@json" => Ok(Json),
-			"@language" => Ok(Language),
-			"@list" => Ok(List),
-			"@nest" => Ok(Nest),
-			"@none" => Ok(None),
-			"@prefix" => Ok(Prefix),
-			"@propagate" => Ok(Propagate),
-			"@protected" => Ok(Protected),
-			"@reverse" => Ok(Reverse),
-			"@set" => Ok(Set),
-			"@type" => Ok(Type),
-			"@value" => Ok(Value),
-			"@version" => Ok(Version),
-			"@vocab" => Ok(Vocab),
-			_ => Err(NotAKeyword(s)),
-		}
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		Self::try_from(s).map_err(NotAKeyword::into_owned)
 	}
 }
 
@@ -219,11 +192,29 @@ impl fmt::Display for Keyword {
 	}
 }
 
-// impl<K: JsonBuild> utils::AsAnyJson<K> for Keyword {
-// 	fn as_json_with(&self, meta: K::MetaData) -> K {
-// 		self.into_str().as_json_with(meta)
-// 	}
-// }
+impl PartialEq<str> for Keyword {
+	fn eq(&self, other: &str) -> bool {
+		self.as_str() == other
+	}
+}
+
+impl PartialEq<&str> for Keyword {
+	fn eq(&self, other: &&str) -> bool {
+		self.as_str() == *other
+	}
+}
+
+impl PartialEq<Keyword> for str {
+	fn eq(&self, other: &Keyword) -> bool {
+		self == other.as_str()
+	}
+}
+
+impl PartialEq<Keyword> for &str {
+	fn eq(&self, other: &Keyword) -> bool {
+		*self == other.as_str()
+	}
+}
 
 pub fn is_keyword(str: &str) -> bool {
 	Keyword::try_from(str).is_ok()

@@ -2,7 +2,6 @@ use std::{
 	cmp::Ordering,
 	hash::{Hash, Hasher},
 };
-mod try_from_json;
 
 pub fn into_smallcase(c: u8) -> u8 {
 	if c.is_ascii_uppercase() {

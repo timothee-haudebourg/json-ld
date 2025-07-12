@@ -1,4 +1,4 @@
-use json_ld::{syntax::Parse, JsonLdProcessor, RemoteDocument};
+use json_ld::{syntax::Parse, JsonLdProcessor, Document};
 use static_iref::iri;
 
 async fn custom_01() {
@@ -15,7 +15,7 @@ async fn custom_01() {
 
 	let input = std::fs::read_to_string("tests/custom/t01-in.jsonld").unwrap();
 	let (json, _) = json_ld::syntax::Value::parse_str(&input).unwrap();
-	let doc = RemoteDocument::new(None, None, json);
+	let doc = Document::new(None, None, json);
 
 	let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
 

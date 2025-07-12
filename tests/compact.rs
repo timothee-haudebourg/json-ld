@@ -1,5 +1,5 @@
 use contextual::WithContext;
-use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocument, RemoteDocumentReference};
+use json_ld::{JsonLdProcessor, Loader, Print, Document, RemoteDocumentReference};
 use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
 use static_iref::iri;
 
@@ -127,7 +127,7 @@ impl compact::Test {
 					.compact_full(&mut vocabulary, context, &mut loader, options, ())
 					.await
 					.unwrap();
-				let compacted = RemoteDocument::new(Some(input), None, compacted);
+				let compacted = Document::new(Some(input), None, compacted);
 
 				let expect = vocabulary.insert(expect);
 				let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
