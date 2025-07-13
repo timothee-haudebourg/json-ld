@@ -38,10 +38,11 @@
 
 use crate::{
 	algorithms::{Error, Warning},
+	context::RawProcessedContext,
 	object::Literal,
 	syntax::Keyword,
-	Direction, Id, Indexed, IndexedObject, LangString, LenientLangTagBuf, Nullable, Object,
-	ProcessedContext, Term, ValidId, Value,
+	Direction, Id, Indexed, IndexedObject, LangString, LenientLangTagBuf, Nullable, Object, Term,
+	ValidId, Value,
 };
 
 use super::{ExpandedEntry, Expander};
@@ -54,7 +55,7 @@ impl<'a> Expander<'a> {
 		&self,
 		mut warn: impl FnMut(Warning),
 		input_type: Option<Term>,
-		type_scoped_context: &ProcessedContext,
+		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry>,
 		value_entry: &json_syntax::Value,
 	) -> ValueExpansionResult {

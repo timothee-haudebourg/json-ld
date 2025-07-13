@@ -1,12 +1,13 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{Error, ProcessingEnvironment, ProcessingEnvironmentRefMut, Warning};
+use crate::context::RawProcessedContext;
 use crate::syntax::{Container, ContainerItem, Keyword, LenientLangTagBuf, Nullable};
+use crate::Value;
 use crate::{
 	object, object::value::Literal, Id, Indexed, IndexedObject, LangString, Node, Object,
 	ProcessingMode, Term, Type,
 };
-use crate::{ProcessedContext, Value};
 use indexmap::IndexSet;
 use json_syntax::object::EntryRef;
 use mown::Mown;
@@ -28,7 +29,7 @@ impl<'a> Expander<'a> {
 	pub async fn expand_node(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		type_scoped_context: &ProcessedContext,
+		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 	) -> Result<Option<Indexed<Node>>, Error> {
 		// Initialize two empty maps, `result` and `nests`.
@@ -89,7 +90,7 @@ impl<'a> Expander<'a> {
 		env: &mut impl ProcessingEnvironment,
 		mut result: Indexed<Node>,
 		mut has_value_object_entries: bool,
-		type_scoped_context: &ProcessedContext,
+		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 	) -> NodeEntriesExpensionResult {
 		// For each `key` and `value` in `element`, ordered lexicographically by key

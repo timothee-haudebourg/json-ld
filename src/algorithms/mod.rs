@@ -1,10 +1,13 @@
 mod compaction;
-pub mod context_processing;
+mod context_processing;
 mod error;
-pub mod expansion;
+mod expansion;
 mod warning;
 
+pub use compaction::*;
+pub use context_processing::*;
 pub use error::*;
+pub use expansion::*;
 pub use warning::*;
 
 use crate::Loader;

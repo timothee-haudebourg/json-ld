@@ -1,14 +1,15 @@
 use iref::Iri;
 
 use crate::{
-	algorithms::expansion::ExpansionOptions, context::TermDefinitionRef, ProcessedContext,
+	algorithms::expansion::ExpansionOptions,
+	context::{RawProcessedContext, TermDefinitionRef},
 };
 
 /// Expander.
 pub struct Expander<'a> {
 	pub base_url: Option<&'a Iri>,
 	pub options: ExpansionOptions,
-	pub active_context: &'a ProcessedContext,
+	pub active_context: &'a RawProcessedContext,
 	pub active_property: Option<&'a str>,
 }
 
@@ -22,7 +23,10 @@ impl<'a> Expander<'a> {
 	// 	(self.on_warning)(w)
 	// }
 
-	pub fn with_active_context<'b>(&'b self, active_context: &'b ProcessedContext) -> Expander<'b> {
+	pub fn with_active_context<'b>(
+		&'b self,
+		active_context: &'b RawProcessedContext,
+	) -> Expander<'b> {
 		Expander {
 			// loader: &mut *self.loader,
 			// on_warning: &mut *self.on_warning,
@@ -46,7 +50,7 @@ impl<'a> Expander<'a> {
 
 	pub fn with_active_context_and_property<'b>(
 		&'b self,
-		active_context: &'b ProcessedContext,
+		active_context: &'b RawProcessedContext,
 		active_property: Option<&'b str>,
 	) -> Expander<'b> {
 		Expander {

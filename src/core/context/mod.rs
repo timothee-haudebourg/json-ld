@@ -3,12 +3,13 @@ mod definition;
 pub mod inverse;
 
 use crate::syntax::context::ContextTerm;
-use crate::syntax::KeywordType;
+use crate::syntax::{Context, KeywordType};
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term};
 use iref::{Iri, IriBuf};
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::cell::OnceCell;
 use std::hash::Hash;
+use std::ops::Deref;
 
 pub use definition::*;
 pub use inverse::InverseContext;
@@ -20,7 +21,44 @@ pub use inverse::InverseContext;
 ///
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
-pub struct ProcessedContext {
+pub struct ProcessedContext<'a> {
+	unprocessed: Cow<'a, Context>,
+	raw: RawProcessedContext,
+}
+
+impl ProcessedContext<'_> {
+	pub fn unprocessed(&self) -> &Context {
+		&self.unprocessed
+	}
+
+	pub fn raw_processed_context(&self) -> &RawProcessedContext {
+		&self.raw
+	}
+
+	pub fn into_owned(self) -> ProcessedContext<'static> {
+		ProcessedContext {
+			unprocessed: Cow::Owned(self.unprocessed.into_owned()),
+			raw: self.raw,
+		}
+	}
+}
+
+impl Deref for ProcessedContext<'_> {
+	type Target = RawProcessedContext;
+
+	fn deref(&self) -> &Self::Target {
+		&self.raw
+	}
+}
+
+/// Processed JSON-LD context.
+///
+/// Represents the result of the [context processing algorithm][1] implemented
+/// by the [`json-ld-context-processing`] crate.
+///
+/// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
+/// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
+pub struct RawProcessedContext {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term>,
@@ -31,7 +69,7 @@ pub struct ProcessedContext {
 	inverse: OnceCell<InverseContext>,
 }
 
-impl Default for ProcessedContext {
+impl Default for RawProcessedContext {
 	fn default() -> Self {
 		Self {
 			original_base_url: None,
@@ -48,7 +86,7 @@ impl Default for ProcessedContext {
 
 pub type DefinitionEntryRef<'a> = (&'a ContextTerm, &'a TermDefinition);
 
-impl ProcessedContext {
+impl RawProcessedContext {
 	/// Create a new context with the given base IRI.
 	pub fn new(base_iri: Option<IriBuf>) -> Self {
 		Self {
@@ -242,7 +280,7 @@ impl ProcessedContext {
 	// }
 }
 
-impl Clone for ProcessedContext {
+impl Clone for RawProcessedContext {
 	fn clone(&self) -> Self {
 		Self {
 			original_base_url: self.original_base_url.clone(),
@@ -257,7 +295,7 @@ impl Clone for ProcessedContext {
 	}
 }
 
-impl PartialEq for ProcessedContext {
+impl PartialEq for RawProcessedContext {
 	fn eq(&self, other: &Self) -> bool {
 		self.original_base_url == other.original_base_url
 			&& self.base_iri == other.base_iri

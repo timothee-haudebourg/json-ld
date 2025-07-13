@@ -1,6 +1,6 @@
 use super::BindingRef;
 use super::ContextTerm;
-use super::ProcessedContext;
+use super::RawProcessedContext;
 use crate::syntax::Container;
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type};
 use std::cmp::Ordering;
@@ -238,8 +238,8 @@ impl Default for InverseContext {
 	}
 }
 
-impl<'a> From<&'a ProcessedContext> for InverseContext {
-	fn from(context: &'a ProcessedContext) -> Self {
+impl<'a> From<&'a RawProcessedContext> for InverseContext {
+	fn from(context: &'a RawProcessedContext) -> Self {
 		let mut result = InverseContext::new();
 
 		let mut definitions: Vec<_> = context.definitions().iter().collect();

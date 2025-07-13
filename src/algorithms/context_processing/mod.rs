@@ -15,18 +15,19 @@ use stack::ProcessingStack;
 
 use crate::{
 	algorithms::{error::Error, ProcessingEnvironment},
+	context::RawProcessedContext,
 	syntax::{context::KeyOrKeywordRef, Context, ContextEntry, Keyword},
-	ContextDocument, Loader, Nullable, ProcessedContext, ProcessingMode, Term,
+	ContextDocument, Loader, Nullable, ProcessingMode, Term,
 };
 
 struct TargetProcessedContext<'a> {
-	pub value: &'a mut ProcessedContext,
+	pub value: &'a mut RawProcessedContext,
 	pub defined: DefinedTerms,
 }
 
 struct ContextProcessor<'a> {
 	pub remote_contexts: ProcessingStack,
-	pub active_context: &'a ProcessedContext,
+	pub active_context: &'a RawProcessedContext,
 	pub base_url: Option<&'a Iri>,
 	pub options: ContextProcessingOptions,
 }
@@ -72,7 +73,7 @@ impl<'a> ContextProcessor<'a> {
 
 	fn for_sub_context<'b>(
 		&'b self,
-		active_context: &'b ProcessedContext,
+		active_context: &'b RawProcessedContext,
 		base_url: Option<&'b Iri>,
 		options: ContextProcessingOptions,
 	) -> ContextProcessor<'b> {
@@ -92,7 +93,7 @@ impl ContextDocument {
 	pub async fn process(
 		&self,
 		env: impl ProcessingEnvironment,
-	) -> Result<ProcessedContext, Error> {
+	) -> Result<RawProcessedContext, Error> {
 		self.document.context.process(env, self.url()).await
 	}
 }
@@ -105,8 +106,8 @@ impl Context {
 		&self,
 		env: impl ProcessingEnvironment,
 		base_url: Option<&Iri>,
-	) -> Result<ProcessedContext, Error> {
-		let active_context = ProcessedContext::new(None);
+	) -> Result<RawProcessedContext, Error> {
+		let active_context = RawProcessedContext::new(None);
 		self.process_with(
 			env,
 			base_url,
@@ -123,9 +124,9 @@ impl Context {
 		&self,
 		mut env: impl ProcessingEnvironment,
 		base_url: Option<&Iri>,
-		active_context: &ProcessedContext,
+		active_context: &RawProcessedContext,
 		options: ContextProcessingOptions,
-	) -> Result<ProcessedContext, Error> {
+	) -> Result<RawProcessedContext, Error> {
 		ContextProcessor {
 			options,
 			remote_contexts: ProcessingStack::new(),
@@ -142,7 +143,7 @@ impl<'a> ContextProcessor<'a> {
 		mut self,
 		env: &mut impl ProcessingEnvironment,
 		local_context: &Context,
-	) -> Result<ProcessedContext, Error> {
+	) -> Result<RawProcessedContext, Error> {
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = self.active_context.clone();
 
@@ -184,7 +185,7 @@ impl<'a> ContextProcessor<'a> {
 						// Initialize `result` as a newly-initialized active context, setting both
 						// `base_iri` and `original_base_url` to the value of `original_base_url` in
 						// active context, ...
-						result = ProcessedContext::new(
+						result = RawProcessedContext::new(
 							self.active_context
 								.original_base_url()
 								.map(ToOwned::to_owned),

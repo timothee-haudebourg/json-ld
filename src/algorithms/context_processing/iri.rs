@@ -8,11 +8,12 @@ use crate::{
 		warning::Warning,
 		ProcessingEnvironment,
 	},
+	context::RawProcessedContext,
 	syntax::{
 		context::{ContextTerm, KeyOrKeywordRef},
 		is_keyword_like, CompactIri, ExpandableRef,
 	},
-	Id, Nullable, ProcessedContext, Term,
+	Id, Nullable, Term,
 };
 
 /// Resolve `iri_ref` against the given base IRI.
@@ -170,7 +171,7 @@ impl<'a> ContextProcessor<'a> {
 	}
 }
 
-impl ProcessedContext {
+impl RawProcessedContext {
 	pub fn expand_iri(
 		&self,
 		value: Nullable<ExpandableRef<'_>>,

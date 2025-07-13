@@ -19,11 +19,11 @@ impl<'a> Compactor<'a> {
 		env: &mut impl ProcessingEnvironment,
 		value: &Value,
 		index: Option<&str>,
-		active_property: Option<&str>,
+		// active_property: Option<&str>,
 	) -> Result<json_syntax::Value, Error> {
 		// If the term definition for active property in active context has a local context:
 		let mut active_context = Mown::Borrowed(self.active_context);
-		if let Some(active_property) = active_property {
+		if let Some(active_property) = self.active_property {
 			if let Some(active_property_definition) = active_context.get(active_property) {
 				if let Some(local_context) = active_property_definition.context() {
 					active_context = Mown::Owned(
@@ -58,7 +58,7 @@ impl<'a> Compactor<'a> {
 		// Initialize inverse context to the value of inverse context in active context.
 		// DONE
 
-		let active_property_definition = match active_property {
+		let active_property_definition = match self.active_property {
 			Some(active_property) => active_context.get(active_property),
 			None => None,
 		};
@@ -264,5 +264,59 @@ impl<'a> Compactor<'a> {
 		}
 
 		Ok(json_syntax::Value::Object(result))
+	}
+}
+
+/// Default value of `as_array` is false.
+pub fn add_value(
+	map: &mut json_syntax::Object,
+	key: &str,
+	value: json_syntax::Value,
+	as_array: bool,
+) {
+	match map
+		.get_unique(key)
+		.ok()
+		.unwrap()
+		.map(|entry| entry.is_array())
+	{
+		Some(false) => {
+			let (key, value) = map.remove_unique(key).ok().unwrap().unwrap();
+			map.insert(key, json_syntax::Value::Array(vec![value]));
+		}
+		None if as_array => {
+			map.insert(key, json_syntax::Value::Array(Vec::new()));
+		}
+		_ => (),
+	}
+
+	match value {
+		json_syntax::Value::Array(values) => {
+			for value in values {
+				add_value(map, key, value, false)
+			}
+		}
+		value => {
+			if let Some(array) = map.get_unique_mut(key).ok().unwrap() {
+				array.as_array_mut().unwrap().push(value);
+				return;
+			}
+
+			map.insert(key, value);
+		}
+	}
+}
+
+/// Get the `@value` field of a value object.
+pub fn value_value(value: &Value) -> json_syntax::Value {
+	match value {
+		Value::Literal(lit, _ty) => match lit {
+			Literal::Null => json_syntax::Value::Null,
+			Literal::Boolean(b) => json_syntax::Value::Boolean(*b),
+			Literal::Number(n) => json_syntax::Value::Number(n.clone()),
+			Literal::String(s) => json_syntax::Value::String(s.as_str().into()),
+		},
+		Value::LangString(s) => json_syntax::Value::String(s.as_str().into()),
+		Value::Json(json) => json.clone(),
 	}
 }
