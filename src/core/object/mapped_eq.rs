@@ -150,7 +150,7 @@ fn opt_mapped_eq<A: MappedEq>(
 	}
 }
 
-impl MappedEq for super::Node {
+impl MappedEq for super::NodeObject {
 	fn mapped_eq(&self, other: &Self, f: impl Clone + Fn(&BlankId) -> &BlankId) -> bool {
 		opt_mapped_eq(self.id.as_ref(), other.id.as_ref(), f.clone())
 			&& opt_mapped_eq(self.included_entry(), other.included_entry(), f.clone())

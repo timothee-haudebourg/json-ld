@@ -13,10 +13,10 @@ pub mod node;
 mod typ;
 pub mod value;
 
-pub use list::List;
+pub use list::ListObject;
 pub use mapped_eq::MappedEq;
-pub use node::{Graph, IndexedNode, Node, Nodes};
-pub use value::{Literal, Value};
+pub use node::{Graph, IndexedNode, NodeObject, Nodes};
+pub use value::{LiteralValue, ValueObject};
 
 /// Abstract object.
 pub trait AnyObject {
@@ -65,13 +65,13 @@ pub trait AnyObject {
 /// Object reference.
 pub enum Ref<'a> {
 	/// Value object.
-	Value(&'a Value),
+	Value(&'a ValueObject),
 
 	/// Node object.
-	Node(&'a Node),
+	Node(&'a NodeObject),
 
 	/// List object.
-	List(&'a List),
+	List(&'a ListObject),
 }
 
 /// Indexed object.
@@ -88,25 +88,25 @@ pub type IndexedObject = Indexed<Object>;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Object {
 	/// Value object.
-	Value(Value),
+	Value(ValueObject),
 
 	/// Node object.
-	Node(Box<Node>),
+	Node(Box<NodeObject>),
 
 	/// List object.
-	List(List),
+	List(ListObject),
 }
 
 impl Object {
 	/// Creates a `null` value object.
 	#[inline(always)]
 	pub fn null() -> Self {
-		Self::Value(Value::null())
+		Self::Value(ValueObject::null())
 	}
 
 	/// Creates a new node object from a node.
 	#[inline(always)]
-	pub fn node(n: Node) -> Self {
+	pub fn node(n: NodeObject) -> Self {
 		Self::Node(Box::new(n))
 	}
 
@@ -180,7 +180,7 @@ impl Object {
 
 	/// Returns this object as a value, if it is one.
 	#[inline(always)]
-	pub fn as_value(&self) -> Option<&Value> {
+	pub fn as_value(&self) -> Option<&ValueObject> {
 		match self {
 			Self::Value(v) => Some(v),
 			_ => None,
@@ -189,7 +189,7 @@ impl Object {
 
 	/// Returns this object as a mutable value, if it is one.
 	#[inline(always)]
-	pub fn as_value_mut(&mut self) -> Option<&mut Value> {
+	pub fn as_value_mut(&mut self) -> Option<&mut ValueObject> {
 		match self {
 			Self::Value(v) => Some(v),
 			_ => None,
@@ -198,7 +198,7 @@ impl Object {
 
 	/// Converts this object as a value, if it is one.
 	#[inline(always)]
-	pub fn into_value(self) -> Option<Value> {
+	pub fn into_value(self) -> Option<ValueObject> {
 		match self {
 			Self::Value(v) => Some(v),
 			_ => None,
@@ -213,7 +213,7 @@ impl Object {
 
 	/// Returns this object as a node, if it is one.
 	#[inline(always)]
-	pub fn as_node(&self) -> Option<&Node> {
+	pub fn as_node(&self) -> Option<&NodeObject> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -222,7 +222,7 @@ impl Object {
 
 	/// Returns this object as a mutable node, if it is one.
 	#[inline(always)]
-	pub fn as_node_mut(&mut self) -> Option<&mut Node> {
+	pub fn as_node_mut(&mut self) -> Option<&mut NodeObject> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -231,7 +231,7 @@ impl Object {
 
 	/// Converts this object into a node, if it is one.
 	#[inline(always)]
-	pub fn into_node(self) -> Option<Node> {
+	pub fn into_node(self) -> Option<NodeObject> {
 		match self {
 			Self::Node(n) => Some(*n),
 			_ => None,
@@ -255,7 +255,7 @@ impl Object {
 
 	/// Returns this object as a list, if it is one.
 	#[inline(always)]
-	pub fn as_list(&self) -> Option<&List> {
+	pub fn as_list(&self) -> Option<&ListObject> {
 		match self {
 			Self::List(l) => Some(l),
 			_ => None,
@@ -264,7 +264,7 @@ impl Object {
 
 	/// Returns this object as a mutable list, if it is one.
 	#[inline(always)]
-	pub fn as_list_mut(&mut self) -> Option<&mut List> {
+	pub fn as_list_mut(&mut self) -> Option<&mut ListObject> {
 		match self {
 			Self::List(l) => Some(l),
 			_ => None,
@@ -273,7 +273,7 @@ impl Object {
 
 	/// Converts this object into a list, if it is one.
 	#[inline(always)]
-	pub fn into_list(self) -> Option<List> {
+	pub fn into_list(self) -> Option<ListObject> {
 		match self {
 			Self::List(l) => Some(l),
 			_ => None,
@@ -370,21 +370,21 @@ impl Indexed<Object> {
 
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_node(self) -> Option<Indexed<Node>> {
+	pub fn into_indexed_node(self) -> Option<Indexed<NodeObject>> {
 		let (object, index) = self.into_parts();
 		object.into_node().map(|node| Indexed::new(node, index))
 	}
 
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_value(self) -> Option<Indexed<Value>> {
+	pub fn into_indexed_value(self) -> Option<Indexed<ValueObject>> {
 		let (object, index) = self.into_parts();
 		object.into_value().map(|value| Indexed::new(value, index))
 	}
 
 	/// Converts this indexed object into an indexed list, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_list(self) -> Option<Indexed<List>> {
+	pub fn into_indexed_list(self) -> Option<Indexed<ListObject>> {
 		let (object, index) = self.into_parts();
 		object.into_list().map(|list| Indexed::new(list, index))
 	}
@@ -684,16 +684,16 @@ impl AnyObject for Object {
 	}
 }
 
-impl From<Value> for Object {
+impl From<ValueObject> for Object {
 	#[inline(always)]
-	fn from(value: Value) -> Self {
+	fn from(value: ValueObject) -> Self {
 		Self::Value(value)
 	}
 }
 
-impl From<Node> for Object {
+impl From<NodeObject> for Object {
 	#[inline(always)]
-	fn from(node: Node) -> Self {
+	fn from(node: NodeObject) -> Self {
 		Self::node(node)
 	}
 }

@@ -8,11 +8,11 @@ use super::{AnyObject, MappedEq};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 /// List object.
-pub struct List {
+pub struct ListObject {
 	entry: Vec<IndexedObject>,
 }
 
-impl List {
+impl ListObject {
 	/// Creates a new list object.
 	pub fn new(objects: Vec<IndexedObject>) -> Self {
 		Self { entry: objects }
@@ -98,19 +98,19 @@ impl List {
 // 	}
 // }
 
-impl AnyObject for List {
+impl AnyObject for ListObject {
 	fn as_ref(&self) -> super::Ref {
 		super::Ref::List(self)
 	}
 }
 
-impl MappedEq for List {
+impl MappedEq for ListObject {
 	fn mapped_eq(&self, other: &Self, f: impl Clone + Fn(&BlankId) -> &BlankId) -> bool {
 		self.entry.mapped_eq(&other.entry, f)
 	}
 }
 
-impl<'a> IntoIterator for &'a List {
+impl<'a> IntoIterator for &'a ListObject {
 	type Item = &'a IndexedObject;
 	type IntoIter = core::slice::Iter<'a, IndexedObject>;
 
@@ -119,7 +119,7 @@ impl<'a> IntoIterator for &'a List {
 	}
 }
 
-impl<'a> IntoIterator for &'a mut List {
+impl<'a> IntoIterator for &'a mut ListObject {
 	type Item = &'a mut IndexedObject;
 	type IntoIter = core::slice::IterMut<'a, IndexedObject>;
 
@@ -128,7 +128,7 @@ impl<'a> IntoIterator for &'a mut List {
 	}
 }
 
-impl IntoIterator for List {
+impl IntoIterator for ListObject {
 	type Item = IndexedObject;
 	type IntoIter = std::vec::IntoIter<IndexedObject>;
 

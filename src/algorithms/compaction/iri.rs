@@ -4,7 +4,7 @@ use crate::{
 	context::inverse::{LangSelection, Selection, TypeSelection},
 	object::{self, AnyObject},
 	syntax::{is_keyword, is_keyword_like, Container},
-	Error, Indexed, Nullable, Object, ProcessingMode, Term, Type, Value,
+	Error, Indexed, Nullable, Object, ProcessingMode, Term, Type, ValueObject,
 };
 
 use super::{Compactor, TypeLangValue};
@@ -99,19 +99,21 @@ impl<'a> Compactor<'a> {
 										Object::Value(value) => {
 											is_value = true;
 											match value {
-												Value::LangString(lang_str) => {
+												ValueObject::LangString(lang_str) => {
 													item_lang_dir = Some(Nullable::Some((
 														lang_str.language(),
 														lang_str.direction(),
 													)))
 												}
-												Value::Literal(_, Some(ty)) => {
+												ValueObject::Literal(_, Some(ty)) => {
 													item_type = Some(Type::Iri(ty.clone()))
 												}
-												Value::Literal(_, None) => {
+												ValueObject::Literal(_, None) => {
 													item_lang_dir = Some(Nullable::Null)
 												}
-												Value::Json(_) => item_type = Some(Type::Json),
+												ValueObject::Json(_) => {
+													item_type = Some(Type::Json)
+												}
 											}
 										}
 										_ => item_type = Some(Type::Id),

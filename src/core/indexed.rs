@@ -18,7 +18,7 @@ pub struct Indexed<T> {
 
 impl<T> Indexed<T> {
 	/// Creates a non-indexed value, without metadata.
-	pub fn none(value: T) -> Self {
+	pub fn unindexed(value: T) -> Self {
 		Self::new(value, None)
 	}
 

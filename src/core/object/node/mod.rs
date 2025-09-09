@@ -18,7 +18,7 @@ pub type Graph = IndexSet<IndexedObject>;
 
 pub type Included = IndexSet<IndexedNode>;
 
-pub type IndexedNode = Indexed<Node>;
+pub type IndexedNode = Indexed<NodeObject>;
 
 /// Node object.
 ///
@@ -29,7 +29,7 @@ pub type IndexedNode = Indexed<Node>;
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
 #[derive(Debug, Clone, Eq)]
-pub struct Node {
+pub struct NodeObject {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
@@ -61,32 +61,25 @@ pub struct Node {
 	pub reverse_properties: Option<ReverseProperties>,
 }
 
-impl Default for Node {
+impl Default for NodeObject {
 	#[inline(always)]
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl Node {
+impl NodeObject {
 	/// Creates a new empty node.
 	#[inline(always)]
 	pub fn new() -> Self {
-		Self {
-			id: None,
-			types: None,
-			graph: None,
-			included: None,
-			properties: Properties::new(),
-			reverse_properties: None,
-		}
+		Self::new_with_id(None)
 	}
 
-	/// Creates a new empty node with the given id.
+	/// Creates a new empty node.
 	#[inline(always)]
-	pub fn with_id(id: Id) -> Self {
+	pub fn new_with_id(id: Option<Id>) -> Self {
 		Self {
-			id: Some(id),
+			id,
 			types: None,
 			graph: None,
 			included: None,
@@ -604,7 +597,7 @@ impl Node {
 // 	}
 // }
 
-impl PartialEq for Node {
+impl PartialEq for NodeObject {
 	fn eq(&self, other: &Self) -> bool {
 		self.id.eq(&other.id)
 			&& multiset::compare_unordered_opt(self.types.as_deref(), other.types.as_deref())
@@ -615,7 +608,7 @@ impl PartialEq for Node {
 	}
 }
 
-impl Indexed<Node> {
+impl Indexed<NodeObject> {
 	pub fn entries(&self) -> IndexedEntries {
 		IndexedEntries {
 			index: self.index(),
@@ -624,7 +617,7 @@ impl Indexed<Node> {
 	}
 }
 
-impl Indexed<Node> {
+impl Indexed<NodeObject> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
@@ -929,18 +922,18 @@ impl<'a> IndexedEntryRef<'a> {
 	}
 }
 
-impl object::AnyObject for Node {
+impl object::AnyObject for NodeObject {
 	#[inline(always)]
 	fn as_ref(&self) -> object::Ref {
 		object::Ref::Node(self)
 	}
 }
 
-impl TryFrom<Object> for Node {
+impl TryFrom<Object> for NodeObject {
 	type Error = Object;
 
 	#[inline(always)]
-	fn try_from(obj: Object) -> Result<Node, Object> {
+	fn try_from(obj: Object) -> Result<NodeObject, Object> {
 		match obj {
 			Object::Node(node) => Ok(*node),
 			obj => Err(obj),
@@ -948,7 +941,7 @@ impl TryFrom<Object> for Node {
 	}
 }
 
-impl Hash for Node {
+impl Hash for NodeObject {
 	#[inline]
 	fn hash<H: Hasher>(&self, h: &mut H) {
 		self.id.hash(h);

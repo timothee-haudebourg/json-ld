@@ -6,16 +6,16 @@ use crate::{
 		},
 		ProcessingEnvironment,
 	},
-	object::{AnyObject, List, Ref},
+	object::{AnyObject, ListObject, Ref},
 	syntax::{context::Nest, Container, ContainerItem, Keyword},
-	Error, Id, Indexed, Node, Object, Term,
+	Error, Id, Indexed, NodeObject, Object, Term,
 };
 
 impl Compactor<'_> {
 	async fn compact_property_list(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		list: &List,
+		list: &ListObject,
 		expanded_index: Option<&str>,
 		nest_result: &mut json_syntax::Object,
 		container: Container,
@@ -74,7 +74,7 @@ impl Compactor<'_> {
 	async fn compact_property_graph(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		node: &Node,
+		node: &NodeObject,
 		expanded_index: Option<&str>,
 		nest_result: &mut json_syntax::Object,
 		container: Container,
@@ -622,9 +622,9 @@ impl Compactor<'_> {
 									if map.len() == 1
 										&& map.get_unique("@id").ok().unwrap().is_some()
 									{
-										let obj = Object::node(Node::with_id(
+										let obj = Object::node(NodeObject::new_with_id(Some(
 											expanded_item.id().unwrap().clone(),
-										));
+										)));
 										compacted_item = Box::pin(
 											obj.compact_indexed_fragment(
 												env,
@@ -679,7 +679,7 @@ impl Compactor<'_> {
 				&expanded_property,
 				true,
 				inside_reverse,
-				Some(&Indexed::new(Object::node(Node::new()), None)),
+				Some(&Indexed::new(Object::node(NodeObject::new()), None)),
 			)?;
 
 			// If the term definition for `item_active_property` in the active context

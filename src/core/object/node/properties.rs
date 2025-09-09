@@ -62,6 +62,12 @@ impl Properties {
 		self.0.get(prop).is_some()
 	}
 
+	/// Counts the number of objects associated to the given property.
+	#[inline(always)]
+	pub fn count<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> usize {
+		self.0.get(prop).map(Multiset::len).unwrap_or_default()
+	}
+
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
 	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> Objects {
@@ -87,7 +93,8 @@ impl Properties {
 
 	/// Associate the given object to the node through the given property with metadata.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Id, value: IndexedObject) {
+	pub fn insert(&mut self, prop: impl Into<Id>, value: IndexedObject) {
+		let prop = prop.into();
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(value);
 		} else {
@@ -97,7 +104,8 @@ impl Properties {
 
 	/// Associate the given object to the node through the given property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(&mut self, prop: Id, value: IndexedObject) {
+	pub fn insert_unique(&mut self, prop: impl Into<Id>, value: IndexedObject) {
+		let prop = prop.into();
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
 				node_values.insert(value)
@@ -111,9 +119,10 @@ impl Properties {
 	#[inline(always)]
 	pub fn insert_all<Objects: IntoIterator<Item = IndexedObject>>(
 		&mut self,
-		prop: Id,
+		prop: impl Into<Id>,
 		values: Objects,
 	) {
+		let prop = prop.into();
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.extend(values);
 		} else {
@@ -149,7 +158,8 @@ impl Properties {
 		}
 	}
 
-	pub fn set(&mut self, prop: Id, values: PropertyObjects) {
+	pub fn set(&mut self, prop: impl Into<Id>, values: PropertyObjects) {
+		let prop = prop.into();
 		self.0.insert(prop, values);
 	}
 

@@ -3,7 +3,9 @@ use crate::{object, Direction, LangString, LenientLangTag, Type};
 use educe::Educe;
 use iref::{Iri, IriBuf};
 use json_syntax::{JsonString, Number, NumberBuf};
+use rdf_types::{Literal, LiteralType, RDF_JSON};
 use std::hash::Hash;
+use xsd_types::{XSD_BOOLEAN, XSD_FLOAT, XSD_INTEGER};
 
 /// Value type.
 pub enum ValueType {
@@ -46,7 +48,7 @@ impl<'a> ValueTypeRef<'a> {
 
 /// Literal value.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Literal {
+pub enum LiteralValue {
 	/// The `null` value.
 	Null,
 
@@ -60,12 +62,12 @@ pub enum Literal {
 	String(JsonString),
 }
 
-impl Literal {
+impl LiteralValue {
 	/// Returns this value as a string if it is one.
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
-			Literal::String(s) => Some(s.as_ref()),
+			LiteralValue::String(s) => Some(s.as_ref()),
 			_ => None,
 		}
 	}
@@ -74,7 +76,7 @@ impl Literal {
 	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
-			Literal::Boolean(b) => Some(*b),
+			LiteralValue::Boolean(b) => Some(*b),
 			_ => None,
 		}
 	}
@@ -83,7 +85,7 @@ impl Literal {
 	#[inline(always)]
 	pub fn as_number(&self) -> Option<&Number> {
 		match self {
-			Literal::Number(n) => Some(n),
+			LiteralValue::Number(n) => Some(n),
 			_ => None,
 		}
 	}
@@ -117,9 +119,9 @@ impl Literal {
 ///
 /// Either a typed literal value, or an internationalized language string.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Value {
+pub enum ValueObject {
 	/// Typed literal value.
-	Literal(Literal, Option<IriBuf>),
+	Literal(LiteralValue, Option<IriBuf>),
 
 	/// Language tagged string.
 	LangString(LangString),
@@ -128,24 +130,24 @@ pub enum Value {
 	Json(json_syntax::Value),
 }
 
-impl Value {
+impl ValueObject {
 	/// Creates a `null` value object.
 	#[inline(always)]
 	pub fn null() -> Self {
-		Self::Literal(Literal::Null, None)
+		Self::Literal(LiteralValue::Null, None)
 	}
 
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
-			Value::Literal(lit, _) => lit.as_str(),
-			Value::LangString(str) => Some(str.as_str()),
-			Value::Json(_) => None,
+			ValueObject::Literal(lit, _) => lit.as_str(),
+			ValueObject::LangString(str) => Some(str.as_str()),
+			ValueObject::Json(_) => None,
 		}
 	}
 
 	#[inline(always)]
-	pub fn as_literal(&self) -> Option<(&Literal, Option<&Iri>)> {
+	pub fn as_literal(&self) -> Option<(&LiteralValue, Option<&Iri>)> {
 		match self {
 			Self::Literal(lit, ty) => Some((lit, ty.as_deref())),
 			_ => None,
@@ -184,7 +186,7 @@ impl Value {
 	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
-			Value::Literal(lit, _) => lit.as_bool(),
+			ValueObject::Literal(lit, _) => lit.as_bool(),
 			_ => None,
 		}
 	}
@@ -192,7 +194,7 @@ impl Value {
 	#[inline(always)]
 	pub fn as_number(&self) -> Option<&Number> {
 		match self {
-			Value::Literal(lit, _) => lit.as_number(),
+			ValueObject::Literal(lit, _) => lit.as_number(),
 			_ => None,
 		}
 	}
@@ -202,8 +204,8 @@ impl Value {
 	/// This will return `Some(Type::Json)` for JSON literal values.
 	pub fn typ(&self) -> Option<ValueTypeRef> {
 		match self {
-			Value::Literal(_, Some(ty)) => Some(ValueTypeRef::Id(ty)),
-			Value::Json(_) => Some(ValueTypeRef::Json),
+			ValueObject::Literal(_, Some(ty)) => Some(ValueTypeRef::Id(ty)),
+			ValueObject::Json(_) => Some(ValueTypeRef::Json),
 			_ => None,
 		}
 	}
@@ -214,7 +216,7 @@ impl Value {
 	#[inline(always)]
 	pub fn language(&self) -> Option<&LenientLangTag> {
 		match self {
-			Value::LangString(tag) => tag.language(),
+			ValueObject::LangString(tag) => tag.language(),
 			_ => None,
 		}
 	}
@@ -225,7 +227,7 @@ impl Value {
 	#[inline(always)]
 	pub fn direction(&self) -> Option<Direction> {
 		match self {
-			Value::LangString(str) => str.direction(),
+			ValueObject::LangString(str) => str.direction(),
 			_ => None,
 		}
 	}
@@ -273,10 +275,42 @@ impl Value {
 	// }
 }
 
-impl object::AnyObject for Value {
+impl object::AnyObject for ValueObject {
 	#[inline(always)]
 	fn as_ref(&self) -> object::Ref {
 		object::Ref::Value(self)
+	}
+}
+
+impl From<Literal> for ValueObject {
+	fn from(literal: Literal) -> Self {
+		match literal.type_ {
+			LiteralType::Any(ty) => {
+				if ty == XSD_BOOLEAN {
+					match literal.value.as_str() {
+						"true" => return Self::Literal(LiteralValue::Boolean(true), Some(ty)),
+						"false" => return Self::Literal(LiteralValue::Boolean(false), Some(ty)),
+						_ => (),
+					}
+				} else if ty == XSD_INTEGER || ty == XSD_FLOAT {
+					if let Ok(number) = literal.value.parse() {
+						return Self::Literal(LiteralValue::Number(number), Some(ty));
+					}
+				} else if ty == RDF_JSON {
+					if let Ok(json) = json_syntax::from_str(&literal.value) {
+						return Self::Json(json);
+					}
+				}
+
+				Self::Literal(
+					LiteralValue::String(literal.value.into()),
+					Some(RDF_JSON.to_owned()),
+				)
+			}
+			LiteralType::LangString(langtag) => {
+				Self::LangString(LangString::new_with_language(literal.value, langtag))
+			}
+		}
 	}
 }
 
@@ -332,7 +366,7 @@ pub enum EntryValueRef<'a> {
 }
 
 pub enum ValueEntryRef<'a> {
-	Literal(&'a Literal),
+	Literal(&'a LiteralValue),
 	LangString(&'a str),
 	Json(&'a json_syntax::Value),
 }

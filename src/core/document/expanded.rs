@@ -1,4 +1,4 @@
-use crate::{Indexed, IndexedObject, Node, Object};
+use crate::{Indexed, IndexedObject, NodeObject, Object};
 use indexmap::IndexSet;
 
 /// Result of the document expansion algorithm.
@@ -194,7 +194,7 @@ impl ExpandedDocument {
 	///
 	/// The main node is the unique top level (root) node object. If multiple
 	/// node objects are on the root, `None` is returned.
-	pub fn main_node(&self) -> Option<&Node> {
+	pub fn main_node(&self) -> Option<&NodeObject> {
 		let mut result = None;
 
 		for object in self {
@@ -214,7 +214,7 @@ impl ExpandedDocument {
 	///
 	/// The main node is the unique top level (root) node object. If multiple
 	/// node objects are on the root, `None` is returned.
-	pub fn into_main_node(self) -> Option<Node> {
+	pub fn into_main_node(self) -> Option<NodeObject> {
 		let mut result = None;
 
 		for object in self {
@@ -236,8 +236,8 @@ impl ExpandedDocument {
 	}
 }
 
-impl From<Indexed<Node>> for ExpandedDocument {
-	fn from(value: Indexed<Node>) -> Self {
+impl From<Indexed<NodeObject>> for ExpandedDocument {
+	fn from(value: Indexed<NodeObject>) -> Self {
 		let mut result = Self::default();
 
 		result.insert(value.map_inner(Object::node));

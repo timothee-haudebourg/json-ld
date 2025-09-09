@@ -177,6 +177,12 @@ impl From<IriBuf> for Id {
 	}
 }
 
+impl PartialEq<Iri> for Id {
+	fn eq(&self, other: &Iri) -> bool {
+		self.as_iri() == Some(other)
+	}
+}
+
 impl PartialEq<Term> for Id {
 	#[inline]
 	fn eq(&self, term: &Term) -> bool {
@@ -254,6 +260,15 @@ impl<'a> TryFrom<&'a mut Id> for &'a mut ValidId {
 		match r {
 			Id::Valid(r) => Ok(r),
 			Id::Invalid(id) => Err(id),
+		}
+	}
+}
+
+impl indexmap::Equivalent<Id> for Iri {
+	fn equivalent(&self, key: &Id) -> bool {
+		match key.as_iri() {
+			Some(iri) => self == iri,
+			None => false,
 		}
 	}
 }

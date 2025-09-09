@@ -7,7 +7,7 @@ use crate::{
 		ProcessingEnvironment, ProcessingEnvironmentRefMut,
 	},
 	syntax::{Container, ContainerItem, Keyword},
-	Error, Id, Node, ProcessingMode, Term, Type,
+	Error, Id, NodeObject, ProcessingMode, Term, Type,
 };
 
 mod property;
@@ -23,7 +23,7 @@ impl Compactor<'_> {
 	pub async fn compact_indexed_node_with(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		node: &Node,
+		node: &NodeObject,
 		index: Option<&str>,
 		// type_scoped_context: &ProcessedContext,
 		// active_property: Option<&str>,

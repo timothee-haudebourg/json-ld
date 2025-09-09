@@ -4,8 +4,8 @@ use json_syntax::Number;
 
 use crate::{
 	algorithms::{Error, Warning},
-	object::Literal,
-	IndexedObject, LangString, LenientLangTag, Node, Nullable, Object, Type, Value,
+	object::LiteralValue,
+	IndexedObject, LangString, LenientLangTag, NodeObject, Nullable, Object, Type, ValueObject,
 };
 
 use super::{node_id_of_term, Expander};
@@ -66,7 +66,7 @@ impl<'a> Expander<'a> {
 			// the value is the result of IRI expanding `value` using `true` for `document_relative` and
 			// `false` for vocab.
 			Some(Type::Id) if value.is_string() => {
-				let mut node = Node::new();
+				let mut node = NodeObject::new();
 				let id = node_id_of_term(self.active_context.expand_iri_with(
 					Nullable::Some(value.as_str().unwrap().into()),
 					true,
@@ -83,7 +83,7 @@ impl<'a> Expander<'a> {
 			// `@id` and the value is the result of IRI expanding `value` using `true` for
 			// document relative.
 			Some(Type::Vocab) if value.is_string() => {
-				let mut node = Node::new();
+				let mut node = NodeObject::new();
 				let id = node_id_of_term(self.active_context.expand_iri_with(
 					Nullable::Some(value.as_str().unwrap().into()),
 					true,
@@ -98,12 +98,14 @@ impl<'a> Expander<'a> {
 			_ => {
 				// Otherwise, initialize `result` to a map with an `@value` entry whose value is set to
 				// `value`.
-				let result: Literal = match value {
-					ExpandableLiteralValue::Boolean(b) => Literal::Boolean(b),
-					ExpandableLiteralValue::Number(n) => Literal::Number(unsafe {
+				let result: LiteralValue = match value {
+					ExpandableLiteralValue::Boolean(b) => LiteralValue::Boolean(b),
+					ExpandableLiteralValue::Number(n) => LiteralValue::Number(unsafe {
 						json_syntax::NumberBuf::new_unchecked(n.as_bytes().into())
 					}),
-					ExpandableLiteralValue::String(s) => Literal::String(s.into_owned().into()),
+					ExpandableLiteralValue::String(s) => {
+						LiteralValue::String(s.into_owned().into())
+					}
 				};
 
 				// If `active_property` has a type mapping in active context, other than `@id`,
@@ -113,7 +115,7 @@ impl<'a> Expander<'a> {
 				match active_property_type {
 					None | Some(Type::Id) | Some(Type::Vocab) | Some(Type::None) => {
 						// Otherwise, if value is a string:
-						if let Literal::String(s) = result {
+						if let LiteralValue::String(s) = result {
 							// Initialize `language` to the language mapping for
 							// `active_property` in `active_context`, if any, otherwise to the
 							// default language of `active_context`.
@@ -154,12 +156,13 @@ impl<'a> Expander<'a> {
 							// value `direction`.
 							return match LangString::new(s, language, direction) {
 								Ok(lang_str) => {
-									Ok(Object::Value(Value::LangString(lang_str)).into())
+									Ok(Object::Value(ValueObject::LangString(lang_str)).into())
 								}
-								Err(s) => {
-									Ok(Object::Value(Value::Literal(Literal::String(s), None))
-										.into())
-								}
+								Err(s) => Ok(Object::Value(ValueObject::Literal(
+									LiteralValue::String(s),
+									None,
+								))
+								.into()),
 							};
 						}
 					}
@@ -173,7 +176,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				Ok(Object::Value(Value::Literal(result, ty)).into())
+				Ok(Object::Value(ValueObject::Literal(result, ty)).into())
 			}
 		}
 	}

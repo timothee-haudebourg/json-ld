@@ -3,7 +3,7 @@ use json_syntax::Array;
 use crate::{
 	algorithms::{Error, ProcessingEnvironment},
 	context::TermDefinitionRef,
-	object::List,
+	object::ListObject,
 	syntax::ContainerItem,
 	Object,
 };
@@ -54,7 +54,9 @@ impl<'a> Expander<'a> {
 		}
 
 		if is_list {
-			return Ok(Expanded::Object(Object::List(List::new(result)).into()));
+			return Ok(Expanded::Object(
+				Object::List(ListObject::new(result)).into(),
+			));
 		}
 
 		// Return result.

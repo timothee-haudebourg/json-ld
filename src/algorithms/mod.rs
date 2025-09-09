@@ -1,7 +1,10 @@
 mod compaction;
 mod context_processing;
+mod deserialization;
 mod error;
 mod expansion;
+mod flattening;
+mod serialization;
 mod warning;
 
 pub use compaction::*;

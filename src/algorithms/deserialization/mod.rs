@@ -1,40 +1,43 @@
-use linked_data::{LinkedData, LinkedDataGraph, LinkedDataResource, LinkedDataSubject};
-use rdf_types::{vocabulary::IriVocabularyMut, Interpretation, Vocabulary};
+use linked_data::{LinkedDataSerializer, SerializeLinkedData};
+use rdf_types::Term;
 
-use crate::ExpandedDocument;
+use crate::{ExpandedDocument, Id};
 
 mod object;
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedDataGraph<I, V>
-	for ExpandedDocument<T, B>
-where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
-{
-	fn visit_graph<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
+impl SerializeLinkedData for ExpandedDocument {
+	fn serialize_rdf<S>(&self, mut serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::GraphVisitor<I, V>,
+		S: LinkedDataSerializer<Term>,
 	{
 		for object in self {
-			visitor.subject(object.inner())?;
+			object.serialize_rdf(&mut serializer, graph)?;
 		}
 
-		visitor.end()
+		serializer.end()
 	}
 }
 
-impl<T, B, V: Vocabulary<Iri = T>, I: Interpretation> LinkedData<I, V> for ExpandedDocument<T, B>
-where
-	T: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	B: LinkedDataResource<I, V> + LinkedDataSubject<I, V>,
-	V: IriVocabularyMut,
-{
-	fn visit<S>(&self, mut visitor: S) -> Result<S::Ok, S::Error>
+impl Id {
+	pub fn serialize_rdf_term<S>(&self, serializer: &mut S) -> Result<Term, S::Error>
 	where
-		S: linked_data::Visitor<I, V>,
+		S: LinkedDataSerializer,
 	{
-		visitor.default_graph(self)?;
-		visitor.end()
+		match self {
+			Self::Valid(id) => Ok(id.clone().into()),
+			Self::Invalid(_) => serializer.new_resource(),
+		}
+	}
+}
+
+impl SerializeLinkedData for Id {
+	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
+	where
+		S: LinkedDataSerializer<Term>,
+	{
+		match self {
+			Self::Valid(id) => id.serialize_rdf(serializer, graph),
+			Self::Invalid(_) => serializer.end(),
+		}
 	}
 }

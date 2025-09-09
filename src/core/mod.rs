@@ -23,7 +23,7 @@ pub use id::*;
 pub use indexed::*;
 pub use lang_string::*;
 pub use loader::*;
-pub use object::{IndexedNode, IndexedObject, Node, Nodes, Object, Objects, Value};
+pub use object::{IndexedNode, IndexedObject, NodeObject, Nodes, Object, Objects, ValueObject};
 pub use processing_mode::*;
 // pub use quad::LdQuads;
 // pub use rdf::RdfQuads;

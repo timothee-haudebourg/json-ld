@@ -52,6 +52,17 @@ impl LangString {
 		}
 	}
 
+	pub fn new_with_language(
+		data: impl Into<JsonString>,
+		language: impl Into<LenientLangTagBuf>,
+	) -> Self {
+		Self {
+			data: data.into(),
+			language: Some(language.into()),
+			direction: None,
+		}
+	}
+
 	pub fn into_parts(self) -> (JsonString, Option<LenientLangTagBuf>, Option<Direction>) {
 		(self.data, self.language, self.direction)
 	}

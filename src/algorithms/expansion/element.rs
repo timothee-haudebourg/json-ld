@@ -8,7 +8,7 @@ use crate::{
 		context_processing::ContextProcessingOptions, Error, ProcessingEnvironment,
 		ProcessingEnvironmentRefMut, Warning,
 	},
-	object::List,
+	object::ListObject,
 	syntax::{Context, Keyword},
 	Id, Indexed, Nullable, Object, Term, ValidId,
 };
@@ -317,7 +317,7 @@ impl<'a> Expander<'a> {
 					}
 
 					Ok(Expanded::Object(Indexed::new(
-						Object::List(List::new(result)),
+						Object::List(ListObject::new(result)),
 						index,
 					)))
 				} else if let Some(set_entry) = set_entry {

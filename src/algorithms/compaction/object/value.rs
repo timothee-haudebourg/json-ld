@@ -5,9 +5,9 @@ use crate::{
 		context_processing::ContextProcessingOptions, ProcessingEnvironment,
 		ProcessingEnvironmentRefMut,
 	},
-	object::Literal,
+	object::LiteralValue,
 	syntax::{Container, ContainerItem, Keyword},
-	Error, Id, Term, Type, Value,
+	Error, Id, Term, Type, ValueObject,
 };
 
 use super::Compactor;
@@ -17,7 +17,7 @@ impl<'a> Compactor<'a> {
 	pub async fn compact_indexed_value_with(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		value: &Value,
+		value: &ValueObject,
 		index: Option<&str>,
 		// active_property: Option<&str>,
 	) -> Result<json_syntax::Value, Error> {
@@ -102,13 +102,15 @@ impl<'a> Compactor<'a> {
 			|| index.is_none();
 
 		match value {
-			Value::Literal(lit, ty) => {
+			ValueObject::Literal(lit, ty) => {
 				if ty.clone().map(Type::Iri) == type_mapping && remove_index {
 					match lit {
-						Literal::Null => return Ok(json_syntax::Value::Null),
-						Literal::Boolean(b) => return Ok(json_syntax::Value::Boolean(*b)),
-						Literal::Number(n) => return Ok(json_syntax::Value::Number(n.clone())),
-						Literal::String(s) => {
+						LiteralValue::Null => return Ok(json_syntax::Value::Null),
+						LiteralValue::Boolean(b) => return Ok(json_syntax::Value::Boolean(*b)),
+						LiteralValue::Number(n) => {
+							return Ok(json_syntax::Value::Number(n.clone()))
+						}
+						LiteralValue::String(s) => {
 							if ty.is_some() || (language.is_none() && direction.is_none()) {
 								return Ok(json_syntax::Value::String(s.as_str().into()));
 							} else {
@@ -129,19 +131,19 @@ impl<'a> Compactor<'a> {
 						false,
 					)?;
 					match lit {
-						Literal::Null => {
+						LiteralValue::Null => {
 							result.insert(compact_key.unwrap(), json_syntax::Value::Null);
 						}
-						Literal::Boolean(b) => {
+						LiteralValue::Boolean(b) => {
 							result.insert(compact_key.unwrap(), json_syntax::Value::Boolean(*b));
 						}
-						Literal::Number(n) => {
+						LiteralValue::Number(n) => {
 							result.insert(
 								compact_key.unwrap(),
 								json_syntax::Value::Number(n.clone()),
 							);
 						}
-						Literal::String(s) => {
+						LiteralValue::String(s) => {
 							result.insert(
 								compact_key.unwrap(),
 								json_syntax::Value::String(s.as_str().into()),
@@ -170,7 +172,7 @@ impl<'a> Compactor<'a> {
 					}
 				}
 			}
-			Value::LangString(ls) => {
+			ValueObject::LangString(ls) => {
 				let ls_language = ls.language(); //.map(|l| Nullable::Some(l));
 				let ls_direction = ls.direction(); //.map(|d| Nullable::Some(d));
 
@@ -216,7 +218,7 @@ impl<'a> Compactor<'a> {
 					}
 				}
 			}
-			Value::Json(value) => {
+			ValueObject::Json(value) => {
 				if type_mapping == Some(Type::Json) && remove_index {
 					return Ok(value.clone());
 				} else {
@@ -308,15 +310,15 @@ pub fn add_value(
 }
 
 /// Get the `@value` field of a value object.
-pub fn value_value(value: &Value) -> json_syntax::Value {
+pub fn value_value(value: &ValueObject) -> json_syntax::Value {
 	match value {
-		Value::Literal(lit, _ty) => match lit {
-			Literal::Null => json_syntax::Value::Null,
-			Literal::Boolean(b) => json_syntax::Value::Boolean(*b),
-			Literal::Number(n) => json_syntax::Value::Number(n.clone()),
-			Literal::String(s) => json_syntax::Value::String(s.as_str().into()),
+		ValueObject::Literal(lit, _ty) => match lit {
+			LiteralValue::Null => json_syntax::Value::Null,
+			LiteralValue::Boolean(b) => json_syntax::Value::Boolean(*b),
+			LiteralValue::Number(n) => json_syntax::Value::Number(n.clone()),
+			LiteralValue::String(s) => json_syntax::Value::String(s.as_str().into()),
 		},
-		Value::LangString(s) => json_syntax::Value::String(s.as_str().into()),
-		Value::Json(json) => json.clone(),
+		ValueObject::LangString(s) => json_syntax::Value::String(s.as_str().into()),
+		ValueObject::Json(json) => json.clone(),
 	}
 }

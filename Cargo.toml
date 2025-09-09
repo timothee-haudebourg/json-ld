@@ -42,15 +42,21 @@ hashbrown = "0.13.1"
 smallvec = "1.10"
 log = "0.4.17"
 thiserror = "1.0.38"
-indexmap = "2.0"
+indexmap = "2.10"
 mime = "0.3"
 
-serde = { version = "1.0", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
 
 # iref-enum = "3.0"
 
-linked-data = "0.1"
 anyhow = "1.0.98"
+
+# Serialization/deserialization with `serde`.
+# linked-data = "0.1"
+linked-data = { path = "/home/timothee/Projets/rdf/linked-data-rs/", features = [
+	"indexmap",
+] }
+xsd-types.path = "/home/timothee/Projets/rdf/xsd-types/"
 
 # Loader implementation based on `reqwest`.
 reqwest = { version = "0.12.22", optional = true }

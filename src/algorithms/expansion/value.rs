@@ -39,10 +39,10 @@
 use crate::{
 	algorithms::{Error, Warning},
 	context::RawProcessedContext,
-	object::Literal,
+	object::LiteralValue,
 	syntax::Keyword,
 	Direction, Id, Indexed, IndexedObject, LangString, LenientLangTagBuf, Nullable, Object, Term,
-	ValidId, Value,
+	ValidId, ValueObject,
 };
 
 use super::{ExpandedEntry, Expander};
@@ -155,7 +155,7 @@ impl<'a> Expander<'a> {
 				return Err(Error::InvalidValueObject);
 			}
 			return Ok(Some(Indexed::new(
-				Object::Value(Value::Json(value_entry.clone())),
+				Object::Value(ValueObject::Json(value_entry.clone())),
 				index,
 			)));
 		}
@@ -163,10 +163,10 @@ impl<'a> Expander<'a> {
 		// Otherwise, if value is not a scalar or null, an invalid value object value
 		// error has been detected and processing is aborted.
 		let result = match value_entry {
-			json_syntax::Value::Null => Literal::Null,
-			json_syntax::Value::String(s) => Literal::String(s.clone()),
-			json_syntax::Value::Number(n) => Literal::Number(n.clone()),
-			json_syntax::Value::Boolean(b) => Literal::Boolean(*b),
+			json_syntax::Value::Null => LiteralValue::Null,
+			json_syntax::Value::String(s) => LiteralValue::String(s.clone()),
+			json_syntax::Value::Number(n) => LiteralValue::Number(n.clone()),
+			json_syntax::Value::Boolean(b) => LiteralValue::Boolean(*b),
 			_ => {
 				return Err(Error::InvalidValueObjectValue);
 			}
@@ -178,7 +178,7 @@ impl<'a> Expander<'a> {
 
 		// Otherwise, if the value of result's @value entry is null, or an empty array,
 		// return null
-		if matches!(result, Literal::Null) {
+		if matches!(result, LiteralValue::Null) {
 			return Ok(None);
 		}
 
@@ -191,7 +191,7 @@ impl<'a> Expander<'a> {
 				return Err(Error::InvalidValueObject);
 			}
 
-			if let Literal::String(s) = result {
+			if let LiteralValue::String(s) = result {
 				let lang = match language {
 					Some(language) => {
 						let (language, error) = LenientLangTagBuf::new(language);
@@ -207,7 +207,7 @@ impl<'a> Expander<'a> {
 
 				return match LangString::new(s, lang, direction) {
 					Ok(result) => Ok(Some(Indexed::new(
-						Object::Value(Value::LangString(result)),
+						Object::Value(ValueObject::LangString(result)),
 						index,
 					))),
 					Err(_) => Err(Error::InvalidLanguageTaggedValue),
@@ -223,7 +223,7 @@ impl<'a> Expander<'a> {
 		// TODO
 
 		Ok(Some(Indexed::new(
-			Object::Value(Value::Literal(result, ty)),
+			Object::Value(ValueObject::Literal(result, ty)),
 			index,
 		)))
 	}

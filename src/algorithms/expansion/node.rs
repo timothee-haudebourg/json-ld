@@ -3,10 +3,10 @@ use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{Error, ProcessingEnvironment, ProcessingEnvironmentRefMut, Warning};
 use crate::context::RawProcessedContext;
 use crate::syntax::{Container, ContainerItem, Keyword, LenientLangTagBuf, Nullable};
-use crate::Value;
+use crate::ValueObject;
 use crate::{
-	object, object::value::Literal, Id, Indexed, IndexedObject, LangString, Node, Object,
-	ProcessingMode, Term, Type,
+	object, object::value::LiteralValue, Id, Indexed, IndexedObject, LangString, NodeObject,
+	Object, ProcessingMode, Term, Type,
 };
 use indexmap::IndexSet;
 use json_syntax::object::EntryRef;
@@ -31,7 +31,7 @@ impl<'a> Expander<'a> {
 		env: &mut impl ProcessingEnvironment,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
-	) -> Result<Option<Indexed<Node>>, Error> {
+	) -> Result<Option<Indexed<NodeObject>>, Error> {
 		// Initialize two empty maps, `result` and `nests`.
 		// let mut result = Indexed::new(Node::new(), None);
 		// let mut has_value_object_entries = false;
@@ -39,7 +39,7 @@ impl<'a> Expander<'a> {
 		let (result, has_value_object_entries) = self
 			.expand_node_entries(
 				env,
-				Indexed::new(Node::new(), None),
+				Indexed::new(NodeObject::new(), None),
 				false,
 				// active_context,
 				type_scoped_context,
@@ -88,7 +88,7 @@ impl<'a> Expander<'a> {
 	async fn expand_node_entries(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		mut result: Indexed<Node>,
+		mut result: Indexed<NodeObject>,
 		mut has_value_object_entries: bool,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
@@ -227,7 +227,7 @@ impl<'a> Expander<'a> {
 							.await?;
 							let mut expanded_nodes = Vec::new();
 							for obj in expanded_value.into_iter() {
-								match obj.try_cast::<Node>() {
+								match obj.try_cast::<NodeObject>() {
 									Ok(node) => expanded_nodes.push(node),
 									Err(_) => {
 										return Err(Error::InvalidIncludedValue);
@@ -328,7 +328,7 @@ impl<'a> Expander<'a> {
 											} else {
 												let mut reverse_expanded_nodes = Vec::new();
 												for object in reverse_expanded_value {
-													match object.try_cast::<Node>() {
+													match object.try_cast::<NodeObject>() {
 														Ok(node) => {
 															reverse_expanded_nodes.push(node)
 														}
@@ -489,7 +489,7 @@ impl<'a> Expander<'a> {
 					}
 
 					let mut expanded_value = if is_json {
-						Expanded::Object(Object::Value(Value::Json(value.clone())).into())
+						Expanded::Object(Object::Value(ValueObject::Json(value.clone())).into())
 					} else {
 						match value.as_object() {
 							Some(value) if container_mapping.contains(ContainerItem::Language) => {
@@ -575,12 +575,13 @@ impl<'a> Expander<'a> {
 
 													// Append v to expanded value.
 													expanded_value.push(
-														Object::Value(Value::LangString(v)).into(),
+														Object::Value(ValueObject::LangString(v))
+															.into(),
 													)
 												} else {
 													expanded_value.push(
-														Object::Value(Value::Literal(
-															Literal::String(item.clone()),
+														Object::Value(ValueObject::Literal(
+															LiteralValue::String(item.clone()),
 															None,
 														))
 														.into(),
@@ -733,7 +734,7 @@ impl<'a> Expander<'a> {
 										if container_mapping.contains(ContainerItem::Graph)
 											&& !item.is_graph()
 										{
-											let mut node = Node::new();
+											let mut node = NodeObject::new();
 											let mut graph = IndexSet::new();
 											graph.insert(item);
 											node.set_graph_entry(Some(graph));
@@ -883,8 +884,10 @@ impl<'a> Expander<'a> {
 					if container_mapping.contains(ContainerItem::List) && !expanded_value.is_list()
 					{
 						expanded_value = Expanded::Object(
-							Object::List(object::List::new(expanded_value.into_iter().collect()))
-								.into(),
+							Object::List(object::ListObject::new(
+								expanded_value.into_iter().collect(),
+							))
+							.into(),
 						);
 					}
 
@@ -900,7 +903,7 @@ impl<'a> Expander<'a> {
 							expanded_value
 								.into_iter()
 								.map(|ev| {
-									let mut node = Node::new();
+									let mut node = NodeObject::new();
 									let mut graph = IndexSet::new();
 									graph.insert(ev);
 									node.set_graph_entry(Some(graph));
@@ -917,7 +920,7 @@ impl<'a> Expander<'a> {
 							// We must filter out anything that is not an object.
 							let mut reverse_expanded_nodes = Vec::new();
 							for object in expanded_value {
-								match object.try_cast::<Node>() {
+								match object.try_cast::<NodeObject>() {
 									Ok(node) => reverse_expanded_nodes.push(node),
 									Err(_) => return Err(Error::InvalidReversePropertyValue),
 								}
@@ -953,7 +956,7 @@ impl<'a> Expander<'a> {
 /// It is a tuple containing both the node being expanded
 /// and a boolean flag set to `true` if the node contains
 /// value object entries (in practice, if it has a `@language` entry).
-type ExpandedNode = (Indexed<Node>, bool);
+type ExpandedNode = (Indexed<NodeObject>, bool);
 
 /// Result of the `expand_node_entries` function.
 type NodeEntriesExpensionResult = Result<ExpandedNode, Error>;
