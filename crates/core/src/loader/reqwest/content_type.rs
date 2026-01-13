@@ -104,7 +104,7 @@ impl ContentType {
 	}
 
 	pub fn is_json_ld(&self) -> bool {
-		self.media_type == "application/json" || self.media_type == "application/ld+json"
+		self.media_type == "application/json" || self.media_type == "application/ld+json" || self.media_type == "application/activity+json"
 	}
 
 	pub fn media_type(&self) -> &Mime {
