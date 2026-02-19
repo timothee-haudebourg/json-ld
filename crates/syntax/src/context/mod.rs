@@ -82,14 +82,14 @@ impl Context {
 		matches!(self, Self::Many(_))
 	}
 
-	pub fn traverse(&self) -> Traverse {
+	pub fn traverse(&self) -> Traverse<'_> {
 		match self {
 			Self::One(c) => Traverse::new(FragmentRef::Context(c)),
 			Self::Many(m) => Traverse::new(FragmentRef::ContextArray(m)),
 		}
 	}
 
-	pub fn iter(&self) -> std::slice::Iter<ContextEntry> {
+	pub fn iter(&self) -> std::slice::Iter<'_, ContextEntry> {
 		self.as_slice().iter()
 	}
 }
@@ -181,7 +181,7 @@ pub enum ContextEntry {
 }
 
 impl ContextEntry {
-	fn sub_items(&self) -> ContextSubFragments {
+	fn sub_items(&self) -> ContextSubFragments<'_> {
 		match self {
 			Self::Definition(d) => ContextSubFragments::Definition(Box::new(d.iter())),
 			_ => ContextSubFragments::None,

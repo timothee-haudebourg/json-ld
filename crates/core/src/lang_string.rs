@@ -129,7 +129,7 @@ impl LangString {
 	}
 
 	/// Returns a reference to this lang string as a [`LangStr`].
-	pub fn as_lang_str(&self) -> LangStr {
+	pub fn as_lang_str(&self) -> LangStr<'_> {
 		LangStr {
 			data: &self.data,
 			language: self.language.as_deref(),

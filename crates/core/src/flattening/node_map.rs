@@ -42,14 +42,14 @@ impl<T, B> NodeMap<T, B> {
 		(self.default_graph, self.graphs)
 	}
 
-	pub fn iter(&self) -> Iter<T, B> {
+	pub fn iter(&self) -> Iter<'_, T, B> {
 		Iter {
 			default_graph: Some(&self.default_graph),
 			graphs: self.graphs.iter(),
 		}
 	}
 
-	pub fn iter_named(&self) -> std::collections::hash_map::Iter<Id<T, B>, NodeMapGraph<T, B>> {
+	pub fn iter_named(&self) -> std::collections::hash_map::Iter<'_, Id<T, B>, NodeMapGraph<T, B>> {
 		self.graphs.iter()
 	}
 }
@@ -176,7 +176,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
 		self.nodes.get_mut(id)
 	}
 
-	pub fn declare_node(&mut self, id: Id<T, B>, index: Option<&str>) -> DeclareNodeResult<T, B>
+	pub fn declare_node(&mut self, id: Id<T, B>, index: Option<&str>) -> DeclareNodeResult<'_, T, B>
 	where
 		T: Clone,
 		B: Clone,
@@ -261,7 +261,7 @@ impl<T: Eq + Hash, B: Eq + Hash> NodeMapGraph<T, B> {
 		}
 	}
 
-	pub fn nodes(&self) -> NodeMapGraphNodes<T, B> {
+	pub fn nodes(&self) -> NodeMapGraphNodes<'_, T, B> {
 		self.nodes.values()
 	}
 

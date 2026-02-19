@@ -112,7 +112,7 @@ impl<T, B> Definitions<T, B> {
 	}
 
 	/// Returns a reference to the definition of the given `term`, if any.
-	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<T, B>>
+	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<'_, T, B>>
 	where
 		Q: ?Sized + Hash + Eq,
 		Key: Borrow<Q>,
@@ -197,7 +197,7 @@ impl<T, B> Definitions<T, B> {
 	}
 
 	/// Returns an iterator over the term definitions.
-	pub fn iter(&self) -> Iter<T, B> {
+	pub fn iter(&self) -> Iter<'_, T, B> {
 		Iter {
 			type_: self.type_.as_ref(),
 			normal: self.normal.iter(),
@@ -319,14 +319,14 @@ pub enum TermDefinition<T, B> {
 }
 
 impl<T, B> TermDefinition<T, B> {
-	pub fn as_ref(&self) -> TermDefinitionRef<T, B> {
+	pub fn as_ref(&self) -> TermDefinitionRef<'_, T, B> {
 		match self {
 			Self::Type(t) => TermDefinitionRef::Type(t),
 			Self::Normal(n) => TermDefinitionRef::Normal(n),
 		}
 	}
 
-	pub fn modulo_protected_field(&self) -> ModuloProtected<TermDefinitionRef<T, B>> {
+	pub fn modulo_protected_field(&self) -> ModuloProtected<TermDefinitionRef<'_, T, B>> {
 		ModuloProtected(self.as_ref())
 	}
 

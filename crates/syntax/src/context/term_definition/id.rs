@@ -64,7 +64,7 @@ impl Id {
 		crate::is_keyword_like(self.as_str())
 	}
 
-	pub fn as_id_ref(&self) -> IdRef {
+	pub fn as_id_ref(&self) -> IdRef<'_> {
 		match self {
 			Self::Term(t) => IdRef::Term(t),
 			Self::Keyword(k) => IdRef::Keyword(*k),

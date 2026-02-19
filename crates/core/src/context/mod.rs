@@ -73,7 +73,7 @@ impl<T, B> Context<T, B> {
 	}
 
 	/// Returns a reference to the given `term` definition, if any.
-	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<T, B>>
+	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<'_, T, B>>
 	where
 		Key: Borrow<Q>,
 		KeywordType: Borrow<Q>,

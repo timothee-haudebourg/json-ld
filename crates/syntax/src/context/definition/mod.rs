@@ -114,7 +114,7 @@ impl Definition {
 		Self::default()
 	}
 
-	pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef> {
+	pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<'_>> {
 		match key {
 			KeyOrKeyword::Keyword(k) => match k {
 				Keyword::Base => self
@@ -207,7 +207,7 @@ impl Bindings {
 			.map(|(key, value)| (key, value.as_ref()))
 	}
 
-	pub fn iter(&self) -> BindingsIter {
+	pub fn iter(&self) -> BindingsIter<'_> {
 		BindingsIter(self.0.iter())
 	}
 

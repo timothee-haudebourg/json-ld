@@ -15,7 +15,7 @@ where
 		&self,
 		vocabulary: &mut V,
 		interpretation: &mut I,
-	) -> ResourceInterpretation<I, V> {
+	) -> ResourceInterpretation<'_, I, V> {
 		match &self.id {
 			Some(crate::Id::Valid(id)) => id.interpretation(vocabulary, interpretation),
 			_ => ResourceInterpretation::Uninterpreted(None),

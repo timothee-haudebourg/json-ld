@@ -24,7 +24,7 @@ pub use value::{Literal, Value};
 
 /// Abstract object.
 pub trait Any<T, B> {
-	fn as_ref(&self) -> Ref<T, B>;
+	fn as_ref(&self) -> Ref<'_, T, B>;
 
 	#[inline]
 	fn id(&self) -> Option<&Id<T, B>> {
@@ -182,7 +182,7 @@ impl<T, B> Object<T, B> {
 	}
 
 	/// Returns an iterator over the types of the object.
-	pub fn types(&self) -> Types<T, B> {
+	pub fn types(&self) -> Types<'_, T, B> {
 		match self {
 			Self::Value(value) => Types::Value(value.typ()),
 			Self::Node(node) => Types::Node(node.types().iter()),
@@ -364,11 +364,11 @@ impl<T, B> Object<T, B> {
 	///   - key-value pairs,
 	///   - keys
 	///   - values
-	pub fn traverse(&self) -> Traverse<T, B> {
+	pub fn traverse(&self) -> Traverse<'_, T, B> {
 		Traverse::new(Some(FragmentRef::Object(self)))
 	}
 
-	fn sub_fragments(&self) -> ObjectSubFragments<T, B> {
+	fn sub_fragments(&self) -> ObjectSubFragments<'_, T, B> {
 		match self {
 			Self::Value(v) => ObjectSubFragments::Value(v.entries()),
 			Self::List(l) => ObjectSubFragments::List(Some(l.entry())),
@@ -394,7 +394,7 @@ impl<T, B> Object<T, B> {
 
 	/// Returns an iterator over the entries of JSON representation of the
 	/// object.
-	pub fn entries(&self) -> Entries<T, B> {
+	pub fn entries(&self) -> Entries<'_, T, B> {
 		match self {
 			Self::Value(value) => Entries::Value(value.entries()),
 			Self::List(list) => Entries::List(Some(list.entry())),
@@ -490,7 +490,7 @@ impl<T, B> Indexed<Object<T, B>> {
 		}
 	}
 
-	pub fn entries(&self) -> IndexedEntries<T, B> {
+	pub fn entries(&self) -> IndexedEntries<'_, T, B> {
 		IndexedEntries {
 			index: self.index(),
 			inner: self.inner().entries(),
@@ -913,7 +913,7 @@ impl InvalidExpandedJson {
 
 impl<T, B> Any<T, B> for Object<T, B> {
 	#[inline(always)]
-	fn as_ref(&self) -> Ref<T, B> {
+	fn as_ref(&self) -> Ref<'_, T, B> {
 		match self {
 			Object::Value(value) => Ref::Value(value),
 			Object::Node(node) => Ref::Node(node),

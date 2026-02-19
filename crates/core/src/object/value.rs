@@ -15,7 +15,7 @@ pub enum Type<T> {
 }
 
 impl<T> Type<T> {
-	pub fn as_id(&self) -> Option<crate::id::Ref<T>> {
+	pub fn as_id(&self) -> Option<crate::id::Ref<'_, T>> {
 		match self {
 			Self::Json => None,
 			Self::Id(t) => Some(crate::id::Ref::Iri(t)),
@@ -203,7 +203,7 @@ impl<T> Value<T> {
 	/// Return the type of the value if any.
 	///
 	/// This will return `Some(Type::Json)` for JSON literal values.
-	pub fn typ(&self) -> Option<TypeRef<T>> {
+	pub fn typ(&self) -> Option<TypeRef<'_, T>> {
 		match self {
 			Value::Literal(_, Some(ty)) => Some(TypeRef::Id(ty)),
 			Value::Json(_) => Some(TypeRef::Json),
@@ -234,7 +234,7 @@ impl<T> Value<T> {
 	}
 
 	#[inline(always)]
-	pub fn entries(&self) -> Entries<T> {
+	pub fn entries(&self) -> Entries<'_, T> {
 		match self {
 			Self::Literal(l, ty) => Entries {
 				value: Some(ValueEntryRef::Literal(l)),
@@ -349,7 +349,7 @@ impl TryFrom<json_syntax::Value> for Literal {
 
 impl<T, B> object::Any<T, B> for Value<T> {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref<T, B> {
+	fn as_ref(&self) -> object::Ref<'_, T, B> {
 		object::Ref::Value(self)
 	}
 }

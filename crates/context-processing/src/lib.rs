@@ -159,7 +159,7 @@ pub trait Process {
 		base_url: Option<N::Iri>,
 		options: Options,
 		warnings: W,
-	) -> Result<Processed<N::Iri, N::BlankId>, Error>
+	) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
 		N::Iri: Clone + Eq + Hash,
@@ -177,7 +177,7 @@ pub trait Process {
 		loader: &L,
 		base_url: Option<N::Iri>,
 		options: Options,
-	) -> Result<Processed<N::Iri, N::BlankId>, Error>
+	) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
 		N::Iri: Clone + Eq + Hash,
@@ -203,7 +203,7 @@ pub trait Process {
 		vocabulary: &mut N,
 		loader: &L,
 		base_url: Option<N::Iri>,
-	) -> Result<Processed<N::Iri, N::BlankId>, Error>
+	) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
 		N::Iri: Clone + Eq + Hash,

@@ -75,7 +75,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Properties<T, B> {
 	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
-	) -> Objects<T, B> {
+	) -> Objects<'_, T, B> {
 		match self.0.get(prop) {
 			Some(values) => Objects::new(Some(values.iter())),
 			None => Objects::new(None),

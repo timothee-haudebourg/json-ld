@@ -26,7 +26,7 @@ impl Process for syntax::context::Context {
 		base_url: Option<N::Iri>,
 		options: Options,
 		mut warnings: W,
-	) -> Result<Processed<N::Iri, N::BlankId>, Error>
+	) -> Result<Processed<'_, N::Iri, N::BlankId>, Error>
 	where
 		N: VocabularyMut,
 		N::Iri: Clone + Eq + Hash,

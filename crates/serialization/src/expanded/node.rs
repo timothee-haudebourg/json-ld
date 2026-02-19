@@ -183,6 +183,7 @@ pub(crate) fn into_type_value<I, B>(
 		None => match obj.into_inner() {
 			Object::Node(node) => {
 				if node.is_empty() && node.id.is_some() {
+					#[allow(clippy::unnecessary_unwrap)]
 					Ok(node.id.unwrap())
 				} else {
 					Err(Indexed::none(Object::Node(node)))

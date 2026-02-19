@@ -11,7 +11,7 @@ impl<V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Value<V::Iri
 		&self,
 		vocabulary: &mut V,
 		_interpretation: &mut I,
-	) -> ResourceInterpretation<I, V> {
+	) -> ResourceInterpretation<'_, I, V> {
 		let term = match self {
 			Self::Literal(l, ty) => match l {
 				Literal::Null => CowRdfTerm::Owned(Term::Literal(RdfLiteral::Xsd(

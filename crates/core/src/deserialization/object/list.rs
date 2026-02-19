@@ -15,7 +15,7 @@ impl<T, B, V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for List<T
 		&self,
 		_vocabulary: &mut V,
 		_interpretation: &mut I,
-	) -> ResourceInterpretation<I, V> {
+	) -> ResourceInterpretation<'_, I, V> {
 		ResourceInterpretation::Uninterpreted(None)
 	}
 }
@@ -87,7 +87,7 @@ impl<'a, T, B, V: Vocabulary, I: Interpretation> LinkedDataResource<I, V> for Re
 		&self,
 		_vocabulary: &mut V,
 		_interpretation: &mut I,
-	) -> ResourceInterpretation<I, V> {
+	) -> ResourceInterpretation<'_, I, V> {
 		ResourceInterpretation::Uninterpreted(None)
 	}
 }

@@ -53,7 +53,7 @@ impl<T, B> ExpandedDocument<T, B> {
 	}
 
 	#[inline(always)]
-	pub fn traverse(&self) -> Traverse<T, B> {
+	pub fn traverse(&self) -> Traverse<'_, T, B> {
 		Traverse::new(self.iter().map(|o| FragmentRef::IndexedObject(o)))
 	}
 

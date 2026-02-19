@@ -105,7 +105,7 @@ impl<T, B> ProcessedOwned<T, B> {
 		&self.processed
 	}
 
-	pub fn as_ref(&self) -> ProcessedRef<T, B> {
+	pub fn as_ref(&self) -> ProcessedRef<'_, '_, T, B> {
 		ProcessedRef {
 			unprocessed: &self.unprocessed,
 			processed: &self.processed,

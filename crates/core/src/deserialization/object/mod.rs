@@ -18,7 +18,7 @@ where
 		&self,
 		vocabulary: &mut V,
 		interpretation: &mut I,
-	) -> linked_data::ResourceInterpretation<I, V> {
+	) -> linked_data::ResourceInterpretation<'_, I, V> {
 		match self {
 			Self::Node(node) => node.interpretation(vocabulary, interpretation),
 			Self::List(list) => list.interpretation(vocabulary, interpretation),

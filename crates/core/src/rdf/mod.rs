@@ -304,7 +304,7 @@ impl<T: Clone, B: Clone> Object<T, B> {
 		vocabulary: &mut V,
 		generator: &mut G,
 		rdf_direction: Option<RdfDirection>,
-	) -> Option<CompoundValue<T, B, V::Literal>>
+	) -> Option<CompoundValue<'_, T, B, V::Literal>>
 	where
 		V: Vocabulary<Iri = T, BlankId = B> + IriVocabularyMut + LiteralVocabularyMut,
 	{

@@ -80,7 +80,7 @@ impl<T: Eq + Hash, B: Eq + Hash> ReverseProperties<T, B> {
 	pub fn get<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
-	) -> Nodes<T, B>
+	) -> Nodes<'_, T, B>
 	where
 		T: 'a,
 	{

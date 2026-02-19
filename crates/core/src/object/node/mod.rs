@@ -441,7 +441,7 @@ impl<T, B> Node<T, B> {
 		}
 	}
 
-	pub fn traverse(&self) -> Traverse<T, B> {
+	pub fn traverse(&self) -> Traverse<'_, T, B> {
 		Traverse::new(Some(super::FragmentRef::Node(self)))
 	}
 
@@ -450,7 +450,7 @@ impl<T, B> Node<T, B> {
 		self.traverse().filter(f).count()
 	}
 
-	pub fn entries(&self) -> Entries<T, B> {
+	pub fn entries(&self) -> Entries<'_, T, B> {
 		Entries {
 			id: self.id.as_ref(),
 			type_: self.types.as_deref(),
@@ -560,7 +560,7 @@ impl<T: Eq + Hash, B: Eq + Hash> Node<T, B> {
 	pub fn get<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id<T, B>>>(
 		&self,
 		prop: &Q,
-	) -> Objects<T, B>
+	) -> Objects<'_, T, B>
 	where
 		T: 'a,
 	{
@@ -716,7 +716,7 @@ impl<T: Eq + Hash, B: Eq + Hash> PartialEq for Node<T, B> {
 }
 
 impl<T, B> Indexed<Node<T, B>> {
-	pub fn entries(&self) -> IndexedEntries<T, B> {
+	pub fn entries(&self) -> IndexedEntries<'_, T, B> {
 		IndexedEntries {
 			index: self.index(),
 			inner: self.inner().entries(),
@@ -1180,7 +1180,7 @@ impl<'a, T, B> Iterator for SubFragments<'a, T, B> {
 
 impl<T, B> object::Any<T, B> for Node<T, B> {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref<T, B> {
+	fn as_ref(&self) -> object::Ref<'_, T, B> {
 		object::Ref::Node(self)
 	}
 }

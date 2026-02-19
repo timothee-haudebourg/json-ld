@@ -34,7 +34,7 @@ impl TermDefinition {
 		self.is_expanded()
 	}
 
-	pub fn as_expanded(&self) -> ExpandedRef {
+	pub fn as_expanded(&self) -> ExpandedRef<'_> {
 		match self {
 			Self::Simple(term) => ExpandedRef {
 				id: Some(Nullable::Some(term.as_str().into())),
@@ -251,7 +251,7 @@ impl Expanded {
 		}
 	}
 
-	pub fn iter(&self) -> Entries {
+	pub fn iter(&self) -> Entries<'_> {
 		Entries {
 			id: self.id.as_ref().map(Nullable::as_ref),
 			type_: self.type_.as_ref().map(Nullable::as_ref),
@@ -268,7 +268,7 @@ impl Expanded {
 		}
 	}
 
-	pub fn as_expanded_ref(&self) -> ExpandedRef {
+	pub fn as_expanded_ref(&self) -> ExpandedRef<'_> {
 		ExpandedRef {
 			id: self
 				.id

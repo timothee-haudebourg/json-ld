@@ -62,11 +62,11 @@ impl<T, B> List<T, B> {
 		self.entry.pop()
 	}
 
-	pub fn iter(&self) -> core::slice::Iter<IndexedObject<T, B>> {
+	pub fn iter(&self) -> core::slice::Iter<'_, IndexedObject<T, B>> {
 		self.entry.iter()
 	}
 
-	pub fn iter_mut(&mut self) -> core::slice::IterMut<IndexedObject<T, B>> {
+	pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, IndexedObject<T, B>> {
 		self.entry.iter_mut()
 	}
 
@@ -151,7 +151,7 @@ impl<T: Eq + Hash, B: Eq + Hash> List<T, B> {
 }
 
 impl<T, B> Any<T, B> for List<T, B> {
-	fn as_ref(&self) -> super::Ref<T, B> {
+	fn as_ref(&self) -> super::Ref<'_, T, B> {
 		super::Ref::List(self)
 	}
 }

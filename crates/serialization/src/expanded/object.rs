@@ -210,7 +210,9 @@ where
 			&& self.properties.is_empty()
 			&& self.graph.is_none()
 		{
+			#[allow(clippy::unnecessary_unwrap)]
 			let mut items = self.rest.unwrap();
+			#[allow(clippy::unnecessary_unwrap)]
 			items.push(Indexed::none(self.first.unwrap()));
 			items.reverse();
 			Ok(Object::List(List::new(items)))

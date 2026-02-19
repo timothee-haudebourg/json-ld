@@ -198,7 +198,7 @@ impl<I, B> Id<I, B> {
 		Term::Id(self)
 	}
 
-	pub fn as_ref(&self) -> Ref<I, B> {
+	pub fn as_ref(&self) -> Ref<'_, I, B> {
 		match self {
 			Self::Valid(ValidId::Iri(t)) => Ref::Iri(t),
 			Self::Valid(ValidId::Blank(id)) => Ref::Blank(id),

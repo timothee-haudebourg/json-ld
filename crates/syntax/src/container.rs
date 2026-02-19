@@ -112,7 +112,7 @@ impl Container {
 		matches!(self, Self::Many(_))
 	}
 
-	pub fn sub_fragments(&self) -> SubValues {
+	pub fn sub_fragments(&self) -> SubValues<'_> {
 		match self {
 			Self::One(_) => SubValues::None,
 			Self::Many(m) => SubValues::Many(m.iter()),

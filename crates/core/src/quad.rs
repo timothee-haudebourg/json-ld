@@ -28,11 +28,11 @@ pub enum ObjectRef<'a, T, B> {
 }
 
 pub trait LdQuads<T, B> {
-	fn quads(&self) -> Quads<T, B>;
+	fn quads(&self) -> Quads<'_, T, B>;
 }
 
 impl<T, B> LdQuads<T, B> for ExpandedDocument<T, B> {
-	fn quads(&self) -> Quads<T, B> {
+	fn quads(&self) -> Quads<'_, T, B> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedObjectSet(None, self.iter()));
 		Quads { stack }
@@ -40,7 +40,7 @@ impl<T, B> LdQuads<T, B> for ExpandedDocument<T, B> {
 }
 
 impl<T, B> LdQuads<T, B> for FlattenedDocument<T, B> {
-	fn quads(&self) -> Quads<T, B> {
+	fn quads(&self) -> Quads<'_, T, B> {
 		let mut stack = SmallVec::new();
 		stack.push(QuadsFrame::IndexedNodeSlice(None, self.iter()));
 		Quads { stack }
@@ -48,7 +48,7 @@ impl<T, B> LdQuads<T, B> for FlattenedDocument<T, B> {
 }
 
 impl<T: Eq + Hash, B: Eq + Hash> LdQuads<T, B> for NodeMap<T, B> {
-	fn quads(&self) -> Quads<T, B> {
+	fn quads(&self) -> Quads<'_, T, B> {
 		let mut stack = SmallVec::new();
 
 		for (id, graph) in self {
