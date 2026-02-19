@@ -20,4 +20,3 @@ futures.workspace = true
 mown.workspace = true
 contextual.workspace = true
 thiserror.workspace = true
-owning_ref = "0.4.1"
