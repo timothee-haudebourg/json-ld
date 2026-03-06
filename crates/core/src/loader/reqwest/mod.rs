@@ -11,7 +11,6 @@ use reqwest::{
 	header::{ACCEPT, CONTENT_TYPE, LINK},
 	StatusCode,
 };
-use reqwest_middleware::ClientWithMiddleware;
 use std::string::FromUtf8Error;
 
 mod content_type;
@@ -38,8 +37,13 @@ pub struct Options {
 	/// [`client`](Self::client).
 	pub max_redirections: usize,
 
+	#[cfg(target_arch = "wasm32")]
 	/// HTTP client.
-	pub client: ClientWithMiddleware,
+	pub client: reqwest::Client,
+
+	#[cfg(not(target_arch = "wasm32"))]
+	/// HTTP client.
+	pub client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl Default for Options {
@@ -47,7 +51,10 @@ impl Default for Options {
 		Self {
 			request_profile: Vec::new(),
 			max_redirections: 8,
+			#[cfg(not(target_arch = "wasm32"))]
 			client: reqwest_middleware::ClientBuilder::new(reqwest::Client::default()).build(),
+			#[cfg(target_arch = "wasm32")]
+			client: reqwest::Client::default(),
 		}
 	}
 }
@@ -55,8 +62,13 @@ impl Default for Options {
 /// Loading error.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+	#[cfg(not(target_arch = "wasm32"))]
 	#[error("internal error: {0}")]
 	Reqwest(reqwest_middleware::Error),
+
+	#[cfg(target_arch = "wasm32")]
+	#[error("internal error: {0}")]
+	Reqwest(reqwest::Error),
 
 	#[error("query failed: status code {0}")]
 	QueryFailed(StatusCode),
