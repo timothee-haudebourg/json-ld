@@ -29,17 +29,17 @@ impl SerializeLinkedData for Rest<'_> {
 	{
 		let node = match self.0.split_first() {
 			Some((first, rest)) => {
-				let subject = serializer.new_resource()?;
+				let subject = serializer.interpret(None)?;
 				let predicate = Term::iri(RDF_FIRST.to_owned());
-				first.serialize_rdf_objects(&mut serializer, graph, &subject, &predicate)?;
+				first.serialize_rdf_objects(&mut serializer, &subject, &predicate, graph)?;
 				let predicate = Term::iri(RDF_REST.to_owned());
-				Rest(rest).serialize_rdf_objects(&mut serializer, graph, &subject, &predicate)?;
+				Rest(rest).serialize_rdf_objects(&mut serializer, &subject, &predicate, graph)?;
 				subject
 			}
 			None => Term::iri(RDF_NIL.to_owned()),
 		};
 
-		serializer.serialize_resource(node)?;
+		serializer.serialize_resource(Some(node))?;
 		serializer.end()
 	}
 }

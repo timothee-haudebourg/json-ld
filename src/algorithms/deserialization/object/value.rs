@@ -1,4 +1,4 @@
-use json_syntax::Print;
+use json_syntax::PrintJson;
 use linked_data::{LinkedDataSerializer, SerializeLinkedData};
 use rdf_types::{Literal, Term, RDF_JSON};
 use xsd_types::{XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
@@ -41,7 +41,7 @@ impl SerializeLinkedData for ValueObject {
 			Self::Json(json) => Literal::new(json.compact_print().to_string(), RDF_JSON),
 		};
 
-		serializer.serialize_resource(Term::literal(literal))?;
+		serializer.serialize_resource(Some(Term::literal(literal)))?;
 		serializer.end()
 	}
 }

@@ -25,7 +25,7 @@ impl Id {
 	{
 		match self {
 			Self::Valid(id) => Ok(id.clone().into()),
-			Self::Invalid(_) => serializer.new_resource(),
+			Self::Invalid(_) => serializer.interpret(None),
 		}
 	}
 }
