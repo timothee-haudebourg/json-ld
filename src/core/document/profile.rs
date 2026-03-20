@@ -39,7 +39,7 @@ impl StandardProfile {
 			Some(Self::Context)
 		} else if iri == PROFILE_FLATTENED_IRI {
 			Some(Self::Flattened)
-		} else if iri == PROFILE_FLATTENED_IRI {
+		} else if iri == PROFILE_FRAMED_IRI {
 			Some(Self::Framed)
 		} else {
 			None
