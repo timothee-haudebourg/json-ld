@@ -1,3 +1,4 @@
+use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
@@ -12,9 +13,8 @@ use crate::{
 
 mod property;
 
-fn optional_string(s: Option<String>) -> json_syntax::Value {
-	s.map(Into::into)
-		.unwrap_or_else(|| json_syntax::Value::Null)
+fn optional_string(s: Option<String>) -> JsonValue {
+	s.map(Into::into).unwrap_or_else(|| JsonValue::Null)
 }
 
 impl Compactor<'_> {
@@ -27,7 +27,7 @@ impl Compactor<'_> {
 		index: Option<&str>,
 		// type_scoped_context: &ProcessedContext,
 		// active_property: Option<&str>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		// If active context has a previous context, the active context is not propagated.
 		// If element does not contain an @value entry, and element does not consist of
 		// a single @id entry, set active context to previous context from active context,
@@ -62,7 +62,7 @@ impl Compactor<'_> {
 		}
 
 		// let inside_reverse = active_property == Some("@reverse");
-		let mut result = json_syntax::Object::default();
+		let mut result = JsonObject::default();
 
 		if !node.types().is_empty() {
 			// If element has an @type entry, create a new array compacted types initialized by
@@ -196,7 +196,7 @@ impl Compactor<'_> {
 					}
 				}
 
-				let mut reverse_result = json_syntax::Object::default();
+				let mut reverse_result = JsonObject::default();
 				for (expanded_property, expanded_value) in reverse_properties.iter() {
 					self.with_active_context(&active_context)
 						.compact_property(
@@ -210,9 +210,9 @@ impl Compactor<'_> {
 				}
 
 				// For each property and value in compacted value:
-				let mut reverse_map = json_syntax::Object::default();
+				let mut reverse_map = JsonObject::default();
 				for (property, mapped_value) in reverse_result.iter_mut() {
-					let mut value = json_syntax::Value::Null;
+					let mut value = JsonValue::Null;
 					std::mem::swap(&mut value, &mut *mapped_value);
 
 					// If the term definition for property in the active context indicates that
@@ -317,11 +317,7 @@ impl Compactor<'_> {
 	}
 
 	/// Compact the given list of types into the given `result` compacted object.
-	fn compact_types(
-		self,
-		result: &mut json_syntax::Object,
-		types: Option<&[Id]>,
-	) -> Result<(), Error> {
+	fn compact_types(self, result: &mut JsonObject, types: Option<&[Id]>) -> Result<(), Error> {
 		// If expanded property is @type:
 		if let Some(types) = types {
 			if !types.is_empty() {
@@ -351,7 +347,7 @@ impl Compactor<'_> {
 						compacted_value.push(optional_string(compacted_ty))
 					}
 
-					json_syntax::Value::Array(compacted_value.into_iter().collect())
+					JsonValue::Array(compacted_value.into_iter().collect())
 				};
 
 				// Initialize alias by IRI compacting expanded property.

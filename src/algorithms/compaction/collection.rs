@@ -1,4 +1,5 @@
 use indexmap::IndexSet;
+use json_syntax::JsonValue;
 
 use crate::{
 	algorithms::{compaction::Compactor, ProcessingEnvironment},
@@ -13,7 +14,7 @@ impl Compactor<'_> {
 		&self,
 		env: &mut impl ProcessingEnvironment,
 		items: O,
-	) -> Result<json_syntax::Value, Error>
+	) -> Result<JsonValue, Error>
 	where
 		T: 'a + CompactFragment,
 		O: 'a + Iterator<Item = &'a T>,
@@ -47,7 +48,7 @@ impl Compactor<'_> {
 			|| self.active_property == Some("@set")
 			|| list_or_set
 		{
-			return Ok(json_syntax::Value::Array(result.into_iter().collect()));
+			return Ok(JsonValue::Array(result.into_iter().collect()));
 		}
 
 		Ok(result.into_iter().next().unwrap())
@@ -59,7 +60,7 @@ impl<T: CompactFragment> CompactFragment for Vec<T> {
 		&self,
 		env: &mut impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		compactor.compact_collection_with(env, self.iter()).await
 	}
 }
@@ -69,7 +70,7 @@ impl<T: CompactFragment> CompactFragment for [T] {
 		&self,
 		env: &mut impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		compactor.compact_collection_with(env, self.iter()).await
 	}
 }
@@ -79,7 +80,7 @@ impl<T: CompactFragment> CompactFragment for IndexSet<T> {
 		&self,
 		env: &mut impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		compactor.compact_collection_with(env, self.iter()).await
 	}
 }

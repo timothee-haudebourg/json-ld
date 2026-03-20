@@ -7,6 +7,7 @@ mod iri;
 mod object;
 mod options;
 
+use json_syntax::{JsonObject, JsonValue};
 pub use options::*;
 
 use crate::{
@@ -28,7 +29,7 @@ pub trait Compact {
 		env: impl ProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<json_syntax::Value, Error>;
+	) -> Result<JsonValue, Error>;
 
 	/// Compacts the input document with the default options.
 	#[allow(async_fn_in_trait)]
@@ -36,7 +37,7 @@ pub trait Compact {
 		&self,
 		env: impl ProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		self.compact_with(env, context, CompactionOptions::default())
 			.await
 	}
@@ -100,7 +101,7 @@ trait CompactFragment {
 		&self,
 		env: &mut impl ProcessingEnvironment,
 		compactor: &Compactor,
-	) -> Result<json_syntax::Value, Error>;
+	) -> Result<JsonValue, Error>;
 }
 
 enum TypeLangValue<'a> {
@@ -117,7 +118,7 @@ trait CompactIndexedFragment {
 		env: &mut impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
-	) -> Result<json_syntax::Value, Error>;
+	) -> Result<JsonValue, Error>;
 }
 
 impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
@@ -125,7 +126,7 @@ impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
 		&self,
 		env: &mut impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		self.inner()
 			.compact_indexed_fragment(env, compactor, self.index())
 			.await
@@ -147,7 +148,7 @@ pub trait EmbedContext {
 	) -> Result<(), Error>;
 }
 
-impl EmbedContext for json_syntax::Value {
+impl EmbedContext for JsonValue {
 	fn embed_context(
 		&mut self,
 		context: &ProcessedContext,
@@ -156,8 +157,8 @@ impl EmbedContext for json_syntax::Value {
 		let value = self.take();
 
 		let obj = match value {
-			json_syntax::Value::Array(array) => {
-				let mut obj = json_syntax::Object::new();
+			JsonValue::Array(array) => {
+				let mut obj = JsonObject::new();
 
 				if !array.is_empty() {
 					let compactor = Compactor {
@@ -174,7 +175,7 @@ impl EmbedContext for json_syntax::Value {
 
 				Some(obj)
 			}
-			json_syntax::Value::Object(obj) => Some(obj),
+			JsonValue::Object(obj) => Some(obj),
 			_null => None,
 		};
 

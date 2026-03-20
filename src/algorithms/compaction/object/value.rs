@@ -1,3 +1,4 @@
+use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
@@ -20,7 +21,7 @@ impl<'a> Compactor<'a> {
 		value: &ValueObject,
 		index: Option<&str>,
 		// active_property: Option<&str>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		// If the term definition for active property in active context has a local context:
 		let mut active_context = Mown::Borrowed(self.active_context);
 		if let Some(active_property) = self.active_property {
@@ -48,7 +49,7 @@ impl<'a> Compactor<'a> {
 		// Here starts the Value Compaction Algorithm.
 
 		// Initialize result to a copy of value.
-		let mut result = json_syntax::Object::default();
+		let mut result = JsonObject::default();
 
 		// If the active context has a null inverse context,
 		// set inverse context in active context to the result of calling the
@@ -105,21 +106,19 @@ impl<'a> Compactor<'a> {
 			ValueObject::Literal(lit, ty) => {
 				if ty.clone().map(Type::Iri) == type_mapping && remove_index {
 					match lit {
-						LiteralValue::Null => return Ok(json_syntax::Value::Null),
-						LiteralValue::Boolean(b) => return Ok(json_syntax::Value::Boolean(*b)),
-						LiteralValue::Number(n) => {
-							return Ok(json_syntax::Value::Number(n.clone()))
-						}
+						LiteralValue::Null => return Ok(JsonValue::Null),
+						LiteralValue::Boolean(b) => return Ok(JsonValue::Boolean(*b)),
+						LiteralValue::Number(n) => return Ok(JsonValue::Number(n.clone())),
 						LiteralValue::String(s) => {
 							if ty.is_some() || (language.is_none() && direction.is_none()) {
-								return Ok(json_syntax::Value::String(s.as_str().into()));
+								return Ok(JsonValue::String(s.as_str().into()));
 							} else {
 								let compact_key = self
 									.with_active_context(&active_context)
 									.compact_key(&Term::Keyword(Keyword::Value), true, false)?;
 								result.insert(
 									compact_key.unwrap(),
-									json_syntax::Value::String(s.as_str().into()),
+									JsonValue::String(s.as_str().into()),
 								);
 							}
 						}
@@ -132,22 +131,17 @@ impl<'a> Compactor<'a> {
 					)?;
 					match lit {
 						LiteralValue::Null => {
-							result.insert(compact_key.unwrap(), json_syntax::Value::Null);
+							result.insert(compact_key.unwrap(), JsonValue::Null);
 						}
 						LiteralValue::Boolean(b) => {
-							result.insert(compact_key.unwrap(), json_syntax::Value::Boolean(*b));
+							result.insert(compact_key.unwrap(), JsonValue::Boolean(*b));
 						}
 						LiteralValue::Number(n) => {
-							result.insert(
-								compact_key.unwrap(),
-								json_syntax::Value::Number(n.clone()),
-							);
+							result.insert(compact_key.unwrap(), JsonValue::Number(n.clone()));
 						}
 						LiteralValue::String(s) => {
-							result.insert(
-								compact_key.unwrap(),
-								json_syntax::Value::String(s.as_str().into()),
-							);
+							result
+								.insert(compact_key.unwrap(), JsonValue::String(s.as_str().into()));
 						}
 					}
 
@@ -165,8 +159,8 @@ impl<'a> Compactor<'a> {
 						result.insert(
 							compact_key.unwrap(),
 							match compact_ty {
-								Some(s) => json_syntax::Value::String(s.into()),
-								None => json_syntax::Value::Null,
+								Some(s) => JsonValue::String(s.into()),
+								None => JsonValue::Null,
 							},
 						);
 					}
@@ -181,17 +175,14 @@ impl<'a> Compactor<'a> {
 				&& (ls_direction.is_none() || direction == ls_direction)
 				{
 					// || (ls.direction().is_none() && direction.is_none())) {
-					return Ok(json_syntax::Value::String(ls.as_str().into()));
+					return Ok(JsonValue::String(ls.as_str().into()));
 				} else {
 					let compact_key = self.with_active_context(&active_context).compact_key(
 						&Term::Keyword(Keyword::Value),
 						true,
 						false,
 					)?;
-					result.insert(
-						compact_key.unwrap(),
-						json_syntax::Value::String(ls.as_str().into()),
-					);
+					result.insert(compact_key.unwrap(), JsonValue::String(ls.as_str().into()));
 
 					if let Some(language) = ls.language() {
 						let compact_key = self.with_active_context(&active_context).compact_key(
@@ -201,7 +192,7 @@ impl<'a> Compactor<'a> {
 						)?;
 						result.insert(
 							compact_key.unwrap(),
-							json_syntax::Value::String(language.as_str().into()),
+							JsonValue::String(language.as_str().into()),
 						);
 					}
 
@@ -213,7 +204,7 @@ impl<'a> Compactor<'a> {
 						)?;
 						result.insert(
 							compact_key.unwrap(),
-							json_syntax::Value::String(direction.as_str().into()),
+							JsonValue::String(direction.as_str().into()),
 						);
 					}
 				}
@@ -243,8 +234,8 @@ impl<'a> Compactor<'a> {
 					result.insert(
 						compact_key.unwrap(),
 						match compact_ty {
-							Some(s) => json_syntax::Value::String(s.into()),
-							None => json_syntax::Value::Null,
+							Some(s) => JsonValue::String(s.into()),
+							None => JsonValue::Null,
 						},
 					);
 				}
@@ -258,24 +249,16 @@ impl<'a> Compactor<'a> {
 					true,
 					false,
 				)?;
-				result.insert(
-					compact_key.unwrap(),
-					json_syntax::Value::String(index.into()),
-				);
+				result.insert(compact_key.unwrap(), JsonValue::String(index.into()));
 			}
 		}
 
-		Ok(json_syntax::Value::Object(result))
+		Ok(JsonValue::Object(result))
 	}
 }
 
 /// Default value of `as_array` is false.
-pub fn add_value(
-	map: &mut json_syntax::Object,
-	key: &str,
-	value: json_syntax::Value,
-	as_array: bool,
-) {
+pub fn add_value(map: &mut JsonObject, key: &str, value: JsonValue, as_array: bool) {
 	match map
 		.get_unique(key)
 		.ok()
@@ -284,16 +267,16 @@ pub fn add_value(
 	{
 		Some(false) => {
 			let (key, value) = map.remove_unique(key).ok().unwrap().unwrap();
-			map.insert(key, json_syntax::Value::Array(vec![value]));
+			map.insert(key, JsonValue::Array(vec![value]));
 		}
 		None if as_array => {
-			map.insert(key, json_syntax::Value::Array(Vec::new()));
+			map.insert(key, JsonValue::Array(Vec::new()));
 		}
 		_ => (),
 	}
 
 	match value {
-		json_syntax::Value::Array(values) => {
+		JsonValue::Array(values) => {
 			for value in values {
 				add_value(map, key, value, false)
 			}
@@ -310,15 +293,15 @@ pub fn add_value(
 }
 
 /// Get the `@value` field of a value object.
-pub fn value_value(value: &ValueObject) -> json_syntax::Value {
+pub fn value_value(value: &ValueObject) -> JsonValue {
 	match value {
 		ValueObject::Literal(lit, _ty) => match lit {
-			LiteralValue::Null => json_syntax::Value::Null,
-			LiteralValue::Boolean(b) => json_syntax::Value::Boolean(*b),
-			LiteralValue::Number(n) => json_syntax::Value::Number(n.clone()),
-			LiteralValue::String(s) => json_syntax::Value::String(s.as_str().into()),
+			LiteralValue::Null => JsonValue::Null,
+			LiteralValue::Boolean(b) => JsonValue::Boolean(*b),
+			LiteralValue::Number(n) => JsonValue::Number(n.clone()),
+			LiteralValue::String(s) => JsonValue::String(s.as_str().into()),
 		},
-		ValueObject::LangString(s) => json_syntax::Value::String(s.as_str().into()),
+		ValueObject::LangString(s) => JsonValue::String(s.as_str().into()),
 		ValueObject::Json(json) => json.clone(),
 	}
 }

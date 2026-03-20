@@ -1,3 +1,4 @@
+use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
@@ -21,7 +22,7 @@ impl Compactor<'_> {
 		env: &mut impl ProcessingEnvironment,
 		object: &impl AnyObject,
 		index: Option<&str>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		match object.as_ref() {
 			Ref::Value(value) => self.compact_indexed_value_with(env, value, index).await,
 			Ref::Node(node) => self.compact_indexed_node_with(env, node, index).await,
@@ -71,7 +72,7 @@ impl Compactor<'_> {
 						.compact_collection_with(env, list.iter())
 						.await
 				} else {
-					let mut result = json_syntax::Object::default();
+					let mut result = JsonObject::default();
 					self.with_active_context(&active_context)
 						.compact_property(
 							env,
@@ -113,11 +114,11 @@ impl Compactor<'_> {
 							)?;
 
 							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
-							result.insert(alias.unwrap(), json_syntax::Value::String(index.into()));
+							result.insert(alias.unwrap(), JsonValue::String(index.into()));
 						}
 					}
 
-					Ok(json_syntax::Value::Object(result))
+					Ok(JsonValue::Object(result))
 				}
 			}
 		}
@@ -130,7 +131,7 @@ impl<T: AnyObject> CompactIndexedFragment for T {
 		env: &mut impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		compactor.compact_any_indexed_object(env, self, index).await
 	}
 }

@@ -1,3 +1,5 @@
+use json_syntax::JsonValue;
+
 use crate::{
 	algorithms::{compaction::CompactFragment, ProcessingEnvironment},
 	Error, ExpandedDocument, FlattenedDocument, ProcessedContext,
@@ -12,7 +14,7 @@ impl ExpandedDocument {
 		mut env: impl ProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		let compactor = Compactor::new(context, options);
 
 		let mut compact = self
@@ -30,7 +32,7 @@ impl ExpandedDocument {
 		&self,
 		env: impl ProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		self.compact_with(env, context, CompactionOptions::default())
 			.await
 	}
@@ -42,7 +44,7 @@ impl Compact for ExpandedDocument {
 		env: impl ProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		self.compact_with(env, context, options).await
 	}
 }
@@ -53,7 +55,7 @@ impl Compact for FlattenedDocument {
 		mut env: impl ProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<json_syntax::Value, Error> {
+	) -> Result<JsonValue, Error> {
 		let compactor = Compactor::new(context, options);
 
 		let mut compact = self.compact_fragment(&mut env, &compactor).await?;

@@ -1,3 +1,5 @@
+use json_syntax::{JsonObject, JsonValue};
+
 use crate::{
 	algorithms::{
 		compaction::{
@@ -17,13 +19,13 @@ impl Compactor<'_> {
 		env: &mut impl ProcessingEnvironment,
 		list: &ListObject,
 		expanded_index: Option<&str>,
-		nest_result: &mut json_syntax::Object,
+		nest_result: &mut JsonObject,
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
 	) -> Result<(), Error> {
 		// If expanded item is a list object:
-		let mut compacted_item = Box::pin(
+		let mut compacted_item: JsonValue = Box::pin(
 			self.with_type_scoped_context(self.active_context)
 				.with_active_property(Some(item_active_property))
 				.compact_collection_with(env, list.iter()),
@@ -34,7 +36,7 @@ impl Compactor<'_> {
 		// then set `compacted_item` to an array containing only `compacted_item`.
 		if !compacted_item.is_array() {
 			let array = vec![compacted_item];
-			compacted_item = json_syntax::Value::Array(array)
+			compacted_item = JsonValue::Array(array)
 		}
 
 		// If container does not include @list:
@@ -44,7 +46,7 @@ impl Compactor<'_> {
 			// IRI compacting @list and the value is the original
 			// compacted item.
 			let key = self.compact_key(&Term::Keyword(Keyword::List), true, false)?;
-			let mut compacted_item_list_object = json_syntax::Object::default();
+			let mut compacted_item_list_object = JsonObject::default();
 			compacted_item_list_object.insert(key.unwrap(), compacted_item);
 
 			// If `expanded_item` contains the entry @index-value,
@@ -53,11 +55,10 @@ impl Compactor<'_> {
 			if let Some(index) = expanded_index {
 				let key = self.compact_key(&Term::Keyword(Keyword::Index), true, false)?;
 
-				compacted_item_list_object
-					.insert(key.unwrap(), json_syntax::Value::String(index.into()));
+				compacted_item_list_object.insert(key.unwrap(), JsonValue::String(index.into()));
 			}
 
-			compacted_item = json_syntax::Value::Object(compacted_item_list_object);
+			compacted_item = JsonValue::Object(compacted_item_list_object);
 
 			// Use add value to add `compacted_item` to
 			// the `item_active_property` entry in `nest_result` using `as_array`.
@@ -76,7 +77,7 @@ impl Compactor<'_> {
 		env: &mut impl ProcessingEnvironment,
 		node: &NodeObject,
 		expanded_index: Option<&str>,
-		nest_result: &mut json_syntax::Object,
+		nest_result: &mut JsonObject,
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
@@ -103,10 +104,7 @@ impl Compactor<'_> {
 				.unwrap()
 				.is_none()
 			{
-				nest_result.insert(
-					item_active_property,
-					crate::syntax::Object::default().into(),
-				);
+				nest_result.insert(item_active_property, JsonObject::default().into());
 			}
 
 			let map_object = nest_result
@@ -143,10 +141,7 @@ impl Compactor<'_> {
 				.unwrap()
 				.is_none()
 			{
-				nest_result.insert(
-					item_active_property,
-					crate::syntax::Object::default().into(),
-				);
+				nest_result.insert(item_active_property, JsonObject::default().into());
 			}
 
 			let map_object = nest_result
@@ -175,13 +170,13 @@ impl Compactor<'_> {
 			// containing the key from IRI compacting @included and
 			// the original `compacted_item` as the value.
 			compacted_item = match compacted_item {
-				json_syntax::Value::Array(items) if items.len() > 1 => {
+				JsonValue::Array(items) if items.len() > 1 => {
 					let key = self
 						.compact_iri(&Term::Keyword(Keyword::Included), true, false)?
 						.unwrap();
-					let mut map = json_syntax::Object::default();
-					map.insert(key, json_syntax::Value::Array(items));
-					json_syntax::Value::Object(map)
+					let mut map = JsonObject::default();
+					map.insert(key, JsonValue::Array(items));
+					JsonValue::Object(map)
 				}
 				item => item,
 			};
@@ -198,7 +193,7 @@ impl Compactor<'_> {
 			let key = self
 				.compact_iri(&Term::Keyword(Keyword::Graph), true, false)?
 				.unwrap();
-			let mut map = json_syntax::Object::default();
+			let mut map = JsonObject::default();
 			map.insert(key, compacted_item);
 
 			// If `expanded_item` contains an @id entry,
@@ -216,7 +211,7 @@ impl Compactor<'_> {
 					key,
 					match value {
 						Some(s) => s.into(),
-						None => json_syntax::Value::Null,
+						None => JsonValue::Null,
 					},
 				);
 			}
@@ -233,7 +228,7 @@ impl Compactor<'_> {
 
 			// Use `add_value` to add `compacted_item` to the
 			// `item_active_property` entry in `nest_result` using `as_array`.
-			let compacted_item = json_syntax::Value::Object(map);
+			let compacted_item = JsonValue::Object(map);
 			add_value(nest_result, item_active_property, compacted_item, as_array)
 		}
 
@@ -242,10 +237,10 @@ impl Compactor<'_> {
 
 	fn select_nest_result<'a>(
 		&self,
-		result: &'a mut json_syntax::Object,
+		result: &'a mut JsonObject,
 		item_active_property: &str,
 		compact_arrays: bool,
-	) -> Result<(&'a mut json_syntax::Object, Container, bool), Error> {
+	) -> Result<(&'a mut JsonObject, Container, bool), Error> {
 		let (nest_result, container) = match self.active_context.get(item_active_property) {
 			Some(term_definition) => {
 				let nest_result = match term_definition.nest() {
@@ -270,8 +265,7 @@ impl Compactor<'_> {
 							.unwrap()
 							.is_none()
 						{
-							result
-								.insert(nest_term.as_str(), json_syntax::Object::default().into());
+							result.insert(nest_term.as_str(), JsonObject::default().into());
 						}
 
 						// Initialize `nest_result` to the value of `nest_term` in result.
@@ -320,7 +314,7 @@ impl Compactor<'_> {
 	pub async fn compact_property<'a, O, T>(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		result: &mut json_syntax::Object,
+		result: &mut JsonObject,
 		expanded_property: Term,
 		expanded_value: O,
 		inside_reverse: bool,
@@ -385,7 +379,7 @@ impl Compactor<'_> {
 						.await?
 					}
 					_ => {
-						let mut compacted_item = Box::pin(
+						let mut compacted_item: JsonValue = Box::pin(
 							expanded_item.compact_fragment(
 								env,
 								&self
@@ -414,7 +408,7 @@ impl Compactor<'_> {
 							{
 								nest_result.insert(
 									item_active_property.clone(),
-									json_syntax::Object::default().into(),
+									JsonObject::default().into(),
 								);
 							}
 
@@ -483,7 +477,7 @@ impl Compactor<'_> {
 										// `container_key` in `compacted_item`, if any.
 										let (map_key, remaining_values) = match &mut compacted_item
 										{
-											json_syntax::Value::Object(map) => {
+											JsonValue::Object(map) => {
 												match map
 													.remove_unique(
 														container_key.as_ref().unwrap().as_str(),
@@ -492,10 +486,10 @@ impl Compactor<'_> {
 													.unwrap()
 												{
 													Some((_, value)) => match value {
-														json_syntax::Value::String(s) => {
+														JsonValue::String(s) => {
 															(Some(s.to_string()), Vec::new())
 														}
-														json_syntax::Value::Array(values) => {
+														JsonValue::Array(values) => {
 															let mut values = values.into_iter();
 															match values.next() {
 																Some(first_value) => (
@@ -549,7 +543,7 @@ impl Compactor<'_> {
 								// `compacted_item`.
 								compacted_item
 									.as_object_mut()
-									.and_then(|map| {
+									.and_then(|map: &mut JsonObject| {
 										map.remove_unique(container_key.unwrap().as_str())
 											.ok()
 											.unwrap()
@@ -571,10 +565,10 @@ impl Compactor<'_> {
 											.unwrap()
 										{
 											Some((_, value)) => match value {
-												json_syntax::Value::String(s) => {
+												JsonValue::String(s) => {
 													(Some((*s).to_string()), Vec::new())
 												}
-												json_syntax::Value::Array(values) => {
+												JsonValue::Array(values) => {
 													let mut values = values.into_iter();
 													match values.next() {
 														Some(first_value) => (
