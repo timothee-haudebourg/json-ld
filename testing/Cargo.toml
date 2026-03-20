@@ -1,0 +1,9 @@
+[package]
+name = "json-ld-testing"
+version = "0.1.0"
+edition = "2021"
+description = "Testing library for the json-ld crate"
+
+[dependencies]
+json-ld-testing-core = { path = "core" }
+json-ld-testing-derive = { path = "derive" }

@@ -1,0 +1,11 @@
+[package]
+name = "json-ld-testing-core"
+version = "0.1.0"
+edition = "2021"
+description = "JSON-LD test suite manifest types"
+
+[dependencies]
+iref = { path = "/home/work/Documents/Community/RDF/iri/iref" }
+static-iref = "3.0"
+rdf-types = { path = "/home/work/Documents/Community/RDF/rdf-types" }
+linked-data = { path = "/home/work/Documents/Spruce/Core_Tooling/linked-data", features = ["derive"] }
