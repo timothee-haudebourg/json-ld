@@ -100,10 +100,10 @@ impl<I> indexmap::Equivalent<Id<I, BlankIdBuf>> for rdf_types::BlankIdBuf {
 impl<I, B> TryFromJson<I, B> for Id<I, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = I, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::String(s) => match Iri::new(s.as_str()) {
+			JsonValue::String(s) => match Iri::new(s.as_str()) {
 				Ok(iri) => Ok(Self::Valid(ValidId::Iri(vocabulary.insert(iri)))),
 				Err(_) => match BlankId::new(s.as_str()) {
 					Ok(blank_id) => Ok(Self::Valid(ValidId::Blank(
@@ -336,7 +336,7 @@ impl<T: fmt::Debug, B: fmt::Debug> fmt::Debug for Id<T, B> {
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Id<T, B> {
-	fn into_json_with(self, context: &N) -> json_syntax::Value {
+	fn into_json_with(self, context: &N) -> JsonValue {
 		self.into_with(context).to_string().into()
 	}
 }

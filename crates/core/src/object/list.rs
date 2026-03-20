@@ -207,7 +207,7 @@ pub enum FragmentRef<'a, T, B> {
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for List<T, B> {
-	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
+	fn into_json_with(self, vocabulary: &N) -> JsonValue {
 		let mut obj = json_syntax::Object::new();
 
 		obj.insert("@list".into(), self.entry.into_with(vocabulary).into_json());

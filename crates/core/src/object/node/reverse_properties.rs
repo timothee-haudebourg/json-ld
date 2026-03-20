@@ -206,10 +206,10 @@ where
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ReverseProperties<T, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
+			JsonValue::Object(object) => Self::try_from_json_object_in(vocabulary, object),
 			_ => Err(InvalidExpandedJson::InvalidObject),
 		}
 	}
@@ -335,7 +335,7 @@ impl<'a, T, B> std::iter::FusedIterator for Iter<'a, T, B> {}
 pub type IterMut<'a, T, B> = indexmap::map::IterMut<'a, Id<T, B>, ReversePropertyNodes<T, B>>;
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for ReverseProperties<T, B> {
-	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
+	fn into_json_with(self, vocabulary: &N) -> JsonValue {
 		let mut obj = json_syntax::Object::new();
 
 		for (prop, nodes) in self {

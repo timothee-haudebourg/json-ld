@@ -201,10 +201,10 @@ where
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for Properties<T, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
+			JsonValue::Object(object) => Self::try_from_json_object_in(vocabulary, object),
 			_ => Err(InvalidExpandedJson::InvalidObject),
 		}
 	}

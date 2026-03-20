@@ -271,10 +271,10 @@ impl<T: Eq + Hash, B: Eq + Hash> From<Indexed<Node<T, B>>> for ExpandedDocument<
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for ExpandedDocument<T, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::Array(items) => {
+			JsonValue::Array(items) => {
 				let mut result = Self::new();
 
 				for item in items {

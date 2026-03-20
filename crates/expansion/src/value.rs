@@ -52,7 +52,7 @@ pub(crate) fn expand_value<N, L, W>(
 	input_type: Option<Term<N::Iri, N::BlankId>>,
 	type_scoped_context: &Context<N::Iri, N::BlankId>,
 	expanded_entries: Vec<ExpandedEntry<N::Iri, N::BlankId>>,
-	value_entry: &json_syntax::Value,
+	value_entry: &JsonValue,
 ) -> ValueExpansionResult<N::Iri, N::BlankId>
 where
 	N: VocabularyMut,
@@ -164,10 +164,10 @@ where
 	// Otherwise, if value is not a scalar or null, an invalid value object value
 	// error has been detected and processing is aborted.
 	let result = match value_entry {
-		json_syntax::Value::Null => Literal::Null,
-		json_syntax::Value::String(s) => Literal::String(s.clone()),
-		json_syntax::Value::Number(n) => Literal::Number(n.clone()),
-		json_syntax::Value::Boolean(b) => Literal::Boolean(*b),
+		JsonValue::Null => Literal::Null,
+		JsonValue::String(s) => Literal::String(s.clone()),
+		JsonValue::Number(n) => Literal::Number(n.clone()),
+		JsonValue::Boolean(b) => Literal::Boolean(*b),
 		_ => {
 			return Err(InvalidValue::ValueObjectValue);
 		}

@@ -1,4 +1,4 @@
-use json_syntax::Value;
+use json_syntax::JsonValue;
 
 pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
 	match (a, b) {

@@ -6,8 +6,8 @@ use contextual::Contextual;
 use indexmap::IndexSet;
 
 impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Vec<T> {
-	fn into_json_with(self, context: &N) -> json_syntax::Value {
-		json_syntax::Value::Array(
+	fn into_json_with(self, context: &N) -> JsonValue {
+		JsonValue::Array(
 			self.into_iter()
 				.map(|item| item.into_json_with(context))
 				.collect(),
@@ -16,8 +16,8 @@ impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Vec<T> {
 }
 
 impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for IndexSet<T> {
-	fn into_json_with(self, context: &N) -> json_syntax::Value {
-		json_syntax::Value::Array(
+	fn into_json_with(self, context: &N) -> JsonValue {
+		JsonValue::Array(
 			self.into_iter()
 				.map(|item| item.into_json_with(context))
 				.collect(),
@@ -26,84 +26,84 @@ impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for IndexSet<T> {
 }
 
 pub trait IntoJsonWithContext<N>: Sized {
-	fn into_json_with(self, context: &N) -> json_syntax::Value;
+	fn into_json_with(self, context: &N) -> JsonValue;
 }
 
 pub trait IntoJson: Sized {
-	fn into_json(self) -> json_syntax::Value;
+	fn into_json(self) -> JsonValue;
 }
 
 impl<'n, T: IntoJsonWithContext<N>, N> IntoJson for Contextual<T, &'n N> {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		T::into_json_with(self.0, self.1)
 	}
 }
 
 impl<'n, T: IntoJsonWithContext<N>, N> IntoJson for Contextual<T, &'n mut N> {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		T::into_json_with(self.0, self.1)
 	}
 }
 
 impl IntoJson for bool {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::Boolean(self)
+	fn into_json(self) -> JsonValue {
+		JsonValue::Boolean(self)
 	}
 }
 
 impl<T: IntoJson> IntoJson for Box<T> {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		T::into_json(*self)
 	}
 }
 
 impl IntoJson for iref::IriRefBuf {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.as_str().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.as_str().into())
 	}
 }
 
 impl<T: IntoJson> IntoJson for Nullable<T> {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		match self {
-			Self::Null => json_syntax::Value::Null,
+			Self::Null => JsonValue::Null,
 			Self::Some(other) => T::into_json(other),
 		}
 	}
 }
 
 impl IntoJson for Keyword {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_str().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_str().into())
 	}
 }
 
 impl IntoJson for String {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into())
 	}
 }
 
 impl IntoJson for LenientLangTagBuf {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_string().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_string().into())
 	}
 }
 
 impl IntoJson for Direction {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.as_str().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.as_str().into())
 	}
 }
 
 impl IntoJson for context::definition::TypeContainer {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_str().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_str().into())
 	}
 }
 
 impl IntoJson for context::definition::Type {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		let mut object = json_syntax::Object::new();
 
 		object.insert("@container".into(), self.container.into_json());
@@ -112,59 +112,59 @@ impl IntoJson for context::definition::Type {
 			object.insert("@protected".into(), protected.into_json());
 		}
 
-		json_syntax::Value::Object(object)
+		JsonValue::Object(object)
 	}
 }
 
 impl IntoJson for context::definition::Version {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::Number(self.into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::Number(self.into())
 	}
 }
 
 impl IntoJson for context::definition::Vocab {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_string().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_string().into())
 	}
 }
 
 impl IntoJson for context::definition::Key {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_string().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_string().into())
 	}
 }
 
 impl IntoJson for context::term_definition::Index {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_string().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_string().into())
 	}
 }
 
 impl IntoJson for context::term_definition::Nest {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_string().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_string().into())
 	}
 }
 
 impl IntoJson for Container {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		match self {
 			Self::One(c) => ContainerKind::into_json(c),
 			Self::Many(list) => {
-				json_syntax::Value::Array(list.into_iter().map(IntoJson::into_json).collect())
+				JsonValue::Array(list.into_iter().map(IntoJson::into_json).collect())
 			}
 		}
 	}
 }
 
 impl IntoJson for ContainerKind {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.as_str().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.as_str().into())
 	}
 }
 
 impl IntoJson for context::term_definition::Id {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		match self {
 			Self::Keyword(k) => Keyword::into_json(k),
 			Self::Term(t) => String::into_json(t),
@@ -173,20 +173,20 @@ impl IntoJson for context::term_definition::Id {
 }
 
 impl IntoJson for context::Context {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		match self {
 			Self::One(c) => c.into_json(),
 			Self::Many(list) => {
-				json_syntax::Value::Array(list.into_iter().map(IntoJson::into_json).collect())
+				JsonValue::Array(list.into_iter().map(IntoJson::into_json).collect())
 			}
 		}
 	}
 }
 
 impl IntoJson for ContextEntry {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		match self {
-			Self::Null => json_syntax::Value::Null,
+			Self::Null => JsonValue::Null,
 			Self::IriRef(iri) => iref::IriRefBuf::into_json(iri),
 			Self::Definition(def) => context::Definition::into_json(def),
 		}
@@ -194,7 +194,7 @@ impl IntoJson for ContextEntry {
 }
 
 impl IntoJson for context::Definition {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		let mut object = json_syntax::Object::new();
 
 		if let Some(base) = self.base {
@@ -237,12 +237,12 @@ impl IntoJson for context::Definition {
 			object.insert(key.into_string().into(), binding.into_json());
 		}
 
-		json_syntax::Value::Object(object)
+		JsonValue::Object(object)
 	}
 }
 
 impl IntoJson for context::TermDefinition {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		match self {
 			Self::Simple(s) => context::term_definition::Simple::into_json(s),
 			Self::Expanded(e) => context::term_definition::Expanded::into_json(*e),
@@ -251,25 +251,25 @@ impl IntoJson for context::TermDefinition {
 }
 
 impl IntoJson for context::term_definition::Simple {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_string().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_string().into())
 	}
 }
 
 impl IntoJson for context::term_definition::Type {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_string().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_string().into())
 	}
 }
 
 impl IntoJson for context::term_definition::TypeKeyword {
-	fn into_json(self) -> json_syntax::Value {
-		json_syntax::Value::String(self.into_str().into())
+	fn into_json(self) -> JsonValue {
+		JsonValue::String(self.into_str().into())
 	}
 }
 
 impl IntoJson for context::term_definition::Expanded {
-	fn into_json(self) -> json_syntax::Value {
+	fn into_json(self) -> JsonValue {
 		let mut object = json_syntax::Object::new();
 
 		if let Some(id) = self.id {
@@ -320,6 +320,6 @@ impl IntoJson for context::term_definition::Expanded {
 			object.insert("@protected".into(), protected.into_json());
 		}
 
-		json_syntax::Value::Object(object)
+		JsonValue::Object(object)
 	}
 }

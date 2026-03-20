@@ -139,12 +139,12 @@ impl LangString {
 
 	pub(crate) fn try_from_json(
 		object: json_syntax::Object,
-		value: json_syntax::Value,
-		language: Option<json_syntax::Value>,
-		direction: Option<json_syntax::Value>,
+		value: JsonValue,
+		language: Option<JsonValue>,
+		direction: Option<JsonValue>,
 	) -> Result<Self, InvalidExpandedJson> {
 		let data = match value {
-			json_syntax::Value::String(s) => s,
+			JsonValue::String(s) => s,
 			v => {
 				return Err(InvalidExpandedJson::Unexpected(
 					v.kind(),
@@ -154,7 +154,7 @@ impl LangString {
 		};
 
 		let language = match language {
-			Some(json_syntax::Value::String(value)) => {
+			Some(JsonValue::String(value)) => {
 				let (tag, _) = LenientLangTagBuf::new(value.to_string());
 				Some(tag)
 			}
@@ -168,7 +168,7 @@ impl LangString {
 		};
 
 		let direction = match direction {
-			Some(json_syntax::Value::String(value)) => match Direction::try_from(value.as_str()) {
+			Some(JsonValue::String(value)) => match Direction::try_from(value.as_str()) {
 				Ok(direction) => Some(direction),
 				Err(_) => return Err(InvalidExpandedJson::InvalidDirection),
 			},

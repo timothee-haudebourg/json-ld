@@ -204,8 +204,8 @@ impl<T: Hash, S: BuildHasher> Hash for Multiset<T, S> {
 }
 
 impl<T: IntoJsonWithContext<N>, S, N> IntoJsonWithContext<N> for Multiset<T, S> {
-	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
-		json_syntax::Value::Array(
+	fn into_json_with(self, vocabulary: &N) -> JsonValue {
+		JsonValue::Array(
 			self.into_iter()
 				.map(|item| item.into_json_with(vocabulary))
 				.collect(),

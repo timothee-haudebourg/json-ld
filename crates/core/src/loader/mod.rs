@@ -28,7 +28,7 @@ pub type RemoteContextReference<I = IriBuf> = RemoteDocumentReference<I, json_ld
 ///
 /// Either an IRI or the actual document content.
 #[derive(Clone)]
-pub enum RemoteDocumentReference<I = IriBuf, T = json_syntax::Value> {
+pub enum RemoteDocumentReference<I = IriBuf, T = JsonValue> {
 	/// IRI to the remote document.
 	Iri(I),
 
@@ -37,10 +37,10 @@ pub enum RemoteDocumentReference<I = IriBuf, T = json_syntax::Value> {
 }
 
 impl<I, T> RemoteDocumentReference<I, T> {
-	/// Creates an IRI to a `json_syntax::Value` JSON document.
+	/// Creates an IRI to a `JsonValue` JSON document.
 	///
 	/// This method can replace `RemoteDocumentReference::Iri` to help the type
-	/// inference in the case where `T = json_syntax::Value`.
+	/// inference in the case where `T = JsonValue`.
 	pub fn iri(iri: I) -> Self {
 		Self::Iri(iri)
 	}
@@ -152,7 +152,7 @@ impl<I> RemoteContextReference<I> {
 ///
 /// Stores the content of a loaded remote document along with its original URL.
 #[derive(Debug, Clone)]
-pub struct RemoteDocument<I = IriBuf, T = json_syntax::Value> {
+pub struct RemoteDocument<I = IriBuf, T = JsonValue> {
 	/// The final URL of the loaded document, after eventual redirection.
 	pub url: Option<I>,
 
@@ -516,7 +516,7 @@ pub trait ExtractContext {
 	fn into_ld_context(self) -> Result<json_ld_syntax::context::Context, ExtractContextError>;
 }
 
-impl ExtractContext for json_syntax::Value {
+impl ExtractContext for JsonValue {
 	fn into_ld_context(self) -> Result<json_ld_syntax::context::Context, ExtractContextError> {
 		match self {
 			Self::Object(mut o) => match o

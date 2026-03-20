@@ -8,7 +8,7 @@ use std::hash::Hash;
 
 use json_ld_context_processing::Context;
 use json_ld_core::{Environment, ExpandedDocument, Loader, RemoteDocument};
-use json_syntax::Value;
+use json_syntax::JsonValue;
 use rdf_types::{vocabulary, vocabulary::BlankIdVocabulary, BlankIdBuf, VocabularyMut};
 
 mod array;
@@ -54,7 +54,7 @@ impl<N: BlankIdVocabulary, H> WarningHandler<N> for H where
 ///
 /// This trait provides the functions necessary to expand
 /// a JSON-LD document into an [`ExpandedDocument`].
-/// It is implemented by [`json_syntax::Value`] representing
+/// It is implemented by [`JsonValue`] representing
 /// a JSON object and [`RemoteDocument`].
 ///
 /// # Example

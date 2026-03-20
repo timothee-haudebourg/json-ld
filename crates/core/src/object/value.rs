@@ -91,12 +91,12 @@ impl Literal {
 		}
 	}
 
-	pub fn into_json(self) -> json_syntax::Value {
+	pub fn into_json(self) -> JsonValue {
 		match self {
-			Self::Null => json_syntax::Value::Null,
-			Self::Boolean(b) => json_syntax::Value::Boolean(b),
-			Self::Number(n) => json_syntax::Value::Number(n),
-			Self::String(s) => json_syntax::Value::String(s),
+			Self::Null => JsonValue::Null,
+			Self::Boolean(b) => JsonValue::Boolean(b),
+			Self::Number(n) => JsonValue::Number(n),
+			Self::String(s) => JsonValue::String(s),
 		}
 	}
 
@@ -128,7 +128,7 @@ pub enum Value<T = IriBuf> {
 	LangString(LangString),
 
 	/// JSON literal value.
-	Json(json_syntax::Value),
+	Json(JsonValue),
 }
 
 impl<T> Value<T> {
@@ -267,7 +267,7 @@ impl<T> Value<T> {
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
 			Some(type_entry) => match type_entry.value {
-				json_syntax::Value::String(ty) => match ty.as_str() {
+				JsonValue::String(ty) => match ty.as_str() {
 					"@json" => Ok(Self::Json(value_entry.value)),
 					iri => match Iri::new(iri) {
 						Ok(iri) => {
@@ -333,15 +333,15 @@ impl<T> Value<T> {
 	}
 }
 
-impl TryFrom<json_syntax::Value> for Literal {
+impl TryFrom<JsonValue> for Literal {
 	type Error = InvalidExpandedJson;
 
-	fn try_from(value: json_syntax::Value) -> Result<Self, Self::Error> {
+	fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
 		match value {
-			json_syntax::Value::Null => Ok(Self::Null),
-			json_syntax::Value::Boolean(b) => Ok(Self::Boolean(b)),
-			json_syntax::Value::Number(n) => Ok(Self::Number(n)),
-			json_syntax::Value::String(s) => Ok(Self::String(s)),
+			JsonValue::Null => Ok(Self::Null),
+			JsonValue::Boolean(b) => Ok(Self::Boolean(b)),
+			JsonValue::Number(n) => Ok(Self::Number(n)),
+			JsonValue::String(s) => Ok(Self::String(s)),
 			_ => Err(InvalidExpandedJson::InvalidLiteral),
 		}
 	}
@@ -407,7 +407,7 @@ pub enum EntryValueRef<'a, T> {
 pub enum ValueEntryRef<'a> {
 	Literal(&'a Literal),
 	LangString(&'a str),
-	Json(&'a json_syntax::Value),
+	Json(&'a JsonValue),
 }
 
 impl<'a> Clone for ValueEntryRef<'a> {
@@ -565,10 +565,10 @@ impl<'a, T> FragmentRef<'a, T> {
 		match self {
 			Self::Entry(e) => SubFragments::Entry(Some(e.key()), Some(e.value())),
 			Self::Value(EntryValueRef::Value(ValueEntryRef::Json(json))) => match json {
-				json_syntax::Value::Array(a) => {
+				JsonValue::Array(a) => {
 					SubFragments::JsonFragment(json_syntax::SubFragments::Array(a.iter()))
 				}
-				json_syntax::Value::Object(o) => {
+				JsonValue::Object(o) => {
 					SubFragments::JsonFragment(json_syntax::SubFragments::Object(o.iter()))
 				}
 				_ => SubFragments::None(PhantomData),
@@ -601,7 +601,7 @@ impl<'a, T: 'a> Iterator for SubFragments<'a, T> {
 }
 
 impl<T, N: IriVocabulary<Iri = T>> IntoJsonWithContext<N> for Value<T> {
-	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
+	fn into_json_with(self, vocabulary: &N) -> JsonValue {
 		let mut obj = json_syntax::Object::new();
 
 		let value = match self {

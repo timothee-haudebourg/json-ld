@@ -14,11 +14,11 @@ pub(crate) enum GivenLiteralValue<'a> {
 }
 
 impl<'a> GivenLiteralValue<'a> {
-	pub fn new(value: &'a json_syntax::Value) -> Self {
+	pub fn new(value: &'a JsonValue) -> Self {
 		match value {
-			json_syntax::Value::Boolean(b) => Self::Boolean(*b),
-			json_syntax::Value::Number(n) => Self::Number(n),
-			json_syntax::Value::String(s) => Self::String(s),
+			JsonValue::Boolean(b) => Self::Boolean(*b),
+			JsonValue::Number(n) => Self::Number(n),
+			JsonValue::String(s) => Self::String(s),
 			_ => panic!("not a literal value"),
 		}
 	}

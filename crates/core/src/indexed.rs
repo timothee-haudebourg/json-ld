@@ -96,10 +96,10 @@ impl<T> Indexed<T> {
 impl<T, B, O: TryFromJsonObject<T, B>> TryFromJson<T, B> for Indexed<O> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
+			JsonValue::Object(object) => Self::try_from_json_object_in(vocabulary, object),
 			_ => Err(InvalidExpandedJson::InvalidObject),
 		}
 	}
@@ -115,7 +115,7 @@ impl<T, B, O: TryFromJsonObject<T, B>> TryFromJsonObject<T, B> for Indexed<O> {
 			.map_err(InvalidExpandedJson::duplicate_key)?
 		{
 			Some(index_entry) => match index_entry.value {
-				json_syntax::Value::String(index) => Some(index.to_string()),
+				JsonValue::String(index) => Some(index.to_string()),
 				_ => return Err(InvalidExpandedJson::InvalidIndex),
 			},
 			None => None,
@@ -164,7 +164,7 @@ impl<T> AsMut<T> for Indexed<T> {
 }
 
 impl<T: IntoJsonWithContext<N>, N> IntoJsonWithContext<N> for Indexed<T> {
-	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
+	fn into_json_with(self, vocabulary: &N) -> JsonValue {
 		let mut result = self.value.into_json_with(vocabulary);
 
 		if let Some(obj) = result.as_object_mut() {

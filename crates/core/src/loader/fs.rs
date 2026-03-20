@@ -1,7 +1,7 @@
 use super::{Loader, RemoteDocument};
 use crate::{LoadError, LoadingResult};
 use iref::{Iri, IriBuf};
-use json_syntax::Parse;
+use json_syntax::ParseJson;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
@@ -19,7 +19,7 @@ pub enum Error {
 
 	/// Parse error.
 	#[error("parse error: {0}")]
-	Parse(json_syntax::parse::Error),
+	Parse(json_syntax::ParseJson::Error),
 }
 
 /// File-system loader.
@@ -77,7 +77,7 @@ impl Loader for FsLoader {
 				buf_reader
 					.read_to_string(&mut contents)
 					.map_err(|e| LoadError::new(url.to_owned(), Error::IO(e)))?;
-				let (doc, _) = json_syntax::Value::parse_str(&contents)
+				let (doc, _) = JsonValue::parse_str(&contents)
 					.map_err(|e| LoadError::new(url.to_owned(), Error::Parse(e)))?;
 				Ok(RemoteDocument::new(
 					Some(url.to_owned()),

@@ -778,7 +778,7 @@ impl<'a, T, B> IndexedEntryRef<'a, T, B> {
 pub trait TryFromJson<T, B>: Sized {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson>;
 }
 
@@ -796,10 +796,10 @@ pub trait TryFromJsonObject<T, B>: Sized {
 impl<T, B, V: TryFromJson<T, B>> TryFromJson<T, B> for Vec<V> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::Array(items) => {
+			JsonValue::Array(items) => {
 				let mut result = Vec::new();
 
 				for item in items {
@@ -816,10 +816,10 @@ impl<T, B, V: TryFromJson<T, B>> TryFromJson<T, B> for Vec<V> {
 impl<T, B, V: Eq + Hash + TryFromJson<T, B>> TryFromJson<T, B> for IndexSet<V> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::Array(items) => {
+			JsonValue::Array(items) => {
 				let mut result = IndexSet::new();
 
 				for item in items {
@@ -836,10 +836,10 @@ impl<T, B, V: Eq + Hash + TryFromJson<T, B>> TryFromJson<T, B> for IndexSet<V> {
 impl<T: Eq + Hash, B: Eq + Hash> TryFromJson<T, B> for Object<T, B> {
 	fn try_from_json_in(
 		vocabulary: &mut impl VocabularyMut<Iri = T, BlankId = B>,
-		value: json_syntax::Value,
+		value: JsonValue,
 	) -> Result<Self, InvalidExpandedJson> {
 		match value {
-			json_syntax::Value::Object(object) => Self::try_from_json_object_in(vocabulary, object),
+			JsonValue::Object(object) => Self::try_from_json_object_in(vocabulary, object),
 			_ => Err(InvalidExpandedJson::InvalidObject),
 		}
 	}
@@ -1155,7 +1155,7 @@ impl<'a, T, B> Iterator for Traverse<'a, T, B> {
 }
 
 impl<T, B, N: Vocabulary<Iri = T, BlankId = B>> IntoJsonWithContext<N> for Object<T, B> {
-	fn into_json_with(self, vocabulary: &N) -> json_syntax::Value {
+	fn into_json_with(self, vocabulary: &N) -> JsonValue {
 		match self {
 			Self::Value(v) => v.into_json_with(vocabulary),
 			Self::Node(n) => n.into_json_with(vocabulary),
