@@ -7,7 +7,7 @@ repository = "https://github.com/timothee-haudebourg/json-ld"
 documentation = "https://docs.rs/json-ld"
 license = "MIT/Apache-2.0"
 edition = "2021"
-rust-version = "1.77.0"
+rust-version = "1.83.0"
 version = "0.19.1"
 description = "JSON-LD implementation"
 readme = "README.md"
@@ -25,14 +25,14 @@ serde = ["dep:serde", "iref/serde", "indexmap/serde"]
 reqwest = ["dep:reqwest", "dep:reqwest-middleware"]
 
 [dependencies]
-iref.path = "/home/timothee/Projets/utils/parsing/iref/"
+iref.path = "/home/work/Documents/Community/RDF/iri/iref"
 # json-syntax = "0.12"
-json-syntax = { path = "/home/timothee/Projets/utils/parsing/json/syntax/", features = [
+json-syntax = { path = "/home/work/Documents/Community/JSON/syntax", features = [
 	"serde",
 ] }
 static-iref = "3.0"
 langtag = "0.4"
-rdf-types.path = "/home/timothee/Projets/rdf/rdf-types/"
+rdf-types.path = "/home/work/Documents/Community/RDF/rdf-types"
 # contextual = "0.1.4"
 locspan = "0.8"
 educe = "0.4.23"
@@ -53,10 +53,10 @@ anyhow = "1.0.98"
 
 # Serialization/deserialization with `serde`.
 # linked-data = "0.1"
-linked-data = { path = "/home/timothee/Projets/rdf/linked-data-rs/", features = [
+linked-data = { path = "/home/work/Documents/Spruce/Core_Tooling/linked-data", features = [
 	"indexmap",
 ] }
-xsd-types.path = "/home/timothee/Projets/rdf/xsd-types/"
+xsd-types.path = "/home/work/Documents/Community/RDF/xsd-types"
 
 # Loader implementation based on `reqwest`.
 reqwest = { version = "0.12.22", optional = true }
@@ -73,7 +73,7 @@ stacker = "0.1.15"
 all-features = true
 
 [workspace]
-# members = ["crates/*"]
+members = ["testing", "testing/core", "testing/derive"]
 
 resolver = "2"
 

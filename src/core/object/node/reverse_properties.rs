@@ -64,7 +64,7 @@ impl ReverseProperties {
 
 	/// Returns an iterator over all the nodes associated to the given reverse property.
 	#[inline(always)]
-	pub fn get<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> Nodes<'_> {
+	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> Nodes<'_> {
 		match self.0.get(prop) {
 			Some(values) => Nodes::new(Some(values.iter())),
 			None => Nodes::new(None),
@@ -75,7 +75,7 @@ impl ReverseProperties {
 	///
 	/// If multiple nodes are found, there are no guaranties on which node will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q: ?Sized + Hash + indexmap::Equivalent<Id>>(
+	pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(
 		&self,
 		prop: &Q,
 	) -> Option<&IndexedNode> {

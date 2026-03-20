@@ -456,7 +456,7 @@ impl NodeObject {
 
 	/// Get all the objects associated to the node with the given property.
 	#[inline(always)]
-	pub fn get<'a, Q>(&self, prop: &Q) -> Objects<'_>
+	pub fn get<Q>(&self, prop: &Q) -> Objects<'_>
 	where
 		Q: ?Sized + Hash + indexmap::Equivalent<Id>,
 	{
@@ -468,7 +468,7 @@ impl NodeObject {
 	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<'a, Q>(&self, prop: &Q) -> Option<&IndexedObject>
+	pub fn get_any<Q>(&self, prop: &Q) -> Option<&IndexedObject>
 	where
 		Q: ?Sized + Hash + indexmap::Equivalent<Id>,
 	{
@@ -745,12 +745,12 @@ impl<'a> EntryRef<'a> {
 
 	pub fn as_key_value(&self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
 		match self {
-			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(*v)),
+			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
 			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(v)),
-			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(*v)),
-			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(*v)),
-			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(*v)),
-			Self::Property(k, v) => (EntryKeyRef::Property(*k), EntryValueRef::Property(v)),
+			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
+			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
+			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(v)),
+			Self::Property(k, v) => (EntryKeyRef::Property(k), EntryValueRef::Property(v)),
 		}
 	}
 }

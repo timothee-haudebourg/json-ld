@@ -14,6 +14,7 @@ use crate::{
 };
 
 impl Compactor<'_> {
+	#[allow(clippy::too_many_arguments)]
 	async fn compact_property_list(
 		&self,
 		env: &mut impl ProcessingEnvironment,

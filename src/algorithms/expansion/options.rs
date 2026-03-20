@@ -38,8 +38,9 @@ impl From<ExpansionOptions> for ContextProcessingOptions {
 ///
 /// The default behavior of the expansion algorithm
 /// is to drop keys that are not defined in the context unless:
-///   - there is a vocabulary mapping (`@vocab`) defined in the context; or
-///   - the term contains a `:` character.
+///  - there is a vocabulary mapping (`@vocab`) defined in the context; or
+///  - the term contains a `:` character.
+///
 /// In other words, a key that cannot be expanded into an
 /// IRI or a blank node identifier is dropped unless it contains a `:` character.
 ///
@@ -47,7 +48,7 @@ impl From<ExpansionOptions> for ContextProcessingOptions {
 /// expanded document, or to forbid them completely by raising an error.
 /// You can define your preferred policy using one of this type variant
 /// with the [`Options::policy`] field.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum ExpansionPolicy {
 	/// Relaxed policy.
 	///
@@ -59,6 +60,7 @@ pub enum ExpansionPolicy {
 	///
 	/// Every key that cannot be expanded into an
 	/// IRI or a blank node identifier is dropped unless it contains a `:` character.
+	#[default]
 	Standard,
 
 	/// Strict policy.
@@ -78,11 +80,5 @@ impl ExpansionPolicy {
 	/// Returns `true` is the policy is `Strict` or `Strictest`.
 	pub fn is_strict(&self) -> bool {
 		matches!(self, Self::Strict | Self::Strictest)
-	}
-}
-
-impl Default for ExpansionPolicy {
-	fn default() -> Self {
-		Self::Standard
 	}
 }
