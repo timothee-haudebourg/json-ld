@@ -282,6 +282,6 @@ impl RawProcessedContext {
 }
 
 fn invalid_iri(value: String, on_warning: impl FnOnce(Warning)) -> Term {
-	(on_warning)(Warning::MalformedIri(value.clone()).into());
+	(on_warning)(Warning::MalformedIri(value.clone()));
 	Term::Id(Id::Invalid(value))
 }

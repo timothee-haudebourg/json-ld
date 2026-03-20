@@ -120,7 +120,7 @@ impl<'a> Expander<'a> {
 						property_scoped_context
 							.process_with(
 								ProcessingEnvironmentRefMut(&mut *env),
-								property_scoped_base_url.as_deref(),
+								property_scoped_base_url,
 								active_context.as_ref(),
 								options.with_override(),
 							)

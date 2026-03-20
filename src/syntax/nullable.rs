@@ -123,7 +123,7 @@ impl<T> From<Option<T>> for Nullable<T> {
 	}
 }
 
-impl<'a, T: Clone> Nullable<&'a T> {
+impl<T: Clone> Nullable<&T> {
 	/// Clone the referenced inner value.
 	#[inline(always)]
 	pub fn cloned(&self) -> Nullable<T> {
@@ -134,7 +134,7 @@ impl<'a, T: Clone> Nullable<&'a T> {
 	}
 }
 
-impl<'a, T: Copy> Nullable<&'a T> {
+impl<T: Copy> Nullable<&T> {
 	/// Copy the referenced inner value.
 	#[inline(always)]
 	pub fn copied(&self) -> Nullable<T> {

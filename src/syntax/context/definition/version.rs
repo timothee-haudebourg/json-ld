@@ -50,7 +50,7 @@ impl Hash for Version {
 	}
 }
 
-impl<'a> From<Version> for &'a JsonNumber {
+impl From<Version> for &JsonNumber {
 	fn from(v: Version) -> Self {
 		v.into_json_number()
 	}

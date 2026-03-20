@@ -58,6 +58,7 @@ impl Deref for ProcessedContext<'_> {
 ///
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
+#[derive(Default)]
 pub struct RawProcessedContext {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
@@ -67,21 +68,6 @@ pub struct RawProcessedContext {
 	previous_context: Option<Box<Self>>,
 	definitions: Definitions,
 	inverse: OnceCell<InverseContext>,
-}
-
-impl Default for RawProcessedContext {
-	fn default() -> Self {
-		Self {
-			original_base_url: None,
-			base_iri: None,
-			vocabulary: None,
-			default_language: None,
-			default_base_direction: None,
-			previous_context: None,
-			definitions: Definitions::default(),
-			inverse: OnceCell::default(),
-		}
-	}
 }
 
 pub type DefinitionEntryRef<'a> = (&'a ContextTerm, &'a TermDefinition);

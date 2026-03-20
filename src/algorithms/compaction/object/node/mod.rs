@@ -340,7 +340,7 @@ impl Compactor<'_> {
 
 						// Set term by IRI compacting expanded type using type-scoped context for active context.
 						let compacted_ty = self
-							.with_active_context(&self.type_scoped_context)
+							.with_active_context(self.type_scoped_context)
 							.compact_iri(&ty, true, false)?;
 
 						// Append term, to compacted value.

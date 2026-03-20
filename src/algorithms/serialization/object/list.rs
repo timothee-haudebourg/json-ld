@@ -93,11 +93,9 @@ where
 
 		for p_term in deserializer.terms_of(predicate) {
 			if let CowTerm::Ground(CowGroundTerm::Iri(p_iri)) = p_term? {
-				if *p_iri == RDF_TYPE {
-					if !deserializer.is_iri(object, RDF_LIST)? {
-						// Only allowed type is rdf:List.
-						return Ok(false);
-					}
+				if *p_iri == RDF_TYPE && !deserializer.is_iri(object, RDF_LIST)? {
+					// Only allowed type is rdf:List.
+					return Ok(false);
 				}
 
 				if *p_iri == RDF_FIRST {

@@ -170,7 +170,7 @@ pub trait Loader {
 	async fn load(&self, url: &Iri) -> Result<Document, LoadError>;
 }
 
-impl<'l, L: Loader> Loader for &'l mut L {
+impl<L: Loader> Loader for &mut L {
 	async fn load(&self, url: &Iri) -> Result<Document, LoadError> {
 		L::load(self, url).await
 	}

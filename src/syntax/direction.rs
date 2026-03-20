@@ -4,7 +4,7 @@ use std::{fmt, str::FromStr};
 #[error("invalid JSON-LD text direction `{0}`")]
 pub struct InvalidDirection<T>(pub T);
 
-impl<'a, T: ?Sized + ToOwned> InvalidDirection<&'a T> {
+impl<T: ?Sized + ToOwned> InvalidDirection<&T> {
 	pub fn into_owned(self) -> InvalidDirection<T::Owned> {
 		InvalidDirection(self.0.to_owned())
 	}

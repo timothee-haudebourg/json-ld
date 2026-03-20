@@ -36,7 +36,7 @@ impl Compare for JsonValue {
 			(Self::Object(a), Self::Object(b)) => {
 				if a.len() == b.len() {
 					for entry in a {
-						match b.get_unique(&*entry.0).expect("invalid JSON-LD") {
+						match b.get_unique(entry.0).expect("invalid JSON-LD") {
 							Some(value) => {
 								if !entry.1.compare(value) {
 									return false;

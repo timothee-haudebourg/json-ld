@@ -40,15 +40,15 @@ where
 	R: Clone + PartialEq,
 	D: LinkedDataDeserializer<R>,
 {
-	if let Some(value) = try_deserialize_value_object(deserializer, &subject)? {
+	if let Some(value) = try_deserialize_value_object(deserializer, subject)? {
 		return Ok(Object::Value(value));
 	}
 
-	if let Some(list) = try_deserialize_list_object(deserializer, &subject, graph)? {
+	if let Some(list) = try_deserialize_list_object(deserializer, subject, graph)? {
 		return Ok(Object::List(list));
 	}
 
-	deserialize_node_object(deserializer, &subject, graph).map(Object::node)
+	deserialize_node_object(deserializer, subject, graph).map(Object::node)
 }
 
 fn deserialize_object_ref<R, D>(
@@ -60,13 +60,13 @@ where
 	R: Clone + PartialEq,
 	D: LinkedDataDeserializer<R>,
 {
-	if let Some(value) = try_deserialize_value_object(deserializer, &subject)? {
+	if let Some(value) = try_deserialize_value_object(deserializer, subject)? {
 		return Ok(Object::Value(value));
 	}
 
-	if let Some(list) = try_deserialize_list_object(deserializer, &subject, graph)? {
+	if let Some(list) = try_deserialize_list_object(deserializer, subject, graph)? {
 		return Ok(Object::List(list));
 	}
 
-	deserialize_node_object_ref(deserializer, &subject).map(Object::node)
+	deserialize_node_object_ref(deserializer, subject).map(Object::node)
 }

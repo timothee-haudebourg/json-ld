@@ -394,9 +394,8 @@ impl<'a> Compactor<'a> {
 									&& candidate < compact_iri))
 								&& (candidate_def.is_none()
 									|| (candidate_def.is_some()
-										&& candidate_def
-											.and_then(|def| def.value())
-											.map_or(false, |v| v == var) && value.is_none()))
+										&& (candidate_def.and_then(|def| def.value())
+											== Some(var)) && value.is_none()))
 							{
 								compact_iri = candidate
 							}

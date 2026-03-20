@@ -34,9 +34,9 @@ pub enum Id {
 impl Id {
 	pub fn from_string(s: String) -> Self {
 		match IriBuf::new(s) {
-			Ok(iri) => Self::Valid(ValidId::Iri(iri.into())),
+			Ok(iri) => Self::Valid(ValidId::Iri(iri)),
 			Err(e) => match BlankIdBuf::new(e.0) {
-				Ok(blank) => Self::Valid(ValidId::BlankId(blank.into())),
+				Ok(blank) => Self::Valid(ValidId::BlankId(blank)),
 				Err(InvalidBlankId(s)) => Self::Invalid(s),
 			},
 		}
@@ -134,7 +134,7 @@ impl indexmap::Equivalent<Id> for ValidId {
 	}
 }
 
-impl<'a> indexmap::Equivalent<Id> for &'a Iri {
+impl indexmap::Equivalent<Id> for &Iri {
 	fn equivalent(&self, key: &Id) -> bool {
 		match key {
 			Id::Valid(ValidId::Iri(iri)) => *self == iri,

@@ -39,7 +39,7 @@ where
 	}
 }
 
-impl<'u, 't, U, T: MappedEq<U>> MappedEq<&'u U> for &'t T {
+impl<'u, U, T: MappedEq<U>> MappedEq<&'u U> for &T {
 	fn mapped_eq(&self, other: &&'u U, f: impl Clone + Fn(&BlankId) -> &BlankId) -> bool {
 		T::mapped_eq(*self, *other, f)
 	}
