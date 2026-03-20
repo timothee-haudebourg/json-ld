@@ -34,7 +34,7 @@ impl TermDefinition {
 		self.is_expanded()
 	}
 
-	pub fn as_expanded(&self) -> ExpandedTermDefinitionRef {
+	pub fn as_expanded(&self) -> ExpandedTermDefinitionRef<'_> {
 		match self {
 			Self::Simple(term) => ExpandedTermDefinitionRef {
 				id: Some(Nullable::Some(term.as_str().into())),
@@ -233,7 +233,7 @@ impl ExpandedTermDefinition {
 		}
 	}
 
-	pub fn iter(&self) -> TermDefinitionEntries {
+	pub fn iter(&self) -> TermDefinitionEntries<'_> {
 		TermDefinitionEntries {
 			id: self.id.as_ref().map(Nullable::as_ref),
 			type_: self.type_.as_ref().map(Nullable::as_ref),
@@ -250,7 +250,7 @@ impl ExpandedTermDefinition {
 		}
 	}
 
-	pub fn as_expanded_ref(&self) -> ExpandedTermDefinitionRef {
+	pub fn as_expanded_ref(&self) -> ExpandedTermDefinitionRef<'_> {
 		ExpandedTermDefinitionRef {
 			id: self
 				.id

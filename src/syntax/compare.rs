@@ -1,11 +1,11 @@
-use json_syntax::Value;
+use json_syntax::JsonValue;
 
 /// JSON-LD comparison.
 pub trait Compare {
 	fn compare(&self, other: &Self) -> bool;
 }
 
-impl Compare for Value {
+impl Compare for JsonValue {
 	fn compare(&self, other: &Self) -> bool {
 		match (self, other) {
 			(Self::Null, Self::Null) => true,

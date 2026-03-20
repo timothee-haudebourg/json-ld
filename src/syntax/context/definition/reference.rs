@@ -6,7 +6,7 @@ use crate::syntax::{Direction, LenientLangTagBuf, Nullable};
 use iref::IriRef;
 
 impl ContextDefinition {
-	pub fn iter(&self) -> Entries {
+	pub fn iter(&self) -> Entries<'_> {
 		Entries {
 			base: self.base.as_ref().map(Nullable::as_deref),
 			import: self.import.as_deref(),

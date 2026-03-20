@@ -1,5 +1,7 @@
 use std::{hash::Hash, str::FromStr};
 
+use json_syntax::{JsonNumber, JsonNumberBuf};
+
 #[derive(Debug, thiserror::Error)]
 #[error("unknown JSON-LD version `{0}`")]
 pub struct UnknownVersion(pub String);
@@ -25,12 +27,12 @@ impl Version {
 		}
 	}
 
-	pub fn into_json_number(self) -> &'static json_syntax::Number {
-		unsafe { json_syntax::Number::new_unchecked(self.into_bytes()) }
+	pub fn into_json_number(self) -> &'static JsonNumber {
+		unsafe { JsonNumber::new_unchecked(self.into_bytes()) }
 	}
 
-	pub fn into_json_number_buf(self) -> json_syntax::NumberBuf {
-		unsafe { json_syntax::NumberBuf::new_unchecked(self.into_bytes().into()) }
+	pub fn into_json_number_buf(self) -> JsonNumberBuf {
+		unsafe { JsonNumberBuf::new_unchecked(self.into_bytes().into()) }
 	}
 }
 
@@ -48,22 +50,22 @@ impl Hash for Version {
 	}
 }
 
-impl<'a> From<Version> for &'a json_syntax::Number {
+impl<'a> From<Version> for &'a JsonNumber {
 	fn from(v: Version) -> Self {
 		v.into_json_number()
 	}
 }
 
-impl From<Version> for json_syntax::NumberBuf {
+impl From<Version> for JsonNumberBuf {
 	fn from(v: Version) -> Self {
 		v.into_json_number_buf()
 	}
 }
 
-impl TryFrom<json_syntax::NumberBuf> for Version {
+impl TryFrom<JsonNumberBuf> for Version {
 	type Error = UnknownVersion;
 
-	fn try_from(value: json_syntax::NumberBuf) -> Result<Self, Self::Error> {
+	fn try_from(value: JsonNumberBuf) -> Result<Self, Self::Error> {
 		if value.trimmed().as_str() == "1.1" {
 			Ok(Self::V1_1)
 		} else {
@@ -124,7 +126,7 @@ impl<'de> serde::Deserialize<'de> for Version {
 	where
 		D: serde::Deserializer<'de>,
 	{
-		json_syntax::NumberBuf::deserialize(deserializer)?
+		JsonNumberBuf::deserialize(deserializer)?
 			.try_into()
 			.map_err(serde::de::Error::custom)
 	}

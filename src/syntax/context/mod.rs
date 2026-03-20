@@ -76,7 +76,7 @@ impl Context {
 		matches!(self, Self::Many(_))
 	}
 
-	pub fn iter(&self) -> std::slice::Iter<ContextEntry> {
+	pub fn iter(&self) -> std::slice::Iter<'_, ContextEntry> {
 		self.as_slice().iter()
 	}
 }
