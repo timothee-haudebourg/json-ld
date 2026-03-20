@@ -1,5 +1,6 @@
 use hashbrown::HashSet;
 use iref::{Iri, IriBuf};
+use json_syntax::JsonValue;
 use mime::Mime;
 
 pub mod expanded;
@@ -16,7 +17,7 @@ use crate::syntax::ContextDocumentValue;
 ///
 /// Stores the content of a loaded remote document along with its original URL.
 #[derive(Debug, Clone)]
-pub struct Document<T = json_syntax::Value> {
+pub struct Document<T = JsonValue> {
 	/// The final URL of the loaded document, after eventual redirection.
 	pub url: Option<IriBuf>,
 

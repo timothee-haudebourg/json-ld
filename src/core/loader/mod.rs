@@ -1,4 +1,5 @@
 use iref::{Iri, IriBuf};
+use json_syntax::JsonValue;
 use std::borrow::Cow;
 
 pub mod chain;
@@ -24,7 +25,7 @@ pub type RemoteContextReference = RemoteDocumentReference<Context>;
 ///
 /// Either an IRI or the actual document content.
 #[derive(Clone)]
-pub enum RemoteDocumentReference<T = json_syntax::Value> {
+pub enum RemoteDocumentReference<T = JsonValue> {
 	/// IRI to the remote document.
 	Iri(IriBuf),
 
@@ -33,10 +34,10 @@ pub enum RemoteDocumentReference<T = json_syntax::Value> {
 }
 
 impl<T> RemoteDocumentReference<T> {
-	/// Creates an IRI to a `json_syntax::Value` JSON document.
+	/// Creates an IRI to a `JsonValue` JSON document.
 	///
 	/// This method can replace `RemoteDocumentReference::Iri` to help the type
-	/// inference in the case where `T = json_syntax::Value`.
+	/// inference in the case where `T = JsonValue`.
 	pub fn iri(iri: IriBuf) -> Self {
 		Self::Iri(iri)
 	}
@@ -209,7 +210,7 @@ impl<'l, L: Loader> Loader for &'l mut L {
 // 	fn into_ld_context(self) -> Result<json_ld_syntax::context::Context, ExtractContextError>;
 // }
 
-// impl ExtractContext for json_syntax::Value {
+// impl ExtractContext for JsonValue {
 // 	fn into_ld_context(self) -> Result<json_ld_syntax::context::Context, ExtractContextError> {
 // 		match self {
 // 			Self::Object(mut o) => match o

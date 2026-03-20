@@ -102,7 +102,7 @@ impl RawProcessedContext {
 	}
 
 	/// Returns a reference to the given `term` definition, if any.
-	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef>
+	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<'_>>
 	where
 		ContextTerm: Borrow<Q>,
 		KeywordType: Borrow<Q>,

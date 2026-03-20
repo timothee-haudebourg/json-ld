@@ -2,7 +2,7 @@ use crate::syntax::Keyword;
 use crate::{object, Direction, LangString, LenientLangTag, Type};
 use educe::Educe;
 use iref::{Iri, IriBuf};
-use json_syntax::{JsonString, Number, NumberBuf};
+use json_syntax::{JsonNumber, JsonNumberBuf, JsonString, JsonValue};
 use rdf_types::{Literal, LiteralType, RDF_JSON};
 use std::hash::Hash;
 use xsd_types::{XSD_BOOLEAN, XSD_FLOAT, XSD_INTEGER};
@@ -14,7 +14,7 @@ pub enum ValueType {
 }
 
 impl ValueType {
-	pub fn as_id(&self) -> Option<crate::id::Ref> {
+	pub fn as_id(&self) -> Option<crate::id::Ref<'_>> {
 		match self {
 			Self::Json => None,
 			Self::Id(t) => Some(crate::id::Ref::Iri(t)),
@@ -56,7 +56,7 @@ pub enum LiteralValue {
 	Boolean(bool),
 
 	/// Number.
-	Number(NumberBuf),
+	Number(JsonNumberBuf),
 
 	/// String.
 	String(JsonString),
@@ -83,19 +83,19 @@ impl LiteralValue {
 
 	/// Returns this value as a number if it is one.
 	#[inline(always)]
-	pub fn as_number(&self) -> Option<&Number> {
+	pub fn as_number(&self) -> Option<&JsonNumber> {
 		match self {
 			LiteralValue::Number(n) => Some(n),
 			_ => None,
 		}
 	}
 
-	pub fn into_json(self) -> json_syntax::Value {
+	pub fn into_json(self) -> JsonValue {
 		match self {
-			Self::Null => json_syntax::Value::Null,
-			Self::Boolean(b) => json_syntax::Value::Boolean(b),
-			Self::Number(n) => json_syntax::Value::Number(n),
-			Self::String(s) => json_syntax::Value::String(s),
+			Self::Null => JsonValue::Null,
+			Self::Boolean(b) => JsonValue::Boolean(b),
+			Self::Number(n) => JsonValue::Number(n),
+			Self::String(s) => JsonValue::String(s),
 		}
 	}
 
@@ -127,7 +127,7 @@ pub enum ValueObject {
 	LangString(LangString),
 
 	/// JSON literal value.
-	Json(json_syntax::Value),
+	Json(JsonValue),
 }
 
 impl ValueObject {
@@ -192,7 +192,7 @@ impl ValueObject {
 	}
 
 	#[inline(always)]
-	pub fn as_number(&self) -> Option<&Number> {
+	pub fn as_number(&self) -> Option<&JsonNumber> {
 		match self {
 			ValueObject::Literal(lit, _) => lit.as_number(),
 			_ => None,
@@ -202,7 +202,7 @@ impl ValueObject {
 	/// Return the type of the value if any.
 	///
 	/// This will return `Some(Type::Json)` for JSON literal values.
-	pub fn typ(&self) -> Option<ValueTypeRef> {
+	pub fn typ(&self) -> Option<ValueTypeRef<'_>> {
 		match self {
 			ValueObject::Literal(_, Some(ty)) => Some(ValueTypeRef::Id(ty)),
 			ValueObject::Json(_) => Some(ValueTypeRef::Json),
@@ -233,7 +233,7 @@ impl ValueObject {
 	}
 
 	#[inline(always)]
-	pub fn entries(&self) -> Entries {
+	pub fn entries(&self) -> Entries<'_> {
 		match self {
 			Self::Literal(l, ty) => Entries {
 				value: Some(ValueEntryRef::Literal(l)),
@@ -277,7 +277,7 @@ impl ValueObject {
 
 impl object::AnyObject for ValueObject {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref {
+	fn as_ref(&self) -> object::Ref<'_> {
 		object::Ref::Value(self)
 	}
 }
@@ -368,7 +368,7 @@ pub enum EntryValueRef<'a> {
 pub enum ValueEntryRef<'a> {
 	Literal(&'a LiteralValue),
 	LangString(&'a str),
-	Json(&'a json_syntax::Value),
+	Json(&'a JsonValue),
 }
 
 impl<'a> Clone for ValueEntryRef<'a> {

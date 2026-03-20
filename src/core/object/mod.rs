@@ -4,7 +4,7 @@ use crate::syntax::Keyword;
 use crate::{Id, Indexed, LenientLangTag};
 use educe::Educe;
 use iref::Iri;
-use json_syntax::Number;
+use json_syntax::JsonNumber;
 use std::hash::Hash;
 
 pub mod list;
@@ -20,7 +20,7 @@ pub use value::{LiteralValue, ValueObject};
 
 /// Abstract object.
 pub trait AnyObject {
-	fn as_ref(&self) -> Ref;
+	fn as_ref(&self) -> Ref<'_>;
 
 	#[inline]
 	fn id(&self) -> Option<&Id> {
@@ -152,7 +152,7 @@ impl Object {
 	// }
 
 	/// Returns an iterator over the types of the object.
-	pub fn types(&self) -> Types {
+	pub fn types(&self) -> Types<'_> {
 		match self {
 			Self::Value(value) => Types::Value(value.typ()),
 			Self::Node(node) => Types::Node(node.types().iter()),
@@ -305,7 +305,7 @@ impl Object {
 
 	/// Get the value as a number, if it is.
 	#[inline(always)]
-	pub fn as_number(&self) -> Option<&Number> {
+	pub fn as_number(&self) -> Option<&JsonNumber> {
 		match self {
 			Object::Value(value) => value.as_number(),
 			_ => None,
@@ -336,7 +336,7 @@ impl Object {
 
 	/// Returns an iterator over the entries of JSON representation of the
 	/// object.
-	pub fn entries(&self) -> Entries {
+	pub fn entries(&self) -> Entries<'_> {
 		match self {
 			Self::Value(value) => Entries::Value(value.entries()),
 			Self::List(list) => Entries::List(Some(list.entry())),
@@ -401,7 +401,7 @@ impl Indexed<Object> {
 		}
 	}
 
-	pub fn entries(&self) -> IndexedEntries {
+	pub fn entries(&self) -> IndexedEntries<'_> {
 		IndexedEntries {
 			index: self.index(),
 			inner: self.inner().entries(),
@@ -675,7 +675,7 @@ impl<'a> IndexedEntryRef<'a> {
 
 impl AnyObject for Object {
 	#[inline(always)]
-	fn as_ref(&self) -> Ref {
+	fn as_ref(&self) -> Ref<'_> {
 		match self {
 			Object::Value(value) => Ref::Value(value),
 			Object::Node(node) => Ref::Node(node),

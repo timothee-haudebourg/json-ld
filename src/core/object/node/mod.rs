@@ -417,7 +417,7 @@ impl NodeObject {
 		}
 	}
 
-	pub fn entries(&self) -> Entries {
+	pub fn entries(&self) -> Entries<'_> {
 		Entries {
 			id: self.id.as_ref(),
 			type_: self.types.as_deref(),
@@ -456,7 +456,7 @@ impl NodeObject {
 
 	/// Get all the objects associated to the node with the given property.
 	#[inline(always)]
-	pub fn get<'a, Q>(&self, prop: &Q) -> Objects
+	pub fn get<'a, Q>(&self, prop: &Q) -> Objects<'_>
 	where
 		Q: ?Sized + Hash + indexmap::Equivalent<Id>,
 	{
@@ -609,7 +609,7 @@ impl PartialEq for NodeObject {
 }
 
 impl Indexed<NodeObject> {
-	pub fn entries(&self) -> IndexedEntries {
+	pub fn entries(&self) -> IndexedEntries<'_> {
 		IndexedEntries {
 			index: self.index(),
 			inner: self.inner().entries(),
@@ -924,7 +924,7 @@ impl<'a> IndexedEntryRef<'a> {
 
 impl object::AnyObject for NodeObject {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref {
+	fn as_ref(&self) -> object::Ref<'_> {
 		object::Ref::Node(self)
 	}
 }

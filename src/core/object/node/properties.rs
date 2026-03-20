@@ -70,7 +70,7 @@ impl Properties {
 
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
-	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> Objects {
+	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> Objects<'_> {
 		match self.0.get(prop) {
 			Some(values) => Objects::new(Some(values.iter())),
 			None => Objects::new(None),

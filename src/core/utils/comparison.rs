@@ -1,8 +1,8 @@
-use json_syntax::Value;
+use json_syntax::JsonValue;
 
-pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
+pub fn simple_json_ld_eq(a: &JsonValue, b: &JsonValue) -> bool {
 	match (a, b) {
-		(Value::Array(a), Value::Array(b)) if a.len() == b.len() => {
+		(JsonValue::Array(a), JsonValue::Array(b)) if a.len() == b.len() => {
 			let mut selected = Vec::with_capacity(a.len());
 			selected.resize(a.len(), false);
 
@@ -19,12 +19,12 @@ pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
 
 			true
 		}
-		(Value::Object(a), Value::Object(b)) if a.len() == b.len() => {
+		(JsonValue::Object(a), JsonValue::Object(b)) if a.len() == b.len() => {
 			for (key, value_a) in a.iter() {
 				if let Some(value_b) = b.get(key).next() {
 					if key == "@list" {
 						match (value_a, value_b) {
-							(Value::Array(item_a), Value::Array(item_b))
+							(JsonValue::Array(item_a), JsonValue::Array(item_b))
 								if item_a.len() == item_b.len() =>
 							{
 								if !item_a
@@ -51,10 +51,10 @@ pub fn simple_json_ld_eq(a: &Value, b: &Value) -> bool {
 
 			true
 		}
-		(Value::Null, Value::Null) => true,
-		(Value::Boolean(a), Value::Boolean(b)) => a == b,
-		(Value::Number(a), Value::Number(b)) => a == b,
-		(Value::String(a), Value::String(b)) => (**a) == (**b),
+		(JsonValue::Null, JsonValue::Null) => true,
+		(JsonValue::Boolean(a), JsonValue::Boolean(b)) => a == b,
+		(JsonValue::Number(a), JsonValue::Number(b)) => a == b,
+		(JsonValue::String(a), JsonValue::String(b)) => (**a) == (**b),
 		_ => false,
 	}
 }

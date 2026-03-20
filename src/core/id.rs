@@ -109,7 +109,7 @@ impl Id {
 		Term::Id(self)
 	}
 
-	pub fn as_ref(&self) -> Ref {
+	pub fn as_ref(&self) -> Ref<'_> {
 		match self {
 			Self::Valid(ValidId::Iri(t)) => Ref::Iri(t),
 			Self::Valid(ValidId::BlankId(id)) => Ref::Blank(id),

@@ -1,7 +1,7 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
 use hashbrown::HashSet;
 use iref::Iri;
-use json_syntax::Parse;
+use json_syntax::{JsonValue, ParseJson};
 use reqwest::{
 	header::{ACCEPT, CONTENT_TYPE, LINK},
 	StatusCode,
@@ -197,7 +197,7 @@ impl Loader for ReqwestLoader {
 							})?;
 
 							// let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
-							let (document, _) = json_syntax::Value::parse_slice(&bytes)
+							let (document, _) = JsonValue::parse_slice(&bytes)
 								.map_err(|e| LoadError::new(url.clone(), e))?;
 
 							break Ok(Document::new_full(

@@ -1,6 +1,6 @@
 use hashbrown::HashSet;
 use iref::Iri;
-use json_syntax::Parse;
+use json_syntax::ParseJson;
 use linked_data::{FromLinkedDataError, LinkedDataDeserialize};
 use rdf_types::{
 	dataset::{PatternMatchingDataset, TraversableDataset},
@@ -214,7 +214,7 @@ fn is_anonymous<I: ReverseTermInterpretation>(interpretation: &I, id: &I::Resour
 #[derive(Debug, thiserror::Error)]
 pub enum SerializationError {
 	#[error("invalid JSON")]
-	InvalidJson(linked_data::ContextIris, json_syntax::parse::Error),
+	InvalidJson(linked_data::ContextIris, json_syntax::ParseJson::Error),
 
 	#[error("invalid boolean value")]
 	InvalidBoolean(linked_data::ContextIris, String),
@@ -669,13 +669,12 @@ where
 					LiteralTypeRef::Any(i) => {
 						let ty = vocabulary.iri(i).unwrap();
 						if ty == RDF_JSON {
-							let (json, _) =
-								json_syntax::Value::parse_str(l.value).map_err(|e| {
-									SerializationError::InvalidJson(
-										context.into_iris(vocabulary, interpretation),
-										e,
-									)
-								})?;
+							let (json, _) = JsonValue::parse_str(l.value).map_err(|e| {
+								SerializationError::InvalidJson(
+									context.into_iris(vocabulary, interpretation),
+									e,
+								)
+							})?;
 							Value::Json(json)
 						} else if ty == XSD_BOOLEAN {
 							let b = match l.as_ref() {

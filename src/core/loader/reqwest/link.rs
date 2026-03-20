@@ -44,7 +44,7 @@ impl Link {
 					Some(b';') => state = State::BeginKey,
 					Some(_) => break None,
 					None => {
-						break match IriRefBuf::from_vec(href) {
+						break match IriRefBuf::from_bytes(href) {
 							Ok(href) => Some(Self { href, params }),
 							Err(_) => None,
 						}

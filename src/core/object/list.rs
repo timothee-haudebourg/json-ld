@@ -57,11 +57,11 @@ impl ListObject {
 		self.entry.pop()
 	}
 
-	pub fn iter(&self) -> core::slice::Iter<IndexedObject> {
+	pub fn iter(&self) -> core::slice::Iter<'_, IndexedObject> {
 		self.entry.iter()
 	}
 
-	pub fn iter_mut(&mut self) -> core::slice::IterMut<IndexedObject> {
+	pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, IndexedObject> {
 		self.entry.iter_mut()
 	}
 
@@ -99,7 +99,7 @@ impl ListObject {
 // }
 
 impl AnyObject for ListObject {
-	fn as_ref(&self) -> super::Ref {
+	fn as_ref(&self) -> super::Ref<'_> {
 		super::Ref::List(self)
 	}
 }
