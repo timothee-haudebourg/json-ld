@@ -70,7 +70,7 @@ impl<'a> Merged<'a> {
 			.or_else(|| self.imported().and_then(|i| i.type_))
 	}
 
-	pub fn bindings(&self) -> MergedBindings {
+	pub fn bindings(&self) -> MergedBindings<'_> {
 		MergedBindings {
 			base: self.base,
 			base_bindings: self.base.bindings.iter(),
@@ -78,7 +78,7 @@ impl<'a> Merged<'a> {
 		}
 	}
 
-	pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef> {
+	pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<'_>> {
 		self.base
 			.get(key)
 			.or_else(|| self.imported().and_then(|i| i.get(key)))

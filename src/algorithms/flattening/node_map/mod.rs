@@ -58,14 +58,14 @@ impl NodeMap {
 		(self.default_graph, self.graphs)
 	}
 
-	pub fn iter(&self) -> Iter {
+	pub fn iter(&self) -> Iter<'_> {
 		Iter {
 			default_graph: Some(&self.default_graph),
 			graphs: self.graphs.iter(),
 		}
 	}
 
-	pub fn iter_named(&self) -> std::collections::hash_map::Iter<Id, NodeMapGraph> {
+	pub fn iter_named(&self) -> std::collections::hash_map::Iter<'_, Id, NodeMapGraph> {
 		self.graphs.iter()
 	}
 
@@ -242,7 +242,7 @@ impl NodeMapGraph {
 		self.nodes.get_mut(id)
 	}
 
-	pub fn declare_node(&mut self, id: Id, index: Option<&str>) -> DeclareNodeResult {
+	pub fn declare_node(&mut self, id: Id, index: Option<&str>) -> DeclareNodeResult<'_> {
 		if let Some(entry) = self.nodes.get_mut(&id) {
 			match (entry.index(), index) {
 				(Some(entry_index), Some(index)) => {
@@ -320,7 +320,7 @@ impl NodeMapGraph {
 		}
 	}
 
-	pub fn nodes(&self) -> NodeMapGraphNodes {
+	pub fn nodes(&self) -> NodeMapGraphNodes<'_> {
 		self.nodes.values()
 	}
 

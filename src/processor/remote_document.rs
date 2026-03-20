@@ -206,7 +206,7 @@ impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
 	}
 }
 
-impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, json_syntax::Value> {
+impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, JsonValue> {
 	async fn compare_full<'a, N>(
 		&'a self,
 		other: &'a Self,

@@ -216,7 +216,7 @@ impl CompactError {
 }
 
 /// Result of the [`JsonLdProcessor::compact`] function.
-pub type CompactResult = Result<json_syntax::Value, CompactError>;
+pub type CompactResult = Result<JsonValue, CompactError>;
 
 /// Error that can be raised by the [`JsonLdProcessor::flatten`] function.
 #[derive(Debug, thiserror::Error)]
@@ -251,7 +251,7 @@ impl<I, B> FlattenError<I, B> {
 }
 
 /// Result of the [`JsonLdProcessor::flatten`] function.
-pub type FlattenResult<I, B> = Result<json_syntax::Value, FlattenError<I, B>>;
+pub type FlattenResult<I, B> = Result<JsonValue, FlattenError<I, B>>;
 
 /// Error that can be raised by the [`JsonLdProcessor::to_rdf`] function.
 #[derive(Debug, thiserror::Error)]
@@ -281,8 +281,8 @@ pub type CompareResult = Result<bool, ExpandError>;
 /// The `JsonLdProcessor` interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.
 ///
-/// It is notably implemented for the [`RemoteDocument<I, M, json_syntax::Value<M>>`](crate::RemoteDocument)
-/// and [`RemoteDocumentReference<I, M, json_syntax::Value<M>>`] types.
+/// It is notably implemented for the [`RemoteDocument<I, M, JsonValue<M>>`](crate::RemoteDocument)
+/// and [`RemoteDocumentReference<I, M, JsonValue<M>>`] types.
 ///
 /// # Methods naming
 ///
@@ -345,7 +345,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
-	///  
+	///
 	/// assert!(input1.compare_full(
 	///   &input2,
 	///   &mut vocabulary,
@@ -393,7 +393,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
-	///  
+	///
 	/// assert!(input1.compare_with_using(
 	///   &input2,
 	///   &mut vocabulary,
@@ -444,7 +444,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
-	///  
+	///
 	/// assert!(input1.compare_with(
 	///   &input2,
 	///   &mut vocabulary,
@@ -489,7 +489,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
-	///  
+	///
 	/// assert!(input1.compare_using(
 	///   &input2,
 	///   &loader,
@@ -539,7 +539,7 @@ pub trait JsonLdProcessor<Iri>: Sized {
 	/// // the local `example` directory. No HTTP query.
 	/// let mut loader = json_ld::FsLoader::default();
 	/// loader.mount(iri!("https://example.com/").to_owned(), "examples");
-	///  
+	///
 	/// assert!(input1.compare(
 	///   &input2,
 	///   &loader
@@ -1891,7 +1891,7 @@ async fn compact_expanded_full<'a, T, N, L>(
 	loader: &'a L,
 	options: Options<N::Iri>,
 	warnings: impl context_processing::WarningHandler<N>,
-) -> Result<json_syntax::Value, CompactError>
+) -> Result<JsonValue, CompactError>
 where
 	N: VocabularyMut,
 	N::Iri: Clone + Eq + Hash,
