@@ -14,7 +14,7 @@ pub struct Expander<'a> {
 }
 
 impl<'a> Expander<'a> {
-	pub fn active_property_definition(&self) -> Option<TermDefinitionRef> {
+	pub fn active_property_definition(&self) -> Option<TermDefinitionRef<'_>> {
 		self.active_property
 			.and_then(|t| self.active_context.get(t))
 	}

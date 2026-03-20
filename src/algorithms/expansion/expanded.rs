@@ -30,7 +30,7 @@ impl Expanded {
 		}
 	}
 
-	pub fn iter(&self) -> Iter {
+	pub fn iter(&self) -> Iter<'_> {
 		match self {
 			Expanded::Null => Iter::Null,
 			Expanded::Object(ref o) => Iter::Object(Some(o)),

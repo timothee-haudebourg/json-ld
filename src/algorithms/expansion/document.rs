@@ -1,4 +1,4 @@
-use json_syntax::Value;
+use json_syntax::JsonValue;
 
 use crate::{
 	algorithms::{Error, ProcessingEnvironment},
@@ -11,7 +11,7 @@ impl<'a> Expander<'a> {
 	pub async fn expand_document(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		document: &Value,
+		document: &JsonValue,
 	) -> Result<ExpandedDocument, Error> {
 		let expanded = self.expand_element(env, document, false).await?;
 

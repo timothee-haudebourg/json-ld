@@ -36,6 +36,8 @@
 // 	}
 // }
 
+use json_syntax::JsonValue;
+
 use crate::{
 	algorithms::{Error, Warning},
 	context::RawProcessedContext,
@@ -57,7 +59,7 @@ impl<'a> Expander<'a> {
 		input_type: Option<Term>,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry>,
-		value_entry: &json_syntax::Value,
+		value_entry: &JsonValue,
 	) -> ValueExpansionResult {
 		let mut is_json = input_type
 			.as_ref()
@@ -163,10 +165,10 @@ impl<'a> Expander<'a> {
 		// Otherwise, if value is not a scalar or null, an invalid value object value
 		// error has been detected and processing is aborted.
 		let result = match value_entry {
-			json_syntax::Value::Null => LiteralValue::Null,
-			json_syntax::Value::String(s) => LiteralValue::String(s.clone()),
-			json_syntax::Value::Number(n) => LiteralValue::Number(n.clone()),
-			json_syntax::Value::Boolean(b) => LiteralValue::Boolean(*b),
+			JsonValue::Null => LiteralValue::Null,
+			JsonValue::String(s) => LiteralValue::String(s.clone()),
+			JsonValue::Number(n) => LiteralValue::Number(n.clone()),
+			JsonValue::Boolean(b) => LiteralValue::Boolean(*b),
 			_ => {
 				return Err(Error::InvalidValueObjectValue);
 			}

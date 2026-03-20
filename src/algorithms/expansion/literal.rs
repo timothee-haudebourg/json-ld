@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use json_syntax::Number;
+use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
 	algorithms::{Error, Warning},
@@ -12,16 +12,16 @@ use super::{node_id_of_term, Expander};
 
 pub enum ExpandableLiteralValue<'a> {
 	Boolean(bool),
-	Number(&'a Number),
+	Number(&'a JsonNumber),
 	String(Cow<'a, str>),
 }
 
 impl<'a> ExpandableLiteralValue<'a> {
-	pub fn new(value: &'a json_syntax::Value) -> Self {
+	pub fn new(value: &'a JsonValue) -> Self {
 		match value {
-			json_syntax::Value::Boolean(b) => Self::Boolean(*b),
-			json_syntax::Value::Number(n) => Self::Number(n),
-			json_syntax::Value::String(s) => Self::String(Cow::Borrowed(s)),
+			JsonValue::Boolean(b) => Self::Boolean(*b),
+			JsonValue::Number(n) => Self::Number(n),
+			JsonValue::String(s) => Self::String(Cow::Borrowed(s)),
 			_ => panic!("not a literal value"),
 		}
 	}
@@ -101,7 +101,7 @@ impl<'a> Expander<'a> {
 				let result: LiteralValue = match value {
 					ExpandableLiteralValue::Boolean(b) => LiteralValue::Boolean(b),
 					ExpandableLiteralValue::Number(n) => LiteralValue::Number(unsafe {
-						json_syntax::NumberBuf::new_unchecked(n.as_bytes().into())
+						JsonNumberBuf::new_unchecked(n.as_bytes().into())
 					}),
 					ExpandableLiteralValue::String(s) => {
 						LiteralValue::String(s.into_owned().into())

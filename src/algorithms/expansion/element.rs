@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use json_syntax::{object::Entry, Value};
+use json_syntax::{object::Entry, JsonValue};
 use mown::Mown;
 
 use crate::{
@@ -15,7 +15,7 @@ use crate::{
 
 use super::{ExpandableLiteralValue, Expanded, Expander};
 
-pub struct ExpandedEntry<'a>(pub &'a str, pub Term, pub &'a Value);
+pub struct ExpandedEntry<'a>(pub &'a str, pub Term, pub &'a JsonValue);
 
 impl<'a> Expander<'a> {
 	/// Expand an element.
@@ -26,7 +26,7 @@ impl<'a> Expander<'a> {
 	pub async fn expand_element(
 		&self,
 		env: &mut impl ProcessingEnvironment,
-		element: &Value,
+		element: &JsonValue,
 		from_map: bool,
 	) -> Result<Expanded, Error> {
 		// If `element` is null, return null.
@@ -50,8 +50,8 @@ impl<'a> Expander<'a> {
 		};
 
 		match element {
-			Value::Null => unreachable!(),
-			Value::Array(element) => {
+			JsonValue::Null => unreachable!(),
+			JsonValue::Array(element) => {
 				self.expand_array(
 					env,
 					// active_context,
@@ -65,7 +65,7 @@ impl<'a> Expander<'a> {
 				.await
 			}
 
-			Value::Object(element) => {
+			JsonValue::Object(element) => {
 				// let entries: Cow<[Entry<_, C>]> = if options.ordered {
 				// 	Cow::Owned(element.entries().iter().cloned().collect())
 				// } else {
@@ -186,7 +186,7 @@ impl<'a> Expander<'a> {
 				// key IRI expands to @type:
 				for (_, value) in &type_entries {
 					// Convert `value` into an array, if necessary.
-					let value = Value::force_as_array(value);
+					let value = JsonValue::force_as_array(value);
 
 					// For each `term` which is a value of `value` ordered lexicographically,
 					let mut sorted_value = Vec::with_capacity(value.len());
@@ -228,7 +228,7 @@ impl<'a> Expander<'a> {
 				// key.
 				// Both the key and value of the matched entry are IRI expanded.
 				let input_type = if let Some((_, value)) = type_entries.first() {
-					let value = Value::force_as_array(value);
+					let value = JsonValue::force_as_array(value);
 					if let Some(input_type) = value.last() {
 						input_type.as_string().map(|input_type_str| {
 							active_context.expand_iri(
@@ -299,7 +299,7 @@ impl<'a> Expander<'a> {
 					// base URL, and the ordered flags, ensuring that the
 					// result is an array..
 					let mut result = Vec::new();
-					let list_entry = Value::force_as_array(&list_entry);
+					let list_entry = JsonValue::force_as_array(&list_entry);
 					for item in list_entry {
 						let e = Box::pin(self.with_active_context(&active_context).expand_element(
 							env,

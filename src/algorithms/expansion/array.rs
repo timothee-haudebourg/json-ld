@@ -1,4 +1,4 @@
-use json_syntax::Array;
+use json_syntax::JsonArray;
 
 use crate::{
 	algorithms::{Error, ProcessingEnvironment},
@@ -16,7 +16,7 @@ impl<'a> Expander<'a> {
 		&self,
 		env: &mut impl ProcessingEnvironment,
 		active_property_definition: Option<TermDefinitionRef<'_>>,
-		element: &Array,
+		element: &JsonArray,
 		from_map: bool,
 	) -> Result<Expanded, Error> {
 		// Initialize an empty array, result.

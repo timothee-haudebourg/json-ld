@@ -10,6 +10,7 @@ use crate::{
 };
 use indexmap::IndexSet;
 use json_syntax::object::EntryRef;
+use json_syntax::JsonValue;
 use mown::Mown;
 
 use super::{filter_top_level_item, Expanded, ExpandedEntry};
@@ -152,7 +153,7 @@ impl<'a> Expander<'a> {
 							// If value is neither a string nor an array of strings, an
 							// invalid type value error has been detected and processing
 							// is aborted.
-							let value = json_syntax::Value::force_as_array(value);
+							let value = JsonValue::force_as_array(value);
 							// Set `expanded_value` to the result of IRI expanding each
 							// of its values using `type_scoped_context` for active
 							// context, and true for document relative.
@@ -365,7 +366,7 @@ impl<'a> Expander<'a> {
 							let nesting_key = key;
 							// Recursively repeat steps 3, 8, 13, and 14 using `nesting_key` for active property,
 							// and nested value for element.
-							let value = json_syntax::Value::force_as_array(value);
+							let value = JsonValue::force_as_array(value);
 							for nested_value in value {
 								// Step 3 again.
 								let mut property_scoped_base_url = None;
@@ -524,16 +525,15 @@ impl<'a> Expander<'a> {
 								for (language, language_value) in language_entries {
 									// If language value is not an array set language value to
 									// an array containing only language value.
-									let language_value =
-										json_syntax::Value::force_as_array(language_value);
+									let language_value = JsonValue::force_as_array(language_value);
 
 									// For each item in language value:
 									for item in language_value {
 										match item {
 											// If item is null, continue to the next entry in
 											// language value.
-											json_syntax::Value::Null => (),
-											json_syntax::Value::String(item) => {
+											JsonValue::Null => (),
+											JsonValue::String(item) => {
 												// If language is @none, or expands to
 												// @none, remove @language from v.
 												let language = if self.active_context.expand_iri(
