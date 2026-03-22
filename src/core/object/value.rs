@@ -2,8 +2,8 @@ use crate::syntax::Keyword;
 use crate::{object, Direction, LangString, LenientLangTag, Type};
 use educe::Educe;
 use iref::{Iri, IriBuf};
-use json_syntax::{JsonNumber, JsonNumberBuf, JsonString, JsonValue};
-use rdf_types::{Literal, LiteralType, RDF_JSON};
+use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
+use rdf_types::{Literal, RDF_JSON};
 use std::hash::Hash;
 use xsd_types::{XSD_BOOLEAN, XSD_FLOAT, XSD_INTEGER};
 
@@ -46,64 +46,110 @@ impl<'a> ValueTypeRef<'a> {
 	}
 }
 
-/// Literal value.
+/// Literal type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum LiteralValue {
-	/// The `null` value.
-	Null,
+pub enum LiteralType {
+	/// JSON literal (`@json`).
+	Json,
 
-	/// Boolean value.
-	Boolean(bool),
+	/// Typed by an IRI.
+	Iri(IriBuf),
+}
 
-	/// Number.
-	Number(JsonNumberBuf),
+#[cfg(feature = "serde")]
+impl serde::Serialize for LiteralType {
+	fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+		match self {
+			Self::Json => serializer.serialize_str("@json"),
+			Self::Iri(iri) => serializer.serialize_str(iri.as_str()),
+		}
+	}
+}
 
-	/// String.
-	String(JsonString),
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for LiteralType {
+	fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+		let s = String::deserialize(deserializer)?;
+		if s == "@json" {
+			Ok(Self::Json)
+		} else {
+			IriBuf::new(s)
+				.map(Self::Iri)
+				.map_err(serde::de::Error::custom)
+		}
+	}
+}
+
+/// Literal value.
+///
+/// A JSON-LD value object with a `@value` entry and an optional `@type`.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct LiteralValue {
+	/// The value.
+	#[cfg_attr(feature = "serde", serde(rename = "@value"))]
+	pub value: JsonValue,
+
+	/// Optional type.
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
+	)]
+	pub type_: Option<LiteralType>,
 }
 
 impl LiteralValue {
-	/// Returns this value as a string if it is one.
+	/// Creates a new literal value.
+	pub fn new(value: JsonValue, type_: Option<LiteralType>) -> Self {
+		Self { value, type_ }
+	}
+
+	/// Creates a null literal value.
+	pub fn null() -> Self {
+		Self::new(JsonValue::Null, None)
+	}
+
+	/// Creates a JSON literal value (`@type: "@json"`).
+	pub fn json(value: JsonValue) -> Self {
+		Self::new(value, Some(LiteralType::Json))
+	}
+
+	/// Returns the value as a string if it is one.
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
-		match self {
-			LiteralValue::String(s) => Some(s.as_ref()),
-			_ => None,
-		}
+		self.value.as_str().map(AsRef::as_ref)
 	}
 
-	/// Returns this value as a boolean if it is one.
+	/// Returns the value as a boolean if it is one.
 	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
-		match self {
-			LiteralValue::Boolean(b) => Some(*b),
-			_ => None,
-		}
+		self.value.as_boolean()
 	}
 
-	/// Returns this value as a number if it is one.
+	/// Returns the value as a number if it is one.
 	#[inline(always)]
 	pub fn as_number(&self) -> Option<&JsonNumber> {
-		match self {
-			LiteralValue::Number(n) => Some(n),
+		self.value.as_number()
+	}
+
+	/// Returns the type IRI, if the type is an IRI.
+	pub fn type_iri(&self) -> Option<&Iri> {
+		match &self.type_ {
+			Some(LiteralType::Iri(iri)) => Some(iri),
 			_ => None,
 		}
 	}
 
-	pub fn into_json(self) -> JsonValue {
-		match self {
-			Self::Null => JsonValue::Null,
-			Self::Boolean(b) => JsonValue::Boolean(b),
-			Self::Number(n) => JsonValue::Number(n),
-			Self::String(s) => JsonValue::String(s),
-		}
+	/// Returns true if this is a JSON literal (`@type: "@json"`).
+	pub fn is_json(&self) -> bool {
+		matches!(self.type_, Some(LiteralType::Json))
 	}
 
 	// /// Puts this literal into canonical form using the given `buffer`.
 	// ///
 	// /// The buffer is used to compute the canonical form of numbers.
 	// pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
-	// 	if let Self::Number(n) = self {
+	// 	if let JsonValue::Number(n) = &mut self.value {
 	// 		*n = NumberBuf::from_number(n.canonical_with(buffer))
 	// 	}
 	// }
@@ -118,45 +164,50 @@ impl LiteralValue {
 /// Value object.
 ///
 /// Either a typed literal value, or an internationalized language string.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum ValueObject {
-	/// Typed literal value.
-	Literal(LiteralValue, Option<IriBuf>),
-
 	/// Language tagged string.
 	LangString(LangString),
 
-	/// JSON literal value.
-	Json(JsonValue),
+	/// Typed literal value (including JSON literals).
+	Literal(LiteralValue),
 }
 
 impl ValueObject {
 	/// Creates a `null` value object.
 	#[inline(always)]
 	pub fn null() -> Self {
-		Self::Literal(LiteralValue::Null, None)
+		Self::Literal(LiteralValue::null())
 	}
 
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
-			ValueObject::Literal(lit, _) => lit.as_str(),
-			ValueObject::LangString(str) => Some(str.as_str()),
-			ValueObject::Json(_) => None,
+			ValueObject::Literal(lit) => lit.as_str(),
+			ValueObject::LangString(s) => Some(s.as_str()),
 		}
 	}
 
 	#[inline(always)]
-	pub fn as_literal(&self) -> Option<(&LiteralValue, Option<&Iri>)> {
+	pub fn as_literal(&self) -> Option<&LiteralValue> {
 		match self {
-			Self::Literal(lit, ty) => Some((lit, ty.as_deref())),
+			Self::Literal(lit) => Some(lit),
 			_ => None,
 		}
 	}
 
-	pub fn literal_type(&self) -> Option<&Iri> {
+	pub fn literal_type(&self) -> Option<&LiteralType> {
 		match self {
-			Self::Literal(_, ty) => ty.as_deref(),
+			Self::Literal(lit) => lit.type_.as_ref(),
+			_ => None,
+		}
+	}
+
+	pub fn literal_type_iri(&self) -> Option<&Iri> {
+		match self {
+			Self::Literal(lit) => lit.type_iri(),
 			_ => None,
 		}
 	}
@@ -164,29 +215,17 @@ impl ValueObject {
 	/// Set the literal value type, and returns the old type.
 	///
 	/// Has no effect and return `None` if the value is not a literal value.
-	pub fn set_literal_type(&mut self, mut ty: Option<IriBuf>) -> Option<IriBuf> {
+	pub fn set_literal_type(&mut self, ty: Option<LiteralType>) -> Option<LiteralType> {
 		match self {
-			Self::Literal(_, old_ty) => {
-				std::mem::swap(old_ty, &mut ty);
-				ty
-			}
+			Self::Literal(lit) => std::mem::replace(&mut lit.type_, ty),
 			_ => None,
-		}
-	}
-
-	/// Maps the literal value type.
-	///
-	/// Has no effect if the value is not a literal value.
-	pub fn map_literal_type<F: FnOnce(Option<IriBuf>) -> Option<IriBuf>>(&mut self, f: F) {
-		if let Self::Literal(_, ty) = self {
-			*ty = f(ty.take())
 		}
 	}
 
 	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
-			ValueObject::Literal(lit, _) => lit.as_bool(),
+			ValueObject::Literal(lit) => lit.as_bool(),
 			_ => None,
 		}
 	}
@@ -194,18 +233,19 @@ impl ValueObject {
 	#[inline(always)]
 	pub fn as_number(&self) -> Option<&JsonNumber> {
 		match self {
-			ValueObject::Literal(lit, _) => lit.as_number(),
+			ValueObject::Literal(lit) => lit.as_number(),
 			_ => None,
 		}
 	}
 
 	/// Return the type of the value if any.
-	///
-	/// This will return `Some(Type::Json)` for JSON literal values.
 	pub fn typ(&self) -> Option<ValueTypeRef<'_>> {
 		match self {
-			ValueObject::Literal(_, Some(ty)) => Some(ValueTypeRef::Id(ty)),
-			ValueObject::Json(_) => Some(ValueTypeRef::Json),
+			ValueObject::Literal(lit) => match &lit.type_ {
+				Some(LiteralType::Json) => Some(ValueTypeRef::Json),
+				Some(LiteralType::Iri(iri)) => Some(ValueTypeRef::Id(iri)),
+				None => None,
+			},
 			_ => None,
 		}
 	}
@@ -227,32 +267,21 @@ impl ValueObject {
 	#[inline(always)]
 	pub fn direction(&self) -> Option<Direction> {
 		match self {
-			ValueObject::LangString(str) => str.direction(),
+			ValueObject::LangString(s) => s.direction(),
 			_ => None,
 		}
 	}
 
-	#[inline(always)]
-	pub fn entries(&self) -> Entries<'_> {
+	/// Returns true if this is a JSON literal.
+	pub fn is_json(&self) -> bool {
+		matches!(self, Self::Literal(lit) if lit.is_json())
+	}
+
+	/// Returns the JSON value if this is a JSON literal.
+	pub fn as_json(&self) -> Option<&JsonValue> {
 		match self {
-			Self::Literal(l, ty) => Entries {
-				value: Some(ValueEntryRef::Literal(l)),
-				type_: ty.as_deref().map(ValueTypeRef::Id),
-				language: None,
-				direction: None,
-			},
-			Self::LangString(l) => Entries {
-				value: Some(ValueEntryRef::LangString(l.as_str())),
-				type_: None,
-				language: l.language(),
-				direction: l.direction(),
-			},
-			Self::Json(j) => Entries {
-				value: Some(ValueEntryRef::Json(j)),
-				type_: Some(ValueTypeRef::Json),
-				language: None,
-				direction: None,
-			},
+			Self::Literal(lit) if lit.is_json() => Some(&lit.value),
+			_ => None,
 		}
 	}
 
@@ -262,8 +291,7 @@ impl ValueObject {
 	// /// The buffer is used to compute the canonical form of numbers.
 	// pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
 	// 	match self {
-	// 		Self::Json(json) => json.canonicalize_with(buffer),
-	// 		Self::Literal(l, _) => l.canonicalize_with(buffer),
+	// 		Self::Literal(l) => l.canonicalize_with(buffer),
 	// 		Self::LangString(_) => (),
 	// 	}
 	// }
@@ -273,6 +301,28 @@ impl ValueObject {
 	// 	let mut buffer = ryu_js::Buffer::new();
 	// 	self.canonicalize_with(&mut buffer)
 	// }
+
+	#[inline(always)]
+	pub fn entries(&self) -> Entries<'_> {
+		match self {
+			Self::Literal(lit) => Entries {
+				value: Some(ValueEntryRef::Value(&lit.value)),
+				type_: match &lit.type_ {
+					Some(LiteralType::Json) => Some(ValueTypeRef::Json),
+					Some(LiteralType::Iri(iri)) => Some(ValueTypeRef::Id(iri)),
+					None => None,
+				},
+				language: None,
+				direction: None,
+			},
+			Self::LangString(l) => Entries {
+				value: Some(ValueEntryRef::LangString(l.as_str())),
+				type_: None,
+				language: l.language(),
+				direction: l.direction(),
+			},
+		}
+	}
 }
 
 impl object::AnyObject for ValueObject {
@@ -285,29 +335,42 @@ impl object::AnyObject for ValueObject {
 impl From<Literal> for ValueObject {
 	fn from(literal: Literal) -> Self {
 		match literal.type_ {
-			LiteralType::Any(ty) => {
+			rdf_types::LiteralType::Any(ty) => {
 				if ty == XSD_BOOLEAN {
 					match literal.value.as_str() {
-						"true" => return Self::Literal(LiteralValue::Boolean(true), Some(ty)),
-						"false" => return Self::Literal(LiteralValue::Boolean(false), Some(ty)),
+						"true" => {
+							return Self::Literal(LiteralValue::new(
+								JsonValue::Boolean(true),
+								Some(LiteralType::Iri(ty)),
+							))
+						}
+						"false" => {
+							return Self::Literal(LiteralValue::new(
+								JsonValue::Boolean(false),
+								Some(LiteralType::Iri(ty)),
+							))
+						}
 						_ => (),
 					}
 				} else if ty == XSD_INTEGER || ty == XSD_FLOAT {
-					if let Ok(number) = literal.value.parse() {
-						return Self::Literal(LiteralValue::Number(number), Some(ty));
+					if let Ok(number) = literal.value.parse::<JsonNumberBuf>() {
+						return Self::Literal(LiteralValue::new(
+							JsonValue::Number(number),
+							Some(LiteralType::Iri(ty)),
+						));
 					}
 				} else if ty == RDF_JSON {
 					if let Ok(json) = json_syntax::from_str(&literal.value) {
-						return Self::Json(json);
+						return Self::Literal(LiteralValue::json(json));
 					}
 				}
 
-				Self::Literal(
-					LiteralValue::String(literal.value.into()),
-					Some(RDF_JSON.to_owned()),
-				)
+				Self::Literal(LiteralValue::new(
+					JsonValue::String(literal.value.into()),
+					Some(LiteralType::Iri(ty)),
+				))
 			}
-			LiteralType::LangString(langtag) => {
+			rdf_types::LiteralType::LangString(langtag) => {
 				Self::LangString(LangString::new_with_language(literal.value, langtag))
 			}
 		}
@@ -366,9 +429,8 @@ pub enum EntryValueRef<'a> {
 }
 
 pub enum ValueEntryRef<'a> {
-	Literal(&'a LiteralValue),
+	Value(&'a JsonValue),
 	LangString(&'a str),
-	Json(&'a JsonValue),
 }
 
 impl<'a> Clone for ValueEntryRef<'a> {
@@ -473,19 +535,5 @@ impl<'a> DoubleEndedIterator for Entries<'a> {
 					.or_else(|| self.value.take().map(EntryRef::Value))
 			})
 		})
-	}
-}
-
-#[cfg(feature = "serde")]
-impl serde::Serialize for ValueObject {
-	fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
-		todo!()
-	}
-}
-
-#[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ValueObject {
-	fn deserialize<D: serde::Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
-		todo!()
 	}
 }

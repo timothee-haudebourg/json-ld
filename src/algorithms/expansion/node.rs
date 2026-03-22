@@ -491,7 +491,10 @@ impl<'a> Expander<'a> {
 					}
 
 					let mut expanded_value = if is_json {
-						Expanded::Object(Object::Value(ValueObject::Json(value.clone())).into())
+						Expanded::Object(
+							Object::Value(ValueObject::Literal(LiteralValue::json(value.clone())))
+								.into(),
+						)
 					} else {
 						match value.as_object() {
 							Some(value) if container_mapping.contains(ContainerItem::Language) => {
@@ -582,8 +585,10 @@ impl<'a> Expander<'a> {
 												} else {
 													expanded_value.push(
 														Object::Value(ValueObject::Literal(
-															LiteralValue::String(item.clone()),
-															None,
+															LiteralValue::new(
+																JsonValue::String(item.clone()),
+																None,
+															),
 														))
 														.into(),
 													)

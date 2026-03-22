@@ -105,15 +105,15 @@ impl<'a> Compactor<'a> {
 														lang_str.direction(),
 													)))
 												}
-												ValueObject::Literal(_, Some(ty)) => {
-													item_type = Some(Type::Iri(ty.clone()))
-												}
-												ValueObject::Literal(_, None) => {
-													item_lang_dir = Some(Nullable::Null)
-												}
-												ValueObject::Json(_) => {
-													item_type = Some(Type::Json)
-												}
+												ValueObject::Literal(lit) => match &lit.type_ {
+													Some(object::value::LiteralType::Json) => {
+														item_type = Some(Type::Json)
+													}
+													Some(object::value::LiteralType::Iri(ty)) => {
+														item_type = Some(Type::Iri(ty.clone()))
+													}
+													None => item_lang_dir = Some(Nullable::Null),
+												},
 											}
 										}
 										_ => item_type = Some(Type::Id),

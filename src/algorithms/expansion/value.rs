@@ -41,7 +41,7 @@ use json_syntax::JsonValue;
 use crate::{
 	algorithms::{Error, Warning},
 	context::RawProcessedContext,
-	object::LiteralValue,
+	object::{value::LiteralType, LiteralValue},
 	syntax::Keyword,
 	Direction, Id, Indexed, IndexedObject, LangString, LenientLangTagBuf, Nullable, Object, Term,
 	ValidId, ValueObject,
@@ -157,18 +157,20 @@ impl<'a> Expander<'a> {
 				return Err(Error::InvalidValueObject);
 			}
 			return Ok(Some(Indexed::new(
-				Object::Value(ValueObject::Json(value_entry.clone())),
+				Object::Value(ValueObject::Literal(LiteralValue::json(
+					value_entry.clone(),
+				))),
 				index,
 			)));
 		}
 
 		// Otherwise, if value is not a scalar or null, an invalid value object value
 		// error has been detected and processing is aborted.
-		let result = match value_entry {
-			JsonValue::Null => LiteralValue::Null,
-			JsonValue::String(s) => LiteralValue::String(s.clone()),
-			JsonValue::Number(n) => LiteralValue::Number(n.clone()),
-			JsonValue::Boolean(b) => LiteralValue::Boolean(*b),
+		let result_value = match value_entry {
+			JsonValue::Null
+			| JsonValue::String(_)
+			| JsonValue::Number(_)
+			| JsonValue::Boolean(_) => value_entry.clone(),
 			_ => {
 				return Err(Error::InvalidValueObjectValue);
 			}
@@ -180,7 +182,7 @@ impl<'a> Expander<'a> {
 
 		// Otherwise, if the value of result's @value entry is null, or an empty array,
 		// return null
-		if matches!(result, LiteralValue::Null) {
+		if result_value.is_null() {
 			return Ok(None);
 		}
 
@@ -193,7 +195,7 @@ impl<'a> Expander<'a> {
 				return Err(Error::InvalidValueObject);
 			}
 
-			if let LiteralValue::String(s) = result {
+			if let JsonValue::String(s) = result_value {
 				let lang = match language {
 					Some(language) => {
 						let (language, error) = LenientLangTagBuf::new(language);
@@ -225,7 +227,10 @@ impl<'a> Expander<'a> {
 		// TODO
 
 		Ok(Some(Indexed::new(
-			Object::Value(ValueObject::Literal(result, ty)),
+			Object::Value(ValueObject::Literal(LiteralValue::new(
+				result_value,
+				ty.map(LiteralType::Iri),
+			))),
 			index,
 		)))
 	}

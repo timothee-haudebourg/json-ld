@@ -6,7 +6,7 @@ use crate::{
 		context_processing::ContextProcessingOptions, ProcessingEnvironment,
 		ProcessingEnvironmentRef,
 	},
-	object::LiteralValue,
+	object::value::LiteralType,
 	syntax::{Container, ContainerItem, Keyword},
 	Error, Id, Term, Type, ValueObject,
 };
@@ -104,56 +104,27 @@ impl<'a> Compactor<'a> {
 			|| index.is_none();
 
 		match value {
-			ValueObject::Literal(lit, ty) => {
-				if ty.clone().map(Type::Iri) == type_mapping && remove_index {
-					match lit {
-						LiteralValue::Null => return Ok(JsonValue::Null),
-						LiteralValue::Boolean(b) => return Ok(JsonValue::Boolean(*b)),
-						LiteralValue::Number(n) => return Ok(JsonValue::Number(n.clone())),
-						LiteralValue::String(s) => {
-							if ty.is_some() || (language.is_none() && direction.is_none()) {
-								return Ok(JsonValue::String(s.as_str().into()));
-							} else {
-								let compact_key = self
-									.with_active_context(&active_context)
-									.compact_key(&Term::Keyword(Keyword::Value), true, false)?;
-								result.insert(
-									compact_key.unwrap(),
-									JsonValue::String(s.as_str().into()),
-								);
-							}
-						}
-					}
-				} else {
-					let compact_key = self.with_active_context(&active_context).compact_key(
-						&Term::Keyword(Keyword::Value),
-						true,
-						false,
-					)?;
-					match lit {
-						LiteralValue::Null => {
-							result.insert(compact_key.unwrap(), JsonValue::Null);
-						}
-						LiteralValue::Boolean(b) => {
-							result.insert(compact_key.unwrap(), JsonValue::Boolean(*b));
-						}
-						LiteralValue::Number(n) => {
-							result.insert(compact_key.unwrap(), JsonValue::Number(n.clone()));
-						}
-						LiteralValue::String(s) => {
-							result
-								.insert(compact_key.unwrap(), JsonValue::String(s.as_str().into()));
-						}
-					}
+			ValueObject::Literal(lit) => {
+				if lit.is_json() {
+					// JSON literal
+					if type_mapping == Some(Type::Json) && remove_index {
+						return Ok(lit.value.clone());
+					} else {
+						let compact_key = self.with_active_context(&active_context).compact_key(
+							&Term::Keyword(Keyword::Value),
+							true,
+							false,
+						)?;
+						result.insert(compact_key.unwrap(), lit.value.clone());
 
-					if let Some(ty) = ty {
 						let compact_key = self.with_active_context(&active_context).compact_key(
 							&Term::Keyword(Keyword::Type),
 							true,
 							false,
 						)?;
+
 						let compact_ty = self.with_active_context(&active_context).compact_iri(
-							&Term::Id(Id::iri(ty.clone())),
+							&Term::Keyword(Keyword::Json),
 							true,
 							false,
 						)?;
@@ -164,6 +135,61 @@ impl<'a> Compactor<'a> {
 								None => JsonValue::Null,
 							},
 						);
+					}
+				} else {
+					let ty = match &lit.type_ {
+						Some(LiteralType::Iri(iri)) => Some(iri),
+						_ => None,
+					};
+
+					if ty.cloned().map(Type::Iri) == type_mapping && remove_index {
+						match &lit.value {
+							JsonValue::Null => return Ok(JsonValue::Null),
+							JsonValue::Boolean(b) => return Ok(JsonValue::Boolean(*b)),
+							JsonValue::Number(n) => return Ok(JsonValue::Number(n.clone())),
+							JsonValue::String(s) => {
+								if ty.is_some() || (language.is_none() && direction.is_none()) {
+									return Ok(JsonValue::String(s.as_str().into()));
+								} else {
+									let compact_key = self
+										.with_active_context(&active_context)
+										.compact_key(&Term::Keyword(Keyword::Value), true, false)?;
+									result.insert(
+										compact_key.unwrap(),
+										JsonValue::String(s.as_str().into()),
+									);
+								}
+							}
+							_ => {
+								let compact_key = self
+									.with_active_context(&active_context)
+									.compact_key(&Term::Keyword(Keyword::Value), true, false)?;
+								result.insert(compact_key.unwrap(), lit.value.clone());
+							}
+						}
+					} else {
+						let compact_key = self.with_active_context(&active_context).compact_key(
+							&Term::Keyword(Keyword::Value),
+							true,
+							false,
+						)?;
+						result.insert(compact_key.unwrap(), lit.value.clone());
+
+						if let Some(ty) = ty {
+							let compact_key = self
+								.with_active_context(&active_context)
+								.compact_key(&Term::Keyword(Keyword::Type), true, false)?;
+							let compact_ty = self
+								.with_active_context(&active_context)
+								.compact_iri(&Term::Id(Id::iri(ty.clone())), true, false)?;
+							result.insert(
+								compact_key.unwrap(),
+								match compact_ty {
+									Some(s) => JsonValue::String(s.into()),
+									None => JsonValue::Null,
+								},
+							);
+						}
 					}
 				}
 			}
@@ -208,37 +234,6 @@ impl<'a> Compactor<'a> {
 							JsonValue::String(direction.as_str().into()),
 						);
 					}
-				}
-			}
-			ValueObject::Json(value) => {
-				if type_mapping == Some(Type::Json) && remove_index {
-					return Ok(value.clone());
-				} else {
-					let compact_key = self.with_active_context(&active_context).compact_key(
-						&Term::Keyword(Keyword::Value),
-						true,
-						false,
-					)?;
-					result.insert(compact_key.unwrap(), value.clone());
-
-					let compact_key = self.with_active_context(&active_context).compact_key(
-						&Term::Keyword(Keyword::Type),
-						true,
-						false,
-					)?;
-
-					let compact_ty = self.with_active_context(&active_context).compact_iri(
-						&Term::Keyword(Keyword::Json),
-						true,
-						false,
-					)?;
-					result.insert(
-						compact_key.unwrap(),
-						match compact_ty {
-							Some(s) => JsonValue::String(s.into()),
-							None => JsonValue::Null,
-						},
-					);
 				}
 			}
 		}
@@ -296,13 +291,7 @@ pub fn add_value(map: &mut JsonObject, key: &str, value: JsonValue, as_array: bo
 /// Get the `@value` field of a value object.
 pub fn value_value(value: &ValueObject) -> JsonValue {
 	match value {
-		ValueObject::Literal(lit, _ty) => match lit {
-			LiteralValue::Null => JsonValue::Null,
-			LiteralValue::Boolean(b) => JsonValue::Boolean(*b),
-			LiteralValue::Number(n) => JsonValue::Number(n.clone()),
-			LiteralValue::String(s) => JsonValue::String(s.as_str().into()),
-		},
+		ValueObject::Literal(lit) => lit.value.clone(),
 		ValueObject::LangString(s) => JsonValue::String(s.as_str().into()),
-		ValueObject::Json(json) => json.clone(),
 	}
 }

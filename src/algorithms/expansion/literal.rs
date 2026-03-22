@@ -4,7 +4,7 @@ use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
 	algorithms::{Error, Warning},
-	object::LiteralValue,
+	object::{value::LiteralType, LiteralValue},
 	IndexedObject, LangString, LenientLangTag, NodeObject, Nullable, Object, Type, ValueObject,
 };
 
@@ -98,14 +98,12 @@ impl<'a> Expander<'a> {
 			_ => {
 				// Otherwise, initialize `result` to a map with an `@value` entry whose value is set to
 				// `value`.
-				let result: LiteralValue = match value {
-					ExpandableLiteralValue::Boolean(b) => LiteralValue::Boolean(b),
-					ExpandableLiteralValue::Number(n) => LiteralValue::Number(unsafe {
+				let result_value: JsonValue = match value {
+					ExpandableLiteralValue::Boolean(b) => JsonValue::Boolean(b),
+					ExpandableLiteralValue::Number(n) => JsonValue::Number(unsafe {
 						JsonNumberBuf::new_unchecked(n.as_bytes().into())
 					}),
-					ExpandableLiteralValue::String(s) => {
-						LiteralValue::String(s.into_owned().into())
-					}
+					ExpandableLiteralValue::String(s) => JsonValue::String(s.into_owned().into()),
 				};
 
 				// If `active_property` has a type mapping in active context, other than `@id`,
@@ -115,7 +113,7 @@ impl<'a> Expander<'a> {
 				match active_property_type {
 					None | Some(Type::Id) | Some(Type::Vocab) | Some(Type::None) => {
 						// Otherwise, if value is a string:
-						if let LiteralValue::String(s) = result {
+						if let JsonValue::String(s) = result_value {
 							// Initialize `language` to the language mapping for
 							// `active_property` in `active_context`, if any, otherwise to the
 							// default language of `active_context`.
@@ -159,8 +157,7 @@ impl<'a> Expander<'a> {
 									Ok(Object::Value(ValueObject::LangString(lang_str)).into())
 								}
 								Err(s) => Ok(Object::Value(ValueObject::Literal(
-									LiteralValue::String(s),
-									None,
+									LiteralValue::new(JsonValue::String(s), None),
 								))
 								.into()),
 							};
@@ -176,7 +173,11 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				Ok(Object::Value(ValueObject::Literal(result, ty)).into())
+				Ok(Object::Value(ValueObject::Literal(LiteralValue::new(
+					result_value,
+					ty.map(LiteralType::Iri),
+				)))
+				.into())
 			}
 		}
 	}
