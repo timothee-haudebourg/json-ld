@@ -8,6 +8,8 @@ pub type ReversePropertyNodes = Multiset<IndexedNode>;
 
 /// Reverse properties of a node object, and their associated nodes.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct ReverseProperties(IndexMap<Id, ReversePropertyNodes>);
 
 impl Default for ReverseProperties {

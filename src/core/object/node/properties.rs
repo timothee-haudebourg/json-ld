@@ -8,6 +8,8 @@ pub type PropertyObjects = Multiset<IndexedObject>;
 
 /// Properties of a node object, and their associated objects.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Properties(IndexMap<Id, PropertyObjects>);
 
 impl Default for Properties {

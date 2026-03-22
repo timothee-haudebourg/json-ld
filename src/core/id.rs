@@ -23,6 +23,8 @@ use crate::Term;
 /// This may be useful to define custom [`indexmap::Equivalent<Id>`]
 /// implementation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Id {
 	/// Valid node identifier.
 	Valid(ValidId),

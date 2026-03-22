@@ -475,3 +475,17 @@ impl<'a> DoubleEndedIterator for Entries<'a> {
 		})
 	}
 }
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for ValueObject {
+	fn serialize<S: serde::Serializer>(&self, _serializer: S) -> Result<S::Ok, S::Error> {
+		todo!()
+	}
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ValueObject {
+	fn deserialize<D: serde::Deserializer<'de>>(_deserializer: D) -> Result<Self, D::Error> {
+		todo!()
+	}
+}

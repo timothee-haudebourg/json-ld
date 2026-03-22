@@ -13,8 +13,12 @@ impl BuildHasher for DeterministicHasherBuilder {
 
 /// Multi-set of values.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]
 pub struct Multiset<T, S = DeterministicHasherBuilder> {
 	data: Vec<T>,
+
+	#[cfg_attr(feature = "serde", serde(skip))]
 	hasher: S,
 }
 

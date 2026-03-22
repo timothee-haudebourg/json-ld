@@ -86,15 +86,17 @@ pub type IndexedObject = Indexed<Object>;
 /// expansion algorithm or by converting an already expanded JSON document
 /// using [`TryFromJson`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Object {
 	/// Value object.
 	Value(ValueObject),
 
-	/// Node object.
-	Node(Box<NodeObject>),
-
 	/// List object.
 	List(ListObject),
+
+	/// Node object.
+	Node(Box<NodeObject>),
 }
 
 impl Object {

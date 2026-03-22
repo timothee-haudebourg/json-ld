@@ -8,11 +8,17 @@ use std::ops::{Deref, DerefMut};
 ///
 /// It is a pointer type that `Deref` into the underlying value.
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Indexed<T> {
 	/// Index.
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@index", default, skip_serializing_if = "Option::is_none")
+	)]
 	index: Option<String>,
 
 	/// Value.
+	#[cfg_attr(feature = "serde", serde(flatten))]
 	value: T,
 }
 

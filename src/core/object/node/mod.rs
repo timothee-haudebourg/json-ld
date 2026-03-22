@@ -29,35 +29,57 @@ pub type IndexedNode = Indexed<NodeObject>;
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
 #[derive(Debug, Clone, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NodeObject {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@id", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub id: Option<Id>,
 
 	/// Types.
 	///
 	/// This is the `@type` field.
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub types: Option<Vec<Id>>,
 
 	/// Associated graph.
 	///
 	/// This is the `@graph` field.
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@graph", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub graph: Option<Graph>,
 
 	/// Included nodes.
 	///
 	/// This is the `@included` field.
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@included", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub included: Option<Included>,
 
 	/// Properties.
 	///
 	/// Any non-keyword field.
+	#[cfg_attr(feature = "serde", serde(flatten))]
 	pub properties: Properties,
 
 	/// Reverse properties.
 	///
 	/// This is the `@reverse` field.
+	#[cfg_attr(
+		feature = "serde",
+		serde(rename = "@reverse", default, skip_serializing_if = "Option::is_none")
+	)]
 	pub reverse_properties: Option<ReverseProperties>,
 }
 

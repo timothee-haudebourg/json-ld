@@ -7,8 +7,10 @@ use crate::IndexedObject;
 use super::{AnyObject, MappedEq};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// List object.
 pub struct ListObject {
+	#[cfg_attr(feature = "serde", serde(rename = "@list"))]
 	entry: Vec<IndexedObject>,
 }
 

@@ -19,7 +19,7 @@ default = ["algorithms", "reqwest"]
 algorithms = ["serde"]
 
 # Serialization/deserialization with `serde`.
-serde = ["dep:serde", "iref/serde", "indexmap/serde"]
+serde = ["dep:serde", "iref/serde", "indexmap/serde", "rdf-types/serde"]
 
 # Loader implementation based on `reqwest`.
 reqwest = ["dep:reqwest", "dep:reqwest-middleware"]
