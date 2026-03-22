@@ -3,6 +3,7 @@ use iref::{Iri, IriRef, IriRefBuf};
 mod definition;
 
 pub use definition::*;
+use json_syntax::JsonValue;
 
 /// JSON-LD Context.
 ///
@@ -212,4 +213,12 @@ impl From<ContextDefinition> for ContextEntry {
 pub struct ContextDocumentValue {
 	#[cfg_attr(feature = "serde", serde(rename = "@context"))]
 	pub context: Context,
+}
+
+impl TryFrom<JsonValue> for ContextDocumentValue {
+	type Error = crate::syntax::serde::DeserializeError;
+
+	fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
+		crate::syntax::serde::from_value(value)
+	}
 }

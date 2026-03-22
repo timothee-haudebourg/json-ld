@@ -14,18 +14,18 @@ pub use none::NoLoader;
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
 
-use crate::{syntax::Context, Document};
+use crate::{syntax::ContextDocumentValue, Document};
 
 #[cfg(feature = "reqwest")]
 pub use self::reqwest::ReqwestLoader;
 
-pub type RemoteContextReference = RemoteDocumentReference<Context>;
+pub type RemoteContext = RemoteDocument<ContextDocumentValue>;
 
 /// Remote document, loaded or not.
 ///
 /// Either an IRI or the actual document content.
 #[derive(Clone)]
-pub enum RemoteDocumentReference<T = JsonValue> {
+pub enum RemoteDocument<T = JsonValue> {
 	/// IRI to the remote document.
 	Iri(IriBuf),
 
@@ -33,7 +33,7 @@ pub enum RemoteDocumentReference<T = JsonValue> {
 	Loaded(Document<T>),
 }
 
-impl<T> RemoteDocumentReference<T> {
+impl<T> RemoteDocument<T> {
 	/// Creates an IRI to a `JsonValue` JSON document.
 	///
 	/// This method can replace `RemoteDocumentReference::Iri` to help the type
@@ -43,14 +43,31 @@ impl<T> RemoteDocumentReference<T> {
 	}
 }
 
-impl RemoteDocumentReference {
+impl<T> RemoteDocument<T> {
+	pub fn url(&self) -> Option<&Iri> {
+		match self {
+			Self::Iri(iri) => Some(iri),
+			Self::Loaded(t) => t.url(),
+		}
+	}
+}
+
+impl<T> RemoteDocument<T>
+where
+	T: TryFrom<JsonValue>,
+	T::Error: Into<anyhow::Error>,
+{
 	/// Loads the remote document with the given `loader`.
 	///
 	/// If the document is already [`Self::Loaded`], simply returns the inner
 	/// [`RemoteDocument`].
-	pub async fn load_with<V>(self, loader: &impl Loader) -> Result<Document, LoadError> {
+	pub async fn load(self, loader: &impl Loader) -> Result<Document<T>, LoadError> {
 		match self {
-			Self::Iri(r) => Ok(loader.load(&r).await?.map(Into::into)),
+			Self::Iri(r) => loader
+				.load(&r)
+				.await?
+				.try_map(TryInto::try_into)
+				.map_err(|e| LoadError::new(r, e)),
 			Self::Loaded(doc) => Ok(doc),
 		}
 	}
@@ -61,9 +78,17 @@ impl RemoteDocumentReference {
 	/// [`Cow::Owned`].
 	/// For [`Self::Loaded`] returns a reference to the inner [`RemoteDocument`]
 	/// with [`Cow::Borrowed`].
-	pub async fn loaded_with(&self, loader: &impl Loader) -> Result<Cow<'_, Document>, LoadError> {
+	pub async fn loaded(&self, loader: &impl Loader) -> Result<Cow<'_, Document<T>>, LoadError>
+	where
+		T: Clone,
+	{
 		match self {
-			Self::Iri(r) => Ok(Cow::Owned(loader.load(r).await?.map(Into::into))),
+			Self::Iri(r) => loader
+				.load(r)
+				.await?
+				.try_map(TryInto::try_into)
+				.map_err(|e| LoadError::new(r.clone(), e))
+				.map(Cow::Owned),
 			Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
 		}
 	}
@@ -168,6 +193,12 @@ pub trait Loader {
 	/// Loads the document behind the given IRI.
 	#[allow(async_fn_in_trait)]
 	async fn load(&self, url: &Iri) -> Result<Document, LoadError>;
+}
+
+impl<L: Loader> Loader for &L {
+	async fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+		L::load(self, url).await
+	}
 }
 
 impl<L: Loader> Loader for &mut L {

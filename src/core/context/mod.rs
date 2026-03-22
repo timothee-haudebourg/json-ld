@@ -9,7 +9,7 @@ use iref::{Iri, IriBuf};
 use std::borrow::{Borrow, Cow};
 use std::cell::OnceCell;
 use std::hash::Hash;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 pub use definition::*;
 pub use inverse::InverseContext;
@@ -26,13 +26,21 @@ pub struct ProcessedContext<'a> {
 	raw: RawProcessedContext,
 }
 
-impl ProcessedContext<'_> {
+impl<'a> ProcessedContext<'a> {
+	pub fn new(unprocessed: Cow<'a, Context>, raw: RawProcessedContext) -> Self {
+		Self { unprocessed, raw }
+	}
+
 	pub fn unprocessed(&self) -> &Context {
 		&self.unprocessed
 	}
 
-	pub fn raw_processed_context(&self) -> &RawProcessedContext {
+	pub fn as_raw(&self) -> &RawProcessedContext {
 		&self.raw
+	}
+
+	pub fn into_raw(self) -> RawProcessedContext {
+		self.raw
 	}
 
 	pub fn into_owned(self) -> ProcessedContext<'static> {
@@ -48,6 +56,12 @@ impl Deref for ProcessedContext<'_> {
 
 	fn deref(&self) -> &Self::Target {
 		&self.raw
+	}
+}
+
+impl DerefMut for ProcessedContext<'_> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.raw
 	}
 }
 

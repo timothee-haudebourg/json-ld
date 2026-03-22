@@ -305,28 +305,10 @@
 #[cfg(feature = "algorithms")]
 pub mod algorithms;
 mod core;
+mod processor;
 pub mod syntax;
 
 #[cfg(feature = "algorithms")]
 pub use algorithms::{Error, ErrorCode, Warning};
 pub use core::*;
-// pub use json_ld_compaction as compaction;
-// pub use json_ld_context_processing as context_processing;
-// pub use json_ld_core::*;
-// pub use json_ld_expansion as expansion;
-// pub use json_ld_serialization as ser;
-// pub use json_ld_syntax as syntax;
-
-// pub use compaction::Compact;
-// pub use context_processing::Process;
-// pub use expansion::Expand;
-
-// mod processor;
-// pub use processor::*;
-
-// #[doc(hidden)]
-// pub use iref;
-// pub use iref::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
-
-// pub use rdf_types;
-// pub use rdf_types::{BlankId, BlankIdBuf};
+pub use processor::*;

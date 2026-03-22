@@ -1,12 +1,12 @@
 use json_syntax::JsonValue;
 
 /// JSON-LD comparison.
-pub trait Compare {
-	fn compare(&self, other: &Self) -> bool;
+pub trait JsonLdCompare {
+	fn compare_json_ld(&self, other: &Self) -> bool;
 }
 
-impl Compare for JsonValue {
-	fn compare(&self, other: &Self) -> bool {
+impl JsonLdCompare for JsonValue {
+	fn compare_json_ld(&self, other: &Self) -> bool {
 		match (self, other) {
 			(Self::Null, Self::Null) => true,
 			(Self::Boolean(a), Self::Boolean(b)) => a == b,
@@ -19,7 +19,7 @@ impl Compare for JsonValue {
 
 					'next_item: for item in a {
 						for (other, selected) in b.iter().zip(selected.iter_mut()) {
-							if !*selected && item.compare(other) {
+							if !*selected && item.compare_json_ld(other) {
 								*selected = true;
 								continue 'next_item;
 							}
@@ -38,7 +38,7 @@ impl Compare for JsonValue {
 					for entry in a {
 						match b.get_unique(entry.0).expect("invalid JSON-LD") {
 							Some(value) => {
-								if !entry.1.compare(value) {
+								if !entry.1.compare_json_ld(value) {
 									return false;
 								}
 							}
