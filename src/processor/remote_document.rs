@@ -1,312 +1,156 @@
-use super::{
-	compact_expanded_full, CompactError, CompactResult, CompareResult, ExpandError, ExpandResult,
-	FlattenError, FlattenResult, JsonLdProcessor, Options,
-};
-use crate::context_processing::{self, Process};
-use crate::expansion::{self, Expand};
-use crate::IntoDocumentResult;
-use crate::{Context, Flatten, Loader, RemoteDocument, RemoteDocumentReference};
-use contextual::WithContext;
-use json_ld_core::{Document, RemoteContextReference};
-use rdf_types::{Generator, VocabularyMut};
-use std::hash::Hash;
+use iref::Iri;
+use json_syntax::JsonValue;
 
-impl<I> JsonLdProcessor<I> for RemoteDocument<I> {
-	async fn compare_full<'a, N>(
-		&'a self,
-		other: &'a Self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> CompareResult
-	where
-		N: VocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		if json_ld_syntax::Compare::compare(self.document(), other.document()) {
-			let a = JsonLdProcessor::expand_full(
-				self,
-				vocabulary,
-				loader,
-				options.clone(),
-				&mut warnings,
-			)
-			.await?;
-			let b = JsonLdProcessor::expand_full(other, vocabulary, loader, options, &mut warnings)
-				.await?;
+use super::{CompactResult, CompareResult, ExpandResult, FlattenResult};
+use super::{JsonLdOptions, JsonLdProcessor};
+use crate::algorithms::Compact;
+use crate::context::RawProcessedContext;
+use crate::syntax::JsonLdCompare;
+use crate::{algorithms::ProcessingEnvironment, RemoteContext};
+use crate::{Document, Error};
+
+impl JsonLdProcessor for Document {
+	async fn compare_with(
+		&self,
+		other: &Self,
+		env: impl ProcessingEnvironment,
+		options: JsonLdOptions,
+	) -> CompareResult {
+		if self.document.compare_json_ld(&other.document) {
+			let a = JsonLdProcessor::expand_with(self, env.as_ref(), options.clone()).await?;
+			let b = JsonLdProcessor::expand_with(other, env, options).await?;
 			Ok(a == b)
 		} else {
 			Ok(false)
 		}
 	}
 
-	async fn expand_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
-		mut options: Options<I>,
-		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> ExpandResult<I, N::BlankId>
-	where
-		N: VocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let mut active_context = Context::new(options.base.clone().or_else(|| self.url().cloned()));
+	async fn expand_with(
+		&self,
+		env: impl ProcessingEnvironment,
+		mut options: JsonLdOptions,
+	) -> ExpandResult {
+		// Initialize the active context.
+		let mut active_context =
+			RawProcessedContext::new(options.base.clone().or_else(|| self.url.clone()));
 
+		// Process expand context if provided.
 		if let Some(expand_context) = options.expand_context.take() {
 			active_context = expand_context
-				.load_context_with(vocabulary, loader)
-				.await
-				.map_err(ExpandError::ContextLoading)?
-				.into_document()
-				.process_full(
-					vocabulary,
+				.load(env.loader())
+				.await?
+				.document
+				.context
+				.process_with(
+					env.as_ref(),
+					active_context.original_base_url(),
 					&active_context,
-					loader,
-					active_context.original_base_url().cloned(),
 					options.context_processing_options(),
-					&mut warnings,
 				)
-				.await
-				.map_err(ExpandError::ContextProcessing)?
-				.into_processed()
-		};
+				.await?
+				.into_raw();
+		}
 
+		// Process context URL from the loaded document, if any.
 		if let Some(context_url) = self.context_url() {
-			active_context = RemoteDocumentReference::Iri(context_url.clone())
-				.load_context_with(vocabulary, loader)
-				.await
-				.map_err(ExpandError::ContextLoading)?
-				.into_document()
-				.process_full(
-					vocabulary,
+			active_context = RemoteContext::iri(context_url.to_owned())
+				.load(env.loader())
+				.await?
+				.document
+				.context
+				.process_with(
+					env.as_ref(),
+					Some(context_url),
 					&active_context,
-					loader,
-					Some(context_url.clone()),
 					options.context_processing_options(),
-					&mut warnings,
 				)
-				.await
-				.map_err(ExpandError::ContextProcessing)?
-				.into_processed()
+				.await?
+				.into_raw()
 		}
 
-		self.document()
-			.expand_full(
-				vocabulary,
-				active_context,
-				self.url().or(options.base.as_ref()),
-				loader,
-				options.expansion_options(),
-				warnings,
-			)
+		// Expand the document.
+		self.expand_with(env, &active_context, options.expansion_options())
 			.await
-			.map_err(ExpandError::Expansion)
 	}
 
-	async fn into_document_full<'a, N>(
-		self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> IntoDocumentResult<I, N::BlankId>
-	where
-		N: VocabularyMut<Iri = I>,
-		I: 'a + Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let expanded =
-			JsonLdProcessor::expand_full(&self, vocabulary, loader, options, warnings).await?;
-		Ok(Document::new(self, expanded))
-	}
-
-	async fn compact_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		context: RemoteContextReference<I>,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> CompactResult
-	where
-		N: VocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let expanded_input = JsonLdProcessor::expand_full(
-			self,
-			vocabulary,
-			loader,
-			options.clone().unordered(),
-			&mut warnings,
-		)
-		.await
-		.map_err(CompactError::Expand)?;
-
-		compact_expanded_full(
-			&expanded_input,
+	async fn compact_with(
+		&self,
+		context: RemoteContext,
+		env: impl ProcessingEnvironment,
+		options: JsonLdOptions,
+	) -> CompactResult {
+		compact_expanded(
+			JsonLdProcessor::expand_with(self, env.as_ref(), options.clone().unordered()).await?,
 			self.url(),
-			vocabulary,
+			env,
 			context,
-			loader,
 			options,
-			warnings,
 		)
 		.await
 	}
 
-	async fn flatten_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		generator: &'a mut impl Generator<N>,
-		context: Option<RemoteContextReference<I>>,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		mut warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> FlattenResult<I, N::BlankId>
-	where
-		N: VocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let expanded_input = JsonLdProcessor::expand_full(
-			self,
-			vocabulary,
-			loader,
-			options.clone().unordered(),
-			&mut warnings,
-		)
-		.await
-		.map_err(FlattenError::Expand)?;
+	async fn flatten_with(
+		&self,
+		_context: Option<RemoteContext>,
+		_env: impl ProcessingEnvironment,
+		_options: JsonLdOptions,
+	) -> FlattenResult {
+		// let expanded_input =
+		// 	JsonLdProcessor::expand_with(self, env, options.clone().unordered()).await?;
 
-		let flattened_output =
-			Flatten::flatten_with(expanded_input, vocabulary, generator, options.ordered)
-				.map_err(FlattenError::ConflictingIndexes)?;
+		// let mut generator = rdf_types::generator::BlankIdGenerator::new();
+		// let flattened_output = expanded_input.flatten(generator, options.ordered)?;
 
-		match context {
-			Some(context) => compact_expanded_full(
-				&flattened_output,
-				self.url(),
-				vocabulary,
-				context,
-				loader,
-				options,
-				warnings,
-			)
-			.await
-			.map_err(FlattenError::Compact),
-			None => Ok(json_ld_syntax::IntoJson::into_json(
-				flattened_output.into_with(vocabulary),
-			)),
-		}
+		// match context {
+		// 	Some(context) => {
+		// 		compact_expanded(flattened_output, self.url(), env, context, options).await
+		// 	}
+		// 	None => Ok(json_syntax::to_value(flattened_output).unwrap()),
+		// }
+		todo!()
+	}
+
+	async fn to_rdf_with<G>(
+		&self,
+		_env: impl ProcessingEnvironment,
+		_generator: G,
+		_options: JsonLdOptions,
+	) {
+		todo!()
 	}
 }
 
-impl<I> JsonLdProcessor<I> for RemoteDocumentReference<I, JsonValue> {
-	async fn compare_full<'a, N>(
-		&'a self,
-		other: &'a Self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> CompareResult
-	where
-		N: VocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let a = self.loaded_with(vocabulary, loader).await?;
-		let b = other.loaded_with(vocabulary, loader).await?;
-		JsonLdProcessor::compare_full(
-			a.as_ref(),
-			b.as_ref(),
-			vocabulary,
-			loader,
-			options,
-			warnings,
+async fn compact_expanded(
+	expanded_input: impl Compact,
+	url: Option<&Iri>,
+	env: impl ProcessingEnvironment,
+	context: RemoteContext,
+	options: JsonLdOptions,
+) -> Result<JsonValue, Error> {
+	let context_base = url.or(options.base.as_deref());
+
+	let context = context.load(env.loader()).await?;
+	let mut active_context = context
+		.document
+		.context
+		.process_with(
+			env.as_ref(),
+			context_base,
+			&RawProcessedContext::new(None),
+			options.context_processing_options(),
 		)
+		.await?;
+
+	match options.base.as_ref() {
+		Some(base) => active_context.set_base_iri(Some(base.clone())),
+		None => {
+			if options.compact_to_relative && active_context.base_iri().is_none() {
+				active_context.set_base_iri(url.map(ToOwned::to_owned));
+			}
+		}
+	}
+
+	expanded_input
+		.compact_with(env, &active_context, options.compaction_options())
 		.await
-	}
-
-	async fn expand_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> ExpandResult<I, N::BlankId>
-	where
-		N: VocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let doc = self.loaded_with(vocabulary, loader).await?;
-		JsonLdProcessor::expand_full(doc.as_ref(), vocabulary, loader, options, warnings).await
-	}
-
-	async fn into_document_full<'a, N>(
-		self,
-		vocabulary: &'a mut N,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> IntoDocumentResult<I, N::BlankId>
-	where
-		N: VocabularyMut<Iri = I>,
-		I: 'a + Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let doc = self.load_with(vocabulary, loader).await?;
-		JsonLdProcessor::into_document_full(doc, vocabulary, loader, options, warnings).await
-	}
-
-	async fn compact_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		context: RemoteContextReference<I>,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> CompactResult
-	where
-		N: VocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let doc = self.loaded_with(vocabulary, loader).await?;
-		JsonLdProcessor::compact_full(doc.as_ref(), vocabulary, context, loader, options, warnings)
-			.await
-	}
-
-	async fn flatten_full<'a, N>(
-		&'a self,
-		vocabulary: &'a mut N,
-		generator: &'a mut impl Generator<N>,
-		context: Option<RemoteContextReference<I>>,
-		loader: &'a impl Loader,
-		options: Options<I>,
-		warnings: impl 'a + context_processing::WarningHandler<N> + expansion::WarningHandler<N>,
-	) -> FlattenResult<I, N::BlankId>
-	where
-		N: VocabularyMut<Iri = I>,
-		I: Clone + Eq + Hash,
-		N::BlankId: 'a + Clone + Eq + Hash,
-	{
-		let doc = self.loaded_with(vocabulary, loader).await?;
-		JsonLdProcessor::flatten_full(
-			doc.as_ref(),
-			vocabulary,
-			generator,
-			context,
-			loader,
-			options,
-			warnings,
-		)
-		.await
-	}
 }
