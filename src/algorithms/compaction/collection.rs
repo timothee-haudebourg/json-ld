@@ -12,7 +12,7 @@ use super::CompactFragment;
 impl Compactor<'_> {
 	pub async fn compact_collection_with<'a, O, T>(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		items: O,
 	) -> Result<JsonValue, Error>
 	where
@@ -58,7 +58,7 @@ impl Compactor<'_> {
 impl<T: CompactFragment> CompactFragment for Vec<T> {
 	async fn compact_fragment(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
 	) -> Result<JsonValue, Error> {
 		compactor.compact_collection_with(env, self.iter()).await
@@ -68,7 +68,7 @@ impl<T: CompactFragment> CompactFragment for Vec<T> {
 impl<T: CompactFragment> CompactFragment for [T] {
 	async fn compact_fragment(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
 	) -> Result<JsonValue, Error> {
 		compactor.compact_collection_with(env, self.iter()).await
@@ -78,7 +78,7 @@ impl<T: CompactFragment> CompactFragment for [T] {
 impl<T: CompactFragment> CompactFragment for IndexSet<T> {
 	async fn compact_fragment(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
 	) -> Result<JsonValue, Error> {
 		compactor.compact_collection_with(env, self.iter()).await

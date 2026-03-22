@@ -1,6 +1,6 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
-use crate::algorithms::{Error, ProcessingEnvironment, ProcessingEnvironmentRefMut, Warning};
+use crate::algorithms::{Error, ProcessingEnvironment, Warning};
 use crate::context::RawProcessedContext;
 use crate::syntax::{Container, ContainerItem, Keyword, LenientLangTagBuf, Nullable};
 use crate::ValueObject;
@@ -29,7 +29,7 @@ impl<'a> Expander<'a> {
 	/// Expand a node object.
 	pub async fn expand_node(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 	) -> Result<Option<Indexed<NodeObject>>, Error> {
@@ -88,7 +88,7 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	async fn expand_node_entries(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		mut result: Indexed<NodeObject>,
 		mut has_value_object_entries: bool,
 		type_scoped_context: &RawProcessedContext,
@@ -187,7 +187,7 @@ impl<'a> Expander<'a> {
 							// `expanded_value` is an array of one or more maps.
 							let expanded_value = Box::pin(
 								self.with_active_property(Some("@graph"))
-									.expand_element(&mut *env, value, false),
+									.expand_element(env, value, false),
 							)
 							.await?;
 
@@ -389,12 +389,13 @@ impl<'a> Expander<'a> {
 										Mown::Owned(
 											property_scoped_context
 												.process_with(
-													ProcessingEnvironmentRefMut(&mut *env),
+													env.as_ref(),
 													property_scoped_base_url,
 													self.active_context,
 													options.with_override(),
 												)
-												.await?,
+												.await?
+												.into_raw(),
 										)
 									}
 									None => Mown::Borrowed(self.active_context),
@@ -429,7 +430,7 @@ impl<'a> Expander<'a> {
 									let (new_result, new_has_value_object_entries) = Box::pin(
 										self.with_active_context(&active_context)
 											.expand_node_entries(
-												&mut *env,
+												env,
 												// Environment {
 												// 	vocabulary: env.vocabulary,
 												// 	loader: env.loader,
@@ -666,12 +667,13 @@ impl<'a> Expander<'a> {
 												map_context = Mown::Owned(
 													local_context
 														.process_with(
-															ProcessingEnvironmentRefMut(&mut *env),
+															env.as_ref(),
 															index_definition.base_url(),
 															&map_context,
 															self.options.into(),
 														)
-														.await?,
+														.await?
+														.into_raw(),
 												)
 											}
 										}

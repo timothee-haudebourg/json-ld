@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 
+use crate::algorithms::flattening::ConflictingIndexes;
 use crate::LoadError;
 
 /// Error code.
@@ -419,6 +420,9 @@ pub enum Error {
 	#[error("Colliding keywords")]
 	CollidingKeywords,
 
+	#[error(transparent)]
+	ConflictingIndexes(#[from] ConflictingIndexes),
+
 	#[error("Invalid `@id` value")]
 	InvalidIdValue,
 
@@ -484,6 +488,7 @@ impl Error {
 			Self::InvalidLanguageTaggedValue => ErrorCode::InvalidLanguageTaggedValue,
 			Self::InvalidLanguageMapValue => ErrorCode::InvalidLanguageMapValue,
 			Self::CollidingKeywords => ErrorCode::CollidingKeywords,
+			Self::ConflictingIndexes(_) => ErrorCode::ConflictingIndexes,
 			Self::InvalidIdValue => ErrorCode::InvalidIdValue,
 			Self::InvalidIncludedValue => ErrorCode::InvalidIncludedValue,
 			Self::InvalidReverseValue => ErrorCode::InvalidReverseValue,

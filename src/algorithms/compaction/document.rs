@@ -11,16 +11,13 @@ impl ExpandedDocument {
 	/// Compacts the input document with the given options.
 	pub async fn compact_with(
 		&self,
-		mut env: impl ProcessingEnvironment,
+		env: impl ProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
 	) -> Result<JsonValue, Error> {
 		let compactor = Compactor::new(context, options);
 
-		let mut compact = self
-			.objects()
-			.compact_fragment(&mut env, &compactor)
-			.await?;
+		let mut compact = self.objects().compact_fragment(&env, &compactor).await?;
 
 		compact.embed_context(context, options)?;
 
@@ -52,13 +49,13 @@ impl Compact for ExpandedDocument {
 impl Compact for FlattenedDocument {
 	async fn compact_with(
 		&self,
-		mut env: impl ProcessingEnvironment,
+		env: impl ProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
 	) -> Result<JsonValue, Error> {
 		let compactor = Compactor::new(context, options);
 
-		let mut compact = self.compact_fragment(&mut env, &compactor).await?;
+		let mut compact = self.compact_fragment(&env, &compactor).await?;
 
 		compact.embed_context(context, options)?;
 

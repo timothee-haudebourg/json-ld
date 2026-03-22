@@ -99,7 +99,7 @@ trait CompactFragment {
 	#[allow(async_fn_in_trait)]
 	async fn compact_fragment(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		compactor: &Compactor,
 	) -> Result<JsonValue, Error>;
 }
@@ -115,7 +115,7 @@ trait CompactIndexedFragment {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_indexed_fragment(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
 	) -> Result<JsonValue, Error>;
@@ -124,7 +124,7 @@ trait CompactIndexedFragment {
 impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
 	async fn compact_fragment(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		compactor: &Compactor<'_>,
 	) -> Result<JsonValue, Error> {
 		self.inner()

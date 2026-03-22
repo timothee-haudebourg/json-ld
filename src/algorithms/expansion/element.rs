@@ -6,7 +6,7 @@ use mown::Mown;
 use crate::{
 	algorithms::{
 		context_processing::ContextProcessingOptions, Error, ProcessingEnvironment,
-		ProcessingEnvironmentRefMut, Warning,
+		ProcessingEnvironmentRef, Warning,
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
@@ -25,7 +25,7 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn expand_element(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		element: &JsonValue,
 		from_map: bool,
 	) -> Result<Expanded, Error> {
@@ -119,12 +119,13 @@ impl<'a> Expander<'a> {
 					active_context = Mown::Owned(
 						property_scoped_context
 							.process_with(
-								ProcessingEnvironmentRefMut(&mut *env),
+								env.as_ref(),
 								property_scoped_base_url,
 								active_context.as_ref(),
 								options.with_override(),
 							)
-							.await?,
+							.await?
+							.into_raw(),
 					);
 				}
 
@@ -144,12 +145,13 @@ impl<'a> Expander<'a> {
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
-								ProcessingEnvironmentRefMut(&mut *env),
+								env.as_ref(),
 								self.base_url,
 								&active_context,
 								self.options.into(),
 							)
-							.await?,
+							.await?
+							.into_raw(),
 					);
 				}
 
@@ -211,12 +213,13 @@ impl<'a> Expander<'a> {
 								active_context = Mown::Owned(
 									local_context
 										.process_with(
-											ProcessingEnvironmentRefMut(&mut *env),
+											env.as_ref(),
 											term_definition.base_url(),
 											active_context.as_ref(),
 											options.without_propagation(),
 										)
-										.await?,
+										.await?
+										.into_raw(),
 								);
 							}
 						}
@@ -407,12 +410,13 @@ impl<'a> Expander<'a> {
 
 					let result = property_scoped_context
 						.process_with(
-							ProcessingEnvironmentRefMut(env),
+							ProcessingEnvironmentRef(env),
 							base_url.as_deref(),
 							self.active_context,
 							self.options.into(),
 						)
-						.await?;
+						.await?
+						.into_raw();
 					Mown::Owned(result)
 				} else {
 					Mown::Borrowed(self.active_context)

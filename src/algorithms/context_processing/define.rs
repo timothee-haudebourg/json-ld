@@ -133,7 +133,7 @@ impl<'a> ContextProcessor<'a> {
 	/// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
 	pub async fn define(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		term: KeyOrKeywordRef<'_>,

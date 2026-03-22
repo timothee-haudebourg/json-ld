@@ -1,4 +1,6 @@
 //! JSON-LD context processing types and algorithms.
+use std::borrow::Cow;
+
 use iref::Iri;
 
 mod define;
@@ -17,7 +19,7 @@ use crate::{
 	algorithms::{error::Error, ProcessingEnvironment},
 	context::RawProcessedContext,
 	syntax::{context::KeyOrKeywordRef, Context, ContextEntry, Keyword},
-	ContextDocument, Loader, Nullable, ProcessingMode, Term,
+	ContextDocument, Loader, Nullable, ProcessedContext, ProcessingMode, Term,
 };
 
 struct TargetProcessedContext<'a> {
@@ -93,7 +95,7 @@ impl ContextDocument {
 	pub async fn process(
 		&self,
 		env: impl ProcessingEnvironment,
-	) -> Result<RawProcessedContext, Error> {
+	) -> Result<ProcessedContext<'_>, Error> {
 		self.document.context.process(env, self.url()).await
 	}
 }
@@ -106,7 +108,7 @@ impl Context {
 		&self,
 		env: impl ProcessingEnvironment,
 		base_url: Option<&Iri>,
-	) -> Result<RawProcessedContext, Error> {
+	) -> Result<ProcessedContext<'_>, Error> {
 		let active_context = RawProcessedContext::new(None);
 		self.process_with(
 			env,
@@ -122,26 +124,27 @@ impl Context {
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 	pub async fn process_with(
 		&self,
-		mut env: impl ProcessingEnvironment,
+		env: impl ProcessingEnvironment,
 		base_url: Option<&Iri>,
 		active_context: &RawProcessedContext,
 		options: ContextProcessingOptions,
-	) -> Result<RawProcessedContext, Error> {
+	) -> Result<ProcessedContext<'_>, Error> {
 		ContextProcessor {
 			options,
 			remote_contexts: ProcessingStack::new(),
 			base_url,
 			active_context,
 		}
-		.process(&mut env, self)
+		.process(&env, self)
 		.await
+		.map(|raw| ProcessedContext::new(Cow::Borrowed(self), raw))
 	}
 }
 
 impl<'a> ContextProcessor<'a> {
 	async fn process(
 		mut self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		local_context: &Context,
 	) -> Result<RawProcessedContext, Error> {
 		// 1) Initialize result to the result of cloning active context.
@@ -229,7 +232,7 @@ impl<'a> ContextProcessor<'a> {
 					// Set loaded context to the value of that entry.
 					if self.remote_contexts.push(context_iri.clone()) {
 						let loaded_context = env
-							.loader_mut()
+							.loader()
 							.load(&context_iri)
 							.await?
 							.try_into_context_document()
@@ -281,7 +284,7 @@ impl<'a> ContextProcessor<'a> {
 
 							// 5.6.4) Dereference import.
 							let import_context = env
-								.loader_mut()
+								.loader()
 								.load(&import)
 								.await?
 								.try_into_context_document()

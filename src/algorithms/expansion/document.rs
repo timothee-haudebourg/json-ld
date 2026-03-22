@@ -10,7 +10,7 @@ use super::{filter_top_level_item, Expander};
 impl<'a> Expander<'a> {
 	pub async fn expand_document(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		document: &JsonValue,
 	) -> Result<ExpandedDocument, Error> {
 		let expanded = self.expand_element(env, document, false).await?;

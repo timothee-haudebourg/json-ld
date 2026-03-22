@@ -42,7 +42,7 @@ impl<'a> ContextProcessor<'a> {
 	/// Default values for `document_relative` and `vocab` should be `false` and `true`.
 	pub async fn expand_iri_recursive(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		value: Nullable<ExpandableRef<'_>>,

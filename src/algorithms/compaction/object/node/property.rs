@@ -17,7 +17,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_property_list(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		list: &ListObject,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
@@ -75,7 +75,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_property_graph(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		node: &NodeObject,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
@@ -314,7 +314,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn compact_property<'a, O, T>(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		result: &mut JsonObject,
 		expanded_property: Term,
 		expanded_value: O,

@@ -84,7 +84,7 @@ impl Document {
 	/// context.
 	pub async fn expand_with(
 		&self,
-		mut env: impl ProcessingEnvironment,
+		env: impl ProcessingEnvironment,
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
 	) -> Result<ExpandedDocument, Error> {
@@ -94,7 +94,7 @@ impl Document {
 			active_context,
 			active_property: None,
 		}
-		.expand_document(&mut env, self.document())
+		.expand_document(&env, self.document())
 		.await
 	}
 }

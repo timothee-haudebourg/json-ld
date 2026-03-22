@@ -14,7 +14,7 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn expand_array(
 		&self,
-		env: &mut impl ProcessingEnvironment,
+		env: &impl ProcessingEnvironment,
 		active_property_definition: Option<TermDefinitionRef<'_>>,
 		element: &JsonArray,
 		from_map: bool,

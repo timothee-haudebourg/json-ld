@@ -18,33 +18,39 @@ use crate::Loader;
 pub trait ProcessingEnvironment {
 	type Loader: Loader;
 
-	fn loader_mut(&mut self) -> &mut Self::Loader;
+	fn loader(&self) -> &Self::Loader;
 
-	fn warn(&mut self, w: Warning);
+	fn warn(&self, w: Warning);
+
+	fn as_ref(&self) -> ProcessingEnvironmentRef<'_, Self> {
+		ProcessingEnvironmentRef(self)
+	}
 }
 
 impl<L: Loader> ProcessingEnvironment for L {
 	type Loader = Self;
 
-	fn loader_mut(&mut self) -> &mut Self::Loader {
+	fn loader(&self) -> &Self::Loader {
 		self
 	}
 
-	fn warn(&mut self, _: Warning) {
+	fn warn(&self, _: Warning) {
 		// Ignore.
 	}
 }
 
-pub struct ProcessingEnvironmentRefMut<'a, T>(pub &'a mut T);
+pub struct ProcessingEnvironmentRef<'a, T: ?Sized>(pub &'a T);
 
-impl<'a, T: ProcessingEnvironment> ProcessingEnvironment for ProcessingEnvironmentRefMut<'a, T> {
+impl<'a, T: ?Sized + ProcessingEnvironment> ProcessingEnvironment
+	for ProcessingEnvironmentRef<'a, T>
+{
 	type Loader = T::Loader;
 
-	fn loader_mut(&mut self) -> &mut Self::Loader {
-		self.0.loader_mut()
+	fn loader(&self) -> &Self::Loader {
+		self.0.loader()
 	}
 
-	fn warn(&mut self, w: Warning) {
+	fn warn(&self, w: Warning) {
 		self.0.warn(w);
 	}
 }
