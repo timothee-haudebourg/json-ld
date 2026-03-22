@@ -91,23 +91,22 @@ impl JsonLdProcessor for Document {
 
 	async fn flatten_with(
 		&self,
-		_context: Option<RemoteContext>,
-		_env: impl ProcessingEnvironment,
-		_options: JsonLdOptions,
+		context: Option<RemoteContext>,
+		env: impl ProcessingEnvironment,
+		options: JsonLdOptions,
 	) -> FlattenResult {
-		// let expanded_input =
-		// 	JsonLdProcessor::expand_with(self, env, options.clone().unordered()).await?;
+		let expanded_input =
+			JsonLdProcessor::expand_with(self, env.as_ref(), options.clone().unordered()).await?;
 
-		// let mut generator = rdf_types::generator::BlankIdGenerator::new();
-		// let flattened_output = expanded_input.flatten(generator, options.ordered)?;
+		let generator = rdf_types::generator::BlankIdGenerator::new();
+		let flattened_output = expanded_input.flatten(generator, options.ordered)?;
 
-		// match context {
-		// 	Some(context) => {
-		// 		compact_expanded(flattened_output, self.url(), env, context, options).await
-		// 	}
-		// 	None => Ok(json_syntax::to_value(flattened_output).unwrap()),
-		// }
-		todo!()
+		match context {
+			Some(context) => {
+				compact_expanded(flattened_output, self.url(), env, context, options).await
+			}
+			None => Ok(json_syntax::to_value(flattened_output).unwrap()),
+		}
 	}
 
 	async fn to_rdf_with<G>(
