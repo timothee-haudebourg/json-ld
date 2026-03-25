@@ -5,7 +5,7 @@ use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
-	algorithms::{Compact, ProcessingEnvironment},
+	algorithms::{Compact, Expand, ProcessingEnvironment},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
 	Document, Error, RemoteContext,
@@ -71,8 +71,7 @@ impl JsonLdProcessor for Document {
 		}
 
 		// Expand the document.
-		self.expand_with(env, &active_context, options.expansion_options())
-			.await
+		Expand::expand_with(self, env, &active_context, options.expansion_options()).await
 	}
 
 	async fn compact_with(

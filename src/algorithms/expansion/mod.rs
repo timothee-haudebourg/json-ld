@@ -26,63 +26,35 @@ use literal::*;
 use node::node_id_of_term;
 pub use options::*;
 
-impl Document {
+/// Low-level expansion trait.
+///
+/// This provides direct access to the expansion algorithm with full control
+/// over the active context and options. For the high-level processor entry
+/// point, use [`JsonLdProcessor::expand_with`](crate::JsonLdProcessor::expand_with).
+pub trait Expand {
 	/// Expand this document with the default expansion options.
-	///
-	/// The given `loader` is used to load remote documents (such as contexts)
-	/// imported by the input and required during expansion.
-	///
-	/// # Example
-	///
-	/// ```
-	/// # mod json_ld { pub use json_ld_syntax as syntax; pub use json_ld_core::{RemoteDocument, ExpandedDocument, NoLoader}; pub use json_ld_expansion::Expand; };
-	///
-	/// use iref::IriBuf;
-	/// use rdf_types::BlankIdBuf;
-	/// use static_iref::iri;
-	/// use json_ld::{syntax::Parse, RemoteDocument, Expand};
-	///
-	/// # #[async_std::test]
-	/// # async fn example() {
-	/// // Parse the input JSON(-LD) document.
-	/// let (json, _) = json_ld::syntax::Value::parse_str(
-	///   r##"
-	///   {
-	///     "@graph": [
-	///       {
-	///         "http://example.org/vocab#a": {
-	///           "@graph": [
-	///             {
-	///               "http://example.org/vocab#b": "Chapter One"
-	///             }
-	///           ]
-	///         }
-	///       }
-	///     ]
-	///   }
-	///   "##)
-	/// .unwrap();
-	///
-	/// // Prepare a dummy document loader using [`json_ld::NoLoader`],
-	/// // since we won't need to load any remote document while expanding this one.
-	/// let mut loader = json_ld::NoLoader;
-	///
-	/// // The `expand` method returns an [`json_ld::ExpandedDocument`].
-	/// json
-	///     .expand(&mut loader)
-	///     .await
-	///     .unwrap();
-	/// # }
-	/// ```
-	pub async fn expand(&self, env: impl ProcessingEnvironment) -> Result<ExpandedDocument, Error> {
+	#[allow(async_fn_in_trait)]
+	async fn expand(&self, env: impl ProcessingEnvironment) -> Result<ExpandedDocument, Error>;
+
+	/// Expand this document with the given expansion options and active
+	/// context.
+	#[allow(async_fn_in_trait)]
+	async fn expand_with(
+		&self,
+		env: impl ProcessingEnvironment,
+		active_context: &RawProcessedContext,
+		options: ExpansionOptions,
+	) -> Result<ExpandedDocument, Error>;
+}
+
+impl Expand for Document {
+	async fn expand(&self, env: impl ProcessingEnvironment) -> Result<ExpandedDocument, Error> {
 		let active_context = RawProcessedContext::new(self.url().map(ToOwned::to_owned));
 		self.expand_with(env, &active_context, ExpansionOptions::default())
 			.await
 	}
 
-	/// Expand this document with the given expansion options and active
-	/// context.
-	pub async fn expand_with(
+	async fn expand_with(
 		&self,
 		env: impl ProcessingEnvironment,
 		active_context: &RawProcessedContext,
