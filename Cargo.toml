@@ -55,6 +55,7 @@ anyhow = "1.0.98"
 # linked-data = "0.1"
 linked-data = { path = "/home/work/Documents/Spruce/Core_Tooling/linked-data", features = [
 	"indexmap",
+	"derive"
 ] }
 xsd-types.path = "/home/work/Documents/Community/RDF/xsd-types"
 
@@ -63,11 +64,11 @@ reqwest = { version = "0.12.22", optional = true }
 reqwest-middleware = { version = "0.4.2", optional = true }
 
 [dev-dependencies]
-# json-ld-testing.workspace = true
-# async-std = { workspace = true, features = ["attributes"] }
-tokio = { version = "*", features = ["macros"] }
+json-ld-testing = { path = "testing" }
+tokio = { version = "*", features = ["macros", "rt"] }
 nquads-syntax = "0.19"
 stacker = "0.1.15"
+static-iref = "3.0"
 
 [package.metadata.docs.rs]
 all-features = true

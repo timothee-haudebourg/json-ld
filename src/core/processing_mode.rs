@@ -1,3 +1,4 @@
+use linked_data::{DeserializeLinkedData, SerializeLinkedData};
 use std::convert::TryFrom;
 use std::fmt;
 
@@ -5,13 +6,17 @@ use std::fmt;
 ///
 /// This is a property of the context processing and compaction options.
 /// New features defined in JSON-LD 1.1 are available unless the processing mode is set to [`ProcessingMode::JsonLd1_0`].
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(
+	Default, Clone, Copy, PartialEq, Eq, Hash, Debug, SerializeLinkedData, DeserializeLinkedData,
+)]
 pub enum ProcessingMode {
 	/// JSON-LD 1.0.
+	#[ld(literal = "json-ld-1.0")]
 	JsonLd1_0,
 
 	/// JSON-LD 1.1.
 	#[default]
+	#[ld(literal = "json-ld-1.1")]
 	JsonLd1_1,
 }
 
