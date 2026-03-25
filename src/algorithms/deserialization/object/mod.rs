@@ -8,13 +8,9 @@ mod node;
 mod value;
 
 impl SerializeLinkedData for Object {
-	fn serialize_rdf<S>(
-		&self,
-		serializer: S,
-		graph: Option<&rdf_types::Term>,
-	) -> Result<S::Ok, S::Error>
+	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::LinkedDataSerializer<rdf_types::Term>,
+		S: LinkedDataSerializer<Term>,
 	{
 		match self {
 			Self::Node(node) => node.serialize_rdf(serializer, graph),

@@ -31,9 +31,19 @@ impl SerializeLinkedData for Rest<'_> {
 			Some((first, rest)) => {
 				let subject = serializer.interpret(None)?;
 				let predicate = Term::iri(RDF_FIRST.to_owned());
-				first.serialize_rdf_objects(&mut serializer, &subject, &predicate, graph)?;
+				first.serialize_rdf_objects(
+					serializer.as_dyn_mut(),
+					&subject,
+					&predicate,
+					graph,
+				)?;
 				let predicate = Term::iri(RDF_REST.to_owned());
-				Rest(rest).serialize_rdf_objects(&mut serializer, &subject, &predicate, graph)?;
+				Rest(rest).serialize_rdf_objects(
+					serializer.as_dyn_mut(),
+					&subject,
+					&predicate,
+					graph,
+				)?;
 				subject
 			}
 			None => Term::iri(RDF_NIL.to_owned()),

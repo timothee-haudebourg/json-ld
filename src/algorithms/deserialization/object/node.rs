@@ -26,12 +26,16 @@ impl SerializeLinkedData for NodeObject {
 		}
 
 		self.properties()
-			.serialize_rdf_properties(&mut serializer, graph, &subject)?;
+			.serialize_rdf_properties(serializer.as_dyn_mut(), graph, &subject)?;
 
-		self.reverse_properties()
-			.serialize_rdf_properties(&mut serializer, graph, &subject)?;
+		self.reverse_properties().serialize_rdf_properties(
+			serializer.as_dyn_mut(),
+			graph,
+			&subject,
+		)?;
 
-		self.graph.serialize_rdf(&mut serializer, Some(&subject))?;
+		self.graph
+			.serialize_rdf(serializer.as_dyn_mut(), Some(&subject))?;
 
 		serializer.serialize_resource(Some(subject))?;
 
@@ -51,7 +55,7 @@ impl SerializeLinkedDataProperties for Properties {
 	{
 		for (id, object) in self {
 			let property = id.serialize_rdf_term(&mut serializer)?;
-			object.serialize_rdf_objects(&mut serializer, subject, &property, graph)?;
+			object.serialize_rdf_objects(serializer.as_dyn_mut(), subject, &property, graph)?;
 		}
 
 		serializer.end()
@@ -72,13 +76,19 @@ impl SerializeLinkedDataProperties for ReverseProperties {
 			let property = id.serialize_rdf_term(&mut serializer)?;
 
 			for subject in subjects {
-				let subject =
-					match subject.serialize_rdf(IdSerializer::new(&mut serializer), graph)? {
-						Some(subject) => subject,
-						None => serializer.interpret(None)?,
-					};
+				let subject = match subject
+					.serialize_rdf(IdSerializer::new(serializer.as_dyn_mut()), graph)?
+				{
+					Some(subject) => subject,
+					None => serializer.interpret(None)?,
+				};
 
-				object.serialize_rdf_objects(&mut serializer, &subject, &property, graph)?;
+				object.serialize_rdf_objects(
+					serializer.as_dyn_mut(),
+					&subject,
+					&property,
+					graph,
+				)?;
 			}
 		}
 

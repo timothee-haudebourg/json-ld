@@ -11,7 +11,7 @@ impl SerializeLinkedData for ExpandedDocument {
 		S: LinkedDataSerializer<Term>,
 	{
 		for object in self {
-			object.serialize_rdf(&mut serializer, graph)?;
+			object.serialize_rdf(serializer.as_dyn_mut(), graph)?;
 		}
 
 		serializer.end()
