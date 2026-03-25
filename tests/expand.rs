@@ -1,160 +1,71 @@
-// use contextual::WithContext;
-// use json_ld::{JsonLdProcessor, Loader, Print, RemoteDocumentReference, TryFromJson};
-// use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
-// use static_iref::iri;
+use json_ld::{
+	ExpandedDocument, FsLoader, IndexedObject, JsonLdOptions, JsonLdProcessor, Loader,
+	ProcessingMode, RemoteDocument,
+};
+use json_ld_testing::{ManifestEntry, SpecVersion, TestKind};
 
-// #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/expand-manifest.jsonld")]
-// #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
-// #[iri_prefix("rdf" = "http://www.w3.org/1999/02/22-rdf-syntax-ns#")]
-// #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
-// #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
-// #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
-// mod expand {
-// 	use iref::Iri;
+#[json_ld_testing::test_suite("expand-manifest.jsonld")]
+#[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
+async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
+	if should_skip(entry) {
+		return;
+	}
 
-// 	#[iri("test:ExpandTest")]
-// 	pub struct Test {
-// 		#[iri("rdfs:comment")]
-// 		pub comments: &'static [&'static str],
+	let options = build_options(entry);
 
-// 		#[iri("manifest:action")]
-// 		pub input: &'static Iri,
+	match &entry.kind {
+		TestKind::Positive { expect, .. } => {
+			let input = loader.load(&entry.input).await.unwrap();
+			let expanded = JsonLdProcessor::expand_with(&input, loader, options)
+				.await
+				.expect("expansion failed");
 
-// 		#[iri("manifest:name")]
-// 		pub name: &'static str,
+			let expected_doc = loader.load(expect).await.unwrap();
+			let expected: Vec<IndexedObject> =
+				json_syntax::serde::from_value(expected_doc.into_document())
+					.expect("failed to parse expected output");
+			let expected: ExpandedDocument = expected.into_iter().collect();
 
-// 		#[iri("test:option")]
-// 		pub options: Options,
+			assert_eq!(expanded, expected, "test `{}` output mismatch", entry.name);
+		}
+		TestKind::Negative {
+			expected_error_code,
+			..
+		} => {
+			let input = loader.load(&entry.input).await.unwrap();
+			let result = JsonLdProcessor::expand_with(&input, loader, options).await;
+			assert!(
+				result.is_err(),
+				"test `{}` should have failed with `{}`",
+				entry.name,
+				expected_error_code
+			);
+		}
+	}
+}
 
-// 		#[iri("rdf:type")]
-// 		pub desc: Description,
-// 	}
+fn should_skip(entry: &ManifestEntry) -> bool {
+	if let Some(ref opts) = entry.options {
+		if opts.normative == Some(false) {
+			return true;
+		}
+		if opts.spec_version == Some(SpecVersion::JsonLd1_0) {
+			return true;
+		}
+	}
+	false
+}
 
-// 	pub enum Description {
-// 		#[iri("test:PositiveEvaluationTest")]
-// 		Positive {
-// 			#[iri("manifest:result")]
-// 			expect: &'static Iri,
-// 		},
-// 		#[iri("test:NegativeEvaluationTest")]
-// 		Negative {
-// 			#[iri("manifest:result")]
-// 			expected_error_code: &'static str,
-// 		},
-// 	}
-
-// 	#[derive(Default)]
-// 	pub struct Options {
-// 		#[iri("test:base")]
-// 		pub base: Option<&'static Iri>,
-
-// 		#[iri("test:expandContext")]
-// 		pub expand_context: Option<&'static Iri>,
-
-// 		#[iri("test:processingMode")]
-// 		pub processing_mode: Option<json_ld::ProcessingMode>,
-
-// 		#[iri("test:specVersion")]
-// 		pub spec_version: Option<&'static str>,
-
-// 		#[iri("test:normative")]
-// 		pub normative: Option<bool>,
-// 	}
-// }
-
-// impl expand::Test {
-// 	fn run(self) {
-// 		let child = std::thread::Builder::new()
-// 			.spawn(|| async_std::task::block_on(self.async_run()))
-// 			.unwrap();
-
-// 		child.join().unwrap()
-// 	}
-
-// 	async fn async_run(self) {
-// 		if !self.options.normative.unwrap_or(true) {
-// 			log::warn!("ignoring test `{}` (non normative)", self.name);
-// 			return;
-// 		}
-
-// 		if self.options.spec_version == Some("json-ld-1.0") {
-// 			log::warn!("ignoring test `{}` (unsupported spec version)", self.name);
-// 			return;
-// 		}
-
-// 		for comment in self.comments {
-// 			println!("{}", comment)
-// 		}
-
-// 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-// 		let mut loader = json_ld::FsLoader::default();
-// 		loader.mount(
-// 			iri!("https://w3c.github.io/json-ld-api").to_owned(),
-// 			"tests/json-ld-api",
-// 		);
-
-// 		let mut options: json_ld::Options<IriIndex> = json_ld::Options::default();
-// 		if let Some(p) = self.options.processing_mode {
-// 			options.processing_mode = p
-// 		}
-
-// 		options.base = self.options.base.map(|iri| vocabulary.insert(iri));
-// 		options.expand_context = self
-// 			.options
-// 			.expand_context
-// 			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
-
-// 		let input = vocabulary.insert(self.input);
-
-// 		match self.desc {
-// 			expand::Description::Positive { expect } => {
-// 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
-// 				let expanded = json_ld
-// 					.expand_full(&mut vocabulary, &mut loader, options, ())
-// 					.await
-// 					.unwrap();
-
-// 				let expect_iri = vocabulary.insert(expect);
-// 				let expected = loader
-// 					.load_with(&mut vocabulary, expect_iri)
-// 					.await
-// 					.unwrap()
-// 					.into_document();
-// 				let expected =
-// 					json_ld::ExpandedDocument::try_from_json_in(&mut vocabulary, expected).unwrap();
-
-// 				let success = expanded == expected;
-
-// 				if !success {
-// 					eprintln!("test failed");
-// 					eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-// 					eprintln!("expected=\n{}", expected.with(&vocabulary).pretty_print());
-// 				}
-
-// 				assert!(success)
-// 			}
-// 			expand::Description::Negative {
-// 				expected_error_code,
-// 			} => {
-// 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
-// 				let result: Result<_, _> = json_ld
-// 					.expand_full(&mut vocabulary, &mut loader, options, ())
-// 					.await;
-
-// 				match result {
-// 					Ok(expanded) => {
-// 						eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-// 						panic!(
-// 							"expansion succeeded when it should have failed with `{}`",
-// 							expected_error_code
-// 						)
-// 					}
-// 					Err(_e) => {
-// 						// TODO improve error codes.
-// 						// assert_eq!(e.code().as_str(), expected_error_code)
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-// }
+fn build_options(entry: &ManifestEntry) -> JsonLdOptions {
+	let mut options = JsonLdOptions::default();
+	if let Some(ref opts) = entry.options {
+		if let Some(mode) = opts.processing_mode {
+			options.processing_mode = mode;
+		}
+		options.base = opts.base.clone();
+		if let Some(ref ctx) = opts.expand_context {
+			options.expand_context = Some(RemoteDocument::iri(ctx.clone()));
+		}
+	}
+	options
+}
