@@ -1,6 +1,6 @@
 use linked_data::{
 	ser::{IdSerializer, SerializeLinkedDataProperties},
-	LinkedDataSerializer, SerializeLinkedData,
+	LinkedDataSerializer, RdfUnordered, SerializeLinkedData,
 };
 use rdf_types::{Term, RDF_TYPE};
 
@@ -21,8 +21,12 @@ impl SerializeLinkedData for NodeObject {
 
 		if !self.types().is_empty() {
 			let predicate = Term::iri(RDF_TYPE.to_owned());
-			self.types()
-				.serialize_rdf_objects(&mut serializer, &subject, &predicate, graph)?;
+			RdfUnordered(self.types()).serialize_rdf_objects(
+				&mut serializer,
+				&subject,
+				&predicate,
+				graph,
+			)?;
 		}
 
 		self.properties()
@@ -53,9 +57,14 @@ impl SerializeLinkedDataProperties for Properties {
 	where
 		S: LinkedDataSerializer,
 	{
-		for (id, object) in self {
+		for (id, objects) in self {
 			let property = id.serialize_rdf_term(&mut serializer)?;
-			object.serialize_rdf_objects(serializer.as_dyn_mut(), subject, &property, graph)?;
+			RdfUnordered(objects).serialize_rdf_objects(
+				serializer.as_dyn_mut(),
+				subject,
+				&property,
+				graph,
+			)?;
 		}
 
 		serializer.end()

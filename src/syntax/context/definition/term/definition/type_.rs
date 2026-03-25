@@ -7,8 +7,8 @@ use std::hash::Hash;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum TermType {
-	Term(String),
 	Keyword(TypeKeyword),
+	Term(String),
 }
 
 impl TermType {
