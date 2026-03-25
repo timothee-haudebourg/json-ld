@@ -1,5 +1,7 @@
 use iref::IriBuf;
 use json_syntax::JsonValue;
+use linked_data::ser::to_rdf_quads_interpretation;
+use rdf_types::{interpretation::GeneratorInterpretation, Generator, Quad};
 
 use crate::{
 	algorithms::{
@@ -134,10 +136,6 @@ pub type CompactResult = Result<JsonValue, Error>;
 /// Result of the [`JsonLdProcessor::flatten`] function.
 pub type FlattenResult = Result<JsonValue, Error>;
 
-// TODO: define ToRdf.
-// /// Result of the [`JsonLdProcessor::to_rdf`] function.
-// pub type ToRdfResult<'a, G> = Result<ToRdf<'a, 'a, G>, Error>;
-
 /// Result of the [`JsonLdProcessor::compare`] function.
 pub type CompareResult = Result<bool, Error>;
 
@@ -228,10 +226,14 @@ pub trait JsonLdProcessor: Sized {
 
 	/// Serialize the document to RDF using the given `options`.
 	#[allow(async_fn_in_trait)]
-	async fn to_rdf_with<G>(
+	async fn to_rdf_with(
 		&self,
 		env: impl ProcessingEnvironment,
-		generator: G,
+		generator: impl Generator,
 		options: JsonLdOptions,
-	);
+	) -> Result<Vec<Quad>, Error> {
+		let expanded = JsonLdProcessor::expand_with(self, env, options).await?;
+		let interpretation = GeneratorInterpretation::new(generator);
+		Ok(to_rdf_quads_interpretation(&expanded, interpretation).unwrap())
+	}
 }

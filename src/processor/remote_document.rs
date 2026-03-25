@@ -1,13 +1,15 @@
 use iref::Iri;
 use json_syntax::JsonValue;
 
-use super::{CompactResult, CompareResult, ExpandResult, FlattenResult};
-use super::{JsonLdOptions, JsonLdProcessor};
-use crate::algorithms::Compact;
-use crate::context::RawProcessedContext;
-use crate::syntax::JsonLdCompare;
-use crate::{algorithms::ProcessingEnvironment, RemoteContext};
-use crate::{Document, Error};
+use super::{
+	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
+};
+use crate::{
+	algorithms::{Compact, ProcessingEnvironment},
+	context::RawProcessedContext,
+	syntax::JsonLdCompare,
+	Document, Error, RemoteContext,
+};
 
 impl JsonLdProcessor for Document {
 	async fn compare_with(
@@ -107,15 +109,6 @@ impl JsonLdProcessor for Document {
 			}
 			None => Ok(json_syntax::to_value(flattened_output).unwrap()),
 		}
-	}
-
-	async fn to_rdf_with<G>(
-		&self,
-		_env: impl ProcessingEnvironment,
-		_generator: G,
-		_options: JsonLdOptions,
-	) {
-		todo!()
 	}
 }
 
