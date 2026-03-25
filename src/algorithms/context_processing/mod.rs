@@ -64,15 +64,6 @@ impl<'a> ContextProcessor<'a> {
 		}
 	}
 
-	fn with_override<'b>(&'b self) -> ContextProcessor<'b> {
-		ContextProcessor {
-			remote_contexts: self.remote_contexts.clone(),
-			active_context: self.active_context,
-			base_url: self.base_url,
-			options: self.options.with_no_override(),
-		}
-	}
-
 	fn for_sub_context<'b>(
 		&'b self,
 		active_context: &'b RawProcessedContext,

@@ -643,7 +643,15 @@ impl<'a> ContextProcessor<'a> {
 							// protected.
 							// If any error is detected, an invalid scoped context error has been
 							// detected and processing is aborted.
-							Box::pin(self.with_override().process(env, context)).await?;
+							Box::pin(
+								self.for_sub_context(
+									result.value,
+									self.base_url,
+									self.options.with_override(),
+								)
+								.process(env, context),
+							)
+							.await?;
 
 							// Set the local context of definition to context, and base URL to base URL.
 							definition.context = Some(Box::new(context.clone()));
