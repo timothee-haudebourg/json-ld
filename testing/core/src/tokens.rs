@@ -1,32 +1,58 @@
 //! Shared tokenization helpers for foreign types.
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::quote;
 
-pub fn iri_buf_tokens(iri: &iref::IriBuf) -> TokenStream {
-	let s = iri.as_str();
-	quote! { iref::IriBuf::new(#s).unwrap() }
+/// Trait for types that can be converted to expression tokens.
+///
+/// Unlike `ToTokens`, this produces tokens for an expression that
+/// *constructs* the value, handling owned types like `String` and `IriBuf`
+/// that need `.to_owned()` or `iri!(...).to_owned()`.
+pub trait ToExprTokens {
+	fn to_expr_tokens(&self) -> TokenStream;
 }
 
-pub fn option_iri_buf_tokens(opt: &Option<iref::IriBuf>) -> TokenStream {
-	match opt {
-		Some(iri) => {
-			let t = iri_buf_tokens(iri);
-			quote! { Some(#t) }
+impl ToExprTokens for bool {
+	fn to_expr_tokens(&self) -> TokenStream {
+		quote! { #self }
+	}
+}
+
+impl ToExprTokens for String {
+	fn to_expr_tokens(&self) -> TokenStream {
+		quote! { #self.to_owned() }
+	}
+}
+
+impl ToExprTokens for iref::Iri {
+	fn to_expr_tokens(&self) -> TokenStream {
+		let s = self.as_str();
+		quote! { json_ld::iref::iri!(#s).to_owned() }
+	}
+}
+
+impl ToExprTokens for iref::IriBuf {
+	fn to_expr_tokens(&self) -> TokenStream {
+		self.as_iri().to_expr_tokens()
+	}
+}
+
+impl ToExprTokens for json_ld::ProcessingMode {
+	fn to_expr_tokens(&self) -> TokenStream {
+		match self {
+			Self::JsonLd1_0 => quote! { json_ld::ProcessingMode::JsonLd1_0 },
+			Self::JsonLd1_1 => quote! { json_ld::ProcessingMode::JsonLd1_1 },
 		}
-		None => quote! { None },
 	}
 }
 
-pub fn processing_mode_tokens(mode: json_ld::ProcessingMode) -> TokenStream {
-	match mode {
-		json_ld::ProcessingMode::JsonLd1_0 => quote! { json_ld::ProcessingMode::JsonLd1_0 },
-		json_ld::ProcessingMode::JsonLd1_1 => quote! { json_ld::ProcessingMode::JsonLd1_1 },
-	}
-}
-
-pub fn option_tokens<T: ToTokens>(opt: &Option<T>) -> TokenStream {
-	match opt {
-		Some(v) => quote! { Some(#v) },
-		None => quote! { None },
+impl<T: ToExprTokens> ToExprTokens for Option<T> {
+	fn to_expr_tokens(&self) -> TokenStream {
+		match self {
+			Some(v) => {
+				let t = v.to_expr_tokens();
+				quote! { Some(#t) }
+			}
+			None => quote! { None },
+		}
 	}
 }

@@ -39,20 +39,20 @@ pub struct ManifestEntry {
 #[cfg(feature = "proc_macro2")]
 impl quote::ToTokens for ManifestEntry {
 	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-		use crate::tokens::{iri_buf_tokens, option_tokens};
+		use crate::tokens::ToExprTokens;
 		use quote::quote;
 
-		let id = iri_buf_tokens(&self.id);
-		let name = &self.name;
-		let purpose = option_tokens(&self.purpose);
-		let input = iri_buf_tokens(&self.input);
-		let kind = &self.kind;
-		let options = option_tokens(&self.options);
+		let id = self.id.to_expr_tokens();
+		let name = self.name.to_expr_tokens();
+		let purpose = self.purpose.to_expr_tokens();
+		let input = self.input.to_expr_tokens();
+		let kind = self.kind.to_expr_tokens();
+		let options = self.options.to_expr_tokens();
 
 		tokens.extend(quote! {
 			json_ld_testing::ManifestEntry {
 				id: #id,
-				name: #name.to_owned(),
+				name: #name,
 				purpose: #purpose,
 				input: #input,
 				kind: #kind,

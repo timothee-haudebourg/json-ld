@@ -1,16 +1,12 @@
 use json_ld::{
 	ExpandedDocument, FsLoader, IndexedObject, JsonLdOptions, JsonLdProcessor, Loader,
-	ProcessingMode, RemoteDocument,
+	RemoteDocument,
 };
-use json_ld_testing::{ManifestEntry, SpecVersion, TestKind};
+use json_ld_testing::{ManifestEntry, TestKind};
 
 #[json_ld_testing::test_suite("expand-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
 async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
-	if should_skip(entry) {
-		return;
-	}
-
 	let options = build_options(entry);
 
 	match &entry.kind {
@@ -42,18 +38,6 @@ async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
 			);
 		}
 	}
-}
-
-fn should_skip(entry: &ManifestEntry) -> bool {
-	if let Some(ref opts) = entry.options {
-		if opts.normative == Some(false) {
-			return true;
-		}
-		if opts.spec_version == Some(SpecVersion::JsonLd1_0) {
-			return true;
-		}
-	}
-	false
 }
 
 fn build_options(entry: &ManifestEntry) -> JsonLdOptions {

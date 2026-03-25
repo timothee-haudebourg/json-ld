@@ -33,13 +33,13 @@ pub enum TestKind {
 #[cfg(feature = "proc_macro2")]
 impl quote::ToTokens for TestKind {
 	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-		use crate::tokens::{iri_buf_tokens, option_iri_buf_tokens};
+		use crate::tokens::ToExprTokens;
 		use quote::quote;
 
 		let t = match self {
 			Self::Positive { expect, context } => {
-				let expect = iri_buf_tokens(expect);
-				let context = option_iri_buf_tokens(context);
+				let expect = expect.to_expr_tokens();
+				let context = context.to_expr_tokens();
 				quote! {
 					json_ld_testing::TestKind::Positive {
 						expect: #expect,
@@ -51,15 +51,23 @@ impl quote::ToTokens for TestKind {
 				expected_error_code,
 				context,
 			} => {
-				let context = option_iri_buf_tokens(context);
+				let expected_error_code = expected_error_code.to_expr_tokens();
+				let context = context.to_expr_tokens();
 				quote! {
 					json_ld_testing::TestKind::Negative {
-						expected_error_code: #expected_error_code.to_owned(),
+						expected_error_code: #expected_error_code,
 						context: #context,
 					}
 				}
 			}
 		};
 		tokens.extend(t);
+	}
+}
+
+#[cfg(feature = "proc_macro2")]
+impl crate::tokens::ToExprTokens for TestKind {
+	fn to_expr_tokens(&self) -> proc_macro2::TokenStream {
+		quote::ToTokens::to_token_stream(self)
 	}
 }

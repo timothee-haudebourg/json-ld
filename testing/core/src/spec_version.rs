@@ -25,3 +25,10 @@ impl quote::ToTokens for SpecVersion {
 		tokens.extend(t);
 	}
 }
+
+#[cfg(feature = "proc_macro2")]
+impl crate::tokens::ToExprTokens for SpecVersion {
+	fn to_expr_tokens(&self) -> proc_macro2::TokenStream {
+		quote::ToTokens::to_token_stream(self)
+	}
+}

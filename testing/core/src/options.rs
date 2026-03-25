@@ -67,29 +67,23 @@ pub struct TestOptions {
 #[cfg(feature = "proc_macro2")]
 impl quote::ToTokens for TestOptions {
 	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-		use crate::tokens::{option_iri_buf_tokens, option_tokens, processing_mode_tokens};
+		use crate::tokens::ToExprTokens;
 		use quote::quote;
 
-		let base = option_iri_buf_tokens(&self.base);
-		let expand_context = option_iri_buf_tokens(&self.expand_context);
-		let processing_mode = match self.processing_mode {
-			Some(m) => {
-				let m = processing_mode_tokens(m);
-				quote! { Some(#m) }
-			}
-			None => quote! { None },
-		};
-		let spec_version = option_tokens(&self.spec_version);
-		let normative = option_tokens(&self.normative);
-		let compact_to_relative = option_tokens(&self.compact_to_relative);
-		let compact_arrays = option_tokens(&self.compact_arrays);
-		let use_native_types = option_tokens(&self.use_native_types);
-		let produce_generalized_rdf = option_tokens(&self.produce_generalized_rdf);
-		let rdf_direction = option_tokens(&self.rdf_direction);
-		let content_type = option_tokens(&self.content_type);
-		let http_link = option_tokens(&self.http_link);
-		let http_status = option_tokens(&self.http_status);
-		let extract_all_scripts = option_tokens(&self.extract_all_scripts);
+		let base = self.base.to_expr_tokens();
+		let expand_context = self.expand_context.to_expr_tokens();
+		let processing_mode = self.processing_mode.to_expr_tokens();
+		let spec_version = self.spec_version.to_expr_tokens();
+		let normative = self.normative.to_expr_tokens();
+		let compact_to_relative = self.compact_to_relative.to_expr_tokens();
+		let compact_arrays = self.compact_arrays.to_expr_tokens();
+		let use_native_types = self.use_native_types.to_expr_tokens();
+		let produce_generalized_rdf = self.produce_generalized_rdf.to_expr_tokens();
+		let rdf_direction = self.rdf_direction.to_expr_tokens();
+		let content_type = self.content_type.to_expr_tokens();
+		let http_link = self.http_link.to_expr_tokens();
+		let http_status = self.http_status.to_expr_tokens();
+		let extract_all_scripts = self.extract_all_scripts.to_expr_tokens();
 
 		tokens.extend(quote! {
 			json_ld_testing::TestOptions {
@@ -109,5 +103,12 @@ impl quote::ToTokens for TestOptions {
 				extract_all_scripts: #extract_all_scripts,
 			}
 		});
+	}
+}
+
+#[cfg(feature = "proc_macro2")]
+impl crate::tokens::ToExprTokens for TestOptions {
+	fn to_expr_tokens(&self) -> proc_macro2::TokenStream {
+		quote::ToTokens::to_token_stream(self)
 	}
 }

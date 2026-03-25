@@ -155,8 +155,17 @@ fn load_manifest(manifest_url: &Iri, config: &TestSuiteConfig) -> Manifest {
 			.resolved(Iri::new(BASE_URL).unwrap()),
 	);
 
-	linked_data::de::from_rdf_quads::<Manifest>(quads, [manifest_term])
-		.unwrap_or_else(|e| panic!("failed to deserialize manifest: {e}"))
+	let quads_copy = quads.clone();
+	match linked_data::de::from_rdf_quads::<Manifest>(quads, [manifest_term.clone()]) {
+		Ok(m) => m,
+		Err(e) => {
+			for quad in &quads_copy {
+				eprintln!("{quad}");
+			}
+			eprintln!("manifest_term: {manifest_term}");
+			panic!("failed to deserialize manifest: {e}");
+		}
+	}
 }
 
 /// Extract a test ID from a manifest entry's IRI fragment.
@@ -223,7 +232,7 @@ pub fn test_suite(args: TokenStream, input: TokenStream) -> TokenStream {
 			let path_str = path.to_string_lossy();
 			quote! {
 				loader.mount(
-					json_ld::IriBuf::new(#url).unwrap(),
+					json_ld::iref::iri!(#url).to_owned(),
 					#path_str,
 				);
 			}
