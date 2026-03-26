@@ -176,3 +176,18 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Nullable<T> {
 		Ok(Option::<T>::deserialize(deserializer)?.into())
 	}
 }
+
+/// Deserializes an `Option<Nullable<T>>` field, distinguishing between
+/// a missing field (`None`) and an explicit `null` (`Some(Nullable::Null)`).
+///
+/// Use with `#[serde(default, deserialize_with = "Nullable::optional")]`.
+#[cfg(feature = "serde")]
+impl<T> Nullable<T> {
+	pub fn optional<'de, D>(deserializer: D) -> Result<Option<Nullable<T>>, D::Error>
+	where
+		T: serde::Deserialize<'de>,
+		D: serde::Deserializer<'de>,
+	{
+		<Nullable<T> as serde::Deserialize>::deserialize(deserializer).map(Some)
+	}
+}

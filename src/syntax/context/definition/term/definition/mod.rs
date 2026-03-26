@@ -99,13 +99,23 @@ impl From<BlankIdBuf> for SimpleTermDefinition {
 pub struct ExpandedTermDefinition {
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@id", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@id",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub id: Option<Nullable<TermId>>,
 
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@type",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub type_: Option<Nullable<TermType>>,
 
@@ -129,7 +139,12 @@ pub struct ExpandedTermDefinition {
 
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@language", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@language",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub language: Option<Nullable<LenientLangTagBuf>>,
 
@@ -138,6 +153,7 @@ pub struct ExpandedTermDefinition {
 		serde(
 			rename = "@direction",
 			default,
+			deserialize_with = "Nullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]

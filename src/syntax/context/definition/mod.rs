@@ -22,7 +22,12 @@ pub use vocab::*;
 pub struct ContextDefinition {
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@base", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@base",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub base: Option<Nullable<IriRefBuf>>,
 
@@ -34,7 +39,12 @@ pub struct ContextDefinition {
 
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@language", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@language",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub language: Option<Nullable<LenientLangTagBuf>>,
 
@@ -43,6 +53,7 @@ pub struct ContextDefinition {
 		serde(
 			rename = "@direction",
 			default,
+			deserialize_with = "Nullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
@@ -82,7 +93,12 @@ pub struct ContextDefinition {
 
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@vocab", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@vocab",
+			default,
+			deserialize_with = "Nullable::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub vocab: Option<Nullable<Vocab>>,
 
