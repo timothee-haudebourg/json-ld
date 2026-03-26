@@ -1,13 +1,12 @@
-use json_ld::{
-	ExpandedDocument, FsLoader, IndexedObject, JsonLdOptions, JsonLdProcessor, Loader,
-	RemoteDocument,
-};
+use json_ld::{ExpandedDocument, FsLoader, IndexedObject, JsonLdProcessor, Loader};
 use json_ld_testing::{ManifestEntry, TestKind};
+
+mod common;
 
 #[json_ld_testing::test_suite("expand-manifest.jsonld")]
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
 async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
-	let options = build_options(entry);
+	let options = common::build_options(entry);
 
 	match &entry.kind {
 		TestKind::Positive { expect, .. } => {
@@ -38,18 +37,4 @@ async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
 			);
 		}
 	}
-}
-
-fn build_options(entry: &ManifestEntry) -> JsonLdOptions {
-	let mut options = JsonLdOptions::default();
-	if let Some(ref opts) = entry.options {
-		if let Some(mode) = opts.processing_mode {
-			options.processing_mode = mode;
-		}
-		options.base = opts.base.clone();
-		if let Some(ref ctx) = opts.expand_context {
-			options.expand_context = Some(RemoteDocument::iri(ctx.clone()));
-		}
-	}
-	options
 }

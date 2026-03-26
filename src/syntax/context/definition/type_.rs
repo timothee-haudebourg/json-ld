@@ -7,7 +7,14 @@ pub struct ContextType {
 	#[cfg_attr(feature = "serde", serde(rename = "@container"))]
 	pub container: ContextTypeContainer,
 
-	#[cfg_attr(feature = "serde", serde(rename = "@protected"))]
+	#[cfg_attr(
+		feature = "serde",
+		serde(
+			rename = "@protected",
+			default,
+			skip_serializing_if = "Option::is_none"
+		)
+	)]
 	pub protected: Option<bool>,
 }
 
