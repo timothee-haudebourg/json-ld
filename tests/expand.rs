@@ -11,7 +11,8 @@ async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
 	match &entry.kind {
 		TestKind::Positive { expect, .. } => {
 			let input = loader.load(&entry.input).await.unwrap();
-			let expanded = JsonLdProcessor::expand_with(&input, loader, options)
+			let expanded = input
+				.expand_with(loader, options)
 				.await
 				.expect("expansion failed");
 
@@ -28,7 +29,7 @@ async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
 			..
 		} => {
 			let input = loader.load(&entry.input).await.unwrap();
-			let result = JsonLdProcessor::expand_with(&input, loader, options).await;
+			let result = input.expand_with(loader, options).await;
 			assert!(
 				result.is_err(),
 				"test `{}` should have failed with `{}`",
