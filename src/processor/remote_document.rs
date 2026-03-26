@@ -19,12 +19,12 @@ impl JsonLdProcessor for Document {
 		options: JsonLdOptions,
 	) -> CompareResult {
 		if self.document.compare_json_ld(&other.document) {
-			let a = JsonLdProcessor::expand_with(self, env.as_ref(), options.clone()).await?;
-			let b = JsonLdProcessor::expand_with(other, env, options).await?;
-			Ok(a == b)
-		} else {
-			Ok(false)
+			return Ok(true);
 		}
+
+		let a = JsonLdProcessor::expand_with(self, env.as_ref(), options.clone()).await?;
+		let b = JsonLdProcessor::expand_with(other, env, options).await?;
+		Ok(a == b)
 	}
 
 	async fn expand_with(
@@ -99,7 +99,7 @@ impl JsonLdProcessor for Document {
 		let expanded_input =
 			JsonLdProcessor::expand_with(self, env.as_ref(), options.clone().unordered()).await?;
 
-		let generator = rdf_types::generator::BlankIdGenerator::new();
+		let generator = rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
 		let flattened_output = expanded_input.flatten(generator, options.ordered)?;
 
 		match context {
