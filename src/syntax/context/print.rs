@@ -1,5 +1,6 @@
 use super::{definition, term_definition, TermDefinition};
-use crate::syntax::{Container, ContextEntry, Nullable};
+use crate::context::Container;
+use crate::syntax::{ContextEntry, Nullable};
 use json_syntax::print::{string_literal, Options, PrecomputeSize, Print, PrintWithSize, Size};
 use std::fmt;
 

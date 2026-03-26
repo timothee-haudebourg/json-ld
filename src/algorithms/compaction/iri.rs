@@ -2,8 +2,9 @@ use json_syntax::object::Key;
 
 use crate::{
 	context::inverse::{LangSelection, Selection, TypeSelection},
+	context::Container,
 	object::{self, AnyObject},
-	syntax::{is_keyword, is_keyword_like, Container},
+	syntax::{is_keyword, is_keyword_like},
 	Error, Indexed, Nullable, Object, ProcessingMode, Term, Type, ValueObject,
 };
 

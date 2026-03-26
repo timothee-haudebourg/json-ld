@@ -1,7 +1,7 @@
 use super::BindingRef;
+use super::Container;
 use super::ContextTerm;
 use super::RawProcessedContext;
-use crate::syntax::Container;
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type};
 use std::cmp::Ordering;
 use std::collections::HashMap;

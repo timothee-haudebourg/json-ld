@@ -1,6 +1,9 @@
 //! Context processing algorithm and related types.
+mod container;
 mod definition;
 pub mod inverse;
+
+pub use container::Container;
 
 use crate::syntax::context::ContextTerm;
 use crate::syntax::{Context, KeywordType};

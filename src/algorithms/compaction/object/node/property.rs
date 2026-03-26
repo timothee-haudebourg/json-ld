@@ -8,8 +8,9 @@ use crate::{
 		},
 		ProcessingEnvironment,
 	},
+	context::Container,
 	object::{AnyObject, ListObject, Ref},
-	syntax::{context::Nest, Container, ContainerItem, Keyword},
+	syntax::{context::Nest, ContainerItem, Keyword},
 	Error, Id, Indexed, NodeObject, Object, Term,
 };
 

@@ -1,8 +1,9 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{Error, ProcessingEnvironment, Warning};
+use crate::context::Container;
 use crate::context::RawProcessedContext;
-use crate::syntax::{Container, ContainerItem, Keyword, LenientLangTagBuf, Nullable};
+use crate::syntax::{ContainerItem, Keyword, LenientLangTagBuf, Nullable};
 use crate::ValueObject;
 use crate::{
 	object, object::value::LiteralValue, Id, Indexed, IndexedObject, LangString, NodeObject,

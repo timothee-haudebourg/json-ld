@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use crate::context::Container;
 use crate::syntax::context::ContextTypeContainer;
 
 use super::Keyword;
@@ -40,6 +41,12 @@ impl ContainerItem {
 
 	pub fn as_str(&self) -> &'static str {
 		self.into_keyword().into_str()
+	}
+}
+
+impl std::fmt::Display for ContainerItem {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(self.as_str())
 	}
 }
 
@@ -112,314 +119,53 @@ impl From<ContainerItem> for Keyword {
 	}
 }
 
-// impl From<ContainerItem> for Container {
-// 	fn from(c: ContainerItem) -> Self {
-// 		Container::One(c)
-// 	}
-// }
-
-// #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-// #[cfg_attr(
-// 	feature = "serde",
-// 	derive(serde::Serialize, serde::Deserialize),
-// 	serde(untagged)
-// )]
-// pub enum Container {
-// 	One(ContainerItem),
-// 	Many(Vec<ContainerItem>),
-// }
-
-// impl Container {
-// 	pub fn is_array(&self) -> bool {
-// 		matches!(self, Self::Many(_))
-// 	}
-
-// 	pub fn sub_fragments(&self) -> SubValues {
-// 		match self {
-// 			Self::One(_) => SubValues::None,
-// 			Self::Many(m) => SubValues::Many(m.iter()),
-// 		}
-// 	}
-// }
-
-// pub enum SubValues<'a> {
-// 	None,
-// 	Many(std::slice::Iter<'a, ContainerItem>),
-// }
-
-// impl<'a> Iterator for SubValues<'a> {
-// 	type Item = &'a ContainerItem;
-
-// 	fn size_hint(&self) -> (usize, Option<usize>) {
-// 		match self {
-// 			Self::None => (0, Some(0)),
-// 			Self::Many(m) => m.size_hint(),
-// 		}
-// 	}
-
-// 	fn next(&mut self) -> Option<Self::Item> {
-// 		match self {
-// 			Self::None => None,
-// 			Self::Many(m) => m.next(),
-// 		}
-// 	}
-// }
-
-// impl<'a> ExactSizeIterator for SubValues<'a> {}
-
-// impl<'a> DoubleEndedIterator for SubValues<'a> {
-// 	fn next_back(&mut self) -> Option<Self::Item> {
-// 		match self {
-// 			Self::None => None,
-// 			Self::Many(m) => m.next_back(),
-// 		}
-// 	}
-// }
-
-pub struct InvalidContainer;
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum Container {
-	// Empty container
+/// Syntax-level representation of a `@container` value.
+///
+/// Preserves whether the value was null, a single item, or an array,
+/// which matters for JSON-LD 1.0 validation.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[cfg_attr(
+	feature = "serde",
+	derive(serde::Serialize, serde::Deserialize),
+	serde(untagged)
+)]
+pub enum ContainerValue {
+	/// Null container value.
 	Null,
 
-	Graph,
-	Id,
-	Index,
-	Language,
-	List,
-	Set,
-	Type,
+	/// A single container keyword, e.g. `"@set"`.
+	Item(ContainerItem),
 
-	GraphSet,
-	GraphId,
-	GraphIndex,
-	IdSet,
-	IndexSet,
-	LanguageSet,
-	SetType,
-
-	GraphIdSet,
-	GraphIndexSet,
+	/// An array of container keywords, e.g. `["@set"]` or `["@graph", "@id"]`.
+	Array(Vec<ContainerItem>),
 }
 
-impl Default for Container {
-	fn default() -> Self {
-		Self::new()
-	}
-}
-
-impl Container {
-	pub fn new() -> Container {
-		Container::Null
+impl ContainerValue {
+	/// Whether this value was specified as an array in the source JSON.
+	pub fn is_array(&self) -> bool {
+		matches!(self, Self::Array(_))
 	}
 
-	pub fn from<'a, I: IntoIterator<Item = &'a ContainerItem>>(
-		iter: I,
-	) -> Result<Container, ContainerItem> {
-		let mut container = Container::new();
-		for item in iter {
-			if !container.add(*item) {
-				return Err(*item);
-			}
-		}
-
-		Ok(container)
-	}
-
-	pub fn as_slice(&self) -> &[ContainerItem] {
-		use Container::*;
+	/// Process this syntax value into a [`Container`].
+	pub fn to_container(&self) -> Result<Container, UnexpectedContainerItem> {
 		match self {
-			Null => &[],
-			Graph => &[ContainerItem::Graph],
-			Id => &[ContainerItem::Id],
-			Index => &[ContainerItem::Index],
-			Language => &[ContainerItem::Language],
-			List => &[ContainerItem::List],
-			Set => &[ContainerItem::Set],
-			Type => &[ContainerItem::Type],
-			GraphSet => &[ContainerItem::Graph, ContainerItem::Set],
-			GraphId => &[ContainerItem::Graph, ContainerItem::Id],
-			GraphIndex => &[ContainerItem::Graph, ContainerItem::Index],
-			IdSet => &[ContainerItem::Id, ContainerItem::Set],
-			IndexSet => &[ContainerItem::Index, ContainerItem::Set],
-			LanguageSet => &[ContainerItem::Language, ContainerItem::Set],
-			SetType => &[ContainerItem::Type, ContainerItem::Set],
-			GraphIdSet => &[ContainerItem::Graph, ContainerItem::Id, ContainerItem::Set],
-			GraphIndexSet => &[
-				ContainerItem::Graph,
-				ContainerItem::Index,
-				ContainerItem::Set,
-			],
-		}
-	}
-
-	pub fn iter(&self) -> impl Iterator<Item = &ContainerItem> {
-		self.as_slice().iter()
-	}
-
-	pub fn len(&self) -> usize {
-		self.as_slice().len()
-	}
-
-	pub fn is_empty(&self) -> bool {
-		matches!(self, Container::Null)
-	}
-
-	pub fn contains(&self, c: ContainerItem) -> bool {
-		self.as_slice().contains(&c)
-	}
-
-	pub fn with(&self, c: ContainerItem) -> Option<Container> {
-		let new_container = match (self, c) {
-			(Container::Null, c) => c.into(),
-			(Container::Graph, ContainerItem::Graph) => *self,
-			(Container::Graph, ContainerItem::Set) => Container::GraphSet,
-			(Container::Graph, ContainerItem::Id) => Container::GraphId,
-			(Container::Graph, ContainerItem::Index) => Container::GraphIndex,
-			(Container::Id, ContainerItem::Id) => *self,
-			(Container::Id, ContainerItem::Graph) => Container::GraphId,
-			(Container::Id, ContainerItem::Set) => Container::IdSet,
-			(Container::Index, ContainerItem::Index) => *self,
-			(Container::Index, ContainerItem::Graph) => Container::GraphIndex,
-			(Container::Index, ContainerItem::Set) => Container::IndexSet,
-			(Container::Language, ContainerItem::Language) => *self,
-			(Container::Language, ContainerItem::Set) => Container::LanguageSet,
-			(Container::List, ContainerItem::List) => *self,
-			(Container::Set, ContainerItem::Set) => *self,
-			(Container::Set, ContainerItem::Graph) => Container::GraphSet,
-			(Container::Set, ContainerItem::Id) => Container::IdSet,
-			(Container::Set, ContainerItem::Index) => Container::IndexSet,
-			(Container::Set, ContainerItem::Language) => Container::LanguageSet,
-			(Container::Set, ContainerItem::Type) => Container::SetType,
-			(Container::Type, ContainerItem::Type) => *self,
-			(Container::Type, ContainerItem::Set) => Container::SetType,
-			(Container::GraphSet, ContainerItem::Graph) => *self,
-			(Container::GraphSet, ContainerItem::Set) => *self,
-			(Container::GraphSet, ContainerItem::Id) => Container::GraphIdSet,
-			(Container::GraphSet, ContainerItem::Index) => Container::GraphIdSet,
-			(Container::GraphId, ContainerItem::Graph) => *self,
-			(Container::GraphId, ContainerItem::Id) => *self,
-			(Container::GraphId, ContainerItem::Set) => Container::GraphIdSet,
-			(Container::GraphIndex, ContainerItem::Graph) => *self,
-			(Container::GraphIndex, ContainerItem::Index) => *self,
-			(Container::GraphIndex, ContainerItem::Set) => Container::GraphIndexSet,
-			(Container::IdSet, ContainerItem::Id) => *self,
-			(Container::IdSet, ContainerItem::Set) => *self,
-			(Container::IdSet, ContainerItem::Graph) => Container::GraphIdSet,
-			(Container::IndexSet, ContainerItem::Index) => *self,
-			(Container::IndexSet, ContainerItem::Set) => *self,
-			(Container::IndexSet, ContainerItem::Graph) => Container::GraphIndexSet,
-			(Container::LanguageSet, ContainerItem::Language) => *self,
-			(Container::LanguageSet, ContainerItem::Set) => *self,
-			(Container::SetType, ContainerItem::Set) => *self,
-			(Container::SetType, ContainerItem::Type) => *self,
-			(Container::GraphIdSet, ContainerItem::Graph) => *self,
-			(Container::GraphIdSet, ContainerItem::Id) => *self,
-			(Container::GraphIdSet, ContainerItem::Set) => *self,
-			(Container::GraphIndexSet, ContainerItem::Graph) => *self,
-			(Container::GraphIndexSet, ContainerItem::Index) => *self,
-			(Container::GraphIndexSet, ContainerItem::Set) => *self,
-			_ => return None,
-		};
-
-		Some(new_container)
-	}
-
-	pub fn add(&mut self, c: ContainerItem) -> bool {
-		match self.with(c) {
-			Some(container) => {
-				*self = container;
-				true
-			}
-			None => false,
+			Self::Null => Ok(Container::Null),
+			Self::Item(item) => Ok((*item).into()),
+			Self::Array(items) => Container::from(items.iter()).map_err(UnexpectedContainerItem),
 		}
 	}
 }
 
-impl From<ContainerItem> for Container {
-	fn from(c: ContainerItem) -> Self {
-		match c {
-			ContainerItem::Graph => Self::Graph,
-			ContainerItem::Id => Self::Id,
-			ContainerItem::Index => Self::Index,
-			ContainerItem::Language => Self::Language,
-			ContainerItem::List => Self::List,
-			ContainerItem::Set => Self::Set,
-			ContainerItem::Type => Self::Type,
-		}
-	}
-}
+/// Error returned when a container array contains an unexpected item
+/// combination.
+#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[error("unexpected `@container` item: `{0}`")]
+pub struct UnexpectedContainerItem(pub ContainerItem);
 
-impl From<ContextTypeContainer> for Container {
+impl From<ContextTypeContainer> for ContainerValue {
 	fn from(c: ContextTypeContainer) -> Self {
 		match c {
-			ContextTypeContainer::Set => Container::Set,
+			ContextTypeContainer::Set => ContainerValue::Item(ContainerItem::Set),
 		}
-	}
-}
-
-impl serde::Serialize for Container {
-	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-	where
-		S: serde::Serializer,
-	{
-		match self.as_slice() {
-			[] => serializer.serialize_unit(),
-			[item] => item.serialize(serializer),
-			array => array.serialize(serializer),
-		}
-	}
-}
-
-impl<'de> serde::Deserialize<'de> for Container {
-	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-	where
-		D: serde::Deserializer<'de>,
-	{
-		struct Visitor;
-
-		impl<'de> serde::de::Visitor<'de> for Visitor {
-			type Value = Container;
-
-			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-				write!(formatter, "a valid JSON-LD `@container` value")
-			}
-
-			fn visit_unit<E>(self) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				Ok(Container::Null)
-			}
-
-			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-			where
-				E: serde::de::Error,
-			{
-				v.parse::<ContainerItem>()
-					.map(Into::into)
-					.map_err(E::custom)
-			}
-
-			fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-			where
-				A: serde::de::SeqAccess<'de>,
-			{
-				let mut result = Container::Null;
-
-				while let Some(item) = seq.next_element::<ContainerItem>()? {
-					if !result.add(item) {
-						return Err(serde::de::Error::custom(
-							"invalid JSON-LD `@container` value",
-						));
-					}
-				}
-
-				Ok(result)
-			}
-		}
-
-		deserializer.deserialize_any(Visitor)
 	}
 }

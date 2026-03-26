@@ -13,7 +13,7 @@ mod utils;
 
 pub use compact_iri::*;
 pub use compare::*;
-pub use container::{Container, ContainerItem};
+pub use container::{ContainerItem, ContainerValue, UnexpectedContainerItem};
 pub use context::{Context, ContextDocumentValue, ContextEntry};
 pub use direction::*;
 pub use expandable::*;

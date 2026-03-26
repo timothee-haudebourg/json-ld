@@ -7,7 +7,8 @@ use crate::{
 		context_processing::ContextProcessingOptions,
 		ProcessingEnvironment, ProcessingEnvironmentRef,
 	},
-	syntax::{Container, ContainerItem, Keyword},
+	context::Container,
+	syntax::{ContainerItem, Keyword},
 	Error, Id, NodeObject, ProcessingMode, Term, Type,
 };
 

@@ -6,8 +6,9 @@ use crate::{
 		context_processing::ContextProcessingOptions, ProcessingEnvironment,
 		ProcessingEnvironmentRef,
 	},
+	context::Container,
 	object::value::LiteralType,
-	syntax::{Container, ContainerItem, Keyword},
+	syntax::{ContainerItem, Keyword},
 	Error, Id, Term, Type, ValueObject,
 };
 

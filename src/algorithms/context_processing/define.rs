@@ -10,10 +10,11 @@ use crate::{
 		warning::Warning,
 		ProcessingEnvironment,
 	},
+	context::Container,
 	context::{NormalTermDefinition, TypeTermDefinition},
 	syntax::{
 		context::{EntryValueRef, ExpandedTermDefinitionRef, IdRef, KeyOrKeyword, KeyOrKeywordRef},
-		CompactIri, Container, ContainerItem, ExpandableRef, Keyword,
+		CompactIri, ContainerItem, ContainerValue, ExpandableRef, Keyword,
 	},
 	Id, LenientLangTag, Nullable, ProcessingMode, Term, Type, ValidId,
 };
@@ -310,8 +311,11 @@ impl<'a> ContextProcessor<'a> {
 							// invalid reverse property error has been detected (reverse properties
 							// only support set- and index-containers) and processing is aborted.
 							if let Some(container_value) = value.container {
-								if matches!(container_value, Container::Set | Container::Index) {
-									definition.container = container_value
+								let container = container_value
+									.to_container()
+									.map_err(|_| Error::InvalidContainerMapping)?;
+								if matches!(container, Container::Set | Container::Index) {
+									definition.container = container
 								} else {
 									return Err(Error::InvalidReverseProperty);
 								}
@@ -557,11 +561,13 @@ impl<'a> ContextProcessor<'a> {
 							// string, generate an invalid container mapping error and abort processing
 							// if processing mode is json-ld-1.0.
 							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-								match container_value {
-									Container::Index
-									| Container::Language
-									| Container::List
-									| Container::Set => (),
+								match &container_value {
+									ContainerValue::Item(
+										ContainerItem::Index
+										| ContainerItem::Language
+										| ContainerItem::List
+										| ContainerItem::Set,
+									) => (),
 									_ => return Err(Error::InvalidContainerMapping),
 								}
 							}
@@ -575,7 +581,9 @@ impl<'a> ContextProcessor<'a> {
 							// `@language` in any order.
 							// Otherwise, an invalid container mapping has been detected and processing
 							// is aborted.
-							definition.container = container_value;
+							definition.container = container_value
+								.to_container()
+								.map_err(|_| Error::InvalidContainerMapping)?;
 
 							// Set the container mapping of definition to container coercing to an
 							// array, if necessary.

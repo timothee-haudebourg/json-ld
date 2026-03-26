@@ -1,6 +1,6 @@
 use crate::syntax::{
 	context::{self, ContextTerm},
-	CompactIri, CompactIriBuf, Container, Context, Direction, Keyword, LenientLangTag,
+	CompactIri, CompactIriBuf, ContainerValue, Context, Direction, Keyword, LenientLangTag,
 	LenientLangTagBuf, Nullable,
 };
 use iref::{Iri, IriBuf};
@@ -167,7 +167,7 @@ pub struct ExpandedTermDefinition {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub container: Option<Container>,
+	pub container: Option<ContainerValue>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -258,7 +258,7 @@ impl ExpandedTermDefinition {
 			index: self.index.as_ref(),
 			language: self.language.as_ref().map(Nullable::as_ref),
 			direction: self.direction,
-			container: self.container,
+			container: self.container.as_ref(),
 			nest: self.nest.as_ref(),
 			prefix: self.prefix,
 			propagate: self.propagate,
@@ -281,7 +281,7 @@ impl ExpandedTermDefinition {
 				.as_ref()
 				.map(|n| n.as_ref().map(LenientLangTagBuf::as_lenient_lang_tag_ref)),
 			direction: self.direction,
-			container: self.container,
+			container: self.container.as_ref(),
 			nest: self.nest.as_ref(),
 			prefix: self.prefix,
 			propagate: self.propagate,
@@ -300,7 +300,7 @@ pub struct ExpandedTermDefinitionRef<'a> {
 	pub index: Option<&'a Index>,
 	pub language: Option<Nullable<&'a LenientLangTag>>,
 	pub direction: Option<Nullable<Direction>>,
-	pub container: Option<Container>,
+	pub container: Option<&'a ContainerValue>,
 	pub nest: Option<&'a Nest>,
 	pub prefix: Option<bool>,
 	pub propagate: Option<bool>,
@@ -328,7 +328,7 @@ pub struct TermDefinitionEntries<'a> {
 	index: Option<&'a Index>,
 	language: Option<Nullable<&'a LenientLangTagBuf>>,
 	direction: Option<Nullable<Direction>>,
-	container: Option<Container>,
+	container: Option<&'a ContainerValue>,
 	nest: Option<&'a Nest>,
 	prefix: Option<bool>,
 	propagate: Option<bool>,
@@ -343,7 +343,7 @@ pub enum TermDefinitionEntryRef<'a> {
 	Index(&'a Index),
 	Language(Nullable<&'a LenientLangTagBuf>),
 	Direction(Nullable<Direction>),
-	Container(Container),
+	Container(&'a ContainerValue),
 	Nest(&'a Nest),
 	Prefix(bool),
 	Propagate(bool),
@@ -398,7 +398,7 @@ impl<'a> TermDefinitionEntryRef<'a> {
 			Self::Index(e) => TermDefinitionEntryValueRef::Index(e),
 			Self::Language(e) => TermDefinitionEntryValueRef::Language(*e),
 			Self::Direction(e) => TermDefinitionEntryValueRef::Direction(*e),
-			Self::Container(e) => TermDefinitionEntryValueRef::Container(*e),
+			Self::Container(e) => TermDefinitionEntryValueRef::Container(e),
 			Self::Nest(e) => TermDefinitionEntryValueRef::Nest(e),
 			Self::Prefix(e) => TermDefinitionEntryValueRef::Prefix(*e),
 			Self::Propagate(e) => TermDefinitionEntryValueRef::Propagate(*e),
@@ -442,7 +442,7 @@ impl<'a> TermDefinitionEntryRef<'a> {
 			),
 			Self::Container(e) => (
 				TermDefinitionEntryKey::Container,
-				TermDefinitionEntryValueRef::Container(*e),
+				TermDefinitionEntryValueRef::Container(e),
 			),
 			Self::Nest(e) => (
 				TermDefinitionEntryKey::Nest,
@@ -510,7 +510,7 @@ pub enum TermDefinitionEntryValueRef<'a> {
 	Index(&'a Index),
 	Language(Nullable<&'a LenientLangTagBuf>),
 	Direction(Nullable<Direction>),
-	Container(Container),
+	Container(&'a ContainerValue),
 	Nest(&'a Nest),
 	Prefix(bool),
 	Propagate(bool),

@@ -1,6 +1,7 @@
+use super::Container;
 use crate::syntax::{
 	context::{ContextTerm, ContextType, ContextTypeContainer, Index, Nest},
-	Container, Context, KeywordType,
+	Context, KeywordType,
 };
 use crate::{Direction, LenientLangTagBuf, Nullable, Term, Type};
 use iref::{Iri, IriBuf};
