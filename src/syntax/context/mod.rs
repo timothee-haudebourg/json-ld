@@ -42,6 +42,19 @@ impl Context {
 	pub fn definition(def: ContextDefinition) -> Self {
 		Self::one(ContextEntry::Definition(def))
 	}
+
+	/// Deserializes an optional context, preserving `null`.
+	///
+	/// Maps JSON `null` to `Some(Box(Self::null()))` instead of `None`,
+	/// distinguishing absent `@context` from explicit `@context: null`.
+	/// Use with `#[serde(default, deserialize_with = "Context::optional")]`.
+	#[cfg(feature = "serde")]
+	pub fn optional<'de, D>(deserializer: D) -> Result<Option<Box<Self>>, D::Error>
+	where
+		D: serde::Deserializer<'de>,
+	{
+		<Self as serde::Deserialize>::deserialize(deserializer).map(|c| Some(Box::new(c)))
+	}
 }
 
 impl Context {

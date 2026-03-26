@@ -121,7 +121,12 @@ pub struct ExpandedTermDefinition {
 
 	#[cfg_attr(
 		feature = "serde",
-		serde(rename = "@context", default, skip_serializing_if = "Option::is_none")
+		serde(
+			rename = "@context",
+			default,
+			deserialize_with = "context::Context::optional",
+			skip_serializing_if = "Option::is_none"
+		)
 	)]
 	pub context: Option<Box<context::Context>>,
 
