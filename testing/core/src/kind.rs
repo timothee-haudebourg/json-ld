@@ -28,6 +28,10 @@ pub enum TestKind {
 		#[ld(prop = "test:context")]
 		context: Option<iref::IriBuf>,
 	},
+
+	/// Test expects successful processing (syntax validation only).
+	#[ld(type = "test:PositiveSyntaxTest")]
+	PositiveSyntax,
 }
 
 #[cfg(feature = "proc_macro2")]
@@ -59,6 +63,9 @@ impl quote::ToTokens for TestKind {
 						context: #context,
 					}
 				}
+			}
+			Self::PositiveSyntax => {
+				quote! { json_ld_testing::TestKind::PositiveSyntax }
 			}
 		};
 		tokens.extend(t);

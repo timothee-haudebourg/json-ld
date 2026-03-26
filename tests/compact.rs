@@ -60,5 +60,6 @@ async fn compact(loader: &FsLoader, entry: &ManifestEntry) {
 				expected_error_code
 			);
 		}
+		TestKind::PositiveSyntax => {}
 	}
 }
