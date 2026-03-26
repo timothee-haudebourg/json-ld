@@ -1,211 +1,53 @@
-// use contextual::WithContext;
-// use json_ld::{Document, JsonLdProcessor, Loader, Print, RemoteDocumentReference};
-// use rdf_types::vocabulary::{IndexVocabulary, IriIndex, IriVocabularyMut};
-// use static_iref::iri;
+use json_ld::{syntax::PrintJson, Document, FsLoader, JsonLdProcessor, Loader, RemoteDocument};
+use json_ld_testing::{ManifestEntry, TestKind};
 
-// #[json_ld_testing::test_suite("https://w3c.github.io/json-ld-api/tests/flatten-manifest.jsonld")]
-// #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
-// #[iri_prefix("rdf" = "http://www.w3.org/1999/02/22-rdf-syntax-ns#")]
-// #[iri_prefix("rdfs" = "http://www.w3.org/2000/01/rdf-schema#")]
-// #[iri_prefix("manifest" = "http://www.w3.org/2001/sw/DataAccess/tests/test-manifest#")]
-// #[iri_prefix("test" = "https://w3c.github.io/json-ld-api/tests/vocab#")]
-// mod flatten {
-// 	use iref::Iri;
+mod common;
 
-// 	#[iri("test:FlattenTest")]
-// 	pub struct Test {
-// 		#[iri("rdfs:comment")]
-// 		pub comments: &'static [&'static str],
+#[json_ld_testing::test_suite("flatten-manifest.jsonld")]
+#[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
+async fn flatten(loader: &FsLoader, entry: &ManifestEntry) {
+	let options = common::build_options(entry);
 
-// 		#[iri("manifest:action")]
-// 		pub input: &'static Iri,
+	match &entry.kind {
+		TestKind::Positive {
+			expect, context, ..
+		} => {
+			let context = context.as_ref().map(|c| RemoteDocument::iri(c.clone()));
 
-// 		#[iri("manifest:name")]
-// 		pub name: &'static str,
+			let input = loader.load(&entry.input).await.unwrap();
+			let flattened = input
+				.flatten_with(context, loader, options.clone())
+				.await
+				.expect("flattening failed");
+			let flattened = Document::new(Some(entry.input.clone()), None, flattened);
 
-// 		#[iri("test:option")]
-// 		pub options: Options,
+			let mut expected = loader.load(expect).await.unwrap();
+			expected.set_url(Some(entry.input.clone()));
 
-// 		#[iri("test:context")]
-// 		pub context: Option<&'static Iri>,
+			let success = flattened
+				.compare(&expected, loader)
+				.await
+				.expect("comparison failed");
 
-// 		#[iri("rdf:type")]
-// 		pub desc: Description,
-// 	}
+			if !success {
+				eprintln!("output=\n{}", flattened.document.pretty_print());
+				eprintln!("expected=\n{}", expected.document.pretty_print());
+			}
 
-// 	pub enum Description {
-// 		#[iri("test:PositiveEvaluationTest")]
-// 		Positive {
-// 			#[iri("manifest:result")]
-// 			expect: &'static Iri,
-// 		},
-// 		#[iri("test:NegativeEvaluationTest")]
-// 		Negative {
-// 			#[iri("manifest:result")]
-// 			expected_error_code: &'static str,
-// 		},
-// 	}
-
-// 	#[derive(Default)]
-// 	pub struct Options {
-// 		#[iri("test:base")]
-// 		pub base: Option<&'static Iri>,
-
-// 		#[iri("test:expandContext")]
-// 		pub expand_context: Option<&'static Iri>,
-
-// 		#[iri("test:processingMode")]
-// 		pub processing_mode: Option<json_ld::ProcessingMode>,
-
-// 		#[iri("test:specVersion")]
-// 		pub spec_version: Option<&'static str>,
-
-// 		#[iri("test:normative")]
-// 		pub normative: Option<bool>,
-
-// 		#[iri("test:compactToRelative")]
-// 		pub compact_to_relative: Option<bool>,
-
-// 		#[iri("test:compactArrays")]
-// 		pub compact_arrays: Option<bool>,
-// 	}
-// }
-
-// impl flatten::Test {
-// 	fn run(self) {
-// 		let child = std::thread::Builder::new()
-// 			.spawn(|| async_std::task::block_on(self.async_run()))
-// 			.unwrap();
-
-// 		child.join().unwrap()
-// 	}
-
-// 	async fn async_run(self) {
-// 		if !self.options.normative.unwrap_or(true) {
-// 			log::warn!("ignoring test `{}` (non normative)", self.name);
-// 			return;
-// 		}
-
-// 		if self.options.spec_version == Some("json-ld-1.0") {
-// 			log::warn!("ignoring test `{}` (unsupported spec version)", self.name);
-// 			return;
-// 		}
-
-// 		for comment in self.comments {
-// 			println!("{}", comment)
-// 		}
-
-// 		let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-// 		let mut loader = json_ld::FsLoader::default();
-// 		loader.mount(
-// 			iri!("https://w3c.github.io/json-ld-api").to_owned(),
-// 			"tests/json-ld-api",
-// 		);
-
-// 		let mut options: json_ld::Options<IriIndex> = json_ld::Options::default();
-// 		if let Some(p) = self.options.processing_mode {
-// 			options.processing_mode = p
-// 		}
-
-// 		options.base = self.options.base.map(|iri| vocabulary.insert(iri));
-// 		options.expand_context = self
-// 			.options
-// 			.expand_context
-// 			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
-
-// 		options.compact_arrays = self.options.compact_arrays.unwrap_or(true);
-// 		options.compact_to_relative = self.options.compact_to_relative.unwrap_or(true);
-
-// 		let input = vocabulary.insert(self.input);
-// 		let context = self
-// 			.context
-// 			.map(|iri| RemoteDocumentReference::Iri(vocabulary.insert(iri)));
-
-// 		match self.desc {
-// 			flatten::Description::Positive { expect } => {
-// 				let json_ld = loader.load_with(&mut vocabulary, input).await.unwrap();
-
-// 				// Note: try it 10 times to reduce the chances of false negative
-// 				// with flatten_tin03. TODO proper fix.
-// 				for i in 0..10 {
-// 					let mut generator =
-// 						rdf_types::generator::Blank::new_with_prefix("b".to_string());
-// 					let flattened = json_ld
-// 						.flatten_full(
-// 							&mut vocabulary,
-// 							&mut generator,
-// 							context.clone(),
-// 							&mut loader,
-// 							options.clone(),
-// 							(),
-// 						)
-// 						.await
-// 						.unwrap();
-// 					let flattened = Document::new(Some(input), None, flattened);
-
-// 					let expect = vocabulary.insert(expect);
-// 					let mut expect = loader.load_with(&mut vocabulary, expect).await.unwrap();
-// 					expect.set_url(Some(input));
-
-// 					let expand_options: json_ld::Options<IriIndex> = json_ld::Options::default();
-// 					let success = flattened
-// 						.compare_full(&expect, &mut vocabulary, &mut loader, expand_options, ())
-// 						.await
-// 						.unwrap();
-
-// 					if success {
-// 						break;
-// 					} else if i == 9 {
-// 						eprintln!("test failed");
-// 						eprintln!(
-// 							"output=\n{}",
-// 							flattened.with(&vocabulary).document().pretty_print()
-// 						);
-// 						eprintln!(
-// 							"expected=\n{}",
-// 							expect.document().with(&vocabulary).pretty_print()
-// 						);
-
-// 						assert!(success)
-// 					}
-// 				}
-// 			}
-// 			flatten::Description::Negative {
-// 				expected_error_code,
-// 			} => {
-// 				match loader.load_with(&mut vocabulary, input).await {
-// 					Ok(json_ld) => {
-// 						let mut generator =
-// 							rdf_types::generator::Blank::new_with_prefix("b".to_string());
-// 						let result = json_ld
-// 							.flatten_full(
-// 								&mut vocabulary,
-// 								&mut generator,
-// 								context,
-// 								&mut loader,
-// 								options,
-// 								(),
-// 							)
-// 							.await;
-
-// 						match result {
-// 							Ok(expanded) => {
-// 								eprintln!("output=\n{}", expanded.with(&vocabulary).pretty_print());
-// 								panic!(
-// 									"expansion succeeded when it should have failed with `{}`",
-// 									expected_error_code
-// 								)
-// 							}
-// 							Err(_) => {
-// 								// ...
-// 							}
-// 						}
-// 					}
-// 					Err(_) => {
-// 						// ...
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-// }
+			assert!(success, "test `{}` output mismatch", entry.name);
+		}
+		TestKind::Negative {
+			expected_error_code,
+			..
+		} => {
+			let input = loader.load(&entry.input).await.unwrap();
+			let result = input.flatten_with(None, loader, options.clone()).await;
+			assert!(
+				result.is_err(),
+				"test `{}` should have failed with `{}`",
+				entry.name,
+				expected_error_code
+			);
+		}
+	}
+}
