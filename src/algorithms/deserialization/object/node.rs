@@ -39,7 +39,7 @@ impl SerializeLinkedData for NodeObject {
 		)?;
 
 		self.graph
-			.serialize_rdf(serializer.as_dyn_mut(), Some(&subject))?;
+			.serialize_rdf_graph(serializer.as_dyn_mut(), Some(&subject))?;
 
 		serializer.serialize_resource(Some(subject))?;
 
