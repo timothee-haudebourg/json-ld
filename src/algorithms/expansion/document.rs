@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{Error, AsyncProcessingEnvironment},
+	algorithms::{AsyncProcessingEnvironment, Error},
 	ExpandedDocument,
 };
 

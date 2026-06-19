@@ -2,8 +2,8 @@
 //!
 //! See: <https://www.w3.org/TR/json-ld-api/#expansion-algorithms>
 use crate::{
-	algorithms::AsyncProcessingEnvironment, context::RawProcessedContext, Document, ExpandedDocument,
-	IndexedObject, Object,
+	algorithms::AsyncProcessingEnvironment, context::RawProcessedContext, Document,
+	ExpandedDocument, IndexedObject, Object,
 };
 
 use super::Error;
@@ -34,7 +34,8 @@ pub use options::*;
 pub trait Expand {
 	/// Expand this document with the default expansion options.
 	#[allow(async_fn_in_trait)]
-	async fn expand(&self, env: impl AsyncProcessingEnvironment) -> Result<ExpandedDocument, Error>;
+	async fn expand(&self, env: impl AsyncProcessingEnvironment)
+		-> Result<ExpandedDocument, Error>;
 
 	/// Expand this document with the given expansion options and active
 	/// context.
@@ -48,7 +49,10 @@ pub trait Expand {
 }
 
 impl Expand for Document {
-	async fn expand(&self, env: impl AsyncProcessingEnvironment) -> Result<ExpandedDocument, Error> {
+	async fn expand(
+		&self,
+		env: impl AsyncProcessingEnvironment,
+	) -> Result<ExpandedDocument, Error> {
 		let active_context = RawProcessedContext::new(self.url().map(ToOwned::to_owned));
 		self.expand_with(env, &active_context, ExpansionOptions::default())
 			.await

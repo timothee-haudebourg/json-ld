@@ -3,6 +3,23 @@ use json_syntax::JsonValue;
 use linked_data::ser::to_rdf_quads_interpretation_with;
 use rdf_types::{interpretation::GeneratorInterpretation, Generator, Quad};
 
+/// Drives a future that is expected to complete synchronously on the first
+/// poll (i.e., backed by a sync [`ProcessingEnvironment`]).
+///
+/// Uses a no-op waker so no thread is ever parked. Panics if the future
+/// returns [`Poll::Pending`], which would indicate a bug in the caller.
+fn resolve_sync<F: std::future::Future>(f: F) -> F::Output {
+	let waker = futures::task::noop_waker_ref();
+	let mut cx = std::task::Context::from_waker(waker);
+	let mut f = std::pin::pin!(f);
+	match f.as_mut().poll(&mut cx) {
+		std::task::Poll::Ready(result) => result,
+		std::task::Poll::Pending => {
+			panic!("async function backed by a sync loader returned Poll::Pending")
+		}
+	}
+}
+
 use crate::{
 	algorithms::{
 		AsyncProcessingEnvironment, CompactionOptions, ContextProcessingOptions, ExpansionOptions,
@@ -165,11 +182,7 @@ pub trait JsonLdProcessor: Sized {
 		env: impl ProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> CompareResult {
-		futures::executor::block_on(self.async_compare_with(
-			other,
-			env.into_async_environment(),
-			options,
-		))
+		resolve_sync(self.async_compare_with(other, env.into_async_environment(), options))
 	}
 
 	/// Compare this document against `other` using default options.
@@ -199,7 +212,7 @@ pub trait JsonLdProcessor: Sized {
 
 	/// Expand the document using the given `options`.
 	fn expand_with(&self, env: impl ProcessingEnvironment, options: JsonLdOptions) -> ExpandResult {
-		futures::executor::block_on(self.async_expand_with(env.into_async_environment(), options))
+		resolve_sync(self.async_expand_with(env.into_async_environment(), options))
 	}
 
 	/// Expand the document using default options.
@@ -228,11 +241,7 @@ pub trait JsonLdProcessor: Sized {
 		env: impl ProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> CompactResult {
-		futures::executor::block_on(self.async_compact_with(
-			context,
-			env.into_async_environment(),
-			options,
-		))
+		resolve_sync(self.async_compact_with(context, env.into_async_environment(), options))
 	}
 
 	/// Compact the document relative to `context` using default options.
@@ -269,11 +278,7 @@ pub trait JsonLdProcessor: Sized {
 		env: impl ProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> FlattenResult {
-		futures::executor::block_on(self.async_flatten_with(
-			context,
-			env.into_async_environment(),
-			options,
-		))
+		resolve_sync(self.async_flatten_with(context, env.into_async_environment(), options))
 	}
 
 	/// Flatten the document using default options.
@@ -314,11 +319,7 @@ pub trait JsonLdProcessor: Sized {
 		generator: impl Generator,
 		options: JsonLdOptions,
 	) -> Result<Vec<Quad>, Error> {
-		futures::executor::block_on(self.async_to_rdf_with(
-			env.into_async_environment(),
-			generator,
-			options,
-		))
+		resolve_sync(self.async_to_rdf_with(env.into_async_environment(), generator, options))
 	}
 
 	/// Serialize the document to RDF using default options.

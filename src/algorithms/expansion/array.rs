@@ -1,7 +1,7 @@
 use json_syntax::JsonArray;
 
 use crate::{
-	algorithms::{Error, AsyncProcessingEnvironment},
+	algorithms::{AsyncProcessingEnvironment, Error},
 	context::TermDefinitionRef,
 	object::ListObject,
 	syntax::ContainerItem,
