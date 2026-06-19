@@ -11,8 +11,8 @@
 //! }
 //! ```
 //!
-//! This generates one `#[tokio::test]` function per manifest entry.
-//! Mount paths are relative to the calling test file (resolved at compile
+//! This generates one `#[test]` function per manifest entry.
+//! Mount paths are relative to the calling file (resolved at compile
 //! time via `CARGO_MANIFEST_DIR/tests/`).
 use std::path::PathBuf;
 
@@ -22,7 +22,7 @@ use syn::{parse_macro_input, punctuated::Punctuated, ItemFn, LitStr, Token};
 
 use json_ld::{
 	iref::{Iri, IriBuf, IriRef},
-	linked_data, rdf_types, AsyncLoader, FsLoader, JsonLdProcessor,
+	linked_data, rdf_types, FsLoader, Loader,
 };
 use json_ld_testing_core::{Manifest, SpecVersion};
 
@@ -114,22 +114,6 @@ fn resolve_manifest_uri(uri_ref: &str) -> IriBuf {
 	r.resolved(base)
 }
 
-/// A simple block_on for running async code in the proc macro.
-///
-/// This works because the async code (FsLoader, expansion) is internally
-/// synchronous — no actual I/O polling is needed.
-fn block_on<F: std::future::Future>(f: F) -> F::Output {
-	let waker = std::task::Waker::noop();
-	let mut cx = std::task::Context::from_waker(&waker);
-	let mut f = std::pin::pin!(f);
-	loop {
-		match f.as_mut().poll(&mut cx) {
-			std::task::Poll::Ready(result) => return result,
-			std::task::Poll::Pending => continue,
-		}
-	}
-}
-
 /// Load and expand the manifest, returning deserialized entries.
 fn load_manifest(manifest_url: &Iri, config: &TestSuiteConfig) -> Manifest {
 	// Setup loader.
@@ -140,10 +124,11 @@ fn load_manifest(manifest_url: &Iri, config: &TestSuiteConfig) -> Manifest {
 		loader.mount(url, &mount.absolute_path());
 	}
 
-	let doc = block_on(loader.async_load(manifest_url))
+	let doc = loader
+		.load(manifest_url)
 		.unwrap_or_else(|e| panic!("failed to load manifest `{manifest_url}`: {e}"));
 
-	let expanded = block_on(doc.async_expand(&loader))
+	let expanded = json_ld::JsonLdProcessor::expand(&doc, &loader)
 		.unwrap_or_else(|e| panic!("failed to expand manifest: {e}"));
 
 	let quads = linked_data::ser::to_rdf_quads(&expanded)
@@ -253,9 +238,9 @@ pub fn test_suite(args: TokenStream, input: TokenStream) -> TokenStream {
 				None => "ignored".to_owned(),
 			};
 			test_fns.push(quote! {
-				#[tokio::test]
+				#[test]
 				#[ignore = #reason]
-				async fn #test_fn_name() {}
+				fn #test_fn_name() {}
 			});
 			continue;
 		}
@@ -263,9 +248,9 @@ pub fn test_suite(args: TokenStream, input: TokenStream) -> TokenStream {
 		// Check if entry should be skipped by its options.
 		if let Some(reason) = should_skip(entry) {
 			test_fns.push(quote! {
-				#[tokio::test]
+				#[test]
 				#[ignore = #reason]
-				async fn #test_fn_name() {}
+				fn #test_fn_name() {}
 			});
 			continue;
 		}
@@ -273,12 +258,12 @@ pub fn test_suite(args: TokenStream, input: TokenStream) -> TokenStream {
 		let entry_tokens = entry.to_token_stream();
 
 		test_fns.push(quote! {
-			#[tokio::test]
-			async fn #test_fn_name() {
+			#[test]
+			fn #test_fn_name() {
 				let mut loader = json_ld::FsLoader::new();
 				#(#mount_stmts)*
 				let entry = #entry_tokens;
-				#fn_name(&loader, &entry).await
+				#fn_name(&loader, &entry)
 			}
 		});
 	}

@@ -2,7 +2,7 @@ use iref::Iri;
 
 use crate::{Document, LoadError};
 
-use super::AsyncLoader;
+use super::{AsyncLoader, Loader};
 
 /// Dummy loader.
 ///
@@ -16,6 +16,13 @@ pub struct NoLoader;
 #[derive(Debug, thiserror::Error)]
 #[error("no loader")]
 pub struct CannotLoad;
+
+impl Loader for NoLoader {
+	#[inline(always)]
+	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+		Err(LoadError::new(url.to_owned(), CannotLoad))
+	}
+}
 
 impl AsyncLoader for NoLoader {
 	#[inline(always)]

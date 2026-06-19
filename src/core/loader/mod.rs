@@ -2,22 +2,24 @@ use iref::{Iri, IriBuf};
 use json_syntax::JsonValue;
 use std::borrow::Cow;
 
+use crate::{syntax::ContextDocumentValue, Document};
+
 pub mod chain;
 pub mod fs;
 pub mod map;
 pub mod none;
-
-pub use chain::ChainLoader;
-pub use fs::FsLoader;
-pub use none::NoLoader;
-
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
-
-use crate::{syntax::ContextDocumentValue, Document};
+#[cfg(feature = "tokio")]
+pub mod tokio_fs;
 
 #[cfg(feature = "reqwest")]
 pub use self::reqwest::ReqwestLoader;
+pub use chain::ChainLoader;
+pub use fs::FsLoader;
+pub use none::NoLoader;
+#[cfg(feature = "tokio")]
+pub use tokio_fs::TokioFsLoader;
 
 pub type RemoteContext = RemoteDocument<ContextDocumentValue>;
 

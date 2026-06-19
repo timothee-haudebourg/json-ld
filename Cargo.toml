@@ -24,6 +24,9 @@ serde = ["dep:serde", "iref/serde", "indexmap/serde", "rdf-types/serde"]
 # Loader implementation based on `reqwest`.
 reqwest = ["dep:reqwest", "dep:reqwest-middleware"]
 
+# Async file-system loader backed by Tokio.
+tokio = ["dep:tokio"]
+
 [dependencies]
 iref.path = "/home/work/Documents/Community/RDF/iri/iref"
 # json-syntax = "0.12"
@@ -63,6 +66,7 @@ xsd-types.path = "/home/work/Documents/Community/RDF/xsd-types"
 # Loader implementation based on `reqwest`.
 reqwest = { version = "0.12.22", optional = true }
 reqwest-middleware = { version = "0.4.2", optional = true }
+tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 
 [dev-dependencies]
 json-ld-testing = { path = "testing" }

@@ -1,6 +1,6 @@
 use json_ld::{
 	rdf_types::{self, dataset::IndexedBTreeDataset, Term},
-	AsyncLoader, FsLoader, JsonLdProcessor,
+	FsLoader, JsonLdProcessor, Loader,
 };
 use json_ld_testing::{ManifestEntry, TestKind};
 use nquads_syntax::grdf_document_from_str;
@@ -11,17 +11,16 @@ mod common;
 #[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
 #[ignore_test("#te122", see = "https://github.com/w3c/json-ld-api/issues/480")]
 #[ignore_test("#tli12", see = "https://github.com/w3c/json-ld-api/issues/533")]
-async fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
+fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 	let options = common::build_options(entry);
 
 	match &entry.kind {
 		TestKind::Positive { expect, .. } => {
 			let generator =
 				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
-			let input = loader.async_load(&entry.input).await.unwrap();
+			let input = loader.load(&entry.input).unwrap();
 			let quads = input
-				.async_to_rdf_with(loader, generator, options)
-				.await
+				.to_rdf_with(loader, generator, options)
 				.expect("to_rdf failed");
 
 			let dataset: IndexedBTreeDataset<Term> = quads.into_iter().collect();
@@ -53,8 +52,8 @@ async fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 		} => {
 			let generator =
 				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
-			let input = loader.async_load(&entry.input).await.unwrap();
-			let result = input.async_to_rdf_with(loader, generator, options).await;
+			let input = loader.load(&entry.input).unwrap();
+			let result = input.to_rdf_with(loader, generator, options);
 			assert!(
 				result.is_err(),
 				"test `{}` should have failed with `{}`",
@@ -65,10 +64,9 @@ async fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 		TestKind::PositiveSyntax => {
 			let generator =
 				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
-			let input = loader.async_load(&entry.input).await.unwrap();
+			let input = loader.load(&entry.input).unwrap();
 			input
-				.async_to_rdf_with(loader, generator, options)
-				.await
+				.to_rdf_with(loader, generator, options)
 				.expect("positive syntax test failed");
 		}
 	}

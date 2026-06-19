@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use crate::{Document, LoadError};
 
-use super::AsyncLoader;
+use super::Loader;
 
 /// Loading error.
 #[derive(Debug, thiserror::Error)]
@@ -68,8 +68,8 @@ impl FsLoader {
 	}
 }
 
-impl AsyncLoader for FsLoader {
-	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+impl Loader for FsLoader {
+	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
 		match self.filepath(url) {
 			Some(filepath) => {
 				let file = File::open(filepath)
