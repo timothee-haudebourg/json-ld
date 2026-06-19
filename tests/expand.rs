@@ -1,4 +1,4 @@
-use json_ld::{ExpandedDocument, FsLoader, IndexedObject, JsonLdProcessor, Loader};
+use json_ld::{AsyncLoader, ExpandedDocument, FsLoader, IndexedObject, JsonLdProcessor};
 use json_ld_testing::{ManifestEntry, TestKind};
 
 mod common;
@@ -10,13 +10,13 @@ async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
 
 	match &entry.kind {
 		TestKind::Positive { expect, .. } => {
-			let input = loader.load(&entry.input).await.unwrap();
+			let input = loader.async_load(&entry.input).await.unwrap();
 			let expanded = input
-				.expand_with(loader, options)
+				.async_expand_with(loader, options)
 				.await
 				.expect("expansion failed");
 
-			let expected_doc = loader.load(expect).await.unwrap();
+			let expected_doc = loader.async_load(expect).await.unwrap();
 			let expected: Vec<IndexedObject> =
 				json_syntax::serde::from_value(expected_doc.into_document())
 					.expect("failed to parse expected output");
@@ -28,8 +28,8 @@ async fn expand(loader: &FsLoader, entry: &ManifestEntry) {
 			expected_error_code,
 			..
 		} => {
-			let input = loader.load(&entry.input).await.unwrap();
-			let result = input.expand_with(loader, options).await;
+			let input = loader.async_load(&entry.input).await.unwrap();
+			let result = input.async_expand_with(loader, options).await;
 			assert!(
 				result.is_err(),
 				"test `{}` should have failed with `{}`",

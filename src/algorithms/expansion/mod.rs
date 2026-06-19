@@ -2,7 +2,7 @@
 //!
 //! See: <https://www.w3.org/TR/json-ld-api/#expansion-algorithms>
 use crate::{
-	algorithms::ProcessingEnvironment, context::RawProcessedContext, Document, ExpandedDocument,
+	algorithms::AsyncProcessingEnvironment, context::RawProcessedContext, Document, ExpandedDocument,
 	IndexedObject, Object,
 };
 
@@ -34,21 +34,21 @@ pub use options::*;
 pub trait Expand {
 	/// Expand this document with the default expansion options.
 	#[allow(async_fn_in_trait)]
-	async fn expand(&self, env: impl ProcessingEnvironment) -> Result<ExpandedDocument, Error>;
+	async fn expand(&self, env: impl AsyncProcessingEnvironment) -> Result<ExpandedDocument, Error>;
 
 	/// Expand this document with the given expansion options and active
 	/// context.
 	#[allow(async_fn_in_trait)]
 	async fn expand_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
 	) -> Result<ExpandedDocument, Error>;
 }
 
 impl Expand for Document {
-	async fn expand(&self, env: impl ProcessingEnvironment) -> Result<ExpandedDocument, Error> {
+	async fn expand(&self, env: impl AsyncProcessingEnvironment) -> Result<ExpandedDocument, Error> {
 		let active_context = RawProcessedContext::new(self.url().map(ToOwned::to_owned));
 		self.expand_with(env, &active_context, ExpansionOptions::default())
 			.await
@@ -56,7 +56,7 @@ impl Expand for Document {
 
 	async fn expand_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
 	) -> Result<ExpandedDocument, Error> {

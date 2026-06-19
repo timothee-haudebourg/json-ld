@@ -5,7 +5,7 @@ use crate::{
 	algorithms::{
 		compaction::{object::value::add_value, Compactor},
 		context_processing::ContextProcessingOptions,
-		ProcessingEnvironment, ProcessingEnvironmentRef,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 	},
 	context::Container,
 	syntax::{ContainerItem, Keyword},
@@ -23,7 +23,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn compact_indexed_node_with(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		node: &NodeObject,
 		index: Option<&str>,
 		// type_scoped_context: &ProcessedContext,
@@ -51,7 +51,7 @@ impl Compactor<'_> {
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
-								ProcessingEnvironmentRef(env),
+								AsyncProcessingEnvironmentRef(env),
 								active_property_definition.base_url(),
 								active_context.as_ref(),
 								ContextProcessingOptions::from(self.options).with_override(),
@@ -92,7 +92,7 @@ impl Compactor<'_> {
 						active_context = Mown::Owned(
 							local_context
 								.process_with(
-									ProcessingEnvironmentRef(env),
+									AsyncProcessingEnvironmentRef(env),
 									term_definition.base_url(),
 									active_context.as_ref(),
 									processing_options,
@@ -189,7 +189,7 @@ impl Compactor<'_> {
 						active_context = Mown::Owned(
 							local_context
 								.process_with(
-									ProcessingEnvironmentRef(env),
+									AsyncProcessingEnvironmentRef(env),
 									active_property_definition.base_url(),
 									active_context.as_ref(),
 									ContextProcessingOptions::from(self.options).with_override(),

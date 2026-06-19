@@ -1,4 +1,6 @@
-use json_ld::{syntax::PrintJson, Document, FsLoader, JsonLdProcessor, Loader, RemoteDocument};
+use json_ld::{
+	syntax::PrintJson, AsyncLoader, Document, FsLoader, JsonLdProcessor, RemoteDocument,
+};
 use json_ld_testing::{ManifestEntry, TestKind};
 
 mod common;
@@ -18,18 +20,18 @@ async fn compact(loader: &FsLoader, entry: &ManifestEntry) {
 				.expect("compact positive test must have a context");
 			let context = RemoteDocument::iri(context_url.clone());
 
-			let input = loader.load(&entry.input).await.unwrap();
+			let input = loader.async_load(&entry.input).await.unwrap();
 			let compacted = input
-				.compact_with(context, loader, options.clone())
+				.async_compact_with(context, loader, options.clone())
 				.await
 				.expect("compaction failed");
 			let compacted = Document::new(Some(entry.input.clone()), None, compacted);
 
-			let mut expected = loader.load(expect).await.unwrap();
+			let mut expected = loader.async_load(expect).await.unwrap();
 			expected.set_url(Some(entry.input.clone()));
 
 			let success = compacted
-				.compare(&expected, loader)
+				.async_compare(&expected, loader)
 				.await
 				.expect("comparison failed");
 
@@ -51,8 +53,10 @@ async fn compact(loader: &FsLoader, entry: &ManifestEntry) {
 				.expect("compact negative test must have a context");
 			let context = RemoteDocument::iri(context_url.clone());
 
-			let input = loader.load(&entry.input).await.unwrap();
-			let result = input.compact_with(context, loader, options.clone()).await;
+			let input = loader.async_load(&entry.input).await.unwrap();
+			let result = input
+				.async_compact_with(context, loader, options.clone())
+				.await;
 			assert!(
 				result.is_err(),
 				"test `{}` should have failed with `{}`",

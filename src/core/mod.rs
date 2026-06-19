@@ -9,13 +9,9 @@ mod lang_string;
 pub mod loader;
 pub mod object;
 mod processing_mode;
-// pub mod quad;
-// pub mod rdf;
-// mod serialization;
 mod term;
 mod ty;
 pub mod utils;
-pub mod warning;
 
 pub use context::ProcessedContext;
 pub use document::*;
@@ -25,8 +21,6 @@ pub use lang_string::*;
 pub use loader::*;
 pub use object::{IndexedNode, IndexedObject, NodeObject, Nodes, Object, Objects, ValueObject};
 pub use processing_mode::*;
-// pub use quad::LdQuads;
-// pub use rdf::RdfQuads;
 pub use term::*;
 pub use ty::*;
 

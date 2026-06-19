@@ -1,4 +1,6 @@
-use json_ld::{syntax::PrintJson, Document, FsLoader, JsonLdProcessor, Loader, RemoteDocument};
+use json_ld::{
+	syntax::PrintJson, AsyncLoader, Document, FsLoader, JsonLdProcessor, RemoteDocument,
+};
 use json_ld_testing::{ManifestEntry, TestKind};
 
 mod common;
@@ -14,18 +16,18 @@ async fn flatten(loader: &FsLoader, entry: &ManifestEntry) {
 		} => {
 			let context = context.as_ref().map(|c| RemoteDocument::iri(c.clone()));
 
-			let input = loader.load(&entry.input).await.unwrap();
+			let input = loader.async_load(&entry.input).await.unwrap();
 			let flattened = input
-				.flatten_with(context, loader, options.clone())
+				.async_flatten_with(context, loader, options.clone())
 				.await
 				.expect("flattening failed");
 			let flattened = Document::new(Some(entry.input.clone()), None, flattened);
 
-			let mut expected = loader.load(expect).await.unwrap();
+			let mut expected = loader.async_load(expect).await.unwrap();
 			expected.set_url(Some(entry.input.clone()));
 
 			let success = flattened
-				.compare(&expected, loader)
+				.async_compare(&expected, loader)
 				.await
 				.expect("comparison failed");
 
@@ -40,8 +42,10 @@ async fn flatten(loader: &FsLoader, entry: &ManifestEntry) {
 			expected_error_code,
 			..
 		} => {
-			let input = loader.load(&entry.input).await.unwrap();
-			let result = input.flatten_with(None, loader, options.clone()).await;
+			let input = loader.async_load(&entry.input).await.unwrap();
+			let result = input
+				.async_flatten_with(None, loader, options.clone())
+				.await;
 			assert!(
 				result.is_err(),
 				"test `{}` should have failed with `{}`",

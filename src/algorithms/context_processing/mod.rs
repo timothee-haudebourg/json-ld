@@ -16,10 +16,10 @@ pub use options::ContextProcessingOptions;
 use stack::ProcessingStack;
 
 use crate::{
-	algorithms::{error::Error, ProcessingEnvironment},
+	algorithms::{error::Error, AsyncProcessingEnvironment},
 	context::RawProcessedContext,
 	syntax::{context::KeyOrKeywordRef, Context, ContextEntry, Keyword},
-	ContextDocument, Loader, Nullable, ProcessedContext, ProcessingMode, Term,
+	AsyncLoader, ContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
 };
 
 struct TargetProcessedContext<'a> {
@@ -85,7 +85,7 @@ impl ContextDocument {
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 	pub async fn process(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 	) -> Result<ProcessedContext<'_>, Error> {
 		self.document.context.process(env, self.url()).await
 	}
@@ -97,7 +97,7 @@ impl Context {
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 	pub async fn process(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		base_url: Option<&Iri>,
 	) -> Result<ProcessedContext<'_>, Error> {
 		let active_context = RawProcessedContext::new(None);
@@ -115,7 +115,7 @@ impl Context {
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 	pub async fn process_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		base_url: Option<&Iri>,
 		active_context: &RawProcessedContext,
 		options: ContextProcessingOptions,
@@ -135,7 +135,7 @@ impl Context {
 impl<'a> ContextProcessor<'a> {
 	async fn process(
 		mut self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		local_context: &Context,
 	) -> Result<RawProcessedContext, Error> {
 		// 1) Initialize result to the result of cloning active context.
@@ -224,7 +224,7 @@ impl<'a> ContextProcessor<'a> {
 					if self.remote_contexts.push(context_iri.clone()) {
 						let loaded_context = env
 							.loader()
-							.load(&context_iri)
+							.async_load(&context_iri)
 							.await?
 							.try_into_context_document()
 							.map_err(Error::RemoteContextSyntax)?
@@ -276,7 +276,7 @@ impl<'a> ContextProcessor<'a> {
 							// 5.6.4) Dereference import.
 							let import_context = env
 								.loader()
-								.load(&import)
+								.async_load(&import)
 								.await?
 								.try_into_context_document()
 								.map_err(Error::RemoteContextSyntax)?

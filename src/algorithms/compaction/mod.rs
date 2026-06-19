@@ -11,7 +11,7 @@ use json_syntax::{JsonObject, JsonValue};
 pub use options::*;
 
 use crate::{
-	algorithms::ProcessingEnvironment,
+	algorithms::AsyncProcessingEnvironment,
 	context::{
 		inverse::{LangSelection, TypeSelection},
 		RawProcessedContext,
@@ -26,7 +26,7 @@ pub trait Compact {
 	#[allow(async_fn_in_trait)]
 	async fn compact_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
 	) -> Result<JsonValue, Error>;
@@ -35,7 +35,7 @@ pub trait Compact {
 	#[allow(async_fn_in_trait)]
 	async fn compact(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 	) -> Result<JsonValue, Error> {
 		self.compact_with(env, context, CompactionOptions::default())
@@ -99,7 +99,7 @@ trait CompactFragment {
 	#[allow(async_fn_in_trait)]
 	async fn compact_fragment(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor,
 	) -> Result<JsonValue, Error>;
 }
@@ -115,7 +115,7 @@ trait CompactIndexedFragment {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_indexed_fragment(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
 	) -> Result<JsonValue, Error>;
@@ -124,7 +124,7 @@ trait CompactIndexedFragment {
 impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
 	async fn compact_fragment(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 	) -> Result<JsonValue, Error> {
 		self.inner()

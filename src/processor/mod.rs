@@ -5,8 +5,8 @@ use rdf_types::{interpretation::GeneratorInterpretation, Generator, Quad};
 
 use crate::{
 	algorithms::{
-		CompactionOptions, ContextProcessingOptions, ExpansionOptions, ExpansionPolicy,
-		ProcessingEnvironment, RdfSerializationOptions,
+		AsyncProcessingEnvironment, CompactionOptions, ContextProcessingOptions, ExpansionOptions,
+		ExpansionPolicy, ProcessingEnvironment, RdfSerializationOptions,
 	},
 	Direction, Document, Error, ExpandedDocument, ProcessingMode, Relabel, RemoteContext,
 };
@@ -159,87 +159,187 @@ pub type CompareResult = Result<bool, Error>;
 ///  - no suffix: uses default options.
 pub trait JsonLdProcessor: Sized {
 	/// Compare this document against `other` using the given `options`.
-	#[allow(async_fn_in_trait)]
-	async fn compare_with(
+	fn compare_with(
 		&self,
 		other: &Self,
 		env: impl ProcessingEnvironment,
+		options: JsonLdOptions,
+	) -> CompareResult {
+		futures::executor::block_on(self.async_compare_with(
+			other,
+			env.into_async_environment(),
+			options,
+		))
+	}
+
+	/// Compare this document against `other` using default options.
+	fn compare(&self, other: &Self, env: impl ProcessingEnvironment) -> CompareResult {
+		self.compare_with(other, env, JsonLdOptions::default())
+	}
+
+	/// Compare this document against `other` using the given `options`.
+	#[allow(async_fn_in_trait)]
+	async fn async_compare_with(
+		&self,
+		other: &Self,
+		env: impl AsyncProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> CompareResult;
 
 	/// Compare this document against `other` using default options.
 	#[allow(async_fn_in_trait)]
-	async fn compare(&self, other: &Self, env: impl ProcessingEnvironment) -> CompareResult {
-		self.compare_with(other, env, JsonLdOptions::default())
+	async fn async_compare(
+		&self,
+		other: &Self,
+		env: impl AsyncProcessingEnvironment,
+	) -> CompareResult {
+		self.async_compare_with(other, env, JsonLdOptions::default())
 			.await
 	}
 
 	/// Expand the document using the given `options`.
+	fn expand_with(&self, env: impl ProcessingEnvironment, options: JsonLdOptions) -> ExpandResult {
+		futures::executor::block_on(self.async_expand_with(env.into_async_environment(), options))
+	}
+
+	/// Expand the document using default options.
+	fn expand(&self, env: impl ProcessingEnvironment) -> ExpandResult {
+		self.expand_with(env, JsonLdOptions::default())
+	}
+
+	/// Expand the document using the given `options`.
 	#[allow(async_fn_in_trait)]
-	async fn expand_with(
+	async fn async_expand_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> ExpandResult;
 
 	/// Expand the document using default options.
 	#[allow(async_fn_in_trait)]
-	async fn expand(&self, env: impl ProcessingEnvironment) -> ExpandResult {
-		self.expand_with(env, JsonLdOptions::default()).await
+	async fn async_expand(&self, env: impl AsyncProcessingEnvironment) -> ExpandResult {
+		self.async_expand_with(env, JsonLdOptions::default()).await
+	}
+
+	/// Compact the document relative to `context` using the given `options`.
+	fn compact_with(
+		&self,
+		context: RemoteContext,
+		env: impl ProcessingEnvironment,
+		options: JsonLdOptions,
+	) -> CompactResult {
+		futures::executor::block_on(self.async_compact_with(
+			context,
+			env.into_async_environment(),
+			options,
+		))
+	}
+
+	/// Compact the document relative to `context` using default options.
+	fn compact(&self, context: RemoteContext, env: impl ProcessingEnvironment) -> CompactResult {
+		self.compact_with(context, env, JsonLdOptions::default())
 	}
 
 	/// Compact the document relative to `context` using the given `options`.
 	#[allow(async_fn_in_trait)]
-	async fn compact_with(
+	async fn async_compact_with(
 		&self,
 		context: RemoteContext,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> CompactResult;
 
 	/// Compact the document relative to `context` using default options.
 	#[allow(async_fn_in_trait)]
-	async fn compact(
+	async fn async_compact(
 		&self,
 		context: RemoteContext,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 	) -> CompactResult {
-		self.compact_with(context, env, JsonLdOptions::default())
+		self.async_compact_with(context, env, JsonLdOptions::default())
 			.await
 	}
 
 	/// Flatten the document using the given `options`.
 	///
 	/// An optional `context` can be given to compact the result.
-	#[allow(async_fn_in_trait)]
-	async fn flatten_with(
+	fn flatten_with(
 		&self,
 		context: Option<RemoteContext>,
 		env: impl ProcessingEnvironment,
 		options: JsonLdOptions,
-	) -> FlattenResult;
+	) -> FlattenResult {
+		futures::executor::block_on(self.async_flatten_with(
+			context,
+			env.into_async_environment(),
+			options,
+		))
+	}
 
 	/// Flatten the document using default options.
-	#[allow(async_fn_in_trait)]
-	async fn flatten(
+	fn flatten(
 		&self,
 		context: Option<RemoteContext>,
 		env: impl ProcessingEnvironment,
 	) -> FlattenResult {
 		self.flatten_with(context, env, JsonLdOptions::default())
+	}
+
+	/// Flatten the document using the given `options`.
+	///
+	/// An optional `context` can be given to compact the result.
+	#[allow(async_fn_in_trait)]
+	async fn async_flatten_with(
+		&self,
+		context: Option<RemoteContext>,
+		env: impl AsyncProcessingEnvironment,
+		options: JsonLdOptions,
+	) -> FlattenResult;
+
+	/// Flatten the document using default options.
+	#[allow(async_fn_in_trait)]
+	async fn async_flatten(
+		&self,
+		context: Option<RemoteContext>,
+		env: impl AsyncProcessingEnvironment,
+	) -> FlattenResult {
+		self.async_flatten_with(context, env, JsonLdOptions::default())
 			.await
 	}
 
 	/// Serialize the document to RDF using the given `options`.
-	#[allow(async_fn_in_trait)]
-	async fn to_rdf_with(
+	fn to_rdf_with(
 		&self,
 		env: impl ProcessingEnvironment,
+		generator: impl Generator,
+		options: JsonLdOptions,
+	) -> Result<Vec<Quad>, Error> {
+		futures::executor::block_on(self.async_to_rdf_with(
+			env.into_async_environment(),
+			generator,
+			options,
+		))
+	}
+
+	/// Serialize the document to RDF using default options.
+	fn to_rdf(
+		&self,
+		env: impl ProcessingEnvironment,
+		generator: impl Generator,
+	) -> Result<Vec<Quad>, Error> {
+		self.to_rdf_with(env, generator, JsonLdOptions::default())
+	}
+
+	/// Serialize the document to RDF using the given `options`.
+	#[allow(async_fn_in_trait)]
+	async fn async_to_rdf_with(
+		&self,
+		env: impl AsyncProcessingEnvironment,
 		mut generator: impl Generator,
 		options: JsonLdOptions,
 	) -> Result<Vec<Quad>, Error> {
 		let rdf_serialization_options = options.rdf_serialization_options();
-		let mut expanded = JsonLdProcessor::expand_with(self, env, options).await?;
+		let mut expanded = JsonLdProcessor::async_expand_with(self, env, options).await?;
 		expanded.relabel(&mut generator);
 		let interpretation = GeneratorInterpretation::new(generator);
 		Ok(

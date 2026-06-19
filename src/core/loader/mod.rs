@@ -61,10 +61,10 @@ where
 	///
 	/// If the document is already [`Self::Loaded`], simply returns the inner
 	/// [`RemoteDocument`].
-	pub async fn load(self, loader: &impl Loader) -> Result<Document<T>, LoadError> {
+	pub async fn load(self, loader: &impl AsyncLoader) -> Result<Document<T>, LoadError> {
 		match self {
 			Self::Iri(r) => loader
-				.load(&r)
+				.async_load(&r)
 				.await?
 				.try_map(TryInto::try_into)
 				.map_err(|e| LoadError::new(r, e)),
@@ -78,13 +78,13 @@ where
 	/// [`Cow::Owned`].
 	/// For [`Self::Loaded`] returns a reference to the inner [`RemoteDocument`]
 	/// with [`Cow::Borrowed`].
-	pub async fn loaded(&self, loader: &impl Loader) -> Result<Cow<'_, Document<T>>, LoadError>
+	pub async fn loaded(&self, loader: &impl AsyncLoader) -> Result<Cow<'_, Document<T>>, LoadError>
 	where
 		T: Clone,
 	{
 		match self {
 			Self::Iri(r) => loader
-				.load(r)
+				.async_load(r)
 				.await?
 				.try_map(TryInto::try_into)
 				.map_err(|e| LoadError::new(r.clone(), e))
@@ -93,65 +93,6 @@ where
 		}
 	}
 }
-
-// #[derive(Debug, thiserror::Error)]
-// pub enum ContextLoadError {
-// 	#[error(transparent)]
-// 	LoadingDocumentFailed(#[from] LoadError),
-
-// 	#[error("context extraction failed")]
-// 	ContextExtractionFailed(#[from] ExtractContextError),
-// }
-
-// impl<I> RemoteContextReference<I> {
-// 	/// Loads the remote context with the given `vocabulary` and `loader`.
-// 	///
-// 	/// If the context is already [`Self::Loaded`], simply returns the inner
-// 	/// [`RemoteContext`].
-// 	pub async fn load_context_with<V, L: Loader>(
-// 		self,
-// 		vocabulary: &mut V,
-// 		loader: &L,
-// 	) -> Result<RemoteContext<I>, ContextLoadError>
-// 	where
-// 		V: IriVocabularyMut<Iri = I>,
-// 		I: Clone + Eq + Hash,
-// 	{
-// 		match self {
-// 			Self::Iri(r) => Ok(loader
-// 				.load_with(vocabulary, r)
-// 				.await?
-// 				.try_map(|d| d.into_ld_context())?),
-// 			Self::Loaded(doc) => Ok(doc),
-// 		}
-// 	}
-
-// 	/// Loads the remote context with the given `vocabulary` and `loader`.
-// 	///
-// 	/// For [`Self::Iri`] returns an owned [`RemoteContext`] with
-// 	/// [`Cow::Owned`].
-// 	/// For [`Self::Loaded`] returns a reference to the inner [`RemoteContext`]
-// 	/// with [`Cow::Borrowed`].
-// 	pub async fn loaded_context_with<V, L: Loader>(
-// 		&self,
-// 		vocabulary: &mut V,
-// 		loader: &L,
-// 	) -> Result<Cow<'_, RemoteContext<I>>, ContextLoadError>
-// 	where
-// 		V: IriVocabularyMut<Iri = I>,
-// 		I: Clone + Eq + Hash,
-// 	{
-// 		match self {
-// 			Self::Iri(r) => Ok(Cow::Owned(
-// 				loader
-// 					.load_with(vocabulary, r.clone())
-// 					.await?
-// 					.try_map(|d| d.into_ld_context())?,
-// 			)),
-// 			Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
-// 		}
-// 	}
-// }
 
 /// Loading error.
 #[derive(Debug, thiserror::Error)]
@@ -170,7 +111,7 @@ impl LoadError {
 	}
 }
 
-/// Document loader.
+/// Async Document loader.
 ///
 /// A document loader is required by most processing functions to fetch remote
 /// documents identified by an IRI. In particular, the loader is in charge of
@@ -189,73 +130,69 @@ impl LoadError {
 ///   - `ReqwestLoader` actually downloading the remote documents using the
 ///     [`reqwest`](https://crates.io/crates/reqwest) library.
 ///     This requires the `reqwest` feature to be enabled.
-pub trait Loader {
+pub trait AsyncLoader {
 	/// Loads the document behind the given IRI.
 	#[allow(async_fn_in_trait)]
-	async fn load(&self, url: &Iri) -> Result<Document, LoadError>;
+	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError>;
+}
+
+impl<L: AsyncLoader> AsyncLoader for &L {
+	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+		L::async_load(self, url).await
+	}
+}
+
+impl<L: AsyncLoader> AsyncLoader for &mut L {
+	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+		L::async_load(self, url).await
+	}
+}
+
+pub trait Loader {
+	/// Loads the document behind the given IRI.
+	fn load(&self, url: &Iri) -> Result<Document, LoadError>;
+
+	/// Returns this loader as an [`AsyncLoader`].
+	fn as_async_loader(&self) -> &ToAsyncLoader<Self> {
+		ToAsyncLoader::from_ref(self)
+	}
+
+	/// Turns this loader into an async loader.
+	fn into_async_loader(self) -> ToAsyncLoader<Self>
+	where
+		Self: Sized,
+	{
+		ToAsyncLoader(self)
+	}
 }
 
 impl<L: Loader> Loader for &L {
-	async fn load(&self, url: &Iri) -> Result<Document, LoadError> {
-		L::load(self, url).await
+	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+		L::load(self, url)
 	}
 }
 
 impl<L: Loader> Loader for &mut L {
-	async fn load(&self, url: &Iri) -> Result<Document, LoadError> {
-		L::load(self, url).await
+	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+		L::load(self, url)
 	}
 }
 
-// /// Context extraction error.
-// #[derive(Debug, thiserror::Error)]
-// pub enum ExtractContextError {
-// 	/// Unexpected JSON value.
-// 	#[error("unexpected {0}")]
-// 	Unexpected(json_syntax::Kind),
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct ToAsyncLoader<T: ?Sized>(pub T);
 
-// 	/// No context definition found.
-// 	#[error("missing `@context` entry")]
-// 	NoContext,
+impl<T: ?Sized> ToAsyncLoader<T> {
+	pub fn from_ref(loader: &T) -> &Self {
+		unsafe {
+			// SAFETY: `ToAsyncLoader` uses the `transparent` repr.
+			std::mem::transmute(loader)
+		}
+	}
+}
 
-// 	/// Multiple context definitions found.
-// 	#[error("duplicate `@context` entry")]
-// 	DuplicateContext,
-
-// 	/// JSON syntax error.
-// 	#[error("JSON-LD context syntax error: {0}")]
-// 	Syntax(InvalidContext),
-// }
-
-// impl ExtractContextError {
-// 	fn duplicate_context(
-// 		json_syntax::object::Duplicate(_, _): json_syntax::object::Duplicate<
-// 			json_syntax::object::Entry,
-// 		>,
-// 	) -> Self {
-// 		Self::DuplicateContext
-// 	}
-// }
-
-// pub trait ExtractContext {
-// 	fn into_ld_context(self) -> Result<json_ld_syntax::context::Context, ExtractContextError>;
-// }
-
-// impl ExtractContext for JsonValue {
-// 	fn into_ld_context(self) -> Result<json_ld_syntax::context::Context, ExtractContextError> {
-// 		match self {
-// 			Self::Object(mut o) => match o
-// 				.remove_unique("@context")
-// 				.map_err(ExtractContextError::duplicate_context)?
-// 			{
-// 				Some(context) => {
-// 					use json_ld_syntax::TryFromJson;
-// 					json_ld_syntax::context::Context::try_from_json(context.value)
-// 						.map_err(ExtractContextError::Syntax)
-// 				}
-// 				None => Err(ExtractContextError::NoContext),
-// 			},
-// 			other => Err(ExtractContextError::Unexpected(other.kind())),
-// 		}
-// 	}
-// }
+impl<T: Loader> AsyncLoader for ToAsyncLoader<T> {
+	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+		self.0.load(url)
+	}
+}

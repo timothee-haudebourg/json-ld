@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{compaction::CompactFragment, ProcessingEnvironment},
+	algorithms::{compaction::CompactFragment, AsyncProcessingEnvironment},
 	Error, ExpandedDocument, FlattenedDocument, ProcessedContext,
 };
 
@@ -11,7 +11,7 @@ impl ExpandedDocument {
 	/// Compacts the input document with the given options.
 	pub async fn compact_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
 	) -> Result<JsonValue, Error> {
@@ -27,7 +27,7 @@ impl ExpandedDocument {
 	/// Compacts the input document with the default options.
 	pub async fn compact(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 	) -> Result<JsonValue, Error> {
 		self.compact_with(env, context, CompactionOptions::default())
@@ -38,7 +38,7 @@ impl ExpandedDocument {
 impl Compact for ExpandedDocument {
 	async fn compact_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
 	) -> Result<JsonValue, Error> {
@@ -49,7 +49,7 @@ impl Compact for ExpandedDocument {
 impl Compact for FlattenedDocument {
 	async fn compact_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
 	) -> Result<JsonValue, Error> {

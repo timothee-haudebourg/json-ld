@@ -5,8 +5,8 @@ use mown::Mown;
 
 use crate::{
 	algorithms::{
-		context_processing::ContextProcessingOptions, Error, ProcessingEnvironment,
-		ProcessingEnvironmentRef, Warning,
+		context_processing::ContextProcessingOptions, AsyncProcessingEnvironment,
+		AsyncProcessingEnvironmentRef, Error, Warning,
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
@@ -25,7 +25,7 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn expand_element(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		element: &JsonValue,
 		from_map: bool,
 	) -> Result<Expanded, Error> {
@@ -410,7 +410,7 @@ impl<'a> Expander<'a> {
 
 					let result = property_scoped_context
 						.process_with(
-							ProcessingEnvironmentRef(env),
+							AsyncProcessingEnvironmentRef(env),
 							base_url.as_deref(),
 							self.active_context,
 							self.options.into(),

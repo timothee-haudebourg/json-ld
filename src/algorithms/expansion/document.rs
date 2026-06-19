@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{Error, ProcessingEnvironment},
+	algorithms::{Error, AsyncProcessingEnvironment},
 	ExpandedDocument,
 };
 
@@ -10,7 +10,7 @@ use super::{filter_top_level_item, Expander};
 impl<'a> Expander<'a> {
 	pub async fn expand_document(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		document: &JsonValue,
 	) -> Result<ExpandedDocument, Error> {
 		let expanded = self.expand_element(env, document, false).await?;

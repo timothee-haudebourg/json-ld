@@ -14,7 +14,47 @@ pub use error::*;
 pub use expansion::*;
 pub use warning::*;
 
-use crate::Loader;
+use crate::{AsyncLoader, Loader, ToAsyncLoader};
+
+pub trait AsyncProcessingEnvironment {
+	type Loader: AsyncLoader;
+
+	fn loader(&self) -> &Self::Loader;
+
+	fn warn(&self, w: Warning);
+
+	fn as_ref(&self) -> AsyncProcessingEnvironmentRef<'_, Self> {
+		AsyncProcessingEnvironmentRef(self)
+	}
+}
+
+impl<L: AsyncLoader> AsyncProcessingEnvironment for L {
+	type Loader = Self;
+
+	fn loader(&self) -> &Self::Loader {
+		self
+	}
+
+	fn warn(&self, _: Warning) {
+		// Ignore.
+	}
+}
+
+pub struct AsyncProcessingEnvironmentRef<'a, T: ?Sized>(pub &'a T);
+
+impl<'a, T: ?Sized + AsyncProcessingEnvironment> AsyncProcessingEnvironment
+	for AsyncProcessingEnvironmentRef<'a, T>
+{
+	type Loader = T::Loader;
+
+	fn loader(&self) -> &Self::Loader {
+		self.0.loader()
+	}
+
+	fn warn(&self, w: Warning) {
+		self.0.warn(w);
+	}
+}
 
 pub trait ProcessingEnvironment {
 	type Loader: Loader;
@@ -23,8 +63,15 @@ pub trait ProcessingEnvironment {
 
 	fn warn(&self, w: Warning);
 
-	fn as_ref(&self) -> ProcessingEnvironmentRef<'_, Self> {
-		ProcessingEnvironmentRef(self)
+	fn as_async_environment(&self) -> &ToAsyncProcessingEnvironment<Self> {
+		ToAsyncProcessingEnvironment::from_ref(self)
+	}
+
+	fn into_async_environment(self) -> ToAsyncProcessingEnvironment<Self>
+	where
+		Self: Sized,
+	{
+		ToAsyncProcessingEnvironment(self)
 	}
 }
 
@@ -40,15 +87,24 @@ impl<L: Loader> ProcessingEnvironment for L {
 	}
 }
 
-pub struct ProcessingEnvironmentRef<'a, T: ?Sized>(pub &'a T);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct ToAsyncProcessingEnvironment<T: ?Sized>(pub T);
 
-impl<'a, T: ?Sized + ProcessingEnvironment> ProcessingEnvironment
-	for ProcessingEnvironmentRef<'a, T>
-{
-	type Loader = T::Loader;
+impl<T: ?Sized> ToAsyncProcessingEnvironment<T> {
+	pub fn from_ref(env: &T) -> &Self {
+		unsafe {
+			// SAFETY: `ToAsyncProcessingEnvironment` uses the `transparent` repr.
+			std::mem::transmute(env)
+		}
+	}
+}
+
+impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingEnvironment<T> {
+	type Loader = ToAsyncLoader<T::Loader>;
 
 	fn loader(&self) -> &Self::Loader {
-		self.0.loader()
+		self.0.loader().as_async_loader()
 	}
 
 	fn warn(&self, w: Warning) {

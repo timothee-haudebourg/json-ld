@@ -1,7 +1,7 @@
 use json_syntax::JsonArray;
 
 use crate::{
-	algorithms::{Error, ProcessingEnvironment},
+	algorithms::{Error, AsyncProcessingEnvironment},
 	context::TermDefinitionRef,
 	object::ListObject,
 	syntax::ContainerItem,
@@ -14,7 +14,7 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn expand_array(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		active_property_definition: Option<TermDefinitionRef<'_>>,
 		element: &JsonArray,
 		from_map: bool,

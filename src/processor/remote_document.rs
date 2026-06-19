@@ -5,31 +5,31 @@ use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
-	algorithms::{Compact, Expand, ProcessingEnvironment},
+	algorithms::{AsyncProcessingEnvironment, Compact, Expand},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
 	Document, Error, RemoteContext,
 };
 
 impl JsonLdProcessor for Document {
-	async fn compare_with(
+	async fn async_compare_with(
 		&self,
 		other: &Self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> CompareResult {
 		if self.document.compare_json_ld(&other.document) {
 			return Ok(true);
 		}
 
-		let a = JsonLdProcessor::expand_with(self, env.as_ref(), options.clone()).await?;
-		let b = JsonLdProcessor::expand_with(other, env, options).await?;
+		let a = JsonLdProcessor::async_expand_with(self, env.as_ref(), options.clone()).await?;
+		let b = JsonLdProcessor::async_expand_with(other, env, options).await?;
 		Ok(a == b)
 	}
 
-	async fn expand_with(
+	async fn async_expand_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		mut options: JsonLdOptions,
 	) -> ExpandResult {
 		// Initialize the active context.
@@ -74,14 +74,15 @@ impl JsonLdProcessor for Document {
 		Expand::expand_with(self, env, &active_context, options.expansion_options()).await
 	}
 
-	async fn compact_with(
+	async fn async_compact_with(
 		&self,
 		context: RemoteContext,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> CompactResult {
 		compact_expanded(
-			JsonLdProcessor::expand_with(self, env.as_ref(), options.clone().unordered()).await?,
+			JsonLdProcessor::async_expand_with(self, env.as_ref(), options.clone().unordered())
+				.await?,
 			self.url(),
 			env,
 			context,
@@ -90,14 +91,15 @@ impl JsonLdProcessor for Document {
 		.await
 	}
 
-	async fn flatten_with(
+	async fn async_flatten_with(
 		&self,
 		context: Option<RemoteContext>,
-		env: impl ProcessingEnvironment,
+		env: impl AsyncProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> FlattenResult {
 		let expanded_input =
-			JsonLdProcessor::expand_with(self, env.as_ref(), options.clone().unordered()).await?;
+			JsonLdProcessor::async_expand_with(self, env.as_ref(), options.clone().unordered())
+				.await?;
 
 		let generator = rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
 		let flattened_output = expanded_input.flatten(generator, options.ordered)?;
@@ -114,7 +116,7 @@ impl JsonLdProcessor for Document {
 async fn compact_expanded(
 	expanded_input: impl Compact,
 	url: Option<&Iri>,
-	env: impl ProcessingEnvironment,
+	env: impl AsyncProcessingEnvironment,
 	context: RemoteContext,
 	options: JsonLdOptions,
 ) -> Result<JsonValue, Error> {

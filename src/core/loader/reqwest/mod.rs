@@ -10,7 +10,7 @@ use reqwest_middleware::ClientWithMiddleware;
 
 use crate::{Document, LoadError, Profile};
 
-use super::Loader;
+use super::AsyncLoader;
 
 mod content_type;
 mod link;
@@ -128,8 +128,8 @@ impl ReqwestLoader {
 	}
 }
 
-impl Loader for ReqwestLoader {
-	async fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+impl AsyncLoader for ReqwestLoader {
+	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
 		let mut redirection_number = 0;
 		let mut url = url.to_owned();
 		'next_url: loop {

@@ -22,7 +22,7 @@ use syn::{parse_macro_input, punctuated::Punctuated, ItemFn, LitStr, Token};
 
 use json_ld::{
 	iref::{Iri, IriBuf, IriRef},
-	linked_data, rdf_types, FsLoader, JsonLdProcessor, Loader,
+	linked_data, rdf_types, AsyncLoader, FsLoader, JsonLdProcessor,
 };
 use json_ld_testing_core::{Manifest, SpecVersion};
 
@@ -140,11 +140,11 @@ fn load_manifest(manifest_url: &Iri, config: &TestSuiteConfig) -> Manifest {
 		loader.mount(url, &mount.absolute_path());
 	}
 
-	let doc = block_on(loader.load(manifest_url))
+	let doc = block_on(loader.async_load(manifest_url))
 		.unwrap_or_else(|e| panic!("failed to load manifest `{manifest_url}`: {e}"));
 
-	let expanded =
-		block_on(doc.expand(&loader)).unwrap_or_else(|e| panic!("failed to expand manifest: {e}"));
+	let expanded = block_on(doc.async_expand(&loader))
+		.unwrap_or_else(|e| panic!("failed to expand manifest: {e}"));
 
 	let quads = linked_data::ser::to_rdf_quads(&expanded)
 		.unwrap_or_else(|e| panic!("failed to serialize manifest to RDF: {e}"));

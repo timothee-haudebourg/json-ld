@@ -1,6 +1,6 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
-use crate::algorithms::{Error, ProcessingEnvironment, Warning};
+use crate::algorithms::{AsyncProcessingEnvironment, Error, Warning};
 use crate::context::Container;
 use crate::context::RawProcessedContext;
 use crate::syntax::{ContainerItem, Keyword, LenientLangTagBuf, Nullable};
@@ -30,7 +30,7 @@ impl<'a> Expander<'a> {
 	/// Expand a node object.
 	pub async fn expand_node(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 	) -> Result<Option<Indexed<NodeObject>>, Error> {
@@ -89,7 +89,7 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	async fn expand_node_entries(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		mut result: Indexed<NodeObject>,
 		mut has_value_object_entries: bool,
 		type_scoped_context: &RawProcessedContext,

@@ -6,7 +6,7 @@ use crate::{
 		context_processing::{merged::Merged, ContextProcessor, TargetProcessedContext},
 		error::Error,
 		warning::Warning,
-		ProcessingEnvironment,
+		AsyncProcessingEnvironment,
 	},
 	context::RawProcessedContext,
 	syntax::{
@@ -42,7 +42,7 @@ impl<'a> ContextProcessor<'a> {
 	/// Default values for `document_relative` and `vocab` should be `false` and `true`.
 	pub async fn expand_iri_recursive(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		value: Nullable<ExpandableRef<'_>>,

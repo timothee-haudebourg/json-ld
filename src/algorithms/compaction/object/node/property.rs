@@ -6,7 +6,7 @@ use crate::{
 			object::value::{add_value, value_value},
 			CompactFragment, CompactIndexedFragment, Compactor,
 		},
-		ProcessingEnvironment,
+		AsyncProcessingEnvironment,
 	},
 	context::Container,
 	object::{AnyObject, ListObject, Ref},
@@ -18,7 +18,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_property_list(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		list: &ListObject,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
@@ -76,7 +76,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_property_graph(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		node: &NodeObject,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
@@ -315,7 +315,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn compact_property<'a, O, T>(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		result: &mut JsonObject,
 		expanded_property: Term,
 		expanded_value: O,

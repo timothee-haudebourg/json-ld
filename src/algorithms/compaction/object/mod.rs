@@ -4,7 +4,7 @@ use mown::Mown;
 use crate::{
 	algorithms::{
 		compaction::CompactIndexedFragment, context_processing::ContextProcessingOptions,
-		ProcessingEnvironment, ProcessingEnvironmentRef,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 	},
 	object::{AnyObject, Ref},
 	syntax::{ContainerItem, Keyword},
@@ -19,7 +19,7 @@ mod value;
 impl Compactor<'_> {
 	pub async fn compact_any_indexed_object(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		object: &impl AnyObject,
 		index: Option<&str>,
 	) -> Result<JsonValue, Error> {
@@ -49,7 +49,7 @@ impl Compactor<'_> {
 							active_context = Mown::Owned(
 								local_context
 									.process_with(
-										ProcessingEnvironmentRef(env),
+										AsyncProcessingEnvironmentRef(env),
 										// vocabulary,
 										active_property_definition.base_url(),
 										active_context.as_ref(),
@@ -129,7 +129,7 @@ impl Compactor<'_> {
 impl<T: AnyObject> CompactIndexedFragment for T {
 	async fn compact_indexed_fragment(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
 	) -> Result<JsonValue, Error> {

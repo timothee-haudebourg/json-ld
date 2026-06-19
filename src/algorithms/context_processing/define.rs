@@ -8,7 +8,7 @@ use crate::{
 		context_processing::{merged::Merged, ContextProcessor, TargetProcessedContext},
 		error::Error,
 		warning::Warning,
-		ProcessingEnvironment,
+		AsyncProcessingEnvironment,
 	},
 	context::Container,
 	context::{NormalTermDefinition, TypeTermDefinition},
@@ -134,7 +134,7 @@ impl<'a> ContextProcessor<'a> {
 	/// Default value for `base_url` is `None`. Default values for `protected` and `override_protected` are `false`.
 	pub async fn define(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		term: KeyOrKeywordRef<'_>,

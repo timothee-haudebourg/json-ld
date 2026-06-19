@@ -1,6 +1,6 @@
 use json_ld::{
 	rdf_types::{self, dataset::IndexedBTreeDataset, Term},
-	FsLoader, JsonLdProcessor, Loader,
+	AsyncLoader, FsLoader, JsonLdProcessor,
 };
 use json_ld_testing::{ManifestEntry, TestKind};
 use nquads_syntax::grdf_document_from_str;
@@ -18,9 +18,9 @@ async fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 		TestKind::Positive { expect, .. } => {
 			let generator =
 				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
-			let input = loader.load(&entry.input).await.unwrap();
+			let input = loader.async_load(&entry.input).await.unwrap();
 			let quads = input
-				.to_rdf_with(loader, generator, options)
+				.async_to_rdf_with(loader, generator, options)
 				.await
 				.expect("to_rdf failed");
 
@@ -53,8 +53,8 @@ async fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 		} => {
 			let generator =
 				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
-			let input = loader.load(&entry.input).await.unwrap();
-			let result = input.to_rdf_with(loader, generator, options).await;
+			let input = loader.async_load(&entry.input).await.unwrap();
+			let result = input.async_to_rdf_with(loader, generator, options).await;
 			assert!(
 				result.is_err(),
 				"test `{}` should have failed with `{}`",
@@ -65,9 +65,9 @@ async fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 		TestKind::PositiveSyntax => {
 			let generator =
 				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
-			let input = loader.load(&entry.input).await.unwrap();
+			let input = loader.async_load(&entry.input).await.unwrap();
 			input
-				.to_rdf_with(loader, generator, options)
+				.async_to_rdf_with(loader, generator, options)
 				.await
 				.expect("positive syntax test failed");
 		}

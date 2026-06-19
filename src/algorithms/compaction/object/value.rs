@@ -3,8 +3,8 @@ use mown::Mown;
 
 use crate::{
 	algorithms::{
-		context_processing::ContextProcessingOptions, ProcessingEnvironment,
-		ProcessingEnvironmentRef,
+		context_processing::ContextProcessingOptions, AsyncProcessingEnvironment,
+		AsyncProcessingEnvironmentRef,
 	},
 	context::Container,
 	object::value::LiteralType,
@@ -18,7 +18,7 @@ impl<'a> Compactor<'a> {
 	/// Compact the given indexed value.
 	pub async fn compact_indexed_value_with(
 		&self,
-		env: &impl ProcessingEnvironment,
+		env: &impl AsyncProcessingEnvironment,
 		value: &ValueObject,
 		index: Option<&str>,
 		// active_property: Option<&str>,
@@ -31,7 +31,7 @@ impl<'a> Compactor<'a> {
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
-								ProcessingEnvironmentRef(env),
+								AsyncProcessingEnvironmentRef(env),
 								active_property_definition.base_url(),
 								active_context.as_ref(),
 								ContextProcessingOptions::from(self.options).with_override(),

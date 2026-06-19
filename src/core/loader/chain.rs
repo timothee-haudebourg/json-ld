@@ -3,7 +3,7 @@ use core::fmt;
 use crate::{Document, LoadError};
 use iref::Iri;
 
-use super::Loader;
+use super::AsyncLoader;
 
 /// * [`ChainLoader`]: loads document from the first loader, otherwise falls back to the second one.
 ///
@@ -22,15 +22,15 @@ impl<L1, L2> ChainLoader<L1, L2> {
 	}
 }
 
-impl<L1, L2> Loader for ChainLoader<L1, L2>
+impl<L1, L2> AsyncLoader for ChainLoader<L1, L2>
 where
-	L1: Loader,
-	L2: Loader,
+	L1: AsyncLoader,
+	L2: AsyncLoader,
 {
-	async fn load(&self, url: &Iri) -> Result<Document, LoadError> {
-		match self.0.load(url).await {
+	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+		match self.0.async_load(url).await {
 			Ok(doc) => Ok(doc),
-			Err(LoadError { cause: e1, .. }) => match self.1.load(url).await {
+			Err(LoadError { cause: e1, .. }) => match self.1.async_load(url).await {
 				Ok(doc) => Ok(doc),
 				Err(LoadError { target, cause: e2 }) => Err(LoadError::new(target, Error(e1, e2))),
 			},
