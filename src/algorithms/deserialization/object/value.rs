@@ -14,7 +14,10 @@ impl SerializeLinkedData for ValueObject {
 		let literal = match self {
 			Self::Literal(lit) => {
 				if lit.is_json() {
-					Literal::new(lit.value.compact_print().to_string(), RDF_JSON)
+					Literal::new(
+						lit.value.canonicalized().compact_print().to_string(),
+						RDF_JSON,
+					)
 				} else {
 					let ty = match &lit.type_ {
 						Some(LiteralType::Iri(iri)) => iri.as_iri(),
@@ -41,7 +44,9 @@ impl SerializeLinkedData for ValueObject {
 						}
 						JsonValue::Number(n) => Literal::new(canonical_number(n, ty), ty),
 						JsonValue::String(s) => Literal::new(s.as_str(), ty),
-						other => Literal::new(other.compact_print().to_string(), ty),
+						other => {
+							Literal::new(other.canonicalized().compact_print().to_string(), ty)
+						}
 					}
 				}
 			}

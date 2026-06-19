@@ -29,6 +29,7 @@ iref.path = "/home/work/Documents/Community/RDF/iri/iref"
 # json-syntax = "0.12"
 json-syntax = { path = "/home/work/Documents/Community/JSON/syntax", features = [
 	"serde",
+	"canonicalize",
 ] }
 static-iref = "3.0"
 langtag = "0.4"
