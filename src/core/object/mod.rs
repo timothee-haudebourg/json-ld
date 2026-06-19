@@ -1,10 +1,11 @@
 //! Nodes, lists and values.
 use crate::object::typ::TypeRef;
 use crate::syntax::Keyword;
-use crate::{Id, Indexed, LenientLangTag};
+use crate::{Id, Indexed, LenientLangTag, Relabel, Relabeling};
 use educe::Educe;
 use iref::Iri;
 use json_syntax::JsonNumber;
+use rdf_types::Generator;
 use std::hash::Hash;
 
 pub mod list;
@@ -347,23 +348,15 @@ impl Object {
 	}
 }
 
-// impl Relabel for Object {
-// 	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
-// 		&mut self,
-// 		vocabulary: &mut N,
-// 		generator: &mut G,
-// 		relabeling: &mut hashbrown::HashMap<B, Subject>,
-// 	) where
-// 		T: Clone + Eq + Hash,
-// 		B: Clone + Eq + Hash,
-// 	{
-// 		match self {
-// 			Self::Node(n) => n.relabel_with(vocabulary, generator, relabeling),
-// 			Self::List(l) => l.relabel_with(vocabulary, generator, relabeling),
-// 			Self::Value(_) => (),
-// 		}
-// 	}
-// }
+impl Relabel for Object {
+	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
+		match self {
+			Self::Node(n) => n.relabel_with(relabeling),
+			Self::List(l) => l.relabel_with(relabeling),
+			Self::Value(_) => (),
+		}
+	}
+}
 
 impl Indexed<Object> {
 	pub fn equivalent(&self, other: &Self) -> bool {

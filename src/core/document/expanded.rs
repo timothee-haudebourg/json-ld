@@ -1,5 +1,6 @@
-use crate::{Indexed, IndexedObject, NodeObject, Object};
+use crate::{Indexed, IndexedObject, NodeObject, Object, Relabel};
 use indexmap::IndexSet;
+use rdf_types::Generator;
 
 /// Result of the document expansion algorithm.
 ///
@@ -45,36 +46,6 @@ impl ExpandedDocument {
 		self.0.iter()
 	}
 
-	// /// Give an identifier (`@id`) to every nodes using the given generator to
-	// /// generate fresh identifiers for anonymous nodes.
-	// #[inline(always)]
-	// pub fn identify_all_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
-	// 	&mut self,
-	// 	vocabulary: &mut V,
-	// 	generator: &mut G,
-	// ) where
-	// 	T: Eq + Hash,
-	// 	B: Eq + Hash,
-	// {
-	// 	let objects = std::mem::take(&mut self.0);
-	// 	for mut object in objects {
-	// 		object.identify_all_with(vocabulary, generator);
-	// 		self.0.insert(object);
-	// 	}
-	// }
-
-	// /// Give an identifier (`@id`) to every nodes using the given generator to
-	// /// generate fresh identifiers for anonymous nodes.
-	// #[inline(always)]
-	// pub fn identify_all<G: Generator>(&mut self, generator: &mut G)
-	// where
-	// 	T: Eq + Hash,
-	// 	B: Eq + Hash,
-	// 	(): Vocabulary<Iri = T, BlankId = B>,
-	// {
-	// 	self.identify_all_with(&mut (), generator)
-	// }
-
 	// /// Give an identifier (`@id`) to every nodes and canonicalize every
 	// /// literals using the given generator to generate fresh identifiers for
 	// /// anonymous nodes.
@@ -108,35 +79,6 @@ impl ExpandedDocument {
 	// 	(): Vocabulary<Iri = T, BlankId = B>,
 	// {
 	// 	self.relabel_and_canonicalize_with(&mut (), generator)
-	// }
-
-	// /// Relabels nodes.
-	// #[inline(always)]
-	// pub fn relabel_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
-	// 	&mut self,
-	// 	vocabulary: &mut V,
-	// 	generator: &mut G,
-	// ) where
-	// 	T: Clone + Eq + Hash,
-	// 	B: Clone + Eq + Hash,
-	// {
-	// 	let objects = std::mem::take(&mut self.0);
-	// 	let mut relabeling = HashMap::new();
-	// 	for mut object in objects {
-	// 		object.relabel_with(vocabulary, generator, &mut relabeling);
-	// 		self.0.insert(object);
-	// 	}
-	// }
-
-	// /// Relabels nodes.
-	// #[inline(always)]
-	// pub fn relabel<G: Generator>(&mut self, generator: &mut G)
-	// where
-	// 	T: Clone + Eq + Hash,
-	// 	B: Clone + Eq + Hash,
-	// 	(): Vocabulary<Iri = T, BlankId = B>,
-	// {
-	// 	self.relabel_with(&mut (), generator)
 	// }
 
 	// /// Puts this document literals into canonical form using the given
@@ -233,6 +175,16 @@ impl ExpandedDocument {
 	#[inline(always)]
 	pub fn insert(&mut self, object: IndexedObject) -> bool {
 		self.0.insert(object)
+	}
+}
+
+impl Relabel for ExpandedDocument {
+	fn relabel_with(&mut self, relabeling: &mut crate::Relabeling<impl Generator>) {
+		let objects = std::mem::take(&mut self.0);
+		for mut object in objects {
+			object.relabel_with(relabeling);
+			self.0.insert(object);
+		}
 	}
 }
 

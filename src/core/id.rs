@@ -1,5 +1,6 @@
 use iref::{Iri, IriBuf};
-use rdf_types::{BlankId, BlankIdBuf, InvalidBlankId};
+use rdf_types::{BlankId, BlankIdBuf, Generator, InvalidBlankId};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
 use std::hash::Hash;
@@ -289,30 +290,49 @@ pub enum Ref<'a> {
 	Invalid(&'a str),
 }
 
-// pub trait IdentifyAll {
-// 	fn identify_all(&mut self, generator: &mut impl Generator);
-// }
+pub struct Relabeling<G> {
+	generator: G,
+	map: HashMap<BlankIdBuf, ValidId>,
+}
 
-// pub trait Relabel {
-// 	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
-// 		&mut self,
-// 		vocabulary: &mut N,
-// 		generator: &mut G,
-// 		relabeling: &mut HashMap<B, ValidId>,
-// 	) where
-// 		T: Clone + Eq + Hash,
-// 		B: Clone + Eq + Hash;
+impl<G> Relabeling<G> {
+	pub fn new(generator: G) -> Self {
+		Self {
+			generator,
+			map: HashMap::new(),
+		}
+	}
+}
 
-// 	fn relabel<G: Generator>(&mut self, generator: &mut G, relabeling: &mut HashMap<B, ValidId>)
-// 	where
-// 		T: Clone + Eq + Hash,
-// 		B: Clone + Eq + Hash,
-// 		(): Vocabulary<Iri = T, BlankId = B>,
-// 	{
-// 		self.relabel_with(
-// 			rdf_types::vocabulary::no_vocabulary_mut(),
-// 			generator,
-// 			relabeling,
-// 		)
-// 	}
-// }
+impl<G> Relabeling<G>
+where
+	G: Generator,
+{
+	pub fn relabel(&mut self, id: Option<Id>) -> Id {
+		match id {
+			Some(Id::Valid(ValidId::BlankId(b))) => Id::Valid(
+				self.map
+					.entry(b)
+					.or_insert_with(|| self.generator.next_id())
+					.clone(),
+			),
+			Some(id) => id,
+			None => Id::Valid(self.generator.next_id()),
+		}
+	}
+}
+
+pub trait Relabel {
+	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>);
+
+	fn relabel(&mut self, generator: impl Generator) {
+		let mut relabeling = Relabeling::new(generator);
+		self.relabel_with(&mut relabeling)
+	}
+}
+
+impl<T: Relabel> Relabel for Box<T> {
+	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
+		T::relabel_with(self, relabeling);
+	}
+}

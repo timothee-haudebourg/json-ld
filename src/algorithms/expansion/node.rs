@@ -238,7 +238,7 @@ impl<'a> Expander<'a> {
 							}
 
 							if let Some(included) = result.included_entry_mut() {
-								included.extend(expanded_nodes.into_iter());
+								included.extend(expanded_nodes);
 							} else {
 								result.set_included(Some(expanded_nodes.into_iter().collect()));
 							}
@@ -325,7 +325,7 @@ impl<'a> Expander<'a> {
 											if is_double_reversed {
 												result.insert_all(
 													reverse_prop,
-													reverse_expanded_value.into_iter(),
+													reverse_expanded_value,
 												)
 											} else {
 												let mut reverse_expanded_nodes = Vec::new();
@@ -344,7 +344,7 @@ impl<'a> Expander<'a> {
 
 												result.reverse_properties_or_default().insert_all(
 													reverse_prop,
-													reverse_expanded_nodes.into_iter(),
+													reverse_expanded_nodes,
 												)
 											}
 										}
@@ -936,12 +936,12 @@ impl<'a> Expander<'a> {
 
 							result
 								.reverse_properties_or_default()
-								.insert_all(prop, reverse_expanded_nodes.into_iter());
+								.insert_all(prop, reverse_expanded_nodes);
 						} else {
 							// Otherwise, key is not a reverse property use add value
 							// to add expanded value to the expanded property entry in
 							// result using true for as array.
-							result.insert_all(prop, expanded_value.into_iter());
+							result.insert_all(prop, expanded_value);
 						}
 					}
 				}

@@ -1,8 +1,8 @@
 use std::hash::Hash;
 
-use rdf_types::BlankId;
+use rdf_types::{BlankId, Generator};
 
-use crate::IndexedObject;
+use crate::{IndexedObject, Relabel, Relabeling};
 
 use super::{AnyObject, MappedEq};
 
@@ -84,21 +84,13 @@ impl ListObject {
 	// }
 }
 
-// impl Relabel for List {
-// 	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
-// 		&mut self,
-// 		vocabulary: &mut N,
-// 		generator: &mut G,
-// 		relabeling: &mut hashbrown::HashMap<B, Subject>,
-// 	) where
-// 		T: Clone + Eq + Hash,
-// 		B: Clone + Eq + Hash,
-// 	{
-// 		for object in self {
-// 			object.relabel_with(vocabulary, generator, relabeling)
-// 		}
-// 	}
-// }
+impl Relabel for ListObject {
+	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
+		for object in self {
+			object.relabel_with(relabeling)
+		}
+	}
+}
 
 impl AnyObject for ListObject {
 	fn as_ref(&self) -> super::Ref<'_> {

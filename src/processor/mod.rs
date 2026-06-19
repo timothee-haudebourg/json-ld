@@ -8,7 +8,7 @@ use crate::{
 		CompactionOptions, ContextProcessingOptions, ExpansionOptions, ExpansionPolicy,
 		ProcessingEnvironment,
 	},
-	Direction, Document, Error, ExpandedDocument, ProcessingMode, RemoteContext,
+	Direction, Document, Error, ExpandedDocument, ProcessingMode, Relabel, RemoteContext,
 };
 
 mod remote_document;
@@ -229,10 +229,11 @@ pub trait JsonLdProcessor: Sized {
 	async fn to_rdf_with(
 		&self,
 		env: impl ProcessingEnvironment,
-		generator: impl Generator,
+		mut generator: impl Generator,
 		options: JsonLdOptions,
 	) -> Result<Vec<Quad>, Error> {
-		let expanded = JsonLdProcessor::expand_with(self, env, options).await?;
+		let mut expanded = JsonLdProcessor::expand_with(self, env, options).await?;
+		expanded.relabel(&mut generator);
 		let interpretation = GeneratorInterpretation::new(generator);
 		Ok(to_rdf_quads_interpretation(&expanded, interpretation).unwrap())
 	}

@@ -1,8 +1,11 @@
 use crate::syntax::Keyword;
-use crate::{object, utils, Id, Indexed, IndexedObject, Object, Objects, Term};
+use crate::{
+	object, utils, Id, Indexed, IndexedObject, Object, Objects, Relabel, Relabeling, Term,
+};
 use educe::Educe;
 use indexmap::IndexSet;
 use iref::Iri;
+use rdf_types::Generator;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
@@ -508,7 +511,7 @@ impl NodeObject {
 	/// If there already exists objects associated to the given reverse property,
 	/// `reverse_value` is added to the list. Duplicate objects are not removed.
 	#[inline(always)]
-	pub fn insert_all<Objects: Iterator<Item = IndexedObject>>(
+	pub fn insert_all<Objects: IntoIterator<Item = IndexedObject>>(
 		&mut self,
 		prop: Id,
 		values: Objects,
@@ -548,76 +551,49 @@ impl NodeObject {
 	}
 }
 
-// impl Relabel for Node {
-// 	fn relabel_with<N: Vocabulary<Iri = T, BlankId = B>, G: Generator<N>>(
-// 		&mut self,
-// 		vocabulary: &mut N,
-// 		generator: &mut G,
-// 		relabeling: &mut hashbrown::HashMap<B, Subject>,
-// 	) where
-// 		T: Clone + Eq + Hash,
-// 		B: Clone + Eq + Hash,
-// 	{
-// 		self.id = match self.id.take() {
-// 			Some(Id::Valid(Subject::Blank(b))) => {
-// 				let value = relabeling
-// 					.entry(b)
-// 					.or_insert_with(|| generator.next(vocabulary))
-// 					.clone();
-// 				Some(value.into())
-// 			}
-// 			None => {
-// 				let value = generator.next(vocabulary);
-// 				Some(value.into())
-// 			}
-// 			id => id,
-// 		};
+impl Relabel for NodeObject {
+	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
+		self.id = Some(relabeling.relabel(self.id.take()));
 
-// 		for ty in self.types_mut() {
-// 			if let Some(b) = ty.as_blank().cloned() {
-// 				*ty = relabeling
-// 					.entry(b)
-// 					.or_insert_with(|| generator.next(vocabulary))
-// 					.clone()
-// 					.into();
-// 			}
-// 		}
+		for ty in self.types_mut() {
+			*ty = relabeling.relabel(Some(ty.clone()));
+		}
 
-// 		if let Some(graph) = self.graph_mut() {
-// 			*graph = std::mem::take(graph)
-// 				.into_iter()
-// 				.map(|mut o| {
-// 					o.relabel_with(vocabulary, generator, relabeling);
-// 					o
-// 				})
-// 				.collect();
-// 		}
+		if let Some(graph) = self.graph_mut() {
+			*graph = std::mem::take(graph)
+				.into_iter()
+				.map(|mut o| {
+					o.relabel_with(relabeling);
+					o
+				})
+				.collect();
+		}
 
-// 		if let Some(included) = self.included_mut() {
-// 			*included = std::mem::take(included)
-// 				.into_iter()
-// 				.map(|mut n| {
-// 					n.relabel_with(vocabulary, generator, relabeling);
-// 					n
-// 				})
-// 				.collect();
-// 		}
+		if let Some(included) = self.included_mut() {
+			*included = std::mem::take(included)
+				.into_iter()
+				.map(|mut n| {
+					n.relabel_with(relabeling);
+					n
+				})
+				.collect();
+		}
 
-// 		for (_, objects) in self.properties_mut() {
-// 			for object in objects {
-// 				object.relabel_with(vocabulary, generator, relabeling);
-// 			}
-// 		}
+		for (_, objects) in self.properties_mut() {
+			for object in objects {
+				object.relabel_with(relabeling);
+			}
+		}
 
-// 		if let Some(reverse_properties) = self.reverse_properties_mut() {
-// 			for (_, nodes) in reverse_properties.iter_mut() {
-// 				for node in nodes {
-// 					node.relabel_with(vocabulary, generator, relabeling);
-// 				}
-// 			}
-// 		}
-// 	}
-// }
+		if let Some(reverse_properties) = self.reverse_properties_mut() {
+			for (_, nodes) in reverse_properties.iter_mut() {
+				for node in nodes {
+					node.relabel_with(relabeling);
+				}
+			}
+		}
+	}
+}
 
 impl PartialEq for NodeObject {
 	fn eq(&self, other: &Self) -> bool {

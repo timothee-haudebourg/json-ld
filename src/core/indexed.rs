@@ -1,6 +1,8 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
 
+use crate::Relabel;
+
 /// Indexed objects.
 ///
 /// Nodes and value objects may be indexed by a string in JSON-LD.
@@ -93,6 +95,12 @@ impl<T> Indexed<T> {
 			Ok(value) => Ok(Indexed::new(value, self.index)),
 			Err(e) => Err(Indexed::new(e, self.index)),
 		}
+	}
+}
+
+impl<T: Relabel> Relabel for Indexed<T> {
+	fn relabel_with(&mut self, relabeling: &mut super::Relabeling<impl rdf_types::Generator>) {
+		self.value.relabel_with(relabeling);
 	}
 }
 
