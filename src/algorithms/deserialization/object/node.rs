@@ -16,7 +16,8 @@ impl SerializeLinkedData for NodeObject {
 	{
 		let subject = match &self.id {
 			Some(Id::Valid(id)) => id.clone().into(),
-			_ => serializer.interpret(None)?,
+			Some(Id::Invalid(_)) => return serializer.end(),
+			None => serializer.interpret(None)?,
 		};
 
 		if !self.types().is_empty() {
