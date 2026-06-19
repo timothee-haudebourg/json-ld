@@ -22,10 +22,11 @@ impl SerializeLinkedData for ValueObject {
 							JsonValue::Null => XSD_STRING,
 							JsonValue::Boolean(_) => XSD_BOOLEAN,
 							JsonValue::Number(n) => {
-								if n.as_i64().is_some() {
-									XSD_INTEGER
-								} else {
+								let n = n.trimmed();
+								if n.has_decimal_point() || n.has_exponent() {
 									XSD_DOUBLE
+								} else {
+									XSD_INTEGER
 								}
 							}
 							JsonValue::String(_) => XSD_STRING,
@@ -56,11 +57,13 @@ impl SerializeLinkedData for ValueObject {
 }
 
 fn canonical_number(n: &JsonNumberBuf, ty: &Iri) -> String {
-	if ty == XSD_DOUBLE || n.has_decimal_point() {
+	let n = n.trimmed();
+
+	if ty == XSD_DOUBLE || n.has_decimal_point() || n.has_exponent() {
 		if let Ok(d) = Double::parse_xsd(n) {
 			return d.to_string();
 		}
-	};
+	}
 
 	n.to_string()
 }
