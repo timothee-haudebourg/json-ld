@@ -1,7 +1,8 @@
-use json_syntax::{JsonValue, PrintJson};
+use iref::Iri;
+use json_syntax::{JsonNumberBuf, JsonValue, PrintJson};
 use linked_data::{LinkedDataSerializer, SerializeLinkedData};
 use rdf_types::{Literal, Term, RDF_JSON};
-use xsd_types::{XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
+use xsd_types::{Double, ParseXsd, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
 
 use crate::{object::value::LiteralType, LenientLangTag, ValueObject};
 
@@ -37,7 +38,7 @@ impl SerializeLinkedData for ValueObject {
 						JsonValue::Boolean(b) => {
 							Literal::new(xsd_types::Boolean(*b).to_string(), ty)
 						}
-						JsonValue::Number(n) => Literal::new(n.to_string(), ty),
+						JsonValue::Number(n) => Literal::new(canonical_number(n, ty), ty),
 						JsonValue::String(s) => Literal::new(s.as_str(), ty),
 						other => Literal::new(other.compact_print().to_string(), ty),
 					}
@@ -52,4 +53,14 @@ impl SerializeLinkedData for ValueObject {
 		serializer.serialize_resource(Some(Term::literal(literal)))?;
 		serializer.end()
 	}
+}
+
+fn canonical_number(n: &JsonNumberBuf, ty: &Iri) -> String {
+	if ty == XSD_DOUBLE || n.has_decimal_point() {
+		if let Ok(d) = Double::parse_xsd(n) {
+			return d.to_string();
+		}
+	};
+
+	n.to_string()
 }
