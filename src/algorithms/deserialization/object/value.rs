@@ -4,7 +4,7 @@ use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeL
 use rdf_types::{Literal, Term, RDF_JSON};
 use xsd_types::{Double, ParseXsd, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
 
-use crate::{object::value::LiteralType, LenientLangTag, ValueObject};
+use crate::{object::value::LiteralType, ValueObject};
 
 use super::super::RdfSerializationOptions;
 
