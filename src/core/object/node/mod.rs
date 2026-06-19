@@ -457,9 +457,10 @@ impl NodeObject {
 	///
 	/// # Example
 	/// ```
-	/// # use json_ld_syntax::Keyword;
-	/// # use json_ld_core::Term;
-	/// # let node: json_ld_core::Node = json_ld_core::Node::new();
+	/// use json_ld::{NodeObject, Term};
+	/// use json_ld::syntax::Keyword;
+	///
+	/// let node = NodeObject::new();
 	///
 	/// // Checks if the JSON object representation of the node has an `@id` key.
 	/// if node.has_key(&Term::Keyword(Keyword::Id)) {
