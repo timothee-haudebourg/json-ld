@@ -56,6 +56,28 @@ pub enum LiteralType {
 	Iri(IriBuf),
 }
 
+impl LiteralType {
+	/// Returns this type IRI.
+	///
+	/// If the type is `@json`, this will return [`RDF_JSON`].
+	pub fn iri(&self) -> &Iri {
+		match self {
+			Self::Json => RDF_JSON,
+			Self::Iri(iri) => iri,
+		}
+	}
+
+	/// Returns whether this is the JSON type.
+	///
+	/// Returns `true` if it is `@json` or the [`RDF_JSON`] IRI.
+	pub fn is_json(&self) -> bool {
+		match self {
+			Self::Json => true,
+			Self::Iri(iri) => iri == RDF_JSON,
+		}
+	}
+}
+
 #[cfg(feature = "serde")]
 impl serde::Serialize for LiteralType {
 	fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -132,7 +154,7 @@ impl LiteralValue {
 		self.value.as_number()
 	}
 
-	/// Returns the type IRI, if the type is an IRI.
+	/// Returns the type IRI.
 	pub fn type_iri(&self) -> Option<&Iri> {
 		match &self.type_ {
 			Some(LiteralType::Iri(iri)) => Some(iri),
@@ -140,9 +162,9 @@ impl LiteralValue {
 		}
 	}
 
-	/// Returns true if this is a JSON literal (`@type: "@json"`).
+	/// Returns true if this is a JSON literal.
 	pub fn is_json(&self) -> bool {
-		matches!(self.type_, Some(LiteralType::Json))
+		self.type_.as_ref().is_some_and(LiteralType::is_json)
 	}
 
 	// /// Puts this literal into canonical form using the given `buffer`.
