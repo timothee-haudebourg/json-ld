@@ -57,8 +57,11 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for ValueObject {
 					}
 				}
 			}
-			Self::LangString(s) => match s.language().and_then(LenientLangTag::as_well_formed) {
-				Some(tag) => Literal::new(s.as_str(), tag),
+			Self::LangString(s) => match s.language() {
+				Some(lang) => match lang.as_well_formed() {
+					Some(tag) => Literal::new(s.as_str(), tag),
+					None => return serializer.end(),
+				},
 				None => Literal::new(s.as_str(), XSD_STRING),
 			},
 		};
