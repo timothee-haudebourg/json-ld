@@ -9,6 +9,7 @@ mod warning;
 
 pub use compaction::*;
 pub use context_processing::*;
+pub use deserialization::RdfSerializationOptions;
 pub use error::*;
 pub use expansion::*;
 pub use warning::*;

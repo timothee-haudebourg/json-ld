@@ -1,12 +1,12 @@
 use iref::IriBuf;
 use json_syntax::JsonValue;
-use linked_data::ser::to_rdf_quads_interpretation;
+use linked_data::ser::to_rdf_quads_interpretation_with;
 use rdf_types::{interpretation::GeneratorInterpretation, Generator, Quad};
 
 use crate::{
 	algorithms::{
 		CompactionOptions, ContextProcessingOptions, ExpansionOptions, ExpansionPolicy,
-		ProcessingEnvironment,
+		ProcessingEnvironment, RdfSerializationOptions,
 	},
 	Direction, Document, Error, ExpandedDocument, ProcessingMode, Relabel, RemoteContext,
 };
@@ -104,6 +104,12 @@ impl JsonLdOptions {
 			compact_to_relative: self.compact_to_relative,
 			compact_arrays: self.compact_arrays,
 			ordered: self.ordered,
+		}
+	}
+
+	pub fn rdf_serialization_options(&self) -> RdfSerializationOptions {
+		RdfSerializationOptions {
+			produce_generalized_rdf: self.produce_generalized_rdf,
 		}
 	}
 }
@@ -232,9 +238,13 @@ pub trait JsonLdProcessor: Sized {
 		mut generator: impl Generator,
 		options: JsonLdOptions,
 	) -> Result<Vec<Quad>, Error> {
+		let rdf_serialization_options = options.rdf_serialization_options();
 		let mut expanded = JsonLdProcessor::expand_with(self, env, options).await?;
 		expanded.relabel(&mut generator);
 		let interpretation = GeneratorInterpretation::new(generator);
-		Ok(to_rdf_quads_interpretation(&expanded, interpretation).unwrap())
+		Ok(
+			to_rdf_quads_interpretation_with(&expanded, interpretation, rdf_serialization_options)
+				.unwrap(),
+		)
 	}
 }

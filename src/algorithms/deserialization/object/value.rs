@@ -1,13 +1,20 @@
 use iref::Iri;
 use json_syntax::{JsonNumberBuf, JsonValue, PrintJson};
-use linked_data::{LinkedDataSerializer, SerializeLinkedData};
+use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
 use rdf_types::{Literal, Term, RDF_JSON};
 use xsd_types::{Double, ParseXsd, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
 
 use crate::{object::value::LiteralType, LenientLangTag, ValueObject};
 
-impl SerializeLinkedData for ValueObject {
-	fn serialize_rdf<S>(&self, mut serializer: S, _: Option<&Term>) -> Result<S::Ok, S::Error>
+use super::super::RdfSerializationOptions;
+
+impl SerializeLinkedDataWith<RdfSerializationOptions> for ValueObject {
+	fn serialize_rdf_with<S>(
+		&self,
+		_opts: RdfSerializationOptions,
+		mut serializer: S,
+		_: Option<&Term>,
+	) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,
 	{
@@ -58,6 +65,15 @@ impl SerializeLinkedData for ValueObject {
 
 		serializer.serialize_resource(Some(Term::literal(literal)))?;
 		serializer.end()
+	}
+}
+
+impl SerializeLinkedData for ValueObject {
+	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
+	where
+		S: LinkedDataSerializer<Term>,
+	{
+		self.serialize_rdf_with(RdfSerializationOptions::default(), serializer, graph)
 	}
 }
 

@@ -17,6 +17,9 @@ pub fn build_options(entry: &ManifestEntry) -> JsonLdOptions {
 		if let Some(compact_arrays) = opts.compact_arrays {
 			options.compact_arrays = compact_arrays;
 		}
+		if let Some(produce_generalized_rdf) = opts.produce_generalized_rdf {
+			options.produce_generalized_rdf = produce_generalized_rdf;
+		}
 	}
 	options
 }

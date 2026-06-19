@@ -309,7 +309,7 @@ mod processor;
 pub mod syntax;
 
 #[cfg(feature = "algorithms")]
-pub use algorithms::{Error, ErrorCode, Warning};
+pub use algorithms::{Error, ErrorCode, RdfSerializationOptions, Warning};
 pub use core::*;
 pub use linked_data;
 pub use processor::*;

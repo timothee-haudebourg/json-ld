@@ -1,44 +1,53 @@
-use linked_data::SerializeLinkedData;
+use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
 use rdf_types::{Term, RDF_FIRST, RDF_NIL, RDF_REST};
 
 use crate::{object::ListObject, IndexedObject};
 
-impl SerializeLinkedData for ListObject {
-	fn serialize_rdf<S>(
+use super::super::RdfSerializationOptions;
+
+impl SerializeLinkedDataWith<RdfSerializationOptions> for ListObject {
+	fn serialize_rdf_with<S>(
 		&self,
+		opts: RdfSerializationOptions,
 		serializer: S,
-		graph: Option<&rdf_types::Term>,
+		graph: Option<&Term>,
 	) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::LinkedDataSerializer<rdf_types::Term>,
+		S: LinkedDataSerializer<Term>,
 	{
-		Rest(self.as_slice()).serialize_rdf(serializer, graph)
+		RestWith(self.as_slice(), opts).serialize_rdf(serializer, graph)
 	}
 }
 
-struct Rest<'a>(&'a [IndexedObject]);
-
-impl SerializeLinkedData for Rest<'_> {
-	fn serialize_rdf<S>(
-		&self,
-		mut serializer: S,
-		graph: Option<&rdf_types::Term>,
-	) -> Result<S::Ok, S::Error>
+impl SerializeLinkedData for ListObject {
+	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
-		S: linked_data::LinkedDataSerializer<rdf_types::Term>,
+		S: LinkedDataSerializer<Term>,
+	{
+		self.serialize_rdf_with(RdfSerializationOptions::default(), serializer, graph)
+	}
+}
+
+struct RestWith<'a>(&'a [IndexedObject], RdfSerializationOptions);
+
+impl SerializeLinkedData for RestWith<'_> {
+	fn serialize_rdf<S>(&self, mut serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
+	where
+		S: LinkedDataSerializer<Term>,
 	{
 		let node = match self.0.split_first() {
 			Some((first, rest)) => {
 				let subject = serializer.interpret(None)?;
 				let predicate = Term::iri(RDF_FIRST.to_owned());
-				first.serialize_rdf_objects(
+				first.serialize_rdf_objects_with(
+					self.1.clone(),
 					serializer.as_dyn_mut(),
 					&subject,
 					&predicate,
 					graph,
 				)?;
 				let predicate = Term::iri(RDF_REST.to_owned());
-				Rest(rest).serialize_rdf_objects(
+				RestWith(rest, self.1.clone()).serialize_rdf_objects(
 					serializer.as_dyn_mut(),
 					&subject,
 					&predicate,
