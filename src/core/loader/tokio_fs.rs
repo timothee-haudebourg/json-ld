@@ -1,5 +1,5 @@
-use iref::{Iri, IriBuf};
 use json_syntax::{JsonValue, ParseJson};
+use rdf_syntax::{Iri, IriBuf};
 use std::path::PathBuf;
 
 use crate::{Document, LoadError};

@@ -1,6 +1,6 @@
 use crate::syntax::{CompactIri, ExpandableRef};
-use iref::Iri;
-use rdf_types::BlankId;
+use rdf_syntax::BlankId;
+use rdf_syntax::Iri;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

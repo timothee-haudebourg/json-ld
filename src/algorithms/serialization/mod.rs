@@ -1,5 +1,5 @@
 use linked_data::{DeserializeLinkedData, LinkedDataDeserializer};
-use rdf_types::{pattern::CanonicalQuadPattern, Quad, Term};
+use rdf_syntax::{pattern::CanonicalQuadPattern, Quad, Term};
 
 use crate::{ExpandedDocument, Indexed};
 
@@ -20,7 +20,7 @@ where
 		while let Some(Quad(subject, _, _, _)) =
 			deserializer.peek_quad(CanonicalQuadPattern::from_graph(graph))?
 		{
-			let subject = subject.clone();
+			let subject = subject.into_owned();
 			result.insert(Indexed::unindexed(deserialize_object(
 				&mut deserializer,
 				&subject,

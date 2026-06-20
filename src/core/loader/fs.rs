@@ -1,5 +1,5 @@
-use iref::{Iri, IriBuf};
 use json_syntax::{JsonValue, ParseJson};
+use rdf_syntax::{Iri, IriBuf};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};

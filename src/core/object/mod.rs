@@ -3,9 +3,9 @@ use crate::object::typ::TypeRef;
 use crate::syntax::Keyword;
 use crate::{Id, Indexed, LenientLangTag, Relabel, Relabeling};
 use educe::Educe;
-use iref::Iri;
 use json_syntax::JsonNumber;
-use rdf_types::Generator;
+use rdf_syntax::Generator;
+use rdf_syntax::Iri;
 use std::hash::Hash;
 
 pub mod list;

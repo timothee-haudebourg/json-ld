@@ -1,5 +1,5 @@
-use iref::{Iri, IriBuf};
-use rdf_types::{BlankId, BlankIdBuf};
+use rdf_syntax::{BlankId, BlankIdBuf};
+use rdf_syntax::{Iri, IriBuf};
 
 use crate::{Id, ValidId};
 use std::fmt;

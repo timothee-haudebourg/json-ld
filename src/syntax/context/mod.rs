@@ -1,4 +1,4 @@
-use iref::{Iri, IriRef, IriRefBuf};
+use rdf_syntax::{Iri, IriBuf, IriRef, IriRefBuf};
 
 mod definition;
 
@@ -150,8 +150,8 @@ impl<'a> From<&'a IriRef> for Context {
 	}
 }
 
-impl From<iref::IriBuf> for Context {
-	fn from(i: iref::IriBuf) -> Self {
+impl From<IriBuf> for Context {
+	fn from(i: IriBuf) -> Self {
 		Self::One(ContextEntry::IriRef(i.into()))
 	}
 }
@@ -199,8 +199,8 @@ impl<'a> From<&'a IriRef> for ContextEntry {
 	}
 }
 
-impl From<iref::IriBuf> for ContextEntry {
-	fn from(i: iref::IriBuf) -> Self {
+impl From<IriBuf> for ContextEntry {
+	fn from(i: IriBuf) -> Self {
 		ContextEntry::IriRef(i.into())
 	}
 }

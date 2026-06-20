@@ -9,7 +9,7 @@ use json_ld_core::{
 	Indexed, IndexedObject, Node, Object,
 };
 use linked_data::{CowRdfTerm, LinkedDataResource};
-use rdf_types::{
+use rdf_syntax::{
 	interpretation::{
 		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
 	},

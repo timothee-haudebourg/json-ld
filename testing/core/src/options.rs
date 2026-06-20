@@ -9,11 +9,11 @@ use crate::SpecVersion;
 pub struct TestOptions {
 	/// Base IRI.
 	#[ld(prop = "test:base")]
-	pub base: Option<iref::IriBuf>,
+	pub base: Option<json_ld::IriBuf>,
 
 	/// Expand context IRI.
 	#[ld(prop = "test:expandContext")]
-	pub expand_context: Option<iref::IriBuf>,
+	pub expand_context: Option<json_ld::IriBuf>,
 
 	/// Processing mode.
 	#[ld(prop = "test:processingMode")]

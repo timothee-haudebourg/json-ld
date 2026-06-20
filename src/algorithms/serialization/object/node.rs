@@ -1,5 +1,5 @@
 use linked_data::LinkedDataDeserializer;
-use rdf_types::{pattern::CanonicalQuadPattern, Quad, RDF_TYPE};
+use rdf_syntax::{pattern::CanonicalQuadPattern, Quad, RDF_TYPE};
 
 use crate::{Indexed, NodeObject};
 
@@ -23,7 +23,7 @@ where
 		while let Some(Quad(graph_subject, _, _, _)) =
 			deserializer.peek_quad(CanonicalQuadPattern::from_graph(Some(subject)))?
 		{
-			let graph_subject = graph_subject.clone();
+			let graph_subject = graph_subject.into_owned();
 
 			result
 				.graph
@@ -63,6 +63,7 @@ pub fn deserialize_node_object_ref<R, D>(
 	subject: &R,
 ) -> Result<NodeObject, D::Error>
 where
+	R: ToOwned,
 	D: LinkedDataDeserializer<R>,
 {
 	Ok(NodeObject::new_with_id(
@@ -73,8 +74,9 @@ where
 fn deserialize_resource_id_opt<R, D>(
 	deserializer: &mut D,
 	subject: &R,
-) -> Result<Option<rdf_types::Id>, D::Error>
+) -> Result<Option<rdf_syntax::Id>, D::Error>
 where
+	R: ToOwned,
 	D: LinkedDataDeserializer<R>,
 {
 	let mut id = None;
@@ -95,8 +97,9 @@ where
 fn deserialize_resource_id<R, D>(
 	deserializer: &mut D,
 	subject: &R,
-) -> Result<rdf_types::Id, D::Error>
+) -> Result<rdf_syntax::Id, D::Error>
 where
+	R: ToOwned,
 	D: LinkedDataDeserializer<R>,
 {
 	deserialize_resource_id_opt(deserializer, subject)?

@@ -1,6 +1,6 @@
 use crate::syntax::{CompactIri, Keyword};
-use iref::Iri;
-use rdf_types::BlankId;
+use rdf_syntax::BlankId;
+use rdf_syntax::Iri;
 use std::borrow::Borrow;
 use std::fmt;
 use std::hash::Hash;

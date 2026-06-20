@@ -13,7 +13,7 @@ use crate::{TestKind, TestOptions};
 pub struct ManifestEntry {
 	/// Test identifier (IRI).
 	#[ld(flatten)]
-	pub id: iref::IriBuf,
+	pub id: json_ld::IriBuf,
 
 	/// Human-readable test name.
 	#[ld(prop = "mf:name")]
@@ -25,7 +25,7 @@ pub struct ManifestEntry {
 
 	/// Input document IRI.
 	#[ld(prop = "mf:action")]
-	pub input: iref::IriBuf,
+	pub input: json_ld::IriBuf,
 
 	/// Test kind (positive/negative) with associated expected result.
 	#[ld(flatten)]

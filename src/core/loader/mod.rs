@@ -1,5 +1,5 @@
-use iref::{Iri, IriBuf};
 use json_syntax::JsonValue;
+use rdf_syntax::{Iri, IriBuf};
 use std::borrow::Cow;
 
 use crate::{syntax::ContextDocumentValue, Document};

@@ -1,4 +1,4 @@
-use iref::{iri, Iri, IriBuf};
+use rdf_syntax::{iri, Iri, IriBuf};
 
 pub const PROFILE_EXPANDED_IRI: &Iri = iri!("http://www.w3.org/ns/json-ld#expanded");
 pub const PROFILE_COMPACTED_IRI: &Iri = iri!("http://www.w3.org/ns/json-ld#compacted");

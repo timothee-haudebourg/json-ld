@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use json_ld_core::{object::node::Multiset, Indexed, IndexedNode, IndexedObject};
 use linked_data::LinkedDataResource;
-use rdf_types::{
+use rdf_syntax::{
 	interpretation::{
 		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
 	},

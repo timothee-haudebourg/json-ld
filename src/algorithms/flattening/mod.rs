@@ -1,5 +1,5 @@
 //! Flattening algorithm and related types.
-use rdf_types::Generator;
+use rdf_syntax::Generator;
 
 use crate::{flattened::UnorderedFlattenedDocument, ExpandedDocument, FlattenedDocument};
 

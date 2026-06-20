@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use iref::{Iri, IriBuf};
+use rdf_syntax::{Iri, IriBuf};
 
 /// Context processing stack.
 ///

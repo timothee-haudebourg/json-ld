@@ -1,5 +1,5 @@
 use crate::syntax::{CompactIri, ExpandableRef, Keyword};
-use iref::Iri;
+use rdf_syntax::Iri;
 use std::hash::Hash;
 
 /// Term definition type.

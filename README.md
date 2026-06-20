@@ -113,14 +113,14 @@ let expanded = input.expand(&mut loader)
 ```
 
 Lastly, the same example replacing [`IriBuf`] with the lightweight
-[`rdf_types::vocabulary::Index`] type.
+[`rdf_syntax::vocabulary::Index`] type.
 
 [`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
 
 ```rust
-use rdf_types::{Subject, vocabulary::{IriVocabularyMut, IndexVocabulary}};
+use rdf_syntax::{Subject, vocabulary::{IriVocabularyMut, IndexVocabulary}};
 use contextual::WithContext;
-// Creates the vocabulary that will map each `rdf_types::vocabulary::Index`
+// Creates the vocabulary that will map each `rdf_syntax::vocabulary::Index`
 // to an actual `IriBuf`.
 let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 
@@ -207,13 +207,13 @@ depending on your starting point:
     This will return the list of nodes as a `FlattenedDocument`.
 
 Flattening requires assigning an identifier to nested anonymous nodes,
-which is why the flattening functions take an [`rdf_types::MetaGenerator`]
+which is why the flattening functions take an [`rdf_syntax::MetaGenerator`]
 as parameter. This generator is in charge of creating new fresh identifiers
 (with their metadata). The most common generator is
-[`rdf_types::generator::Blank`] that creates blank node identifiers.
+[`rdf_syntax::generator::Blank`] that creates blank node identifiers.
 
-[`rdf_types::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
-[`rdf_types::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
+[`rdf_syntax::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
+[`rdf_syntax::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
 
 #### Example
 
@@ -231,7 +231,7 @@ let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld
 let mut loader = json_ld::FsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
-let mut generator = rdf_types::generator::Blank::new();
+let mut generator = rdf_syntax::generator::Blank::new();
 
 let nodes = input
   .flatten(&mut generator, &mut loader)
@@ -248,18 +248,18 @@ represent IRIs an Blank Node Identifiers. Most types have them
 parameterized.
 To avoid unnecessary allocations and expensive comparisons, it is highly
 recommended to use a cheap, lightweight datatype such as
-[`rdf_types::vocabulary::Index`]. This type will represent each distinct
+[`rdf_syntax::vocabulary::Index`]. This type will represent each distinct
 IRI/blank node identifier with a unique index. In this case a
-[`rdf_types::IndexVocabulary`] that maps each index back/to its
+[`rdf_syntax::IndexVocabulary`] that maps each index back/to its
 original IRI/Blank identifier representation can be passed to every
 function.
 
 You can also use your own index type, with your own
-[`rdf_types::Vocabulary`] implementation.
+[`rdf_syntax::Vocabulary`] implementation.
 
-[`rdf_types::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
-[`rdf_types::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
-[`rdf_types::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
+[`rdf_syntax::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
+[`rdf_syntax::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
+[`rdf_syntax::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
 
 ### Displaying vocabulary-dependent values
 
@@ -272,12 +272,12 @@ By importing the [`contextual::WithContext`] which provides the `with`
 method you can display such value like this:
 ```rust
 use static_iref::iri;
-use rdf_types::vocabulary::{IriVocabularyMut, IndexVocabulary};
+use rdf_syntax::vocabulary::{IriVocabularyMut, IndexVocabulary};
 use contextual::WithContext;
 
 let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
 let i = vocabulary.insert(iri!("https://docs.rs/contextual"));
-let value = rdf_types::Subject::Iri(i);
+let value = rdf_syntax::Subject::Iri(i);
 
 println!("{}", value.with(&vocabulary))
 ```

@@ -1,5 +1,5 @@
 use crate::{Id, ValidId};
-use rdf_types::{BlankId, BlankIdBuf, Generator};
+use rdf_syntax::{BlankId, BlankIdBuf, Generator};
 use std::collections::HashMap;
 
 #[derive(Default)]

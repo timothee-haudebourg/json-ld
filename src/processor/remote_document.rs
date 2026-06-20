@@ -1,5 +1,5 @@
-use iref::Iri;
 use json_syntax::JsonValue;
+use rdf_syntax::Iri;
 
 use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
@@ -101,7 +101,7 @@ impl JsonLdProcessor for Document {
 			JsonLdProcessor::async_expand_with(self, env.as_ref(), options.clone().unordered())
 				.await?;
 
-		let generator = rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
+		let generator = rdf_syntax::generator::BlankIdGenerator::new_with_prefix("b".to_string());
 		let flattened_output = expanded_input.flatten(generator, options.ordered)?;
 
 		match context {

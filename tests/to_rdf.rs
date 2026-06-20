@@ -1,5 +1,5 @@
 use json_ld::{
-	rdf_types::{self, dataset::IndexedBTreeDataset, Term},
+	rdf_syntax::{self, dataset::IndexedBTreeDataset, Term},
 	FsLoader, JsonLdProcessor, Loader,
 };
 use json_ld_testing::{ManifestEntry, TestKind};
@@ -17,7 +17,7 @@ fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 	match &entry.kind {
 		TestKind::Positive { expect, .. } => {
 			let generator =
-				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
+				rdf_syntax::generator::BlankIdGenerator::new_with_prefix("b".to_string());
 			let input = loader.load(&entry.input).unwrap();
 			let quads = input
 				.to_rdf_with(loader, generator, options)
@@ -30,8 +30,7 @@ fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 			let (expected_quads, _) = grdf_document_from_str(&expected_content).unwrap();
 			let expected_dataset: IndexedBTreeDataset<Term> = expected_quads.into_iter().collect();
 
-			let success =
-				rdf_types::dataset::isomorphism::are_isomorphic(&dataset, &expected_dataset);
+			let success = rdf_syntax::are_isomorphic(&dataset, &expected_dataset);
 
 			if !success {
 				eprintln!("output=");
@@ -51,7 +50,7 @@ fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 			..
 		} => {
 			let generator =
-				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
+				rdf_syntax::generator::BlankIdGenerator::new_with_prefix("b".to_string());
 			let input = loader.load(&entry.input).unwrap();
 			let result = input.to_rdf_with(loader, generator, options);
 			assert!(
@@ -63,7 +62,7 @@ fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
 		}
 		TestKind::PositiveSyntax => {
 			let generator =
-				rdf_types::generator::BlankIdGenerator::new_with_prefix("b".to_string());
+				rdf_syntax::generator::BlankIdGenerator::new_with_prefix("b".to_string());
 			let input = loader.load(&entry.input).unwrap();
 			input
 				.to_rdf_with(loader, generator, options)

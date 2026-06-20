@@ -1,11 +1,11 @@
-use iref::{Iri, IriBuf};
-use rdf_types::{BlankId, BlankIdBuf, Generator, InvalidBlankId};
+use rdf_syntax::{BlankId, BlankIdBuf, Generator, InvalidBlankId};
+use rdf_syntax::{Iri, IriBuf};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
 use std::hash::Hash;
 
-pub type ValidId = rdf_types::Id;
+pub type ValidId = rdf_syntax::Id;
 
 use crate::Term;
 
@@ -146,7 +146,7 @@ impl indexmap::Equivalent<Id> for &Iri {
 	}
 }
 
-impl indexmap::Equivalent<Id> for iref::IriBuf {
+impl indexmap::Equivalent<Id> for rdf_syntax::IriBuf {
 	fn equivalent(&self, key: &Id) -> bool {
 		match key {
 			Id::Valid(ValidId::Iri(iri)) => self == iri,
@@ -155,7 +155,7 @@ impl indexmap::Equivalent<Id> for iref::IriBuf {
 	}
 }
 
-impl indexmap::Equivalent<Id> for rdf_types::BlankId {
+impl indexmap::Equivalent<Id> for rdf_syntax::BlankId {
 	fn equivalent(&self, key: &Id) -> bool {
 		match key {
 			Id::Valid(ValidId::BlankId(b)) => self == b,
@@ -164,7 +164,7 @@ impl indexmap::Equivalent<Id> for rdf_types::BlankId {
 	}
 }
 
-impl indexmap::Equivalent<Id> for rdf_types::BlankIdBuf {
+impl indexmap::Equivalent<Id> for rdf_syntax::BlankIdBuf {
 	fn equivalent(&self, key: &Id) -> bool {
 		match key {
 			Id::Valid(ValidId::BlankId(b)) => self == b,

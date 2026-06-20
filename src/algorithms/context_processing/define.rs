@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use iref::{Iri, IriRef};
-use rdf_types::BlankId;
+use rdf_syntax::BlankId;
+use rdf_syntax::{Iri, IriRef};
 
 use crate::{
 	algorithms::{

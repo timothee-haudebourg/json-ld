@@ -1,6 +1,6 @@
 use crate::{Id, Indexed, ValidId};
 use indexmap::IndexSet;
-use rdf_types::BlankId;
+use rdf_syntax::BlankId;
 
 pub trait MappedEq<T: ?Sized = Self> {
 	/// Structural equality with mapped blank identifiers.

@@ -3,7 +3,7 @@ use super::{
 };
 use crate::syntax::{Direction, LenientLangTagBuf, Nullable};
 
-use iref::IriRef;
+use rdf_syntax::IriRef;
 
 impl ContextDefinition {
 	pub fn iter(&self) -> Entries<'_> {

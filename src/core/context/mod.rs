@@ -8,7 +8,7 @@ pub use container::Container;
 use crate::syntax::context::ContextTerm;
 use crate::syntax::{Context, KeywordType};
 use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term};
-use iref::{Iri, IriBuf};
+use rdf_syntax::{Iri, IriBuf};
 use std::borrow::{Borrow, Cow};
 use std::cell::OnceCell;
 use std::hash::Hash;

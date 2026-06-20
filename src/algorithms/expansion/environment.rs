@@ -1,4 +1,4 @@
-use iref::Iri;
+use rdf_syntax::Iri;
 
 use crate::{
 	algorithms::expansion::ExpansionOptions,

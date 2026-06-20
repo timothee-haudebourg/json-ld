@@ -1,6 +1,6 @@
 use crate::{Indexed, IndexedObject, NodeObject, Object, Relabel};
 use indexmap::IndexSet;
-use rdf_types::Generator;
+use rdf_syntax::Generator;
 
 /// Result of the document expansion algorithm.
 ///

@@ -1,5 +1,5 @@
 use linked_data::LinkedDataDeserializer;
-use rdf_types::{CowGroundTerm, CowTerm, Quad, RDF_FIRST, RDF_LIST, RDF_NIL, RDF_REST, RDF_TYPE};
+use rdf_syntax::{CowGroundTerm, CowTerm, Quad, RDF_FIRST, RDF_LIST, RDF_NIL, RDF_REST, RDF_TYPE};
 
 use crate::{algorithms::serialization::object::deserialize_object, object::ListObject, Indexed};
 
@@ -55,7 +55,7 @@ where
 
 fn is_list_object<R, D>(deserializer: &D, head: &R, graph: Option<&R>) -> Result<bool, D::Error>
 where
-	R: PartialEq,
+	R: ToOwned + PartialEq,
 	D: LinkedDataDeserializer<R>,
 {
 	// Check if head is rdf:nil (list terminator).
@@ -65,8 +65,8 @@ where
 			let Quad(_, predicate, object, _) = quad?;
 
 			// The only allowed quad is `s rdf:type rdf:List`.
-			if !deserializer.is_iri(predicate, RDF_TYPE)?
-				|| !deserializer.is_iri(object, RDF_LIST)?
+			if !deserializer.is_iri(&*predicate, RDF_TYPE)?
+				|| !deserializer.is_iri(&*object, RDF_LIST)?
 			{
 				return Ok(false);
 			}
@@ -91,15 +91,15 @@ where
 	for quad in deserializer.peek_quads(Quad(Some(head), None, None, Some(graph))) {
 		let Quad(_, predicate, object, _) = quad?;
 
-		for p_term in deserializer.terms_of(predicate) {
+		for p_term in deserializer.terms_of(&*predicate) {
 			if let CowTerm::Ground(CowGroundTerm::Iri(p_iri)) = p_term? {
-				if *p_iri == RDF_TYPE && !deserializer.is_iri(object, RDF_LIST)? {
+				if *p_iri == RDF_TYPE && !deserializer.is_iri(&*object, RDF_LIST)? {
 					// Only allowed type is rdf:List.
 					return Ok(false);
 				}
 
 				if *p_iri == RDF_FIRST {
-					if let Some(other) = first.replace(object) {
+					if let Some(other) = first.replace(object.clone()) {
 						if other != object {
 							// Can't have multiple first values.
 							return Ok(false);
@@ -108,7 +108,7 @@ where
 				}
 
 				if *p_iri == RDF_REST {
-					if let Some(other) = rest.replace(object) {
+					if let Some(other) = rest.replace(object.clone()) {
 						if other != object {
 							// Can't have multiple rest values.
 							return Ok(false);
@@ -130,5 +130,5 @@ where
 	};
 
 	// Check the rest of the list.
-	is_list_object(deserializer, rest, graph)
+	is_list_object(deserializer, &*rest, graph)
 }

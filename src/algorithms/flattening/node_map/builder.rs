@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use indexmap::IndexSet;
-use rdf_types::{BlankId, BlankIdBuf, Generator};
+use rdf_syntax::{BlankId, BlankIdBuf, Generator};
 
 use crate::{object::ListObject, Id, Indexed, IndexedObject, NodeObject, Object, ValidId};
 

@@ -1,5 +1,5 @@
 use linked_data::{DeserializeLinkedData, LinkedDataDeserializer};
-use rdf_types::Term;
+use rdf_syntax::Term;
 
 use crate::Object;
 

@@ -1,7 +1,7 @@
 use hashbrown::HashSet;
-use iref::{Iri, IriBuf};
 use json_syntax::JsonValue;
 use mime::Mime;
+use rdf_syntax::{Iri, IriBuf};
 
 pub mod expanded;
 pub mod flattened;

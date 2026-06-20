@@ -1,7 +1,7 @@
 use super::{RdfDirection, ValidId, Value};
 use crate::{flattening::NodeMap, ExpandedDocument, FlattenedDocument, LdQuads};
-use rdf_types::vocabulary::IriVocabularyMut;
-use rdf_types::{
+use rdf_syntax::vocabulary::IriVocabularyMut;
+use rdf_syntax::{
 	vocabulary::{BlankIdVocabulary, IriVocabulary, LiteralVocabulary, LiteralVocabularyMut},
 	Generator, Triple, Vocabulary,
 };
@@ -10,9 +10,9 @@ use std::convert::TryInto;
 use std::hash::Hash;
 
 pub type Quad<T, B, L> =
-	rdf_types::Quad<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>, ValidId<T, B>>;
+	rdf_syntax::Quad<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>, ValidId<T, B>>;
 
-pub type QuadRef<'a, T, B, L> = rdf_types::Quad<
+pub type QuadRef<'a, T, B, L> = rdf_syntax::Quad<
 	Cow<'a, ValidId<T, B>>,
 	Cow<'a, ValidId<T, B>>,
 	Value<T, B, L>,
@@ -67,7 +67,7 @@ where
 				) {
 					Some(Triple(subject, property, object)) => {
 						if self.produce_generalized_rdf || !property.is_blank() {
-							break Some(rdf_types::Quad(
+							break Some(rdf_syntax::Quad(
 								Cow::Owned(subject),
 								Cow::Owned(property),
 								object,
@@ -118,7 +118,7 @@ where
 							});
 						}
 
-						break Some(rdf_types::Quad(
+						break Some(rdf_syntax::Quad(
 							Cow::Borrowed(rdf_subject),
 							rdf_property,
 							compound_value.value,
@@ -149,8 +149,8 @@ where
 	type Item = Quad<N::Iri, N::BlankId, N::Literal>;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.inner.next().map(|rdf_types::Quad(s, p, o, g)| {
-			rdf_types::Quad(s.into_owned(), p.into_owned(), o, g.cloned())
+		self.inner.next().map(|rdf_syntax::Quad(s, p, o, g)| {
+			rdf_syntax::Quad(s.into_owned(), p.into_owned(), o, g.cloned())
 		})
 	}
 }
@@ -182,7 +182,7 @@ pub trait RdfQuads<T, B> {
 		(): Vocabulary<Iri = T, BlankId = B>,
 	{
 		self.rdf_quads_with(
-			rdf_types::vocabulary::no_vocabulary_mut(),
+			rdf_syntax::vocabulary::no_vocabulary_mut(),
 			generator,
 			rdf_direction,
 		)

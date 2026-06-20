@@ -3,7 +3,7 @@ use crate::{
 	Object,
 };
 use educe::Educe;
-use rdf_types::Generator;
+use rdf_syntax::Generator;
 use std::collections::{HashMap, HashSet};
 
 mod builder;

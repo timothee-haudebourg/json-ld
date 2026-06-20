@@ -1,5 +1,5 @@
 use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
-use rdf_types::{Term, RDF_FIRST, RDF_NIL, RDF_REST};
+use rdf_syntax::{Term, RDF_FIRST, RDF_NIL, RDF_REST};
 
 use crate::{object::ListObject, IndexedObject};
 

@@ -4,7 +4,7 @@ use crate::syntax::{
 	Context, KeywordType,
 };
 use crate::{Direction, LenientLangTagBuf, Nullable, Term, Type};
-use iref::{Iri, IriBuf};
+use rdf_syntax::{Iri, IriBuf};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::{borrow::Borrow, fmt};

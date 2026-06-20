@@ -1,6 +1,6 @@
 use json_ld_core::{object::Literal, LangString, Value};
 use linked_data::RdfLiteral;
-use rdf_types::{vocabulary::IriVocabularyMut, LiteralType};
+use rdf_syntax::{vocabulary::IriVocabularyMut, LiteralType};
 use xsd_types::XSD_STRING;
 
 pub fn literal_to_value<V: IriVocabularyMut>(

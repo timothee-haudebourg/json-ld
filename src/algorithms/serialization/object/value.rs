@@ -1,5 +1,5 @@
 use linked_data::LinkedDataDeserializer;
-use rdf_types::{CowGroundTerm, CowTerm};
+use rdf_syntax::{CowGroundTerm, CowTerm};
 
 use crate::ValueObject;
 
@@ -8,6 +8,7 @@ pub fn try_deserialize_value_object<R, D>(
 	subject: &R,
 ) -> Result<Option<ValueObject>, D::Error>
 where
+	R: ToOwned,
 	D: LinkedDataDeserializer<R>,
 {
 	let mut value = None;

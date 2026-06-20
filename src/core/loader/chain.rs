@@ -1,7 +1,7 @@
 use core::fmt;
 
 use crate::{Document, LoadError};
-use iref::Iri;
+use rdf_syntax::Iri;
 
 use super::AsyncLoader;
 

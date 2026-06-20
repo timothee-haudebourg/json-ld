@@ -1,7 +1,7 @@
 //! JSON-LD context processing types and algorithms.
 use std::borrow::Cow;
 
-use iref::Iri;
+use rdf_syntax::Iri;
 
 mod define;
 mod iri;

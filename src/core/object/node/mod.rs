@@ -4,8 +4,8 @@ use crate::{
 };
 use educe::Educe;
 use indexmap::IndexSet;
-use iref::Iri;
-use rdf_types::Generator;
+use rdf_syntax::Generator;
+use rdf_syntax::Iri;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 

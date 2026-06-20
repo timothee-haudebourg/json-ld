@@ -1,5 +1,5 @@
-use iref::{Iri, IriBuf, IriRef};
-use rdf_types::BlankId;
+use rdf_syntax::BlankId;
+use rdf_syntax::{Iri, IriBuf, IriRef};
 
 use crate::{
 	algorithms::{

@@ -22,7 +22,7 @@ use syn::{parse_macro_input, punctuated::Punctuated, ItemFn, LitStr, Token};
 
 use json_ld::{
 	iref::{Iri, IriBuf, IriRef},
-	linked_data, rdf_types, FsLoader, Loader,
+	linked_data, FsLoader, Loader,
 };
 use json_ld_testing_core::{Manifest, SpecVersion};
 
@@ -134,7 +134,7 @@ fn load_manifest(manifest_url: &Iri, config: &TestSuiteConfig) -> Manifest {
 	let quads = linked_data::ser::to_rdf_quads(&expanded)
 		.unwrap_or_else(|e| panic!("failed to serialize manifest to RDF: {e}"));
 
-	let manifest_term = rdf_types::Term::iri(
+	let manifest_term = json_ld::rdf_syntax::Term::iri(
 		manifest_url
 			.as_iri_ref()
 			.resolved(Iri::new(BASE_URL).unwrap()),

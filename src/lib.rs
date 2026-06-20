@@ -42,7 +42,7 @@
 //! ### Example
 //!
 //! ```
-//! use static_iref::iri;
+//! use rdf_syntax::iri;
 //! use json_ld::{JsonLdProcessor, Document, syntax::{JsonValue, ParseJson}};
 //!
 //! // Parse a JSON-LD document.
@@ -67,7 +67,7 @@
 //! Here is another example using a file-system loader.
 //!
 //! ```no_run
-//! use static_iref::iri;
+//! use rdf_syntax::iri;
 //! use json_ld::{JsonLdProcessor, Loader};
 //!
 //! let mut loader = json_ld::FsLoader::default();
@@ -99,7 +99,7 @@
 //! Here is an example compacting an arbitrary document using [`JsonLdProcessor::compact`].
 //!
 //! ```no_run
-//! use static_iref::iri;
+//! use rdf_syntax::iri;
 //! use json_ld::{JsonLdProcessor, Loader, RemoteContext, syntax::PrintJson};
 //!
 //! let mut loader = json_ld::FsLoader::default();
@@ -137,7 +137,7 @@
 //! Here is an example flattening an arbitrary document using [`JsonLdProcessor::flatten`].
 //!
 //! ```no_run
-//! use static_iref::iri;
+//! use rdf_syntax::iri;
 //! use json_ld::{JsonLdProcessor, Loader, syntax::PrintJson};
 //!
 //! let mut loader = json_ld::FsLoader::default();

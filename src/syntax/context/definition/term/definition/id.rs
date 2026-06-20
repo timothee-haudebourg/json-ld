@@ -1,7 +1,7 @@
 use crate::syntax::context::definition::KeyOrKeywordRef;
 use crate::syntax::{CompactIri, ExpandableRef, Keyword};
-use iref::Iri;
-use rdf_types::BlankId;
+use rdf_syntax::BlankId;
+use rdf_syntax::Iri;
 use std::fmt;
 use std::hash::Hash;
 

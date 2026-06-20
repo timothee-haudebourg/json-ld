@@ -4,7 +4,7 @@ use crate::{object::value, Direction, Id, Indexed, IndexedObject, Node, Object, 
 use iref::{Iri, IriBuf};
 use json_syntax::Print;
 use langtag::LangTagBuf;
-use rdf_types::{Generator, Literal};
+use rdf_syntax::{Generator, Literal};
 use smallvec::SmallVec;
 
 mod quad;
@@ -25,7 +25,7 @@ pub use quad::*;
 // pub const XSD_STRING: &Iri = iri!("http://www.w3.org/2001/XMLSchema#string");
 
 /// JSON-LD to RDF triple.
-pub type Triple<T, B, L> = rdf_types::Triple<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>>;
+pub type Triple<T, B, L> = rdf_syntax::Triple<ValidId<T, B>, ValidId<T, B>, Value<T, B, L>>;
 
 impl<T: Clone, B: Clone> Id<T, B> {
 	fn rdf_value<L>(&self) -> Option<Value<T, B, L>> {
@@ -102,7 +102,7 @@ pub struct CompoundLiteralTriples<T, B, L> {
 impl<T: Clone, B: Clone, L: Clone> CompoundLiteralTriples<T, B, L> {
 	fn next(&mut self, vocabulary: &mut impl IriVocabularyMut<Iri = T>) -> Option<Triple<T, B, L>> {
 		if let Some(value) = self.value.take() {
-			return Some(rdf_types::Triple(
+			return Some(rdf_syntax::Triple(
 				self.id.clone(),
 				ValidId::Iri(vocabulary.insert(RDF_VALUE)),
 				value,
@@ -110,7 +110,7 @@ impl<T: Clone, B: Clone, L: Clone> CompoundLiteralTriples<T, B, L> {
 		}
 
 		if let Some(direction) = self.direction.take() {
-			return Some(rdf_types::Triple(
+			return Some(rdf_syntax::Triple(
 				self.id.clone(),
 				ValidId::Iri(vocabulary.insert(RDF_DIRECTION)),
 				direction,
@@ -143,7 +143,7 @@ impl<T: Clone> crate::object::Value<T> {
 				Some(CompoundLiteral {
 					value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(
 						json.compact_print().to_string(),
-						rdf_types::LiteralType::Any(ty),
+						rdf_syntax::LiteralType::Any(ty),
 					))),
 					triples: None,
 				})
@@ -167,7 +167,7 @@ impl<T: Clone> crate::object::Value<T> {
 								value: Value::Literal(vocabulary.insert_owned_literal(
 									Literal::new(
 										string.to_string(),
-										rdf_types::LiteralType::Any(ty),
+										rdf_syntax::LiteralType::Any(ty),
 									),
 								)),
 								triples: None,
@@ -185,7 +185,7 @@ impl<T: Clone> crate::object::Value<T> {
 								value: Value::Literal(vocabulary.insert_owned_literal(
 									Literal::new(
 										string.to_string(),
-										rdf_types::LiteralType::LangString(tag),
+										rdf_syntax::LiteralType::LangString(tag),
 									),
 								)),
 								triples: None,
@@ -196,7 +196,7 @@ impl<T: Clone> crate::object::Value<T> {
 									value: Value::Literal(vocabulary.insert_owned_literal(
 										Literal::new(
 											string.to_string(),
-											rdf_types::LiteralType::Any(ty),
+											rdf_syntax::LiteralType::Any(ty),
 										),
 									)),
 									triples: None,
@@ -208,7 +208,7 @@ impl<T: Clone> crate::object::Value<T> {
 						Some(tag) => Some(CompoundLiteral {
 							value: Value::Literal(vocabulary.insert_owned_literal(Literal::new(
 								string.to_string(),
-								rdf_types::LiteralType::LangString(tag),
+								rdf_syntax::LiteralType::LangString(tag),
 							))),
 							triples: None,
 						}),
@@ -218,7 +218,7 @@ impl<T: Clone> crate::object::Value<T> {
 								value: Value::Literal(vocabulary.insert_owned_literal(
 									Literal::new(
 										string.to_string(),
-										rdf_types::LiteralType::Any(ty),
+										rdf_syntax::LiteralType::Any(ty),
 									),
 								)),
 								triples: None,
@@ -266,13 +266,13 @@ impl<T: Clone> crate::object::Value<T> {
 					value: match rdf_ty {
 						Some(ty) => Value::Literal(vocabulary.insert_owned_literal(Literal::new(
 							rdf_lit,
-							rdf_types::LiteralType::Any(ty),
+							rdf_syntax::LiteralType::Any(ty),
 						))),
 						None => {
 							let ty = vocabulary.insert(XSD_STRING);
 							Value::Literal(vocabulary.insert_owned_literal(Literal::new(
 								rdf_lit,
-								rdf_types::LiteralType::Any(ty),
+								rdf_syntax::LiteralType::Any(ty),
 							)))
 						}
 					},
@@ -565,14 +565,14 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
 									}
 								}
 
-								self.pending = Some(rdf_types::Triple(
+								self.pending = Some(rdf_syntax::Triple(
 									id.clone(),
 									ValidId::Iri(vocabulary.insert(RDF_FIRST)),
 									compound_value.value,
 								));
 
 								if let Some(previous_id) = previous {
-									break Some(rdf_types::Triple(
+									break Some(rdf_syntax::Triple(
 										previous_id,
 										ValidId::Iri(vocabulary.insert(RDF_REST)),
 										id.into_term(),
@@ -583,7 +583,7 @@ impl<'a, T, B, L> ListTriples<'a, T, B, L> {
 						None => {
 							self.stack.pop();
 							if let Some(previous_id) = previous {
-								break Some(rdf_types::Triple(
+								break Some(rdf_syntax::Triple(
 									previous_id,
 									ValidId::Iri(vocabulary.insert(RDF_REST)),
 									Value::Id(ValidId::Iri(vocabulary.insert(RDF_NIL))),
@@ -630,4 +630,4 @@ fn i18n(language: Option<LangTagBuf>, direction: Direction) -> IriBuf {
 	IriBuf::new(iri).unwrap()
 }
 
-pub type Value<T, B, L> = rdf_types::Object<ValidId<T, B>, L>;
+pub type Value<T, B, L> = rdf_syntax::Object<ValidId<T, B>, L>;

@@ -2,7 +2,7 @@ use linked_data::{
 	ser::{IdSerializer, SerializeLinkedDataWith},
 	LinkedDataSerializer, RdfUnordered, SerializeLinkedData,
 };
-use rdf_types::{Term, RDF_TYPE};
+use rdf_syntax::{Term, RDF_TYPE};
 
 use crate::{Id, NodeObject};
 

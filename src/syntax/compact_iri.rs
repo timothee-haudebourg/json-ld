@@ -1,4 +1,4 @@
-use rdf_types::{IriRef, IriRefBuf};
+use rdf_syntax::{IriRef, IriRefBuf};
 
 pub struct InvalidCompactIri<T>(pub T);
 

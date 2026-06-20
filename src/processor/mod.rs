@@ -1,7 +1,7 @@
-use iref::IriBuf;
 use json_syntax::JsonValue;
 use linked_data::ser::to_rdf_quads_interpretation_with;
-use rdf_types::{interpretation::GeneratorInterpretation, Generator, Quad};
+use rdf_syntax::IriBuf;
+use rdf_syntax::{interpretation::GeneratorInterpretation, Generator, Quad, Term};
 
 /// Drives a future that is expected to complete synchronously on the first
 /// poll (i.e., backed by a sync [`ProcessingEnvironment`]).
@@ -318,7 +318,7 @@ pub trait JsonLdProcessor: Sized {
 		env: impl ProcessingEnvironment,
 		generator: impl Generator,
 		options: JsonLdOptions,
-	) -> Result<Vec<Quad>, Error> {
+	) -> Result<Vec<Quad<Term>>, Error> {
 		resolve_sync(self.async_to_rdf_with(env.into_async_environment(), generator, options))
 	}
 
@@ -327,7 +327,7 @@ pub trait JsonLdProcessor: Sized {
 		&self,
 		env: impl ProcessingEnvironment,
 		generator: impl Generator,
-	) -> Result<Vec<Quad>, Error> {
+	) -> Result<Vec<Quad<Term>>, Error> {
 		self.to_rdf_with(env, generator, JsonLdOptions::default())
 	}
 
@@ -338,7 +338,7 @@ pub trait JsonLdProcessor: Sized {
 		env: impl AsyncProcessingEnvironment,
 		mut generator: impl Generator,
 		options: JsonLdOptions,
-	) -> Result<Vec<Quad>, Error> {
+	) -> Result<Vec<Quad<Term>>, Error> {
 		let rdf_serialization_options = options.rdf_serialization_options();
 		let mut expanded = JsonLdProcessor::async_expand_with(self, env, options).await?;
 		expanded.relabel(&mut generator);

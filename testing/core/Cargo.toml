@@ -10,7 +10,7 @@ proc_macro2 = ["dep:proc-macro2", "dep:quote"]
 [dependencies]
 iref = { path = "/home/work/Documents/Community/RDF/iri/iref" }
 static-iref = "3.0"
-rdf-types = { path = "/home/work/Documents/Community/RDF/rdf-types" }
+rdf-syntax = { path = "/home/work/Documents/Community/RDF/rdf-syntax" }
 linked-data = { path = "/home/work/Documents/Spruce/Core_Tooling/linked-data", features = ["derive"] }
 json-ld = { path = "../.." }
 proc-macro2 = { version = "1.0", optional = true }

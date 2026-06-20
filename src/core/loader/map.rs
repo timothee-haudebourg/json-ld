@@ -1,4 +1,4 @@
-use iref::{Iri, IriBuf};
+use rdf_syntax::{Iri, IriBuf};
 use std::collections::{BTreeMap, HashMap};
 
 use crate::{Document, LoadError};

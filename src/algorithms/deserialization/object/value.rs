@@ -1,7 +1,7 @@
-use iref::Iri;
 use json_syntax::{JsonNumberBuf, JsonValue, PrintJson};
 use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
-use rdf_types::{Literal, Term, RDF_JSON};
+use rdf_syntax::Iri;
+use rdf_syntax::{Literal, Term, RDF_JSON};
 use xsd_types::{Double, ParseXsd, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
 
 use crate::{object::value::LiteralType, ValueObject};

@@ -1,5 +1,5 @@
 use crate::syntax::CompactIri;
-use iref::Iri;
+use rdf_syntax::Iri;
 use std::fmt;
 use std::hash::Hash;
 

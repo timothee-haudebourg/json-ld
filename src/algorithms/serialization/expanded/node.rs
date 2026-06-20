@@ -1,7 +1,7 @@
 use iref::Iri;
 use json_ld_core::{object::node::Multiset, Indexed, Node, Object};
 use linked_data::{CowRdfTerm, LinkedDataResource};
-use rdf_types::{
+use rdf_syntax::{
 	interpretation::{
 		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
 	},
@@ -198,7 +198,7 @@ where
 	V: IriVocabulary,
 {
 	match id {
-		json_ld_core::Id::Valid(rdf_types::Id::Iri(i)) => match vocabulary.iri(i) {
+		json_ld_core::Id::Valid(rdf_syntax::Id::Iri(i)) => match vocabulary.iri(i) {
 			Some(i) => i == iri,
 			None => false,
 		},

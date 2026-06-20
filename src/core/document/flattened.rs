@@ -27,7 +27,7 @@ pub type FlattenedDocument = Vec<IndexedNode>;
 // 		&mut self,
 // 		vocabulary: &mut N,
 // 		generator: &mut G,
-// 		relabeling: &mut hashbrown::HashMap<B, rdf_types::Subject>,
+// 		relabeling: &mut hashbrown::HashMap<B, rdf_syntax::Subject>,
 // 	) where
 // 		T: Clone + Eq + Hash,
 // 		B: Clone + Eq + Hash,

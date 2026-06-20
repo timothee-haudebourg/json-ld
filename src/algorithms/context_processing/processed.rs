@@ -1,6 +1,6 @@
 use iref::IriBuf;
 use json_ld_core::Context;
-use rdf_types::BlankIdBuf;
+use rdf_syntax::BlankIdBuf;
 use std::ops;
 
 /// Processed context that also borrows the original, unprocessed, context.

@@ -10,11 +10,11 @@ pub enum TestKind {
 	Positive {
 		/// Expected output document IRI.
 		#[ld(prop = "mf:result")]
-		expect: iref::IriBuf,
+		expect: json_ld::IriBuf,
 
 		/// Context document IRI (for compaction tests).
 		#[ld(prop = "test:context")]
-		context: Option<iref::IriBuf>,
+		context: Option<json_ld::IriBuf>,
 	},
 
 	/// Test expects a specific error.
@@ -26,7 +26,7 @@ pub enum TestKind {
 
 		/// Context document IRI (for compaction tests).
 		#[ld(prop = "test:context")]
-		context: Option<iref::IriBuf>,
+		context: Option<json_ld::IriBuf>,
 	},
 
 	/// Test expects successful processing (syntax validation only).

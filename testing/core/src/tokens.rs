@@ -23,14 +23,14 @@ impl ToExprTokens for String {
 	}
 }
 
-impl ToExprTokens for iref::Iri {
+impl ToExprTokens for json_ld::Iri {
 	fn to_expr_tokens(&self) -> TokenStream {
 		let s = self.as_str();
 		quote! { json_ld::iref::iri!(#s).to_owned() }
 	}
 }
 
-impl ToExprTokens for iref::IriBuf {
+impl ToExprTokens for json_ld::IriBuf {
 	fn to_expr_tokens(&self) -> TokenStream {
 		self.as_iri().to_expr_tokens()
 	}

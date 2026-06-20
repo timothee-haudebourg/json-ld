@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use iref::{IriRef, IriRefBuf};
+use rdf_syntax::{IriRef, IriRefBuf};
 use reqwest::header::HeaderValue;
 
 pub struct Link {

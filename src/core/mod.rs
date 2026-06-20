@@ -25,8 +25,9 @@ pub use term::*;
 pub use ty::*;
 
 #[doc(hidden)]
-pub use iref;
-pub use iref::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
+pub use rdf_syntax;
+pub use rdf_syntax::iref;
+pub use rdf_syntax::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
 
-pub use rdf_types;
-pub use rdf_types::{BlankId, BlankIdBuf};
+pub use rdf_syntax::rdf_types;
+pub use rdf_syntax::{BlankId, BlankIdBuf};

@@ -1,5 +1,5 @@
 use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
-use rdf_types::Term;
+use rdf_syntax::Term;
 
 use crate::{ExpandedDocument, Id};
 

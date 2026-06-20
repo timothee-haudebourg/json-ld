@@ -1,6 +1,6 @@
 use json_ld_core::{ExpandedDocument, Indexed, Node, Object};
 use linked_data::CowRdfTerm;
-use rdf_types::{
+use rdf_syntax::{
 	interpretation::{
 		ReverseBlankIdInterpretation, ReverseIriInterpretation, ReverseLiteralInterpretation,
 	},

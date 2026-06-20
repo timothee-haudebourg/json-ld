@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use iref::{Iri, IriBuf};
+use rdf_syntax::{Iri, IriBuf};
 
 use super::Term;
 use crate::{syntax::Keyword, Id, ValidId};

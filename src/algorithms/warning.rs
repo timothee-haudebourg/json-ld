@@ -1,5 +1,5 @@
 use langtag::InvalidLangTag;
-use rdf_types::BlankIdBuf;
+use rdf_syntax::BlankIdBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Warning {

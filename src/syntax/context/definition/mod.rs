@@ -1,6 +1,6 @@
 use crate::syntax::{Direction, Keyword, LenientLangTagBuf, Nullable};
 use indexmap::IndexMap;
-use iref::IriRefBuf;
+use rdf_syntax::IriRefBuf;
 
 mod import;
 mod reference;

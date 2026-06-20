@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use rdf_types::{BlankId, Generator};
+use rdf_syntax::{BlankId, Generator};
 
 use crate::{IndexedObject, Relabel, Relabeling};
 

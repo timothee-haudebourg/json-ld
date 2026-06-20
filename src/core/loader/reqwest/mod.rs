@@ -1,7 +1,7 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
 use hashbrown::HashSet;
-use iref::Iri;
 use json_syntax::{JsonValue, ParseJson};
+use rdf_syntax::Iri;
 use reqwest::{
 	header::{ACCEPT, CONTENT_TYPE, LINK},
 	StatusCode,

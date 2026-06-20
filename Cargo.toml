@@ -19,7 +19,7 @@ default = ["algorithms", "reqwest"]
 algorithms = ["serde"]
 
 # Serialization/deserialization with `serde`.
-serde = ["dep:serde", "iref/serde", "indexmap/serde", "rdf-types/serde"]
+serde = ["dep:serde", "indexmap/serde", "rdf-syntax/serde"]
 
 # Loader implementation based on `reqwest`.
 reqwest = ["dep:reqwest", "dep:reqwest-middleware"]
@@ -28,16 +28,13 @@ reqwest = ["dep:reqwest", "dep:reqwest-middleware"]
 tokio = ["dep:tokio"]
 
 [dependencies]
-iref.path = "/home/work/Documents/Community/RDF/iri/iref"
 # json-syntax = "0.12"
 json-syntax = { path = "/home/work/Documents/Community/JSON/syntax", features = [
 	"serde",
 	"canonicalize",
 ] }
-static-iref = "3.0"
 langtag = "0.4"
-rdf-types.path = "/home/work/Documents/Community/RDF/rdf-types"
-# contextual = "0.1.4"
+rdf-syntax.path = "/home/work/Documents/Community/RDF/rdf-syntax"
 locspan = "0.8"
 educe = "0.4.23"
 futures = "0.3"
@@ -50,8 +47,6 @@ indexmap = "2.10"
 mime = "0.3"
 
 serde = { version = "1.0", features = ["derive"], optional = true }
-
-# iref-enum = "3.0"
 
 anyhow = "1.0.98"
 
@@ -80,16 +75,3 @@ all-features = true
 members = ["testing", "testing/core", "testing/derive"]
 
 resolver = "2"
-
-# [workspace.package]
-
-
-# [workspace.dependencies]
-# json-ld = { path = ".", version = "0.19.1" }
-# json-ld-syntax = { path = "crates/syntax", version = "0.19.1" }
-# json-ld-core = { path = "crates/core", version = "0.19.1" }
-# json-ld-context-processing = { path = "crates/context-processing", version = "0.19.1" }
-# json-ld-expansion = { path = "crates/expansion", version = "0.19.1" }
-# json-ld-compaction = { path = "crates/compaction", version = "0.19.1" }
-# json-ld-serialization = { path = "crates/serialization", version = "0.19.1" }
-# json-ld-testing = { path = "crates/testing" }

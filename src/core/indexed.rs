@@ -99,7 +99,7 @@ impl<T> Indexed<T> {
 }
 
 impl<T: Relabel> Relabel for Indexed<T> {
-	fn relabel_with(&mut self, relabeling: &mut super::Relabeling<impl rdf_types::Generator>) {
+	fn relabel_with(&mut self, relabeling: &mut super::Relabeling<impl rdf_syntax::Generator>) {
 		self.value.relabel_with(relabeling);
 	}
 }

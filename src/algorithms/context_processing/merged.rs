@@ -1,4 +1,4 @@
-use iref::IriRef;
+use rdf_syntax::IriRef;
 
 use crate::{
 	syntax::{

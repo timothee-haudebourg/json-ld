@@ -1,9 +1,9 @@
 use crate::syntax::Keyword;
 use crate::{object, Direction, LangString, LenientLangTag, Type};
 use educe::Educe;
-use iref::{Iri, IriBuf};
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
-use rdf_types::{Literal, RDF_JSON};
+use rdf_syntax::{Iri, IriBuf};
+use rdf_syntax::{Literal, RDF_JSON};
 use std::hash::Hash;
 use xsd_types::{XSD_BOOLEAN, XSD_FLOAT, XSD_INTEGER};
 
@@ -357,7 +357,7 @@ impl object::AnyObject for ValueObject {
 impl From<Literal> for ValueObject {
 	fn from(literal: Literal) -> Self {
 		match literal.type_ {
-			rdf_types::LiteralType::Any(ty) => {
+			rdf_syntax::LiteralType::Any(ty) => {
 				if ty == XSD_BOOLEAN {
 					match literal.value.as_str() {
 						"true" => {
@@ -392,7 +392,7 @@ impl From<Literal> for ValueObject {
 					Some(LiteralType::Iri(ty)),
 				))
 			}
-			rdf_types::LiteralType::LangString(langtag) => {
+			rdf_syntax::LiteralType::LangString(langtag) => {
 				Self::LangString(LangString::new_with_language(literal.value, langtag))
 			}
 		}

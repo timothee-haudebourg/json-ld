@@ -3,8 +3,8 @@ use crate::syntax::{
 	CompactIri, CompactIriBuf, ContainerValue, Context, Direction, Keyword, LenientLangTag,
 	LenientLangTagBuf, Nullable,
 };
-use iref::{Iri, IriBuf};
-use rdf_types::{BlankId, BlankIdBuf};
+use rdf_syntax::{BlankId, BlankIdBuf};
+use rdf_syntax::{Iri, IriBuf};
 
 mod id;
 mod index;
