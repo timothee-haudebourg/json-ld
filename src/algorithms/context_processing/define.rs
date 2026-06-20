@@ -324,13 +324,6 @@ impl<'a> ContextProcessor<'a> {
 
 							// Set the `reverse_property` flag of `definition` to `true`.
 							definition.reverse_property = true;
-
-							// Set the term definition of `term` in `active_context` to
-							// `definition` and the value associated with `defined`'s entry `term`
-							// to `true` and return.
-							result.value.set_normal(key.to_owned(), Some(definition));
-							result.defined.end(&term);
-							return Ok(());
 						}
 
 						match value.id {
