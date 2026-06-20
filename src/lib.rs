@@ -151,6 +151,7 @@
 #[cfg(feature = "algorithms")]
 pub mod algorithms;
 mod core;
+#[cfg(feature = "algorithms")]
 mod processor;
 pub mod syntax;
 
@@ -158,4 +159,5 @@ pub mod syntax;
 pub use algorithms::{Error, ErrorCode, RdfSerializationOptions, Warning};
 pub use core::*;
 pub use linked_data;
+#[cfg(feature = "algorithms")]
 pub use processor::*;

@@ -3,7 +3,6 @@ use rdf_syntax::{Iri, IriBuf, IriRef, IriRefBuf};
 mod definition;
 
 pub use definition::*;
-use json_syntax::JsonValue;
 
 /// JSON-LD Context.
 ///
@@ -228,10 +227,11 @@ pub struct ContextDocumentValue {
 	pub context: Context,
 }
 
-impl TryFrom<JsonValue> for ContextDocumentValue {
+#[cfg(feature = "serde")]
+impl TryFrom<json_syntax::JsonValue> for ContextDocumentValue {
 	type Error = crate::syntax::serde::DeserializeError;
 
-	fn try_from(value: JsonValue) -> Result<Self, Self::Error> {
+	fn try_from(value: json_syntax::JsonValue) -> Result<Self, Self::Error> {
 		crate::syntax::serde::from_value(value)
 	}
 }
