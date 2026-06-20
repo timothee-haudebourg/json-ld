@@ -1,6 +1,5 @@
-use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
+use rdf_syntax::{BlankId, BlankIdBuf, Id};
 use rdf_syntax::{Iri, IriBuf};
-use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use crate::{Lenient, Term, Validate};
@@ -186,52 +185,5 @@ impl indexmap::Equivalent<Lenient<Id>> for Iri {
 			Some(iri) => self == iri,
 			None => false,
 		}
-	}
-}
-
-pub struct Relabeling<G> {
-	generator: G,
-	map: HashMap<BlankIdBuf, Id>,
-}
-
-impl<G> Relabeling<G> {
-	pub fn new(generator: G) -> Self {
-		Self {
-			generator,
-			map: HashMap::new(),
-		}
-	}
-}
-
-impl<G> Relabeling<G>
-where
-	G: Generator,
-{
-	pub fn relabel(&mut self, id: Option<Lenient<Id>>) -> Lenient<Id> {
-		match id {
-			Some(Lenient::Valid(Id::BlankId(b))) => Lenient::Valid(
-				self.map
-					.entry(b)
-					.or_insert_with(|| self.generator.next_id())
-					.clone(),
-			),
-			Some(id) => id,
-			None => Lenient::Valid(self.generator.next_id()),
-		}
-	}
-}
-
-pub trait Relabel {
-	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>);
-
-	fn relabel(&mut self, generator: impl Generator) {
-		let mut relabeling = Relabeling::new(generator);
-		self.relabel_with(&mut relabeling)
-	}
-}
-
-impl<T: Relabel> Relabel for Box<T> {
-	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
-		T::relabel_with(self, relabeling);
 	}
 }

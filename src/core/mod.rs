@@ -13,10 +13,10 @@ mod processing_mode;
 mod term;
 mod ty;
 pub mod utils;
+mod visit;
 
 pub use context::ProcessedContext;
 pub use document::*;
-pub use id::*;
 pub use indexed::*;
 pub use lang_string::*;
 pub use lenient::*;
@@ -25,6 +25,7 @@ pub use object::{IndexedNode, IndexedObject, NodeObject, Nodes, Object, Objects,
 pub use processing_mode::*;
 pub use term::*;
 pub use ty::*;
+pub use visit::*;
 
 #[doc(hidden)]
 pub use rdf_syntax;

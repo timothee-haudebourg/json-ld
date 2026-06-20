@@ -1,12 +1,12 @@
 //! Nodes, lists and values.
 use crate::object::typ::TypeRef;
 use crate::syntax::Keyword;
-use crate::{Indexed, Lenient, Relabel, Relabeling};
+use crate::{Indexed, Lenient, VisitJsonLd};
 use educe::Educe;
 use json_syntax::JsonNumber;
 use langtag::LangTag;
+use rdf_syntax::Id;
 use rdf_syntax::Iri;
-use rdf_syntax::{Generator, Id};
 use std::hash::Hash;
 
 pub mod list;
@@ -74,6 +74,24 @@ pub enum ObjectRef<'a> {
 
 	/// List object.
 	List(&'a ListObject),
+}
+
+pub enum ObjectMut<'a> {
+	Value(&'a mut ValueObject),
+
+	Node(&'a mut NodeObject),
+
+	List(&'a mut ListObject),
+}
+
+impl<'a> ObjectMut<'a> {
+	pub fn reborrow(&mut self) -> ObjectMut<'_> {
+		match self {
+			Self::Value(v) => ObjectMut::Value(v),
+			Self::Node(n) => ObjectMut::Node(n),
+			Self::List(l) => ObjectMut::List(l),
+		}
+	}
 }
 
 /// Indexed object.
@@ -349,12 +367,20 @@ impl Object {
 	}
 }
 
-impl Relabel for Object {
-	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
+impl VisitJsonLd for Object {
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
 		match self {
-			Self::Node(n) => n.relabel_with(relabeling),
-			Self::List(l) => l.relabel_with(relabeling),
-			Self::Value(_) => (),
+			Self::Value(v) => v.visit_with(f),
+			Self::List(l) => l.visit_with(f),
+			Self::Node(n) => n.visit_with(f),
+		}
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		match self {
+			Self::Value(v) => v.visit_mut_with(f),
+			Self::List(l) => l.visit_mut_with(f),
+			Self::Node(n) => n.visit_mut_with(f),
 		}
 	}
 }

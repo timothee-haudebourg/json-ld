@@ -1,8 +1,11 @@
 use std::hash::Hash;
 
-use rdf_syntax::{BlankId, Generator};
+use rdf_syntax::BlankId;
 
-use crate::{IndexedObject, Relabel, Relabeling};
+use crate::{
+	object::{ObjectMut, ObjectRef},
+	IndexedObject, VisitJsonLd,
+};
 
 use super::{AnyObject, MappedEq};
 
@@ -84,10 +87,18 @@ impl ListObject {
 	// }
 }
 
-impl Relabel for ListObject {
-	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
-		for object in self {
-			object.relabel_with(relabeling)
+impl VisitJsonLd for ListObject {
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		f(ObjectRef::List(self));
+		for t in self {
+			t.visit_with(f);
+		}
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		f(ObjectMut::List(self));
+		for t in &mut self.entry {
+			t.visit_mut_with(f);
 		}
 	}
 }

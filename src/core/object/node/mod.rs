@@ -1,11 +1,10 @@
+use crate::object::{ObjectMut, ObjectRef};
 use crate::syntax::Keyword;
-use crate::{
-	object, utils, Indexed, IndexedObject, Lenient, Object, Objects, Relabel, Relabeling, Term,
-};
+use crate::{object, utils, Indexed, IndexedObject, Lenient, Object, Objects, Term, VisitJsonLd};
 use educe::Educe;
 use indexmap::IndexSet;
+use rdf_syntax::Id;
 use rdf_syntax::Iri;
-use rdf_syntax::{Generator, Id};
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
@@ -555,47 +554,21 @@ impl NodeObject {
 	}
 }
 
-impl Relabel for NodeObject {
-	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
-		self.id = Some(relabeling.relabel(self.id.take()));
+impl VisitJsonLd for NodeObject {
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		f(ObjectRef::Node(self));
+		self.graph.visit_with(f);
+		self.included.visit_with(f);
+		self.properties.visit_with(f);
+		self.reverse_properties.visit_with(f);
+	}
 
-		for ty in self.types_mut() {
-			*ty = relabeling.relabel(Some(ty.clone()));
-		}
-
-		if let Some(graph) = self.graph_mut() {
-			*graph = std::mem::take(graph)
-				.into_iter()
-				.map(|mut o| {
-					o.relabel_with(relabeling);
-					o
-				})
-				.collect();
-		}
-
-		if let Some(included) = self.included_mut() {
-			*included = std::mem::take(included)
-				.into_iter()
-				.map(|mut n| {
-					n.relabel_with(relabeling);
-					n
-				})
-				.collect();
-		}
-
-		for (_, objects) in self.properties_mut() {
-			for object in objects {
-				object.relabel_with(relabeling);
-			}
-		}
-
-		if let Some(reverse_properties) = self.reverse_properties_mut() {
-			for (_, nodes) in reverse_properties.iter_mut() {
-				for node in nodes {
-					node.relabel_with(relabeling);
-				}
-			}
-		}
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		f(ObjectMut::Node(self));
+		self.graph.visit_mut_with(f);
+		self.included.visit_mut_with(f);
+		self.properties.visit_mut_with(f);
+		self.reverse_properties.visit_mut_with(f);
 	}
 }
 

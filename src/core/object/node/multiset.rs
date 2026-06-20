@@ -1,5 +1,10 @@
 use std::hash::{BuildHasher, Hash};
 
+use crate::{
+	object::{ObjectMut, ObjectRef},
+	VisitJsonLd,
+};
+
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DeterministicHasherBuilder;
 
@@ -202,5 +207,22 @@ impl<T: Hash, S: BuildHasher> Hash for Multiset<T, S> {
 		}
 
 		state.write_u64(hash)
+	}
+}
+
+impl<T, S> VisitJsonLd for Multiset<T, S>
+where
+	T: VisitJsonLd,
+{
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		for t in self {
+			t.visit_with(&mut *f);
+		}
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		for t in self {
+			t.visit_mut_with(f);
+		}
 	}
 }

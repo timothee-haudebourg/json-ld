@@ -1,7 +1,8 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
 
-use crate::Relabel;
+use crate::object::{ObjectMut, ObjectRef};
+use crate::VisitJsonLd;
 
 /// Indexed objects.
 ///
@@ -98,9 +99,13 @@ impl<T> Indexed<T> {
 	}
 }
 
-impl<T: Relabel> Relabel for Indexed<T> {
-	fn relabel_with(&mut self, relabeling: &mut super::Relabeling<impl rdf_syntax::Generator>) {
-		self.value.relabel_with(relabeling);
+impl<T: VisitJsonLd> VisitJsonLd for Indexed<T> {
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		self.value.visit_with(f);
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		self.value.visit_mut_with(f);
 	}
 }
 

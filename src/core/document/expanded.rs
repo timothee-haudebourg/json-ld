@@ -1,6 +1,8 @@
-use crate::{Indexed, IndexedObject, NodeObject, Object, Relabel};
+use crate::{
+	object::{ObjectMut, ObjectRef},
+	Indexed, IndexedObject, NodeObject, Object, VisitJsonLd,
+};
 use indexmap::IndexSet;
-use rdf_syntax::Generator;
 
 /// Result of the document expansion algorithm.
 ///
@@ -178,13 +180,13 @@ impl ExpandedDocument {
 	}
 }
 
-impl Relabel for ExpandedDocument {
-	fn relabel_with(&mut self, relabeling: &mut crate::Relabeling<impl Generator>) {
-		let objects = std::mem::take(&mut self.0);
-		for mut object in objects {
-			object.relabel_with(relabeling);
-			self.0.insert(object);
-		}
+impl VisitJsonLd for ExpandedDocument {
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		self.0.visit_with(f);
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		self.0.visit_mut_with(f);
 	}
 }
 

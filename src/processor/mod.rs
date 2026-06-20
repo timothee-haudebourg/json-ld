@@ -20,12 +20,13 @@ fn resolve_sync<F: std::future::Future>(f: F) -> F::Output {
 	}
 }
 
+use crate::VisitJsonLd;
 use crate::{
 	algorithms::{
 		AsyncProcessingEnvironment, CompactionOptions, ContextProcessingOptions, ExpansionOptions,
 		ExpansionPolicy, ProcessingEnvironment, RdfSerializationOptions,
 	},
-	Direction, Document, Error, ExpandedDocument, ProcessingMode, Relabel, RemoteContext,
+	Direction, Document, Error, ExpandedDocument, ProcessingMode, RemoteContext,
 };
 
 mod remote_document;

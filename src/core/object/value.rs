@@ -1,7 +1,8 @@
+use crate::object::{ObjectMut, ObjectRef};
 use crate::syntax::Keyword;
-use crate::{object, Direction, LangString, Lenient, Type};
+use crate::{object, Direction, LangString, Lenient, Type, VisitJsonLd};
 use educe::Educe;
-use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
+use json_syntax::{ryu_js, JsonNumber, JsonNumberBuf, JsonValue};
 use langtag::LangTag;
 use rdf_syntax::{IdRef, Iri, IriBuf};
 use rdf_syntax::{Literal, RDF_JSON};
@@ -168,20 +169,20 @@ impl LiteralValue {
 		self.type_.as_ref().is_some_and(LiteralType::is_json)
 	}
 
-	// /// Puts this literal into canonical form using the given `buffer`.
-	// ///
-	// /// The buffer is used to compute the canonical form of numbers.
-	// pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
-	// 	if let JsonValue::Number(n) = &mut self.value {
-	// 		*n = NumberBuf::from_number(n.canonical_with(buffer))
-	// 	}
-	// }
+	/// Puts this literal into canonical form using the given `buffer`.
+	///
+	/// The buffer is used to compute the canonical form of numbers.
+	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
+		if let JsonValue::Number(n) = &mut self.value {
+			*n = JsonNumberBuf::from_number(n.canonicalized_with(buffer))
+		}
+	}
 
-	// /// Puts this literal into canonical form.
-	// pub fn canonicalize(&mut self) {
-	// 	let mut buffer = ryu_js::Buffer::new();
-	// 	self.canonicalize_with(&mut buffer)
-	// }
+	/// Puts this literal into canonical form.
+	pub fn canonicalize(&mut self) {
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonicalize_with(&mut buffer)
+	}
 }
 
 /// Value object.
@@ -308,22 +309,22 @@ impl ValueObject {
 		}
 	}
 
-	// /// Puts this value object literal into canonical form using the given
-	// /// `buffer`.
-	// ///
-	// /// The buffer is used to compute the canonical form of numbers.
-	// pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
-	// 	match self {
-	// 		Self::Literal(l) => l.canonicalize_with(buffer),
-	// 		Self::LangString(_) => (),
-	// 	}
-	// }
+	/// Puts this value object literal into canonical form using the given
+	/// `buffer`.
+	///
+	/// The buffer is used to compute the canonical form of numbers.
+	pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
+		match self {
+			Self::Literal(l) => l.canonicalize_with(buffer),
+			Self::LangString(_) => (),
+		}
+	}
 
-	// /// Puts this literal into canonical form.
-	// pub fn canonicalize(&mut self) {
-	// 	let mut buffer = ryu_js::Buffer::new();
-	// 	self.canonicalize_with(&mut buffer)
-	// }
+	/// Puts this literal into canonical form.
+	pub fn canonicalize(&mut self) {
+		let mut buffer = ryu_js::Buffer::new();
+		self.canonicalize_with(&mut buffer)
+	}
 
 	#[inline(always)]
 	pub fn entries(&self) -> Entries<'_> {
@@ -345,6 +346,16 @@ impl ValueObject {
 				direction: l.direction(),
 			},
 		}
+	}
+}
+
+impl VisitJsonLd for ValueObject {
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		f(ObjectRef::Value(self))
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		f(ObjectMut::Value(self))
 	}
 }
 

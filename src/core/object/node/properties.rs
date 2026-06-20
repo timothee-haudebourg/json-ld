@@ -1,5 +1,8 @@
 use super::{Multiset, Objects};
-use crate::{IndexedObject, Lenient};
+use crate::{
+	object::{ObjectMut, ObjectRef},
+	IndexedObject, Lenient, VisitJsonLd,
+};
 use educe::Educe;
 use indexmap::IndexMap;
 use rdf_syntax::Id;
@@ -56,9 +59,7 @@ impl Properties {
 	pub fn clear(&mut self) {
 		self.0.clear()
 	}
-}
 
-impl Properties {
 	/// Checks if the given property is associated to any object.
 	#[inline(always)]
 	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> bool {
@@ -186,6 +187,20 @@ impl Properties {
 		prop: &Q,
 	) -> Option<PropertyObjects> {
 		self.0.swap_remove(prop)
+	}
+}
+
+impl VisitJsonLd for Properties {
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		for (_, t) in self {
+			t.visit_with(&mut *f);
+		}
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		for (_, values) in self {
+			values.visit_mut_with(f);
+		}
 	}
 }
 

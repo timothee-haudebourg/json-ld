@@ -1,5 +1,8 @@
 use super::{Multiset, Nodes};
-use crate::{IndexedNode, Lenient};
+use crate::{
+	object::{ObjectMut, ObjectRef},
+	IndexedNode, Lenient, VisitJsonLd,
+};
 use educe::Educe;
 use indexmap::IndexMap;
 use rdf_syntax::Id;
@@ -56,9 +59,7 @@ impl ReverseProperties {
 	pub fn clear(&mut self) {
 		self.0.clear()
 	}
-}
 
-impl ReverseProperties {
 	/// Checks if the given reverse property is associated to any node.
 	#[inline(always)]
 	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> bool {
@@ -168,6 +169,20 @@ impl ReverseProperties {
 	#[inline(always)]
 	pub fn remove(&mut self, prop: &Lenient<Id>) -> Option<ReversePropertyNodes> {
 		self.0.swap_remove(prop)
+	}
+}
+
+impl VisitJsonLd for ReverseProperties {
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		for (_, t) in self {
+			t.visit_with(f);
+		}
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		for (_, t) in self {
+			t.visit_mut_with(f);
+		}
 	}
 }
 
