@@ -1,7 +1,8 @@
 use super::{Multiset, Objects};
-use crate::{Id, IndexedObject};
+use crate::{IndexedObject, Lenient};
 use educe::Educe;
 use indexmap::IndexMap;
+use rdf_syntax::Id;
 use std::hash::{Hash, Hasher};
 
 pub type PropertyObjects = Multiset<IndexedObject>;
@@ -10,7 +11,7 @@ pub type PropertyObjects = Multiset<IndexedObject>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Properties(IndexMap<Id, PropertyObjects>);
+pub struct Properties(IndexMap<Lenient<Id>, PropertyObjects>);
 
 impl Default for Properties {
 	fn default() -> Self {
@@ -60,19 +61,22 @@ impl Properties {
 impl Properties {
 	/// Checks if the given property is associated to any object.
 	#[inline(always)]
-	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> bool {
+	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> bool {
 		self.0.get(prop).is_some()
 	}
 
 	/// Counts the number of objects associated to the given property.
 	#[inline(always)]
-	pub fn count<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> usize {
+	pub fn count<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> usize {
 		self.0.get(prop).map(Multiset::len).unwrap_or_default()
 	}
 
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
-	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> Objects<'_> {
+	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(
+		&self,
+		prop: &Q,
+	) -> Objects<'_> {
 		match self.0.get(prop) {
 			Some(values) => Objects::new(Some(values.iter())),
 			None => Objects::new(None),
@@ -83,7 +87,7 @@ impl Properties {
 	///
 	/// If multiple objects are found, there are no guaranties on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(
+	pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(
 		&self,
 		prop: &Q,
 	) -> Option<&IndexedObject> {
@@ -95,7 +99,7 @@ impl Properties {
 
 	/// Associate the given object to the node through the given property with metadata.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: impl Into<Id>, value: IndexedObject) {
+	pub fn insert(&mut self, prop: impl Into<Lenient<Id>>, value: IndexedObject) {
 		let prop = prop.into();
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(value);
@@ -106,7 +110,7 @@ impl Properties {
 
 	/// Associate the given object to the node through the given property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(&mut self, prop: impl Into<Id>, value: IndexedObject) {
+	pub fn insert_unique(&mut self, prop: impl Into<Lenient<Id>>, value: IndexedObject) {
 		let prop = prop.into();
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
@@ -121,7 +125,7 @@ impl Properties {
 	#[inline(always)]
 	pub fn insert_all<Objects: IntoIterator<Item = IndexedObject>>(
 		&mut self,
-		prop: impl Into<Id>,
+		prop: impl Into<Lenient<Id>>,
 		values: Objects,
 	) {
 		let prop = prop.into();
@@ -138,7 +142,7 @@ impl Properties {
 	#[inline(always)]
 	pub fn insert_all_unique<Objects: IntoIterator<Item = IndexedObject>>(
 		&mut self,
-		prop: Id,
+		prop: Lenient<Id>,
 		values: Objects,
 	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
@@ -160,14 +164,14 @@ impl Properties {
 		}
 	}
 
-	pub fn set(&mut self, prop: impl Into<Id>, values: PropertyObjects) {
+	pub fn set(&mut self, prop: impl Into<Lenient<Id>>, values: PropertyObjects) {
 		let prop = prop.into();
 		self.0.insert(prop, values);
 	}
 
 	pub fn extend_unique<I, O>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Id, O)>,
+		I: IntoIterator<Item = (Lenient<Id>, O)>,
 		O: IntoIterator<Item = IndexedObject>,
 	{
 		for (prop, values) in iter {
@@ -177,7 +181,7 @@ impl Properties {
 
 	/// Removes and returns all the values associated to the given property.
 	#[inline(always)]
-	pub fn remove<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(
+	pub fn remove<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(
 		&mut self,
 		prop: &Q,
 	) -> Option<PropertyObjects> {
@@ -185,11 +189,11 @@ impl Properties {
 	}
 }
 
-impl<O> FromIterator<(Id, O)> for Properties
+impl<O> FromIterator<(Lenient<Id>, O)> for Properties
 where
 	O: IntoIterator<Item = IndexedObject>,
 {
-	fn from_iter<I: IntoIterator<Item = (Id, O)>>(iter: I) -> Self {
+	fn from_iter<I: IntoIterator<Item = (Lenient<Id>, O)>>(iter: I) -> Self {
 		let mut result = Self::default();
 		for (id, values) in iter {
 			result.insert_all(id, values);
@@ -205,10 +209,10 @@ impl Hash for Properties {
 	}
 }
 
-impl Extend<(Id, Vec<IndexedObject>)> for Properties {
+impl Extend<(Lenient<Id>, Vec<IndexedObject>)> for Properties {
 	fn extend<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Id, Vec<IndexedObject>)>,
+		I: IntoIterator<Item = (Lenient<Id>, Vec<IndexedObject>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -218,15 +222,15 @@ impl Extend<(Id, Vec<IndexedObject>)> for Properties {
 
 /// Tuple type representing a binding in a node object,
 /// associating a property to some objects.
-pub type Binding = (Id, PropertyObjects);
+pub type Binding = (Lenient<Id>, PropertyObjects);
 
 /// Tuple type representing a reference to a binding in a node object,
 /// associating a property to some objects.
-pub type BindingRef<'a> = (&'a Id, &'a [IndexedObject]);
+pub type BindingRef<'a> = (&'a Lenient<Id>, &'a [IndexedObject]);
 
 /// Tuple type representing a mutable reference to a binding in a node object,
 /// associating a property to some objects, with a mutable access to the objects.
-pub type BindingMut<'a> = (&'a Id, &'a mut PropertyObjects);
+pub type BindingMut<'a> = (&'a Lenient<Id>, &'a mut PropertyObjects);
 
 impl IntoIterator for Properties {
 	type Item = Binding;
@@ -261,7 +265,7 @@ impl<'a> IntoIterator for &'a mut Properties {
 /// Iterator over the properties of a node.
 ///
 /// It is created by the [`Properties::into_iter`] function.
-pub type IntoIter = indexmap::map::IntoIter<Id, PropertyObjects>;
+pub type IntoIter = indexmap::map::IntoIter<Lenient<Id>, PropertyObjects>;
 
 /// Iterator over the properties of a node.
 ///
@@ -269,7 +273,7 @@ pub type IntoIter = indexmap::map::IntoIter<Id, PropertyObjects>;
 #[derive(Educe)]
 #[educe(Clone)]
 pub struct Iter<'a> {
-	inner: indexmap::map::Iter<'a, Id, PropertyObjects>,
+	inner: indexmap::map::Iter<'a, Lenient<Id>, PropertyObjects>,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -296,4 +300,4 @@ impl<'a> std::iter::FusedIterator for Iter<'a> {}
 /// to the associated objects.
 ///
 /// It is created by the [`Properties::iter_mut`] function.
-pub type IterMut<'a> = indexmap::map::IterMut<'a, Id, PropertyObjects>;
+pub type IterMut<'a> = indexmap::map::IterMut<'a, Lenient<Id>, PropertyObjects>;

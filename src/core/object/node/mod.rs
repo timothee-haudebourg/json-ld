@@ -1,11 +1,11 @@
 use crate::syntax::Keyword;
 use crate::{
-	object, utils, Id, Indexed, IndexedObject, Object, Objects, Relabel, Relabeling, Term,
+	object, utils, Indexed, IndexedObject, Lenient, Object, Objects, Relabel, Relabeling, Term,
 };
 use educe::Educe;
 use indexmap::IndexSet;
-use rdf_syntax::Generator;
 use rdf_syntax::Iri;
+use rdf_syntax::{Generator, Id};
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
@@ -41,7 +41,7 @@ pub struct NodeObject {
 		feature = "serde",
 		serde(rename = "@id", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub id: Option<Id>,
+	pub id: Option<Lenient<Id>>,
 
 	/// Types.
 	///
@@ -50,7 +50,7 @@ pub struct NodeObject {
 		feature = "serde",
 		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub types: Option<Vec<Id>>,
+	pub types: Option<Vec<Lenient<Id>>>,
 
 	/// Associated graph.
 	///
@@ -102,7 +102,7 @@ impl NodeObject {
 
 	/// Creates a new empty node.
 	#[inline(always)]
-	pub fn new_with_id(id: Option<Id>) -> Self {
+	pub fn new_with_id(id: Option<Lenient<Id>>) -> Self {
 		Self {
 			id,
 			types: None,
@@ -114,7 +114,7 @@ impl NodeObject {
 	}
 
 	/// Creates a new graph node.
-	pub fn new_graph(id: Id, graph: Graph) -> Self {
+	pub fn new_graph(id: Lenient<Id>, graph: Graph) -> Self {
 		Self {
 			id: Some(id),
 			types: None,
@@ -245,7 +245,7 @@ impl NodeObject {
 
 	/// Get the list of the node's types.
 	#[inline(always)]
-	pub fn types(&self) -> &[Id] {
+	pub fn types(&self) -> &[Lenient<Id>] {
 		match self.types.as_ref() {
 			Some(entry) => entry,
 			None => &[],
@@ -254,22 +254,25 @@ impl NodeObject {
 
 	/// Returns a mutable reference to the node's types.
 	#[inline(always)]
-	pub fn types_mut(&mut self) -> &mut [Id] {
+	pub fn types_mut(&mut self) -> &mut [Lenient<Id>] {
 		match self.types.as_mut() {
 			Some(entry) => entry,
 			None => &mut [],
 		}
 	}
 
-	pub fn types_mut_or_default(&mut self) -> &mut Vec<Id> {
+	pub fn types_mut_or_default(&mut self) -> &mut Vec<Lenient<Id>> {
 		self.types.get_or_insert_with(Vec::new)
 	}
 
-	pub fn types_mut_or_insert(&mut self, value: Vec<Id>) -> &mut Vec<Id> {
+	pub fn types_mut_or_insert(&mut self, value: Vec<Lenient<Id>>) -> &mut Vec<Lenient<Id>> {
 		self.types.get_or_insert(value)
 	}
 
-	pub fn types_mut_or_insert_with(&mut self, f: impl FnOnce() -> Vec<Id>) -> &mut Vec<Id> {
+	pub fn types_mut_or_insert_with(
+		&mut self,
+		f: impl FnOnce() -> Vec<Lenient<Id>>,
+	) -> &mut Vec<Lenient<Id>> {
 		self.types.get_or_insert_with(f)
 	}
 
@@ -277,7 +280,7 @@ impl NodeObject {
 	#[inline]
 	pub fn has_type<U>(&self, ty: &U) -> bool
 	where
-		Id: PartialEq<U>,
+		Lenient<Id>: PartialEq<U>,
 	{
 		for self_ty in self.types() {
 			if self_ty == ty {
@@ -484,7 +487,7 @@ impl NodeObject {
 	#[inline(always)]
 	pub fn get<Q>(&self, prop: &Q) -> Objects<'_>
 	where
-		Q: ?Sized + Hash + indexmap::Equivalent<Id>,
+		Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>,
 	{
 		self.properties.get(prop)
 	}
@@ -496,14 +499,14 @@ impl NodeObject {
 	#[inline(always)]
 	pub fn get_any<Q>(&self, prop: &Q) -> Option<&IndexedObject>
 	where
-		Q: ?Sized + Hash + indexmap::Equivalent<Id>,
+		Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>,
 	{
 		self.properties.get_any(prop)
 	}
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Id, value: IndexedObject) {
+	pub fn insert(&mut self, prop: Lenient<Id>, value: IndexedObject) {
 		self.properties.insert(prop, value)
 	}
 
@@ -514,7 +517,7 @@ impl NodeObject {
 	#[inline(always)]
 	pub fn insert_all<Objects: IntoIterator<Item = IndexedObject>>(
 		&mut self,
-		prop: Id,
+		prop: Lenient<Id>,
 		values: Objects,
 	) {
 		self.properties.insert_all(prop, values)
@@ -630,7 +633,7 @@ pub enum EntryKeyRef<'a> {
 	Graph,
 	Included,
 	Reverse,
-	Property(&'a Id),
+	Property(&'a Lenient<Id>),
 }
 
 impl<'a> EntryKeyRef<'a> {
@@ -668,8 +671,8 @@ impl<'a> EntryKeyRef<'a> {
 #[derive(Educe)]
 #[educe(Clone, Copy)]
 pub enum EntryValueRef<'a> {
-	Id(&'a Id),
-	Type(&'a [Id]),
+	Id(&'a Lenient<Id>),
+	Type(&'a [Lenient<Id>]),
 	Graph(&'a IndexSet<IndexedObject>),
 	Included(&'a IndexSet<IndexedNode>),
 	Reverse(&'a ReverseProperties),
@@ -692,12 +695,12 @@ impl<'a> EntryValueRef<'a> {
 #[derive(Educe)]
 #[educe(Clone, Copy)]
 pub enum EntryRef<'a> {
-	Id(&'a Id),
-	Type(&'a [Id]),
+	Id(&'a Lenient<Id>),
+	Type(&'a [Lenient<Id>]),
 	Graph(&'a Graph),
 	Included(&'a Included),
 	Reverse(&'a ReverseProperties),
-	Property(&'a Id, &'a [IndexedObject]),
+	Property(&'a Lenient<Id>, &'a [IndexedObject]),
 }
 
 impl<'a> EntryRef<'a> {
@@ -757,8 +760,8 @@ impl<'a> EntryRef<'a> {
 #[derive(Educe)]
 #[educe(Clone)]
 pub struct Entries<'a> {
-	id: Option<&'a Id>,
-	type_: Option<&'a [Id]>,
+	id: Option<&'a Lenient<Id>>,
+	type_: Option<&'a [Lenient<Id>]>,
 	graph: Option<&'a Graph>,
 	included: Option<&'a Included>,
 	reverse: Option<&'a ReverseProperties>,
@@ -923,8 +926,8 @@ impl<'a> IndexedEntryRef<'a> {
 
 impl object::AnyObject for NodeObject {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref<'_> {
-		object::Ref::Node(self)
+	fn as_ref(&self) -> object::ObjectRef<'_> {
+		object::ObjectRef::Node(self)
 	}
 }
 

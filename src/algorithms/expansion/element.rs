@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use json_syntax::{object::Entry, JsonValue};
 use mown::Mown;
+use rdf_syntax::Id;
 
 use crate::{
 	algorithms::{
@@ -10,7 +11,7 @@ use crate::{
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
-	Id, Indexed, Nullable, Object, Term, ValidId,
+	Indexed, Lenient, Nullable, Object, Term,
 };
 
 use super::{ExpandableLiteralValue, Expanded, Expander};
@@ -274,7 +275,7 @@ impl<'a> Expander<'a> {
 							}
 						}
 						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
-						Term::Id(Id::Valid(ValidId::BlankId(id))) => {
+						Term::Id(Lenient::Valid(Id::BlankId(id))) => {
 							env.warn(Warning::BlankNodeIdProperty(id.clone()));
 						}
 						_ => (),

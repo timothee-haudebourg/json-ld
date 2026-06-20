@@ -37,14 +37,15 @@
 // }
 
 use json_syntax::JsonValue;
+use rdf_syntax::Id;
 
 use crate::{
 	algorithms::{Error, Warning},
 	context::RawProcessedContext,
 	object::{value::LiteralType, LiteralValue},
 	syntax::Keyword,
-	Direction, Id, Indexed, IndexedObject, LangString, LenientLangTagBuf, Nullable, Object, Term,
-	ValidId, ValueObject,
+	Direction, Indexed, IndexedObject, LangString, Lenient, LenientLangTagBuf, Nullable, Object,
+	Term, ValueObject,
 };
 
 use super::{ExpandedEntry, Expander};
@@ -132,7 +133,7 @@ impl<'a> Expander<'a> {
 							Term::Keyword(Keyword::Json) => {
 								is_json = true;
 							}
-							Term::Id(Id::Valid(ValidId::Iri(expanded_ty))) => {
+							Term::Id(Lenient::Valid(Id::Iri(expanded_ty))) => {
 								is_json = false;
 								ty = Some(expanded_ty)
 							}

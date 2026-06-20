@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use indexmap::IndexSet;
-use rdf_syntax::{BlankId, BlankIdBuf, Generator};
+use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
-use crate::{object::ListObject, Id, Indexed, IndexedObject, NodeObject, Object, ValidId};
+use crate::{object::ListObject, Indexed, IndexedObject, Lenient, NodeObject, Object};
 
 use super::{ConflictingIndexes, NodeMap};
 
@@ -30,7 +30,7 @@ impl<G> NodeMapBuilder<G> {
 
 impl<G: Generator> NodeMapBuilder<G> {
 	// #[allow(clippy::should_implement_trait)]
-	// pub fn next(&mut self) -> ValidId {
+	// pub fn next(&mut self) -> Id {
 	// 	self.generator.next(self.vocabulary)
 	// }
 
@@ -38,7 +38,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 	pub fn extend_node_map(
 		&mut self,
 		element: &IndexedObject,
-		active_graph: Option<&Id>,
+		active_graph: Option<&Lenient<Id>>,
 	) -> Result<IndexedObject, ConflictingIndexes> {
 		match element.inner() {
 			Object::Value(value) => {
@@ -72,7 +72,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		&mut self,
 		node: &NodeObject,
 		index: Option<&str>,
-		active_graph: Option<&Id>,
+		active_graph: Option<&Lenient<Id>>,
 	) -> Result<Indexed<NodeObject>, ConflictingIndexes> {
 		let id = self.substitution.assign_node_id(node.id.as_ref());
 
@@ -187,11 +187,11 @@ impl<G: Generator> NodeMapBuilder<G> {
 
 struct Substitution<G> {
 	generator: G,
-	id_map: HashMap<BlankIdBuf, ValidId>,
+	id_map: HashMap<BlankIdBuf, Id>,
 }
 
 impl<G: Generator> Substitution<G> {
-	pub fn assign(&mut self, blank_id: &BlankId) -> ValidId {
+	pub fn assign(&mut self, blank_id: &BlankId) -> Id {
 		match self.id_map.get(blank_id) {
 			Some(id) => id.clone(),
 			None => {
@@ -202,9 +202,9 @@ impl<G: Generator> Substitution<G> {
 		}
 	}
 
-	pub fn assign_node_id(&mut self, r: Option<&Id>) -> Id {
+	pub fn assign_node_id(&mut self, r: Option<&Lenient<Id>>) -> Lenient<Id> {
 		match r {
-			Some(Id::Valid(ValidId::BlankId(id))) => self.assign(id).into(),
+			Some(Lenient::Valid(Id::BlankId(id))) => self.assign(id).into(),
 			Some(r) => r.clone(),
 			None => self.generator.next_id().into(),
 		}

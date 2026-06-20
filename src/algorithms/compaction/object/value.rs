@@ -9,7 +9,7 @@ use crate::{
 	context::Container,
 	object::value::LiteralType,
 	syntax::{ContainerItem, Keyword},
-	Error, Id, Term, Type, ValueObject,
+	Error, Lenient, Term, Type, ValueObject,
 };
 
 use super::Compactor;
@@ -182,7 +182,7 @@ impl<'a> Compactor<'a> {
 								.compact_key(&Term::Keyword(Keyword::Type), true, false)?;
 							let compact_ty = self
 								.with_active_context(&active_context)
-								.compact_iri(&Term::Id(Id::iri(ty.clone())), true, false)?;
+								.compact_iri(&Term::Id(Lenient::iri(ty.clone())), true, false)?;
 							result.insert(
 								compact_key.unwrap(),
 								match compact_ty {

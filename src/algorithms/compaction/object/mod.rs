@@ -6,7 +6,7 @@ use crate::{
 		compaction::CompactIndexedFragment, context_processing::ContextProcessingOptions,
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 	},
-	object::{AnyObject, Ref},
+	object::{AnyObject, ObjectRef},
 	syntax::{ContainerItem, Keyword},
 	Error, Term,
 };
@@ -24,9 +24,9 @@ impl Compactor<'_> {
 		index: Option<&str>,
 	) -> Result<JsonValue, Error> {
 		match object.as_ref() {
-			Ref::Value(value) => self.compact_indexed_value_with(env, value, index).await,
-			Ref::Node(node) => self.compact_indexed_node_with(env, node, index).await,
-			Ref::List(list) => {
+			ObjectRef::Value(value) => self.compact_indexed_value_with(env, value, index).await,
+			ObjectRef::Node(node) => self.compact_indexed_node_with(env, node, index).await,
+			ObjectRef::List(list) => {
 				let mut active_context = self.active_context;
 				// If active context has a previous context, the active context is not propagated.
 				// If element does not contain an @value entry, and element does not consist of

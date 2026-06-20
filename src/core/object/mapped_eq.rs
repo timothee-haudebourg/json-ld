@@ -1,6 +1,6 @@
-use crate::{Id, Indexed, ValidId};
+use crate::{Indexed, Lenient};
 use indexmap::IndexSet;
-use rdf_syntax::BlankId;
+use rdf_syntax::{BlankId, Id};
 
 pub trait MappedEq<T: ?Sized = Self> {
 	/// Structural equality with mapped blank identifiers.
@@ -107,7 +107,7 @@ impl<T: MappedEq> MappedEq for Indexed<T> {
 	}
 }
 
-impl MappedEq for Id {
+impl MappedEq for Lenient<Id> {
 	fn mapped_eq(&self, other: &Self, f: impl Clone + Fn(&BlankId) -> &BlankId) -> bool {
 		match (self, other) {
 			(Self::Valid(a), Self::Valid(b)) => a.mapped_eq(b, f),
@@ -117,7 +117,7 @@ impl MappedEq for Id {
 	}
 }
 
-impl MappedEq for ValidId {
+impl MappedEq for Id {
 	fn mapped_eq(&self, other: &Self, f: impl Clone + Fn(&BlankId) -> &BlankId) -> bool {
 		match (self, other) {
 			(Self::BlankId(a), Self::BlankId(b)) => f(a) == b,

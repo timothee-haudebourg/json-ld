@@ -1,7 +1,7 @@
 use rdf_syntax::{BlankId, BlankIdBuf};
-use rdf_syntax::{Iri, IriBuf};
+use rdf_syntax::{Id, Iri, IriBuf};
 
-use crate::{Id, ValidId};
+use crate::Lenient;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -20,19 +20,19 @@ impl Type {
 		}
 	}
 
-	pub fn from_reference(r: Id) -> Self {
+	pub fn from_id(r: Lenient<Id>) -> Self {
 		match r {
-			Id::Valid(ValidId::Iri(id)) => Self::Id(id),
-			Id::Valid(ValidId::BlankId(id)) => Self::Blank(id),
-			Id::Invalid(id) => Self::Invalid(id),
+			Lenient::Valid(Id::Iri(id)) => Self::Id(id),
+			Lenient::Valid(Id::BlankId(id)) => Self::Blank(id),
+			Lenient::Invalid(id) => Self::Invalid(id),
 		}
 	}
 
-	pub fn into_reference(self) -> Result<Id, Self> {
+	pub fn into_id(self) -> Result<Lenient<Id>, Self> {
 		match self {
-			Type::Id(id) => Ok(Id::Valid(ValidId::Iri(id))),
-			Type::Blank(id) => Ok(Id::Valid(ValidId::BlankId(id))),
-			Type::Invalid(id) => Ok(Id::Invalid(id)),
+			Type::Id(id) => Ok(Lenient::Valid(Id::Iri(id))),
+			Type::Blank(id) => Ok(Lenient::Valid(Id::BlankId(id))),
+			Type::Invalid(id) => Ok(Lenient::Invalid(id)),
 			typ => Err(typ),
 		}
 	}
@@ -96,11 +96,11 @@ impl<'a> TypeRef<'a> {
 		}
 	}
 
-	pub fn from_reference(r: &'a Id) -> Self {
+	pub fn from_id(r: &'a Lenient<Id>) -> Self {
 		match r {
-			Id::Valid(ValidId::Iri(id)) => Self::Id(id),
-			Id::Valid(ValidId::BlankId(id)) => Self::Blank(id),
-			Id::Invalid(id) => Self::Invalid(id),
+			Lenient::Valid(Id::Iri(id)) => Self::Id(id),
+			Lenient::Valid(Id::BlankId(id)) => Self::Blank(id),
+			Lenient::Invalid(id) => Self::Invalid(id),
 		}
 	}
 

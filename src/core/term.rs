@@ -1,7 +1,7 @@
-use rdf_syntax::{Iri, IriBuf};
+use rdf_syntax::{Id, Iri, IriBuf};
 use std::fmt;
 
-use crate::{syntax::Keyword, Id, ValidId};
+use crate::{syntax::Keyword, Lenient};
 
 /// Identifier, keyword or `@null`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -10,7 +10,7 @@ pub enum Term {
 	Null,
 
 	/// Node identifier.
-	Id(Id),
+	Id(Lenient<Id>),
 
 	/// Keyword.
 	Keyword(Keyword),
@@ -27,7 +27,7 @@ impl Term {
 	/// If it is not an IRI, returns the term itself.
 	pub fn into_iri(self) -> Result<IriBuf, Self> {
 		match self {
-			Term::Id(Id::Valid(ValidId::Iri(id))) => Ok(id),
+			Term::Id(Lenient::Valid(Id::Iri(id))) => Ok(id),
 			term => Err(term),
 		}
 	}
@@ -56,12 +56,12 @@ impl Term {
 
 impl From<IriBuf> for Term {
 	fn from(id: IriBuf) -> Term {
-		Term::Id(Id::Valid(ValidId::Iri(id)))
+		Term::Id(Lenient::Valid(Id::Iri(id)))
 	}
 }
 
-impl From<Id> for Term {
-	fn from(prop: Id) -> Term {
+impl From<Lenient<Id>> for Term {
+	fn from(prop: Lenient<Id>) -> Term {
 		Term::Id(prop)
 	}
 }

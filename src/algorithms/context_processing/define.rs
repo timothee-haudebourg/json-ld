@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use rdf_syntax::BlankId;
+use rdf_syntax::{BlankId, Id};
 use rdf_syntax::{Iri, IriRef};
 
+use crate::Lenient;
 use crate::{
 	algorithms::{
 		context_processing::{merged::Merged, ContextProcessor, TargetProcessedContext},
@@ -16,7 +17,7 @@ use crate::{
 		context::{EntryValueRef, ExpandedTermDefinitionRef, IdRef, KeyOrKeyword, KeyOrKeywordRef},
 		CompactIri, ContainerItem, ContainerValue, ExpandableRef, Keyword,
 	},
-	Id, LenientLangTag, Nullable, ProcessingMode, Term, Type, ValidId,
+	LenientLangTag, Nullable, ProcessingMode, Term, Type,
 };
 
 fn is_gen_delim(c: char) -> bool {
@@ -26,8 +27,8 @@ fn is_gen_delim(c: char) -> bool {
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
 fn is_gen_delim_or_blank(t: &Term) -> bool {
 	match t {
-		Term::Id(Id::Valid(ValidId::BlankId(_))) => true,
-		Term::Id(Id::Valid(ValidId::Iri(iri))) => {
+		Term::Id(Lenient::Valid(Id::BlankId(_))) => true,
+		Term::Id(Lenient::Valid(Id::Iri(iri))) => {
 			if let Some(c) = iri.chars().last() {
 				is_gen_delim(c)
 			} else {
@@ -472,7 +473,7 @@ impl<'a> ContextProcessor<'a> {
 
 											if let Ok(iri) = Iri::new(result.as_str()) {
 												definition.value =
-													Some(Term::Id(Id::iri(iri.to_owned())))
+													Some(Term::Id(Lenient::iri(iri.to_owned())))
 											} else {
 												return Err(Error::InvalidIriMapping);
 											}
@@ -483,12 +484,12 @@ impl<'a> ContextProcessor<'a> {
 									if definition.value.is_none() {
 										if let Ok(blank_id) = BlankId::new(term.as_str()) {
 											definition.value =
-												Some(Term::Id(Id::blank(blank_id.to_owned())))
+												Some(Term::Id(Lenient::blank(blank_id.to_owned())))
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
 											match iri_ref.as_iri() {
 												Some(iri) => {
 													definition.value =
-														Some(Term::Id(Id::iri(iri.to_owned())))
+														Some(Term::Id(Lenient::iri(iri.to_owned())))
 												}
 												None => {
 													if iri_ref.as_str().contains('/') {
@@ -503,7 +504,7 @@ impl<'a> ContextProcessor<'a> {
 															true,
 															|w| env.warn(w),
 														) {
-															Term::Id(Id::Valid(ValidId::Iri(
+															Term::Id(Lenient::Valid(Id::Iri(
 																id,
 															))) => definition.value = Some(id.into()),
 															// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
@@ -627,7 +628,7 @@ impl<'a> ContextProcessor<'a> {
 								true,
 								|w| env.warn(w),
 							) {
-								Term::Id(Id::Valid(ValidId::Iri(_))) => (),
+								Term::Id(Lenient::Valid(Id::Iri(_))) => (),
 								_ => return Err(Error::InvalidTermDefinition),
 							}
 

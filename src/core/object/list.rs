@@ -93,8 +93,8 @@ impl Relabel for ListObject {
 }
 
 impl AnyObject for ListObject {
-	fn as_ref(&self) -> super::Ref<'_> {
-		super::Ref::List(self)
+	fn as_ref(&self) -> super::ObjectRef<'_> {
+		super::ObjectRef::List(self)
 	}
 }
 

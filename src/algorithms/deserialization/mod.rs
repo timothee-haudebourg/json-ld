@@ -1,7 +1,7 @@
 use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
-use rdf_syntax::Term;
+use rdf_syntax::{Id, Term};
 
-use crate::{ExpandedDocument, Id};
+use crate::{ExpandedDocument, Lenient};
 
 mod object;
 
@@ -43,7 +43,7 @@ impl SerializeLinkedData for ExpandedDocument {
 	}
 }
 
-impl Id {
+impl Lenient<Id> {
 	pub fn serialize_rdf_term<S>(&self, serializer: &mut S) -> Result<Term, S::Error>
 	where
 		S: LinkedDataSerializer,
@@ -55,22 +55,24 @@ impl Id {
 	}
 }
 
-impl SerializeLinkedDataWith<RdfSerializationOptions> for Id {
+impl<T: SerializeLinkedDataWith<Q>, Q> SerializeLinkedDataWith<Q> for Lenient<T> {
 	fn serialize_rdf_with<S>(
 		&self,
-		_opts: RdfSerializationOptions,
+		state: Q,
 		serializer: S,
 		graph: Option<&Term>,
 	) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,
 	{
-		// Options are irrelevant for Id serialization.
-		self.serialize_rdf(serializer, graph)
+		match self {
+			Self::Valid(t) => t.serialize_rdf_with(state, serializer, graph),
+			Self::Invalid(_) => serializer.end(),
+		}
 	}
 }
 
-impl SerializeLinkedData for Id {
+impl<T: SerializeLinkedData> SerializeLinkedData for Lenient<T> {
 	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,

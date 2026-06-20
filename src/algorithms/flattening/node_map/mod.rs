@@ -1,9 +1,9 @@
 use crate::{
-	ExpandedDocument, FlattenedDocument, Id, Indexed, IndexedNode, IndexedObject, NodeObject,
+	ExpandedDocument, FlattenedDocument, Indexed, IndexedNode, IndexedObject, Lenient, NodeObject,
 	Object,
 };
 use educe::Educe;
-use rdf_syntax::Generator;
+use rdf_syntax::{Generator, Id};
 use std::collections::{HashMap, HashSet};
 
 mod builder;
@@ -16,12 +16,12 @@ use builder::NodeMapBuilder;
 #[derive(Clone, Debug, thiserror::Error)]
 #[error("Index `{defined_index}` conflicts with index `{conflicting_index}`")]
 pub struct ConflictingIndexes {
-	pub node_id: Id,
+	pub node_id: Lenient<Id>,
 	pub defined_index: String,
 	pub conflicting_index: String,
 }
 
-pub type Parts = (NodeMapGraph, HashMap<Id, NodeMapGraph>);
+pub type Parts = (NodeMapGraph, HashMap<Lenient<Id>, NodeMapGraph>);
 
 impl ExpandedDocument {
 	pub fn generate_node_map_with(
@@ -42,7 +42,7 @@ impl ExpandedDocument {
 #[derive(Educe)]
 #[educe(Default)]
 pub struct NodeMap {
-	graphs: HashMap<Id, NodeMapGraph>,
+	graphs: HashMap<Lenient<Id>, NodeMapGraph>,
 	default_graph: NodeMapGraph,
 }
 
@@ -65,25 +65,25 @@ impl NodeMap {
 		}
 	}
 
-	pub fn iter_named(&self) -> std::collections::hash_map::Iter<'_, Id, NodeMapGraph> {
+	pub fn iter_named(&self) -> std::collections::hash_map::Iter<'_, Lenient<Id>, NodeMapGraph> {
 		self.graphs.iter()
 	}
 
-	pub fn graph(&self, id: Option<&Id>) -> Option<&NodeMapGraph> {
+	pub fn graph(&self, id: Option<&Lenient<Id>>) -> Option<&NodeMapGraph> {
 		match id {
 			Some(id) => self.graphs.get(id),
 			None => Some(&self.default_graph),
 		}
 	}
 
-	pub fn graph_mut(&mut self, id: Option<&Id>) -> Option<&mut NodeMapGraph> {
+	pub fn graph_mut(&mut self, id: Option<&Lenient<Id>>) -> Option<&mut NodeMapGraph> {
 		match id {
 			Some(id) => self.graphs.get_mut(id),
 			None => Some(&mut self.default_graph),
 		}
 	}
 
-	pub fn declare_graph(&mut self, id: Id) {
+	pub fn declare_graph(&mut self, id: Lenient<Id>) {
 		if let std::collections::hash_map::Entry::Vacant(entry) = self.graphs.entry(id) {
 			entry.insert(NodeMapGraph::new());
 		}
@@ -162,11 +162,11 @@ impl NodeMap {
 
 pub struct Iter<'a> {
 	default_graph: Option<&'a NodeMapGraph>,
-	graphs: std::collections::hash_map::Iter<'a, Id, NodeMapGraph>,
+	graphs: std::collections::hash_map::Iter<'a, Lenient<Id>, NodeMapGraph>,
 }
 
 impl<'a> Iterator for Iter<'a> {
-	type Item = (Option<&'a Id>, &'a NodeMapGraph);
+	type Item = (Option<&'a Lenient<Id>>, &'a NodeMapGraph);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
@@ -177,7 +177,7 @@ impl<'a> Iterator for Iter<'a> {
 }
 
 impl<'a> IntoIterator for &'a NodeMap {
-	type Item = (Option<&'a Id>, &'a NodeMapGraph);
+	type Item = (Option<&'a Lenient<Id>>, &'a NodeMapGraph);
 	type IntoIter = Iter<'a>;
 
 	fn into_iter(self) -> Self::IntoIter {
@@ -187,11 +187,11 @@ impl<'a> IntoIterator for &'a NodeMap {
 
 pub struct IntoIter {
 	default_graph: Option<NodeMapGraph>,
-	graphs: std::collections::hash_map::IntoIter<Id, NodeMapGraph>,
+	graphs: std::collections::hash_map::IntoIter<Lenient<Id>, NodeMapGraph>,
 }
 
 impl Iterator for IntoIter {
-	type Item = (Option<Id>, NodeMapGraph);
+	type Item = (Option<Lenient<Id>>, NodeMapGraph);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
@@ -202,7 +202,7 @@ impl Iterator for IntoIter {
 }
 
 impl IntoIterator for NodeMap {
-	type Item = (Option<Id>, NodeMapGraph);
+	type Item = (Option<Lenient<Id>>, NodeMapGraph);
 	type IntoIter = IntoIter;
 
 	fn into_iter(self) -> Self::IntoIter {
@@ -216,7 +216,7 @@ impl IntoIterator for NodeMap {
 #[derive(Educe)]
 #[educe(Default)]
 pub struct NodeMapGraph {
-	nodes: HashMap<Id, IndexedNode>,
+	nodes: HashMap<Lenient<Id>, IndexedNode>,
 }
 
 impl NodeMapGraph {
@@ -230,19 +230,19 @@ impl NodeMapGraph {
 pub type DeclareNodeResult<'a> = Result<&'a mut Indexed<NodeObject>, ConflictingIndexes>;
 
 impl NodeMapGraph {
-	pub fn contains(&self, id: &Id) -> bool {
+	pub fn contains(&self, id: &Lenient<Id>) -> bool {
 		self.nodes.contains_key(id)
 	}
 
-	pub fn get(&self, id: &Id) -> Option<&IndexedNode> {
+	pub fn get(&self, id: &Lenient<Id>) -> Option<&IndexedNode> {
 		self.nodes.get(id)
 	}
 
-	pub fn get_mut(&mut self, id: &Id) -> Option<&mut IndexedNode> {
+	pub fn get_mut(&mut self, id: &Lenient<Id>) -> Option<&mut IndexedNode> {
 		self.nodes.get_mut(id)
 	}
 
-	pub fn declare_node(&mut self, id: Id, index: Option<&str>) -> DeclareNodeResult<'_> {
+	pub fn declare_node(&mut self, id: Lenient<Id>, index: Option<&str>) -> DeclareNodeResult<'_> {
 		if let Some(entry) = self.nodes.get_mut(&id) {
 			match (entry.index(), index) {
 				(Some(entry_index), Some(index)) => {
@@ -329,12 +329,12 @@ impl NodeMapGraph {
 	}
 }
 
-pub type NodeMapGraphNodes<'a> = std::collections::hash_map::Values<'a, Id, IndexedNode>;
-pub type IntoNodeMapGraphNodes = std::collections::hash_map::IntoValues<Id, IndexedNode>;
+pub type NodeMapGraphNodes<'a> = std::collections::hash_map::Values<'a, Lenient<Id>, IndexedNode>;
+pub type IntoNodeMapGraphNodes = std::collections::hash_map::IntoValues<Lenient<Id>, IndexedNode>;
 
 impl IntoIterator for NodeMapGraph {
-	type Item = (Id, IndexedNode);
-	type IntoIter = std::collections::hash_map::IntoIter<Id, IndexedNode>;
+	type Item = (Lenient<Id>, IndexedNode);
+	type IntoIter = std::collections::hash_map::IntoIter<Lenient<Id>, IndexedNode>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.into_iter()
@@ -342,8 +342,8 @@ impl IntoIterator for NodeMapGraph {
 }
 
 impl<'a> IntoIterator for &'a NodeMapGraph {
-	type Item = (&'a Id, &'a IndexedNode);
-	type IntoIter = std::collections::hash_map::Iter<'a, Id, IndexedNode>;
+	type Item = (&'a Lenient<Id>, &'a IndexedNode);
+	type IntoIter = std::collections::hash_map::Iter<'a, Lenient<Id>, IndexedNode>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.iter()

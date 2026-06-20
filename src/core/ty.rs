@@ -1,10 +1,10 @@
 use std::convert::TryFrom;
 use std::fmt;
 
-use rdf_syntax::{Iri, IriBuf};
+use rdf_syntax::{Id, Iri, IriBuf};
 
 use super::Term;
-use crate::{syntax::Keyword, Id, ValidId};
+use crate::{syntax::Keyword, Lenient};
 
 /// Object type.
 ///
@@ -67,7 +67,7 @@ impl From<Type> for Term {
 			Type::Json => Term::Keyword(Keyword::Json),
 			Type::None => Term::Keyword(Keyword::None),
 			Type::Vocab => Term::Keyword(Keyword::Vocab),
-			Type::Iri(id) => Term::Id(Id::Valid(ValidId::Iri(id))),
+			Type::Iri(id) => Term::Id(Lenient::Valid(Id::Iri(id))),
 		}
 	}
 }
@@ -81,7 +81,7 @@ impl TryFrom<Term> for Type {
 			Term::Keyword(Keyword::Json) => Ok(Type::Json),
 			Term::Keyword(Keyword::None) => Ok(Type::None),
 			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			Term::Id(Id::Valid(ValidId::Iri(id))) => Ok(Type::Iri(id)),
+			Term::Id(Lenient::Valid(Id::Iri(id))) => Ok(Type::Iri(id)),
 			term => Err(term),
 		}
 	}

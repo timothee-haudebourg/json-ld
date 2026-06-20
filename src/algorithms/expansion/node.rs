@@ -4,25 +4,26 @@ use crate::algorithms::{AsyncProcessingEnvironment, Error, Warning};
 use crate::context::Container;
 use crate::context::RawProcessedContext;
 use crate::syntax::{ContainerItem, Keyword, LenientLangTagBuf, Nullable};
-use crate::ValueObject;
 use crate::{
-	object, object::value::LiteralValue, Id, Indexed, IndexedObject, LangString, NodeObject,
-	Object, ProcessingMode, Term, Type,
+	object, object::value::LiteralValue, Indexed, IndexedObject, LangString, NodeObject, Object,
+	ProcessingMode, Term, Type,
 };
+use crate::{Lenient, ValueObject};
 use indexmap::IndexSet;
 use json_syntax::object::EntryRef;
 use json_syntax::JsonValue;
 use mown::Mown;
+use rdf_syntax::Id;
 
 use super::{filter_top_level_item, Expanded, ExpandedEntry};
 
 /// Convert a term to a node id, if possible.
 /// Return `None` if the term is `null`.
-pub fn node_id_of_term(term: Term) -> Option<Id> {
+pub fn node_id_of_term(term: Term) -> Option<Lenient<Id>> {
 	match term {
 		Term::Null => None,
 		Term::Id(prop) => Some(prop),
-		Term::Keyword(kw) => Some(Id::Invalid(kw.into_str().to_string())),
+		Term::Keyword(kw) => Some(Lenient::Invalid(kw.into_str().to_string())),
 	}
 }
 
@@ -279,7 +280,7 @@ impl<'a> Expander<'a> {
 										Term::Keyword(_) => {
 											return Err(Error::InvalidReversePropertyMap)
 										}
-										Term::Id(Id::Invalid(_))
+										Term::Id(Lenient::Invalid(_))
 											if self.options.policy
 												== ExpansionPolicy::Strictest =>
 										{
@@ -461,7 +462,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				Term::Id(Id::Invalid(name))
+				Term::Id(Lenient::Invalid(name))
 					if self.options.policy == ExpansionPolicy::Strictest =>
 				{
 					return Err(Error::KeyExpansionFailed(name))

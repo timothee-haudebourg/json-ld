@@ -77,7 +77,7 @@ impl<'a> Compactor<'a> {
 					});
 
 					match value_ref {
-						Some(object::Ref::List(list)) => {
+						Some(object::ObjectRef::List(list)) => {
 							if !has_index {
 								containers.push(Container::List);
 							}
@@ -158,7 +158,7 @@ impl<'a> Compactor<'a> {
 									Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
 							}
 						}
-						Some(object::Ref::Node(node)) if node.is_graph() => {
+						Some(object::ObjectRef::Node(node)) if node.is_graph() => {
 							// Otherwise, if value is a graph object, prefer a mapping most
 							// appropriate for the particular value.
 							if has_index {
@@ -201,7 +201,7 @@ impl<'a> Compactor<'a> {
 							type_lang_value =
 								Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
 						}
-						Some(object::Ref::Value(v)) => {
+						Some(object::ObjectRef::Value(v)) => {
 							// If value is a value object:
 							if (v.direction().is_some() || v.language().is_some()) && !has_index {
 								type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(
@@ -249,7 +249,7 @@ impl<'a> Compactor<'a> {
 
 				let mut is_empty_list = false;
 				if let Some(value) = value {
-					if let object::Ref::List(list) = value.inner().as_ref() {
+					if let object::ObjectRef::List(list) = value.inner().as_ref() {
 						if list.is_empty() {
 							is_empty_list = true;
 						}

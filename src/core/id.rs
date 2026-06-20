@@ -1,108 +1,48 @@
-use rdf_syntax::{BlankId, BlankIdBuf, Generator, InvalidBlankId};
+use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 use rdf_syntax::{Iri, IriBuf};
 use std::collections::HashMap;
 use std::convert::TryFrom;
-use std::fmt;
-use std::hash::Hash;
 
-pub type ValidId = rdf_syntax::Id;
+use crate::{Lenient, Term};
 
-use crate::Term;
-
-/// Node identifier.
-///
-/// Used to reference a node across a document or to a remote document.
-/// It can be an identifier (IRI), a blank node identifier for local blank nodes
-/// or an invalid reference (a string that is neither an IRI nor blank node identifier).
-///
-/// # `Hash` implementation
-///
-/// It is guaranteed that the `Hash` implementation of `Id` is *transparent*,
-/// meaning that the hash of `Id::Valid(id)` the same as `id`, and the hash of
-/// `Id::Invalid(id)` is the same as `id`.
-///
-/// This may be useful to define custom [`indexmap::Equivalent<Id>`]
-/// implementation.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(untagged))]
-pub enum Id {
-	/// Valid node identifier.
-	Valid(ValidId),
-
-	/// Invalid reference.
-	Invalid(String),
-}
-
-impl Id {
-	pub fn from_string(s: String) -> Self {
-		match IriBuf::new(s) {
-			Ok(iri) => Self::Valid(ValidId::Iri(iri)),
-			Err(e) => match BlankIdBuf::new(e.0) {
-				Ok(blank) => Self::Valid(ValidId::BlankId(blank)),
-				Err(InvalidBlankId(s)) => Self::Invalid(s),
-			},
-		}
-	}
-
+impl Lenient<Id> {
 	pub fn iri(iri: IriBuf) -> Self {
-		Self::Valid(ValidId::Iri(iri))
+		Self::Valid(Id::Iri(iri))
 	}
 
 	pub fn blank(b: BlankIdBuf) -> Self {
-		Self::Valid(ValidId::BlankId(b))
-	}
-
-	/// Checks if this is a valid reference.
-	///
-	/// Returns `true` is this reference is a node identifier or a blank node identifier,
-	/// `false` otherwise.
-	#[inline(always)]
-	pub fn is_valid(&self) -> bool {
-		!matches!(self, Self::Invalid(_))
-	}
-
-	/// Get a string representation of the reference.
-	///
-	/// This will either return a string slice of an IRI, or a blank node identifier.
-	#[inline(always)]
-	pub fn as_str(&self) -> &str {
-		match self {
-			Id::Valid(ValidId::Iri(id)) => id.as_ref(),
-			Id::Valid(ValidId::BlankId(id)) => id.as_ref(),
-			Id::Invalid(id) => id.as_str(),
-		}
+		Self::Valid(Id::BlankId(b))
 	}
 
 	pub fn into_blank(self) -> Option<BlankIdBuf> {
 		match self {
-			Self::Valid(ValidId::BlankId(b)) => Some(b),
+			Self::Valid(Id::BlankId(b)) => Some(b),
 			_ => None,
 		}
 	}
 
 	#[inline(always)]
 	pub fn is_blank(&self) -> bool {
-		matches!(self, Id::Valid(ValidId::BlankId(_)))
+		matches!(self, Self::Valid(Id::BlankId(_)))
 	}
 
 	#[inline(always)]
 	pub fn as_blank(&self) -> Option<&BlankId> {
 		match self {
-			Id::Valid(ValidId::BlankId(k)) => Some(k),
+			Self::Valid(Id::BlankId(k)) => Some(k),
 			_ => None,
 		}
 	}
 
 	#[inline(always)]
 	pub fn is_iri(&self) -> bool {
-		matches!(self, Id::Valid(ValidId::Iri(_)))
+		matches!(self, Self::Valid(Id::Iri(_)))
 	}
 
 	#[inline(always)]
 	pub fn as_iri(&self) -> Option<&Iri> {
 		match self {
-			Id::Valid(ValidId::Iri(k)) => Some(k),
+			Self::Valid(Id::Iri(k)) => Some(k),
 			_ => None,
 		}
 	}
@@ -111,76 +51,61 @@ impl Id {
 	pub fn into_term(self) -> Term {
 		Term::Id(self)
 	}
-
-	pub fn as_ref(&self) -> Ref<'_> {
-		match self {
-			Self::Valid(ValidId::Iri(t)) => Ref::Iri(t),
-			Self::Valid(ValidId::BlankId(id)) => Ref::Blank(id),
-			Self::Invalid(id) => Ref::Invalid(id.as_str()),
-		}
-	}
-
-	pub fn map(self, f: impl FnOnce(ValidId) -> ValidId) -> Self {
-		match self {
-			Self::Valid(id) => Id::Valid(f(id)),
-			Self::Invalid(id) => Id::Invalid(id),
-		}
-	}
 }
 
-impl indexmap::Equivalent<Id> for ValidId {
-	fn equivalent(&self, key: &Id) -> bool {
+impl indexmap::Equivalent<Lenient<Id>> for Id {
+	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
-			Id::Valid(id) => self == id,
+			Lenient::Valid(id) => self == id,
 			_ => false,
 		}
 	}
 }
 
-impl indexmap::Equivalent<Id> for &Iri {
-	fn equivalent(&self, key: &Id) -> bool {
+impl indexmap::Equivalent<Lenient<Id>> for &Iri {
+	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
-			Id::Valid(ValidId::Iri(iri)) => *self == iri,
+			Lenient::Valid(Id::Iri(iri)) => *self == iri,
 			_ => false,
 		}
 	}
 }
 
-impl indexmap::Equivalent<Id> for rdf_syntax::IriBuf {
-	fn equivalent(&self, key: &Id) -> bool {
+impl indexmap::Equivalent<Lenient<Id>> for rdf_syntax::IriBuf {
+	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
-			Id::Valid(ValidId::Iri(iri)) => self == iri,
+			Lenient::Valid(Id::Iri(iri)) => self == iri,
 			_ => false,
 		}
 	}
 }
 
-impl indexmap::Equivalent<Id> for rdf_syntax::BlankId {
-	fn equivalent(&self, key: &Id) -> bool {
+impl indexmap::Equivalent<Lenient<Id>> for rdf_syntax::BlankId {
+	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
-			Id::Valid(ValidId::BlankId(b)) => self == b,
+			Lenient::Valid(Id::BlankId(b)) => self == b,
 			_ => false,
 		}
 	}
 }
 
-impl indexmap::Equivalent<Id> for rdf_syntax::BlankIdBuf {
-	fn equivalent(&self, key: &Id) -> bool {
+impl indexmap::Equivalent<Lenient<Id>> for rdf_syntax::BlankIdBuf {
+	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
-			Id::Valid(ValidId::BlankId(b)) => self == b,
+			Lenient::Valid(Id::BlankId(b)) => self == b,
 			_ => false,
 		}
 	}
 }
 
-impl From<IriBuf> for Id {
+impl From<IriBuf> for Lenient<Id> {
 	#[inline(always)]
-	fn from(iri: IriBuf) -> Id {
+	fn from(iri: IriBuf) -> Self {
 		Self::iri(iri)
 	}
 }
 
-impl PartialEq<Iri> for Id {
+impl PartialEq<Iri> for Lenient<Id> {
 	fn eq(&self, other: &Iri) -> bool {
 		self.as_iri() == Some(other)
 	}
@@ -190,15 +115,15 @@ impl PartialEq<Term> for Id {
 	#[inline]
 	fn eq(&self, term: &Term) -> bool {
 		match term {
-			Term::Id(prop) => self == prop,
+			Term::Id(Lenient::Valid(prop)) => self == prop,
 			_ => false,
 		}
 	}
 }
 
-impl PartialEq<Id> for Term {
+impl PartialEq<Lenient<Id>> for Term {
 	#[inline]
-	fn eq(&self, r: &Id) -> bool {
+	fn eq(&self, r: &Lenient<Id>) -> bool {
 		match self {
 			Term::Id(prop) => prop == r,
 			_ => false,
@@ -206,17 +131,11 @@ impl PartialEq<Id> for Term {
 	}
 }
 
-impl From<ValidId> for Id {
-	fn from(r: ValidId) -> Self {
-		Id::Valid(r)
-	}
-}
-
-impl TryFrom<Term> for Id {
+impl TryFrom<Term> for Lenient<Id> {
 	type Error = Term;
 
 	#[inline]
-	fn try_from(term: Term) -> Result<Id, Term> {
+	fn try_from(term: Term) -> Result<Self, Term> {
 		match term {
 			Term::Id(prop) => Ok(prop),
 			term => Err(term),
@@ -224,51 +143,41 @@ impl TryFrom<Term> for Id {
 	}
 }
 
-impl fmt::Display for Id {
-	#[inline]
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		match self {
-			Id::Valid(id) => id.fmt(f),
-			Id::Invalid(id) => id.fmt(f),
-		}
-	}
-}
-
-impl TryFrom<Id> for ValidId {
+impl TryFrom<Lenient<Id>> for Id {
 	type Error = String;
 
-	fn try_from(r: Id) -> Result<Self, Self::Error> {
+	fn try_from(r: Lenient<Id>) -> Result<Self, Self::Error> {
 		match r {
-			Id::Valid(r) => Ok(r),
-			Id::Invalid(id) => Err(id),
+			Lenient::Valid(r) => Ok(r),
+			Lenient::Invalid(id) => Err(id),
 		}
 	}
 }
 
-impl<'a> TryFrom<&'a Id> for &'a ValidId {
+impl<'a> TryFrom<&'a Lenient<Id>> for &'a Id {
 	type Error = &'a String;
 
-	fn try_from(r: &'a Id) -> Result<Self, Self::Error> {
+	fn try_from(r: &'a Lenient<Id>) -> Result<Self, Self::Error> {
 		match r {
-			Id::Valid(r) => Ok(r),
-			Id::Invalid(id) => Err(id),
+			Lenient::Valid(r) => Ok(r),
+			Lenient::Invalid(id) => Err(id),
 		}
 	}
 }
 
-impl<'a> TryFrom<&'a mut Id> for &'a mut ValidId {
+impl<'a> TryFrom<&'a mut Lenient<Id>> for &'a mut Id {
 	type Error = &'a mut String;
 
-	fn try_from(r: &'a mut Id) -> Result<Self, Self::Error> {
+	fn try_from(r: &'a mut Lenient<Id>) -> Result<Self, Self::Error> {
 		match r {
-			Id::Valid(r) => Ok(r),
-			Id::Invalid(id) => Err(id),
+			Lenient::Valid(r) => Ok(r),
+			Lenient::Invalid(id) => Err(id),
 		}
 	}
 }
 
-impl indexmap::Equivalent<Id> for Iri {
-	fn equivalent(&self, key: &Id) -> bool {
+impl indexmap::Equivalent<Lenient<Id>> for Iri {
+	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key.as_iri() {
 			Some(iri) => self == iri,
 			None => false,
@@ -276,23 +185,9 @@ impl indexmap::Equivalent<Id> for Iri {
 	}
 }
 
-/// Id to a reference.
-#[derive(Clone, PartialEq, Eq, Hash)]
-#[repr(u8)]
-pub enum Ref<'a> {
-	/// Node identifier, essentially an IRI.
-	Iri(&'a Iri),
-
-	/// Blank node identifier.
-	Blank(&'a BlankId),
-
-	/// Invalid reference.
-	Invalid(&'a str),
-}
-
 pub struct Relabeling<G> {
 	generator: G,
-	map: HashMap<BlankIdBuf, ValidId>,
+	map: HashMap<BlankIdBuf, Id>,
 }
 
 impl<G> Relabeling<G> {
@@ -308,16 +203,16 @@ impl<G> Relabeling<G>
 where
 	G: Generator,
 {
-	pub fn relabel(&mut self, id: Option<Id>) -> Id {
+	pub fn relabel(&mut self, id: Option<Lenient<Id>>) -> Lenient<Id> {
 		match id {
-			Some(Id::Valid(ValidId::BlankId(b))) => Id::Valid(
+			Some(Lenient::Valid(Id::BlankId(b))) => Lenient::Valid(
 				self.map
 					.entry(b)
 					.or_insert_with(|| self.generator.next_id())
 					.clone(),
 			),
 			Some(id) => id,
-			None => Id::Valid(self.generator.next_id()),
+			None => Lenient::Valid(self.generator.next_id()),
 		}
 	}
 }

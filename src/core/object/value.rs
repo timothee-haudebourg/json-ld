@@ -2,7 +2,7 @@ use crate::syntax::Keyword;
 use crate::{object, Direction, LangString, LenientLangTag, Type};
 use educe::Educe;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
-use rdf_syntax::{Iri, IriBuf};
+use rdf_syntax::{IdRef, Iri, IriBuf};
 use rdf_syntax::{Literal, RDF_JSON};
 use std::hash::Hash;
 use xsd_types::{XSD_BOOLEAN, XSD_FLOAT, XSD_INTEGER};
@@ -14,10 +14,10 @@ pub enum ValueType {
 }
 
 impl ValueType {
-	pub fn as_id(&self) -> Option<crate::id::Ref<'_>> {
+	pub fn as_id(&self) -> Option<IdRef<'_>> {
 		match self {
 			Self::Json => None,
-			Self::Id(t) => Some(crate::id::Ref::Iri(t)),
+			Self::Id(t) => Some(IdRef::Iri(t)),
 		}
 	}
 }
@@ -38,10 +38,10 @@ impl<'a> ValueTypeRef<'a> {
 		}
 	}
 
-	pub fn into_reference(self) -> Option<crate::id::Ref<'a>> {
+	pub fn into_id_ref(self) -> Option<IdRef<'a>> {
 		match self {
 			Self::Json => None,
-			Self::Id(t) => Some(crate::id::Ref::Iri(t)),
+			Self::Id(t) => Some(IdRef::Iri(t)),
 		}
 	}
 }
@@ -349,8 +349,8 @@ impl ValueObject {
 
 impl object::AnyObject for ValueObject {
 	#[inline(always)]
-	fn as_ref(&self) -> object::Ref<'_> {
-		object::Ref::Value(self)
+	fn as_ref(&self) -> object::ObjectRef<'_> {
+		object::ObjectRef::Value(self)
 	}
 }
 

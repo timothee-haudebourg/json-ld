@@ -1,11 +1,11 @@
 //! Nodes, lists and values.
 use crate::object::typ::TypeRef;
 use crate::syntax::Keyword;
-use crate::{Id, Indexed, LenientLangTag, Relabel, Relabeling};
+use crate::{Indexed, Lenient, LenientLangTag, Relabel, Relabeling};
 use educe::Educe;
 use json_syntax::JsonNumber;
-use rdf_syntax::Generator;
 use rdf_syntax::Iri;
+use rdf_syntax::{Generator, Id};
 use std::hash::Hash;
 
 pub mod list;
@@ -21,12 +21,12 @@ pub use value::{LiteralValue, ValueObject};
 
 /// Abstract object.
 pub trait AnyObject {
-	fn as_ref(&self) -> Ref<'_>;
+	fn as_ref(&self) -> ObjectRef<'_>;
 
 	#[inline]
-	fn id(&self) -> Option<&Id> {
+	fn id(&self) -> Option<&Lenient<Id>> {
 		match self.as_ref() {
-			Ref::Node(n) => n.id.as_ref(),
+			ObjectRef::Node(n) => n.id.as_ref(),
 			_ => None,
 		}
 	}
@@ -34,37 +34,37 @@ pub trait AnyObject {
 	#[inline]
 	fn language(&self) -> Option<&LenientLangTag> {
 		match self.as_ref() {
-			Ref::Value(value) => value.language(),
+			ObjectRef::Value(value) => value.language(),
 			_ => None,
 		}
 	}
 
 	#[inline]
 	fn is_value(&self) -> bool {
-		matches!(self.as_ref(), Ref::Value(_))
+		matches!(self.as_ref(), ObjectRef::Value(_))
 	}
 
 	#[inline]
 	fn is_node(&self) -> bool {
-		matches!(self.as_ref(), Ref::Node(_))
+		matches!(self.as_ref(), ObjectRef::Node(_))
 	}
 
 	#[inline]
 	fn is_graph(&self) -> bool {
 		match self.as_ref() {
-			Ref::Node(n) => n.is_graph(),
+			ObjectRef::Node(n) => n.is_graph(),
 			_ => false,
 		}
 	}
 
 	#[inline]
 	fn is_list(&self) -> bool {
-		matches!(self.as_ref(), Ref::List(_))
+		matches!(self.as_ref(), ObjectRef::List(_))
 	}
 }
 
 /// Object reference.
-pub enum Ref<'a> {
+pub enum ObjectRef<'a> {
 	/// Value object.
 	Value(&'a ValueObject),
 
@@ -115,7 +115,7 @@ impl Object {
 
 	/// Identifier of the object, if it is a node object.
 	#[inline(always)]
-	pub fn id(&self) -> Option<&Id> {
+	pub fn id(&self) -> Option<&Lenient<Id>> {
 		match self {
 			Object::Node(n) => n.id.as_ref(),
 			_ => None,
@@ -670,11 +670,11 @@ impl<'a> IndexedEntryRef<'a> {
 
 impl AnyObject for Object {
 	#[inline(always)]
-	fn as_ref(&self) -> Ref<'_> {
+	fn as_ref(&self) -> ObjectRef<'_> {
 		match self {
-			Object::Value(value) => Ref::Value(value),
-			Object::Node(node) => Ref::Node(node),
-			Object::List(list) => Ref::List(list),
+			Object::Value(value) => ObjectRef::Value(value),
+			Object::Node(node) => ObjectRef::Node(node),
+			Object::List(list) => ObjectRef::List(list),
 		}
 	}
 }
@@ -696,7 +696,7 @@ impl From<NodeObject> for Object {
 /// Iterator through the types of an object.
 pub enum Types<'a> {
 	Value(Option<value::ValueTypeRef<'a>>),
-	Node(std::slice::Iter<'a, Id>),
+	Node(std::slice::Iter<'a, Lenient<Id>>),
 	List,
 }
 
@@ -706,7 +706,7 @@ impl<'a> Iterator for Types<'a> {
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
 			Self::Value(ty) => ty.take().map(TypeRef::from_value_type),
-			Self::Node(tys) => tys.next().map(TypeRef::from_reference),
+			Self::Node(tys) => tys.next().map(TypeRef::from_id),
 			Self::List => None,
 		}
 	}

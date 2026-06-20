@@ -1,6 +1,7 @@
 use rdf_syntax::BlankId;
 use rdf_syntax::{Iri, IriBuf, IriRef};
 
+use crate::Lenient;
 use crate::{
 	algorithms::{
 		context_processing::{merged::Merged, ContextProcessor, TargetProcessedContext},
@@ -13,7 +14,7 @@ use crate::{
 		context::{ContextTerm, KeyOrKeywordRef},
 		is_keyword_like, CompactIri, ExpandableRef,
 	},
-	Id, Nullable, Term,
+	Nullable, Term,
 };
 
 /// Resolve `iri_ref` against the given base IRI.
@@ -92,11 +93,11 @@ impl<'a> ContextProcessor<'a> {
 
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
-						return Ok(Term::Id(Id::blank(blank_id.to_owned())));
+						return Ok(Term::Id(Lenient::blank(blank_id.to_owned())));
 					}
 
 					if value == "_:" {
-						return Ok(Term::Id(Id::Invalid("_:".to_string())));
+						return Ok(Term::Id(Lenient::Invalid("_:".to_string())));
 					}
 
 					if let Ok(compact_iri) = CompactIri::new(value) {
@@ -124,14 +125,14 @@ impl<'a> ContextProcessor<'a> {
 									let mut result = mapping.as_str().to_owned();
 									result.push_str(compact_iri.suffix());
 
-									return Ok(Term::Id(Id::from_string(result)));
+									return Ok(Term::Id(Lenient::from_string(result).0));
 								}
 							}
 						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Ok(Term::Id(Id::iri(iri.to_owned())));
+						return Ok(Term::Id(Lenient::iri(iri.to_owned())));
 					}
 				}
 
@@ -143,7 +144,7 @@ impl<'a> ContextProcessor<'a> {
 							let mut result = mapping.as_str().to_owned();
 							result.push_str(value);
 
-							return Ok(Term::Id(Id::from_string(result)));
+							return Ok(Term::Id(Lenient::from_string(result).0));
 						}
 						Some(_) => return Ok(invalid_iri(value.to_owned(), |w| env.warn(w))),
 						None => (),
@@ -217,11 +218,11 @@ impl RawProcessedContext {
 
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
-						return Term::Id(Id::blank(blank_id.to_owned()));
+						return Term::Id(Lenient::blank(blank_id.to_owned()));
 					}
 
 					if value == "_:" {
-						return Term::Id(Id::Invalid("_:".to_string()));
+						return Term::Id(Lenient::Invalid("_:".to_string()));
 					}
 
 					if let Ok(compact_iri) = CompactIri::new(value) {
@@ -234,14 +235,14 @@ impl RawProcessedContext {
 								if let Some(mapping) = &term_definition.value {
 									let mut result = mapping.as_str().to_owned();
 									result.push_str(compact_iri.suffix());
-									return Term::Id(Id::from_string(result));
+									return Term::Id(Lenient::from_string(result).0);
 								}
 							}
 						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Term::Id(Id::iri(iri.to_owned()));
+						return Term::Id(Lenient::iri(iri.to_owned()));
 					}
 				}
 
@@ -253,7 +254,7 @@ impl RawProcessedContext {
 							let mut result = mapping.as_str().to_owned();
 							result.push_str(value);
 
-							return Term::Id(Id::from_string(result));
+							return Term::Id(Lenient::from_string(result).0);
 						}
 						Some(_) => return invalid_iri(value.to_string(), on_warning),
 						None => (),
@@ -283,5 +284,5 @@ impl RawProcessedContext {
 
 fn invalid_iri(value: String, on_warning: impl FnOnce(Warning)) -> Term {
 	(on_warning)(Warning::MalformedIri(value.clone()));
-	Term::Id(Id::Invalid(value))
+	Term::Id(Lenient::Invalid(value))
 }

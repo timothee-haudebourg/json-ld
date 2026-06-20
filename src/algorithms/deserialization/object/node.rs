@@ -4,7 +4,7 @@ use linked_data::{
 };
 use rdf_syntax::{Term, RDF_TYPE};
 
-use crate::{Id, NodeObject};
+use crate::{Lenient, NodeObject};
 
 use super::super::RdfSerializationOptions;
 
@@ -19,8 +19,8 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for NodeObject {
 		S: LinkedDataSerializer<Term>,
 	{
 		let subject = match &self.id {
-			Some(Id::Valid(id)) => id.clone().into(),
-			Some(Id::Invalid(_)) => return serializer.end(),
+			Some(Lenient::Valid(id)) => id.clone().into(),
+			Some(Lenient::Invalid(_)) => return serializer.end(),
 			None => serializer.interpret(None)?,
 		};
 

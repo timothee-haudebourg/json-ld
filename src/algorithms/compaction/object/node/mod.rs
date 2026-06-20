@@ -1,5 +1,6 @@
 use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
+use rdf_syntax::Id;
 
 use crate::{
 	algorithms::{
@@ -9,7 +10,7 @@ use crate::{
 	},
 	context::Container,
 	syntax::{ContainerItem, Keyword},
-	Error, Id, NodeObject, ProcessingMode, Term, Type,
+	Error, Lenient, NodeObject, ProcessingMode, Term, Type,
 };
 
 mod property;
@@ -321,7 +322,11 @@ impl Compactor<'_> {
 	}
 
 	/// Compact the given list of types into the given `result` compacted object.
-	fn compact_types(self, result: &mut JsonObject, types: Option<&[Id]>) -> Result<(), Error> {
+	fn compact_types(
+		self,
+		result: &mut JsonObject,
+		types: Option<&[Lenient<Id>]>,
+	) -> Result<(), Error> {
 		// If expanded property is @type:
 		if let Some(types) = types {
 			if !types.is_empty() {

@@ -9,9 +9,9 @@ use crate::{
 		AsyncProcessingEnvironment,
 	},
 	context::Container,
-	object::{AnyObject, ListObject, Ref},
+	object::{AnyObject, ListObject, ObjectRef},
 	syntax::{context::Nest, ContainerItem, Keyword},
-	Error, Id, Indexed, NodeObject, Object, Term,
+	Error, Indexed, Lenient, NodeObject, Object, Term,
 };
 
 impl Compactor<'_> {
@@ -356,7 +356,7 @@ impl Compactor<'_> {
 				// use the value of the @list or @graph entries, respectively,
 				// for `element` instead of `expanded_item`.
 				match expanded_item.inner().as_ref() {
-					Ref::List(list) => {
+					ObjectRef::List(list) => {
 						self.compact_property_list(
 							env,
 							list,
@@ -368,7 +368,7 @@ impl Compactor<'_> {
 						)
 						.await?
 					}
-					Ref::Node(node) if node.is_graph() => {
+					ObjectRef::Node(node) if node.is_graph() => {
 						self.compact_property_graph(
 							env,
 							node,
@@ -456,7 +456,7 @@ impl Compactor<'_> {
 							let map_key = if container_type == ContainerItem::Language
 								&& expanded_item.is_value()
 							{
-								if let Ref::Value(value) = expanded_item.inner().as_ref() {
+								if let ObjectRef::Value(value) = expanded_item.inner().as_ref() {
 									compacted_item = value_value(value)
 								}
 
@@ -470,7 +470,7 @@ impl Compactor<'_> {
 										// Reinitialize `container_key` by
 										// IRI compacting `index_key`.
 										container_key = self.compact_iri(
-											&Term::Id(Id::Invalid(index_key.to_string())),
+											&Term::Id(Lenient::Invalid(index_key.to_string())),
 											true,
 											false,
 										)?;

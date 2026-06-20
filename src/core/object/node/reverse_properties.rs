@@ -1,7 +1,8 @@
 use super::{Multiset, Nodes};
-use crate::{Id, IndexedNode};
+use crate::{IndexedNode, Lenient};
 use educe::Educe;
 use indexmap::IndexMap;
+use rdf_syntax::Id;
 use std::hash::{Hash, Hasher};
 
 pub type ReversePropertyNodes = Multiset<IndexedNode>;
@@ -10,7 +11,7 @@ pub type ReversePropertyNodes = Multiset<IndexedNode>;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct ReverseProperties(IndexMap<Id, ReversePropertyNodes>);
+pub struct ReverseProperties(IndexMap<Lenient<Id>, ReversePropertyNodes>);
 
 impl Default for ReverseProperties {
 	fn default() -> Self {
@@ -60,13 +61,13 @@ impl ReverseProperties {
 impl ReverseProperties {
 	/// Checks if the given reverse property is associated to any node.
 	#[inline(always)]
-	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> bool {
+	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> bool {
 		self.0.get(prop).is_some()
 	}
 
 	/// Returns an iterator over all the nodes associated to the given reverse property.
 	#[inline(always)]
-	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(&self, prop: &Q) -> Nodes<'_> {
+	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> Nodes<'_> {
 		match self.0.get(prop) {
 			Some(values) => Nodes::new(Some(values.iter())),
 			None => Nodes::new(None),
@@ -77,7 +78,7 @@ impl ReverseProperties {
 	///
 	/// If multiple nodes are found, there are no guaranties on which node will be returned.
 	#[inline(always)]
-	pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Id>>(
+	pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(
 		&self,
 		prop: &Q,
 	) -> Option<&IndexedNode> {
@@ -89,7 +90,7 @@ impl ReverseProperties {
 
 	/// Associate the given node to the given reverse property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Id, value: IndexedNode) {
+	pub fn insert(&mut self, prop: Lenient<Id>, value: IndexedNode) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(value);
 		} else {
@@ -99,7 +100,7 @@ impl ReverseProperties {
 
 	/// Associate the given node to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(&mut self, prop: Id, value: IndexedNode) {
+	pub fn insert_unique(&mut self, prop: Lenient<Id>, value: IndexedNode) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
 				node_values.insert(value)
@@ -113,7 +114,7 @@ impl ReverseProperties {
 	#[inline(always)]
 	pub fn insert_all<Objects: IntoIterator<Item = IndexedNode>>(
 		&mut self,
-		prop: Id,
+		prop: Lenient<Id>,
 		values: Objects,
 	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
@@ -127,7 +128,7 @@ impl ReverseProperties {
 	#[inline(always)]
 	pub fn insert_all_unique<Nodes: IntoIterator<Item = IndexedNode>>(
 		&mut self,
-		prop: Id,
+		prop: Lenient<Id>,
 		values: Nodes,
 	) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
@@ -150,11 +151,11 @@ impl ReverseProperties {
 		}
 	}
 
-	pub fn set(&mut self, prop: Id, values: ReversePropertyNodes) {
+	pub fn set(&mut self, prop: Lenient<Id>, values: ReversePropertyNodes) {
 		self.0.insert(prop, values);
 	}
 
-	pub fn extend_unique<N>(&mut self, iter: impl IntoIterator<Item = (Id, N)>)
+	pub fn extend_unique<N>(&mut self, iter: impl IntoIterator<Item = (Lenient<Id>, N)>)
 	where
 		N: IntoIterator<Item = IndexedNode>,
 	{
@@ -165,16 +166,16 @@ impl ReverseProperties {
 
 	/// Removes and returns all the values associated to the given reverse property.
 	#[inline(always)]
-	pub fn remove(&mut self, prop: &Id) -> Option<ReversePropertyNodes> {
+	pub fn remove(&mut self, prop: &Lenient<Id>) -> Option<ReversePropertyNodes> {
 		self.0.swap_remove(prop)
 	}
 }
 
-impl<N> FromIterator<(Id, N)> for ReverseProperties
+impl<N> FromIterator<(Lenient<Id>, N)> for ReverseProperties
 where
 	N: IntoIterator<Item = IndexedNode>,
 {
-	fn from_iter<I: IntoIterator<Item = (Id, N)>>(iter: I) -> Self {
+	fn from_iter<I: IntoIterator<Item = (Lenient<Id>, N)>>(iter: I) -> Self {
 		let mut result = Self::default();
 		for (id, values) in iter {
 			result.insert_all(id, values);
@@ -190,10 +191,10 @@ impl Hash for ReverseProperties {
 	}
 }
 
-impl Extend<(Id, Vec<IndexedNode>)> for ReverseProperties {
+impl Extend<(Lenient<Id>, Vec<IndexedNode>)> for ReverseProperties {
 	fn extend<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Id, Vec<IndexedNode>)>,
+		I: IntoIterator<Item = (Lenient<Id>, Vec<IndexedNode>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -203,15 +204,15 @@ impl Extend<(Id, Vec<IndexedNode>)> for ReverseProperties {
 
 /// Tuple type representing a reverse binding in a node object,
 /// associating a reverse property to some nodes.
-pub type ReverseBinding = (Id, ReversePropertyNodes);
+pub type ReverseBinding = (Lenient<Id>, ReversePropertyNodes);
 
 /// Tuple type representing a reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes.
-pub type ReverseBindingRef<'a> = (&'a Id, &'a [IndexedNode]);
+pub type ReverseBindingRef<'a> = (&'a Lenient<Id>, &'a [IndexedNode]);
 
 /// Tuple type representing a mutable reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes, with a mutable access to the nodes.
-pub type ReverseBindingMut<'a> = (&'a Id, &'a mut ReversePropertyNodes);
+pub type ReverseBindingMut<'a> = (&'a Lenient<Id>, &'a mut ReversePropertyNodes);
 
 impl IntoIterator for ReverseProperties {
 	type Item = ReverseBinding;
@@ -246,7 +247,7 @@ impl<'a> IntoIterator for &'a mut ReverseProperties {
 /// Iterator over the reverse properties of a node.
 ///
 /// It is created by the [`ReverseProperties::into_iter`] function.
-pub type IntoIter = indexmap::map::IntoIter<Id, ReversePropertyNodes>;
+pub type IntoIter = indexmap::map::IntoIter<Lenient<Id>, ReversePropertyNodes>;
 
 /// Iterator over the reverse properties of a node.
 ///
@@ -254,7 +255,7 @@ pub type IntoIter = indexmap::map::IntoIter<Id, ReversePropertyNodes>;
 #[derive(Educe)]
 #[educe(Clone)]
 pub struct Iter<'a> {
-	inner: indexmap::map::Iter<'a, Id, ReversePropertyNodes>,
+	inner: indexmap::map::Iter<'a, Lenient<Id>, ReversePropertyNodes>,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -281,4 +282,4 @@ impl<'a> std::iter::FusedIterator for Iter<'a> {}
 /// to the associated nodes.
 ///
 /// It is created by the [`ReverseProperties::iter_mut`] function.
-pub type IterMut<'a> = indexmap::map::IterMut<'a, Id, ReversePropertyNodes>;
+pub type IterMut<'a> = indexmap::map::IterMut<'a, Lenient<Id>, ReversePropertyNodes>;
