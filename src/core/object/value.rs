@@ -1,7 +1,8 @@
 use crate::syntax::Keyword;
-use crate::{object, Direction, LangString, LenientLangTag, Type};
+use crate::{object, Direction, LangString, Lenient, Type};
 use educe::Educe;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
+use langtag::LangTag;
 use rdf_syntax::{IdRef, Iri, IriBuf};
 use rdf_syntax::{Literal, RDF_JSON};
 use std::hash::Hash;
@@ -276,7 +277,7 @@ impl ValueObject {
 	///
 	/// Returns `None` if the value is not a language tagged string.
 	#[inline(always)]
-	pub fn language(&self) -> Option<&LenientLangTag> {
+	pub fn language(&self) -> Option<Lenient<&LangTag>> {
 		match self {
 			ValueObject::LangString(tag) => tag.language(),
 			_ => None,
@@ -404,7 +405,7 @@ impl From<Literal> for ValueObject {
 pub enum EntryRef<'a> {
 	Value(ValueEntryRef<'a>),
 	Type(ValueTypeRef<'a>),
-	Language(&'a LenientLangTag),
+	Language(Lenient<&'a LangTag>),
 	Direction(Direction),
 }
 
@@ -435,7 +436,7 @@ impl<'a> EntryRef<'a> {
 		match self {
 			Self::Value(v) => EntryValueRef::Value(*v),
 			Self::Type(v) => EntryValueRef::Type(*v),
-			Self::Language(v) => EntryValueRef::Language(v),
+			Self::Language(v) => EntryValueRef::Language(*v),
 			Self::Direction(v) => EntryValueRef::Direction(*v),
 		}
 	}
@@ -446,7 +447,7 @@ impl<'a> EntryRef<'a> {
 pub enum EntryValueRef<'a> {
 	Value(ValueEntryRef<'a>),
 	Type(ValueTypeRef<'a>),
-	Language(&'a LenientLangTag),
+	Language(Lenient<&'a LangTag>),
 	Direction(Direction),
 }
 
@@ -504,7 +505,7 @@ impl EntryKey {
 pub struct Entries<'a> {
 	value: Option<ValueEntryRef<'a>>,
 	type_: Option<ValueTypeRef<'a>>,
-	language: Option<&'a LenientLangTag>,
+	language: Option<Lenient<&'a LangTag>>,
 	direction: Option<Direction>,
 }
 

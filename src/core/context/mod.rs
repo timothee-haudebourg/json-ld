@@ -4,10 +4,11 @@ mod definition;
 pub mod inverse;
 
 pub use container::Container;
+use langtag::{LangTag, LangTagBuf};
 
 use crate::syntax::context::ContextTerm;
 use crate::syntax::{Context, KeywordType};
-use crate::{Direction, LenientLangTag, LenientLangTagBuf, Term};
+use crate::{Direction, Lenient, Term};
 use rdf_syntax::{Iri, IriBuf};
 use std::borrow::{Borrow, Cow};
 use std::cell::OnceCell;
@@ -80,7 +81,7 @@ pub struct RawProcessedContext {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<Term>,
-	default_language: Option<LenientLangTagBuf>,
+	default_language: Option<Lenient<LangTagBuf>>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
 	definitions: Definitions,
@@ -157,10 +158,8 @@ impl RawProcessedContext {
 	}
 
 	/// Returns the default `@language` value.
-	pub fn default_language(&self) -> Option<&LenientLangTag> {
-		self.default_language
-			.as_ref()
-			.map(|tag| tag.as_lenient_lang_tag_ref())
+	pub fn default_language(&self) -> Option<Lenient<&LangTag>> {
+		self.default_language.as_ref().map(|tag| tag.as_deref())
 	}
 
 	/// Returns the default `@direction` value.
@@ -235,7 +234,7 @@ impl RawProcessedContext {
 	}
 
 	/// Sets the default `@language` value.
-	pub fn set_default_language(&mut self, lang: Option<LenientLangTagBuf>) {
+	pub fn set_default_language(&mut self, lang: Option<Lenient<LangTagBuf>>) {
 		self.inverse.take();
 		self.default_language = lang;
 	}

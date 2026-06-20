@@ -1,5 +1,5 @@
 //! JSON-LD core types.
-pub use crate::syntax::{Direction, LenientLangTag, LenientLangTagBuf, Nullable};
+pub use crate::syntax::{Direction, Nullable};
 
 pub mod context;
 mod document;

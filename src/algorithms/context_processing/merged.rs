@@ -1,3 +1,4 @@
+use langtag::LangTagBuf;
 use rdf_syntax::IriRef;
 
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
 		},
 		Context, ContextEntry,
 	},
-	Direction, LenientLangTagBuf, Nullable,
+	Direction, Lenient, Nullable,
 };
 
 pub struct Merged<'a> {
@@ -44,7 +45,7 @@ impl<'a> Merged<'a> {
 			.map(Nullable::as_ref)
 	}
 
-	pub fn language(&self) -> Option<Nullable<&LenientLangTagBuf>> {
+	pub fn language(&self) -> Option<Nullable<&Lenient<LangTagBuf>>> {
 		self.base
 			.language
 			.as_ref()

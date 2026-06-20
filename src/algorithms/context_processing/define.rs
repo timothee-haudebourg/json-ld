@@ -17,7 +17,7 @@ use crate::{
 		context::{EntryValueRef, ExpandedTermDefinitionRef, IdRef, KeyOrKeyword, KeyOrKeywordRef},
 		CompactIri, ContainerItem, ContainerValue, ExpandableRef, Keyword,
 	},
-	LenientLangTag, Nullable, ProcessingMode, Term, Type,
+	Nullable, ProcessingMode, Term, Type,
 };
 
 fn is_gen_delim(c: char) -> bool {
@@ -678,8 +678,7 @@ impl<'a> ContextProcessor<'a> {
 								// Otherwise, an invalid language mapping error has been detected and
 								// processing is aborted.
 								// Set the `language` mapping of definition to `language`.
-								definition.language =
-									Some(language_value.map(LenientLangTag::to_owned));
+								definition.language = Some(language_value.map(Lenient::into_owned));
 							}
 
 							// If `value` contains the entry `@direction` and does not contain the

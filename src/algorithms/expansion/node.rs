@@ -3,7 +3,7 @@ use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{AsyncProcessingEnvironment, Error, Warning};
 use crate::context::Container;
 use crate::context::RawProcessedContext;
-use crate::syntax::{ContainerItem, Keyword, LenientLangTagBuf, Nullable};
+use crate::syntax::{ContainerItem, Keyword, Nullable};
 use crate::{
 	object, object::value::LiteralValue, Indexed, IndexedObject, LangString, NodeObject, Object,
 	ProcessingMode, Term, Type,
@@ -552,9 +552,8 @@ impl<'a> Expander<'a> {
 												{
 													None
 												} else {
-													let (language, error) = LenientLangTagBuf::new(
-														language.to_string(),
-													);
+													let (language, error) =
+														Lenient::from_string(language.to_string());
 
 													if let Some(error) = error {
 														env.warn(Warning::MalformedLanguageTag(

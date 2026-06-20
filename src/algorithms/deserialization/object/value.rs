@@ -4,6 +4,7 @@ use rdf_syntax::Iri;
 use rdf_syntax::{Literal, Term, RDF_JSON};
 use xsd_types::{Double, ParseXsd, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
 
+use crate::Lenient;
 use crate::{object::value::LiteralType, ValueObject};
 
 use super::super::RdfSerializationOptions;
@@ -58,9 +59,9 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for ValueObject {
 				}
 			}
 			Self::LangString(s) => match s.language() {
-				Some(lang) => match lang.as_well_formed() {
-					Some(tag) => Literal::new(s.as_str(), tag),
-					None => return serializer.end(),
+				Some(lang) => match lang {
+					Lenient::Valid(tag) => Literal::new(s.as_str(), tag),
+					Lenient::Invalid(_) => return serializer.end(),
 				},
 				None => Literal::new(s.as_str(), XSD_STRING),
 			},

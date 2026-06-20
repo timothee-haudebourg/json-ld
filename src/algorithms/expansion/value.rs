@@ -44,8 +44,7 @@ use crate::{
 	context::RawProcessedContext,
 	object::{value::LiteralType, LiteralValue},
 	syntax::Keyword,
-	Direction, Indexed, IndexedObject, LangString, Lenient, LenientLangTagBuf, Nullable, Object,
-	Term, ValueObject,
+	Direction, Indexed, IndexedObject, LangString, Lenient, Nullable, Object, Term, ValueObject,
 };
 
 use super::{ExpandedEntry, Expander};
@@ -199,7 +198,7 @@ impl<'a> Expander<'a> {
 			if let JsonValue::String(s) = result_value {
 				let lang = match language {
 					Some(language) => {
-						let (language, error) = LenientLangTagBuf::new(language);
+						let (language, error) = Lenient::from_string(language);
 
 						if let Some(error) = error {
 							warn(Warning::MalformedLanguageTag(language.to_string(), error))

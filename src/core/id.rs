@@ -3,7 +3,11 @@ use rdf_syntax::{Iri, IriBuf};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 
-use crate::{Lenient, Term};
+use crate::{Lenient, Term, Validate};
+
+impl Validate for Id {
+	type Invalid = String;
+}
 
 impl Lenient<Id> {
 	pub fn iri(iri: IriBuf) -> Self {

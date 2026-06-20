@@ -1,8 +1,12 @@
 use super::{
 	BindingsIter, ContextDefinition, ContextTerm, ContextType, TermDefinition, Version, Vocab,
 };
-use crate::syntax::{Direction, LenientLangTagBuf, Nullable};
+use crate::{
+	syntax::{Direction, Nullable},
+	Lenient,
+};
 
+use langtag::LangTagBuf;
 use rdf_syntax::IriRef;
 
 impl ContextDefinition {
@@ -25,7 +29,7 @@ impl ContextDefinition {
 pub struct Entries<'a> {
 	base: Option<Nullable<&'a IriRef>>,
 	import: Option<&'a IriRef>,
-	language: Option<Nullable<&'a LenientLangTagBuf>>,
+	language: Option<Nullable<&'a Lenient<LangTagBuf>>>,
 	direction: Option<Nullable<Direction>>,
 	propagate: Option<bool>,
 	protected: Option<bool>,
@@ -120,7 +124,7 @@ impl<'a> ExactSizeIterator for Entries<'a> {}
 pub enum EntryValueRef<'a> {
 	Base(Nullable<&'a IriRef>),
 	Import(&'a IriRef),
-	Language(Nullable<&'a LenientLangTagBuf>),
+	Language(Nullable<&'a Lenient<LangTagBuf>>),
 	Direction(Nullable<Direction>),
 	Propagate(bool),
 	Protected(bool),
@@ -143,7 +147,7 @@ impl<'a> EntryValueRef<'a> {
 pub enum EntryRef<'a> {
 	Base(Nullable<&'a IriRef>),
 	Import(&'a IriRef),
-	Language(Nullable<&'a LenientLangTagBuf>),
+	Language(Nullable<&'a Lenient<LangTagBuf>>),
 	Direction(Nullable<Direction>),
 	Propagate(bool),
 	Protected(bool),

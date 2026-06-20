@@ -1,9 +1,10 @@
 //! Nodes, lists and values.
 use crate::object::typ::TypeRef;
 use crate::syntax::Keyword;
-use crate::{Indexed, Lenient, LenientLangTag, Relabel, Relabeling};
+use crate::{Indexed, Lenient, Relabel, Relabeling};
 use educe::Educe;
 use json_syntax::JsonNumber;
+use langtag::LangTag;
 use rdf_syntax::Iri;
 use rdf_syntax::{Generator, Id};
 use std::hash::Hash;
@@ -32,7 +33,7 @@ pub trait AnyObject {
 	}
 
 	#[inline]
-	fn language(&self) -> Option<&LenientLangTag> {
+	fn language(&self) -> Option<Lenient<&LangTag>> {
 		match self.as_ref() {
 			ObjectRef::Value(value) => value.language(),
 			_ => None,
@@ -318,7 +319,7 @@ impl Object {
 	/// If the object is a language-tagged value,
 	/// Return its associated language.
 	#[inline(always)]
-	pub fn language(&self) -> Option<&LenientLangTag> {
+	pub fn language(&self) -> Option<Lenient<&LangTag>> {
 		match self {
 			Object::Value(value) => value.language(),
 			_ => None,

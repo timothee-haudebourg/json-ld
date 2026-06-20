@@ -70,7 +70,7 @@ impl<'a> Compactor<'a> {
 		// if any, otherwise to the default language of active context.
 		let language = match active_property_definition {
 			Some(def) => match def.language() {
-				Some(lang) => lang.as_ref().map(|l| l.as_lenient_lang_tag_ref()).option(),
+				Some(lang) => lang.as_ref().map(|l| l.as_deref()).option(),
 				None => active_context.default_language(),
 			},
 			None => active_context.default_language(),

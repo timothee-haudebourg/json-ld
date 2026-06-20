@@ -1,8 +1,11 @@
-use crate::syntax::{
-	context::{self, ContextTerm},
-	CompactIri, CompactIriBuf, ContainerValue, Context, Direction, Keyword, LenientLangTag,
-	LenientLangTagBuf, Nullable,
+use crate::{
+	syntax::{
+		context::{self, ContextTerm},
+		CompactIri, CompactIriBuf, ContainerValue, Context, Direction, Keyword, Nullable,
+	},
+	Lenient,
 };
+use langtag::{LangTag, LangTagBuf};
 use rdf_syntax::{BlankId, BlankIdBuf};
 use rdf_syntax::{Iri, IriBuf};
 
@@ -151,7 +154,7 @@ pub struct ExpandedTermDefinition {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub language: Option<Nullable<LenientLangTagBuf>>,
+	pub language: Option<Nullable<Lenient<LangTagBuf>>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -284,7 +287,7 @@ impl ExpandedTermDefinition {
 			language: self
 				.language
 				.as_ref()
-				.map(|n| n.as_ref().map(LenientLangTagBuf::as_lenient_lang_tag_ref)),
+				.map(|n| n.as_ref().map(Lenient::as_deref)),
 			direction: self.direction,
 			container: self.container.as_ref(),
 			nest: self.nest.as_ref(),
@@ -303,7 +306,7 @@ pub struct ExpandedTermDefinitionRef<'a> {
 	pub context: Option<&'a Context>,
 	pub reverse: Option<&'a ContextTerm>,
 	pub index: Option<&'a Index>,
-	pub language: Option<Nullable<&'a LenientLangTag>>,
+	pub language: Option<Nullable<Lenient<&'a LangTag>>>,
 	pub direction: Option<Nullable<Direction>>,
 	pub container: Option<&'a ContainerValue>,
 	pub nest: Option<&'a Nest>,
@@ -331,7 +334,7 @@ pub struct TermDefinitionEntries<'a> {
 	context: Option<&'a context::Context>,
 	reverse: Option<&'a ContextTerm>,
 	index: Option<&'a Index>,
-	language: Option<Nullable<&'a LenientLangTagBuf>>,
+	language: Option<Nullable<&'a Lenient<LangTagBuf>>>,
 	direction: Option<Nullable<Direction>>,
 	container: Option<&'a ContainerValue>,
 	nest: Option<&'a Nest>,
@@ -346,7 +349,7 @@ pub enum TermDefinitionEntryRef<'a> {
 	Context(&'a context::Context),
 	Reverse(&'a ContextTerm),
 	Index(&'a Index),
-	Language(Nullable<&'a LenientLangTagBuf>),
+	Language(Nullable<&'a Lenient<LangTagBuf>>),
 	Direction(Nullable<Direction>),
 	Container(&'a ContainerValue),
 	Nest(&'a Nest),
@@ -513,7 +516,7 @@ pub enum TermDefinitionEntryValueRef<'a> {
 	Context(&'a context::Context),
 	Reverse(&'a ContextTerm),
 	Index(&'a Index),
-	Language(Nullable<&'a LenientLangTagBuf>),
+	Language(Nullable<&'a Lenient<LangTagBuf>>),
 	Direction(Nullable<Direction>),
 	Container(&'a ContainerValue),
 	Nest(&'a Nest),

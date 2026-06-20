@@ -1,9 +1,13 @@
 use super::Container;
-use crate::syntax::{
-	context::{ContextTerm, ContextType, ContextTypeContainer, Index, Nest},
-	Context, KeywordType,
+use crate::{
+	syntax::{
+		context::{ContextTerm, ContextType, ContextTypeContainer, Index, Nest},
+		Context, KeywordType,
+	},
+	Lenient,
 };
-use crate::{Direction, LenientLangTagBuf, Nullable, Term, Type};
+use crate::{Direction, Nullable, Term, Type};
+use langtag::LangTagBuf;
 use rdf_syntax::{Iri, IriBuf};
 use std::collections::HashMap;
 use std::hash::Hash;
@@ -379,7 +383,7 @@ impl TermDefinition {
 		}
 	}
 
-	pub fn language(&self) -> Option<Nullable<&LenientLangTagBuf>> {
+	pub fn language(&self) -> Option<Nullable<&Lenient<LangTagBuf>>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.language.as_ref().map(Nullable::as_ref),
@@ -479,7 +483,7 @@ impl<'a> TermDefinitionRef<'a> {
 		}
 	}
 
-	pub fn language(&self) -> Option<Nullable<&'a LenientLangTagBuf>> {
+	pub fn language(&self) -> Option<Nullable<&'a Lenient<LangTagBuf>>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.language.as_ref().map(Nullable::as_ref),
@@ -540,7 +544,7 @@ pub struct NormalTermDefinition {
 	pub index: Option<Index>,
 
 	// Optional language mapping.
-	pub language: Option<Nullable<LenientLangTagBuf>>,
+	pub language: Option<Nullable<Lenient<LangTagBuf>>>,
 
 	// Optional nest value.
 	pub nest: Option<Nest>,

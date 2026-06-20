@@ -1,8 +1,12 @@
+use langtag::LangTag;
+use langtag::LangTagBuf;
+
 use super::BindingRef;
 use super::Container;
 use super::ContextTerm;
 use super::RawProcessedContext;
-use crate::{Direction, LenientLangTag, LenientLangTagBuf, Nullable, Term, Type};
+use crate::Lenient;
+use crate::{Direction, Nullable, Term, Type};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -45,7 +49,7 @@ impl InverseType {
 	}
 }
 
-type LangDir = Nullable<(Option<LenientLangTagBuf>, Option<Direction>)>;
+type LangDir = Nullable<(Option<Lenient<LangTagBuf>>, Option<Direction>)>;
 
 struct InverseLang {
 	any: Option<ContextTerm>,
@@ -55,7 +59,7 @@ struct InverseLang {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LangSelection<'a> {
 	Any,
-	Lang(Nullable<(Option<&'a LenientLangTag>, Option<Direction>)>),
+	Lang(Nullable<(Option<Lenient<&'a LangTag>>, Option<Direction>)>),
 }
 
 impl InverseLang {
@@ -63,7 +67,7 @@ impl InverseLang {
 		match selection {
 			LangSelection::Any => self.any.as_ref(),
 			LangSelection::Lang(lang_dir) => {
-				let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
+				let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.into_owned()), d));
 				self.map.get(&lang_dir)
 			}
 		}
@@ -81,10 +85,10 @@ impl InverseLang {
 
 	fn set(
 		&mut self,
-		lang_dir: Nullable<(Option<&LenientLangTag>, Option<Direction>)>,
+		lang_dir: Nullable<(Option<Lenient<&LangTag>>, Option<Direction>)>,
 		term: &ContextTerm,
 	) {
-		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.to_owned()), d));
+		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.into_owned()), d));
 		self.map.entry(lang_dir).or_insert_with(|| term.clone());
 	}
 }
@@ -292,7 +296,7 @@ impl<'a> From<&'a RawProcessedContext> for InverseContext {
 												Nullable::Some(direction),
 											) => lang_map.set(
 												Nullable::Some((
-													Some(language.as_lenient_lang_tag_ref()),
+													Some(language.as_deref()),
 													Some(*direction),
 												)),
 												term,
@@ -300,7 +304,7 @@ impl<'a> From<&'a RawProcessedContext> for InverseContext {
 											(Nullable::Some(language), Nullable::Null) => lang_map
 												.set(
 													Nullable::Some((
-														Some(language.as_lenient_lang_tag_ref()),
+														Some(language.as_deref()),
 														None,
 													)),
 													term,
@@ -320,10 +324,7 @@ impl<'a> From<&'a RawProcessedContext> for InverseContext {
 										// be null):
 										match language {
 											Nullable::Some(language) => lang_map.set(
-												Nullable::Some((
-													Some(language.as_lenient_lang_tag_ref()),
-													None,
-												)),
+												Nullable::Some((Some(language.as_deref()), None)),
 												term,
 											),
 											Nullable::Null => lang_map.set(Nullable::Null, term),

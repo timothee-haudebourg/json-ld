@@ -1,6 +1,7 @@
 use json_syntax::JsonString;
+use langtag::{LangTag, LangTagBuf};
 
-use crate::{Direction, LenientLangTag, LenientLangTagBuf};
+use crate::{Direction, Lenient};
 
 /// Language string.
 ///
@@ -18,7 +19,7 @@ pub struct LangString {
 		feature = "serde",
 		serde(rename = "@language", skip_serializing_if = "Option::is_none")
 	)]
-	language: Option<LenientLangTagBuf>,
+	language: Option<Lenient<LangTagBuf>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -35,7 +36,7 @@ impl LangString {
 	/// Create a new language string.
 	pub fn new<T>(
 		data: T,
-		language: Option<LenientLangTagBuf>,
+		language: Option<Lenient<LangTagBuf>>,
 		direction: Option<Direction>,
 	) -> Result<Self, T>
 	where
@@ -54,7 +55,7 @@ impl LangString {
 
 	pub fn new_with_language(
 		data: impl Into<JsonString>,
-		language: impl Into<LenientLangTagBuf>,
+		language: impl Into<Lenient<LangTagBuf>>,
 	) -> Self {
 		Self {
 			data: data.into(),
@@ -63,11 +64,11 @@ impl LangString {
 		}
 	}
 
-	pub fn into_parts(self) -> (JsonString, Option<LenientLangTagBuf>, Option<Direction>) {
+	pub fn into_parts(self) -> (JsonString, Option<Lenient<LangTagBuf>>, Option<Direction>) {
 		(self.data, self.language, self.direction)
 	}
 
-	pub fn parts(&self) -> (&str, Option<&LenientLangTagBuf>, Option<&Direction>) {
+	pub fn parts(&self) -> (&str, Option<&Lenient<LangTagBuf>>, Option<&Direction>) {
 		(&self.data, self.language.as_ref(), self.direction.as_ref())
 	}
 
@@ -79,10 +80,8 @@ impl LangString {
 
 	/// Gets the associated language tag, if any.
 	#[inline(always)]
-	pub fn language(&self) -> Option<&LenientLangTag> {
-		self.language
-			.as_ref()
-			.map(|tag| tag.as_lenient_lang_tag_ref())
+	pub fn language(&self) -> Option<Lenient<&LangTag>> {
+		self.language.as_ref().map(|tag| tag.as_deref())
 	}
 
 	/// Sets the associated language tag.
@@ -91,7 +90,7 @@ impl LangString {
 	/// otherwise this function will fail with an [`InvalidLangString`] error.
 	pub fn set_language(
 		&mut self,
-		language: Option<LenientLangTagBuf>,
+		language: Option<Lenient<LangTagBuf>>,
 	) -> Result<(), InvalidLangString> {
 		if self.direction.is_some() || language.is_some() {
 			self.language = language;
@@ -126,7 +125,7 @@ impl LangString {
 	/// this function will fail with an [`InvalidLangString`] error.
 	pub fn set(
 		&mut self,
-		language: Option<LenientLangTagBuf>,
+		language: Option<Lenient<LangTagBuf>>,
 		direction: Option<Direction>,
 	) -> Result<(), InvalidLangString> {
 		if direction.is_some() || language.is_some() {
@@ -142,7 +141,7 @@ impl LangString {
 	pub fn as_lang_str(&self) -> LangStr<'_> {
 		LangStr {
 			data: &self.data,
-			language: self.language.as_deref(),
+			language: self.language.as_ref().map(Lenient::as_deref),
 			direction: self.direction,
 		}
 	}
@@ -159,7 +158,7 @@ impl<'de> serde::Deserialize<'de> for LangString {
 			#[serde(rename = "@value")]
 			data: JsonString,
 			#[serde(rename = "@language")]
-			language: Option<LenientLangTagBuf>,
+			language: Option<Lenient<LangTagBuf>>,
 			#[serde(rename = "@direction")]
 			direction: Option<Direction>,
 		}
@@ -186,7 +185,7 @@ pub struct LangStr<'a> {
 		feature = "serde",
 		serde(rename = "@language", skip_serializing_if = "Option::is_none")
 	)]
-	language: Option<&'a LenientLangTag>,
+	language: Option<Lenient<&'a LangTag>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -199,7 +198,7 @@ impl<'a> LangStr<'a> {
 	/// Create a new language string reference.
 	pub fn new(
 		data: &'a str,
-		language: Option<&'a LenientLangTag>,
+		language: Option<Lenient<&'a LangTag>>,
 		direction: Option<Direction>,
 	) -> Result<Self, InvalidLangString> {
 		if language.is_some() || direction.is_some() {
@@ -213,7 +212,7 @@ impl<'a> LangStr<'a> {
 		}
 	}
 
-	pub fn into_parts(self) -> (&'a str, Option<&'a LenientLangTag>, Option<Direction>) {
+	pub fn into_parts(self) -> (&'a str, Option<Lenient<&'a LangTag>>, Option<Direction>) {
 		(self.data, self.language, self.direction)
 	}
 
@@ -225,7 +224,7 @@ impl<'a> LangStr<'a> {
 
 	/// Gets the associated language tag, if any.
 	#[inline(always)]
-	pub fn language(&self) -> Option<&'a LenientLangTag> {
+	pub fn language(&self) -> Option<Lenient<&'a LangTag>> {
 		self.language
 	}
 

@@ -5,7 +5,7 @@ use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 use crate::{
 	algorithms::{Error, Warning},
 	object::{value::LiteralType, LiteralValue},
-	IndexedObject, LangString, LenientLangTag, NodeObject, Nullable, Object, Type, ValueObject,
+	IndexedObject, LangString, Lenient, NodeObject, Nullable, Object, Type, ValueObject,
 };
 
 use super::{node_id_of_term, Expander};
@@ -125,12 +125,12 @@ impl<'a> Expander<'a> {
 								} else {
 									self.active_context
 										.default_language()
-										.map(LenientLangTag::to_owned)
+										.map(Lenient::into_owned)
 								}
 							} else {
 								self.active_context
 									.default_language()
-									.map(LenientLangTag::to_owned)
+									.map(Lenient::into_owned)
 							};
 
 							// Initialize `direction` to the direction mapping for

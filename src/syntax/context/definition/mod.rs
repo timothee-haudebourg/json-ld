@@ -1,5 +1,9 @@
-use crate::syntax::{Direction, Keyword, LenientLangTagBuf, Nullable};
+use crate::{
+	syntax::{Direction, Keyword, Nullable},
+	Lenient,
+};
 use indexmap::IndexMap;
+use langtag::LangTagBuf;
 use rdf_syntax::IriRefBuf;
 
 mod import;
@@ -46,7 +50,7 @@ pub struct ContextDefinition {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub language: Option<Nullable<LenientLangTagBuf>>,
+	pub language: Option<Nullable<Lenient<LangTagBuf>>>,
 
 	#[cfg_attr(
 		feature = "serde",
