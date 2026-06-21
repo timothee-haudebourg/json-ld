@@ -344,6 +344,7 @@ impl Compactor<'_> {
 			// has a nest value entry (nest term)
 			if let Some(item_active_property) = item_active_property {
 				let (nest_result, container, as_array) = self.select_nest_result(
+					JsonLdLocationStack::Root(None),
 					result,
 					&item_active_property,
 					self.options.compact_arrays,
@@ -683,6 +684,7 @@ impl Compactor<'_> {
 			// has a nest value entry (nest term):
 			if let Some(item_active_property) = item_active_property {
 				let (nest_result, _, _) = self.select_nest_result(
+					JsonLdLocationStack::Root(None),
 					result,
 					&item_active_property,
 					self.options.compact_arrays,

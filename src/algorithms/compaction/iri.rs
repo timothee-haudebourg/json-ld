@@ -9,6 +9,7 @@ use crate::{
 };
 
 use super::{Compactor, TypeLangValue};
+use crate::algorithms::ErrorKind;
 
 impl<'a> Compactor<'a> {
 	pub fn compact_key(
@@ -418,7 +419,7 @@ impl<'a> Compactor<'a> {
 		// an IRI confused with prefix error has been detected, and processing is aborted.
 		if let Some(iri) = var.as_iri() {
 			if self.active_context.contains_term(iri.scheme().as_str()) {
-				return Err(Error::IriConfusedWithPrefix);
+				return Err(ErrorKind::IriConfusedWithPrefix.into());
 			}
 		}
 

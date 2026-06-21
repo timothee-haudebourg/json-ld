@@ -113,6 +113,7 @@ impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingE
 	}
 }
 
+#[derive(Debug)]
 pub enum JsonFragmentAddrSegment {
 	ArrayIndex(usize),
 	ObjectKey(String),
@@ -183,6 +184,7 @@ impl<'a> JsonLdLocationStack<'a> {
 	}
 }
 
+#[derive(Debug)]
 pub struct JsonLdLocation {
 	pub uri: Option<IriBuf>,
 	pub fragment: JsonFragmentAddrBuf,

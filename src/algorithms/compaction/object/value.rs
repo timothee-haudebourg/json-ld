@@ -4,7 +4,7 @@ use mown::Mown;
 use crate::{
 	algorithms::{
 		context_processing::ContextProcessingOptions, AsyncProcessingEnvironment,
-		AsyncProcessingEnvironmentRef,
+		AsyncProcessingEnvironmentRef, JsonLdLocationStack,
 	},
 	context::Container,
 	object::value::LiteralType,
@@ -35,6 +35,7 @@ impl<'a> Compactor<'a> {
 								active_property_definition.base_url(),
 								active_context.as_ref(),
 								ContextProcessingOptions::from(self.options).with_override(),
+								JsonLdLocationStack::Root(None),
 							)
 							.await?
 							.into_raw(),

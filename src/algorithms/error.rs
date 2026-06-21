@@ -306,9 +306,22 @@ impl fmt::Display for ErrorCode {
 	}
 }
 
+#[derive(Debug)]
 pub struct Error {
 	pub kind: ErrorKind,
 	pub location: JsonLdLocation,
+}
+
+impl std::fmt::Display for Error {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		self.kind.fmt(f)
+	}
+}
+
+impl std::error::Error for Error {
+	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+		self.kind.source()
+	}
 }
 
 impl Error {
