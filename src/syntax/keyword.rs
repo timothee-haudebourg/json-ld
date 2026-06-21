@@ -180,8 +180,8 @@ impl FromStr for Keyword {
 	}
 }
 
-impl From<Keyword> for &'static str {
-	fn from(k: Keyword) -> &'static str {
+impl<'a> From<Keyword> for &'a str {
+	fn from(k: Keyword) -> &'a str {
 		k.into_str()
 	}
 }

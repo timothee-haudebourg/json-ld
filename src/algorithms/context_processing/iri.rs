@@ -7,7 +7,7 @@ use crate::{
 		context_processing::{merged::Merged, ContextProcessor, TargetProcessedContext},
 		error::Error,
 		warning::Warning,
-		AsyncProcessingEnvironment,
+		AsyncProcessingEnvironment, JsonLdLocationStack,
 	},
 	context::RawProcessedContext,
 	syntax::{
@@ -49,6 +49,7 @@ impl<'a> ContextProcessor<'a> {
 		value: Nullable<ExpandableRef<'_>>,
 		document_relative: bool,
 		vocab: bool,
+		location: JsonLdLocationStack<'_>,
 	) -> ExpandIriResult {
 		match value {
 			Nullable::Null => Ok(Term::Null),
@@ -69,6 +70,7 @@ impl<'a> ContextProcessor<'a> {
 					local_context,
 					value.into(),
 					false,
+					location,
 				))
 				.await?;
 
@@ -112,6 +114,7 @@ impl<'a> ContextProcessor<'a> {
 							local_context,
 							KeyOrKeywordRef::Key(compact_iri.prefix().into()),
 							false,
+							location,
 						))
 						.await?;
 

@@ -5,7 +5,7 @@ use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, Compact, Expand},
+	algorithms::{AsyncProcessingEnvironment, Compact, Expand, JsonLdLocationStack},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
 	Document, Error, RemoteContext,
@@ -48,6 +48,7 @@ impl JsonLdProcessor for Document {
 					active_context.original_base_url(),
 					&active_context,
 					options.context_processing_options(),
+					JsonLdLocationStack::Root(None),
 				)
 				.await?
 				.into_raw();
@@ -65,6 +66,7 @@ impl JsonLdProcessor for Document {
 					Some(context_url),
 					&active_context,
 					options.context_processing_options(),
+					JsonLdLocationStack::Root(Some(context_url)),
 				)
 				.await?
 				.into_raw()
@@ -131,6 +133,7 @@ async fn compact_expanded(
 			context_base,
 			&RawProcessedContext::new(None),
 			options.context_processing_options(),
+			JsonLdLocationStack::Root(None),
 		)
 		.await?;
 

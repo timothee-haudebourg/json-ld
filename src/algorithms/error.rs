@@ -317,6 +317,24 @@ impl Error {
 	}
 }
 
+impl From<ErrorKind> for Error {
+	/// Creates an [`Error`] with no location information.
+	///
+	/// Prefer [`Error::new`] with a [`JsonLdLocationStack::build`] result at
+	/// call sites that carry a location stack.
+	///
+	/// [`JsonLdLocationStack::build`]: crate::algorithms::JsonLdLocationStack::build
+	fn from(kind: ErrorKind) -> Self {
+		Self::new(
+			kind,
+			JsonLdLocation {
+				uri: None,
+				fragment: Vec::new(),
+			},
+		)
+	}
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
 	#[error("Invalid context nullification")]

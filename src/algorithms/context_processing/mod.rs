@@ -16,7 +16,7 @@ pub use options::ContextProcessingOptions;
 use stack::ProcessingStack;
 
 use crate::{
-	algorithms::{error::Error, AsyncProcessingEnvironment},
+	algorithms::{error::Error, AsyncProcessingEnvironment, ErrorKind, JsonLdLocationStack},
 	context::RawProcessedContext,
 	syntax::{context::KeyOrKeywordRef, Context, ContextEntry, Keyword},
 	AsyncLoader, ContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
@@ -87,7 +87,16 @@ impl ContextDocument {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 	) -> Result<ProcessedContext<'_>, Error> {
-		self.document.context.process(env, self.url()).await
+		self.document
+			.context
+			.process_with(
+				env,
+				self.url(),
+				&RawProcessedContext::new(None),
+				ContextProcessingOptions::default(),
+				JsonLdLocationStack::Root(self.url()),
+			)
+			.await
 	}
 }
 
@@ -106,6 +115,7 @@ impl Context {
 			base_url,
 			&active_context,
 			ContextProcessingOptions::default(),
+			JsonLdLocationStack::Root(None),
 		)
 		.await
 	}
@@ -119,6 +129,7 @@ impl Context {
 		base_url: Option<&Iri>,
 		active_context: &RawProcessedContext,
 		options: ContextProcessingOptions,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<ProcessedContext<'_>, Error> {
 		ContextProcessor {
 			options,
@@ -126,7 +137,7 @@ impl Context {
 			base_url,
 			active_context,
 		}
-		.process(&env, self)
+		.process(&env, self, location)
 		.await
 		.map(|raw| ProcessedContext::new(Cow::Borrowed(self), raw))
 	}
@@ -137,6 +148,7 @@ impl<'a> ContextProcessor<'a> {
 		mut self,
 		env: &impl AsyncProcessingEnvironment,
 		local_context: &Context,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<RawProcessedContext, Error> {
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = self.active_context.clone();
@@ -146,7 +158,7 @@ impl<'a> ContextProcessor<'a> {
 		if let Context::One(ContextEntry::Definition(def)) = local_context {
 			if let Some(propagate) = def.propagate {
 				if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-					return Err(Error::InvalidContextEntry);
+					return Err(Error::new(ErrorKind::InvalidContextEntry, location.build()));
 				}
 
 				self.options.propagate = propagate
@@ -161,7 +173,8 @@ impl<'a> ContextProcessor<'a> {
 
 		// 4) If local context is not an array, set it to an array containing only local context.
 		// 5) For each item context in local context:
-		for context in local_context {
+		for (i, context) in local_context.iter().enumerate() {
+			let entry_loc = location.array_index(i);
 			match context {
 				// 5.1) If context is null:
 				ContextEntry::Null => {
@@ -169,7 +182,10 @@ impl<'a> ContextProcessor<'a> {
 					// definitions, an invalid context nullification has been detected and processing
 					// is aborted.
 					if !self.options.override_protected && result.has_protected_items() {
-						return Err(Error::InvalidContextNullification);
+						return Err(Error::new(
+							ErrorKind::InvalidContextNullification,
+							entry_loc.build(),
+						));
 					} else {
 						// Otherwise, initialize result as a newly-initialized active context, setting
 						// previous_context in result to the previous value of result if propagate is
@@ -198,8 +214,9 @@ impl<'a> ContextProcessor<'a> {
 					// Initialize `context` to the result of resolving context against base URL.
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
-					let context_iri =
-						resolve_iri(iri_ref, self.base_url).ok_or(Error::LoadingDocumentFailed)?;
+					let context_iri = resolve_iri(iri_ref, self.base_url).ok_or_else(|| {
+						Error::new(ErrorKind::LoadingDocumentFailed, entry_loc.build())
+					})?;
 
 					// If the number of entries in the `remote_contexts` array exceeds a processor
 					// defined limit, a context overflow error has been detected and processing is
@@ -225,9 +242,14 @@ impl<'a> ContextProcessor<'a> {
 						let loaded_context = env
 							.loader()
 							.async_load(&context_iri)
-							.await?
+							.await
+							.map_err(|e| {
+								Error::new(ErrorKind::ContextLoadingFailed(e), entry_loc.build())
+							})?
 							.try_into_context_document()
-							.map_err(Error::RemoteContextSyntax)?
+							.map_err(|e| {
+								Error::new(ErrorKind::RemoteContextSyntax(e), entry_loc.build())
+							})?
 							.into_document()
 							.context;
 
@@ -240,9 +262,10 @@ impl<'a> ContextProcessor<'a> {
 							propagate: true,
 						};
 
+						let remote_loc = JsonLdLocationStack::Root(Some(&*context_iri));
 						result = Box::pin(
 							self.for_sub_context(&result, Some(&context_iri), new_options)
-								.process(env, &loaded_context),
+								.process(env, &loaded_context, remote_loc),
 						)
 						.await?;
 					}
@@ -255,7 +278,10 @@ impl<'a> ContextProcessor<'a> {
 						// 5.5.2) If processing mode is set to json-ld-1.0, a processing mode conflict
 						// error has been detected.
 						if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-							return Err(Error::ProcessingModeConflict);
+							return Err(Error::new(
+								ErrorKind::ProcessingModeConflict,
+								entry_loc.build(),
+							));
 						}
 					}
 
@@ -264,22 +290,40 @@ impl<'a> ContextProcessor<'a> {
 						Some(import_value) => {
 							// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
 							// has been detected.
+							let import_loc = entry_loc.object_value(Keyword::Import);
+
 							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-								return Err(Error::InvalidContextEntry);
+								return Err(Error::new(
+									ErrorKind::InvalidContextEntry,
+									import_loc.build(),
+								));
 							}
 
 							// 5.6.3) Initialize import to the result of resolving the value of
 							// @import.
-							let import = resolve_iri(import_value, self.base_url)
-								.ok_or(Error::InvalidImportValue)?;
+							let import =
+								resolve_iri(import_value, self.base_url).ok_or_else(|| {
+									Error::new(ErrorKind::InvalidImportValue, import_loc.build())
+								})?;
 
 							// 5.6.4) Dereference import.
 							let import_context = env
 								.loader()
 								.async_load(&import)
-								.await?
+								.await
+								.map_err(|e| {
+									Error::new(
+										ErrorKind::ContextLoadingFailed(e),
+										import_loc.build(),
+									)
+								})?
 								.try_into_context_document()
-								.map_err(Error::RemoteContextSyntax)?
+								.map_err(|e| {
+									Error::new(
+										ErrorKind::RemoteContextSyntax(e),
+										import_loc.build(),
+									)
+								})?
 								.into_document()
 								.context;
 
@@ -293,11 +337,17 @@ impl<'a> ContextProcessor<'a> {
 									// If `import_context` has a @import entry, an invalid context entry
 									// error has been detected and processing is aborted.
 									if import_context_def.import.is_some() {
-										return Err(Error::InvalidContextEntry);
+										return Err(Error::new(
+											ErrorKind::InvalidContextEntry,
+											import_loc.build(),
+										));
 									}
 								}
 								_ => {
-									return Err(Error::InvalidRemoteContext);
+									return Err(Error::new(
+										ErrorKind::InvalidRemoteContext,
+										import_loc.build(),
+									));
 								}
 							}
 
@@ -325,7 +375,12 @@ impl<'a> ContextProcessor<'a> {
 									Some(iri) => result.set_base_iri(Some(iri.to_owned())),
 									None => {
 										let resolved = resolve_iri(iri_ref, result.base_iri())
-											.ok_or(Error::InvalidBaseIri)?;
+											.ok_or_else(|| {
+												Error::new(
+													ErrorKind::InvalidBaseIri,
+													entry_loc.object_value(Keyword::Base).build(),
+												)
+											})?;
 										result.set_base_iri(Some(resolved))
 									}
 								},
@@ -356,7 +411,12 @@ impl<'a> ContextProcessor<'a> {
 									|w| env.warn(w),
 								) {
 									Term::Id(vocab) => result.set_vocabulary(Some(Term::Id(vocab))),
-									_ => return Err(Error::InvalidVocabMapping),
+									_ => {
+										return Err(Error::new(
+											ErrorKind::InvalidVocabMapping,
+											entry_loc.object_value(Keyword::Vocab).build(),
+										))
+									}
 								}
 							}
 						}
@@ -380,7 +440,10 @@ impl<'a> ContextProcessor<'a> {
 						// 5.10.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected and processing is aborted.
 						if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-							return Err(Error::InvalidContextEntry);
+							return Err(Error::new(
+								ErrorKind::InvalidContextEntry,
+								entry_loc.object_value(Keyword::Direction).build(),
+							));
 						}
 
 						match value {
@@ -411,18 +474,21 @@ impl<'a> ContextProcessor<'a> {
 					// and the value of the @protected entry from context, if any, for protected.
 					// (and the value of override protected)
 					if context.type_().is_some() {
+						let type_loc = entry_loc.object_value(Keyword::Type);
 						self.define(
 							env,
 							&mut result,
 							&context,
 							KeyOrKeywordRef::Keyword(Keyword::Type),
 							protected,
+							type_loc,
 						)
 						.await?
 					}
 
 					for (key, _binding) in context.bindings() {
-						self.define(env, &mut result, &context, key.into(), protected)
+						let term_loc = entry_loc.object_value(key.as_str());
+						self.define(env, &mut result, &context, key.into(), protected, term_loc)
 							.await?
 					}
 				}
