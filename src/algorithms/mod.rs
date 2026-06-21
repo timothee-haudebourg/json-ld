@@ -113,7 +113,7 @@ impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingE
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum JsonFragmentAddrSegment {
 	ArrayIndex(usize),
 	ObjectKey(String),
