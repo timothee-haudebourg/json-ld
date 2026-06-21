@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use rdf_syntax::{BlankId, Id};
 use rdf_syntax::{Iri, IriRef};
 
+use crate::algorithms::{ErrorKind, JsonLdLocator};
 use crate::Lenient;
 use crate::{
 	algorithms::{
@@ -57,11 +58,11 @@ impl DefinedTerms {
 		Self::default()
 	}
 
-	pub fn begin(&mut self, key: &KeyOrKeyword) -> Result<bool, Error> {
+	pub fn begin(&mut self, locator: JsonLdLocator, key: &KeyOrKeyword) -> Result<bool, Error> {
 		match self.0.get(key) {
 			Some(d) => {
 				if d.pending {
-					Err(Error::CyclicIriMapping)
+					Err(Error::new(ErrorKind::CyclicIriMapping, locator.location()))
 				} else {
 					Ok(false)
 				}
@@ -82,53 +83,6 @@ impl DefinedTerms {
 pub struct DefinedTerm {
 	pending: bool,
 }
-
-// /// Environment of a context term definition.
-// pub struct TermDefiner<'a> {
-// 	pub defined: &'a mut DefinedTerms,
-// 	pub local_context: &'a Merged<'a>,
-// 	pub base_url: Option<&'a Iri>,
-// 	pub remote_contexts: ProcessingStack,
-// 	pub options: ContextProcessingOptions,
-// }
-
-// impl<'a> TermDefiner<'a> {
-// 	pub fn reborrow(&mut self) -> TermDefiner<'_> {
-// 		TermDefiner {
-// 			defined: self.defined,
-// 			local_context: self.local_context,
-// 			base_url: self.base_url,
-// 			remote_contexts: self.remote_contexts.clone(),
-// 			options: self.options,
-// 		}
-// 	}
-
-// 	pub fn for_recursive_definition(&mut self) -> TermDefiner<'_> {
-// 		TermDefiner {
-// 			defined: self.defined,
-// 			local_context: self.local_context,
-// 			base_url: None,
-// 			remote_contexts: self.remote_contexts.clone(),
-// 			options: self.options.with_no_override(),
-// 		}
-// 	}
-
-// 	pub async fn process_context(
-// 		&mut self,
-// 		context: &Context,
-// 		active_context: &ProcessedContext,
-// 		options: ContextProcessingOptions,
-// 	) -> Result<ProcessedContext, Error> {
-// 		let env = ContextProcessor {
-// 			active_context,
-// 			remote_contexts: self.remote_contexts.clone(),
-// 			base_url: self.base_url,
-// 			options,
-// 		};
-
-// 		Box::pin(context.process_in(env)).await
-// 	}
-// }
 
 impl<'a> ContextProcessor<'a> {
 	/// Follows the `https://www.w3.org/TR/json-ld11-api/#create-term-definition` algorithm.

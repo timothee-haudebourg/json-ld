@@ -12,6 +12,8 @@ pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
 pub use error::*;
 pub use expansion::*;
+use json_syntax::{code_map::JsonLocation, JsonCodeMap};
+use rdf_syntax::{Uri, UriBuf};
 pub use warning::*;
 
 use crate::{AsyncLoader, Loader, ToAsyncLoader};
@@ -110,4 +112,38 @@ impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingE
 	fn warn(&self, w: Warning) {
 		self.0.warn(w);
 	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum JsonLdLocator<'a> {
+	Nowhere,
+	Somewhere {
+		uri: Option<&'a Uri>,
+		code_map: &'a JsonCodeMap,
+		location: JsonLocation,
+	},
+}
+
+impl<'a> JsonLdLocator<'a> {
+	pub fn code_map(&self) -> Option<&'a JsonCodeMap> {
+		match self {
+			Self::Nowhere => None,
+			Self::Somewhere { code_map, .. } => Some(code_map),
+		}
+	}
+
+	pub fn location(&self) -> Option<JsonLdLocation> {
+		match self {
+			Self::Nowhere => None,
+			Self::Somewhere { uri, location, .. } => Some(JsonLdLocation {
+				uri: uri.map(Uri::to_owned),
+				location: *location,
+			}),
+		}
+	}
+}
+
+pub struct JsonLdLocation {
+	pub uri: Option<UriBuf>,
+	pub location: JsonLocation,
 }

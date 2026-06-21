@@ -137,9 +137,6 @@ impl<'a> Expander<'a> {
 					.get_unique("@context")
 					.map_err(Error::duplicate_key_ref)?
 				{
-					// use json_ld_syntax::TryFromJson;
-					// let local_context =
-					// 	json_ld_syntax::context::Context::try_from_json(local_context.clone())?;
 					let local_context: Context = json_syntax::from_value(local_context.clone())
 						.map_err(Error::ContextSyntax)?;
 

@@ -1,4 +1,4 @@
-use json_syntax::JsonValue;
+use json_syntax::{CodeMap, JsonValue};
 use rdf_syntax::{Iri, IriBuf};
 use std::borrow::Cow;
 
@@ -136,11 +136,20 @@ pub trait AsyncLoader {
 	/// Loads the document behind the given IRI.
 	#[allow(async_fn_in_trait)]
 	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError>;
+
+	/// Returns the known code map for the given document (if any).
+	fn code_map(&self, _url: &Iri) -> Option<&CodeMap> {
+		None
+	}
 }
 
 impl<L: AsyncLoader> AsyncLoader for &L {
 	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
 		L::async_load(self, url).await
+	}
+
+	fn code_map(&self, url: &Iri) -> Option<&CodeMap> {
+		L::code_map(self, url)
 	}
 }
 
@@ -148,11 +157,20 @@ impl<L: AsyncLoader> AsyncLoader for &mut L {
 	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
 		L::async_load(self, url).await
 	}
+
+	fn code_map(&self, url: &Iri) -> Option<&CodeMap> {
+		L::code_map(self, url)
+	}
 }
 
 pub trait Loader {
 	/// Loads the document behind the given IRI.
 	fn load(&self, url: &Iri) -> Result<Document, LoadError>;
+
+	/// Returns the known code map for the given document (if any).
+	fn code_map(&self, _url: &Iri) -> Option<&CodeMap> {
+		None
+	}
 
 	/// Returns this loader as an [`AsyncLoader`].
 	fn as_async_loader(&self) -> &ToAsyncLoader<Self> {
@@ -172,11 +190,19 @@ impl<L: Loader> Loader for &L {
 	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
 		L::load(self, url)
 	}
+
+	fn code_map(&self, url: &Iri) -> Option<&CodeMap> {
+		L::code_map(self, url)
+	}
 }
 
 impl<L: Loader> Loader for &mut L {
 	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
 		L::load(self, url)
+	}
+
+	fn code_map(&self, url: &Iri) -> Option<&CodeMap> {
+		L::code_map(self, url)
 	}
 }
 
