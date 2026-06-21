@@ -1,6 +1,8 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
-use crate::algorithms::{AsyncProcessingEnvironment, Error, Warning};
+use crate::algorithms::{
+	AsyncProcessingEnvironment, Error, ErrorKind, JsonLdLocationStack, Warning,
+};
 use crate::context::Container;
 use crate::context::RawProcessedContext;
 use crate::syntax::{ContainerItem, Keyword, Nullable};
@@ -34,6 +36,7 @@ impl<'a> Expander<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<Option<Indexed<NodeObject>>, Error> {
 		// Initialize two empty maps, `result` and `nests`.
 		// let mut result = Indexed::new(Node::new(), None);
@@ -44,12 +47,9 @@ impl<'a> Expander<'a> {
 				env,
 				Indexed::new(NodeObject::new(), None),
 				false,
-				// active_context,
 				type_scoped_context,
-				// active_property,
 				expanded_entries,
-				// base_url,
-				// options,
+				location,
 			)
 			.await?;
 
@@ -95,10 +95,12 @@ impl<'a> Expander<'a> {
 		mut has_value_object_entries: bool,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
+		location: JsonLdLocationStack<'_>,
 	) -> NodeEntriesExpensionResult {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:
 		for ExpandedEntry(key, expanded_key, value) in expanded_entries {
+			let entry_loc = location.object_value(key);
 			match expanded_key {
 				Term::Null => (),
 
@@ -115,7 +117,10 @@ impl<'a> Expander<'a> {
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
 					if self.active_property.is_some_and(|p| p == Keyword::Reverse) {
-						return Err(Error::InvalidReversePropertyMap);
+						return Err(Error::new(
+							ErrorKind::InvalidReversePropertyMap,
+							entry_loc.build(),
+						));
 					}
 
 					// If `result` already has an `expanded_property` entry, other than
@@ -127,7 +132,7 @@ impl<'a> Expander<'a> {
 							&& expanded_property != Keyword::Type))
 						&& result.has_key(&Term::Keyword(expanded_property))
 					{
-						return Err(Error::CollidingKeywords);
+						return Err(Error::new(ErrorKind::CollidingKeywords, entry_loc.build()));
 					}
 
 					match expanded_property {
@@ -147,7 +152,10 @@ impl<'a> Expander<'a> {
 									false,
 								))
 							} else {
-								return Err(Error::InvalidIdValue);
+								return Err(Error::new(
+									ErrorKind::InvalidIdValue,
+									entry_loc.build(),
+								));
 							}
 						}
 						// If expanded property is @type:
@@ -173,10 +181,16 @@ impl<'a> Expander<'a> {
 									{
 										result.types_mut_or_default().push(ty)
 									} else {
-										return Err(Error::InvalidTypeValue);
+										return Err(Error::new(
+											ErrorKind::InvalidTypeValue,
+											entry_loc.build(),
+										));
 									}
 								} else {
-									return Err(Error::InvalidTypeValue);
+									return Err(Error::new(
+										ErrorKind::InvalidTypeValue,
+										entry_loc.build(),
+									));
 								}
 							}
 						}
@@ -189,7 +203,7 @@ impl<'a> Expander<'a> {
 							// `expanded_value` is an array of one or more maps.
 							let expanded_value = Box::pin(
 								self.with_active_property(Some("@graph"))
-									.expand_element(env, value, false),
+									.expand_element(env, value, false, entry_loc),
 							)
 							.await?;
 
@@ -213,19 +227,8 @@ impl<'a> Expander<'a> {
 							// `value` for element, `base_url`, and the `frame_expansion`
 							// and `ordered` flags, ensuring that the result is an array.
 							let expanded_value = Box::pin(
-								self.with_active_property(Some("@included")).expand_element(
-									env,
-									// Environment {
-									// 	vocabulary: env.vocabulary,
-									// 	loader: env.loader,
-									// 	warnings: env.warnings,
-									// },
-									// active_context,
-									// ActiveProperty::Some("@included"),
-									value, // base_url,
-									// options,
-									false,
-								),
+								self.with_active_property(Some("@included"))
+									.expand_element(env, value, false, entry_loc),
 							)
 							.await?;
 							let mut expanded_nodes = Vec::new();
@@ -233,7 +236,10 @@ impl<'a> Expander<'a> {
 								match obj.try_cast::<NodeObject>() {
 									Ok(node) => expanded_nodes.push(node),
 									Err(_) => {
-										return Err(Error::InvalidIncludedValue);
+										return Err(Error::new(
+											ErrorKind::InvalidIncludedValue,
+											entry_loc.build(),
+										));
 									}
 								}
 							}
@@ -255,7 +261,10 @@ impl<'a> Expander<'a> {
 							} else {
 								// If value is not a string, an invalid @index value
 								// error has been detected and processing is aborted.
-								return Err(Error::InvalidIndexValue);
+								return Err(Error::new(
+									ErrorKind::InvalidIndexValue,
+									entry_loc.build(),
+								));
 							}
 						}
 						// If expanded property is @reverse:
@@ -270,22 +279,28 @@ impl<'a> Expander<'a> {
 								}
 
 								for (reverse_key, reverse_value) in reverse_entries {
+									let rev_entry_loc =
+										entry_loc.object_value(reverse_key.as_str());
 									match self.active_context.expand_iri(
-										// &mut env,
-										// active_context,
 										Nullable::Some(reverse_key.as_str().into()),
 										false,
 										true,
 									) {
 										Term::Keyword(_) => {
-											return Err(Error::InvalidReversePropertyMap)
+											return Err(Error::new(
+												ErrorKind::InvalidReversePropertyMap,
+												rev_entry_loc.build(),
+											))
 										}
 										Term::Id(Lenient::Invalid(_))
 											if self.options.policy
 												== ExpansionPolicy::Strictest =>
 										{
-											return Err(Error::KeyExpansionFailed(
-												reverse_key.to_string(),
+											return Err(Error::new(
+												ErrorKind::KeyExpansionFailed(
+													reverse_key.to_string(),
+												),
+												rev_entry_loc.build(),
 											))
 										}
 										Term::Id(reverse_prop)
@@ -299,17 +314,9 @@ impl<'a> Expander<'a> {
 												))
 												.expand_element(
 													env,
-													// Environment {
-													// 	vocabulary: env.vocabulary,
-													// 	loader: env.loader,
-													// 	warnings: env.warnings,
-													// },
-													// active_context,
-													// ActiveProperty::Some(reverse_key.as_ref()),
 													reverse_value,
-													// base_url,
-													// options,
 													false,
+													rev_entry_loc,
 												),
 											)
 											.await?;
@@ -335,11 +342,10 @@ impl<'a> Expander<'a> {
 														Ok(node) => {
 															reverse_expanded_nodes.push(node)
 														}
-														Err(_) => {
-															return Err(
-																Error::InvalidReversePropertyValue,
-															)
-														}
+														Err(_) => return Err(Error::new(
+															ErrorKind::InvalidReversePropertyValue,
+															rev_entry_loc.build(),
+														)),
 													}
 												}
 
@@ -351,8 +357,11 @@ impl<'a> Expander<'a> {
 										}
 										_ => {
 											if self.options.policy.is_strict() {
-												return Err(Error::KeyExpansionFailed(
-													reverse_key.to_string(),
+												return Err(Error::new(
+													ErrorKind::KeyExpansionFailed(
+														reverse_key.to_string(),
+													),
+													rev_entry_loc.build(),
 												));
 											}
 											// otherwise the key is just dropped.
@@ -360,7 +369,10 @@ impl<'a> Expander<'a> {
 									}
 								}
 							} else {
-								return Err(Error::InvalidReverseValue);
+								return Err(Error::new(
+									ErrorKind::InvalidReverseValue,
+									entry_loc.build(),
+								));
 							}
 						}
 						// If expanded property is @nest
@@ -395,6 +407,7 @@ impl<'a> Expander<'a> {
 													property_scoped_base_url,
 													self.active_context,
 													options.with_override(),
+													location,
 												)
 												.await?
 												.into_raw(),
@@ -433,19 +446,11 @@ impl<'a> Expander<'a> {
 										self.with_active_context(&active_context)
 											.expand_node_entries(
 												env,
-												// Environment {
-												// 	vocabulary: env.vocabulary,
-												// 	loader: env.loader,
-												// 	warnings: env.warnings,
-												// },
 												result,
 												has_value_object_entries,
-												// active_context.as_ref(),
 												type_scoped_context,
-												// active_property,
 												nested_expanded_entries,
-												// base_url,
-												// options,
+												location,
 											),
 									)
 									.await?;
@@ -453,11 +458,16 @@ impl<'a> Expander<'a> {
 									result = new_result;
 									has_value_object_entries = new_has_value_object_entries;
 								} else {
-									return Err(Error::InvalidNestValue);
+									return Err(Error::new(
+										ErrorKind::InvalidNestValue,
+										entry_loc.build(),
+									));
 								}
 							}
 						}
-						Keyword::Value => return Err(Error::InvalidNestValue),
+						Keyword::Value => {
+							return Err(Error::new(ErrorKind::InvalidNestValue, entry_loc.build()))
+						}
 						_ => (),
 					}
 				}
@@ -465,7 +475,10 @@ impl<'a> Expander<'a> {
 				Term::Id(Lenient::Invalid(name))
 					if self.options.policy == ExpansionPolicy::Strictest =>
 				{
-					return Err(Error::KeyExpansionFailed(name))
+					return Err(Error::new(
+						ErrorKind::KeyExpansionFailed(name),
+						entry_loc.build(),
+					))
 				}
 
 				Term::Id(prop)
@@ -599,7 +612,10 @@ impl<'a> Expander<'a> {
 												// item must be a string, otherwise an
 												// invalid language map value error has
 												// been detected and processing is aborted.
-												return Err(Error::InvalidLanguageMapValue);
+												return Err(Error::new(
+													ErrorKind::InvalidLanguageMapValue,
+													entry_loc.build(),
+												));
 											}
 										}
 									}
@@ -677,6 +693,7 @@ impl<'a> Expander<'a> {
 															index_definition.base_url(),
 															&map_context,
 															self.options.into(),
+															location,
 														)
 														.await?
 														.into_raw(),
@@ -718,17 +735,9 @@ impl<'a> Expander<'a> {
 										)
 										.expand_element(
 											env,
-											// Environment {
-											// 	vocabulary: env.vocabulary,
-											// 	loader: env.loader,
-											// 	warnings: env.warnings,
-											// },
-											// map_context.as_ref(),
-											// ActiveProperty::Some(key),
 											index_value,
-											// base_url,
-											// options,
 											true,
+											entry_loc,
 										),
 									)
 									.await?;
@@ -765,14 +774,8 @@ impl<'a> Expander<'a> {
 													.with_active_property(Some(index_key))
 													.expand_literal(
 														|w| env.warn(w),
-														// Environment {
-														// 	vocabulary: env.vocabulary,
-														// 	loader: env.loader,
-														// 	warnings: env.warnings,
-														// },
-														// active_context,
-														// ActiveProperty::Some(index_key),
 														index.as_str().into(),
+														entry_loc,
 													)?;
 
 												// Initialize expanded index key to the result
@@ -801,7 +804,10 @@ impl<'a> Expander<'a> {
 													// contain any extra properties; an invalid
 													// value object error has been detected and
 													// processing is aborted.
-													return Err(Error::InvalidValueObject);
+													return Err(Error::new(
+														ErrorKind::InvalidValueObject,
+														entry_loc.build(),
+													));
 												}
 											} else if container_mapping
 												.contains(ContainerItem::Index) && item
@@ -850,7 +856,10 @@ impl<'a> Expander<'a> {
 														node.types_mut_or_default().insert(0, typ);
 													}
 												} else {
-													return Err(Error::InvalidTypeValue);
+													return Err(Error::new(
+														ErrorKind::InvalidTypeValue,
+														entry_loc.build(),
+													));
 												}
 											}
 										}
@@ -866,18 +875,10 @@ impl<'a> Expander<'a> {
 								// Otherwise, initialize expanded value to the result of using this
 								// algorithm recursively, passing active context, key for active property,
 								// value for element, base URL, and the frameExpansion and ordered flags.
-								Box::pin(self.with_active_property(Some(key)).expand_element(
-									env,
-									// Environment {
-									// 	vocabulary: env.vocabulary,
-									// 	loader: env.loader,
-									// 	warnings: env.warnings,
-									// },
-									// active_context,
-									// ActiveProperty::Some(key),
-									value, // base_url, options,
-									false,
-								))
+								Box::pin(
+									self.with_active_property(Some(key))
+										.expand_element(env, value, false, entry_loc),
+								)
 								.await?
 							}
 						}
@@ -930,7 +931,12 @@ impl<'a> Expander<'a> {
 							for object in expanded_value {
 								match object.try_cast::<NodeObject>() {
 									Ok(node) => reverse_expanded_nodes.push(node),
-									Err(_) => return Err(Error::InvalidReversePropertyValue),
+									Err(_) => {
+										return Err(Error::new(
+											ErrorKind::InvalidReversePropertyValue,
+											entry_loc.build(),
+										))
+									}
 								}
 							}
 
@@ -948,7 +954,10 @@ impl<'a> Expander<'a> {
 
 				Term::Id(prop) => {
 					if self.options.policy.is_strict() {
-						return Err(Error::KeyExpansionFailed(prop.to_string()));
+						return Err(Error::new(
+							ErrorKind::KeyExpansionFailed(prop.to_string()),
+							entry_loc.build(),
+						));
 					}
 					// non-keyword properties that does not include a ':' are skipped.
 				}

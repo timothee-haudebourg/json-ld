@@ -2,7 +2,7 @@ use json_syntax::JsonValue;
 use rdf_syntax::Id;
 
 use crate::{
-	algorithms::{Error, Warning},
+	algorithms::{Error, ErrorKind, JsonLdLocationStack, Warning},
 	context::RawProcessedContext,
 	object::{value::LiteralType, LiteralValue},
 	syntax::Keyword,
@@ -22,6 +22,7 @@ impl<'a> Expander<'a> {
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry>,
 		value_entry: &JsonValue,
+		location: JsonLdLocationStack<'_>,
 	) -> ValueExpansionResult {
 		let mut is_json = input_type
 			.as_ref()
@@ -48,7 +49,10 @@ impl<'a> Expander<'a> {
 							language = Some(value.to_owned());
 						}
 					} else {
-						return Err(Error::InvalidLanguageTaggedString);
+						return Err(Error::new(
+							ErrorKind::InvalidLanguageTaggedString,
+							location.build(),
+						));
 					}
 				}
 				// If expanded property is @direction:
@@ -63,10 +67,16 @@ impl<'a> Expander<'a> {
 						if let Ok(value) = Direction::try_from(value) {
 							direction = Some(value);
 						} else {
-							return Err(Error::InvalidBaseDirection);
+							return Err(Error::new(
+								ErrorKind::InvalidBaseDirection,
+								location.build(),
+							));
 						}
 					} else {
-						return Err(Error::InvalidBaseDirection);
+						return Err(Error::new(
+							ErrorKind::InvalidBaseDirection,
+							location.build(),
+						));
 					}
 				}
 				// If expanded property is @index:
@@ -76,7 +86,7 @@ impl<'a> Expander<'a> {
 					if let Some(value) = value.as_str() {
 						index = Some(value.to_string())
 					} else {
-						return Err(Error::InvalidIndexValue);
+						return Err(Error::new(ErrorKind::InvalidIndexValue, location.build()));
 					}
 				}
 				// If expanded ...
@@ -98,15 +108,20 @@ impl<'a> Expander<'a> {
 								is_json = false;
 								ty = Some(expanded_ty)
 							}
-							_ => return Err(Error::InvalidTypedValue),
+							_ => {
+								return Err(Error::new(
+									ErrorKind::InvalidTypedValue,
+									location.build(),
+								))
+							}
 						}
 					} else {
-						return Err(Error::InvalidTypedValue);
+						return Err(Error::new(ErrorKind::InvalidTypedValue, location.build()));
 					}
 				}
 				Term::Keyword(Keyword::Value) => (),
 				_ => {
-					return Err(Error::InvalidValueObject);
+					return Err(Error::new(ErrorKind::InvalidValueObject, location.build()));
 				}
 			}
 		}
@@ -116,7 +131,7 @@ impl<'a> Expander<'a> {
 		// been detected and processing is aborted.
 		if is_json {
 			if language.is_some() || direction.is_some() {
-				return Err(Error::InvalidValueObject);
+				return Err(Error::new(ErrorKind::InvalidValueObject, location.build()));
 			}
 			return Ok(Some(Indexed::new(
 				Object::Value(ValueObject::Literal(LiteralValue::json(
@@ -134,7 +149,10 @@ impl<'a> Expander<'a> {
 			| JsonValue::Number(_)
 			| JsonValue::Boolean(_) => value_entry.clone(),
 			_ => {
-				return Err(Error::InvalidValueObjectValue);
+				return Err(Error::new(
+					ErrorKind::InvalidValueObjectValue,
+					location.build(),
+				));
 			}
 		};
 
@@ -154,7 +172,7 @@ impl<'a> Expander<'a> {
 		// aborted.
 		if language.is_some() || direction.is_some() {
 			if ty.is_some() {
-				return Err(Error::InvalidValueObject);
+				return Err(Error::new(ErrorKind::InvalidValueObject, location.build()));
 			}
 
 			if let JsonValue::String(s) = result_value {
@@ -176,10 +194,16 @@ impl<'a> Expander<'a> {
 						Object::Value(ValueObject::LangString(result)),
 						index,
 					))),
-					Err(_) => Err(Error::InvalidLanguageTaggedValue),
+					Err(_) => Err(Error::new(
+						ErrorKind::InvalidLanguageTaggedValue,
+						location.build(),
+					)),
 				};
 			} else {
-				return Err(Error::InvalidLanguageTaggedValue);
+				return Err(Error::new(
+					ErrorKind::InvalidLanguageTaggedValue,
+					location.build(),
+				));
 			}
 		}
 

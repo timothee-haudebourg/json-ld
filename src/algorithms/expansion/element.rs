@@ -7,7 +7,7 @@ use rdf_syntax::Id;
 use crate::{
 	algorithms::{
 		context_processing::ContextProcessingOptions, AsyncProcessingEnvironment,
-		AsyncProcessingEnvironmentRef, Error, Warning,
+		AsyncProcessingEnvironmentRef, Error, ErrorKind, JsonLdLocationStack, Warning,
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
@@ -29,6 +29,7 @@ impl<'a> Expander<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		element: &JsonValue,
 		from_map: bool,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<Expanded, Error> {
 		// If `element` is null, return null.
 		if element.is_null() {
@@ -53,17 +54,8 @@ impl<'a> Expander<'a> {
 		match element {
 			JsonValue::Null => unreachable!(),
 			JsonValue::Array(element) => {
-				self.expand_array(
-					env,
-					// active_context,
-					// active_property,
-					active_property_definition,
-					element,
-					// base_url,
-					// options,
-					from_map,
-				)
-				.await
+				self.expand_array(env, active_property_definition, element, from_map, location)
+					.await
 			}
 
 			JsonValue::Object(element) => {
@@ -124,6 +116,7 @@ impl<'a> Expander<'a> {
 								property_scoped_base_url,
 								active_context.as_ref(),
 								options.with_override(),
+								location,
 							)
 							.await?
 							.into_raw(),
@@ -138,8 +131,9 @@ impl<'a> Expander<'a> {
 					.map_err(Error::duplicate_key_ref)?
 				{
 					let local_context: Context = json_syntax::from_value(local_context.clone())
-						.map_err(Error::ContextSyntax)?;
+						.map_err(|e| Error::from(ErrorKind::ContextSyntax(e)))?;
 
+					let context_loc = location.object_value(Keyword::Context);
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
@@ -147,6 +141,7 @@ impl<'a> Expander<'a> {
 								self.base_url,
 								&active_context,
 								self.options.into(),
+								context_loc,
 							)
 							.await?
 							.into_raw(),
@@ -215,6 +210,7 @@ impl<'a> Expander<'a> {
 											term_definition.base_url(),
 											active_context.as_ref(),
 											options.without_propagation(),
+											location,
 										)
 										.await?
 										.into_raw(),
@@ -288,10 +284,20 @@ impl<'a> Expander<'a> {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
-								None => return Err(Error::InvalidIndexValue),
+								None => {
+									return Err(Error::new(
+										ErrorKind::InvalidIndexValue,
+										location.build(),
+									))
+								}
 							},
 							Term::Keyword(Keyword::List) => (),
-							_ => return Err(Error::InvalidSetOrListObject),
+							_ => {
+								return Err(Error::new(
+									ErrorKind::InvalidSetOrListObject,
+									location.build(),
+								))
+							}
 						}
 					}
 
@@ -301,18 +307,13 @@ impl<'a> Expander<'a> {
 					// result is an array..
 					let mut result = Vec::new();
 					let list_entry = JsonValue::force_as_array(&list_entry);
-					for item in list_entry {
-						let e = Box::pin(self.with_active_context(&active_context).expand_element(
-							env,
-							// Environment {
-							// 	vocabulary: env.vocabulary,
-							// 	loader: env.loader,
-							// 	warnings: env.warnings,
-							// },
-							// active_context.as_ref(),
-							// active_property,
-							item, false,
-						))
+					let list_loc = location.object_value(Keyword::List);
+					for (i, item) in list_entry.iter().enumerate() {
+						let item_loc = list_loc.array_index(i);
+						let e = Box::pin(
+							self.with_active_context(&active_context)
+								.expand_element(env, item, false, item_loc),
+						)
 						.await?;
 						result.extend(e)
 					}
@@ -330,22 +331,23 @@ impl<'a> Expander<'a> {
 								// but is ignored.
 							}
 							Term::Keyword(Keyword::Set) => (),
-							_ => return Err(Error::InvalidSetOrListObject),
+							_ => {
+								return Err(Error::new(
+									ErrorKind::InvalidSetOrListObject,
+									location.build(),
+								))
+							}
 						}
 					}
 
 					// set expanded value to the result of using this algorithm recursively,
 					// passing active context, active property, value for element, base URL,
 					// and ordered flags.
-					Box::pin(self.with_active_context(&active_context).expand_element(
-						env,
-						// env,
-						// active_context.as_ref(),
-						// active_property,
-						&set_entry, // base_url,
-						// options,
-						false,
-					))
+					let set_loc = location.object_value(Keyword::Set);
+					Box::pin(
+						self.with_active_context(&active_context)
+							.expand_element(env, &set_entry, false, set_loc),
+					)
 					.await
 				} else if let Some(value_entry) = value_entry {
 					// Value objects.
@@ -355,6 +357,7 @@ impl<'a> Expander<'a> {
 						type_scoped_context,
 						expanded_entries,
 						&value_entry,
+						location,
 					)?;
 
 					if let Some(value) = expanded_value {
@@ -366,16 +369,7 @@ impl<'a> Expander<'a> {
 					// Node objects.
 					let e = self
 						.with_active_context(&active_context)
-						.expand_node(
-							env,
-							// env,
-							// active_context.as_ref(),
-							type_scoped_context,
-							// active_property,
-							expanded_entries,
-							// base_url,
-							// options,
-						)
+						.expand_node(env, type_scoped_context, expanded_entries, location)
 						.await?;
 					if let Some(result) = e {
 						Ok(Expanded::Object(result.cast::<Object>()))
@@ -412,6 +406,7 @@ impl<'a> Expander<'a> {
 							base_url.as_deref(),
 							self.active_context,
 							self.options.into(),
+							location,
 						)
 						.await?
 						.into_raw();
@@ -425,10 +420,8 @@ impl<'a> Expander<'a> {
 				Ok(Expanded::Object(
 					self.with_active_context(&active_context).expand_literal(
 						|w| env.warn(w),
-						// env,
-						// active_context.as_ref(),
-						// active_property,
 						ExpandableLiteralValue::new(element),
+						location,
 					)?,
 				))
 			}

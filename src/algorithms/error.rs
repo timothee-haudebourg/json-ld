@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::algorithms::flattening::ConflictingIndexes;
-use crate::algorithms::JsonLdLocation;
+use crate::algorithms::{JsonFragmentAddrBuf, JsonLdLocation};
 use crate::LoadError;
 
 /// Error code.
@@ -315,6 +315,13 @@ impl Error {
 	pub fn new(kind: ErrorKind, location: JsonLdLocation) -> Self {
 		Self { kind, location }
 	}
+
+	/// Creates an [`Error`] from a duplicate key reference.
+	///
+	/// Intended for use with `map_err`: `.map_err(Error::duplicate_key_ref)`.
+	pub fn duplicate_key_ref(d: json_syntax::object::DuplicateEntryRef) -> Self {
+		ErrorKind::duplicate_key_ref(d).into()
+	}
 }
 
 impl From<ErrorKind> for Error {
@@ -332,6 +339,13 @@ impl From<ErrorKind> for Error {
 				fragment: Vec::new(),
 			},
 		)
+	}
+}
+
+impl From<LoadError> for Error {
+	fn from(value: LoadError) -> Self {
+		let location = JsonLdLocation::new(Some(value.target.clone()), JsonFragmentAddrBuf::new());
+		Self::new(value.into(), location)
 	}
 }
 

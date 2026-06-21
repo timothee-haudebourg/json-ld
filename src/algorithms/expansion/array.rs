@@ -1,7 +1,7 @@
 use json_syntax::JsonArray;
 
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, Error},
+	algorithms::{AsyncProcessingEnvironment, Error, JsonLdLocationStack},
 	context::TermDefinitionRef,
 	object::ListObject,
 	syntax::ContainerItem,
@@ -18,6 +18,7 @@ impl<'a> Expander<'a> {
 		active_property_definition: Option<TermDefinitionRef<'_>>,
 		element: &JsonArray,
 		from_map: bool,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<Expanded, Error> {
 		// Initialize an empty array, result.
 		let mut is_list = false;
@@ -31,24 +32,12 @@ impl<'a> Expander<'a> {
 		}
 
 		// For each item in element:
-		for item in element.iter() {
+		for (i, item) in element.iter().enumerate() {
 			// Initialize `expanded_item` to the result of using this algorithm
 			// recursively, passing `active_context`, `active_property`, `item` as element,
 			// `base_url`, the `frame_expansion`, `ordered`, and `from_map` flags.
-			let e = Box::pin(self.expand_element(
-				env,
-				// Environment {
-				// 	vocabulary: env.vocabulary,
-				// 	loader: env.loader,
-				// 	warnings: env.warnings,
-				// },
-				// active_context,
-				// active_property,
-				item, // base_url,
-				// options,
-				from_map,
-			))
-			.await?;
+			let item_loc = location.array_index(i);
+			let e = Box::pin(self.expand_element(env, item, from_map, item_loc)).await?;
 
 			result.extend(e);
 		}

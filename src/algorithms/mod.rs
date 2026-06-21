@@ -187,3 +187,9 @@ pub struct JsonLdLocation {
 	pub uri: Option<IriBuf>,
 	pub fragment: JsonFragmentAddrBuf,
 }
+
+impl JsonLdLocation {
+	pub fn new(uri: Option<IriBuf>, fragment: JsonFragmentAddrBuf) -> Self {
+		Self { uri, fragment }
+	}
+}

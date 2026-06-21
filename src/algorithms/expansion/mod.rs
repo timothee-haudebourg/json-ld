@@ -6,7 +6,7 @@ use crate::{
 	ExpandedDocument, IndexedObject, Object,
 };
 
-use super::Error;
+use super::{Error, JsonLdLocationStack};
 
 mod array;
 mod document;
@@ -70,7 +70,7 @@ impl Expand for Document {
 			active_context,
 			active_property: None,
 		}
-		.expand_document(&env, self.document())
+		.expand_document(&env, self.document(), JsonLdLocationStack::Root(self.url()))
 		.await
 	}
 }

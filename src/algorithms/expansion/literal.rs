@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
-	algorithms::{Error, Warning},
+	algorithms::{Error, ErrorKind, JsonLdLocationStack, Warning},
 	object::{value::LiteralType, LiteralValue},
 	IndexedObject, LangString, Lenient, NodeObject, Nullable, Object, Type, ValueObject,
 };
@@ -51,6 +51,7 @@ impl<'a> Expander<'a> {
 		&self,
 		warn: impl FnOnce(Warning),
 		value: ExpandableLiteralValue,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<IndexedObject, Error> {
 		let active_property_definition = self.active_property_definition();
 		let active_property_type =
@@ -168,7 +169,7 @@ impl<'a> Expander<'a> {
 						if let Ok(t) = t.into_iri() {
 							ty = Some(t)
 						} else {
-							return Err(Error::InvalidTypeValue);
+							return Err(Error::new(ErrorKind::InvalidTypeValue, location.build()));
 						}
 					}
 				}
