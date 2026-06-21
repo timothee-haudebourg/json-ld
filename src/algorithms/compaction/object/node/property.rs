@@ -6,7 +6,7 @@ use crate::{
 			object::value::{add_value, value_value},
 			CompactFragment, CompactIndexedFragment, Compactor,
 		},
-		AsyncProcessingEnvironment,
+		AsyncProcessingEnvironment, ErrorKind, JsonLdLocationStack,
 	},
 	context::Container,
 	object::{AnyObject, ListObject, ObjectRef},
@@ -239,6 +239,7 @@ impl Compactor<'_> {
 
 	fn select_nest_result<'a>(
 		&self,
+		location: JsonLdLocationStack<'a>,
 		result: &'a mut JsonObject,
 		item_active_property: &str,
 		compact_arrays: bool,
@@ -255,7 +256,7 @@ impl Compactor<'_> {
 							match self.active_context.get(nest_term.as_str()) {
 								Some(term_def)
 									if term_def.value() == Some(&Term::Keyword(Keyword::Nest)) => {}
-								_ => return Err(Error::InvalidNestValue),
+								_ => return Err(ErrorKind::InvalidNestValue.at(location.build())),
 							}
 						}
 

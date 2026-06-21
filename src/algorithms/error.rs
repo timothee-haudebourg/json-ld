@@ -308,11 +308,11 @@ impl fmt::Display for ErrorCode {
 
 pub struct Error {
 	pub kind: ErrorKind,
-	pub location: Option<JsonLdLocation>,
+	pub location: JsonLdLocation,
 }
 
 impl Error {
-	pub fn new(kind: ErrorKind, location: Option<JsonLdLocation>) -> Self {
+	pub fn new(kind: ErrorKind, location: JsonLdLocation) -> Self {
 		Self { kind, location }
 	}
 }
@@ -458,6 +458,10 @@ pub enum ErrorKind {
 }
 
 impl ErrorKind {
+	pub fn at(self, location: JsonLdLocation) -> Error {
+		Error::new(self, location)
+	}
+
 	pub fn duplicate_key_ref(d: json_syntax::object::DuplicateEntryRef) -> Self {
 		Self::DuplicateKey(d.0 .0.clone())
 	}

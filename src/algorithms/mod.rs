@@ -12,7 +12,6 @@ pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
 pub use error::*;
 pub use expansion::*;
-use json_syntax::{code_map::JsonLocation, JsonCodeMap};
 use rdf_syntax::{Uri, UriBuf};
 pub use warning::*;
 
@@ -114,36 +113,46 @@ impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingE
 	}
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum JsonLdLocator<'a> {
-	Nowhere,
-	Somewhere {
-		uri: Option<&'a Uri>,
-		code_map: &'a JsonCodeMap,
-		location: JsonLocation,
-	},
+pub enum JsonFragmentAddrSegment {
+	ArrayIndex(usize),
+	ObjectKey(String),
+	ObjectValue(String),
 }
 
-impl<'a> JsonLdLocator<'a> {
-	pub fn code_map(&self) -> Option<&'a JsonCodeMap> {
-		match self {
-			Self::Nowhere => None,
-			Self::Somewhere { code_map, .. } => Some(code_map),
-		}
+pub enum JsonFragmentAddrSegmentRef<'a> {
+	ArrayIndex(usize),
+	ObjectKey(&'a str),
+	ObjectValue(&'a str),
+}
+
+pub type JsonFragmentAddrBuf = Vec<JsonFragmentAddrSegment>;
+
+pub type JsonFragmentAddr = [JsonFragmentAddrSegment];
+
+pub enum JsonLdLocationStack<'a> {
+	Root(Option<&'a Uri>),
+	Segment(&'a Self, JsonFragmentAddrSegmentRef<'a>),
+}
+
+impl<'a> JsonLdLocationStack<'a> {
+	pub fn array_index(&self, index: usize) -> JsonLdLocationStack<'_> {
+		JsonLdLocationStack::Segment(self, JsonFragmentAddrSegmentRef::ArrayIndex(index))
 	}
 
-	pub fn location(&self) -> Option<JsonLdLocation> {
-		match self {
-			Self::Nowhere => None,
-			Self::Somewhere { uri, location, .. } => Some(JsonLdLocation {
-				uri: uri.map(Uri::to_owned),
-				location: *location,
-			}),
-		}
+	pub fn object_key<'b>(&'b self, key: impl Into<&'b str>) -> JsonLdLocationStack<'b> {
+		JsonLdLocationStack::Segment(self, JsonFragmentAddrSegmentRef::ObjectKey(key.into()))
+	}
+
+	pub fn object_value<'b>(&'b self, key: impl Into<&'b str>) -> JsonLdLocationStack<'b> {
+		JsonLdLocationStack::Segment(self, JsonFragmentAddrSegmentRef::ObjectValue(key.into()))
+	}
+
+	pub fn build(&self) -> JsonLdLocation {
+		todo!()
 	}
 }
 
 pub struct JsonLdLocation {
 	pub uri: Option<UriBuf>,
-	pub location: JsonLocation,
+	pub fragment: JsonFragmentAddrBuf,
 }
