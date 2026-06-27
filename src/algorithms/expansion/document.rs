@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, Error, JsonLdLocationStack},
+	algorithms::{AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack},
 	ExpandedDocument,
 };
 
@@ -13,7 +13,7 @@ impl<'a> Expander<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		document: &JsonValue,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<ExpandedDocument, Error> {
+	) -> Result<ExpandedDocument, JsonLdLocated<Error>> {
 		let expanded = self.expand_element(env, document, false, location).await?;
 
 		if expanded.len() == 1 {

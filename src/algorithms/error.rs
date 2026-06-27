@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::algorithms::flattening::ConflictingIndexes;
-use crate::algorithms::{JsonFragmentAddrBuf, JsonLdLocation};
+use crate::algorithms::{JsonLdLocated, JsonLdLocation};
 use crate::LoadError;
 
 /// Error code.
@@ -306,64 +306,8 @@ impl fmt::Display for ErrorCode {
 	}
 }
 
-#[derive(Debug)]
-pub struct Error {
-	pub kind: ErrorKind,
-	pub location: JsonLdLocation,
-}
-
-impl std::fmt::Display for Error {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		self.kind.fmt(f)
-	}
-}
-
-impl std::error::Error for Error {
-	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-		self.kind.source()
-	}
-}
-
-impl Error {
-	pub fn new(kind: ErrorKind, location: JsonLdLocation) -> Self {
-		Self { kind, location }
-	}
-
-	/// Creates an [`Error`] from a duplicate key reference.
-	///
-	/// Intended for use with `map_err`: `.map_err(Error::duplicate_key_ref)`.
-	pub fn duplicate_key_ref(d: json_syntax::object::DuplicateEntryRef) -> Self {
-		ErrorKind::duplicate_key_ref(d).into()
-	}
-}
-
-impl From<ErrorKind> for Error {
-	/// Creates an [`Error`] with no location information.
-	///
-	/// Prefer [`Error::new`] with a [`JsonLdLocationStack::build`] result at
-	/// call sites that carry a location stack.
-	///
-	/// [`JsonLdLocationStack::build`]: crate::algorithms::JsonLdLocationStack::build
-	fn from(kind: ErrorKind) -> Self {
-		Self::new(
-			kind,
-			JsonLdLocation {
-				uri: None,
-				fragment: Vec::new(),
-			},
-		)
-	}
-}
-
-impl From<LoadError> for Error {
-	fn from(value: LoadError) -> Self {
-		let location = JsonLdLocation::new(Some(value.target.clone()), JsonFragmentAddrBuf::new());
-		Self::new(value.into(), location)
-	}
-}
-
 #[derive(Debug, thiserror::Error)]
-pub enum ErrorKind {
+pub enum Error {
 	#[error("Invalid context nullification")]
 	InvalidContextNullification,
 
@@ -502,9 +446,15 @@ pub enum ErrorKind {
 	IriConfusedWithPrefix,
 }
 
-impl ErrorKind {
-	pub fn at(self, location: JsonLdLocation) -> Error {
-		Error::new(self, location)
+impl From<JsonLdLocated<Error>> for Error {
+	fn from(e: JsonLdLocated<Error>) -> Self {
+		e.value
+	}
+}
+
+impl Error {
+	pub fn at(self, location: JsonLdLocation) -> JsonLdLocated<Self> {
+		JsonLdLocated::new(self, location)
 	}
 
 	pub fn duplicate_key_ref(d: json_syntax::object::DuplicateEntryRef) -> Self {

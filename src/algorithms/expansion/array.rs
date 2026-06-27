@@ -1,7 +1,7 @@
 use json_syntax::JsonArray;
 
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, Error, JsonLdLocationStack},
+	algorithms::{AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack},
 	context::TermDefinitionRef,
 	object::ListObject,
 	syntax::ContainerItem,
@@ -19,7 +19,7 @@ impl<'a> Expander<'a> {
 		element: &JsonArray,
 		from_map: bool,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<Expanded, Error> {
+	) -> Result<Expanded, JsonLdLocated<Error>> {
 		// Initialize an empty array, result.
 		let mut is_list = false;
 		let mut result = Vec::new();

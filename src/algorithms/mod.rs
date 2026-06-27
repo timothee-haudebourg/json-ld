@@ -184,7 +184,32 @@ impl<'a> JsonLdLocationStack<'a> {
 	}
 }
 
-#[derive(Debug)]
+/// A value paired with a source location.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct JsonLdLocated<T> {
+	pub value: T,
+	pub location: JsonLdLocation,
+}
+
+impl<T> JsonLdLocated<T> {
+	pub fn new(value: T, location: JsonLdLocation) -> Self {
+		Self { value, location }
+	}
+}
+
+impl<T: std::fmt::Display> std::fmt::Display for JsonLdLocated<T> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		self.value.fmt(f)
+	}
+}
+
+impl<T: 'static + std::error::Error> std::error::Error for JsonLdLocated<T> {
+	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+		Some(&self.value)
+	}
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct JsonLdLocation {
 	pub uri: Option<IriBuf>,
 	pub fragment: JsonFragmentAddrBuf,

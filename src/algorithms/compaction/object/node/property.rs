@@ -6,12 +6,12 @@ use crate::{
 			object::value::{add_value, value_value},
 			CompactFragment, CompactIndexedFragment, Compactor,
 		},
-		AsyncProcessingEnvironment, ErrorKind, JsonLdLocationStack,
+		AsyncProcessingEnvironment, Error,
 	},
 	context::Container,
 	object::{AnyObject, ListObject, ObjectRef},
 	syntax::{context::Nest, ContainerItem, Keyword},
-	Error, Indexed, Lenient, NodeObject, Object, Term,
+	Indexed, Lenient, NodeObject, Object, Term,
 };
 
 impl Compactor<'_> {
@@ -239,7 +239,6 @@ impl Compactor<'_> {
 
 	fn select_nest_result<'a>(
 		&self,
-		location: JsonLdLocationStack<'a>,
 		result: &'a mut JsonObject,
 		item_active_property: &str,
 		compact_arrays: bool,
@@ -256,7 +255,7 @@ impl Compactor<'_> {
 							match self.active_context.get(nest_term.as_str()) {
 								Some(term_def)
 									if term_def.value() == Some(&Term::Keyword(Keyword::Nest)) => {}
-								_ => return Err(ErrorKind::InvalidNestValue.at(location.build())),
+								_ => return Err(Error::InvalidNestValue),
 							}
 						}
 
@@ -344,7 +343,6 @@ impl Compactor<'_> {
 			// has a nest value entry (nest term)
 			if let Some(item_active_property) = item_active_property {
 				let (nest_result, container, as_array) = self.select_nest_result(
-					JsonLdLocationStack::Root(None),
 					result,
 					&item_active_property,
 					self.options.compact_arrays,
@@ -684,7 +682,6 @@ impl Compactor<'_> {
 			// has a nest value entry (nest term):
 			if let Some(item_active_property) = item_active_property {
 				let (nest_result, _, _) = self.select_nest_result(
-					JsonLdLocationStack::Root(None),
 					result,
 					&item_active_property,
 					self.options.compact_arrays,

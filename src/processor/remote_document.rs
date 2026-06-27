@@ -5,10 +5,10 @@ use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, Compact, ErrorKind, Expand, JsonLdLocationStack},
+	algorithms::{AsyncProcessingEnvironment, Compact, Error, Expand, JsonLdLocationStack},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
-	Document, Error, RemoteContext,
+	Document, RemoteContext,
 };
 
 impl JsonLdProcessor for Document {
@@ -73,7 +73,9 @@ impl JsonLdProcessor for Document {
 		}
 
 		// Expand the document.
-		Expand::expand_with(self, env, &active_context, options.expansion_options()).await
+		Expand::expand_with(self, env, &active_context, options.expansion_options())
+			.await
+			.map_err(Into::into)
 	}
 
 	async fn async_compact_with(
@@ -106,7 +108,7 @@ impl JsonLdProcessor for Document {
 		let generator = rdf_syntax::generator::BlankIdGenerator::new_with_prefix("b".to_string());
 		let flattened_output = expanded_input
 			.flatten(generator, options.ordered)
-			.map_err(|e| Error::from(ErrorKind::ConflictingIndexes(e)))?;
+			.map_err(Error::ConflictingIndexes)?;
 
 		match context {
 			Some(context) => {

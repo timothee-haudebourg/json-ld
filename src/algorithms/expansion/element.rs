@@ -7,7 +7,7 @@ use rdf_syntax::Id;
 use crate::{
 	algorithms::{
 		context_processing::ContextProcessingOptions, AsyncProcessingEnvironment,
-		AsyncProcessingEnvironmentRef, Error, ErrorKind, JsonLdLocationStack, Warning,
+		AsyncProcessingEnvironmentRef, Error, JsonLdLocated, JsonLdLocationStack, Warning,
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
@@ -30,7 +30,7 @@ impl<'a> Expander<'a> {
 		element: &JsonValue,
 		from_map: bool,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<Expanded, Error> {
+	) -> Result<Expanded, JsonLdLocated<Error>> {
 		// If `element` is null, return null.
 		if element.is_null() {
 			return Ok(Expanded::Null);
@@ -128,10 +128,12 @@ impl<'a> Expander<'a> {
 				// `@context` entry as `local_context` and `base_url`.
 				if let Some(local_context) = element
 					.get_unique("@context")
-					.map_err(Error::duplicate_key_ref)?
+					.map_err(|e| Error::duplicate_key_ref(e).at(location.build()))?
 				{
 					let local_context: Context = json_syntax::from_value(local_context.clone())
-						.map_err(|e| Error::from(ErrorKind::ContextSyntax(e)))?;
+						.map_err(|e| {
+							Error::ContextSyntax(e).at(location.object_value("@context").build())
+						})?;
 
 					let context_loc = location.object_value(Keyword::Context);
 					active_context = Mown::Owned(
@@ -284,20 +286,10 @@ impl<'a> Expander<'a> {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
-								None => {
-									return Err(Error::new(
-										ErrorKind::InvalidIndexValue,
-										location.build(),
-									))
-								}
+								None => return Err(Error::InvalidIndexValue.at(location.build())),
 							},
 							Term::Keyword(Keyword::List) => (),
-							_ => {
-								return Err(Error::new(
-									ErrorKind::InvalidSetOrListObject,
-									location.build(),
-								))
-							}
+							_ => return Err(Error::InvalidSetOrListObject.at(location.build())),
 						}
 					}
 
@@ -331,12 +323,7 @@ impl<'a> Expander<'a> {
 								// but is ignored.
 							}
 							Term::Keyword(Keyword::Set) => (),
-							_ => {
-								return Err(Error::new(
-									ErrorKind::InvalidSetOrListObject,
-									location.build(),
-								))
-							}
+							_ => return Err(Error::InvalidSetOrListObject.at(location.build())),
 						}
 					}
 

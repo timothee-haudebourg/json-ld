@@ -6,7 +6,7 @@ use crate::{
 	ExpandedDocument, IndexedObject, Object,
 };
 
-use super::{Error, JsonLdLocationStack};
+use super::{Error, JsonLdLocated, JsonLdLocationStack};
 
 mod array;
 mod document;
@@ -34,8 +34,10 @@ pub use options::*;
 pub trait Expand {
 	/// Expand this document with the default expansion options.
 	#[allow(async_fn_in_trait)]
-	async fn expand(&self, env: impl AsyncProcessingEnvironment)
-		-> Result<ExpandedDocument, Error>;
+	async fn expand(
+		&self,
+		env: impl AsyncProcessingEnvironment,
+	) -> Result<ExpandedDocument, JsonLdLocated<Error>>;
 
 	/// Expand this document with the given expansion options and active
 	/// context.
@@ -45,14 +47,14 @@ pub trait Expand {
 		env: impl AsyncProcessingEnvironment,
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
-	) -> Result<ExpandedDocument, Error>;
+	) -> Result<ExpandedDocument, JsonLdLocated<Error>>;
 }
 
 impl Expand for Document {
 	async fn expand(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-	) -> Result<ExpandedDocument, Error> {
+	) -> Result<ExpandedDocument, JsonLdLocated<Error>> {
 		let active_context = RawProcessedContext::new(self.url().map(ToOwned::to_owned));
 		self.expand_with(env, &active_context, ExpansionOptions::default())
 			.await
@@ -63,7 +65,7 @@ impl Expand for Document {
 		env: impl AsyncProcessingEnvironment,
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
-	) -> Result<ExpandedDocument, Error> {
+	) -> Result<ExpandedDocument, JsonLdLocated<Error>> {
 		Expander {
 			base_url: self.url(),
 			options,

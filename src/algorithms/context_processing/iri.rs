@@ -5,9 +5,8 @@ use crate::Lenient;
 use crate::{
 	algorithms::{
 		context_processing::{merged::Merged, ContextProcessor, TargetProcessedContext},
-		error::Error,
 		warning::Warning,
-		AsyncProcessingEnvironment, JsonLdLocationStack,
+		AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack,
 	},
 	context::RawProcessedContext,
 	syntax::{
@@ -26,7 +25,7 @@ pub fn resolve_iri(iri_ref: &IriRef, base_iri: Option<&Iri>) -> Option<IriBuf> {
 }
 
 /// Result of the [`expand_iri_with`] function.
-pub type ExpandIriResult = Result<Term, Error>;
+pub type ExpandIriResult = Result<Term, JsonLdLocated<Error>>;
 
 // /// Environment of a context term definition.
 // pub struct IriExpensionEnv<'a, L> {

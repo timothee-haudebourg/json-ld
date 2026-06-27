@@ -81,7 +81,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 				.result
 				.graph_mut(active_graph)
 				.unwrap()
-				.declare_node(id.clone(), index.map(|s| (s, vec![])))?;
+				.declare_node(id.clone(), index)?;
 
 			if let Some(entry) = node.types.as_deref() {
 				flat_node.types = Some(
