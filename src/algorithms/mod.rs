@@ -12,6 +12,7 @@ pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
 pub use error::*;
 pub use expansion::*;
+use json_syntax::tracing::{JsonFragmentStack, JsonLocated};
 use rdf_syntax::{Iri, IriBuf};
 pub use warning::*;
 
@@ -113,110 +114,7 @@ impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingE
 	}
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum JsonFragmentAddrSegment {
-	ArrayIndex(usize),
-	ObjectKey(String),
-	ObjectValue(String),
-}
+/// Location stack for context-processing and expansion algorithms.
+pub type JsonLdLocationStack<'a> = JsonFragmentStack<'a, Iri>;
 
-#[derive(Debug, Clone, Copy)]
-pub enum JsonFragmentAddrSegmentRef<'a> {
-	ArrayIndex(usize),
-	ObjectKey(&'a str),
-	ObjectValue(&'a str),
-}
-
-impl JsonFragmentAddrSegmentRef<'_> {
-	pub fn to_owned(&self) -> JsonFragmentAddrSegment {
-		match self {
-			Self::ArrayIndex(i) => JsonFragmentAddrSegment::ArrayIndex(*i),
-			Self::ObjectKey(k) => JsonFragmentAddrSegment::ObjectKey(k.to_string()),
-			Self::ObjectValue(k) => JsonFragmentAddrSegment::ObjectValue(k.to_string()),
-		}
-	}
-}
-
-pub type JsonFragmentAddrBuf = Vec<JsonFragmentAddrSegment>;
-
-pub type JsonFragmentAddr = [JsonFragmentAddrSegment];
-
-#[derive(Debug, Clone, Copy)]
-pub enum JsonLdLocationStack<'a> {
-	Root(Option<&'a Iri>),
-	Segment(&'a Self, JsonFragmentAddrSegmentRef<'a>),
-}
-
-impl<'a> JsonLdLocationStack<'a> {
-	pub fn array_index(&self, index: usize) -> JsonLdLocationStack<'_> {
-		JsonLdLocationStack::Segment(self, JsonFragmentAddrSegmentRef::ArrayIndex(index))
-	}
-
-	pub fn object_key<'b>(&'b self, key: impl Into<&'b str>) -> JsonLdLocationStack<'b> {
-		JsonLdLocationStack::Segment(self, JsonFragmentAddrSegmentRef::ObjectKey(key.into()))
-	}
-
-	pub fn object_value<'b>(&'b self, key: impl Into<&'b str>) -> JsonLdLocationStack<'b> {
-		JsonLdLocationStack::Segment(self, JsonFragmentAddrSegmentRef::ObjectValue(key.into()))
-	}
-
-	pub fn build(&self) -> JsonLdLocation {
-		fn collect<'a>(
-			stack: &'a JsonLdLocationStack<'_>,
-			fragment: &mut JsonFragmentAddrBuf,
-		) -> Option<&'a Iri> {
-			match stack {
-				JsonLdLocationStack::Root(uri) => *uri,
-				JsonLdLocationStack::Segment(parent, segment) => {
-					let uri = collect(parent, fragment);
-					fragment.push(segment.to_owned());
-					uri
-				}
-			}
-		}
-
-		let mut fragment = JsonFragmentAddrBuf::new();
-		let uri = collect(self, &mut fragment);
-		JsonLdLocation {
-			uri: uri.map(Iri::to_owned),
-			fragment,
-		}
-	}
-}
-
-/// A value paired with a source location.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct JsonLdLocated<T> {
-	pub value: T,
-	pub location: JsonLdLocation,
-}
-
-impl<T> JsonLdLocated<T> {
-	pub fn new(value: T, location: JsonLdLocation) -> Self {
-		Self { value, location }
-	}
-}
-
-impl<T: std::fmt::Display> std::fmt::Display for JsonLdLocated<T> {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		self.value.fmt(f)
-	}
-}
-
-impl<T: 'static + std::error::Error> std::error::Error for JsonLdLocated<T> {
-	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-		Some(&self.value)
-	}
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct JsonLdLocation {
-	pub uri: Option<IriBuf>,
-	pub fragment: JsonFragmentAddrBuf,
-}
-
-impl JsonLdLocation {
-	pub fn new(uri: Option<IriBuf>, fragment: JsonFragmentAddrBuf) -> Self {
-		Self { uri, fragment }
-	}
-}
+pub type JsonLdLocated<T> = JsonLocated<T, IriBuf>;

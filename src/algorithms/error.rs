@@ -2,8 +2,10 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::algorithms::flattening::ConflictingIndexes;
-use crate::algorithms::{JsonLdLocated, JsonLdLocation};
+use crate::algorithms::JsonLdLocated;
+use crate::syntax::tracing::JsonFragmentPathBuf;
 use crate::LoadError;
+use rdf_syntax::IriBuf;
 
 /// Error code.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -453,7 +455,7 @@ impl From<JsonLdLocated<Error>> for Error {
 }
 
 impl Error {
-	pub fn at(self, location: JsonLdLocation) -> JsonLdLocated<Self> {
+	pub fn at(self, location: JsonFragmentPathBuf<IriBuf>) -> JsonLdLocated<Self> {
 		JsonLdLocated::new(self, location)
 	}
 

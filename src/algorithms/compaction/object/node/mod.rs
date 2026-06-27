@@ -56,7 +56,7 @@ impl Compactor<'_> {
 								active_property_definition.base_url(),
 								active_context.as_ref(),
 								ContextProcessingOptions::from(self.options).with_override(),
-								JsonLdLocationStack::Root(None),
+								JsonLdLocationStack::new(),
 							)
 							.await?
 							.into_raw(),
@@ -98,7 +98,7 @@ impl Compactor<'_> {
 									term_definition.base_url(),
 									active_context.as_ref(),
 									processing_options,
-									JsonLdLocationStack::Root(None),
+									JsonLdLocationStack::new(),
 								)
 								.await?
 								.into_raw(),
@@ -196,7 +196,7 @@ impl Compactor<'_> {
 									active_property_definition.base_url(),
 									active_context.as_ref(),
 									ContextProcessingOptions::from(self.options).with_override(),
-									JsonLdLocationStack::Root(None),
+									JsonLdLocationStack::new(),
 								)
 								.await?
 								.into_raw(),

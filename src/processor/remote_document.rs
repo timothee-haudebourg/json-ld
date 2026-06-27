@@ -38,9 +38,12 @@ impl JsonLdProcessor for Document {
 
 		// Process expand context if provided.
 		if let Some(expand_context) = options.expand_context.take() {
-			active_context = expand_context
-				.load(env.loader())
-				.await?
+			let context_document = expand_context.load(env.loader()).await?;
+
+			let loc = JsonLdLocationStack::new();
+			let loc = loc.file_opt(context_document.url());
+
+			active_context = context_document
 				.document
 				.context
 				.process_with(
@@ -48,7 +51,7 @@ impl JsonLdProcessor for Document {
 					active_context.original_base_url(),
 					&active_context,
 					options.context_processing_options(),
-					JsonLdLocationStack::Root(None),
+					loc,
 				)
 				.await?
 				.into_raw();
@@ -56,6 +59,9 @@ impl JsonLdProcessor for Document {
 
 		// Process context URL from the loaded document, if any.
 		if let Some(context_url) = self.context_url() {
+			let loc = JsonLdLocationStack::new();
+			let loc = loc.file(context_url);
+
 			active_context = RemoteContext::iri(context_url.to_owned())
 				.load(env.loader())
 				.await?
@@ -66,7 +72,7 @@ impl JsonLdProcessor for Document {
 					Some(context_url),
 					&active_context,
 					options.context_processing_options(),
-					JsonLdLocationStack::Root(Some(context_url)),
+					loc,
 				)
 				.await?
 				.into_raw()
@@ -137,7 +143,7 @@ async fn compact_expanded(
 			context_base,
 			&RawProcessedContext::new(None),
 			options.context_processing_options(),
-			JsonLdLocationStack::Root(None),
+			JsonLdLocationStack::new(),
 		)
 		.await?;
 

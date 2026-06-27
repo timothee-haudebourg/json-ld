@@ -55,7 +55,7 @@ impl Compactor<'_> {
 										active_context.as_ref(),
 										ContextProcessingOptions::from(self.options)
 											.with_override(),
-										JsonLdLocationStack::Root(None),
+										JsonLdLocationStack::new(),
 									)
 									.await?
 									.into_raw(),
