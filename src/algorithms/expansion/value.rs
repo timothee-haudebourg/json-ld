@@ -49,7 +49,7 @@ impl<'a> Expander<'a> {
 							language = Some(value.to_owned());
 						}
 					} else {
-						return Err(Error::InvalidLanguageTaggedString.at(location.build()));
+						return Err(Error::InvalidLanguageTaggedString.at(location));
 					}
 				}
 				// If expanded property is @direction:
@@ -64,10 +64,10 @@ impl<'a> Expander<'a> {
 						if let Ok(value) = Direction::try_from(value) {
 							direction = Some(value);
 						} else {
-							return Err(Error::InvalidBaseDirection.at(location.build()));
+							return Err(Error::InvalidBaseDirection.at(location));
 						}
 					} else {
-						return Err(Error::InvalidBaseDirection.at(location.build()));
+						return Err(Error::InvalidBaseDirection.at(location));
 					}
 				}
 				// If expanded property is @index:
@@ -77,7 +77,7 @@ impl<'a> Expander<'a> {
 					if let Some(value) = value.as_str() {
 						index = Some(value.to_string())
 					} else {
-						return Err(Error::InvalidIndexValue.at(location.build()));
+						return Err(Error::InvalidIndexValue.at(location));
 					}
 				}
 				// If expanded ...
@@ -99,15 +99,15 @@ impl<'a> Expander<'a> {
 								is_json = false;
 								ty = Some(expanded_ty)
 							}
-							_ => return Err(Error::InvalidTypedValue.at(location.build())),
+							_ => return Err(Error::InvalidTypedValue.at(location)),
 						}
 					} else {
-						return Err(Error::InvalidTypedValue.at(location.build()));
+						return Err(Error::InvalidTypedValue.at(location));
 					}
 				}
 				Term::Keyword(Keyword::Value) => (),
 				_ => {
-					return Err(Error::InvalidValueObject.at(location.build()));
+					return Err(Error::InvalidValueObject.at(location));
 				}
 			}
 		}
@@ -117,7 +117,7 @@ impl<'a> Expander<'a> {
 		// been detected and processing is aborted.
 		if is_json {
 			if language.is_some() || direction.is_some() {
-				return Err(Error::InvalidValueObject.at(location.build()));
+				return Err(Error::InvalidValueObject.at(location));
 			}
 			return Ok(Some(Indexed::new(
 				Object::Value(ValueObject::Literal(LiteralValue::json(
@@ -135,7 +135,7 @@ impl<'a> Expander<'a> {
 			| JsonValue::Number(_)
 			| JsonValue::Boolean(_) => value_entry.clone(),
 			_ => {
-				return Err(Error::InvalidValueObjectValue.at(location.build()));
+				return Err(Error::InvalidValueObjectValue.at(location));
 			}
 		};
 
@@ -155,7 +155,7 @@ impl<'a> Expander<'a> {
 		// aborted.
 		if language.is_some() || direction.is_some() {
 			if ty.is_some() {
-				return Err(Error::InvalidValueObject.at(location.build()));
+				return Err(Error::InvalidValueObject.at(location));
 			}
 
 			if let JsonValue::String(s) = result_value {
@@ -177,10 +177,10 @@ impl<'a> Expander<'a> {
 						Object::Value(ValueObject::LangString(result)),
 						index,
 					))),
-					Err(_) => Err(Error::InvalidLanguageTaggedValue.at(location.build())),
+					Err(_) => Err(Error::InvalidLanguageTaggedValue.at(location)),
 				};
 			} else {
-				return Err(Error::InvalidLanguageTaggedValue.at(location.build()));
+				return Err(Error::InvalidLanguageTaggedValue.at(location));
 			}
 		}
 

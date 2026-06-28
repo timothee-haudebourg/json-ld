@@ -2,10 +2,8 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::algorithms::flattening::ConflictingIndexes;
-use crate::algorithms::JsonLdLocated;
-use crate::syntax::tracing::JsonFragmentPathBuf;
+use crate::algorithms::{JsonLdLocated, JsonLdLocationStack, JsonLdSourceRef};
 use crate::LoadError;
-use rdf_syntax::IriBuf;
 
 /// Error code.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -455,8 +453,8 @@ impl From<JsonLdLocated<Error>> for Error {
 }
 
 impl Error {
-	pub fn at(self, location: JsonFragmentPathBuf<IriBuf>) -> JsonLdLocated<Self> {
-		JsonLdLocated::new(self, location)
+	pub fn at(self, location: JsonLdLocationStack<'_>) -> JsonLdLocated<Self> {
+		JsonLdLocated::new(self, location.build_with(JsonLdSourceRef::to_owned))
 	}
 
 	pub fn duplicate_key_ref(d: json_syntax::object::DuplicateEntryRef) -> Self {

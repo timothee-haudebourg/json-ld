@@ -115,6 +115,24 @@ impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingE
 }
 
 /// Location stack for context-processing and expansion algorithms.
-pub type JsonLdLocationStack<'a> = JsonFragmentStack<'a, Iri>;
+pub type JsonLdLocationStack<'a> = JsonFragmentStack<'a, JsonLdSourceRef<'a>>;
 
-pub type JsonLdLocated<T> = JsonLocated<T, IriBuf>;
+pub type JsonLdLocated<T> = JsonLocated<T, JsonLdSource>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum JsonLdSourceRef<'a> {
+	Expanded,
+	Url(Option<&'a Iri>),
+}
+
+impl JsonLdSourceRef<'_> {
+	pub fn to_owned(&self) -> JsonLdSource {
+		todo!()
+	}
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum JsonLdSource {
+	Expanded,
+	Url(Option<IriBuf>),
+}

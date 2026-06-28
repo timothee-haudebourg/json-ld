@@ -128,11 +128,11 @@ impl<'a> Expander<'a> {
 				// `@context` entry as `local_context` and `base_url`.
 				if let Some(local_context) = element
 					.get_unique("@context")
-					.map_err(|e| Error::duplicate_key_ref(e).at(location.build()))?
+					.map_err(|e| Error::duplicate_key_ref(e).at(location))?
 				{
 					let local_context: Context = json_syntax::from_value(local_context.clone())
 						.map_err(|e| {
-							Error::ContextSyntax(e).at(location.object_value("@context").build())
+							Error::ContextSyntax(e).at(location.object_value(Keyword::Context))
 						})?;
 
 					let context_loc = location.object_value(Keyword::Context);
@@ -286,10 +286,10 @@ impl<'a> Expander<'a> {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
-								None => return Err(Error::InvalidIndexValue.at(location.build())),
+								None => return Err(Error::InvalidIndexValue.at(location)),
 							},
 							Term::Keyword(Keyword::List) => (),
-							_ => return Err(Error::InvalidSetOrListObject.at(location.build())),
+							_ => return Err(Error::InvalidSetOrListObject.at(location)),
 						}
 					}
 
@@ -323,7 +323,7 @@ impl<'a> Expander<'a> {
 								// but is ignored.
 							}
 							Term::Keyword(Keyword::Set) => (),
-							_ => return Err(Error::InvalidSetOrListObject.at(location.build())),
+							_ => return Err(Error::InvalidSetOrListObject.at(location)),
 						}
 					}
 

@@ -5,7 +5,9 @@ use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, Compact, Error, Expand, JsonLdLocationStack},
+	algorithms::{
+		AsyncProcessingEnvironment, Compact, Error, Expand, JsonLdLocationStack, JsonLdSourceRef,
+	},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
 	Document, RemoteContext,
@@ -40,9 +42,6 @@ impl JsonLdProcessor for Document {
 		if let Some(expand_context) = options.expand_context.take() {
 			let context_document = expand_context.load(env.loader()).await?;
 
-			let loc = JsonLdLocationStack::new();
-			let loc = loc.file_opt(context_document.url());
-
 			active_context = context_document
 				.document
 				.context
@@ -51,7 +50,7 @@ impl JsonLdProcessor for Document {
 					active_context.original_base_url(),
 					&active_context,
 					options.context_processing_options(),
-					loc,
+					JsonLdLocationStack::new().file(JsonLdSourceRef::Url(context_document.url())),
 				)
 				.await?
 				.into_raw();
@@ -59,9 +58,6 @@ impl JsonLdProcessor for Document {
 
 		// Process context URL from the loaded document, if any.
 		if let Some(context_url) = self.context_url() {
-			let loc = JsonLdLocationStack::new();
-			let loc = loc.file(context_url);
-
 			active_context = RemoteContext::iri(context_url.to_owned())
 				.load(env.loader())
 				.await?
@@ -72,7 +68,7 @@ impl JsonLdProcessor for Document {
 					Some(context_url),
 					&active_context,
 					options.context_processing_options(),
-					loc,
+					JsonLdLocationStack::new().file(JsonLdSourceRef::Url(Some(context_url))),
 				)
 				.await?
 				.into_raw()
@@ -143,7 +139,7 @@ async fn compact_expanded(
 			context_base,
 			&RawProcessedContext::new(None),
 			options.context_processing_options(),
-			JsonLdLocationStack::new(),
+			JsonLdLocationStack::Root,
 		)
 		.await?;
 

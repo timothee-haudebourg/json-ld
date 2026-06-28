@@ -2,8 +2,9 @@
 //!
 //! See: <https://www.w3.org/TR/json-ld-api/#expansion-algorithms>
 use crate::{
-	algorithms::AsyncProcessingEnvironment, context::RawProcessedContext, Document,
-	ExpandedDocument, IndexedObject, Object,
+	algorithms::{AsyncProcessingEnvironment, JsonLdSourceRef},
+	context::RawProcessedContext,
+	Document, ExpandedDocument, IndexedObject, Object,
 };
 
 use super::{Error, JsonLdLocated, JsonLdLocationStack};
@@ -66,8 +67,7 @@ impl Expand for Document {
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
 	) -> Result<ExpandedDocument, JsonLdLocated<Error>> {
-		let loc_root = JsonLdLocationStack::new();
-		let loc = loc_root.file_opt(self.url());
+		let loc = JsonLdLocationStack::new().file(JsonLdSourceRef::Url(self.url()));
 		Expander {
 			base_url: self.url(),
 			options,

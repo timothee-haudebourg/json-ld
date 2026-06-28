@@ -117,7 +117,7 @@ impl<'a> Expander<'a> {
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
 					if self.active_property.is_some_and(|p| p == Keyword::Reverse) {
-						return Err(Error::InvalidReversePropertyMap.at(entry_loc.build()));
+						return Err(Error::InvalidReversePropertyMap.at(entry_loc));
 					}
 
 					// If `result` already has an `expanded_property` entry, other than
@@ -129,7 +129,7 @@ impl<'a> Expander<'a> {
 							&& expanded_property != Keyword::Type))
 						&& result.has_key(&Term::Keyword(expanded_property))
 					{
-						return Err(Error::CollidingKeywords.at(entry_loc.build()));
+						return Err(Error::CollidingKeywords.at(entry_loc));
 					}
 
 					match expanded_property {
@@ -149,7 +149,7 @@ impl<'a> Expander<'a> {
 									false,
 								))
 							} else {
-								return Err(Error::InvalidIdValue.at(entry_loc.build()));
+								return Err(Error::InvalidIdValue.at(entry_loc));
 							}
 						}
 						// If expanded property is @type:
@@ -175,10 +175,10 @@ impl<'a> Expander<'a> {
 									{
 										result.types_mut_or_default().push(ty)
 									} else {
-										return Err(Error::InvalidTypeValue.at(entry_loc.build()));
+										return Err(Error::InvalidTypeValue.at(entry_loc));
 									}
 								} else {
-									return Err(Error::InvalidTypeValue.at(entry_loc.build()));
+									return Err(Error::InvalidTypeValue.at(entry_loc));
 								}
 							}
 						}
@@ -224,9 +224,7 @@ impl<'a> Expander<'a> {
 								match obj.try_cast::<NodeObject>() {
 									Ok(node) => expanded_nodes.push(node),
 									Err(_) => {
-										return Err(
-											Error::InvalidIncludedValue.at(entry_loc.build())
-										);
+										return Err(Error::InvalidIncludedValue.at(entry_loc));
 									}
 								}
 							}
@@ -248,7 +246,7 @@ impl<'a> Expander<'a> {
 							} else {
 								// If value is not a string, an invalid @index value
 								// error has been detected and processing is aborted.
-								return Err(Error::InvalidIndexValue.at(entry_loc.build()));
+								return Err(Error::InvalidIndexValue.at(entry_loc));
 							}
 						}
 						// If expanded property is @reverse:
@@ -271,8 +269,9 @@ impl<'a> Expander<'a> {
 										true,
 									) {
 										Term::Keyword(_) => {
-											return Err(Error::InvalidReversePropertyMap
-												.at(rev_entry_loc.build()))
+											return Err(
+												Error::InvalidReversePropertyMap.at(rev_entry_loc)
+											)
 										}
 										Term::Id(Lenient::Invalid(_))
 											if self.options.policy
@@ -281,7 +280,7 @@ impl<'a> Expander<'a> {
 											return Err(Error::KeyExpansionFailed(
 												reverse_key.to_string(),
 											)
-											.at(rev_entry_loc.build()))
+											.at(rev_entry_loc))
 										}
 										Term::Id(reverse_prop)
 											if reverse_prop.as_str().contains(':')
@@ -325,7 +324,7 @@ impl<'a> Expander<'a> {
 														Err(_) => {
 															return Err(
 																Error::InvalidReversePropertyValue
-																	.at(rev_entry_loc.build()),
+																	.at(rev_entry_loc),
 															)
 														}
 													}
@@ -342,14 +341,14 @@ impl<'a> Expander<'a> {
 												return Err(Error::KeyExpansionFailed(
 													reverse_key.to_string(),
 												)
-												.at(rev_entry_loc.build()));
+												.at(rev_entry_loc));
 											}
 											// otherwise the key is just dropped.
 										}
 									}
 								}
 							} else {
-								return Err(Error::InvalidReverseValue.at(entry_loc.build()));
+								return Err(Error::InvalidReverseValue.at(entry_loc));
 							}
 						}
 						// If expanded property is @nest
@@ -435,11 +434,11 @@ impl<'a> Expander<'a> {
 									result = new_result;
 									has_value_object_entries = new_has_value_object_entries;
 								} else {
-									return Err(Error::InvalidNestValue.at(entry_loc.build()));
+									return Err(Error::InvalidNestValue.at(entry_loc));
 								}
 							}
 						}
-						Keyword::Value => return Err(Error::InvalidNestValue.at(entry_loc.build())),
+						Keyword::Value => return Err(Error::InvalidNestValue.at(entry_loc)),
 						_ => (),
 					}
 				}
@@ -447,7 +446,7 @@ impl<'a> Expander<'a> {
 				Term::Id(Lenient::Invalid(name))
 					if self.options.policy == ExpansionPolicy::Strictest =>
 				{
-					return Err(Error::KeyExpansionFailed(name).at(entry_loc.build()))
+					return Err(Error::KeyExpansionFailed(name).at(entry_loc))
 				}
 
 				Term::Id(prop)
@@ -581,8 +580,9 @@ impl<'a> Expander<'a> {
 												// item must be a string, otherwise an
 												// invalid language map value error has
 												// been detected and processing is aborted.
-												return Err(Error::InvalidLanguageMapValue
-													.at(entry_loc.build()));
+												return Err(
+													Error::InvalidLanguageMapValue.at(entry_loc)
+												);
 											}
 										}
 									}
@@ -771,8 +771,9 @@ impl<'a> Expander<'a> {
 													// contain any extra properties; an invalid
 													// value object error has been detected and
 													// processing is aborted.
-													return Err(Error::InvalidValueObject
-														.at(entry_loc.build()));
+													return Err(
+														Error::InvalidValueObject.at(entry_loc)
+													);
 												}
 											} else if container_mapping
 												.contains(ContainerItem::Index) && item
@@ -821,8 +822,9 @@ impl<'a> Expander<'a> {
 														node.types_mut_or_default().insert(0, typ);
 													}
 												} else {
-													return Err(Error::InvalidTypeValue
-														.at(entry_loc.build()));
+													return Err(
+														Error::InvalidTypeValue.at(entry_loc)
+													);
 												}
 											}
 										}
@@ -895,8 +897,7 @@ impl<'a> Expander<'a> {
 								match object.try_cast::<NodeObject>() {
 									Ok(node) => reverse_expanded_nodes.push(node),
 									Err(_) => {
-										return Err(Error::InvalidReversePropertyValue
-											.at(entry_loc.build()))
+										return Err(Error::InvalidReversePropertyValue.at(entry_loc))
 									}
 								}
 							}
@@ -915,9 +916,7 @@ impl<'a> Expander<'a> {
 
 				Term::Id(prop) => {
 					if self.options.policy.is_strict() {
-						return Err(
-							Error::KeyExpansionFailed(prop.to_string()).at(entry_loc.build())
-						);
+						return Err(Error::KeyExpansionFailed(prop.to_string()).at(entry_loc));
 					}
 					// non-keyword properties that does not include a ':' are skipped.
 				}

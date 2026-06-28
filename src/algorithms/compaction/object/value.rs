@@ -35,7 +35,7 @@ impl<'a> Compactor<'a> {
 								active_property_definition.base_url(),
 								active_context.as_ref(),
 								ContextProcessingOptions::from(self.options).with_override(),
-								JsonLdLocationStack::new(),
+								JsonLdLocationStack::Root,
 							)
 							.await?
 							.into_raw(),

@@ -169,7 +169,7 @@ impl<'a> Expander<'a> {
 						if let Ok(t) = t.into_iri() {
 							ty = Some(t)
 						} else {
-							return Err(Error::InvalidTypeValue.at(location.build()));
+							return Err(Error::InvalidTypeValue.at(location));
 						}
 					}
 				}
