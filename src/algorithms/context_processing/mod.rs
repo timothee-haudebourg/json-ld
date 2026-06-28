@@ -89,7 +89,7 @@ impl ContextDocument {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 	) -> Result<ProcessedContext<'_>, JsonLdLocated<Error>> {
-		let loc = JsonLdLocationStack::new().file(JsonLdSourceRef::Url(self.url()));
+		let loc = JsonLdLocationStack::new().file(JsonLdSourceRef::Context(self.url()));
 		self.document
 			.context
 			.process_with(
@@ -258,7 +258,8 @@ impl<'a> ContextProcessor<'a> {
 						};
 
 						let remote_root = JsonLdLocationStack::new();
-						let remote_loc = remote_root.file(JsonLdSourceRef::Url(Some(&context_iri)));
+						let remote_loc =
+							remote_root.file(JsonLdSourceRef::Context(Some(&context_iri)));
 						result = Box::pin(
 							self.for_sub_context(&result, Some(&context_iri), new_options)
 								.process(env, &loaded_context, remote_loc),

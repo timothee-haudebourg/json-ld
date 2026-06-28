@@ -50,7 +50,8 @@ impl JsonLdProcessor for Document {
 					active_context.original_base_url(),
 					&active_context,
 					options.context_processing_options(),
-					JsonLdLocationStack::new().file(JsonLdSourceRef::Url(context_document.url())),
+					JsonLdLocationStack::new()
+						.file(JsonLdSourceRef::Context(context_document.url())),
 				)
 				.await?
 				.into_raw();
@@ -68,7 +69,7 @@ impl JsonLdProcessor for Document {
 					Some(context_url),
 					&active_context,
 					options.context_processing_options(),
-					JsonLdLocationStack::new().file(JsonLdSourceRef::Url(Some(context_url))),
+					JsonLdLocationStack::new().file(JsonLdSourceRef::Context(Some(context_url))),
 				)
 				.await?
 				.into_raw()

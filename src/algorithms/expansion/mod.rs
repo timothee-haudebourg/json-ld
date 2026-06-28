@@ -67,7 +67,7 @@ impl Expand for Document {
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
 	) -> Result<ExpandedDocument, JsonLdLocated<Error>> {
-		let loc = JsonLdLocationStack::new().file(JsonLdSourceRef::Url(self.url()));
+		let loc = JsonLdLocationStack::new().file(JsonLdSourceRef::Compact(self.url()));
 		Expander {
 			base_url: self.url(),
 			options,

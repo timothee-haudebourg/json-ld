@@ -121,8 +121,9 @@ pub type JsonLdLocated<T> = JsonLocated<T, JsonLdSource>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum JsonLdSourceRef<'a> {
-	Expanded,
-	Url(Option<&'a Iri>),
+	Compact(Option<&'a Iri>),
+	Expanded(Option<&'a Iri>),
+	Context(Option<&'a Iri>),
 }
 
 impl JsonLdSourceRef<'_> {
@@ -133,6 +134,7 @@ impl JsonLdSourceRef<'_> {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum JsonLdSource {
-	Expanded,
-	Url(Option<IriBuf>),
+	Compact(Option<IriBuf>),
+	Expanded(Option<IriBuf>),
+	Context(Option<IriBuf>),
 }
