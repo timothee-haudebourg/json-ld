@@ -132,9 +132,15 @@ impl JsonLdSourceRef<'_> {
 	}
 }
 
+/// JSON-LD source document.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum JsonLdSource {
+	/// Compact JSON-LD document.
 	Compact(Option<IriBuf>),
+
+	/// Expanded JSON-LD document.
 	Expanded(Option<IriBuf>),
+
+	/// JSON-LD context document.
 	Context(Option<IriBuf>),
 }
