@@ -11,7 +11,7 @@ use json_syntax::{JsonObject, JsonValue};
 pub use options::*;
 
 use crate::{
-	algorithms::AsyncProcessingEnvironment,
+	algorithms::{AsyncProcessingEnvironment, JsonLdLocated, JsonLdSourceRef},
 	context::{
 		inverse::{LangSelection, TypeSelection},
 		RawProcessedContext,
@@ -29,7 +29,7 @@ pub trait Compact {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<JsonValue, Error>;
+	) -> Result<JsonValue, JsonLdLocated<Error>>;
 
 	/// Compacts the input document with the default options.
 	#[allow(async_fn_in_trait)]
@@ -37,7 +37,7 @@ pub trait Compact {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-	) -> Result<JsonValue, Error> {
+	) -> Result<JsonValue, JsonLdLocated<Error>> {
 		self.compact_with(env, context, CompactionOptions::default())
 			.await
 	}
@@ -49,15 +49,21 @@ struct Compactor<'a> {
 	pub active_context: &'a RawProcessedContext,
 	pub type_scoped_context: &'a RawProcessedContext,
 	pub active_property: Option<&'a str>,
+	pub source: JsonLdSourceRef<'a>,
 }
 
 impl<'a> Compactor<'a> {
-	pub fn new(active_context: &'a RawProcessedContext, options: CompactionOptions) -> Self {
+	pub fn new(
+		active_context: &'a RawProcessedContext,
+		options: CompactionOptions,
+		source: JsonLdSourceRef<'a>,
+	) -> Self {
 		Self {
 			options,
 			active_context,
 			type_scoped_context: active_context,
 			active_property: None,
+			source,
 		}
 	}
 
@@ -70,6 +76,7 @@ impl<'a> Compactor<'a> {
 			active_context,
 			type_scoped_context: self.type_scoped_context,
 			active_property: self.active_property,
+			source: self.source,
 		}
 	}
 
@@ -82,6 +89,7 @@ impl<'a> Compactor<'a> {
 			active_context: self.active_context,
 			type_scoped_context,
 			active_property: self.active_property,
+			source: self.source,
 		}
 	}
 
@@ -91,6 +99,7 @@ impl<'a> Compactor<'a> {
 			active_context: self.active_context,
 			type_scoped_context: self.type_scoped_context,
 			active_property,
+			source: self.source,
 		}
 	}
 }
@@ -101,7 +110,7 @@ trait CompactFragment {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor,
-	) -> Result<JsonValue, Error>;
+	) -> Result<JsonValue, JsonLdLocated<Error>>;
 }
 
 enum TypeLangValue<'a> {
@@ -118,7 +127,7 @@ trait CompactIndexedFragment {
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
-	) -> Result<JsonValue, Error>;
+	) -> Result<JsonValue, JsonLdLocated<Error>>;
 }
 
 impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
@@ -126,7 +135,7 @@ impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<JsonValue, Error> {
+	) -> Result<JsonValue, JsonLdLocated<Error>> {
 		self.inner()
 			.compact_indexed_fragment(env, compactor, self.index())
 			.await
@@ -145,7 +154,7 @@ pub trait EmbedContext {
 		&mut self,
 		context: &ProcessedContext,
 		options: CompactionOptions,
-	) -> Result<(), Error>;
+	) -> Result<(), JsonLdLocated<Error>>;
 }
 
 impl EmbedContext for JsonValue {
@@ -153,7 +162,7 @@ impl EmbedContext for JsonValue {
 		&mut self,
 		context: &ProcessedContext,
 		options: CompactionOptions,
-	) -> Result<(), Error> {
+	) -> Result<(), JsonLdLocated<Error>> {
 		let value = self.take();
 
 		let obj = match value {
@@ -166,6 +175,7 @@ impl EmbedContext for JsonValue {
 						active_context: context,
 						type_scoped_context: context,
 						active_property: None,
+						source: JsonLdSourceRef::Compact(None),
 					};
 
 					let key = compactor.compact_iri(&Term::Keyword(Keyword::Graph), true, false)?;

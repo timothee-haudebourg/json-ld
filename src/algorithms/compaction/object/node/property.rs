@@ -6,7 +6,7 @@ use crate::{
 			object::value::{add_value, value_value},
 			CompactFragment, CompactIndexedFragment, Compactor,
 		},
-		AsyncProcessingEnvironment, Error,
+		AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack,
 	},
 	context::Container,
 	object::{AnyObject, ListObject, ObjectRef},
@@ -25,7 +25,7 @@ impl Compactor<'_> {
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
-	) -> Result<(), Error> {
+	) -> Result<(), JsonLdLocated<Error>> {
 		// If expanded item is a list object:
 		let mut compacted_item: JsonValue = Box::pin(
 			self.with_type_scoped_context(self.active_context)
@@ -83,7 +83,7 @@ impl Compactor<'_> {
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
-	) -> Result<(), Error> {
+	) -> Result<(), JsonLdLocated<Error>> {
 		// If expanded item is a graph object
 		let mut compacted_item = Box::pin(
 			node.graph().unwrap().compact_fragment(
@@ -242,7 +242,7 @@ impl Compactor<'_> {
 		result: &'a mut JsonObject,
 		item_active_property: &str,
 		compact_arrays: bool,
-	) -> Result<(&'a mut JsonObject, Container, bool), Error> {
+	) -> Result<(&'a mut JsonObject, Container, bool), JsonLdLocated<Error>> {
 		let (nest_result, container) = match self.active_context.get(item_active_property) {
 			Some(term_definition) => {
 				let nest_result = match term_definition.nest() {
@@ -255,7 +255,11 @@ impl Compactor<'_> {
 							match self.active_context.get(nest_term.as_str()) {
 								Some(term_def)
 									if term_def.value() == Some(&Term::Keyword(Keyword::Nest)) => {}
-								_ => return Err(Error::InvalidNestValue),
+								_ => {
+									let loc_root = JsonLdLocationStack::new();
+									let loc = loc_root.file(self.source);
+									return Err(Error::InvalidNestValue.at(loc));
+								}
 							}
 						}
 
@@ -320,7 +324,7 @@ impl Compactor<'_> {
 		expanded_property: Term,
 		expanded_value: O,
 		inside_reverse: bool,
-	) -> Result<(), Error>
+	) -> Result<(), JsonLdLocated<Error>>
 	where
 		O: IntoIterator<Item = &'a Indexed<T>>,
 		T: 'a + AnyObject,

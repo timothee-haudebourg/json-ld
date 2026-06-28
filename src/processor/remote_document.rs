@@ -156,4 +156,5 @@ async fn compact_expanded(
 	expanded_input
 		.compact_with(env, &active_context, options.compaction_options())
 		.await
+		.map_err(Error::from)
 }

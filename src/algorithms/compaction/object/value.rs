@@ -4,7 +4,7 @@ use mown::Mown;
 use crate::{
 	algorithms::{
 		context_processing::ContextProcessingOptions, AsyncProcessingEnvironment,
-		AsyncProcessingEnvironmentRef, JsonLdLocationStack,
+		AsyncProcessingEnvironmentRef, JsonLdLocated, JsonLdLocationStack,
 	},
 	context::Container,
 	object::value::LiteralType,
@@ -22,7 +22,7 @@ impl<'a> Compactor<'a> {
 		value: &ValueObject,
 		index: Option<&str>,
 		// active_property: Option<&str>,
-	) -> Result<JsonValue, Error> {
+	) -> Result<JsonValue, JsonLdLocated<Error>> {
 		// If the term definition for active property in active context has a local context:
 		let mut active_context = Mown::Borrowed(self.active_context);
 		if let Some(active_property) = self.active_property {

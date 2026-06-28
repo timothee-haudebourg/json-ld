@@ -1,6 +1,7 @@
 use json_syntax::object::Key;
 
 use crate::{
+	algorithms::{JsonLdLocated, JsonLdLocationStack},
 	context::inverse::{LangSelection, Selection, TypeSelection},
 	context::Container,
 	object::{self, AnyObject},
@@ -16,7 +17,7 @@ impl<'a> Compactor<'a> {
 		var: &Term,
 		vocab: bool,
 		reverse: bool,
-	) -> Result<Option<Key>, Error> {
+	) -> Result<Option<Key>, JsonLdLocated<Error>> {
 		Ok(self.compact_iri(var, vocab, reverse)?.map(Into::into))
 	}
 
@@ -28,7 +29,7 @@ impl<'a> Compactor<'a> {
 		var: &Term,
 		vocab: bool,
 		reverse: bool,
-	) -> Result<Option<String>, Error> {
+	) -> Result<Option<String>, JsonLdLocated<Error>> {
 		self.compact_iri_with::<Object>(var, vocab, reverse, None)
 	}
 
@@ -41,7 +42,7 @@ impl<'a> Compactor<'a> {
 		vocab: bool,
 		reverse: bool,
 		value: Option<&Indexed<O>>,
-	) -> Result<Option<String>, Error>
+	) -> Result<Option<String>, JsonLdLocated<Error>>
 	where
 		O: AnyObject,
 	{
@@ -418,7 +419,9 @@ impl<'a> Compactor<'a> {
 		// an IRI confused with prefix error has been detected, and processing is aborted.
 		if let Some(iri) = var.as_iri() {
 			if self.active_context.contains_term(iri.scheme().as_str()) {
-				return Err(Error::IriConfusedWithPrefix);
+				let loc_root = JsonLdLocationStack::new();
+				let loc = loc_root.file(self.source);
+				return Err(Error::IriConfusedWithPrefix.at(loc));
 			}
 		}
 
