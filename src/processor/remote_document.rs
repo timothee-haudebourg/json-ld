@@ -8,7 +8,7 @@ use crate::{
 	Document, RemoteContext,
 	algorithms::{
 		AsyncProcessingEnvironment, Compact, Expand, JsonLdError, JsonLdLocated,
-		JsonLdLocationStack, JsonLdSourceRef,
+		JsonLdLocatedError, JsonLdLocationStack, JsonLdSourceRef,
 	},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
@@ -139,7 +139,7 @@ async fn compact_expanded(
 	env: impl AsyncProcessingEnvironment,
 	context: RemoteContext,
 	options: JsonLdOptions,
-) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
+) -> Result<JsonValue, JsonLdLocatedError> {
 	let context_base = url.or(options.base.as_deref());
 
 	let context = context

@@ -21,7 +21,7 @@ fn resolve_sync<F: std::future::Future>(f: F) -> F::Output {
 }
 
 use crate::VisitJsonLd;
-use crate::algorithms::JsonLdLocated;
+use crate::algorithms::{JsonLdLocated, JsonLdLocatedError};
 use crate::{
 	Direction, Document, ExpandedDocument, JsonLdError, ProcessingMode, RemoteContext,
 	algorithms::{
@@ -150,21 +150,21 @@ impl Default for JsonLdOptions {
 }
 
 /// Result returned by the [`JsonLdProcessor::expand`] function.
-pub type ExpandResult = Result<ExpandedDocument, JsonLdLocated<JsonLdError>>;
+pub type ExpandResult = Result<ExpandedDocument, JsonLdLocatedError>;
 
 /// Result returned by the [`JsonLdProcessor::into_document`] function.
-pub type IntoDocumentResult = Result<Document, JsonLdLocated<JsonLdError>>;
+pub type IntoDocumentResult = Result<Document, JsonLdLocatedError>;
 
 /// Result of the [`JsonLdProcessor::compact`] function.
-pub type CompactResult = Result<JsonValue, JsonLdLocated<JsonLdError>>;
+pub type CompactResult = Result<JsonValue, JsonLdLocatedError>;
 
 /// Result of the [`JsonLdProcessor::flatten`] function.
-pub type FlattenResult = Result<JsonValue, JsonLdLocated<JsonLdError>>;
+pub type FlattenResult = Result<JsonValue, JsonLdLocatedError>;
 
-pub type ToRdfResult = Result<Vec<Quad<Term>>, JsonLdLocated<JsonLdError>>;
+pub type ToRdfResult = Result<Vec<Quad<Term>>, JsonLdLocatedError>;
 
 /// Result of the [`JsonLdProcessor::compare`] function.
-pub type CompareResult = Result<bool, JsonLdLocated<JsonLdError>>;
+pub type CompareResult = Result<bool, JsonLdLocatedError>;
 
 /// The `JsonLdProcessor` interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.

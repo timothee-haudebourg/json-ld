@@ -1,7 +1,8 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{
-	AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack, Warning,
+	AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocatedError,
+	JsonLdLocationStack, Warning,
 };
 use crate::context::Container;
 use crate::context::RawProcessedContext;
@@ -37,7 +38,7 @@ impl<'a> Expander<'a> {
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<Option<Indexed<NodeObject>>, JsonLdLocated<JsonLdError>> {
+	) -> Result<Option<Indexed<NodeObject>>, JsonLdLocatedError> {
 		// Initialize two empty maps, `result` and `nests`.
 		// let mut result = Indexed::new(Node::new(), None);
 		// let mut has_value_object_entries = false;
@@ -934,4 +935,4 @@ impl<'a> Expander<'a> {
 type ExpandedNode = (Indexed<NodeObject>, bool);
 
 /// Result of the `expand_node_entries` function.
-type NodeEntriesExpensionResult = Result<ExpandedNode, JsonLdLocated<JsonLdError>>;
+type NodeEntriesExpensionResult = Result<ExpandedNode, JsonLdLocatedError>;

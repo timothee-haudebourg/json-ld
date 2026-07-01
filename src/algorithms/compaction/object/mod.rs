@@ -5,7 +5,7 @@ use crate::{
 	JsonLdError, Term,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdLocated,
-		JsonLdLocationStack, compaction::CompactIndexedFragment,
+		JsonLdLocatedError, JsonLdLocationStack, compaction::CompactIndexedFragment,
 		context_processing::ContextProcessingOptions,
 	},
 	object::{AnyObject, ObjectRef},
@@ -23,7 +23,7 @@ impl Compactor<'_> {
 		env: &impl AsyncProcessingEnvironment,
 		object: &impl AnyObject,
 		index: Option<&str>,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
+	) -> Result<JsonValue, JsonLdLocatedError> {
 		match object.as_ref() {
 			ObjectRef::Value(value) => self.compact_indexed_value_with(env, value, index).await,
 			ObjectRef::Node(node) => self.compact_indexed_node_with(env, node, index).await,
@@ -134,7 +134,7 @@ impl<T: AnyObject> CompactIndexedFragment for T {
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
+	) -> Result<JsonValue, JsonLdLocatedError> {
 		compactor.compact_any_indexed_object(env, self, index).await
 	}
 }

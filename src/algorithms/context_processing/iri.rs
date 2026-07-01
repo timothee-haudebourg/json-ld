@@ -2,6 +2,7 @@ use rdf_syntax::BlankId;
 use rdf_syntax::{Iri, IriBuf, IriRef};
 
 use crate::Lenient;
+use crate::algorithms::JsonLdLocatedError;
 use crate::{
 	Nullable, Term,
 	algorithms::{
@@ -26,7 +27,7 @@ pub fn resolve_iri(iri_ref: &IriRef, base_iri: Option<&Iri>) -> Option<IriBuf> {
 }
 
 /// Result of the [`expand_iri_with`] function.
-pub type ExpandIriResult = Result<Term, JsonLdLocated<JsonLdError>>;
+pub type ExpandIriResult = Result<Term, JsonLdLocatedError>;
 
 // /// Environment of a context term definition.
 // pub struct IriExpensionEnv<'a, L> {

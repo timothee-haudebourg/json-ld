@@ -13,7 +13,7 @@ use rdf_syntax::IriBuf;
 
 use crate::{
 	AsyncLoader, Document, DocumentSource, JsonLdError,
-	algorithms::{JsonLdLocated, JsonLdSource},
+	algorithms::{JsonLdLocated, JsonLdLocatedError, JsonLdSource},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -31,7 +31,7 @@ impl JsonLdDiagnostic {
 	pub async fn new_async(
 		loader: &impl AsyncLoader,
 		input: &Document,
-		error: JsonLdLocated<JsonLdError>,
+		error: JsonLdLocatedError,
 	) -> Self {
 		let mut map = HashMap::new();
 

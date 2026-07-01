@@ -6,7 +6,7 @@ use crate::{
 	JsonLdError, Lenient, NodeObject, ProcessingMode, Term, Type,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdLocated,
-		JsonLdLocationStack,
+		JsonLdLocatedError, JsonLdLocationStack,
 		compaction::{Compactor, object::value::add_value},
 		context_processing::ContextProcessingOptions,
 	},
@@ -30,7 +30,7 @@ impl Compactor<'_> {
 		index: Option<&str>,
 		// type_scoped_context: &ProcessedContext,
 		// active_property: Option<&str>,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
+	) -> Result<JsonValue, JsonLdLocatedError> {
 		// If active context has a previous context, the active context is not propagated.
 		// If element does not contain an @value entry, and element does not consist of
 		// a single @id entry, set active context to previous context from active context,
@@ -330,7 +330,7 @@ impl Compactor<'_> {
 		self,
 		result: &mut JsonObject,
 		types: Option<&[Lenient<Id>]>,
-	) -> Result<(), JsonLdLocated<JsonLdError>> {
+	) -> Result<(), JsonLdLocatedError> {
 		// If expanded property is @type:
 		if let Some(types) = types {
 			if !types.is_empty() {

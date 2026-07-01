@@ -18,8 +18,8 @@ use stack::ProcessingStack;
 use crate::{
 	AsyncLoader, ContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack,
-		JsonLdSourceRef,
+		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocatedError,
+		JsonLdLocationStack, JsonLdSourceRef,
 	},
 	context::RawProcessedContext,
 	syntax::{Context, ContextEntry, Keyword, context::KeyOrKeywordRef},
@@ -89,7 +89,7 @@ impl ContextDocument {
 	pub async fn process(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-	) -> Result<ProcessedContext<'_>, JsonLdLocated<JsonLdError>> {
+	) -> Result<ProcessedContext<'_>, JsonLdLocatedError> {
 		let loc = JsonLdLocationStack::new().file(JsonLdSourceRef::Context(self.url()));
 		self.document
 			.context
@@ -112,7 +112,7 @@ impl Context {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		base_url: Option<&Iri>,
-	) -> Result<ProcessedContext<'_>, JsonLdLocated<JsonLdError>> {
+	) -> Result<ProcessedContext<'_>, JsonLdLocatedError> {
 		let active_context = RawProcessedContext::new(None);
 		self.process_with(
 			env,
@@ -134,7 +134,7 @@ impl Context {
 		active_context: &RawProcessedContext,
 		options: ContextProcessingOptions,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<ProcessedContext<'_>, JsonLdLocated<JsonLdError>> {
+	) -> Result<ProcessedContext<'_>, JsonLdLocatedError> {
 		ContextProcessor {
 			options,
 			remote_contexts: ProcessingStack::new(),
@@ -153,7 +153,7 @@ impl<'a> ContextProcessor<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		local_context: &Context,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<RawProcessedContext, JsonLdLocated<JsonLdError>> {
+	) -> Result<RawProcessedContext, JsonLdLocatedError> {
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = self.active_context.clone();
 

@@ -5,7 +5,7 @@ use crate::{
 	JsonLdError, Lenient, Term, Type, ValueObject,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdLocated,
-		JsonLdLocationStack, context_processing::ContextProcessingOptions,
+		JsonLdLocatedError, JsonLdLocationStack, context_processing::ContextProcessingOptions,
 	},
 	context::Container,
 	object::value::LiteralType,
@@ -22,7 +22,7 @@ impl<'a> Compactor<'a> {
 		value: &ValueObject,
 		index: Option<&str>,
 		// active_property: Option<&str>,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
+	) -> Result<JsonValue, JsonLdLocatedError> {
 		// If the term definition for active property in active context has a local context:
 		let mut active_context = Mown::Borrowed(self.active_context);
 		if let Some(active_property) = self.active_property {

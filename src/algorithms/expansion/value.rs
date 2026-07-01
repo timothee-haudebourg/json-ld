@@ -3,7 +3,7 @@ use rdf_syntax::Id;
 
 use crate::{
 	Direction, Indexed, IndexedObject, LangString, Lenient, Nullable, Object, Term, ValueObject,
-	algorithms::{JsonLdError, JsonLdLocated, JsonLdLocationStack, Warning},
+	algorithms::{JsonLdError, JsonLdLocatedError, JsonLdLocationStack, Warning},
 	context::RawProcessedContext,
 	object::{LiteralValue, value::LiteralType},
 	syntax::Keyword,
@@ -11,7 +11,7 @@ use crate::{
 
 use super::{ExpandedEntry, Expander};
 
-pub type ValueExpansionResult = Result<Option<IndexedObject>, JsonLdLocated<JsonLdError>>;
+pub type ValueExpansionResult = Result<Option<IndexedObject>, JsonLdLocatedError>;
 
 impl<'a> Expander<'a> {
 	/// Expand a value object.

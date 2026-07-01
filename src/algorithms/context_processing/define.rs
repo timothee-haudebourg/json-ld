@@ -4,6 +4,7 @@ use rdf_syntax::{BlankId, Id};
 use rdf_syntax::{Iri, IriRef};
 
 use crate::Lenient;
+use crate::algorithms::JsonLdLocatedError;
 use crate::{
 	Nullable, ProcessingMode, Term, Type,
 	algorithms::{
@@ -60,7 +61,7 @@ impl DefinedTerms {
 		&mut self,
 		location: JsonLdLocationStack<'_>,
 		key: &KeyOrKeyword,
-	) -> Result<bool, JsonLdLocated<JsonLdError>> {
+	) -> Result<bool, JsonLdLocatedError> {
 		match self.0.get(key) {
 			Some(d) => {
 				if d.pending {
@@ -97,7 +98,7 @@ impl<'a> ContextProcessor<'a> {
 		term: KeyOrKeywordRef<'_>,
 		protected: bool,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<(), JsonLdLocated<JsonLdError>> {
+	) -> Result<(), JsonLdLocatedError> {
 		let term = term.to_owned();
 		if result.defined.begin(location, &term)? {
 			if term.is_empty() {

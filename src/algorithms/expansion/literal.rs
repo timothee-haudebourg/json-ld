@@ -5,7 +5,7 @@ use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 use crate::{
 	IndexedObject, JsonLdError, LangString, Lenient, NodeObject, Nullable, Object, Type,
 	ValueObject,
-	algorithms::{JsonLdLocated, JsonLdLocationStack, Warning},
+	algorithms::{JsonLdLocated, JsonLdLocatedError, JsonLdLocationStack, Warning},
 	object::{LiteralValue, value::LiteralType},
 };
 
@@ -53,7 +53,7 @@ impl<'a> Expander<'a> {
 		warn: impl FnOnce(Warning),
 		value: ExpandableLiteralValue,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<IndexedObject, JsonLdLocated<JsonLdError>> {
+	) -> Result<IndexedObject, JsonLdLocatedError> {
 		let active_property_definition = self.active_property_definition();
 		let active_property_type =
 			if let Some(active_property_definition) = active_property_definition {

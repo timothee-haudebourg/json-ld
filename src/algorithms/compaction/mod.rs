@@ -12,7 +12,7 @@ pub use options::*;
 
 use crate::{
 	Indexed, JsonLdError, ProcessedContext, Term,
-	algorithms::{AsyncProcessingEnvironment, JsonLdLocated, JsonLdSourceRef},
+	algorithms::{AsyncProcessingEnvironment, JsonLdLocated, JsonLdLocatedError, JsonLdSourceRef},
 	context::{
 		RawProcessedContext,
 		inverse::{LangSelection, TypeSelection},
@@ -29,7 +29,7 @@ pub trait Compact {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>>;
+	) -> Result<JsonValue, JsonLdLocatedError>;
 
 	/// Compacts the input document with the default options.
 	#[allow(async_fn_in_trait)]
@@ -37,7 +37,7 @@ pub trait Compact {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
+	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.compact_with(env, context, CompactionOptions::default())
 			.await
 	}
@@ -110,7 +110,7 @@ trait CompactFragment {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>>;
+	) -> Result<JsonValue, JsonLdLocatedError>;
 }
 
 enum TypeLangValue<'a> {
@@ -127,7 +127,7 @@ trait CompactIndexedFragment {
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>>;
+	) -> Result<JsonValue, JsonLdLocatedError>;
 }
 
 impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
@@ -135,7 +135,7 @@ impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
+	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.inner()
 			.compact_indexed_fragment(env, compactor, self.index())
 			.await
@@ -154,7 +154,7 @@ pub trait EmbedContext {
 		&mut self,
 		context: &ProcessedContext,
 		options: CompactionOptions,
-	) -> Result<(), JsonLdLocated<JsonLdError>>;
+	) -> Result<(), JsonLdLocatedError>;
 }
 
 impl EmbedContext for JsonValue {
@@ -162,7 +162,7 @@ impl EmbedContext for JsonValue {
 		&mut self,
 		context: &ProcessedContext,
 		options: CompactionOptions,
-	) -> Result<(), JsonLdLocated<JsonLdError>> {
+	) -> Result<(), JsonLdLocatedError> {
 		let value = self.take();
 
 		let obj = match value {

@@ -8,7 +8,8 @@ use crate::{
 	Indexed, Lenient, Nullable, Object, Term,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdError, JsonLdLocated,
-		JsonLdLocationStack, Warning, context_processing::ContextProcessingOptions,
+		JsonLdLocatedError, JsonLdLocationStack, Warning,
+		context_processing::ContextProcessingOptions,
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
@@ -30,7 +31,7 @@ impl<'a> Expander<'a> {
 		element: &JsonValue,
 		from_map: bool,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<Expanded, JsonLdLocated<JsonLdError>> {
+	) -> Result<Expanded, JsonLdLocatedError> {
 		// If `element` is null, return null.
 		if element.is_null() {
 			return Ok(Expanded::Null);
