@@ -202,8 +202,6 @@ impl<'a> ContextProcessor<'a> {
 									result,
 									local_context,
 									type_.cast(),
-									false,
-									true,
 									location,
 								)
 								.await?;
@@ -253,8 +251,6 @@ impl<'a> ContextProcessor<'a> {
 									result,
 									local_context,
 									Nullable::Some(reverse_value.as_str().into()),
-									false,
-									true,
 									location,
 								)
 								.await?
@@ -320,8 +316,6 @@ impl<'a> ContextProcessor<'a> {
 												result,
 												local_context,
 												Nullable::Some(id_value.into()),
-												false,
-												true,
 												location,
 											)
 											.await?
@@ -365,8 +359,6 @@ impl<'a> ContextProcessor<'a> {
 													result,
 													local_context,
 													Nullable::Some((&term).into()),
-													false,
-													true,
 													location,
 												)
 												.await?;

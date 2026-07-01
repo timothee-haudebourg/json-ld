@@ -30,15 +30,12 @@ pub fn resolve_iri(iri_ref: &IriRef, base_iri: Option<&Iri>) -> Option<IriBuf> {
 pub type ExpandIriResult = Result<Term, JsonLdLocatedError>;
 
 impl<'a> ContextProcessor<'a> {
-	/// Default values for `document_relative` and `vocab` should be `false` and `true`.
 	pub async fn expand_iri_recursive(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		value: Nullable<ExpandableRef<'_>>,
-		document_relative: bool,
-		vocab: bool,
 		location: JsonLdLocationStack<'_>,
 	) -> ExpandIriResult {
 		match value {
@@ -73,14 +70,11 @@ impl<'a> ContextProcessor<'a> {
 						return Ok(value.clone());
 					}
 
-					// If vocab is true and the active context has a term definition for value, return the
-					// associated IRI mapping.
-					if vocab {
-						return match term_definition.value() {
-							Some(value) => Ok(value.clone()),
-							None => Ok(Term::Null),
-						};
-					}
+					// Return the associated IRI mapping.
+					return match term_definition.value() {
+						Some(value) => Ok(value.clone()),
+						None => Ok(Term::Null),
+					};
 				}
 
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
@@ -128,32 +122,17 @@ impl<'a> ContextProcessor<'a> {
 					}
 				}
 
-				// If vocab is true, and active context has a vocabulary mapping, return the result of
+				// If active context has a vocabulary mapping, return the result of
 				// concatenating the vocabulary mapping with value.
-				if vocab {
-					match result.value.vocabulary() {
-						Some(Term::Id(mapping)) => {
-							let mut result = mapping.as_str().to_owned();
-							result.push_str(value);
+				match result.value.vocabulary() {
+					Some(Term::Id(mapping)) => {
+						let mut result = mapping.as_str().to_owned();
+						result.push_str(value);
 
-							return Ok(Term::Id(Lenient::from_string(result).0));
-						}
-						Some(_) => return Ok(invalid_iri(value.to_owned(), |w| env.warn(w))),
-						None => (),
+						return Ok(Term::Id(Lenient::from_string(result).0));
 					}
-				}
-
-				// Otherwise, if document relative is true set value to the result of resolving value
-				// against the base IRI from active context. Only the basic algorithm in section 5.2 of
-				// [RFC3986] is used; neither Syntax-Based Normalization nor Scheme-Based Normalization
-				// are performed. Characters additionally allowed in IRI references are treated in the
-				// same way that unreserved characters are treated in URI references, per section 6.5 of
-				// [RFC3987].
-				if document_relative
-					&& let Ok(iri_ref) = IriRef::new(value)
-					&& let Some(iri) = resolve_iri(iri_ref, result.value.base_iri())
-				{
-					return Ok(Term::from(iri));
+					Some(_) => return Ok(invalid_iri(value.to_owned(), |w| env.warn(w))),
+					None => (),
 				}
 
 				// Return value as is.
