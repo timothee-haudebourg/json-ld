@@ -13,7 +13,7 @@ use rdf_syntax::IriBuf;
 
 use crate::{
 	AsyncLoader, Document, DocumentSource, JsonLdError,
-	algorithms::{JsonLdLocated, JsonLdLocatedError, JsonLdSource},
+	algorithms::{JsonLdLocatedError, JsonLdSource},
 };
 
 #[derive(Debug, thiserror::Error)]

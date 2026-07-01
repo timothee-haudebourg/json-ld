@@ -146,22 +146,21 @@ impl<'a> ContextProcessor<'a> {
 						// If override protected is false and previous_definition exists and is protected;
 						if !self.options.override_protected
 							&& let Some(previous_definition) = previous_definition
-								&& previous_definition.protected {
-									// If `definition` is not the same as `previous_definition`
-									// (other than the value of protected), a protected term
-									// redefinition error has been detected, and processing is aborted.
-									if definition.modulo_protected_field()
-										!= previous_definition.modulo_protected_field()
-									{
-										return Err(
-											JsonLdError::ProtectedTermRedefinition.at(location)
-										);
-									}
+							&& previous_definition.protected
+						{
+							// If `definition` is not the same as `previous_definition`
+							// (other than the value of protected), a protected term
+							// redefinition error has been detected, and processing is aborted.
+							if definition.modulo_protected_field()
+								!= previous_definition.modulo_protected_field()
+							{
+								return Err(JsonLdError::ProtectedTermRedefinition.at(location));
+							}
 
-									// Set `definition` to `previous definition` to retain the value of
-									// protected.
-									definition.protected = true;
-								}
+							// Set `definition` to `previous definition` to retain the value of
+							// protected.
+							definition.protected = true;
+						}
 
 						result.value.set_type(Some(definition));
 					}
@@ -426,9 +425,10 @@ impl<'a> ContextProcessor<'a> {
 											let mut result = String::new();
 
 											if let Some(prefix_key) = prefix_definition.value()
-												&& let Some(prefix_iri) = prefix_key.as_iri() {
-													result = prefix_iri.to_owned().into_string()
-												}
+												&& let Some(prefix_iri) = prefix_key.as_iri()
+											{
+												result = prefix_iri.to_owned().into_string()
+											}
 
 											result.push_str(compact_iri.suffix());
 
@@ -719,22 +719,21 @@ impl<'a> ContextProcessor<'a> {
 						// If override protected is false and previous_definition exists and is protected;
 						if !self.options.override_protected
 							&& let Some(previous_definition) = previous_definition
-								&& previous_definition.protected {
-									// If `definition` is not the same as `previous_definition`
-									// (other than the value of protected), a protected term
-									// redefinition error has been detected, and processing is aborted.
-									if definition.modulo_protected_field()
-										!= previous_definition.modulo_protected_field()
-									{
-										return Err(
-											JsonLdError::ProtectedTermRedefinition.at(location)
-										);
-									}
+							&& previous_definition.protected
+						{
+							// If `definition` is not the same as `previous_definition`
+							// (other than the value of protected), a protected term
+							// redefinition error has been detected, and processing is aborted.
+							if definition.modulo_protected_field()
+								!= previous_definition.modulo_protected_field()
+							{
+								return Err(JsonLdError::ProtectedTermRedefinition.at(location));
+							}
 
-									// Set `definition` to `previous definition` to retain the value of
-									// protected.
-									definition.protected = true;
-								}
+							// Set `definition` to `previous definition` to retain the value of
+							// protected.
+							definition.protected = true;
+						}
 
 						// Set the term definition
 						// Set the term definition of `term` in `active_context` to `definition` and

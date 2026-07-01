@@ -4,8 +4,8 @@ use mown::Mown;
 use crate::{
 	Lenient, Term, Type, ValueObject,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
-		JsonLdLocatedError, JsonLdLocationStack, context_processing::ContextProcessingOptions,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdLocatedError,
+		JsonLdLocationStack, context_processing::ContextProcessingOptions,
 	},
 	context::Container,
 	object::value::LiteralType,
@@ -27,20 +27,21 @@ impl<'a> Compactor<'a> {
 		let mut active_context = Mown::Borrowed(self.active_context);
 		if let Some(active_property) = self.active_property
 			&& let Some(active_property_definition) = active_context.get(active_property)
-				&& let Some(local_context) = active_property_definition.context() {
-					active_context = Mown::Owned(
-						local_context
-							.process_with(
-								AsyncProcessingEnvironmentRef(env),
-								active_property_definition.base_url(),
-								active_context.as_ref(),
-								ContextProcessingOptions::from(self.options).with_override(),
-								JsonLdLocationStack::Root,
-							)
-							.await?
-							.into_raw(),
+			&& let Some(local_context) = active_property_definition.context()
+		{
+			active_context = Mown::Owned(
+				local_context
+					.process_with(
+						AsyncProcessingEnvironmentRef(env),
+						active_property_definition.base_url(),
+						active_context.as_ref(),
+						ContextProcessingOptions::from(self.options).with_override(),
+						JsonLdLocationStack::Root,
 					)
-				}
+					.await?
+					.into_raw(),
+			)
+		}
 
 		// If element has an @value or @id entry and the result of using the Value Compaction algorithm,
 		// passing active context, active property, and element as value is a scalar,
@@ -238,15 +239,14 @@ impl<'a> Compactor<'a> {
 			}
 		}
 
-		if !remove_index
-			&& let Some(index) = index {
-				let compact_key = self.with_active_context(&active_context).compact_key(
-					&Term::Keyword(Keyword::Index),
-					true,
-					false,
-				)?;
-				result.insert(compact_key.unwrap(), JsonValue::String(index.into()));
-			}
+		if !remove_index && let Some(index) = index {
+			let compact_key = self.with_active_context(&active_context).compact_key(
+				&Term::Keyword(Keyword::Index),
+				true,
+				false,
+			)?;
+			result.insert(compact_key.unwrap(), JsonValue::String(index.into()));
+		}
 
 		Ok(JsonValue::Object(result))
 	}

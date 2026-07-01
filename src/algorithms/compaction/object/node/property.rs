@@ -3,8 +3,7 @@ use json_syntax::{JsonObject, JsonValue};
 use crate::{
 	Indexed, Lenient, NodeObject, Object, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError,
-		JsonLdLocationStack,
+		AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError, JsonLdLocationStack,
 		compaction::{
 			CompactFragment, CompactIndexedFragment, Compactor,
 			object::value::{add_value, value_value},
@@ -281,7 +280,7 @@ impl Compactor<'_> {
 							.ok()
 							.unwrap()
 							.unwrap();
-						
+
 						value.as_object_mut().unwrap()
 						// SubObject::Sub(result.get_mut(nest_term).unwrap().as_object_mut().unwrap())
 					}
@@ -522,16 +521,17 @@ impl Compactor<'_> {
 										// in `compacted_item`.
 										// Otherwise, remove that entry from compacted item.
 										if !remaining_values.is_empty()
-											&& let Some(map) = compacted_item.as_object_mut() {
-												for value in remaining_values {
-													add_value(
-														map,
-														container_key.as_deref().unwrap(),
-														value,
-														false,
-													)
-												}
+											&& let Some(map) = compacted_item.as_object_mut()
+										{
+											for value in remaining_values {
+												add_value(
+													map,
+													container_key.as_deref().unwrap(),
+													value,
+													false,
+												)
 											}
+										}
 
 										map_key
 									}
@@ -600,16 +600,17 @@ impl Compactor<'_> {
 								// `compacted_item`.
 								// Otherwise, remove that entry from compacted item.
 								if !remaining_values.is_empty()
-									&& let Some(map) = compacted_item.as_object_mut() {
-										for value in remaining_values {
-											add_value(
-												map,
-												container_key.as_deref().unwrap(),
-												value,
-												false,
-											)
-										}
+									&& let Some(map) = compacted_item.as_object_mut()
+								{
+									for value in remaining_values {
+										add_value(
+											map,
+											container_key.as_deref().unwrap(),
+											value,
+											false,
+										)
 									}
+								}
 
 								// If `compacted_item` contains a single entry with a key
 								// expanding to @id, set `compacted_item` to the result of
@@ -618,25 +619,26 @@ impl Compactor<'_> {
 								// `active_property`, and a map composed of the single
 								// entry for @id from `expanded_item` for `element`.
 								if let Some(map) = compacted_item.as_object()
-									&& map.len() == 1
-										&& map.get_unique("@id").ok().unwrap().is_some()
-									{
-										let obj = Object::node(NodeObject::new_with_id(Some(
-											expanded_item.id().unwrap().clone(),
-										)));
-										compacted_item = Box::pin(
-											obj.compact_indexed_fragment(
-												env,
-												&self
-													.with_type_scoped_context(self.active_context)
-													.with_active_property(Some(
-														&item_active_property,
-													)),
-												None,
-											),
-										)
-										.await?
-									}
+									&& map.len() == 1 && map
+									.get_unique("@id")
+									.ok()
+									.unwrap()
+									.is_some()
+								{
+									let obj = Object::node(NodeObject::new_with_id(Some(
+										expanded_item.id().unwrap().clone(),
+									)));
+									compacted_item = Box::pin(
+										obj.compact_indexed_fragment(
+											env,
+											&self
+												.with_type_scoped_context(self.active_context)
+												.with_active_property(Some(&item_active_property)),
+											None,
+										),
+									)
+									.await?
+								}
 
 								map_key
 							};

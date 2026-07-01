@@ -260,105 +260,96 @@ impl<'a> From<&'a RawProcessedContext> for InverseContext {
 
 		for binding in definitions {
 			if let BindingRef::Normal(term, term_definition) = binding
-				&& let Some(var) = term_definition.value.as_ref() {
-					let container = &term_definition.container;
-					let container_map = result.reference_mut(var, InverseDefinition::new);
-					let type_lang_map =
-						container_map.reference_mut(container, || InverseContainer::new(term));
+				&& let Some(var) = term_definition.value.as_ref()
+			{
+				let container = &term_definition.container;
+				let container_map = result.reference_mut(var, InverseDefinition::new);
+				let type_lang_map =
+					container_map.reference_mut(container, || InverseContainer::new(term));
 
-					let type_map = &mut type_lang_map.typ;
-					let lang_map = &mut type_lang_map.language;
+				let type_map = &mut type_lang_map.typ;
+				let lang_map = &mut type_lang_map.language;
 
-					if term_definition.reverse_property {
-						// If the term definition indicates that the term represents a reverse property:
-						if type_map.reverse.is_none() {
-							type_map.reverse = Some(term.clone())
+				if term_definition.reverse_property {
+					// If the term definition indicates that the term represents a reverse property:
+					if type_map.reverse.is_none() {
+						type_map.reverse = Some(term.clone())
+					}
+				} else {
+					match &term_definition.typ {
+						Some(Type::None) => {
+							// Otherwise, if term definition has a type mapping which is @none:
+							type_map.set_any(term);
+							lang_map.set_any(term);
 						}
-					} else {
-						match &term_definition.typ {
-							Some(Type::None) => {
-								// Otherwise, if term definition has a type mapping which is @none:
-								type_map.set_any(term);
-								lang_map.set_any(term);
-							}
-							Some(typ) => {
-								// Otherwise, if term definition has a type mapping:
-								type_map.set(typ, term)
-							}
-							None => {
-								match (&term_definition.language, &term_definition.direction) {
-									(Some(language), Some(direction)) => {
-										// Otherwise, if term definition has both a language mapping
-										// and a direction mapping:
-										match (language, direction) {
-											(
-												Nullable::Some(language),
-												Nullable::Some(direction),
-											) => lang_map.set(
+						Some(typ) => {
+							// Otherwise, if term definition has a type mapping:
+							type_map.set(typ, term)
+						}
+						None => {
+							match (&term_definition.language, &term_definition.direction) {
+								(Some(language), Some(direction)) => {
+									// Otherwise, if term definition has both a language mapping
+									// and a direction mapping:
+									match (language, direction) {
+										(Nullable::Some(language), Nullable::Some(direction)) => {
+											lang_map.set(
 												Nullable::Some((
 													Some(language.as_deref()),
 													Some(*direction),
 												)),
 												term,
-											),
-											(Nullable::Some(language), Nullable::Null) => lang_map
-												.set(
-													Nullable::Some((
-														Some(language.as_deref()),
-														None,
-													)),
-													term,
-												),
-											(Nullable::Null, Nullable::Some(direction)) => lang_map
-												.set(
-													Nullable::Some((None, Some(*direction))),
-													term,
-												),
-											(Nullable::Null, Nullable::Null) => {
-												lang_map.set(Nullable::Null, term)
-											}
+											)
 										}
-									}
-									(Some(language), None) => {
-										// Otherwise, if term definition has a language mapping (might
-										// be null):
-										match language {
-											Nullable::Some(language) => lang_map.set(
-												Nullable::Some((Some(language.as_deref()), None)),
-												term,
-											),
-											Nullable::Null => lang_map.set(Nullable::Null, term),
-										}
-									}
-									(None, Some(direction)) => {
-										// Otherwise, if term definition has a direction mapping (might
-										// be null):
-										match direction {
-											Nullable::Some(direction) => lang_map.set(
-												Nullable::Some((None, Some(*direction))),
-												term,
-											),
-											Nullable::Null => {
-												lang_map.set(Nullable::Some((None, None)), term)
-											}
-										}
-									}
-									(None, None) => {
-										lang_map.set(
-											Nullable::Some((
-												context.default_language(),
-												context.default_base_direction(),
-											)),
+										(Nullable::Some(language), Nullable::Null) => lang_map.set(
+											Nullable::Some((Some(language.as_deref()), None)),
 											term,
-										);
-										lang_map.set_none(term);
-										type_map.set_none(term);
+										),
+										(Nullable::Null, Nullable::Some(direction)) => lang_map
+											.set(Nullable::Some((None, Some(*direction))), term),
+										(Nullable::Null, Nullable::Null) => {
+											lang_map.set(Nullable::Null, term)
+										}
 									}
+								}
+								(Some(language), None) => {
+									// Otherwise, if term definition has a language mapping (might
+									// be null):
+									match language {
+										Nullable::Some(language) => lang_map.set(
+											Nullable::Some((Some(language.as_deref()), None)),
+											term,
+										),
+										Nullable::Null => lang_map.set(Nullable::Null, term),
+									}
+								}
+								(None, Some(direction)) => {
+									// Otherwise, if term definition has a direction mapping (might
+									// be null):
+									match direction {
+										Nullable::Some(direction) => lang_map
+											.set(Nullable::Some((None, Some(*direction))), term),
+										Nullable::Null => {
+											lang_map.set(Nullable::Some((None, None)), term)
+										}
+									}
+								}
+								(None, None) => {
+									lang_map.set(
+										Nullable::Some((
+											context.default_language(),
+											context.default_base_direction(),
+										)),
+										term,
+									);
+									lang_map.set_none(term);
+									type_map.set_none(term);
 								}
 							}
 						}
 					}
 				}
+			}
 		}
 
 		result

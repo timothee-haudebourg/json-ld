@@ -7,7 +7,7 @@ mod node_map;
 
 pub use node_map::*;
 
-use crate::algorithms::{JsonLdLocated, JsonLdLocationStack};
+use crate::algorithms::JsonLdLocationStack;
 
 impl ExpandedDocument {
 	pub fn flatten(

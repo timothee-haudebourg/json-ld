@@ -1,8 +1,7 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{
-	AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError,
-	JsonLdLocationStack, Warning,
+	AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError, JsonLdLocationStack, Warning,
 };
 use crate::context::Container;
 use crate::context::RawProcessedContext;
@@ -492,9 +491,10 @@ impl<'a> Expander<'a> {
 								// If key's term definition in active context has a
 								// direction mapping, update direction with that value.
 								if let Some(key_definition) = key_definition
-									&& let Some(key_direction) = key_definition.direction() {
-										direction = key_direction.option()
-									}
+									&& let Some(key_direction) = key_definition.direction()
+								{
+									direction = key_direction.option()
+								}
 
 								// For each key-value pair language-language value in
 								// value, ordered lexicographically by language if ordered is true:
@@ -632,9 +632,9 @@ impl<'a> Expander<'a> {
 										|| container_mapping.contains(ContainerItem::Id))
 										&& let Some(previous_context) =
 											self.active_context.previous_context()
-										{
-											map_context = Mown::Borrowed(previous_context)
-										}
+									{
+										map_context = Mown::Borrowed(previous_context)
+									}
 
 									// If container mapping includes @type and
 									// index's term definition in map context has a
@@ -646,21 +646,21 @@ impl<'a> Expander<'a> {
 									if container_mapping.contains(ContainerItem::Type)
 										&& let Some(index_definition) =
 											map_context.get(index.as_str())
-											&& let Some(local_context) = index_definition.context()
-											{
-												map_context = Mown::Owned(
-													local_context
-														.process_with(
-															env.as_ref(),
-															index_definition.base_url(),
-															&map_context,
-															self.options.into(),
-															location,
-														)
-														.await?
-														.into_raw(),
+										&& let Some(local_context) = index_definition.context()
+									{
+										map_context = Mown::Owned(
+											local_context
+												.process_with(
+													env.as_ref(),
+													index_definition.base_url(),
+													&map_context,
+													self.options.into(),
+													location,
 												)
-											}
+												.await?
+												.into_raw(),
+										)
+									}
 
 									// Otherwise, set map context to active context.
 									// TODO What?

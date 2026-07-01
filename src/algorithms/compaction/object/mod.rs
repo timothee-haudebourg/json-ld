@@ -4,8 +4,8 @@ use mown::Mown;
 use crate::{
 	Term,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
-		JsonLdLocatedError, JsonLdLocationStack, compaction::CompactIndexedFragment,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdLocatedError,
+		JsonLdLocationStack, compaction::CompactIndexedFragment,
 		context_processing::ContextProcessingOptions,
 	},
 	object::{AnyObject, ObjectRef},
@@ -45,28 +45,27 @@ impl Compactor<'_> {
 				if let Some(active_property) = self.active_property
 					&& let Some(active_property_definition) =
 						self.type_scoped_context.get(active_property)
-					{
-						if let Some(local_context) = active_property_definition.context() {
-							active_context = Mown::Owned(
-								local_context
-									.process_with(
-										AsyncProcessingEnvironmentRef(env),
-										// vocabulary,
-										active_property_definition.base_url(),
-										active_context.as_ref(),
-										ContextProcessingOptions::from(self.options)
-											.with_override(),
-										JsonLdLocationStack::Root,
-									)
-									.await?
-									.into_raw(),
-							)
-						}
-
-						list_container = active_property_definition
-							.container()
-							.contains(ContainerItem::List);
+				{
+					if let Some(local_context) = active_property_definition.context() {
+						active_context = Mown::Owned(
+							local_context
+								.process_with(
+									AsyncProcessingEnvironmentRef(env),
+									// vocabulary,
+									active_property_definition.base_url(),
+									active_context.as_ref(),
+									ContextProcessingOptions::from(self.options).with_override(),
+									JsonLdLocationStack::Root,
+								)
+								.await?
+								.into_raw(),
+						)
 					}
+
+					list_container = active_property_definition
+						.container()
+						.contains(ContainerItem::List);
+				}
 
 				if list_container {
 					self.with_active_context(&active_context)
@@ -95,14 +94,14 @@ impl Compactor<'_> {
 						if let Some(active_property) = self.active_property
 							&& let Some(active_property_definition) =
 								active_context.get(active_property)
-								&& active_property_definition
-									.container()
-									.contains(ContainerItem::Index)
-								{
-									// then the compacted result will be inside of an @index container,
-									// drop the @index entry by continuing to the next expanded property.
-									index_container = true;
-								}
+							&& active_property_definition
+								.container()
+								.contains(ContainerItem::Index)
+						{
+							// then the compacted result will be inside of an @index container,
+							// drop the @index entry by continuing to the next expanded property.
+							index_container = true;
+						}
 
 						if !index_container {
 							// Initialize alias by IRI compacting expanded property.

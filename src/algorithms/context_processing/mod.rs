@@ -18,8 +18,8 @@ use stack::ProcessingStack;
 use crate::{
 	AsyncLoader, ContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError,
-		JsonLdLocationStack, JsonLdSourceRef,
+		AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError, JsonLdLocationStack,
+		JsonLdSourceRef,
 	},
 	context::RawProcessedContext,
 	syntax::{Context, ContextEntry, Keyword, context::KeyOrKeywordRef},
@@ -38,26 +38,6 @@ struct ContextProcessor<'a> {
 }
 
 impl<'a> ContextProcessor<'a> {
-	// fn for_definition<'b>(
-	// 	&'b self,
-	// 	// defined: &'b mut DefinedTerms,
-	// 	// local_context: &'b Merged<'b>,
-	// ) -> ContextProcessor<'b> {
-	// 	// TermDefiner {
-	// 	// 	defined,
-	// 	// 	local_context,
-	// 	// 	base_url: self.base_url,
-	// 	// 	remote_contexts: self.remote_contexts.clone(),
-	// 	// 	options: self.options,
-	// 	// }
-	// 	ContextProcessor {
-	// 		remote_contexts: self.remote_contexts.clone(),
-	// 		active_context: self.active_context,
-	// 		base_url: self.base_url,
-	// 		options: self.options.with_no_override(),
-	// 	}
-	// }
-
 	fn for_recursive_definition<'b>(&'b self) -> ContextProcessor<'b> {
 		ContextProcessor {
 			remote_contexts: self.remote_contexts.clone(),
@@ -160,13 +140,14 @@ impl<'a> ContextProcessor<'a> {
 		// 2) If `local_context` is an object containing the member @propagate,
 		// its value MUST be boolean true or false, set `propagate` to that value.
 		if let Context::One(ContextEntry::Definition(def)) = local_context
-			&& let Some(propagate) = def.propagate {
-				if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-					return Err(JsonLdError::InvalidContextEntry.at(location));
-				}
-
-				self.options.propagate = propagate
+			&& let Some(propagate) = def.propagate
+		{
+			if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+				return Err(JsonLdError::InvalidContextEntry.at(location));
 			}
+
+			self.options.propagate = propagate
+		}
 
 		// 3) If propagate is false, and result does not have a previous context,
 		// set previous context in result to active context.

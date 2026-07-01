@@ -4,13 +4,11 @@ use indexmap::IndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
-	Indexed, IndexedObject, Lenient, NodeObject, Object,
-	algorithms::{JsonLdLocated, JsonLdLocationStack},
-	object::ListObject,
-	syntax::Keyword,
+	Indexed, IndexedObject, Lenient, NodeObject, Object, algorithms::JsonLdLocationStack,
+	object::ListObject, syntax::Keyword,
 };
 
-use super::{ConflictingIndexes, NodeMap, NodeMapExtendError};
+use super::{NodeMap, NodeMapExtendError};
 
 pub struct NodeMapBuilder<G> {
 	substitution: Substitution<G>,

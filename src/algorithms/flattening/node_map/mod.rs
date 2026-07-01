@@ -263,8 +263,7 @@ impl NodeMapGraph {
 	}
 }
 
-pub type DeclareNodeResult<'a> =
-	Result<&'a mut NodeMapGraphEntry, JsonLdLocated<ConflictingIndexes>>;
+pub type DeclareNodeResult<'a> = Result<&'a mut NodeMapGraphEntry, NodeMapExtendError>;
 
 impl NodeMapGraph {
 	pub fn contains(&self, id: &Lenient<Id>) -> bool {
@@ -293,7 +292,7 @@ impl NodeMapGraph {
 				(Some(entry_index), Some((new_index, new_location))) => {
 					if entry_index != new_index {
 						let defined_location = entry.index_location.clone().unwrap_or_default();
-						return Err(JsonLdLocated::new(
+						return Err(Box::new(JsonLdLocated::new(
 							ConflictingIndexes {
 								node_id: id,
 								defined_index: JsonLdLocated::new(
@@ -303,7 +302,7 @@ impl NodeMapGraph {
 								conflicting_index: new_index.to_string(),
 							},
 							new_location,
-						));
+						)));
 					}
 				}
 				(None, Some((new_index, new_location))) => {

@@ -7,8 +7,8 @@ use super::{
 use crate::{
 	Document, RemoteContext,
 	algorithms::{
-		AsyncProcessingEnvironment, Compact, Expand, JsonLdLocated, JsonLdLocatedError,
-		JsonLdLocationStack, JsonLdSourceRef,
+		AsyncProcessingEnvironment, Compact, Expand, JsonLdLocatedError, JsonLdLocationStack,
+		JsonLdSourceRef,
 	},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,

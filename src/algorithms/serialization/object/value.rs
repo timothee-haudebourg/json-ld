@@ -16,9 +16,10 @@ where
 	for term in deserializer.terms_of(subject) {
 		if let CowTerm::Ground(CowGroundTerm::Literal(literal)) = term?
 			&& let Some(other) = value.replace(literal.into_owned())
-				&& Some(other) != value {
-					return Err(linked_data::de::Error::custom("ambiguous literal value"));
-				}
+			&& Some(other) != value
+		{
+			return Err(linked_data::de::Error::custom("ambiguous literal value"));
+		}
 	}
 
 	Ok(value.map(Into::into))

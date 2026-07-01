@@ -5,8 +5,8 @@ use rdf_syntax::Id;
 use crate::{
 	Lenient, NodeObject, ProcessingMode, Term, Type,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
-		JsonLdLocatedError, JsonLdLocationStack,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdLocatedError,
+		JsonLdLocationStack,
 		compaction::{Compactor, object::value::add_value},
 		context_processing::ContextProcessingOptions,
 	},
@@ -48,20 +48,21 @@ impl Compactor<'_> {
 		//       Seems that the term definition should be looked up in `type_scoped_context`.
 		if let Some(active_property) = self.active_property
 			&& let Some(active_property_definition) = self.type_scoped_context.get(active_property)
-				&& let Some(local_context) = active_property_definition.context() {
-					active_context = Mown::Owned(
-						local_context
-							.process_with(
-								AsyncProcessingEnvironmentRef(env),
-								active_property_definition.base_url(),
-								active_context.as_ref(),
-								ContextProcessingOptions::from(self.options).with_override(),
-								JsonLdLocationStack::Root,
-							)
-							.await?
-							.into_raw(),
+			&& let Some(local_context) = active_property_definition.context()
+		{
+			active_context = Mown::Owned(
+				local_context
+					.process_with(
+						AsyncProcessingEnvironmentRef(env),
+						active_property_definition.base_url(),
+						active_context.as_ref(),
+						ContextProcessingOptions::from(self.options).with_override(),
+						JsonLdLocationStack::Root,
 					)
-				}
+					.await?
+					.into_raw(),
+			)
+		}
 
 		// let inside_reverse = active_property == Some("@reverse");
 		let mut result = JsonObject::default();
@@ -85,22 +86,23 @@ impl Compactor<'_> {
 				if let Some(term_definition) = self
 					.type_scoped_context
 					.get(term.as_ref().unwrap().as_str())
-					&& let Some(local_context) = term_definition.context() {
-						let processing_options =
-							ContextProcessingOptions::from(self.options).without_propagation();
-						active_context = Mown::Owned(
-							local_context
-								.process_with(
-									AsyncProcessingEnvironmentRef(env),
-									term_definition.base_url(),
-									active_context.as_ref(),
-									processing_options,
-									JsonLdLocationStack::Root,
-								)
-								.await?
-								.into_raw(),
-						)
-					}
+					&& let Some(local_context) = term_definition.context()
+				{
+					let processing_options =
+						ContextProcessingOptions::from(self.options).without_propagation();
+					active_context = Mown::Owned(
+						local_context
+							.process_with(
+								AsyncProcessingEnvironmentRef(env),
+								term_definition.base_url(),
+								active_context.as_ref(),
+								processing_options,
+								JsonLdLocationStack::Root,
+							)
+							.await?
+							.into_raw(),
+					)
+				}
 			}
 		}
 
@@ -178,75 +180,78 @@ impl Compactor<'_> {
 
 		// If expanded property is @reverse:
 		if let Some(reverse_properties) = node.reverse_properties_entry()
-			&& !reverse_properties.is_empty() {
-				// Initialize compacted value to the result of using this algorithm recursively,
-				// passing active context, @reverse for active property,
-				// expanded value for element, and the compactArrays and ordered flags.
-				let active_property = "@reverse";
-				if let Some(active_property_definition) = active_context.get(active_property)
-					&& let Some(local_context) = active_property_definition.context() {
-						active_context = Mown::Owned(
-							local_context
-								.process_with(
-									AsyncProcessingEnvironmentRef(env),
-									active_property_definition.base_url(),
-									active_context.as_ref(),
-									ContextProcessingOptions::from(self.options).with_override(),
-									JsonLdLocationStack::Root,
-								)
-								.await?
-								.into_raw(),
+			&& !reverse_properties.is_empty()
+		{
+			// Initialize compacted value to the result of using this algorithm recursively,
+			// passing active context, @reverse for active property,
+			// expanded value for element, and the compactArrays and ordered flags.
+			let active_property = "@reverse";
+			if let Some(active_property_definition) = active_context.get(active_property)
+				&& let Some(local_context) = active_property_definition.context()
+			{
+				active_context = Mown::Owned(
+					local_context
+						.process_with(
+							AsyncProcessingEnvironmentRef(env),
+							active_property_definition.base_url(),
+							active_context.as_ref(),
+							ContextProcessingOptions::from(self.options).with_override(),
+							JsonLdLocationStack::Root,
 						)
-					}
-
-				let mut reverse_result = JsonObject::default();
-				for (expanded_property, expanded_value) in reverse_properties.iter() {
-					self.with_active_context(&active_context)
-						.compact_property(
-							env,
-							&mut reverse_result,
-							expanded_property.clone().into(),
-							expanded_value.iter(),
-							true,
-						)
-						.await?;
-				}
-
-				// For each property and value in compacted value:
-				let mut reverse_map = JsonObject::default();
-				for (property, mapped_value) in reverse_result.iter_mut() {
-					let mut value = JsonValue::Null;
-					std::mem::swap(&mut value, &mut *mapped_value);
-
-					// If the term definition for property in the active context indicates that
-					// property is a reverse property
-					if let Some(term_definition) = active_context.get(property.as_str())
-						&& term_definition.reverse_property() {
-							// Initialize as array to true if the container mapping for property in
-							// the active context includes @set, otherwise the negation of compactArrays.
-							let as_array = term_definition.container().contains(ContainerItem::Set)
-								|| !self.options.compact_arrays;
-
-							// Use add value to add value to the property entry in result using as array.
-							add_value(&mut result, property, value, as_array);
-							continue;
-						}
-
-					reverse_map.insert(property.clone(), value);
-				}
-
-				if !reverse_map.is_empty() {
-					// Initialize alias by IRI compacting @reverse.
-					let alias = self.with_active_context(&active_context).compact_iri(
-						&Term::Keyword(Keyword::Reverse),
-						true,
-						false,
-					)?;
-
-					// Set the value of the alias entry of result to compacted value.
-					result.insert(alias.unwrap(), reverse_map.into());
-				}
+						.await?
+						.into_raw(),
+				)
 			}
+
+			let mut reverse_result = JsonObject::default();
+			for (expanded_property, expanded_value) in reverse_properties.iter() {
+				self.with_active_context(&active_context)
+					.compact_property(
+						env,
+						&mut reverse_result,
+						expanded_property.clone().into(),
+						expanded_value.iter(),
+						true,
+					)
+					.await?;
+			}
+
+			// For each property and value in compacted value:
+			let mut reverse_map = JsonObject::default();
+			for (property, mapped_value) in reverse_result.iter_mut() {
+				let mut value = JsonValue::Null;
+				std::mem::swap(&mut value, &mut *mapped_value);
+
+				// If the term definition for property in the active context indicates that
+				// property is a reverse property
+				if let Some(term_definition) = active_context.get(property.as_str())
+					&& term_definition.reverse_property()
+				{
+					// Initialize as array to true if the container mapping for property in
+					// the active context includes @set, otherwise the negation of compactArrays.
+					let as_array = term_definition.container().contains(ContainerItem::Set)
+						|| !self.options.compact_arrays;
+
+					// Use add value to add value to the property entry in result using as array.
+					add_value(&mut result, property, value, as_array);
+					continue;
+				}
+
+				reverse_map.insert(property.clone(), value);
+			}
+
+			if !reverse_map.is_empty() {
+				// Initialize alias by IRI compacting @reverse.
+				let alias = self.with_active_context(&active_context).compact_iri(
+					&Term::Keyword(Keyword::Reverse),
+					true,
+					false,
+				)?;
+
+				// Set the value of the alias entry of result to compacted value.
+				result.insert(alias.unwrap(), reverse_map.into());
+			}
+		}
 
 		// If expanded property is @index and active property has a container mapping in
 		// active context that includes @index,
@@ -254,14 +259,14 @@ impl Compactor<'_> {
 			let mut index_container = false;
 			if let Some(active_property) = self.active_property
 				&& let Some(active_property_definition) = active_context.get(active_property)
-					&& active_property_definition
-						.container()
-						.contains(ContainerItem::Index)
-					{
-						// then the compacted result will be inside of an @index container,
-						// drop the @index entry by continuing to the next expanded property.
-						index_container = true;
-					}
+				&& active_property_definition
+					.container()
+					.contains(ContainerItem::Index)
+			{
+				// then the compacted result will be inside of an @index container,
+				// drop the @index entry by continuing to the next expanded property.
+				index_container = true;
+			}
 
 			if !index_container {
 				// Initialize alias by IRI compacting expanded property.
@@ -323,55 +328,56 @@ impl Compactor<'_> {
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded property is @type:
 		if let Some(types) = types
-			&& !types.is_empty() {
-				// If expanded value is a string,
-				// then initialize compacted value by IRI compacting expanded value using
-				// type-scoped context for active context.
-				let compacted_value = if types.len() == 1 {
-					optional_string(
-						self.with_active_context(self.type_scoped_context)
-							.compact_iri(&types[0].clone().into_term(), true, false)?,
-					)
-				} else {
-					// Otherwise, expanded value must be a @type array:
-					// Initialize compacted value to an empty array.
-					let mut compacted_value = Vec::with_capacity(types.len());
+			&& !types.is_empty()
+		{
+			// If expanded value is a string,
+			// then initialize compacted value by IRI compacting expanded value using
+			// type-scoped context for active context.
+			let compacted_value = if types.len() == 1 {
+				optional_string(
+					self.with_active_context(self.type_scoped_context)
+						.compact_iri(&types[0].clone().into_term(), true, false)?,
+				)
+			} else {
+				// Otherwise, expanded value must be a @type array:
+				// Initialize compacted value to an empty array.
+				let mut compacted_value = Vec::with_capacity(types.len());
 
-					// For each item expanded type in expanded value:
-					for ty in types.iter() {
-						let ty = ty.clone().into_term();
+				// For each item expanded type in expanded value:
+				for ty in types.iter() {
+					let ty = ty.clone().into_term();
 
-						// Set term by IRI compacting expanded type using type-scoped context for active context.
-						let compacted_ty = self
-							.with_active_context(self.type_scoped_context)
-							.compact_iri(&ty, true, false)?;
+					// Set term by IRI compacting expanded type using type-scoped context for active context.
+					let compacted_ty = self
+						.with_active_context(self.type_scoped_context)
+						.compact_iri(&ty, true, false)?;
 
-						// Append term, to compacted value.
-						compacted_value.push(optional_string(compacted_ty))
-					}
+					// Append term, to compacted value.
+					compacted_value.push(optional_string(compacted_ty))
+				}
 
-					JsonValue::Array(compacted_value.into_iter().collect())
-				};
+				JsonValue::Array(compacted_value.into_iter().collect())
+			};
 
-				// Initialize alias by IRI compacting expanded property.
-				let alias = self
-					.compact_iri(&Term::Keyword(Keyword::Type), true, false)?
-					.unwrap();
+			// Initialize alias by IRI compacting expanded property.
+			let alias = self
+				.compact_iri(&Term::Keyword(Keyword::Type), true, false)?
+				.unwrap();
 
-				// Initialize as array to true if processing mode is json-ld-1.1 and the
-				// container mapping for alias in the active context includes @set,
-				// otherwise to the negation of compactArrays.
-				let container_mapping = match self.active_context.get(alias.as_str()) {
-					Some(def) => def.container(),
-					None => Container::Null,
-				};
-				let as_array = (self.options.processing_mode == ProcessingMode::JsonLd1_1
-					&& container_mapping.contains(ContainerItem::Set))
-					|| !self.options.compact_arrays;
+			// Initialize as array to true if processing mode is json-ld-1.1 and the
+			// container mapping for alias in the active context includes @set,
+			// otherwise to the negation of compactArrays.
+			let container_mapping = match self.active_context.get(alias.as_str()) {
+				Some(def) => def.container(),
+				None => Container::Null,
+			};
+			let as_array = (self.options.processing_mode == ProcessingMode::JsonLd1_1
+				&& container_mapping.contains(ContainerItem::Set))
+				|| !self.options.compact_arrays;
 
-				// Use add value to add compacted value to the alias entry in result using as array.
-				add_value(result, &alias, compacted_value, as_array)
-			}
+			// Use add value to add compacted value to the alias entry in result using as array.
+			add_value(result, &alias, compacted_value, as_array)
+		}
 
 		Ok(())
 	}

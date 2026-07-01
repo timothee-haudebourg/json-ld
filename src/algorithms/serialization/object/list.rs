@@ -100,17 +100,19 @@ where
 
 				if *p_iri == RDF_FIRST
 					&& let Some(other) = first.replace(object.clone())
-						&& other != object {
-							// Can't have multiple first values.
-							return Ok(false);
-						}
+					&& other != object
+				{
+					// Can't have multiple first values.
+					return Ok(false);
+				}
 
 				if *p_iri == RDF_REST
 					&& let Some(other) = rest.replace(object.clone())
-						&& other != object {
-							// Can't have multiple rest values.
-							return Ok(false);
-						}
+					&& other != object
+				{
+					// Can't have multiple rest values.
+					return Ok(false);
+				}
 			}
 		}
 	}

@@ -165,16 +165,16 @@ impl AsyncLoader for ReqwestLoader {
 									if let Some(link) = Link::new(link)
 										&& link.rel()
 											== Some(b"http://www.w3.org/ns/json-ld#context")
-										{
-											if context_url.is_some() {
-												return Err(LoadError::new(
-													url,
-													Error::MultipleContextLinkHeaders,
-												));
-											}
-
-											context_url = Some(link.href().resolved(&url));
+									{
+										if context_url.is_some() {
+											return Err(LoadError::new(
+												url,
+												Error::MultipleContextLinkHeaders,
+											));
 										}
+
+										context_url = Some(link.href().resolved(&url));
+									}
 								}
 							}
 
@@ -185,9 +185,10 @@ impl AsyncLoader for ReqwestLoader {
 								.flat_map(|p| p.split(|b| *b == b' '))
 							{
 								if let Ok(p) = std::str::from_utf8(p)
-									&& let Ok(iri) = Iri::new(p) {
-										profile.insert(Profile::new(iri));
-									}
+									&& let Ok(iri) = Iri::new(p)
+								{
+									profile.insert(Profile::new(iri));
+								}
 							}
 
 							let bytes = response.bytes().await.map_err(|e| {
@@ -215,13 +216,13 @@ impl AsyncLoader for ReqwestLoader {
 							for link in response.headers().get_all(LINK).into_iter() {
 								if let Some(link) = Link::new(link)
 									&& link.rel() == Some(b"alternate")
-										&& link.type_() == Some(b"application/ld+json")
-									{
-										log::debug!("link found");
-										url = link.href().resolved(&url);
-										redirection_number += 1;
-										continue 'next_url;
-									}
+									&& link.type_() == Some(b"application/ld+json")
+								{
+									log::debug!("link found");
+									url = link.href().resolved(&url);
+									redirection_number += 1;
+									continue 'next_url;
+								}
 							}
 
 							break Err(LoadError::new(url, Error::InvalidContentType));

@@ -7,9 +7,8 @@ use rdf_syntax::Id;
 use crate::{
 	Indexed, Lenient, Nullable, Object, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdError,
-		JsonLdLocatedError, JsonLdLocationStack, Warning,
-		context_processing::ContextProcessingOptions,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdError, JsonLdLocatedError,
+		JsonLdLocationStack, Warning, context_processing::ContextProcessingOptions,
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
@@ -201,25 +200,26 @@ impl<'a> Expander<'a> {
 					// has a `local_context`,
 					for term in sorted_value {
 						if let Some(term_definition) = type_scoped_context.get(term)
-							&& let Some(local_context) = term_definition.context() {
-								// set `active_context` to the result of
-								// Context Processing algorithm, passing `active_context`, the value of the
-								// `term`'s local context as `local_context`, `base_url` from the term
-								// definition for value in `active_context`, and `false` for `propagate`.
-								let options: ContextProcessingOptions = self.options.into();
-								active_context = Mown::Owned(
-									local_context
-										.process_with(
-											env.as_ref(),
-											term_definition.base_url(),
-											active_context.as_ref(),
-											options.without_propagation(),
-											location,
-										)
-										.await?
-										.into_raw(),
-								);
-							}
+							&& let Some(local_context) = term_definition.context()
+						{
+							// set `active_context` to the result of
+							// Context Processing algorithm, passing `active_context`, the value of the
+							// `term`'s local context as `local_context`, `base_url` from the term
+							// definition for value in `active_context`, and `false` for `propagate`.
+							let options: ContextProcessingOptions = self.options.into();
+							active_context = Mown::Owned(
+								local_context
+									.process_with(
+										env.as_ref(),
+										term_definition.base_url(),
+										active_context.as_ref(),
+										options.without_propagation(),
+										location,
+									)
+									.await?
+									.into_raw(),
+							);
+						}
 					}
 				}
 

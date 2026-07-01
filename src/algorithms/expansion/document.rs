@@ -2,10 +2,7 @@ use json_syntax::JsonValue;
 
 use crate::{
 	ExpandedDocument,
-	algorithms::{
-		AsyncProcessingEnvironment, JsonLdLocatedError,
-		JsonLdLocationStack,
-	},
+	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdLocationStack},
 };
 
 use super::{Expander, filter_top_level_item};

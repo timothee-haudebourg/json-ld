@@ -394,9 +394,10 @@ impl From<Literal> for ValueObject {
 						));
 					}
 				} else if ty == RDF_JSON
-					&& let Ok(json) = json_syntax::from_str(&literal.value) {
-						return Self::Literal(LiteralValue::json(json));
-					}
+					&& let Ok(json) = json_syntax::from_str(&literal.value)
+				{
+					return Self::Literal(LiteralValue::json(json));
+				}
 
 				Self::Literal(LiteralValue::new(
 					JsonValue::String(literal.value.into()),

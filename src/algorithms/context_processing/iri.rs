@@ -29,17 +29,6 @@ pub fn resolve_iri(iri_ref: &IriRef, base_iri: Option<&Iri>) -> Option<IriBuf> {
 /// Result of the [`expand_iri_with`] function.
 pub type ExpandIriResult = Result<Term, JsonLdLocatedError>;
 
-// /// Environment of a context term definition.
-// pub struct IriExpensionEnv<'a, L> {
-// 	pub loader: &'a mut L,
-// 	pub on_warning: &'a mut dyn FnMut(Warning),
-// 	pub defined: &'a mut DefinedTerms,
-// 	pub active_context: &'a mut ProcessedContext,
-// 	pub local_context: &'a Merged<'a>,
-// 	pub remote_contexts: ProcessingStack,
-// 	pub options: Options,
-// }
-
 impl<'a> ContextProcessor<'a> {
 	/// Default values for `document_relative` and `vocab` should be `false` and `true`.
 	pub async fn expand_iri_recursive(
@@ -79,9 +68,10 @@ impl<'a> ContextProcessor<'a> {
 					// If active context has a term definition for value, and the associated IRI mapping
 					// is a keyword, return that keyword.
 					if let Some(value) = term_definition.value()
-						&& value.is_keyword() {
-							return Ok(value.clone());
-						}
+						&& value.is_keyword()
+					{
+						return Ok(value.clone());
+					}
 
 					// If vocab is true and the active context has a term definition for value, return the
 					// associated IRI mapping.
@@ -124,12 +114,13 @@ impl<'a> ContextProcessor<'a> {
 						let prefix_key = ContextTerm::from(compact_iri.prefix().to_string());
 						if let Some(term_definition) = result.value.get_normal(&prefix_key)
 							&& term_definition.prefix
-								&& let Some(mapping) = &term_definition.value {
-									let mut result = mapping.as_str().to_owned();
-									result.push_str(compact_iri.suffix());
+							&& let Some(mapping) = &term_definition.value
+						{
+							let mut result = mapping.as_str().to_owned();
+							result.push_str(compact_iri.suffix());
 
-									return Ok(Term::Id(Lenient::from_string(result).0));
-								}
+							return Ok(Term::Id(Lenient::from_string(result).0));
+						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
@@ -160,9 +151,10 @@ impl<'a> ContextProcessor<'a> {
 				// [RFC3987].
 				if document_relative
 					&& let Ok(iri_ref) = IriRef::new(value)
-						&& let Some(iri) = resolve_iri(iri_ref, result.value.base_iri()) {
-							return Ok(Term::from(iri));
-						}
+					&& let Some(iri) = resolve_iri(iri_ref, result.value.base_iri())
+				{
+					return Ok(Term::from(iri));
+				}
 
 				// Return value as is.
 				Ok(invalid_iri(value.to_owned(), |w| env.warn(w)))
@@ -200,9 +192,10 @@ impl RawProcessedContext {
 					// If active context has a term definition for value, and the associated IRI mapping
 					// is a keyword, return that keyword.
 					if let Some(value) = term_definition.value()
-						&& value.is_keyword() {
-							return value.clone();
-						}
+						&& value.is_keyword()
+					{
+						return value.clone();
+					}
 
 					// If vocab is true and the active context has a term definition for value, return the
 					// associated IRI mapping.
@@ -230,11 +223,12 @@ impl RawProcessedContext {
 						let prefix_key = ContextTerm::from(compact_iri.prefix().to_string());
 						if let Some(term_definition) = self.get_normal(&prefix_key)
 							&& term_definition.prefix
-								&& let Some(mapping) = &term_definition.value {
-									let mut result = mapping.as_str().to_owned();
-									result.push_str(compact_iri.suffix());
-									return Term::Id(Lenient::from_string(result).0);
-								}
+							&& let Some(mapping) = &term_definition.value
+						{
+							let mut result = mapping.as_str().to_owned();
+							result.push_str(compact_iri.suffix());
+							return Term::Id(Lenient::from_string(result).0);
+						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
@@ -265,9 +259,10 @@ impl RawProcessedContext {
 				// [RFC3987].
 				if document_relative
 					&& let Ok(iri_ref) = IriRef::new(value)
-						&& let Some(iri) = resolve_iri(iri_ref, self.base_iri()) {
-							return Term::from(iri);
-						}
+					&& let Some(iri) = resolve_iri(iri_ref, self.base_iri())
+				{
+					return Term::from(iri);
+				}
 
 				// Return value as is.
 				invalid_iri(value.to_string(), on_warning)

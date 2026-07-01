@@ -2,9 +2,7 @@ use indexmap::IndexSet;
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{
-		AsyncProcessingEnvironment, JsonLdLocatedError, compaction::Compactor,
-	},
+	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, compaction::Compactor},
 	syntax::ContainerItem,
 };
 
@@ -32,14 +30,15 @@ impl Compactor<'_> {
 
 		let mut list_or_set = false;
 		if let Some(active_property) = self.active_property
-			&& let Some(active_property_definition) = self.active_context.get(active_property) {
-				list_or_set = active_property_definition
+			&& let Some(active_property_definition) = self.active_context.get(active_property)
+		{
+			list_or_set = active_property_definition
+				.container()
+				.contains(ContainerItem::List)
+				|| active_property_definition
 					.container()
-					.contains(ContainerItem::List)
-					|| active_property_definition
-						.container()
-						.contains(ContainerItem::Set);
-			}
+					.contains(ContainerItem::Set);
+		}
 
 		if result.is_empty()
 			|| result.len() > 1

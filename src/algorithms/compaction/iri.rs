@@ -61,10 +61,12 @@ impl<'a> Compactor<'a> {
 				let mut type_lang_value = None;
 
 				if let Some(value) = value
-					&& value.index().is_some() && !value.is_graph() {
-						containers.push(Container::Index);
-						containers.push(Container::IndexSet);
-					}
+					&& value.index().is_some()
+					&& !value.is_graph()
+				{
+					containers.push(Container::Index);
+					containers.push(Container::IndexSet);
+				}
 
 				let mut has_index = false;
 				let mut is_simple_value = false; // value object with no type, no index, no language and no direction.
@@ -252,9 +254,10 @@ impl<'a> Compactor<'a> {
 				let mut is_empty_list = false;
 				if let Some(value) = value
 					&& let object::ObjectRef::List(list) = value.inner().as_ref()
-						&& list.is_empty() {
-							is_empty_list = true;
-						}
+					&& list.is_empty()
+				{
+					is_empty_list = true;
+				}
 
 				// If type/language value is @reverse, append @reverse to preferred values.
 				let selection = if is_empty_list {
@@ -271,37 +274,37 @@ impl<'a> Compactor<'a> {
 							let mut has_id_type = false;
 							if let Some(value) = value
 								&& let Some(id) = value.id()
-									&& (type_value == TypeSelection::Type(Type::Id)
-										|| type_value == TypeSelection::Reverse)
-									{
-										has_id_type = true;
-										let mut vocab = false;
-										let compacted_iri = self
-											.compact_iri(
-												// vocabulary,
-												// active_context,
-												&id.clone().into_term(),
-												true,
-												false,
-												// options,
-											)?
-											.unwrap();
-										if let Some(def) =
-											self.active_context.get(compacted_iri.as_str())
-											&& let Some(iri_mapping) = def.value() {
-												vocab = iri_mapping == id;
-											}
+								&& (type_value == TypeSelection::Type(Type::Id)
+									|| type_value == TypeSelection::Reverse)
+							{
+								has_id_type = true;
+								let mut vocab = false;
+								let compacted_iri = self
+									.compact_iri(
+										// vocabulary,
+										// active_context,
+										&id.clone().into_term(),
+										true,
+										false,
+										// options,
+									)?
+									.unwrap();
+								if let Some(def) = self.active_context.get(compacted_iri.as_str())
+									&& let Some(iri_mapping) = def.value()
+								{
+									vocab = iri_mapping == id;
+								}
 
-										if vocab {
-											selection.push(TypeSelection::Type(Type::Vocab));
-											selection.push(TypeSelection::Type(Type::Id));
-										} else {
-											selection.push(TypeSelection::Type(Type::Id));
-											selection.push(TypeSelection::Type(Type::Vocab));
-										}
+								if vocab {
+									selection.push(TypeSelection::Type(Type::Vocab));
+									selection.push(TypeSelection::Type(Type::Id));
+								} else {
+									selection.push(TypeSelection::Type(Type::Id));
+									selection.push(TypeSelection::Type(Type::Vocab));
+								}
 
-										selection.push(TypeSelection::Type(Type::None));
-									}
+								selection.push(TypeSelection::Type(Type::None));
+							}
 
 							if !has_id_type {
 								selection.push(type_value);
@@ -348,9 +351,11 @@ impl<'a> Compactor<'a> {
 				// suffix to the substring of var that does not match. If suffix does not have a term
 				// definition in active context, then return suffix.
 				if let Some(suffix) = var.as_str().strip_prefix(vocab_mapping.as_str())
-					&& !suffix.is_empty() && self.active_context.get(suffix).is_none() {
-						return Ok(Some(suffix.into()));
-					}
+					&& !suffix.is_empty()
+					&& self.active_context.get(suffix).is_none()
+				{
+					return Ok(Some(suffix.into()));
+				}
 			}
 		}
 
@@ -371,31 +376,31 @@ impl<'a> Compactor<'a> {
 			match definition.value() {
 				Some(iri_mapping) if definition.prefix() => {
 					if let Some(suffix) = var.as_str().strip_prefix(iri_mapping.as_str())
-						&& !suffix.is_empty() {
-							// Initialize candidate by concatenating definition key,
-							// a colon (:),
-							// and the substring of var that follows after the value of the definition's IRI mapping.
-							let mut candidate = key.to_string();
-							candidate.push(':');
-							candidate.push_str(suffix);
+						&& !suffix.is_empty()
+					{
+						// Initialize candidate by concatenating definition key,
+						// a colon (:),
+						// and the substring of var that follows after the value of the definition's IRI mapping.
+						let mut candidate = key.to_string();
+						candidate.push(':');
+						candidate.push_str(suffix);
 
-							// If either compact IRI is null,
-							// candidate is shorter or the same length but lexicographically less than
-							// compact IRI and candidate does not have a term definition in active
-							// context, or if that term definition has an IRI mapping that equals var
-							// and value is null, set compact IRI to candidate.
-							let candidate_def = self.active_context.get(candidate.as_str());
-							if (compact_iri.is_empty()
-								|| (candidate.len() <= compact_iri.len()
-									&& candidate < compact_iri))
-								&& (candidate_def.is_none()
-									|| (candidate_def.is_some()
-										&& (candidate_def.and_then(|def| def.value())
-											== Some(var)) && value.is_none()))
-							{
-								compact_iri = candidate
-							}
+						// If either compact IRI is null,
+						// candidate is shorter or the same length but lexicographically less than
+						// compact IRI and candidate does not have a term definition in active
+						// context, or if that term definition has an IRI mapping that equals var
+						// and value is null, set compact IRI to candidate.
+						let candidate_def = self.active_context.get(candidate.as_str());
+						if (compact_iri.is_empty()
+							|| (candidate.len() <= compact_iri.len() && candidate < compact_iri))
+							&& (candidate_def.is_none()
+								|| (candidate_def.is_some()
+									&& (candidate_def.and_then(|def| def.value()) == Some(var))
+									&& value.is_none()))
+						{
+							compact_iri = candidate
 						}
+					}
 				}
 				_ => (),
 			}
@@ -411,22 +416,24 @@ impl<'a> Compactor<'a> {
 		// and var has no IRI authority (preceded by double-forward-slash (//),
 		// an IRI confused with prefix error has been detected, and processing is aborted.
 		if let Some(iri) = var.as_iri()
-			&& self.active_context.contains_term(iri.scheme().as_str()) {
-				let loc_root = JsonLdLocationStack::new();
-				let loc = loc_root.file(self.source);
-				return Err(JsonLdError::IriConfusedWithPrefix.at(loc));
-			}
+			&& self.active_context.contains_term(iri.scheme().as_str())
+		{
+			let loc_root = JsonLdLocationStack::new();
+			let loc = loc_root.file(self.source);
+			return Err(JsonLdError::IriConfusedWithPrefix.at(loc));
+		}
 
 		// If vocab is false,
 		// transform var to a relative IRI reference using the base IRI from active context,
 		// if it exists.
 		if !vocab
 			&& let Some(base_iri) = self.active_context.base_iri()
-				&& let Some(iri) = var.as_iri() {
-					return Ok(Some(disambiguate_keyword(
-						iri.relative_to(base_iri).as_str().into(),
-					)));
-				}
+			&& let Some(iri) = var.as_iri()
+		{
+			return Ok(Some(disambiguate_keyword(
+				iri.relative_to(base_iri).as_str().into(),
+			)));
+		}
 
 		// Finally, return var as is.
 		Ok(Some(var.to_string()))
