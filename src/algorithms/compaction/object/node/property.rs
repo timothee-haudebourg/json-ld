@@ -3,7 +3,7 @@ use json_syntax::{JsonObject, JsonValue};
 use crate::{
 	Indexed, Lenient, NodeObject, Object, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocatedError,
+		AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError,
 		JsonLdLocationStack,
 		compaction::{
 			CompactFragment, CompactIndexedFragment, Compactor,

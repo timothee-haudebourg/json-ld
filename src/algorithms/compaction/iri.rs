@@ -2,7 +2,7 @@ use json_syntax::object::Key;
 
 use crate::{
 	Indexed, JsonLdError, Nullable, Object, ProcessingMode, Term, Type, ValueObject,
-	algorithms::{JsonLdLocated, JsonLdLocatedError, JsonLdLocationStack},
+	algorithms::{JsonLdLocatedError, JsonLdLocationStack},
 	context::{
 		Container,
 		inverse::{LangSelection, Selection, TypeSelection},

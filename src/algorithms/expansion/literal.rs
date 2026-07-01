@@ -5,7 +5,7 @@ use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 use crate::{
 	IndexedObject, JsonLdError, LangString, Lenient, NodeObject, Nullable, Object, Type,
 	ValueObject,
-	algorithms::{JsonLdLocated, JsonLdLocatedError, JsonLdLocationStack, Warning},
+	algorithms::{JsonLdLocatedError, JsonLdLocationStack, Warning},
 	object::{LiteralValue, value::LiteralType},
 };
 

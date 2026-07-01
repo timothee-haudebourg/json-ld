@@ -7,7 +7,7 @@ use crate::{
 	context::RawProcessedContext,
 };
 
-use super::{JsonLdError, JsonLdLocated, JsonLdLocationStack};
+use super::JsonLdLocationStack;
 
 mod array;
 mod document;

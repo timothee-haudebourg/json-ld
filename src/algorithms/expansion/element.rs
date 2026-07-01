@@ -7,7 +7,7 @@ use rdf_syntax::Id;
 use crate::{
 	Indexed, Lenient, Nullable, Object, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdError, JsonLdLocated,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdError,
 		JsonLdLocatedError, JsonLdLocationStack, Warning,
 		context_processing::ContextProcessingOptions,
 	},

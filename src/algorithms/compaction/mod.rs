@@ -11,8 +11,8 @@ use json_syntax::{JsonObject, JsonValue};
 pub use options::*;
 
 use crate::{
-	Indexed, JsonLdError, ProcessedContext, Term,
-	algorithms::{AsyncProcessingEnvironment, JsonLdLocated, JsonLdLocatedError, JsonLdSourceRef},
+	Indexed, ProcessedContext, Term,
+	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdSourceRef},
 	context::{
 		RawProcessedContext,
 		inverse::{LangSelection, TypeSelection},

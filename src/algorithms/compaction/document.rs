@@ -1,9 +1,9 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	ExpandedDocument, FlattenedDocument, JsonLdError, ProcessedContext,
+	ExpandedDocument, FlattenedDocument, ProcessedContext,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdLocated, JsonLdLocatedError, JsonLdSourceRef,
+		AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdSourceRef,
 		compaction::CompactFragment,
 	},
 };

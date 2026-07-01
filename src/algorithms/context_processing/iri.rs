@@ -6,7 +6,7 @@ use crate::algorithms::JsonLdLocatedError;
 use crate::{
 	Nullable, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack,
+		AsyncProcessingEnvironment, JsonLdLocationStack,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 		warning::Warning,
 	},

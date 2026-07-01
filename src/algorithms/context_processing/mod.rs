@@ -18,7 +18,7 @@ use stack::ProcessingStack;
 use crate::{
 	AsyncLoader, ContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocatedError,
+		AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError,
 		JsonLdLocationStack, JsonLdSourceRef,
 	},
 	context::RawProcessedContext,

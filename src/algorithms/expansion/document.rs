@@ -3,7 +3,7 @@ use json_syntax::JsonValue;
 use crate::{
 	ExpandedDocument,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocatedError,
+		AsyncProcessingEnvironment, JsonLdLocatedError,
 		JsonLdLocationStack,
 	},
 };

@@ -21,9 +21,9 @@ fn resolve_sync<F: std::future::Future>(f: F) -> F::Output {
 }
 
 use crate::VisitJsonLd;
-use crate::algorithms::{JsonLdLocated, JsonLdLocatedError};
+use crate::algorithms::JsonLdLocatedError;
 use crate::{
-	Direction, Document, ExpandedDocument, JsonLdError, ProcessingMode, RemoteContext,
+	Direction, Document, ExpandedDocument, ProcessingMode, RemoteContext,
 	algorithms::{
 		AsyncProcessingEnvironment, CompactionOptions, ContextProcessingOptions, ExpansionOptions,
 		ExpansionPolicy, ProcessingEnvironment, RdfSerializationOptions,

@@ -1,7 +1,7 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{
-	AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocatedError,
+	AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError,
 	JsonLdLocationStack, Warning,
 };
 use crate::context::Container;

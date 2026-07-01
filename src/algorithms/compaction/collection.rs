@@ -2,9 +2,8 @@ use indexmap::IndexSet;
 use json_syntax::JsonValue;
 
 use crate::{
-	JsonLdError,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdLocated, JsonLdLocatedError, compaction::Compactor,
+		AsyncProcessingEnvironment, JsonLdLocatedError, compaction::Compactor,
 	},
 	syntax::ContainerItem,
 };
