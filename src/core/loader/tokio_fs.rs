@@ -2,7 +2,7 @@ use json_syntax::{JsonValue, ParseJson};
 use rdf_syntax::{Iri, IriBuf};
 use std::path::PathBuf;
 
-use crate::{Document, LoadError};
+use crate::{Document, DocumentSource, LoadError};
 
 use super::{AsyncLoader, FsLoader};
 
@@ -50,11 +50,14 @@ impl AsyncLoader for TokioFsLoader {
 				let contents = tokio::fs::read_to_string(&filepath)
 					.await
 					.map_err(|e| LoadError::new(url.to_owned(), Error::IO(e)))?;
-				let (doc, _) = JsonValue::parse_str(&contents)
+				let (doc, code_map) = JsonValue::parse_str(&contents)
 					.map_err(|e| LoadError::new(url.to_owned(), Error::Parse(e)))?;
-				Ok(Document::new(
+				Ok(Document::new_full(
 					Some(url.to_owned()),
 					Some("application/ld+json".parse().unwrap()),
+					None,
+					Default::default(),
+					Some(DocumentSource::new(contents, code_map)),
 					doc,
 				))
 			}

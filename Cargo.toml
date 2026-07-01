@@ -1,16 +1,17 @@
 [package]
 name = "json-ld"
 authors = ["Timothée Haudebourg <timothee@haudebourg.net>"]
+description = "JSON-LD implementation"
 categories = ["web-programming", "database", "data-structures"]
 keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 repository = "https://github.com/timothee-haudebourg/json-ld"
 documentation = "https://docs.rs/json-ld"
-license = "MIT/Apache-2.0"
-edition = "2021"
-rust-version = "1.83.0"
-version = "0.19.1"
-description = "JSON-LD implementation"
 readme = "README.md"
+license = "MIT/Apache-2.0"
+edition = "2024"
+rust-version = "1.96.0"
+version = "0.19.1"
+
 
 [features]
 default = ["algorithms", "reqwest"]
@@ -27,6 +28,17 @@ reqwest = ["dep:reqwest", "dep:reqwest-middleware"]
 # Async file-system loader backed by Tokio.
 tokio = ["dep:tokio"]
 
+# Enables the `locspan/miette` feature.
+miette = ["json-syntax/miette"]
+
+# Dependencies needed to build the `json-ld` CLI binary.
+cli = ["dep:clap", "dep:miette", "dep:nquads-syntax", "miette", "tokio/macros", "tokio/rt-multi-thread"]
+
+[[bin]]
+name = "json-ld"
+path = "src/bin/cli.rs"
+required-features = ["cli"]
+
 [dependencies]
 # json-syntax = "0.12"
 json-syntax = { path = "/home/work/Documents/Community/JSON/syntax", features = [
@@ -35,7 +47,6 @@ json-syntax = { path = "/home/work/Documents/Community/JSON/syntax", features = 
 ] }
 langtag = "0.4"
 rdf-syntax.path = "/home/work/Documents/Community/RDF/rdf-syntax"
-locspan = "0.8"
 educe = "0.4.23"
 futures = "0.3"
 mown = "0.2.2"
@@ -49,6 +60,11 @@ mime = "0.3"
 serde = { version = "1.0", features = ["derive"], optional = true }
 
 anyhow = "1.0.98"
+
+# CLI dependencies (see the `cli` feature).
+clap = { version = "4", features = ["derive"], optional = true }
+miette = { version = "7", features = ["fancy"], optional = true }
+nquads-syntax = { path = "/home/work/Documents/Community/RDF/nquads-syntax", optional = true }
 
 # Serialization/deserialization with `serde`.
 # linked-data = "0.1"
@@ -65,8 +81,7 @@ tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 
 [dev-dependencies]
 json-ld-testing = { path = "testing" }
-tokio = { version = "*", features = ["macros", "rt"] }
-nquads-syntax.path = "/home/work/Documents/Community/RDF/nquads-syntax"
+tokio = { version = "*", features = ["macros", "rt", "rt-multi-thread"] }
 
 [package.metadata.docs.rs]
 all-features = true

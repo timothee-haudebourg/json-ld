@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
-use crate::{Document, LoadError};
+use crate::{Document, DocumentSource, LoadError};
 
 use super::Loader;
 
@@ -79,11 +79,14 @@ impl Loader for FsLoader {
 				buf_reader
 					.read_to_string(&mut contents)
 					.map_err(|e| LoadError::new(url.to_owned(), Error::IO(e)))?;
-				let (doc, _) = JsonValue::parse_str(&contents)
+				let (doc, code_map) = JsonValue::parse_str(&contents)
 					.map_err(|e| LoadError::new(url.to_owned(), Error::Parse(e)))?;
-				Ok(Document::new(
+				Ok(Document::new_full(
 					Some(url.to_owned()),
 					Some("application/ld+json".parse().unwrap()),
+					None,
+					Default::default(),
+					Some(DocumentSource::new(contents, code_map)),
 					doc,
 				))
 			}

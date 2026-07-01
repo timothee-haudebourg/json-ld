@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt;
 
 use crate::algorithms::flattening::ConflictingIndexes;
-use crate::algorithms::{JsonLdLocated, JsonLdLocationStack, JsonLdSourceRef};
+use crate::algorithms::{JsonLdLocated, JsonLdLocationStack};
 use crate::LoadError;
 
 /// Error code.
@@ -446,15 +446,9 @@ pub enum Error {
 	IriConfusedWithPrefix,
 }
 
-impl From<JsonLdLocated<Error>> for Error {
-	fn from(e: JsonLdLocated<Error>) -> Self {
-		e.value
-	}
-}
-
 impl Error {
 	pub fn at(self, location: JsonLdLocationStack<'_>) -> JsonLdLocated<Self> {
-		JsonLdLocated::new(self, location.build_with(JsonLdSourceRef::to_owned))
+		JsonLdLocated::new(self, location.build())
 	}
 
 	pub fn duplicate_key_ref(d: json_syntax::object::DuplicateEntryRef) -> Self {

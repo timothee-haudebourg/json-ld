@@ -1,5 +1,5 @@
 use hashbrown::HashSet;
-use json_syntax::JsonValue;
+use json_syntax::{JsonCodeMap, JsonValue};
 use mime::Mime;
 use rdf_syntax::{Iri, IriBuf};
 
@@ -38,6 +38,8 @@ pub struct Document<T = JsonValue> {
 
 	pub profile: HashSet<Profile>,
 
+	pub source: Option<DocumentSource>,
+
 	/// The retrieved document.
 	pub document: T,
 }
@@ -52,7 +54,7 @@ impl<T> Document<T> {
 	/// `content_type` is the HTTP `Content-Type` header value of the loaded
 	/// document, exclusive of any optional parameters.
 	pub fn new(url: Option<IriBuf>, content_type: Option<Mime>, document: T) -> Self {
-		Self::new_full(url, content_type, None, HashSet::new(), document)
+		Self::new_full(url, content_type, None, HashSet::new(), None, document)
 	}
 
 	/// Creates a new remote document.
@@ -73,6 +75,7 @@ impl<T> Document<T> {
 		content_type: Option<Mime>,
 		context_url: Option<IriBuf>,
 		profile: HashSet<Profile>,
+		source: Option<DocumentSource>,
 		document: T,
 	) -> Self {
 		Self {
@@ -80,6 +83,7 @@ impl<T> Document<T> {
 			content_type,
 			context_url,
 			profile,
+			source,
 			document,
 		}
 	}
@@ -91,6 +95,7 @@ impl<T> Document<T> {
 			content_type: self.content_type,
 			context_url: self.context_url,
 			profile: self.profile,
+			source: self.source,
 			document: f(self.document),
 		}
 	}
@@ -102,6 +107,7 @@ impl<T> Document<T> {
 			content_type: self.content_type,
 			context_url: self.context_url,
 			profile: self.profile,
+			source: self.source,
 			document: f(self.document)?,
 		})
 	}
@@ -167,123 +173,20 @@ impl Document {
 			content_type: self.content_type,
 			context_url: self.context_url,
 			profile: self.profile,
+			source: self.source,
 			document: crate::syntax::from_value(self.document)?,
 		})
 	}
 }
 
-// use crate::Document;
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DocumentSource {
+	pub text: String,
+	pub code_map: JsonCodeMap,
+}
 
-// /// JSON-LD document in both compact and expanded form.
-// #[derive(Debug, Clone)]
-// pub struct Document {
-// 	remote: Document,
-// 	expanded: ExpandedDocument,
-// }
-
-// impl Document {
-// 	pub fn new(remote: Document, expanded: ExpandedDocument) -> Self {
-// 		Self { remote, expanded }
-// 	}
-
-// 	pub fn into_remote(self) -> Document {
-// 		self.remote
-// 	}
-
-// 	pub fn into_compact(self) -> crate::syntax::Value {
-// 		self.remote.into_document()
-// 	}
-
-// 	pub fn into_expanded(self) -> ExpandedDocument {
-// 		self.expanded
-// 	}
-
-// 	#[allow(clippy::type_complexity)]
-// 	pub fn into_parts(self) -> (Document, ExpandedDocument) {
-// 		(self.remote, self.expanded)
-// 	}
-
-// 	pub fn as_remote(&self) -> &Document {
-// 		&self.remote
-// 	}
-
-// 	pub fn as_compact(&self) -> &crate::syntax::Value {
-// 		self.remote.document()
-// 	}
-
-// 	pub fn as_expanded(&self) -> &ExpandedDocument {
-// 		&self.expanded
-// 	}
-// }
-
-// impl Deref for Document {
-// 	type Target = ExpandedDocument;
-
-// 	fn deref(&self) -> &Self::Target {
-// 		&self.expanded
-// 	}
-// }
-
-// impl Borrow<Document> for Document {
-// 	fn borrow(&self) -> &Document {
-// 		&self.remote
-// 	}
-// }
-
-// impl Borrow<crate::syntax::Value> for Document {
-// 	fn borrow(&self) -> &crate::syntax::Value {
-// 		self.remote.document()
-// 	}
-// }
-
-// impl Borrow<ExpandedDocument> for Document {
-// 	fn borrow(&self) -> &ExpandedDocument {
-// 		&self.expanded
-// 	}
-// }
-
-// impl PartialEq for Document {
-// 	fn eq(&self, other: &Self) -> bool {
-// 		self.expanded.eq(&other.expanded)
-// 	}
-// }
-
-// impl Eq for Document {}
-
-// #[cfg(feature = "serde")]
-// impl serde::Serialize for Document {
-// 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-// 	where
-// 		S: serde::Serializer,
-// 	{
-// 		self.remote.document().serialize(serializer)
-// 	}
-// }
-
-// impl<V: Vocabulary, I: Interpretation> LinkedData<I, V> for Document<V::Iri, V::BlankId>
-// where
-// 	V: IriVocabularyMut,
-// 	V::Iri: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
-// 	V::BlankId: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
-// {
-// 	fn visit<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
-// 	where
-// 		S: linked_data::Visitor<I, V>,
-// 	{
-// 		self.expanded.visit(visitor)
-// 	}
-// }
-
-// impl<V: Vocabulary, I: Interpretation> LinkedDataGraph<I, V> for Document<V::Iri, V::BlankId>
-// where
-// 	V: IriVocabularyMut,
-// 	V::Iri: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
-// 	V::BlankId: LinkedDataSubject<I, V> + LinkedDataResource<I, V>,
-// {
-// 	fn visit_graph<S>(&self, visitor: S) -> Result<S::Ok, S::Error>
-// 	where
-// 		S: linked_data::GraphVisitor<I, V>,
-// 	{
-// 		self.expanded.visit_graph(visitor)
-// 	}
-// }
+impl DocumentSource {
+	pub fn new(text: String, code_map: JsonCodeMap) -> Self {
+		Self { text, code_map }
+	}
+}

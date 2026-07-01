@@ -20,6 +20,7 @@ fn resolve_sync<F: std::future::Future>(f: F) -> F::Output {
 	}
 }
 
+use crate::algorithms::JsonLdLocated;
 use crate::VisitJsonLd;
 use crate::{
 	algorithms::{
@@ -149,19 +150,21 @@ impl Default for JsonLdOptions {
 }
 
 /// Result returned by the [`JsonLdProcessor::expand`] function.
-pub type ExpandResult = Result<ExpandedDocument, Error>;
+pub type ExpandResult = Result<ExpandedDocument, JsonLdLocated<Error>>;
 
 /// Result returned by the [`JsonLdProcessor::into_document`] function.
-pub type IntoDocumentResult = Result<Document, Error>;
+pub type IntoDocumentResult = Result<Document, JsonLdLocated<Error>>;
 
 /// Result of the [`JsonLdProcessor::compact`] function.
-pub type CompactResult = Result<JsonValue, Error>;
+pub type CompactResult = Result<JsonValue, JsonLdLocated<Error>>;
 
 /// Result of the [`JsonLdProcessor::flatten`] function.
-pub type FlattenResult = Result<JsonValue, Error>;
+pub type FlattenResult = Result<JsonValue, JsonLdLocated<Error>>;
+
+pub type ToRdfResult = Result<Vec<Quad<Term>>, JsonLdLocated<Error>>;
 
 /// Result of the [`JsonLdProcessor::compare`] function.
-pub type CompareResult = Result<bool, Error>;
+pub type CompareResult = Result<bool, JsonLdLocated<Error>>;
 
 /// The `JsonLdProcessor` interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.
@@ -319,16 +322,12 @@ pub trait JsonLdProcessor: Sized {
 		env: impl ProcessingEnvironment,
 		generator: impl Generator,
 		options: JsonLdOptions,
-	) -> Result<Vec<Quad<Term>>, Error> {
+	) -> ToRdfResult {
 		resolve_sync(self.async_to_rdf_with(env.into_async_environment(), generator, options))
 	}
 
 	/// Serialize the document to RDF using default options.
-	fn to_rdf(
-		&self,
-		env: impl ProcessingEnvironment,
-		generator: impl Generator,
-	) -> Result<Vec<Quad<Term>>, Error> {
+	fn to_rdf(&self, env: impl ProcessingEnvironment, generator: impl Generator) -> ToRdfResult {
 		self.to_rdf_with(env, generator, JsonLdOptions::default())
 	}
 
@@ -339,7 +338,7 @@ pub trait JsonLdProcessor: Sized {
 		env: impl AsyncProcessingEnvironment,
 		mut generator: impl Generator,
 		options: JsonLdOptions,
-	) -> Result<Vec<Quad<Term>>, Error> {
+	) -> ToRdfResult {
 		let rdf_serialization_options = options.rdf_serialization_options();
 		let mut expanded = JsonLdProcessor::async_expand_with(self, env, options).await?;
 		expanded.relabel(&mut generator);

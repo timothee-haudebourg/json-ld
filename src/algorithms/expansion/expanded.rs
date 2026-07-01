@@ -33,7 +33,7 @@ impl Expanded {
 	pub fn iter(&self) -> Iter<'_> {
 		match self {
 			Expanded::Null => Iter::Null,
-			Expanded::Object(ref o) => Iter::Object(Some(o)),
+			Expanded::Object(o) => Iter::Object(Some(o)),
 			Expanded::Array(ary) => Iter::Array(ary.iter()),
 		}
 	}
@@ -73,12 +73,12 @@ impl<'a> Iterator for Iter<'a> {
 	fn next(&mut self) -> Option<&'a IndexedObject> {
 		match self {
 			Iter::Null => None,
-			Iter::Object(ref mut o) => {
+			Iter::Object(o) => {
 				let mut result = None;
 				std::mem::swap(o, &mut result);
 				result
 			}
-			Iter::Array(ref mut it) => it.next(),
+			Iter::Array(it) => it.next(),
 		}
 	}
 }
@@ -95,12 +95,12 @@ impl Iterator for IntoIter {
 	fn next(&mut self) -> Option<IndexedObject> {
 		match self {
 			IntoIter::Null => None,
-			IntoIter::Object(ref mut o) => {
+			IntoIter::Object(o) => {
 				let mut result = None;
 				std::mem::swap(o, &mut result);
 				result
 			}
-			IntoIter::Array(ref mut it) => it.next(),
+			IntoIter::Array(it) => it.next(),
 		}
 	}
 }

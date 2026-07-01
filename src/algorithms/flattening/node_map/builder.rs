@@ -3,7 +3,12 @@ use std::collections::HashMap;
 use indexmap::IndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
-use crate::{object::ListObject, Indexed, IndexedObject, Lenient, NodeObject, Object};
+use crate::{
+	algorithms::{JsonLdLocated, JsonLdLocationStack},
+	object::ListObject,
+	syntax::Keyword,
+	Indexed, IndexedObject, Lenient, NodeObject, Object,
+};
 
 use super::{ConflictingIndexes, NodeMap};
 
@@ -35,11 +40,14 @@ impl<G: Generator> NodeMapBuilder<G> {
 	// }
 
 	/// Extends the `NodeMap` with the given `element` of an expanded JSON-LD document.
+	///
+	/// `location` tracks the current position within the expanded document.
 	pub fn extend_node_map(
 		&mut self,
 		element: &IndexedObject,
 		active_graph: Option<&Lenient<Id>>,
-	) -> Result<IndexedObject, ConflictingIndexes> {
+		location: JsonLdLocationStack<'_>,
+	) -> Result<IndexedObject, JsonLdLocated<ConflictingIndexes>> {
 		match element.inner() {
 			Object::Value(value) => {
 				let flat_value = value.clone();
@@ -50,9 +58,14 @@ impl<G: Generator> NodeMapBuilder<G> {
 			}
 			Object::List(list) => {
 				let mut flat_list = Vec::new();
+				let list_loc = location.object_value(Keyword::List);
 
-				for item in list {
-					flat_list.push(self.extend_node_map(item, active_graph)?);
+				for (i, item) in list.iter().enumerate() {
+					flat_list.push(self.extend_node_map(
+						item,
+						active_graph,
+						list_loc.array_index(i),
+					)?);
 				}
 
 				Ok(Indexed::new(
@@ -62,7 +75,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 			}
 			Object::Node(node) => {
 				let flat_node =
-					self.extend_node_map_from_node(node, element.index(), active_graph)?;
+					self.extend_node_map_from_node(node, element.index(), active_graph, location)?;
 				Ok(flat_node.map_inner(Object::node))
 			}
 		}
@@ -73,15 +86,17 @@ impl<G: Generator> NodeMapBuilder<G> {
 		node: &NodeObject,
 		index: Option<&str>,
 		active_graph: Option<&Lenient<Id>>,
-	) -> Result<Indexed<NodeObject>, ConflictingIndexes> {
+		location: JsonLdLocationStack<'_>,
+	) -> Result<Indexed<NodeObject>, JsonLdLocated<ConflictingIndexes>> {
 		let id = self.substitution.assign_node_id(node.id.as_ref());
 
 		{
-			let flat_node = self
-				.result
-				.graph_mut(active_graph)
-				.unwrap()
-				.declare_node(id.clone(), index)?;
+			// The `@index` value is at `location[ObjectValue("@index")]`.
+			let index_location = index.map(|_| location.object_value(Keyword::Index).build());
+			let flat_node = self.result.graph_mut(active_graph).unwrap().declare_node(
+				id.clone(),
+				index.map(|s| (s, index_location.unwrap_or_default())),
+			)?;
 
 			if let Some(entry) = node.types.as_deref() {
 				flat_node.types = Some(
@@ -96,9 +111,11 @@ impl<G: Generator> NodeMapBuilder<G> {
 		if let Some(graph_entry) = node.graph_entry() {
 			self.result.declare_graph(id.clone());
 
+			let graph_loc = location.object_value(Keyword::Graph);
 			let mut flat_graph = IndexSet::new();
-			for object in graph_entry.iter() {
-				let flat_object = self.extend_node_map(object, Some(&id))?;
+			for (i, object) in graph_entry.iter().enumerate() {
+				let flat_object =
+					self.extend_node_map(object, Some(&id), graph_loc.array_index(i))?;
 				flat_graph.insert(flat_object);
 			}
 
@@ -115,15 +132,23 @@ impl<G: Generator> NodeMapBuilder<G> {
 		}
 
 		if let Some(included_entry) = node.included_entry() {
-			for inode in included_entry {
-				self.extend_node_map_from_node(inode.inner(), inode.index(), active_graph)?;
+			let included_loc = location.object_value(Keyword::Included);
+			for (i, inode) in included_entry.iter().enumerate() {
+				self.extend_node_map_from_node(
+					inode.inner(),
+					inode.index(),
+					active_graph,
+					included_loc.array_index(i),
+				)?;
 			}
 		}
 
 		for (property, objects) in node.properties() {
+			let prop_loc = location.object_value(property.as_str());
 			let mut flat_objects = Vec::new();
-			for object in objects {
-				let flat_object = self.extend_node_map(object, active_graph)?;
+			for (i, object) in objects.iter().enumerate() {
+				let flat_object =
+					self.extend_node_map(object, active_graph, prop_loc.array_index(i))?;
 				flat_objects.push(flat_object);
 			}
 			self.result
@@ -136,12 +161,15 @@ impl<G: Generator> NodeMapBuilder<G> {
 		}
 
 		if let Some(reverse_properties) = node.reverse_properties_entry() {
+			let reverse_loc = location.object_value(Keyword::Reverse);
 			for (property, nodes) in reverse_properties.iter() {
-				for subject in nodes {
+				let prop_loc = reverse_loc.object_value(property.as_str());
+				for (i, subject) in nodes.iter().enumerate() {
 					let flat_subject = self.extend_node_map_from_node(
 						subject.inner(),
 						subject.index(),
 						active_graph,
+						prop_loc.array_index(i),
 					)?;
 
 					let subject_id = flat_subject.id.as_ref().unwrap();

@@ -1,8 +1,10 @@
 use crate::{
+	algorithms::{JsonLdLocated, JsonLdLocationStack, JsonLdSource},
 	ExpandedDocument, FlattenedDocument, Indexed, IndexedNode, IndexedObject, Lenient, NodeObject,
 	Object,
 };
 use educe::Educe;
+use json_syntax::tracing::JsonBacktraceBuf;
 use rdf_syntax::{Generator, Id};
 use std::collections::{HashMap, HashSet};
 
@@ -17,7 +19,8 @@ use builder::NodeMapBuilder;
 #[error("Index `{defined_index}` conflicts with index `{conflicting_index}`")]
 pub struct ConflictingIndexes {
 	pub node_id: Lenient<Id>,
-	pub defined_index: String,
+	/// The previously-declared index, with its source location if known.
+	pub defined_index: JsonLdLocated<String>,
 	pub conflicting_index: String,
 }
 
@@ -27,11 +30,12 @@ impl ExpandedDocument {
 	pub fn generate_node_map_with(
 		&self,
 		generator: impl Generator,
-	) -> Result<NodeMap, ConflictingIndexes> {
+		location: JsonLdLocationStack<'_>,
+	) -> Result<NodeMap, JsonLdLocated<ConflictingIndexes>> {
 		let mut builder = NodeMapBuilder::new(generator);
 
-		for object in self {
-			builder.extend_node_map(object, None)?;
+		for (i, object) in self.iter().enumerate() {
+			builder.extend_node_map(object, None, location.array_index(i))?;
 		}
 
 		Ok(builder.end())
@@ -213,10 +217,40 @@ impl IntoIterator for NodeMap {
 	}
 }
 
+/// Entry in a [`NodeMapGraph`], pairing an indexed node with the optional
+/// source location of its `@index` value.
+pub struct NodeMapGraphEntry {
+	pub node: IndexedNode,
+	/// Location of the `@index` value that was declared for this node, if known.
+	pub index_location: Option<JsonBacktraceBuf<JsonLdSource>>,
+}
+
+impl NodeMapGraphEntry {
+	fn new(node: IndexedNode) -> Self {
+		Self {
+			node,
+			index_location: None,
+		}
+	}
+}
+
+impl std::ops::Deref for NodeMapGraphEntry {
+	type Target = IndexedNode;
+	fn deref(&self) -> &Self::Target {
+		&self.node
+	}
+}
+
+impl std::ops::DerefMut for NodeMapGraphEntry {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.node
+	}
+}
+
 #[derive(Educe)]
 #[educe(Default)]
 pub struct NodeMapGraph {
-	nodes: HashMap<Lenient<Id>, IndexedNode>,
+	nodes: HashMap<Lenient<Id>, NodeMapGraphEntry>,
 }
 
 impl NodeMapGraph {
@@ -227,45 +261,66 @@ impl NodeMapGraph {
 	}
 }
 
-pub type DeclareNodeResult<'a> = Result<&'a mut IndexedNode, ConflictingIndexes>;
+pub type DeclareNodeResult<'a> =
+	Result<&'a mut NodeMapGraphEntry, JsonLdLocated<ConflictingIndexes>>;
 
 impl NodeMapGraph {
 	pub fn contains(&self, id: &Lenient<Id>) -> bool {
 		self.nodes.contains_key(id)
 	}
 
-	pub fn get(&self, id: &Lenient<Id>) -> Option<&IndexedNode> {
+	pub fn get(&self, id: &Lenient<Id>) -> Option<&NodeMapGraphEntry> {
 		self.nodes.get(id)
 	}
 
-	pub fn get_mut(&mut self, id: &Lenient<Id>) -> Option<&mut IndexedNode> {
+	pub fn get_mut(&mut self, id: &Lenient<Id>) -> Option<&mut NodeMapGraphEntry> {
 		self.nodes.get_mut(id)
 	}
 
-	pub fn declare_node(&mut self, id: Lenient<Id>, index: Option<&str>) -> DeclareNodeResult<'_> {
+	/// Declares a node in the graph.
+	///
+	/// `index` pairs the `@index` string with its source location in the
+	/// expanded document (if known).
+	pub fn declare_node(
+		&mut self,
+		id: Lenient<Id>,
+		index: Option<(&str, JsonBacktraceBuf<JsonLdSource>)>,
+	) -> DeclareNodeResult<'_> {
 		if let Some(entry) = self.nodes.get_mut(&id) {
 			match (entry.index(), index) {
-				(Some(entry_index), Some(new_index)) => {
+				(Some(entry_index), Some((new_index, new_location))) => {
 					if entry_index != new_index {
-						return Err(ConflictingIndexes {
-							node_id: id,
-							defined_index: entry_index.to_string(),
-							conflicting_index: new_index.to_string(),
-						});
+						let defined_location = entry.index_location.clone().unwrap_or_default();
+						return Err(JsonLdLocated::new(
+							ConflictingIndexes {
+								node_id: id,
+								defined_index: JsonLdLocated::new(
+									entry_index.to_string(),
+									defined_location,
+								),
+								conflicting_index: new_index.to_string(),
+							},
+							new_location,
+						));
 					}
 				}
-				(None, Some(new_index)) => {
+				(None, Some((new_index, new_location))) => {
 					entry.set_index(Some(new_index.to_owned()));
+					entry.index_location = Some(new_location);
 				}
 				_ => (),
 			}
 		} else {
+			let (index_str, index_location) = match index {
+				Some((s, loc)) => (Some(s.to_owned()), Some(loc)),
+				None => (None, None),
+			};
 			self.nodes.insert(
 				id.clone(),
-				Indexed::new(
-					NodeObject::new_with_id(Some(id.clone())),
-					index.map(ToOwned::to_owned),
-				),
+				NodeMapGraphEntry {
+					node: Indexed::new(NodeObject::new_with_id(Some(id.clone())), index_str),
+					index_location,
+				},
 			);
 		}
 
@@ -276,8 +331,8 @@ impl NodeMapGraph {
 	///
 	/// This calls [`merge_node`](Self::merge_node) with every node of `other`.
 	pub fn merge_with(&mut self, other: Self) {
-		for (_, node) in other {
-			self.merge_node(node)
+		for (_, entry) in other {
+			self.merge_node(entry.node)
 		}
 	}
 
@@ -300,7 +355,10 @@ impl NodeMapGraph {
 			} else {
 				self.nodes.insert(
 					id.clone(),
-					Indexed::new(NodeObject::new_with_id(Some(id.clone())), index),
+					NodeMapGraphEntry::new(Indexed::new(
+						NodeObject::new_with_id(Some(id.clone())),
+						index,
+					)),
 				);
 			}
 
@@ -331,12 +389,14 @@ impl NodeMapGraph {
 	}
 }
 
-pub type NodeMapGraphNodes<'a> = std::collections::hash_map::Values<'a, Lenient<Id>, IndexedNode>;
-pub type IntoNodeMapGraphNodes = std::collections::hash_map::IntoValues<Lenient<Id>, IndexedNode>;
+pub type NodeMapGraphNodes<'a> =
+	std::collections::hash_map::Values<'a, Lenient<Id>, NodeMapGraphEntry>;
+pub type IntoNodeMapGraphNodes =
+	std::collections::hash_map::IntoValues<Lenient<Id>, NodeMapGraphEntry>;
 
 impl IntoIterator for NodeMapGraph {
-	type Item = (Lenient<Id>, IndexedNode);
-	type IntoIter = std::collections::hash_map::IntoIter<Lenient<Id>, IndexedNode>;
+	type Item = (Lenient<Id>, NodeMapGraphEntry);
+	type IntoIter = std::collections::hash_map::IntoIter<Lenient<Id>, NodeMapGraphEntry>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.into_iter()
@@ -344,29 +404,29 @@ impl IntoIterator for NodeMapGraph {
 }
 
 impl<'a> IntoIterator for &'a NodeMapGraph {
-	type Item = (&'a Lenient<Id>, &'a IndexedNode);
-	type IntoIter = std::collections::hash_map::Iter<'a, Lenient<Id>, IndexedNode>;
+	type Item = (&'a Lenient<Id>, &'a NodeMapGraphEntry);
+	type IntoIter = std::collections::hash_map::Iter<'a, Lenient<Id>, NodeMapGraphEntry>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.iter()
 	}
 }
 
-fn filter_graph(node: IndexedNode) -> Option<IndexedNode> {
-	if node.index().is_none() && node.is_empty() {
+fn filter_graph(entry: NodeMapGraphEntry) -> Option<IndexedNode> {
+	if entry.index().is_none() && entry.is_empty() {
 		None
 	} else {
-		Some(node)
+		Some(entry.node)
 	}
 }
 
-fn filter_sub_graph(mut node: IndexedNode) -> Option<IndexedObject> {
-	if node.index().is_none() && node.properties().is_empty() {
+fn filter_sub_graph(mut entry: NodeMapGraphEntry) -> Option<IndexedObject> {
+	if entry.index().is_none() && entry.properties().is_empty() {
 		None
 	} else {
-		node.set_graph_entry(None);
-		node.set_included(None);
-		node.set_reverse_properties(None);
-		Some(node.map_inner(Object::node))
+		entry.set_graph_entry(None);
+		entry.set_included(None);
+		entry.set_reverse_properties(None);
+		Some(entry.node.map_inner(Object::node))
 	}
 }

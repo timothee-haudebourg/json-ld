@@ -1,4 +1,4 @@
-use json_syntax::JsonValue;
+use json_syntax::{tracing::JsonErrorAt, JsonValue};
 use rdf_syntax::Iri;
 
 use super::{
@@ -6,7 +6,8 @@ use super::{
 };
 use crate::{
 	algorithms::{
-		AsyncProcessingEnvironment, Compact, Error, Expand, JsonLdLocationStack, JsonLdSourceRef,
+		AsyncProcessingEnvironment, Compact, Error, Expand, JsonLdLocated, JsonLdLocationStack,
+		JsonLdSourceRef,
 	},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
@@ -40,7 +41,11 @@ impl JsonLdProcessor for Document {
 
 		// Process expand context if provided.
 		if let Some(expand_context) = options.expand_context.take() {
-			let context_document = expand_context.load(env.loader()).await?;
+			let context_document = expand_context
+				.load(env.loader())
+				.await
+				.map_err(Into::into)
+				.json_err_at(JsonLdLocationStack::Root)?;
 
 			active_context = context_document
 				.document
@@ -61,7 +66,9 @@ impl JsonLdProcessor for Document {
 		if let Some(context_url) = self.context_url() {
 			active_context = RemoteContext::iri(context_url.to_owned())
 				.load(env.loader())
-				.await?
+				.await
+				.map_err(Into::into)
+				.json_err_at(JsonLdLocationStack::Root)?
 				.document
 				.context
 				.process_with(
@@ -110,8 +117,12 @@ impl JsonLdProcessor for Document {
 
 		let generator = rdf_syntax::generator::BlankIdGenerator::new_with_prefix("b".to_string());
 		let flattened_output = expanded_input
-			.flatten(generator, options.ordered)
-			.map_err(Error::ConflictingIndexes)?;
+			.flatten(
+				generator,
+				options.ordered,
+				JsonLdLocationStack::new().file(JsonLdSourceRef::Expanded(self.url())),
+			)
+			.map_err(JsonLdLocated::cast)?;
 
 		match context {
 			Some(context) => {
@@ -128,10 +139,14 @@ async fn compact_expanded(
 	env: impl AsyncProcessingEnvironment,
 	context: RemoteContext,
 	options: JsonLdOptions,
-) -> Result<JsonValue, Error> {
+) -> Result<JsonValue, JsonLdLocated<Error>> {
 	let context_base = url.or(options.base.as_deref());
 
-	let context = context.load(env.loader()).await?;
+	let context = context
+		.load(env.loader())
+		.await
+		.map_err(Into::into)
+		.json_err_at(JsonLdLocationStack::Root)?;
 	let mut active_context = context
 		.document
 		.context
@@ -140,7 +155,7 @@ async fn compact_expanded(
 			context_base,
 			&RawProcessedContext::new(None),
 			options.context_processing_options(),
-			JsonLdLocationStack::Root,
+			JsonLdLocationStack::new().file(JsonLdSourceRef::Expanded(url)),
 		)
 		.await?;
 
@@ -156,5 +171,4 @@ async fn compact_expanded(
 	expanded_input
 		.compact_with(env, &active_context, options.compaction_options())
 		.await
-		.map_err(Error::from)
 }

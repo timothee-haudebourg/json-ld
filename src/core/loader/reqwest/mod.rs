@@ -8,7 +8,7 @@ use reqwest::{
 };
 use reqwest_middleware::ClientWithMiddleware;
 
-use crate::{Document, LoadError, Profile};
+use crate::{Document, DocumentSource, LoadError, Profile};
 
 use super::AsyncLoader;
 
@@ -197,7 +197,7 @@ impl AsyncLoader for ReqwestLoader {
 							})?;
 
 							// let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
-							let (document, _) = JsonValue::parse_slice(&bytes)
+							let (document, code_map) = JsonValue::parse_slice(&bytes)
 								.map_err(|e| LoadError::new(url.clone(), e))?;
 
 							break Ok(Document::new_full(
@@ -205,6 +205,10 @@ impl AsyncLoader for ReqwestLoader {
 								Some(content_type.into_media_type()),
 								context_url,
 								profile,
+								Some(DocumentSource::new(
+									String::from_utf8_lossy(&bytes).into_owned(),
+									code_map,
+								)),
 								document,
 							));
 						}

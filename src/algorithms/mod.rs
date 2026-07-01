@@ -12,7 +12,7 @@ pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
 pub use error::*;
 pub use expansion::*;
-use json_syntax::tracing::{JsonFragmentStack, JsonLocated};
+use json_syntax::tracing::{IntoOwned, JsonFragmentStack, JsonLocated};
 use rdf_syntax::{Iri, IriBuf};
 pub use warning::*;
 
@@ -126,9 +126,15 @@ pub enum JsonLdSourceRef<'a> {
 	Context(Option<&'a Iri>),
 }
 
-impl JsonLdSourceRef<'_> {
-	pub fn to_owned(&self) -> JsonLdSource {
-		todo!()
+impl IntoOwned for JsonLdSourceRef<'_> {
+	type Owned = JsonLdSource;
+
+	fn into_owned(self) -> JsonLdSource {
+		match self {
+			Self::Compact(iri) => JsonLdSource::Compact(iri.map(Iri::to_owned)),
+			Self::Expanded(iri) => JsonLdSource::Expanded(iri.map(Iri::to_owned)),
+			Self::Context(iri) => JsonLdSource::Context(iri.map(Iri::to_owned)),
+		}
 	}
 }
 
