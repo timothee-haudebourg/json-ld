@@ -162,8 +162,8 @@ impl AsyncLoader for ReqwestLoader {
 							let mut context_url = None;
 							if *content_type.media_type() != "application/ld+json" {
 								for link in response.headers().get_all(LINK).into_iter() {
-									if let Some(link) = Link::new(link) {
-										if link.rel()
+									if let Some(link) = Link::new(link)
+										&& link.rel()
 											== Some(b"http://www.w3.org/ns/json-ld#context")
 										{
 											if context_url.is_some() {
@@ -175,7 +175,6 @@ impl AsyncLoader for ReqwestLoader {
 
 											context_url = Some(link.href().resolved(&url));
 										}
-									}
 								}
 							}
 
@@ -185,11 +184,10 @@ impl AsyncLoader for ReqwestLoader {
 								.into_iter()
 								.flat_map(|p| p.split(|b| *b == b' '))
 							{
-								if let Ok(p) = std::str::from_utf8(p) {
-									if let Ok(iri) = Iri::new(p) {
+								if let Ok(p) = std::str::from_utf8(p)
+									&& let Ok(iri) = Iri::new(p) {
 										profile.insert(Profile::new(iri));
 									}
-								}
 							}
 
 							let bytes = response.bytes().await.map_err(|e| {
@@ -215,8 +213,8 @@ impl AsyncLoader for ReqwestLoader {
 						None => {
 							log::debug!("no valid media type found");
 							for link in response.headers().get_all(LINK).into_iter() {
-								if let Some(link) = Link::new(link) {
-									if link.rel() == Some(b"alternate")
+								if let Some(link) = Link::new(link)
+									&& link.rel() == Some(b"alternate")
 										&& link.type_() == Some(b"application/ld+json")
 									{
 										log::debug!("link found");
@@ -224,7 +222,6 @@ impl AsyncLoader for ReqwestLoader {
 										redirection_number += 1;
 										continue 'next_url;
 									}
-								}
 							}
 
 							break Err(LoadError::new(url, Error::InvalidContentType));

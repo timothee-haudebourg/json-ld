@@ -82,13 +82,11 @@ where
 	let mut id = None;
 
 	for term in deserializer.terms_of(subject) {
-		if let Ok(i) = term?.into_id() {
-			if let Some(other) = id.replace(i.into_owned()) {
-				if Some(other) != id {
+		if let Ok(i) = term?.into_id()
+			&& let Some(other) = id.replace(i.into_owned())
+				&& Some(other) != id {
 					return Err(linked_data::de::Error::custom("ambiguous id"));
 				}
-			}
-		}
 	}
 
 	Ok(id)

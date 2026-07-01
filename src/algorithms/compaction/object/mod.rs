@@ -42,8 +42,8 @@ impl Compactor<'_> {
 				//       Seems that the term definition should be looked up in `type_scoped_context`.
 				let mut active_context = Mown::Borrowed(active_context);
 				let mut list_container = false;
-				if let Some(active_property) = self.active_property {
-					if let Some(active_property_definition) =
+				if let Some(active_property) = self.active_property
+					&& let Some(active_property_definition) =
 						self.type_scoped_context.get(active_property)
 					{
 						if let Some(local_context) = active_property_definition.context() {
@@ -67,7 +67,6 @@ impl Compactor<'_> {
 							.container()
 							.contains(ContainerItem::List);
 					}
-				}
 
 				if list_container {
 					self.with_active_context(&active_context)
@@ -93,11 +92,10 @@ impl Compactor<'_> {
 					// active context that includes @index,
 					if let Some(index) = index {
 						let mut index_container = false;
-						if let Some(active_property) = self.active_property {
-							if let Some(active_property_definition) =
+						if let Some(active_property) = self.active_property
+							&& let Some(active_property_definition) =
 								active_context.get(active_property)
-							{
-								if active_property_definition
+								&& active_property_definition
 									.container()
 									.contains(ContainerItem::Index)
 								{
@@ -105,8 +103,6 @@ impl Compactor<'_> {
 									// drop the @index entry by continuing to the next expanded property.
 									index_container = true;
 								}
-							}
-						}
 
 						if !index_container {
 							// Initialize alias by IRI compacting expanded property.

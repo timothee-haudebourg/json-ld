@@ -259,8 +259,8 @@ impl<'a> From<&'a RawProcessedContext> for InverseContext {
 		});
 
 		for binding in definitions {
-			if let BindingRef::Normal(term, term_definition) = binding {
-				if let Some(var) = term_definition.value.as_ref() {
+			if let BindingRef::Normal(term, term_definition) = binding
+				&& let Some(var) = term_definition.value.as_ref() {
 					let container = &term_definition.container;
 					let container_map = result.reference_mut(var, InverseDefinition::new);
 					let type_lang_map =
@@ -359,7 +359,6 @@ impl<'a> From<&'a RawProcessedContext> for InverseContext {
 						}
 					}
 				}
-			}
 		}
 
 		result

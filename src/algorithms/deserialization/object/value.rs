@@ -84,11 +84,10 @@ impl SerializeLinkedData for ValueObject {
 fn canonical_number(n: &JsonNumberBuf, ty: &Iri) -> String {
 	let n = n.trimmed();
 
-	if ty == XSD_DOUBLE || n.has_decimal_point() || n.has_exponent() {
-		if let Ok(d) = Double::parse_xsd(n) {
+	if (ty == XSD_DOUBLE || n.has_decimal_point() || n.has_exponent())
+		&& let Ok(d) = Double::parse_xsd(n) {
 			return d.to_string();
 		}
-	}
 
 	n.to_string()
 }

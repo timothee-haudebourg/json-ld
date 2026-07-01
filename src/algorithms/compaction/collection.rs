@@ -31,8 +31,8 @@ impl Compactor<'_> {
 		}
 
 		let mut list_or_set = false;
-		if let Some(active_property) = self.active_property {
-			if let Some(active_property_definition) = self.active_context.get(active_property) {
+		if let Some(active_property) = self.active_property
+			&& let Some(active_property_definition) = self.active_context.get(active_property) {
 				list_or_set = active_property_definition
 					.container()
 					.contains(ContainerItem::List)
@@ -40,7 +40,6 @@ impl Compactor<'_> {
 						.container()
 						.contains(ContainerItem::Set);
 			}
-		}
 
 		if result.is_empty()
 			|| result.len() > 1

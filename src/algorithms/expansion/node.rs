@@ -491,11 +491,10 @@ impl<'a> Expander<'a> {
 
 								// If key's term definition in active context has a
 								// direction mapping, update direction with that value.
-								if let Some(key_definition) = key_definition {
-									if let Some(key_direction) = key_definition.direction() {
+								if let Some(key_definition) = key_definition
+									&& let Some(key_direction) = key_definition.direction() {
 										direction = key_direction.option()
 									}
-								}
 
 								// For each key-value pair language-language value in
 								// value, ordered lexicographically by language if ordered is true:
@@ -629,15 +628,13 @@ impl<'a> Expander<'a> {
 									// from `active_context` if it exists, otherwise, set
 									// `map_context` to `active_context`.
 									let mut map_context = Mown::Borrowed(self.active_context);
-									if container_mapping.contains(ContainerItem::Type)
-										|| container_mapping.contains(ContainerItem::Id)
-									{
-										if let Some(previous_context) =
+									if (container_mapping.contains(ContainerItem::Type)
+										|| container_mapping.contains(ContainerItem::Id))
+										&& let Some(previous_context) =
 											self.active_context.previous_context()
 										{
 											map_context = Mown::Borrowed(previous_context)
 										}
-									}
 
 									// If container mapping includes @type and
 									// index's term definition in map context has a
@@ -646,11 +643,10 @@ impl<'a> Expander<'a> {
 									// map context as active context the value of the
 									// index's local context as local context and base URL
 									// from the term definition for index in map context.
-									if container_mapping.contains(ContainerItem::Type) {
-										if let Some(index_definition) =
+									if container_mapping.contains(ContainerItem::Type)
+										&& let Some(index_definition) =
 											map_context.get(index.as_str())
-										{
-											if let Some(local_context) = index_definition.context()
+											&& let Some(local_context) = index_definition.context()
 											{
 												map_context = Mown::Owned(
 													local_context
@@ -665,8 +661,6 @@ impl<'a> Expander<'a> {
 														.into_raw(),
 												)
 											}
-										}
-									}
 
 									// Otherwise, set map context to active context.
 									// TODO What?

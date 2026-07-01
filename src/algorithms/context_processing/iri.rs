@@ -78,11 +78,10 @@ impl<'a> ContextProcessor<'a> {
 				if let Some(term_definition) = result.value.get(value) {
 					// If active context has a term definition for value, and the associated IRI mapping
 					// is a keyword, return that keyword.
-					if let Some(value) = term_definition.value() {
-						if value.is_keyword() {
+					if let Some(value) = term_definition.value()
+						&& value.is_keyword() {
 							return Ok(value.clone());
 						}
-					}
 
 					// If vocab is true and the active context has a term definition for value, return the
 					// associated IRI mapping.
@@ -123,16 +122,14 @@ impl<'a> ContextProcessor<'a> {
 						// mapping and the prefix flag of the term definition is true, return the result
 						// of concatenating the IRI mapping associated with prefix and suffix.
 						let prefix_key = ContextTerm::from(compact_iri.prefix().to_string());
-						if let Some(term_definition) = result.value.get_normal(&prefix_key) {
-							if term_definition.prefix {
-								if let Some(mapping) = &term_definition.value {
+						if let Some(term_definition) = result.value.get_normal(&prefix_key)
+							&& term_definition.prefix
+								&& let Some(mapping) = &term_definition.value {
 									let mut result = mapping.as_str().to_owned();
 									result.push_str(compact_iri.suffix());
 
 									return Ok(Term::Id(Lenient::from_string(result).0));
 								}
-							}
-						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
@@ -161,13 +158,11 @@ impl<'a> ContextProcessor<'a> {
 				// are performed. Characters additionally allowed in IRI references are treated in the
 				// same way that unreserved characters are treated in URI references, per section 6.5 of
 				// [RFC3987].
-				if document_relative {
-					if let Ok(iri_ref) = IriRef::new(value) {
-						if let Some(iri) = resolve_iri(iri_ref, result.value.base_iri()) {
+				if document_relative
+					&& let Ok(iri_ref) = IriRef::new(value)
+						&& let Some(iri) = resolve_iri(iri_ref, result.value.base_iri()) {
 							return Ok(Term::from(iri));
 						}
-					}
-				}
 
 				// Return value as is.
 				Ok(invalid_iri(value.to_owned(), |w| env.warn(w)))
@@ -204,11 +199,10 @@ impl RawProcessedContext {
 				if let Some(term_definition) = self.get(value) {
 					// If active context has a term definition for value, and the associated IRI mapping
 					// is a keyword, return that keyword.
-					if let Some(value) = term_definition.value() {
-						if value.is_keyword() {
+					if let Some(value) = term_definition.value()
+						&& value.is_keyword() {
 							return value.clone();
 						}
-					}
 
 					// If vocab is true and the active context has a term definition for value, return the
 					// associated IRI mapping.
@@ -234,15 +228,13 @@ impl RawProcessedContext {
 						// mapping and the prefix flag of the term definition is true, return the result
 						// of concatenating the IRI mapping associated with prefix and suffix.
 						let prefix_key = ContextTerm::from(compact_iri.prefix().to_string());
-						if let Some(term_definition) = self.get_normal(&prefix_key) {
-							if term_definition.prefix {
-								if let Some(mapping) = &term_definition.value {
+						if let Some(term_definition) = self.get_normal(&prefix_key)
+							&& term_definition.prefix
+								&& let Some(mapping) = &term_definition.value {
 									let mut result = mapping.as_str().to_owned();
 									result.push_str(compact_iri.suffix());
 									return Term::Id(Lenient::from_string(result).0);
 								}
-							}
-						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
@@ -271,13 +263,11 @@ impl RawProcessedContext {
 				// are performed. Characters additionally allowed in IRI references are treated in the
 				// same way that unreserved characters are treated in URI references, per section 6.5 of
 				// [RFC3987].
-				if document_relative {
-					if let Ok(iri_ref) = IriRef::new(value) {
-						if let Some(iri) = resolve_iri(iri_ref, self.base_iri()) {
+				if document_relative
+					&& let Ok(iri_ref) = IriRef::new(value)
+						&& let Some(iri) = resolve_iri(iri_ref, self.base_iri()) {
 							return Term::from(iri);
 						}
-					}
-				}
 
 				// Return value as is.
 				invalid_iri(value.to_string(), on_warning)

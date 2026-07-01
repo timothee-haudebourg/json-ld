@@ -281,8 +281,8 @@ impl Compactor<'_> {
 							.ok()
 							.unwrap()
 							.unwrap();
-						let sub_object = value.as_object_mut().unwrap();
-						sub_object
+						
+						value.as_object_mut().unwrap()
 						// SubObject::Sub(result.get_mut(nest_term).unwrap().as_object_mut().unwrap())
 					}
 					None => {
@@ -521,8 +521,8 @@ impl Compactor<'_> {
 										// those remaining values to the `container_key`
 										// in `compacted_item`.
 										// Otherwise, remove that entry from compacted item.
-										if !remaining_values.is_empty() {
-											if let Some(map) = compacted_item.as_object_mut() {
+										if !remaining_values.is_empty()
+											&& let Some(map) = compacted_item.as_object_mut() {
 												for value in remaining_values {
 													add_value(
 														map,
@@ -532,7 +532,6 @@ impl Compactor<'_> {
 													)
 												}
 											}
-										}
 
 										map_key
 									}
@@ -600,8 +599,8 @@ impl Compactor<'_> {
 								// remaining values to the `container_key` in
 								// `compacted_item`.
 								// Otherwise, remove that entry from compacted item.
-								if !remaining_values.is_empty() {
-									if let Some(map) = compacted_item.as_object_mut() {
+								if !remaining_values.is_empty()
+									&& let Some(map) = compacted_item.as_object_mut() {
 										for value in remaining_values {
 											add_value(
 												map,
@@ -611,7 +610,6 @@ impl Compactor<'_> {
 											)
 										}
 									}
-								}
 
 								// If `compacted_item` contains a single entry with a key
 								// expanding to @id, set `compacted_item` to the result of
@@ -619,8 +617,8 @@ impl Compactor<'_> {
 								// passing `active_context`, `item_active_property` for
 								// `active_property`, and a map composed of the single
 								// entry for @id from `expanded_item` for `element`.
-								if let Some(map) = compacted_item.as_object() {
-									if map.len() == 1
+								if let Some(map) = compacted_item.as_object()
+									&& map.len() == 1
 										&& map.get_unique("@id").ok().unwrap().is_some()
 									{
 										let obj = Object::node(NodeObject::new_with_id(Some(
@@ -639,7 +637,6 @@ impl Compactor<'_> {
 										)
 										.await?
 									}
-								}
 
 								map_key
 							};

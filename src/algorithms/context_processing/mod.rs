@@ -159,15 +159,14 @@ impl<'a> ContextProcessor<'a> {
 
 		// 2) If `local_context` is an object containing the member @propagate,
 		// its value MUST be boolean true or false, set `propagate` to that value.
-		if let Context::One(ContextEntry::Definition(def)) = local_context {
-			if let Some(propagate) = def.propagate {
+		if let Context::One(ContextEntry::Definition(def)) = local_context
+			&& let Some(propagate) = def.propagate {
 				if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
 					return Err(JsonLdError::InvalidContextEntry.at(location));
 				}
 
 				self.options.propagate = propagate
 			}
-		}
 
 		// 3) If propagate is false, and result does not have a previous context,
 		// set previous context in result to active context.

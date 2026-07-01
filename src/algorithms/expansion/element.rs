@@ -200,8 +200,8 @@ impl<'a> Expander<'a> {
 					// if `term` is a string, and `term`'s term definition in `type_scoped_context`
 					// has a `local_context`,
 					for term in sorted_value {
-						if let Some(term_definition) = type_scoped_context.get(term) {
-							if let Some(local_context) = term_definition.context() {
+						if let Some(term_definition) = type_scoped_context.get(term)
+							&& let Some(local_context) = term_definition.context() {
 								// set `active_context` to the result of
 								// Context Processing algorithm, passing `active_context`, the value of the
 								// `term`'s local context as `local_context`, `base_url` from the term
@@ -220,7 +220,6 @@ impl<'a> Expander<'a> {
 										.into_raw(),
 								);
 							}
-						}
 					}
 				}
 

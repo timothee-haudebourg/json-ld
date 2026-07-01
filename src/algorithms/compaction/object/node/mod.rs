@@ -46,10 +46,9 @@ impl Compactor<'_> {
 		// If the term definition for active property in active context has a local context:
 		// FIXME https://github.com/w3c/json-ld-api/issues/502
 		//       Seems that the term definition should be looked up in `type_scoped_context`.
-		if let Some(active_property) = self.active_property {
-			if let Some(active_property_definition) = self.type_scoped_context.get(active_property)
-			{
-				if let Some(local_context) = active_property_definition.context() {
+		if let Some(active_property) = self.active_property
+			&& let Some(active_property_definition) = self.type_scoped_context.get(active_property)
+				&& let Some(local_context) = active_property_definition.context() {
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
@@ -63,8 +62,6 @@ impl Compactor<'_> {
 							.into_raw(),
 					)
 				}
-			}
-		}
 
 		// let inside_reverse = active_property == Some("@reverse");
 		let mut result = JsonObject::default();
@@ -88,8 +85,7 @@ impl Compactor<'_> {
 				if let Some(term_definition) = self
 					.type_scoped_context
 					.get(term.as_ref().unwrap().as_str())
-				{
-					if let Some(local_context) = term_definition.context() {
+					&& let Some(local_context) = term_definition.context() {
 						let processing_options =
 							ContextProcessingOptions::from(self.options).without_propagation();
 						active_context = Mown::Owned(
@@ -105,7 +101,6 @@ impl Compactor<'_> {
 								.into_raw(),
 						)
 					}
-				}
 			}
 		}
 
@@ -182,14 +177,14 @@ impl Compactor<'_> {
 			.compact_types(&mut result, node.types.as_deref())?;
 
 		// If expanded property is @reverse:
-		if let Some(reverse_properties) = node.reverse_properties_entry() {
-			if !reverse_properties.is_empty() {
+		if let Some(reverse_properties) = node.reverse_properties_entry()
+			&& !reverse_properties.is_empty() {
 				// Initialize compacted value to the result of using this algorithm recursively,
 				// passing active context, @reverse for active property,
 				// expanded value for element, and the compactArrays and ordered flags.
 				let active_property = "@reverse";
-				if let Some(active_property_definition) = active_context.get(active_property) {
-					if let Some(local_context) = active_property_definition.context() {
+				if let Some(active_property_definition) = active_context.get(active_property)
+					&& let Some(local_context) = active_property_definition.context() {
 						active_context = Mown::Owned(
 							local_context
 								.process_with(
@@ -203,7 +198,6 @@ impl Compactor<'_> {
 								.into_raw(),
 						)
 					}
-				}
 
 				let mut reverse_result = JsonObject::default();
 				for (expanded_property, expanded_value) in reverse_properties.iter() {
@@ -226,8 +220,8 @@ impl Compactor<'_> {
 
 					// If the term definition for property in the active context indicates that
 					// property is a reverse property
-					if let Some(term_definition) = active_context.get(property.as_str()) {
-						if term_definition.reverse_property() {
+					if let Some(term_definition) = active_context.get(property.as_str())
+						&& term_definition.reverse_property() {
 							// Initialize as array to true if the container mapping for property in
 							// the active context includes @set, otherwise the negation of compactArrays.
 							let as_array = term_definition.container().contains(ContainerItem::Set)
@@ -237,7 +231,6 @@ impl Compactor<'_> {
 							add_value(&mut result, property, value, as_array);
 							continue;
 						}
-					}
 
 					reverse_map.insert(property.clone(), value);
 				}
@@ -254,15 +247,14 @@ impl Compactor<'_> {
 					result.insert(alias.unwrap(), reverse_map.into());
 				}
 			}
-		}
 
 		// If expanded property is @index and active property has a container mapping in
 		// active context that includes @index,
 		if let Some(index_entry) = index {
 			let mut index_container = false;
-			if let Some(active_property) = self.active_property {
-				if let Some(active_property_definition) = active_context.get(active_property) {
-					if active_property_definition
+			if let Some(active_property) = self.active_property
+				&& let Some(active_property_definition) = active_context.get(active_property)
+					&& active_property_definition
 						.container()
 						.contains(ContainerItem::Index)
 					{
@@ -270,8 +262,6 @@ impl Compactor<'_> {
 						// drop the @index entry by continuing to the next expanded property.
 						index_container = true;
 					}
-				}
-			}
 
 			if !index_container {
 				// Initialize alias by IRI compacting expanded property.
@@ -332,8 +322,8 @@ impl Compactor<'_> {
 		types: Option<&[Lenient<Id>]>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded property is @type:
-		if let Some(types) = types {
-			if !types.is_empty() {
+		if let Some(types) = types
+			&& !types.is_empty() {
 				// If expanded value is a string,
 				// then initialize compacted value by IRI compacting expanded value using
 				// type-scoped context for active context.
@@ -382,7 +372,6 @@ impl Compactor<'_> {
 				// Use add value to add compacted value to the alias entry in result using as array.
 				add_value(result, &alias, compacted_value, as_array)
 			}
-		}
 
 		Ok(())
 	}

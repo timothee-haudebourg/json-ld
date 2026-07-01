@@ -84,9 +84,7 @@ impl JsonLdProcessor for Document {
 
 		// Expand the document.
 		Expand::expand_with(self, env, &active_context, options.expansion_options())
-			.await
-			.map_err(Into::into)
-	}
+			.await}
 
 	async fn async_compact_with(
 		&self,
