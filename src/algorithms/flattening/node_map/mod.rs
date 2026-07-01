@@ -12,6 +12,8 @@ mod builder;
 
 use builder::NodeMapBuilder;
 
+pub type NodeMapExtendError = Box<JsonLdLocated<ConflictingIndexes>>;
+
 /// Conflicting indexes error.
 ///
 /// Raised when a single node is declared with two different indexes.
@@ -31,7 +33,7 @@ impl ExpandedDocument {
 		&self,
 		generator: impl Generator,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<NodeMap, JsonLdLocated<ConflictingIndexes>> {
+	) -> Result<NodeMap, NodeMapExtendError> {
 		let mut builder = NodeMapBuilder::new(generator);
 
 		for (i, object) in self.iter().enumerate() {

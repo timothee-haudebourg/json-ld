@@ -10,7 +10,7 @@ use crate::{
 	syntax::Keyword,
 };
 
-use super::{ConflictingIndexes, NodeMap};
+use super::{ConflictingIndexes, NodeMap, NodeMapExtendError};
 
 pub struct NodeMapBuilder<G> {
 	substitution: Substitution<G>,
@@ -47,7 +47,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		element: &IndexedObject,
 		active_graph: Option<&Lenient<Id>>,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<IndexedObject, JsonLdLocated<ConflictingIndexes>> {
+	) -> Result<IndexedObject, NodeMapExtendError> {
 		match element.inner() {
 			Object::Value(value) => {
 				let flat_value = value.clone();
@@ -87,7 +87,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		index: Option<&str>,
 		active_graph: Option<&Lenient<Id>>,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<Indexed<NodeObject>, JsonLdLocated<ConflictingIndexes>> {
+	) -> Result<Indexed<NodeObject>, NodeMapExtendError> {
 		let id = self.substitution.assign_node_id(node.id.as_ref());
 
 		{

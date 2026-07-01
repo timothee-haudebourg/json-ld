@@ -7,8 +7,8 @@ use super::{
 use crate::{
 	Document, RemoteContext,
 	algorithms::{
-		AsyncProcessingEnvironment, Compact, Expand, JsonLdLocated,
-		JsonLdLocatedError, JsonLdLocationStack, JsonLdSourceRef,
+		AsyncProcessingEnvironment, Compact, Expand, JsonLdLocated, JsonLdLocatedError,
+		JsonLdLocationStack, JsonLdSourceRef,
 	},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
@@ -83,8 +83,8 @@ impl JsonLdProcessor for Document {
 		}
 
 		// Expand the document.
-		Expand::expand_with(self, env, &active_context, options.expansion_options())
-			.await}
+		Expand::expand_with(self, env, &active_context, options.expansion_options()).await
+	}
 
 	async fn async_compact_with(
 		&self,
@@ -120,7 +120,7 @@ impl JsonLdProcessor for Document {
 				options.ordered,
 				JsonLdLocationStack::new().file(JsonLdSourceRef::Expanded(self.url())),
 			)
-			.map_err(JsonLdLocated::cast)?;
+			.map_err(|e| (*e).cast())?;
 
 		match context {
 			Some(context) => {

@@ -15,7 +15,7 @@ impl ExpandedDocument {
 		generator: impl Generator,
 		ordered: bool,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<FlattenedDocument, JsonLdLocated<ConflictingIndexes>> {
+	) -> Result<FlattenedDocument, NodeMapExtendError> {
 		Ok(self
 			.generate_node_map_with(generator, location)?
 			.flatten(ordered))
@@ -25,7 +25,7 @@ impl ExpandedDocument {
 		self,
 		generator: impl Generator,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<UnorderedFlattenedDocument, JsonLdLocated<ConflictingIndexes>> {
+	) -> Result<UnorderedFlattenedDocument, NodeMapExtendError> {
 		Ok(self
 			.generate_node_map_with(generator, location)?
 			.flatten_unordered())
