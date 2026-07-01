@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"rel": { "@reverse": "http://example.org/rel", "@id": "http://example.org/relId" }
+	},
+	"@id": "https://example.com/foo"
+}

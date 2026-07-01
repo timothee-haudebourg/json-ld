@@ -1,8 +1,8 @@
 use crate::object::{ObjectMut, ObjectRef};
 use crate::syntax::Keyword;
-use crate::{object, Direction, LangString, Lenient, Type, VisitJsonLd};
+use crate::{Direction, LangString, Lenient, Type, VisitJsonLd, object};
 use educe::Educe;
-use json_syntax::{ryu_js, JsonNumber, JsonNumberBuf, JsonValue};
+use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue, ryu_js};
 use langtag::LangTag;
 use rdf_syntax::{IdRef, Iri, IriBuf};
 use rdf_syntax::{Literal, RDF_JSON};
@@ -376,13 +376,13 @@ impl From<Literal> for ValueObject {
 							return Self::Literal(LiteralValue::new(
 								JsonValue::Boolean(true),
 								Some(LiteralType::Iri(ty)),
-							))
+							));
 						}
 						"false" => {
 							return Self::Literal(LiteralValue::new(
 								JsonValue::Boolean(false),
 								Some(LiteralType::Iri(ty)),
-							))
+							));
 						}
 						_ => (),
 					}

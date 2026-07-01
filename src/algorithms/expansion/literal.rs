@@ -3,12 +3,13 @@ use std::borrow::Cow;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
-	algorithms::{Error, JsonLdLocated, JsonLdLocationStack, Warning},
-	object::{value::LiteralType, LiteralValue},
-	IndexedObject, LangString, Lenient, NodeObject, Nullable, Object, Type, ValueObject,
+	IndexedObject, JsonLdError, LangString, Lenient, NodeObject, Nullable, Object, Type,
+	ValueObject,
+	algorithms::{JsonLdLocated, JsonLdLocationStack, Warning},
+	object::{LiteralValue, value::LiteralType},
 };
 
-use super::{node_id_of_term, Expander};
+use super::{Expander, node_id_of_term};
 
 pub enum ExpandableLiteralValue<'a> {
 	Boolean(bool),
@@ -52,7 +53,7 @@ impl<'a> Expander<'a> {
 		warn: impl FnOnce(Warning),
 		value: ExpandableLiteralValue,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<IndexedObject, JsonLdLocated<Error>> {
+	) -> Result<IndexedObject, JsonLdLocated<JsonLdError>> {
 		let active_property_definition = self.active_property_definition();
 		let active_property_type =
 			if let Some(active_property_definition) = active_property_definition {
@@ -169,7 +170,7 @@ impl<'a> Expander<'a> {
 						if let Ok(t) = t.into_iri() {
 							ty = Some(t)
 						} else {
-							return Err(Error::InvalidTypeValue.at(location));
+							return Err(JsonLdError::InvalidTypeValue.at(location));
 						}
 					}
 				}

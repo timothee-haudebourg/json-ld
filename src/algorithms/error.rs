@@ -1,13 +1,13 @@
 use std::convert::TryFrom;
 use std::fmt;
 
+use crate::LoadError;
 use crate::algorithms::flattening::ConflictingIndexes;
 use crate::algorithms::{JsonLdLocated, JsonLdLocationStack};
-use crate::LoadError;
 
 /// Error code.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub enum ErrorCode {
+pub enum JsonLdErrorCode {
 	/// Two properties which expand to the same keyword have been detected.
 	/// This might occur if a keyword and an alias thereof are used at the same time.
 	CollidingKeywords,
@@ -177,10 +177,10 @@ pub enum ErrorCode {
 	DuplicateKey,
 }
 
-impl ErrorCode {
+impl JsonLdErrorCode {
 	/// Get the error message corresponding to the error code.
 	pub fn as_str(&self) -> &str {
-		use ErrorCode::*;
+		use JsonLdErrorCode::*;
 
 		match self {
 			CollidingKeywords => "colliding keywords",
@@ -238,11 +238,11 @@ impl ErrorCode {
 	}
 }
 
-impl<'a> TryFrom<&'a str> for ErrorCode {
+impl<'a> TryFrom<&'a str> for JsonLdErrorCode {
 	type Error = ();
 
-	fn try_from(name: &'a str) -> Result<ErrorCode, ()> {
-		use ErrorCode::*;
+	fn try_from(name: &'a str) -> Result<JsonLdErrorCode, ()> {
+		use JsonLdErrorCode::*;
 		match name {
 			"colliding keywords" => Ok(CollidingKeywords),
 			"conflicting indexes" => Ok(ConflictingIndexes),
@@ -299,7 +299,7 @@ impl<'a> TryFrom<&'a str> for ErrorCode {
 	}
 }
 
-impl fmt::Display for ErrorCode {
+impl fmt::Display for JsonLdErrorCode {
 	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.as_str())
@@ -307,7 +307,7 @@ impl fmt::Display for ErrorCode {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum JsonLdError {
 	#[error("Invalid context nullification")]
 	InvalidContextNullification,
 
@@ -446,60 +446,60 @@ pub enum Error {
 	IriConfusedWithPrefix,
 }
 
-impl Error {
+impl JsonLdError {
 	pub fn at(self, location: JsonLdLocationStack<'_>) -> JsonLdLocated<Self> {
 		JsonLdLocated::new(self, location.build())
 	}
 
 	pub fn duplicate_key_ref(d: json_syntax::object::DuplicateEntryRef) -> Self {
-		Self::DuplicateKey(d.0 .0.clone())
+		Self::DuplicateKey(d.0.0.clone())
 	}
 
-	pub fn code(&self) -> ErrorCode {
+	pub fn code(&self) -> JsonLdErrorCode {
 		match self {
-			Self::InvalidContextNullification => ErrorCode::InvalidContextNullification,
-			Self::LoadingDocumentFailed => ErrorCode::LoadingDocumentFailed,
-			Self::ProcessingModeConflict => ErrorCode::ProcessingModeConflict,
-			Self::ContextSyntax(_) => ErrorCode::InvalidContextEntry,
-			Self::InvalidContextEntry => ErrorCode::InvalidContextEntry,
-			Self::InvalidImportValue => ErrorCode::InvalidImportValue,
-			Self::InvalidRemoteContext => ErrorCode::InvalidRemoteContext,
-			Self::InvalidBaseIri => ErrorCode::InvalidBaseIri,
-			Self::InvalidBaseDirection => ErrorCode::InvalidBaseDirection,
-			Self::InvalidVocabMapping => ErrorCode::InvalidVocabMapping,
-			Self::CyclicIriMapping => ErrorCode::CyclicIriMapping,
-			Self::InvalidTermDefinition => ErrorCode::InvalidTermDefinition,
-			Self::KeywordRedefinition => ErrorCode::KeywordRedefinition,
-			Self::InvalidProtectedValue => ErrorCode::InvalidPropagateValue,
-			Self::InvalidTypeMapping => ErrorCode::InvalidTypeMapping,
-			Self::InvalidReverseProperty => ErrorCode::InvalidReverseProperty,
-			Self::InvalidIriMapping => ErrorCode::InvalidIriMapping,
-			Self::InvalidKeywordAlias => ErrorCode::InvalidKeywordAlias,
-			Self::InvalidContainerMapping => ErrorCode::InvalidContainerMapping,
-			Self::InvalidScopedContext => ErrorCode::InvalidScopedContext,
-			Self::ProtectedTermRedefinition => ErrorCode::ProtectedTermRedefinition,
-			Self::ContextLoadingFailed(_) => ErrorCode::LoadingRemoteContextFailed,
-			Self::RemoteContextSyntax(_) => ErrorCode::LoadingRemoteContextFailed,
-			Self::InvalidIndexValue => ErrorCode::InvalidIndexValue,
-			Self::InvalidTypedValue => ErrorCode::InvalidTypedValue,
-			Self::InvalidValueObject => ErrorCode::InvalidValueObject,
-			Self::InvalidValueObjectValue => ErrorCode::InvalidValueObjectValue,
-			Self::InvalidSetOrListObject => ErrorCode::InvalidSetOrListObject,
-			Self::InvalidReversePropertyMap => ErrorCode::InvalidReversePropertyMap,
-			Self::InvalidTypeValue => ErrorCode::InvalidTypeValue,
-			Self::KeyExpansionFailed(_) => ErrorCode::KeyExpansionFailed,
-			Self::InvalidReversePropertyValue => ErrorCode::InvalidReversePropertyValue,
-			Self::InvalidLanguageTaggedString => ErrorCode::InvalidLanguageTaggedString,
-			Self::InvalidLanguageTaggedValue => ErrorCode::InvalidLanguageTaggedValue,
-			Self::InvalidLanguageMapValue => ErrorCode::InvalidLanguageMapValue,
-			Self::CollidingKeywords => ErrorCode::CollidingKeywords,
-			Self::ConflictingIndexes(_) => ErrorCode::ConflictingIndexes,
-			Self::InvalidIdValue => ErrorCode::InvalidIdValue,
-			Self::InvalidIncludedValue => ErrorCode::InvalidIncludedValue,
-			Self::InvalidReverseValue => ErrorCode::InvalidReverseValue,
-			Self::InvalidNestValue => ErrorCode::InvalidNestValue,
-			Self::DuplicateKey(_) => ErrorCode::DuplicateKey,
-			Self::IriConfusedWithPrefix => ErrorCode::IriConfusedWithPrefix,
+			Self::InvalidContextNullification => JsonLdErrorCode::InvalidContextNullification,
+			Self::LoadingDocumentFailed => JsonLdErrorCode::LoadingDocumentFailed,
+			Self::ProcessingModeConflict => JsonLdErrorCode::ProcessingModeConflict,
+			Self::ContextSyntax(_) => JsonLdErrorCode::InvalidContextEntry,
+			Self::InvalidContextEntry => JsonLdErrorCode::InvalidContextEntry,
+			Self::InvalidImportValue => JsonLdErrorCode::InvalidImportValue,
+			Self::InvalidRemoteContext => JsonLdErrorCode::InvalidRemoteContext,
+			Self::InvalidBaseIri => JsonLdErrorCode::InvalidBaseIri,
+			Self::InvalidBaseDirection => JsonLdErrorCode::InvalidBaseDirection,
+			Self::InvalidVocabMapping => JsonLdErrorCode::InvalidVocabMapping,
+			Self::CyclicIriMapping => JsonLdErrorCode::CyclicIriMapping,
+			Self::InvalidTermDefinition => JsonLdErrorCode::InvalidTermDefinition,
+			Self::KeywordRedefinition => JsonLdErrorCode::KeywordRedefinition,
+			Self::InvalidProtectedValue => JsonLdErrorCode::InvalidPropagateValue,
+			Self::InvalidTypeMapping => JsonLdErrorCode::InvalidTypeMapping,
+			Self::InvalidReverseProperty => JsonLdErrorCode::InvalidReverseProperty,
+			Self::InvalidIriMapping => JsonLdErrorCode::InvalidIriMapping,
+			Self::InvalidKeywordAlias => JsonLdErrorCode::InvalidKeywordAlias,
+			Self::InvalidContainerMapping => JsonLdErrorCode::InvalidContainerMapping,
+			Self::InvalidScopedContext => JsonLdErrorCode::InvalidScopedContext,
+			Self::ProtectedTermRedefinition => JsonLdErrorCode::ProtectedTermRedefinition,
+			Self::ContextLoadingFailed(_) => JsonLdErrorCode::LoadingRemoteContextFailed,
+			Self::RemoteContextSyntax(_) => JsonLdErrorCode::LoadingRemoteContextFailed,
+			Self::InvalidIndexValue => JsonLdErrorCode::InvalidIndexValue,
+			Self::InvalidTypedValue => JsonLdErrorCode::InvalidTypedValue,
+			Self::InvalidValueObject => JsonLdErrorCode::InvalidValueObject,
+			Self::InvalidValueObjectValue => JsonLdErrorCode::InvalidValueObjectValue,
+			Self::InvalidSetOrListObject => JsonLdErrorCode::InvalidSetOrListObject,
+			Self::InvalidReversePropertyMap => JsonLdErrorCode::InvalidReversePropertyMap,
+			Self::InvalidTypeValue => JsonLdErrorCode::InvalidTypeValue,
+			Self::KeyExpansionFailed(_) => JsonLdErrorCode::KeyExpansionFailed,
+			Self::InvalidReversePropertyValue => JsonLdErrorCode::InvalidReversePropertyValue,
+			Self::InvalidLanguageTaggedString => JsonLdErrorCode::InvalidLanguageTaggedString,
+			Self::InvalidLanguageTaggedValue => JsonLdErrorCode::InvalidLanguageTaggedValue,
+			Self::InvalidLanguageMapValue => JsonLdErrorCode::InvalidLanguageMapValue,
+			Self::CollidingKeywords => JsonLdErrorCode::CollidingKeywords,
+			Self::ConflictingIndexes(_) => JsonLdErrorCode::ConflictingIndexes,
+			Self::InvalidIdValue => JsonLdErrorCode::InvalidIdValue,
+			Self::InvalidIncludedValue => JsonLdErrorCode::InvalidIncludedValue,
+			Self::InvalidReverseValue => JsonLdErrorCode::InvalidReverseValue,
+			Self::InvalidNestValue => JsonLdErrorCode::InvalidNestValue,
+			Self::DuplicateKey(_) => JsonLdErrorCode::DuplicateKey,
+			Self::IriConfusedWithPrefix => JsonLdErrorCode::IriConfusedWithPrefix,
 		}
 	}
 }

@@ -1,10 +1,10 @@
 use json_syntax::JsonValue;
 
 use crate::{
+	ExpandedDocument, FlattenedDocument, JsonLdError, ProcessedContext,
 	algorithms::{
-		compaction::CompactFragment, AsyncProcessingEnvironment, JsonLdLocated, JsonLdSourceRef,
+		AsyncProcessingEnvironment, JsonLdLocated, JsonLdSourceRef, compaction::CompactFragment,
 	},
-	Error, ExpandedDocument, FlattenedDocument, ProcessedContext,
 };
 
 use super::{Compact, CompactionOptions, Compactor, EmbedContext};
@@ -16,7 +16,7 @@ impl ExpandedDocument {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		let compactor = Compactor::new(context, options, JsonLdSourceRef::Expanded(None));
 
 		let mut compact = self.objects().compact_fragment(&env, &compactor).await?;
@@ -31,7 +31,7 @@ impl ExpandedDocument {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		self.compact_with(env, context, CompactionOptions::default())
 			.await
 	}
@@ -43,7 +43,7 @@ impl Compact for ExpandedDocument {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		self.compact_with(env, context, options).await
 	}
 }
@@ -54,7 +54,7 @@ impl Compact for FlattenedDocument {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		let compactor = Compactor::new(context, options, JsonLdSourceRef::Expanded(None));
 
 		let mut compact = self.compact_fragment(&env, &compactor).await?;

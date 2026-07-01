@@ -3,8 +3,8 @@ use hashbrown::HashSet;
 use json_syntax::{JsonValue, ParseJson};
 use rdf_syntax::Iri;
 use reqwest::{
-	header::{ACCEPT, CONTENT_TYPE, LINK},
 	StatusCode,
+	header::{ACCEPT, CONTENT_TYPE, LINK},
 };
 use reqwest_middleware::ClientWithMiddleware;
 

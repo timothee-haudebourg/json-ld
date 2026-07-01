@@ -1,11 +1,11 @@
 use json_syntax::{JsonNumberBuf, JsonValue, PrintJson};
-use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
+use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::Iri;
-use rdf_syntax::{Literal, Term, RDF_JSON};
+use rdf_syntax::{Literal, RDF_JSON, Term};
 use xsd_types::{Double, ParseXsd, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
 
 use crate::Lenient;
-use crate::{object::value::LiteralType, ValueObject};
+use crate::{ValueObject, object::value::LiteralType};
 
 use super::super::RdfSerializationOptions;
 

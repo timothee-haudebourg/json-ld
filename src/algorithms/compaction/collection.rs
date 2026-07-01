@@ -2,9 +2,9 @@ use indexmap::IndexSet;
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{compaction::Compactor, AsyncProcessingEnvironment, JsonLdLocated},
+	JsonLdError,
+	algorithms::{AsyncProcessingEnvironment, JsonLdLocated, compaction::Compactor},
 	syntax::ContainerItem,
-	Error,
 };
 
 use super::CompactFragment;
@@ -14,7 +14,7 @@ impl Compactor<'_> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		items: O,
-	) -> Result<JsonValue, JsonLdLocated<Error>>
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>>
 	where
 		T: 'a + CompactFragment,
 		O: 'a + Iterator<Item = &'a T>,
@@ -60,7 +60,7 @@ impl<T: CompactFragment> CompactFragment for Vec<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		compactor.compact_collection_with(env, self.iter()).await
 	}
 }
@@ -70,7 +70,7 @@ impl<T: CompactFragment> CompactFragment for [T] {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		compactor.compact_collection_with(env, self.iter()).await
 	}
 }
@@ -80,7 +80,7 @@ impl<T: CompactFragment> CompactFragment for IndexSet<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		compactor.compact_collection_with(env, self.iter()).await
 	}
 }

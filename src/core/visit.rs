@@ -5,8 +5,8 @@ use json_syntax::ryu_js;
 use rdf_syntax::{BlankIdBuf, Generator, Id};
 
 use crate::{
-	object::{ObjectMut, ObjectRef},
 	Lenient,
+	object::{ObjectMut, ObjectRef},
 };
 
 pub trait VisitJsonLd {

@@ -1,7 +1,7 @@
 use linked_data::LinkedDataDeserializer;
 use rdf_syntax::{CowGroundTerm, CowTerm, Quad, RDF_FIRST, RDF_LIST, RDF_NIL, RDF_REST, RDF_TYPE};
 
-use crate::{algorithms::serialization::object::deserialize_object, object::ListObject, Indexed};
+use crate::{Indexed, algorithms::serialization::object::deserialize_object, object::ListObject};
 
 pub fn try_deserialize_list_object<R, D>(
 	deserializer: &mut D,

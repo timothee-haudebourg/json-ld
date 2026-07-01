@@ -2,12 +2,12 @@
 //!
 //! See: <https://www.w3.org/TR/json-ld-api/#expansion-algorithms>
 use crate::{
+	Document, ExpandedDocument, IndexedObject, Object,
 	algorithms::{AsyncProcessingEnvironment, JsonLdSourceRef},
 	context::RawProcessedContext,
-	Document, ExpandedDocument, IndexedObject, Object,
 };
 
-use super::{Error, JsonLdLocated, JsonLdLocationStack};
+use super::{JsonLdError, JsonLdLocated, JsonLdLocationStack};
 
 mod array;
 mod document;
@@ -38,7 +38,7 @@ pub trait Expand {
 	async fn expand(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-	) -> Result<ExpandedDocument, JsonLdLocated<Error>>;
+	) -> Result<ExpandedDocument, JsonLdLocated<JsonLdError>>;
 
 	/// Expand this document with the given expansion options and active
 	/// context.
@@ -48,14 +48,14 @@ pub trait Expand {
 		env: impl AsyncProcessingEnvironment,
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
-	) -> Result<ExpandedDocument, JsonLdLocated<Error>>;
+	) -> Result<ExpandedDocument, JsonLdLocated<JsonLdError>>;
 }
 
 impl Expand for Document {
 	async fn expand(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-	) -> Result<ExpandedDocument, JsonLdLocated<Error>> {
+	) -> Result<ExpandedDocument, JsonLdLocated<JsonLdError>> {
 		let active_context = RawProcessedContext::new(self.url().map(ToOwned::to_owned));
 		self.expand_with(env, &active_context, ExpansionOptions::default())
 			.await
@@ -66,7 +66,7 @@ impl Expand for Document {
 		env: impl AsyncProcessingEnvironment,
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
-	) -> Result<ExpandedDocument, JsonLdLocated<Error>> {
+	) -> Result<ExpandedDocument, JsonLdLocated<JsonLdError>> {
 		let loc = JsonLdLocationStack::new().file(JsonLdSourceRef::Compact(self.url()));
 		Expander {
 			base_url: self.url(),

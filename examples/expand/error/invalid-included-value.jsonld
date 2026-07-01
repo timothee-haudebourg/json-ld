@@ -1,0 +1,4 @@
+{
+	"@id": "https://example.com/foo",
+	"@included": "just a plain string, not a node object"
+}

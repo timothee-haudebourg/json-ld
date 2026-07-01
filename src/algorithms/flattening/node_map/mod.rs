@@ -1,7 +1,7 @@
 use crate::{
-	algorithms::{JsonLdLocated, JsonLdLocationStack, JsonLdSource},
 	ExpandedDocument, FlattenedDocument, Indexed, IndexedNode, IndexedObject, Lenient, NodeObject,
 	Object,
+	algorithms::{JsonLdLocated, JsonLdLocationStack, JsonLdSource},
 };
 use educe::Educe;
 use json_syntax::tracing::JsonBacktraceBuf;

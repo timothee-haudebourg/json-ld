@@ -1,7 +1,7 @@
 use super::{Multiset, Objects};
 use crate::{
-	object::{ObjectMut, ObjectRef},
 	IndexedObject, Lenient, VisitJsonLd,
+	object::{ObjectMut, ObjectRef},
 };
 use educe::Educe;
 use indexmap::IndexMap;

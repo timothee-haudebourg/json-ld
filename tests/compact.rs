@@ -1,4 +1,4 @@
-use json_ld::{syntax::PrintJson, Document, FsLoader, JsonLdProcessor, Loader, RemoteDocument};
+use json_ld::{Document, FsLoader, JsonLdProcessor, Loader, RemoteDocument, syntax::PrintJson};
 use json_ld_testing::{ManifestEntry, TestKind};
 
 mod common;

@@ -2,8 +2,8 @@ use super::{
 	BindingsIter, ContextDefinition, ContextTerm, ContextType, TermDefinition, Version, Vocab,
 };
 use crate::{
-	syntax::{Direction, Nullable},
 	Lenient,
+	syntax::{Direction, Nullable},
 };
 
 use langtag::LangTagBuf;

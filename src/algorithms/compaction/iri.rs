@@ -1,12 +1,12 @@
 use json_syntax::object::Key;
 
 use crate::{
+	Indexed, JsonLdError, Nullable, Object, ProcessingMode, Term, Type, ValueObject,
 	algorithms::{JsonLdLocated, JsonLdLocationStack},
-	context::inverse::{LangSelection, Selection, TypeSelection},
 	context::Container,
+	context::inverse::{LangSelection, Selection, TypeSelection},
 	object::{self, AnyObject},
 	syntax::{is_keyword, is_keyword_like},
-	Error, Indexed, Nullable, Object, ProcessingMode, Term, Type, ValueObject,
 };
 
 use super::{Compactor, TypeLangValue};
@@ -17,7 +17,7 @@ impl<'a> Compactor<'a> {
 		var: &Term,
 		vocab: bool,
 		reverse: bool,
-	) -> Result<Option<Key>, JsonLdLocated<Error>> {
+	) -> Result<Option<Key>, JsonLdLocated<JsonLdError>> {
 		Ok(self.compact_iri(var, vocab, reverse)?.map(Into::into))
 	}
 
@@ -29,7 +29,7 @@ impl<'a> Compactor<'a> {
 		var: &Term,
 		vocab: bool,
 		reverse: bool,
-	) -> Result<Option<String>, JsonLdLocated<Error>> {
+	) -> Result<Option<String>, JsonLdLocated<JsonLdError>> {
 		self.compact_iri_with::<Object>(var, vocab, reverse, None)
 	}
 
@@ -42,7 +42,7 @@ impl<'a> Compactor<'a> {
 		vocab: bool,
 		reverse: bool,
 		value: Option<&Indexed<O>>,
-	) -> Result<Option<String>, JsonLdLocated<Error>>
+	) -> Result<Option<String>, JsonLdLocated<JsonLdError>>
 	where
 		O: AnyObject,
 	{
@@ -421,7 +421,7 @@ impl<'a> Compactor<'a> {
 			if self.active_context.contains_term(iri.scheme().as_str()) {
 				let loc_root = JsonLdLocationStack::new();
 				let loc = loc_root.file(self.source);
-				return Err(Error::IriConfusedWithPrefix.at(loc));
+				return Err(JsonLdError::IriConfusedWithPrefix.at(loc));
 			}
 		}
 

@@ -1,6 +1,6 @@
 use crate::{
-	object::{ObjectMut, ObjectRef},
 	Indexed, IndexedObject, NodeObject, Object, VisitJsonLd,
+	object::{ObjectMut, ObjectRef},
 };
 use indexmap::IndexSet;
 

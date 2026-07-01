@@ -1,5 +1,5 @@
 use linked_data::LinkedDataDeserializer;
-use rdf_syntax::{pattern::CanonicalQuadPattern, Quad, RDF_TYPE};
+use rdf_syntax::{Quad, RDF_TYPE, pattern::CanonicalQuadPattern};
 
 use crate::{Indexed, NodeObject};
 

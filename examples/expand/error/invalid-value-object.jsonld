@@ -1,0 +1,4 @@
+{
+	"@value": "hello",
+	"http://example.org/extra": "not allowed in a value object"
+}

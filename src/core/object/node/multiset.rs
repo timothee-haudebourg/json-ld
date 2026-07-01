@@ -1,8 +1,8 @@
 use std::hash::{BuildHasher, Hash};
 
 use crate::{
-	object::{ObjectMut, ObjectRef},
 	VisitJsonLd,
+	object::{ObjectMut, ObjectRef},
 };
 
 #[derive(Debug, Default, Clone, Copy)]

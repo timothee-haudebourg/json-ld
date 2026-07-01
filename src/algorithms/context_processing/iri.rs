@@ -3,17 +3,18 @@ use rdf_syntax::{Iri, IriBuf, IriRef};
 
 use crate::Lenient;
 use crate::{
+	Nullable, Term,
 	algorithms::{
-		context_processing::{merged::Merged, ContextProcessor, TargetProcessedContext},
+		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack,
+		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 		warning::Warning,
-		AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack,
 	},
 	context::RawProcessedContext,
 	syntax::{
+		CompactIri, ExpandableRef,
 		context::{ContextTerm, KeyOrKeywordRef},
-		is_keyword_like, CompactIri, ExpandableRef,
+		is_keyword_like,
 	},
-	Nullable, Term,
 };
 
 /// Resolve `iri_ref` against the given base IRI.
@@ -25,7 +26,7 @@ pub fn resolve_iri(iri_ref: &IriRef, base_iri: Option<&Iri>) -> Option<IriBuf> {
 }
 
 /// Result of the [`expand_iri_with`] function.
-pub type ExpandIriResult = Result<Term, JsonLdLocated<Error>>;
+pub type ExpandIriResult = Result<Term, JsonLdLocated<JsonLdError>>;
 
 // /// Environment of a context term definition.
 // pub struct IriExpensionEnv<'a, L> {

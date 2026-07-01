@@ -1,6 +1,6 @@
 use crate::{
-	syntax::{Direction, Keyword, Nullable},
 	Lenient,
+	syntax::{Direction, Keyword, Nullable},
 };
 use indexmap::IndexMap;
 use langtag::LangTagBuf;

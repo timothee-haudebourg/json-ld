@@ -1,0 +1,8 @@
+{
+	"@context": { "tags": "http://example.org/tags" },
+	"@id": "https://example.com/foo",
+	"tags": {
+		"@list": ["a", "b"],
+		"@language": "en"
+	}
+}

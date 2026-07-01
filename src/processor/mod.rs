@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 use linked_data::ser::to_rdf_quads_interpretation_with;
 use rdf_syntax::IriBuf;
-use rdf_syntax::{interpretation::GeneratorInterpretation, Generator, Quad, Term};
+use rdf_syntax::{Generator, Quad, Term, interpretation::GeneratorInterpretation};
 
 /// Drives a future that is expected to complete synchronously on the first
 /// poll (i.e., backed by a sync [`ProcessingEnvironment`]).
@@ -20,14 +20,14 @@ fn resolve_sync<F: std::future::Future>(f: F) -> F::Output {
 	}
 }
 
-use crate::algorithms::JsonLdLocated;
 use crate::VisitJsonLd;
+use crate::algorithms::JsonLdLocated;
 use crate::{
+	Direction, Document, ExpandedDocument, JsonLdError, ProcessingMode, RemoteContext,
 	algorithms::{
 		AsyncProcessingEnvironment, CompactionOptions, ContextProcessingOptions, ExpansionOptions,
 		ExpansionPolicy, ProcessingEnvironment, RdfSerializationOptions,
 	},
-	Direction, Document, Error, ExpandedDocument, ProcessingMode, RemoteContext,
 };
 
 mod remote_document;
@@ -150,21 +150,21 @@ impl Default for JsonLdOptions {
 }
 
 /// Result returned by the [`JsonLdProcessor::expand`] function.
-pub type ExpandResult = Result<ExpandedDocument, JsonLdLocated<Error>>;
+pub type ExpandResult = Result<ExpandedDocument, JsonLdLocated<JsonLdError>>;
 
 /// Result returned by the [`JsonLdProcessor::into_document`] function.
-pub type IntoDocumentResult = Result<Document, JsonLdLocated<Error>>;
+pub type IntoDocumentResult = Result<Document, JsonLdLocated<JsonLdError>>;
 
 /// Result of the [`JsonLdProcessor::compact`] function.
-pub type CompactResult = Result<JsonValue, JsonLdLocated<Error>>;
+pub type CompactResult = Result<JsonValue, JsonLdLocated<JsonLdError>>;
 
 /// Result of the [`JsonLdProcessor::flatten`] function.
-pub type FlattenResult = Result<JsonValue, JsonLdLocated<Error>>;
+pub type FlattenResult = Result<JsonValue, JsonLdLocated<JsonLdError>>;
 
-pub type ToRdfResult = Result<Vec<Quad<Term>>, JsonLdLocated<Error>>;
+pub type ToRdfResult = Result<Vec<Quad<Term>>, JsonLdLocated<JsonLdError>>;
 
 /// Result of the [`JsonLdProcessor::compare`] function.
-pub type CompareResult = Result<bool, JsonLdLocated<Error>>;
+pub type CompareResult = Result<bool, JsonLdLocated<JsonLdError>>;
 
 /// The `JsonLdProcessor` interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.

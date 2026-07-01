@@ -5,18 +5,18 @@ use rdf_syntax::{Iri, IriRef};
 
 use crate::Lenient;
 use crate::{
+	Nullable, ProcessingMode, Term, Type,
 	algorithms::{
-		context_processing::{merged::Merged, ContextProcessor, TargetProcessedContext},
+		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack,
+		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 		warning::Warning,
-		AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack,
 	},
 	context::Container,
 	context::{NormalTermDefinition, TypeTermDefinition},
 	syntax::{
-		context::{EntryValueRef, ExpandedTermDefinitionRef, IdRef, KeyOrKeyword, KeyOrKeywordRef},
 		CompactIri, ContainerItem, ContainerValue, ExpandableRef, Keyword,
+		context::{EntryValueRef, ExpandedTermDefinitionRef, IdRef, KeyOrKeyword, KeyOrKeywordRef},
 	},
-	Nullable, ProcessingMode, Term, Type,
 };
 
 fn is_gen_delim(c: char) -> bool {
@@ -60,11 +60,11 @@ impl DefinedTerms {
 		&mut self,
 		location: JsonLdLocationStack<'_>,
 		key: &KeyOrKeyword,
-	) -> Result<bool, JsonLdLocated<Error>> {
+	) -> Result<bool, JsonLdLocated<JsonLdError>> {
 		match self.0.get(key) {
 			Some(d) => {
 				if d.pending {
-					Err(Error::CyclicIriMapping.at(location))
+					Err(JsonLdError::CyclicIriMapping.at(location))
 				} else {
 					Ok(false)
 				}
@@ -97,11 +97,11 @@ impl<'a> ContextProcessor<'a> {
 		term: KeyOrKeywordRef<'_>,
 		protected: bool,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<(), JsonLdLocated<Error>> {
+	) -> Result<(), JsonLdLocated<JsonLdError>> {
 		let term = term.to_owned();
 		if result.defined.begin(location, &term)? {
 			if term.is_empty() {
-				return Err(Error::InvalidTermDefinition.at(location));
+				return Err(JsonLdError::InvalidTermDefinition.at(location));
 			}
 
 			// Initialize `value` to a copy of the value associated with the entry `term` in
@@ -117,7 +117,7 @@ impl<'a> ContextProcessor<'a> {
 						// ... and processing mode is json-ld-1.0, a keyword
 						// redefinition error has been detected and processing is aborted.
 						if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-							return Err(Error::KeywordRedefinition.at(location));
+							return Err(JsonLdError::KeywordRedefinition.at(location));
 						}
 
 						let previous_definition = result.value.set_type(None);
@@ -136,7 +136,7 @@ impl<'a> ContextProcessor<'a> {
 
 						if let Some(protected) = d.protected {
 							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-								return Err(Error::InvalidTermDefinition.at(location));
+								return Err(JsonLdError::InvalidTermDefinition.at(location));
 							}
 
 							definition.protected = protected
@@ -152,7 +152,9 @@ impl<'a> ContextProcessor<'a> {
 									if definition.modulo_protected_field()
 										!= previous_definition.modulo_protected_field()
 									{
-										return Err(Error::ProtectedTermRedefinition.at(location));
+										return Err(
+											JsonLdError::ProtectedTermRedefinition.at(location)
+										);
 									}
 
 									// Set `definition` to `previous definition` to retain the value of
@@ -186,7 +188,7 @@ impl<'a> ContextProcessor<'a> {
 							// If processing mode is json-ld-1.0, an invalid term definition has
 							// been detected and processing is aborted.
 							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-								return Err(Error::InvalidTermDefinition.at(location));
+								return Err(JsonLdError::InvalidTermDefinition.at(location));
 							}
 
 							definition.protected = protected;
@@ -215,14 +217,14 @@ impl<'a> ContextProcessor<'a> {
 								&& (typ == Term::Keyword(Keyword::Json)
 									|| typ == Term::Keyword(Keyword::None))
 							{
-								return Err(Error::InvalidTypeMapping.at(location));
+								return Err(JsonLdError::InvalidTypeMapping.at(location));
 							}
 
 							if let Ok(typ) = typ.try_into() {
 								// Set the type mapping for definition to type.
 								definition.typ = Some(typ);
 							} else {
-								return Err(Error::InvalidTypeMapping.at(location));
+								return Err(JsonLdError::InvalidTypeMapping.at(location));
 							}
 						}
 
@@ -231,7 +233,7 @@ impl<'a> ContextProcessor<'a> {
 							// If `value` contains `@id` or `@nest`, entries, an invalid reverse
 							// property error has been detected and processing is aborted.
 							if value.id.is_some() || value.nest.is_some() {
-								return Err(Error::InvalidReverseProperty.at(location));
+								return Err(JsonLdError::InvalidReverseProperty.at(location));
 							}
 
 							// If the value associated with the @reverse entry is a string having
@@ -262,7 +264,7 @@ impl<'a> ContextProcessor<'a> {
 								Term::Id(mapping) if mapping.is_valid() => {
 									definition.value = Some(Term::Id(mapping))
 								}
-								_ => return Err(Error::InvalidIriMapping.at(location)),
+								_ => return Err(JsonLdError::InvalidIriMapping.at(location)),
 							}
 
 							// If `value` contains an `@container` entry, set the `container`
@@ -271,13 +273,13 @@ impl<'a> ContextProcessor<'a> {
 							// invalid reverse property error has been detected (reverse properties
 							// only support set- and index-containers) and processing is aborted.
 							if let Some(container_value) = value.container {
-								let container = container_value
-									.to_container()
-									.map_err(|_| Error::InvalidContainerMapping.at(location))?;
+								let container = container_value.to_container().map_err(|_| {
+									JsonLdError::InvalidContainerMapping.at(location)
+								})?;
 								if matches!(container, Container::Set | Container::Index) {
 									definition.container = container
 								} else {
-									return Err(Error::InvalidReverseProperty.at(location));
+									return Err(JsonLdError::InvalidReverseProperty.at(location));
 								}
 							}
 
@@ -329,14 +331,18 @@ impl<'a> ContextProcessor<'a> {
 											Term::Keyword(Keyword::Context) => {
 												// if it equals `@context`, an invalid keyword alias error has
 												// been detected and processing is aborted.
-												return Err(Error::InvalidKeywordAlias.at(location));
+												return Err(
+													JsonLdError::InvalidKeywordAlias.at(location)
+												);
 											}
 											Term::Id(prop) if !prop.is_valid() => {
 												// If the resulting IRI mapping is neither a keyword,
 												// nor an IRI, nor a blank node identifier, an
 												// invalid IRI mapping error has been detected and processing
 												// is aborted;
-												return Err(Error::InvalidIriMapping.at(location));
+												return Err(
+													JsonLdError::InvalidIriMapping.at(location)
+												);
 											}
 											value => Some(value),
 										};
@@ -367,7 +373,9 @@ impl<'a> ContextProcessor<'a> {
 												)
 												.await?;
 											if definition.value != Some(expanded_term) {
-												return Err(Error::InvalidIriMapping.at(location));
+												return Err(
+													JsonLdError::InvalidIriMapping.at(location)
+												);
 											}
 										}
 
@@ -430,7 +438,9 @@ impl<'a> ContextProcessor<'a> {
 												definition.value =
 													Some(Term::Id(Lenient::iri(iri.to_owned())))
 											} else {
-												return Err(Error::InvalidIriMapping.at(location));
+												return Err(
+													JsonLdError::InvalidIriMapping.at(location)
+												);
 											}
 										}
 									}
@@ -466,9 +476,9 @@ impl<'a> ContextProcessor<'a> {
 															// error has been detected and processing is aborted.
 															_ => {
 																return Err(
-																	Error::InvalidIriMapping
+																	JsonLdError::InvalidIriMapping
 																		.at(location),
-																)
+																);
 															}
 														}
 													}
@@ -496,19 +506,20 @@ impl<'a> ContextProcessor<'a> {
 														definition.value =
 															Some(Term::from(iri.to_owned()))
 													} else {
-														return Err(
-															Error::InvalidIriMapping.at(location)
-														);
+														return Err(JsonLdError::InvalidIriMapping
+															.at(location));
 													}
 												} else {
 													return Err(
-														Error::InvalidIriMapping.at(location)
+														JsonLdError::InvalidIriMapping.at(location)
 													);
 												}
 											} else {
 												// If it does not have a vocabulary mapping, an invalid IRI mapping error
 												// been detected and processing is aborted.
-												return Err(Error::InvalidIriMapping.at(location));
+												return Err(
+													JsonLdError::InvalidIriMapping.at(location)
+												);
 											}
 										}
 									}
@@ -529,7 +540,11 @@ impl<'a> ContextProcessor<'a> {
 										| ContainerItem::List
 										| ContainerItem::Set,
 									) => (),
-									_ => return Err(Error::InvalidContainerMapping.at(location)),
+									_ => {
+										return Err(
+											JsonLdError::InvalidContainerMapping.at(location)
+										);
+									}
 								}
 							}
 
@@ -544,7 +559,7 @@ impl<'a> ContextProcessor<'a> {
 							// is aborted.
 							definition.container = container_value
 								.to_container()
-								.map_err(|_| Error::InvalidContainerMapping.at(location))?;
+								.map_err(|_| JsonLdError::InvalidContainerMapping.at(location))?;
 
 							// Set the container mapping of definition to container coercing to an
 							// array, if necessary.
@@ -558,7 +573,11 @@ impl<'a> ContextProcessor<'a> {
 									// is aborted.
 									match typ {
 										Type::Id | Type::Vocab => (),
-										_ => return Err(Error::InvalidTypeMapping.at(location)),
+										_ => {
+											return Err(
+												JsonLdError::InvalidTypeMapping.at(location)
+											);
+										}
 									}
 								} else {
 									// If type mapping in definition is undefined, set it to @id.
@@ -575,7 +594,7 @@ impl<'a> ContextProcessor<'a> {
 							if !definition.container.contains(ContainerItem::Index)
 								|| self.options.processing_mode == ProcessingMode::JsonLd1_0
 							{
-								return Err(Error::InvalidTermDefinition.at(location));
+								return Err(JsonLdError::InvalidTermDefinition.at(location));
 							}
 
 							// Initialize `index` to the value associated with the `@index` entry,
@@ -589,7 +608,7 @@ impl<'a> ContextProcessor<'a> {
 								|w| env.warn(w),
 							) {
 								Term::Id(Lenient::Valid(Id::Iri(_))) => (),
-								_ => return Err(Error::InvalidTermDefinition.at(location)),
+								_ => return Err(JsonLdError::InvalidTermDefinition.at(location)),
 							}
 
 							definition.index = Some(index_value.to_owned())
@@ -600,7 +619,7 @@ impl<'a> ContextProcessor<'a> {
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
 							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-								return Err(Error::InvalidTermDefinition.at(location));
+								return Err(JsonLdError::InvalidTermDefinition.at(location));
 							}
 
 							// Initialize `context` to the value associated with the @context entry,
@@ -659,7 +678,7 @@ impl<'a> ContextProcessor<'a> {
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
 							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
-								return Err(Error::InvalidTermDefinition.at(location));
+								return Err(JsonLdError::InvalidTermDefinition.at(location));
 							}
 
 							definition.nest = Some(nest_value.clone());
@@ -674,7 +693,7 @@ impl<'a> ContextProcessor<'a> {
 								|| key.as_str().contains('/')
 								|| self.options.processing_mode == ProcessingMode::JsonLd1_0
 							{
-								return Err(Error::InvalidTermDefinition.at(location));
+								return Err(JsonLdError::InvalidTermDefinition.at(location));
 							}
 
 							// Set the `prefix` flag to the value associated with the @prefix entry,
@@ -688,7 +707,7 @@ impl<'a> ContextProcessor<'a> {
 							// processing is aborted.
 							if definition.prefix && definition.value.as_ref().unwrap().is_keyword()
 							{
-								return Err(Error::InvalidTermDefinition.at(location));
+								return Err(JsonLdError::InvalidTermDefinition.at(location));
 							}
 						}
 
@@ -696,7 +715,7 @@ impl<'a> ContextProcessor<'a> {
 						// @direction, @index, @language, @nest, @prefix, @protected, or @type, an
 						// invalid term definition error has been detected and processing is aborted.
 						if value.propagate.is_some() {
-							return Err(Error::InvalidTermDefinition.at(location));
+							return Err(JsonLdError::InvalidTermDefinition.at(location));
 						}
 
 						// If override protected is false and previous_definition exists and is protected;
@@ -709,7 +728,9 @@ impl<'a> ContextProcessor<'a> {
 									if definition.modulo_protected_field()
 										!= previous_definition.modulo_protected_field()
 									{
-										return Err(Error::ProtectedTermRedefinition.at(location));
+										return Err(
+											JsonLdError::ProtectedTermRedefinition.at(location)
+										);
 									}
 
 									// Set `definition` to `previous definition` to retain the value of
@@ -727,7 +748,7 @@ impl<'a> ContextProcessor<'a> {
 					_ => {
 						// Otherwise, since keywords cannot be overridden, term MUST NOT be a keyword and
 						// a keyword redefinition error has been detected and processing is aborted.
-						return Err(Error::KeywordRedefinition.at(location));
+						return Err(JsonLdError::KeywordRedefinition.at(location));
 					}
 				}
 			}

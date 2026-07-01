@@ -1,12 +1,12 @@
 use super::Container;
-use crate::{
-	syntax::{
-		context::{ContextTerm, ContextType, ContextTypeContainer, Index, Nest},
-		Context, KeywordType,
-	},
-	Lenient,
-};
 use crate::{Direction, Nullable, Term, Type};
+use crate::{
+	Lenient,
+	syntax::{
+		Context, KeywordType,
+		context::{ContextTerm, ContextType, ContextTypeContainer, Index, Nest},
+	},
+};
 use langtag::LangTagBuf;
 use rdf_syntax::{Iri, IriBuf};
 use std::collections::HashMap;

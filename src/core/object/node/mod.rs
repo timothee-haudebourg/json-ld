@@ -1,6 +1,6 @@
 use crate::object::{ObjectMut, ObjectRef};
 use crate::syntax::Keyword;
-use crate::{object, utils, Indexed, IndexedObject, Lenient, Object, Objects, Term, VisitJsonLd};
+use crate::{Indexed, IndexedObject, Lenient, Object, Objects, Term, VisitJsonLd, object, utils};
 use educe::Educe;
 use indexmap::IndexSet;
 use rdf_syntax::Id;

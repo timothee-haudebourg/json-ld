@@ -1,9 +1,9 @@
 use crate::{
-	syntax::{
-		context::{self, ContextTerm},
-		CompactIri, CompactIriBuf, ContainerValue, Context, Direction, Keyword, Nullable,
-	},
 	Lenient,
+	syntax::{
+		CompactIri, CompactIriBuf, ContainerValue, Context, Direction, Keyword, Nullable,
+		context::{self, ContextTerm},
+	},
 };
 use langtag::{LangTag, LangTagBuf};
 use rdf_syntax::{BlankId, BlankIdBuf};

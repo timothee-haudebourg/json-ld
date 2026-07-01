@@ -1,0 +1,7 @@
+{
+	"@context": {
+		"@type": { "@container": "@set" }
+	},
+	"@id": "https://example.com/foo",
+	"@type": "https://example.com/Thing"
+}

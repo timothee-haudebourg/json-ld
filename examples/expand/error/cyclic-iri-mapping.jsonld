@@ -1,0 +1,7 @@
+{
+	"@context": {
+		"term1": "term2:suffix",
+		"term2": "term1:suffix"
+	},
+	"@id": "https://example.com/foo"
+}

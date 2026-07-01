@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"@propagate": false
+	},
+	"@id": "https://example.com/foo"
+}

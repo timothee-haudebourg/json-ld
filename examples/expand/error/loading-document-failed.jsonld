@@ -1,0 +1,4 @@
+{
+	"@context": "relative-context.jsonld",
+	"@id": "https://example.com/foo"
+}

@@ -4,7 +4,7 @@ use std::fmt;
 use rdf_syntax::{Id, Iri, IriBuf};
 
 use super::Term;
-use crate::{syntax::Keyword, Lenient};
+use crate::{Lenient, syntax::Keyword};
 
 /// Object type.
 ///

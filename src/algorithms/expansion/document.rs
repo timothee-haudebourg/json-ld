@@ -1,11 +1,11 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack},
 	ExpandedDocument,
+	algorithms::{AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack},
 };
 
-use super::{filter_top_level_item, Expander};
+use super::{Expander, filter_top_level_item};
 
 impl<'a> Expander<'a> {
 	pub async fn expand_document(
@@ -13,7 +13,7 @@ impl<'a> Expander<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		document: &JsonValue,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<ExpandedDocument, JsonLdLocated<Error>> {
+	) -> Result<ExpandedDocument, JsonLdLocated<JsonLdError>> {
 		let expanded = self.expand_element(env, document, false, location).await?;
 
 		if expanded.len() == 1 {

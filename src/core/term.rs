@@ -1,7 +1,7 @@
 use rdf_syntax::{Id, Iri, IriBuf};
 use std::fmt;
 
-use crate::{syntax::Keyword, Lenient};
+use crate::{Lenient, syntax::Keyword};
 
 /// Identifier, keyword or `@null`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]

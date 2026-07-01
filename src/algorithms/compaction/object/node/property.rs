@@ -1,17 +1,17 @@
 use json_syntax::{JsonObject, JsonValue};
 
 use crate::{
+	Indexed, Lenient, NodeObject, Object, Term,
 	algorithms::{
+		AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack,
 		compaction::{
-			object::value::{add_value, value_value},
 			CompactFragment, CompactIndexedFragment, Compactor,
+			object::value::{add_value, value_value},
 		},
-		AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack,
 	},
 	context::Container,
 	object::{AnyObject, ListObject, ObjectRef},
-	syntax::{context::Nest, ContainerItem, Keyword},
-	Indexed, Lenient, NodeObject, Object, Term,
+	syntax::{ContainerItem, Keyword, context::Nest},
 };
 
 impl Compactor<'_> {
@@ -25,7 +25,7 @@ impl Compactor<'_> {
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
-	) -> Result<(), JsonLdLocated<Error>> {
+	) -> Result<(), JsonLdLocated<JsonLdError>> {
 		// If expanded item is a list object:
 		let mut compacted_item: JsonValue = Box::pin(
 			self.with_type_scoped_context(self.active_context)
@@ -83,7 +83,7 @@ impl Compactor<'_> {
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
-	) -> Result<(), JsonLdLocated<Error>> {
+	) -> Result<(), JsonLdLocated<JsonLdError>> {
 		// If expanded item is a graph object
 		let mut compacted_item = Box::pin(
 			node.graph().unwrap().compact_fragment(
@@ -242,7 +242,7 @@ impl Compactor<'_> {
 		result: &'a mut JsonObject,
 		item_active_property: &str,
 		compact_arrays: bool,
-	) -> Result<(&'a mut JsonObject, Container, bool), JsonLdLocated<Error>> {
+	) -> Result<(&'a mut JsonObject, Container, bool), JsonLdLocated<JsonLdError>> {
 		let (nest_result, container) = match self.active_context.get(item_active_property) {
 			Some(term_definition) => {
 				let nest_result = match term_definition.nest() {
@@ -258,7 +258,7 @@ impl Compactor<'_> {
 								_ => {
 									let loc_root = JsonLdLocationStack::new();
 									let loc = loc_root.file(self.source);
-									return Err(Error::InvalidNestValue.at(loc));
+									return Err(JsonLdError::InvalidNestValue.at(loc));
 								}
 							}
 						}
@@ -324,7 +324,7 @@ impl Compactor<'_> {
 		expanded_property: Term,
 		expanded_value: O,
 		inside_reverse: bool,
-	) -> Result<(), JsonLdLocated<Error>>
+	) -> Result<(), JsonLdLocated<JsonLdError>>
 	where
 		O: IntoIterator<Item = &'a Indexed<T>>,
 		T: 'a + AnyObject,

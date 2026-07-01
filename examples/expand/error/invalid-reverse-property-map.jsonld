@@ -1,0 +1,6 @@
+{
+	"@id": "https://example.com/foo",
+	"@reverse": {
+		"@type": "http://example.org/Type"
+	}
+}

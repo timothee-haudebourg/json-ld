@@ -47,7 +47,7 @@ impl Link {
 						break match IriRefBuf::from_bytes(href) {
 							Ok(href) => Some(Self { href, params }),
 							Err(_) => None,
-						}
+						};
 					}
 				},
 				State::BeginKey => match bytes.next().copied() {
@@ -116,7 +116,13 @@ mod tests {
 
 	#[test]
 	fn parse_link_2() {
-		let link = Link::new(&HeaderValue::from_str("<http://www.example.org/context>; rel=\"context\"; type=\"application/ld+json\"; foo=\"bar\"").unwrap()).unwrap();
+		let link = Link::new(
+			&HeaderValue::from_str(
+				"<http://www.example.org/context>; rel=\"context\"; type=\"application/ld+json\"; foo=\"bar\"",
+			)
+			.unwrap(),
+		)
+		.unwrap();
 		assert_eq!(link.href(), "http://www.example.org/context");
 		assert_eq!(link.rel(), Some(b"context".as_slice()));
 		assert_eq!(link.type_(), Some(b"application/ld+json".as_slice()))

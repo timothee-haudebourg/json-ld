@@ -2,14 +2,14 @@ use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
+	JsonLdError, Term,
 	algorithms::{
-		compaction::CompactIndexedFragment, context_processing::ContextProcessingOptions,
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdLocated,
-		JsonLdLocationStack,
+		JsonLdLocationStack, compaction::CompactIndexedFragment,
+		context_processing::ContextProcessingOptions,
 	},
 	object::{AnyObject, ObjectRef},
 	syntax::{ContainerItem, Keyword},
-	Error, Term,
 };
 
 use super::Compactor;
@@ -23,7 +23,7 @@ impl Compactor<'_> {
 		env: &impl AsyncProcessingEnvironment,
 		object: &impl AnyObject,
 		index: Option<&str>,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		match object.as_ref() {
 			ObjectRef::Value(value) => self.compact_indexed_value_with(env, value, index).await,
 			ObjectRef::Node(node) => self.compact_indexed_node_with(env, node, index).await,
@@ -134,7 +134,7 @@ impl<T: AnyObject> CompactIndexedFragment for T {
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		compactor.compact_any_indexed_object(env, self, index).await
 	}
 }

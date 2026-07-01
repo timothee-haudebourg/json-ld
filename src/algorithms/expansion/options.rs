@@ -1,4 +1,4 @@
-use crate::{algorithms::context_processing::ContextProcessingOptions, ProcessingMode};
+use crate::{ProcessingMode, algorithms::context_processing::ContextProcessingOptions};
 
 /// Expansion options.
 #[derive(Clone, Copy, Default)]

@@ -2,14 +2,14 @@ use langtag::LangTagBuf;
 use rdf_syntax::IriRef;
 
 use crate::{
+	Direction, Lenient, Nullable,
 	syntax::{
+		Context, ContextEntry,
 		context::{
 			BindingsIter, ContextDefinition, ContextTerm, ContextType, EntryValueRef, KeyOrKeyword,
 			TermDefinition, Vocab,
 		},
-		Context, ContextEntry,
 	},
-	Direction, Lenient, Nullable,
 };
 
 pub struct Merged<'a> {

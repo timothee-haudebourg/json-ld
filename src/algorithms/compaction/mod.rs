@@ -11,13 +11,13 @@ use json_syntax::{JsonObject, JsonValue};
 pub use options::*;
 
 use crate::{
+	Indexed, JsonLdError, ProcessedContext, Term,
 	algorithms::{AsyncProcessingEnvironment, JsonLdLocated, JsonLdSourceRef},
 	context::{
-		inverse::{LangSelection, TypeSelection},
 		RawProcessedContext,
+		inverse::{LangSelection, TypeSelection},
 	},
 	syntax::Keyword,
-	Error, Indexed, ProcessedContext, Term,
 };
 
 /// Document that can be compacted.
@@ -29,7 +29,7 @@ pub trait Compact {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-	) -> Result<JsonValue, JsonLdLocated<Error>>;
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>>;
 
 	/// Compacts the input document with the default options.
 	#[allow(async_fn_in_trait)]
@@ -37,7 +37,7 @@ pub trait Compact {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		self.compact_with(env, context, CompactionOptions::default())
 			.await
 	}
@@ -110,7 +110,7 @@ trait CompactFragment {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor,
-	) -> Result<JsonValue, JsonLdLocated<Error>>;
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>>;
 }
 
 enum TypeLangValue<'a> {
@@ -127,7 +127,7 @@ trait CompactIndexedFragment {
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
-	) -> Result<JsonValue, JsonLdLocated<Error>>;
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>>;
 }
 
 impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
@@ -135,7 +135,7 @@ impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-	) -> Result<JsonValue, JsonLdLocated<Error>> {
+	) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 		self.inner()
 			.compact_indexed_fragment(env, compactor, self.index())
 			.await
@@ -154,7 +154,7 @@ pub trait EmbedContext {
 		&mut self,
 		context: &ProcessedContext,
 		options: CompactionOptions,
-	) -> Result<(), JsonLdLocated<Error>>;
+	) -> Result<(), JsonLdLocated<JsonLdError>>;
 }
 
 impl EmbedContext for JsonValue {
@@ -162,7 +162,7 @@ impl EmbedContext for JsonValue {
 		&mut self,
 		context: &ProcessedContext,
 		options: CompactionOptions,
-	) -> Result<(), JsonLdLocated<Error>> {
+	) -> Result<(), JsonLdLocated<JsonLdError>> {
 		let value = self.take();
 
 		let obj = match value {

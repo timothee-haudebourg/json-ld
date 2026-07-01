@@ -18,8 +18,8 @@ pub use context::{Context, ContextDocumentValue, ContextEntry};
 pub use direction::*;
 pub use expandable::*;
 pub use json_syntax::{
-	lexical, object, parse, print, tracing, JsonNumber, JsonNumberBuf, JsonObject, JsonString,
-	JsonValue, Kind, ParseJson, PrintJson,
+	JsonNumber, JsonNumberBuf, JsonObject, JsonString, JsonValue, Kind, ParseJson, PrintJson,
+	lexical, locspan, object, parse, print, tracing,
 };
 pub use keyword::*;
 pub use lang::*;

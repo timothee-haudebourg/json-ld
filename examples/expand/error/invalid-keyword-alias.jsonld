@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"ctx": "@context"
+	},
+	"@id": "https://example.com/foo"
+}

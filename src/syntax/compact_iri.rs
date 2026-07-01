@@ -24,7 +24,7 @@ impl CompactIri {
 	///
 	/// The input string must be a compact IRI.
 	pub unsafe fn new_unchecked(s: &str) -> &Self {
-		std::mem::transmute(s)
+		unsafe { std::mem::transmute(s) }
 	}
 
 	pub fn as_str(&self) -> &str {

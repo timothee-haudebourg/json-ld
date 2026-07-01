@@ -1,0 +1,7 @@
+{
+	"@context": {
+		"label": { "@id": "http://example.org/label", "@container": "@language" }
+	},
+	"@id": "https://example.com/foo",
+	"label": { "en": 42 }
+}

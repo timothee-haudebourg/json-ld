@@ -1,0 +1,9 @@
+{
+	"@context": {
+		"name": "http://xmlns.com/foaf/0.1/name"
+	},
+	"@id": {
+		"this": "is not a valid @id value"
+	},
+	"name": "This document fails to expand"
+}

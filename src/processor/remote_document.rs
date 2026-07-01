@@ -1,17 +1,17 @@
-use json_syntax::{tracing::JsonErrorAt, JsonValue};
+use json_syntax::{JsonValue, tracing::JsonErrorAt};
 use rdf_syntax::Iri;
 
 use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
+	Document, RemoteContext,
 	algorithms::{
-		AsyncProcessingEnvironment, Compact, Error, Expand, JsonLdLocated, JsonLdLocationStack,
-		JsonLdSourceRef,
+		AsyncProcessingEnvironment, Compact, Expand, JsonLdError, JsonLdLocated,
+		JsonLdLocationStack, JsonLdSourceRef,
 	},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
-	Document, RemoteContext,
 };
 
 impl JsonLdProcessor for Document {
@@ -139,7 +139,7 @@ async fn compact_expanded(
 	env: impl AsyncProcessingEnvironment,
 	context: RemoteContext,
 	options: JsonLdOptions,
-) -> Result<JsonValue, JsonLdLocated<Error>> {
+) -> Result<JsonValue, JsonLdLocated<JsonLdError>> {
 	let context_base = url.or(options.base.as_deref());
 
 	let context = context

@@ -1,0 +1,4 @@
+[
+	{ "@id": "https://example.com/foo", "@index": "a" },
+	{ "@id": "https://example.com/foo", "@index": "b" }
+]

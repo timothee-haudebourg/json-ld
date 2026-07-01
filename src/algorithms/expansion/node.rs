@@ -1,23 +1,23 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{
-	AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack, Warning,
+	AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack, Warning,
 };
 use crate::context::Container;
 use crate::context::RawProcessedContext;
 use crate::syntax::{ContainerItem, Keyword, Nullable};
 use crate::{
-	object, object::value::LiteralValue, Indexed, IndexedObject, LangString, NodeObject, Object,
-	ProcessingMode, Term, Type,
+	Indexed, IndexedObject, LangString, NodeObject, Object, ProcessingMode, Term, Type, object,
+	object::value::LiteralValue,
 };
 use crate::{Lenient, ValueObject};
 use indexmap::IndexSet;
-use json_syntax::object::EntryRef;
 use json_syntax::JsonValue;
+use json_syntax::object::EntryRef;
 use mown::Mown;
 use rdf_syntax::Id;
 
-use super::{filter_top_level_item, Expanded, ExpandedEntry};
+use super::{Expanded, ExpandedEntry, filter_top_level_item};
 
 /// Convert a term to a node id, if possible.
 /// Return `None` if the term is `null`.
@@ -37,7 +37,7 @@ impl<'a> Expander<'a> {
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<Option<Indexed<NodeObject>>, JsonLdLocated<Error>> {
+	) -> Result<Option<Indexed<NodeObject>>, JsonLdLocated<JsonLdError>> {
 		// Initialize two empty maps, `result` and `nests`.
 		// let mut result = Indexed::new(Node::new(), None);
 		// let mut has_value_object_entries = false;
@@ -117,7 +117,7 @@ impl<'a> Expander<'a> {
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
 					if self.active_property.is_some_and(|p| p == Keyword::Reverse) {
-						return Err(Error::InvalidReversePropertyMap.at(entry_loc));
+						return Err(JsonLdError::InvalidReversePropertyMap.at(entry_loc));
 					}
 
 					// If `result` already has an `expanded_property` entry, other than
@@ -129,7 +129,7 @@ impl<'a> Expander<'a> {
 							&& expanded_property != Keyword::Type))
 						&& result.has_key(&Term::Keyword(expanded_property))
 					{
-						return Err(Error::CollidingKeywords.at(entry_loc));
+						return Err(JsonLdError::CollidingKeywords.at(entry_loc));
 					}
 
 					match expanded_property {
@@ -149,7 +149,7 @@ impl<'a> Expander<'a> {
 									false,
 								))
 							} else {
-								return Err(Error::InvalidIdValue.at(entry_loc));
+								return Err(JsonLdError::InvalidIdValue.at(entry_loc));
 							}
 						}
 						// If expanded property is @type:
@@ -175,10 +175,10 @@ impl<'a> Expander<'a> {
 									{
 										result.types_mut_or_default().push(ty)
 									} else {
-										return Err(Error::InvalidTypeValue.at(entry_loc));
+										return Err(JsonLdError::InvalidTypeValue.at(entry_loc));
 									}
 								} else {
-									return Err(Error::InvalidTypeValue.at(entry_loc));
+									return Err(JsonLdError::InvalidTypeValue.at(entry_loc));
 								}
 							}
 						}
@@ -224,7 +224,7 @@ impl<'a> Expander<'a> {
 								match obj.try_cast::<NodeObject>() {
 									Ok(node) => expanded_nodes.push(node),
 									Err(_) => {
-										return Err(Error::InvalidIncludedValue.at(entry_loc));
+										return Err(JsonLdError::InvalidIncludedValue.at(entry_loc));
 									}
 								}
 							}
@@ -246,7 +246,7 @@ impl<'a> Expander<'a> {
 							} else {
 								// If value is not a string, an invalid @index value
 								// error has been detected and processing is aborted.
-								return Err(Error::InvalidIndexValue.at(entry_loc));
+								return Err(JsonLdError::InvalidIndexValue.at(entry_loc));
 							}
 						}
 						// If expanded property is @reverse:
@@ -269,18 +269,17 @@ impl<'a> Expander<'a> {
 										true,
 									) {
 										Term::Keyword(_) => {
-											return Err(
-												Error::InvalidReversePropertyMap.at(rev_entry_loc)
-											)
+											return Err(JsonLdError::InvalidReversePropertyMap
+												.at(rev_entry_loc));
 										}
 										Term::Id(Lenient::Invalid(_))
 											if self.options.policy
 												== ExpansionPolicy::Strictest =>
 										{
-											return Err(Error::KeyExpansionFailed(
+											return Err(JsonLdError::KeyExpansionFailed(
 												reverse_key.to_string(),
 											)
-											.at(rev_entry_loc))
+											.at(rev_entry_loc));
 										}
 										Term::Id(reverse_prop)
 											if reverse_prop.as_str().contains(':')
@@ -323,7 +322,7 @@ impl<'a> Expander<'a> {
 														}
 														Err(_) => {
 															return Err(
-																Error::InvalidReversePropertyValue
+																JsonLdError::InvalidReversePropertyValue
 																	.at(rev_entry_loc),
 															)
 														}
@@ -338,7 +337,7 @@ impl<'a> Expander<'a> {
 										}
 										_ => {
 											if self.options.policy.is_strict() {
-												return Err(Error::KeyExpansionFailed(
+												return Err(JsonLdError::KeyExpansionFailed(
 													reverse_key.to_string(),
 												)
 												.at(rev_entry_loc));
@@ -348,7 +347,7 @@ impl<'a> Expander<'a> {
 									}
 								}
 							} else {
-								return Err(Error::InvalidReverseValue.at(entry_loc));
+								return Err(JsonLdError::InvalidReverseValue.at(entry_loc));
 							}
 						}
 						// If expanded property is @nest
@@ -434,11 +433,11 @@ impl<'a> Expander<'a> {
 									result = new_result;
 									has_value_object_entries = new_has_value_object_entries;
 								} else {
-									return Err(Error::InvalidNestValue.at(entry_loc));
+									return Err(JsonLdError::InvalidNestValue.at(entry_loc));
 								}
 							}
 						}
-						Keyword::Value => return Err(Error::InvalidNestValue.at(entry_loc)),
+						Keyword::Value => return Err(JsonLdError::InvalidNestValue.at(entry_loc)),
 						_ => (),
 					}
 				}
@@ -446,7 +445,7 @@ impl<'a> Expander<'a> {
 				Term::Id(Lenient::Invalid(name))
 					if self.options.policy == ExpansionPolicy::Strictest =>
 				{
-					return Err(Error::KeyExpansionFailed(name).at(entry_loc))
+					return Err(JsonLdError::KeyExpansionFailed(name).at(entry_loc));
 				}
 
 				Term::Id(prop)
@@ -580,9 +579,8 @@ impl<'a> Expander<'a> {
 												// item must be a string, otherwise an
 												// invalid language map value error has
 												// been detected and processing is aborted.
-												return Err(
-													Error::InvalidLanguageMapValue.at(entry_loc)
-												);
+												return Err(JsonLdError::InvalidLanguageMapValue
+													.at(entry_loc));
 											}
 										}
 									}
@@ -771,9 +769,8 @@ impl<'a> Expander<'a> {
 													// contain any extra properties; an invalid
 													// value object error has been detected and
 													// processing is aborted.
-													return Err(
-														Error::InvalidValueObject.at(entry_loc)
-													);
+													return Err(JsonLdError::InvalidValueObject
+														.at(entry_loc));
 												}
 											} else if container_mapping
 												.contains(ContainerItem::Index) && item
@@ -823,7 +820,7 @@ impl<'a> Expander<'a> {
 													}
 												} else {
 													return Err(
-														Error::InvalidTypeValue.at(entry_loc)
+														JsonLdError::InvalidTypeValue.at(entry_loc)
 													);
 												}
 											}
@@ -897,7 +894,9 @@ impl<'a> Expander<'a> {
 								match object.try_cast::<NodeObject>() {
 									Ok(node) => reverse_expanded_nodes.push(node),
 									Err(_) => {
-										return Err(Error::InvalidReversePropertyValue.at(entry_loc))
+										return Err(
+											JsonLdError::InvalidReversePropertyValue.at(entry_loc)
+										);
 									}
 								}
 							}
@@ -916,7 +915,7 @@ impl<'a> Expander<'a> {
 
 				Term::Id(prop) => {
 					if self.options.policy.is_strict() {
-						return Err(Error::KeyExpansionFailed(prop.to_string()).at(entry_loc));
+						return Err(JsonLdError::KeyExpansionFailed(prop.to_string()).at(entry_loc));
 					}
 					// non-keyword properties that does not include a ':' are skipped.
 				}
@@ -935,4 +934,4 @@ impl<'a> Expander<'a> {
 type ExpandedNode = (Indexed<NodeObject>, bool);
 
 /// Result of the `expand_node_entries` function.
-type NodeEntriesExpensionResult = Result<ExpandedNode, JsonLdLocated<Error>>;
+type NodeEntriesExpensionResult = Result<ExpandedNode, JsonLdLocated<JsonLdError>>;

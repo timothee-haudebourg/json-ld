@@ -1,0 +1,4 @@
+{
+	"@id": "https://example.com/foo",
+	"undefinedTerm": "this key cannot be expanded without a colon or a vocabulary mapping"
+}

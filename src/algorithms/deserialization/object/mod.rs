@@ -1,4 +1,4 @@
-use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
+use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::Term;
 
 use crate::{Indexed, Object};

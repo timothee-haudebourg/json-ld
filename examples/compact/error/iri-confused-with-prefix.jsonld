@@ -1,0 +1,7 @@
+{
+	"@context": {
+		"http": "http://example.org/http-term"
+	},
+	"@id": "http://example.com/resource",
+	"http://example.org/http-term": "value"
+}

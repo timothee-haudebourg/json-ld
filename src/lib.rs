@@ -151,12 +151,13 @@
 #[cfg(feature = "algorithms")]
 pub mod algorithms;
 mod core;
+pub mod ext;
 #[cfg(feature = "algorithms")]
 mod processor;
 pub mod syntax;
 
 #[cfg(feature = "algorithms")]
-pub use algorithms::{Error, ErrorCode, RdfSerializationOptions, Warning};
+pub use algorithms::{JsonLdError, JsonLdErrorCode, RdfSerializationOptions, Warning};
 pub use core::*;
 pub use linked_data;
 #[cfg(feature = "algorithms")]

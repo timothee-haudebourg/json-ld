@@ -1,7 +1,7 @@
 //! Flattening algorithm and related types.
 use rdf_syntax::Generator;
 
-use crate::{flattened::UnorderedFlattenedDocument, ExpandedDocument, FlattenedDocument};
+use crate::{ExpandedDocument, FlattenedDocument, flattened::UnorderedFlattenedDocument};
 
 mod node_map;
 

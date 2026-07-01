@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"@base": "relative/path"
+	},
+	"@id": "https://example.com/foo"
+}

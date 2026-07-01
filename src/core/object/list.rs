@@ -3,8 +3,8 @@ use std::hash::Hash;
 use rdf_syntax::BlankId;
 
 use crate::{
-	object::{ObjectMut, ObjectRef},
 	IndexedObject, VisitJsonLd,
+	object::{ObjectMut, ObjectRef},
 };
 
 use super::{AnyObject, MappedEq};

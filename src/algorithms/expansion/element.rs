@@ -1,17 +1,17 @@
 use std::borrow::Cow;
 
-use json_syntax::{object::Entry, JsonValue};
+use json_syntax::{JsonValue, object::Entry};
 use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
+	Indexed, Lenient, Nullable, Object, Term,
 	algorithms::{
-		context_processing::ContextProcessingOptions, AsyncProcessingEnvironment,
-		AsyncProcessingEnvironmentRef, Error, JsonLdLocated, JsonLdLocationStack, Warning,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdError, JsonLdLocated,
+		JsonLdLocationStack, Warning, context_processing::ContextProcessingOptions,
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
-	Indexed, Lenient, Nullable, Object, Term,
 };
 
 use super::{ExpandableLiteralValue, Expanded, Expander};
@@ -30,7 +30,7 @@ impl<'a> Expander<'a> {
 		element: &JsonValue,
 		from_map: bool,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<Expanded, JsonLdLocated<Error>> {
+	) -> Result<Expanded, JsonLdLocated<JsonLdError>> {
 		// If `element` is null, return null.
 		if element.is_null() {
 			return Ok(Expanded::Null);
@@ -128,11 +128,12 @@ impl<'a> Expander<'a> {
 				// `@context` entry as `local_context` and `base_url`.
 				if let Some(local_context) = element
 					.get_unique("@context")
-					.map_err(|e| Error::duplicate_key_ref(e).at(location))?
+					.map_err(|e| JsonLdError::duplicate_key_ref(e).at(location))?
 				{
 					let local_context: Context = json_syntax::from_value(local_context.clone())
 						.map_err(|e| {
-							Error::ContextSyntax(e).at(location.object_value(Keyword::Context))
+							JsonLdError::ContextSyntax(e)
+								.at(location.object_value(Keyword::Context))
 						})?;
 
 					let context_loc = location.object_value(Keyword::Context);
@@ -286,10 +287,10 @@ impl<'a> Expander<'a> {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
-								None => return Err(Error::InvalidIndexValue.at(location)),
+								None => return Err(JsonLdError::InvalidIndexValue.at(location)),
 							},
 							Term::Keyword(Keyword::List) => (),
-							_ => return Err(Error::InvalidSetOrListObject.at(location)),
+							_ => return Err(JsonLdError::InvalidSetOrListObject.at(location)),
 						}
 					}
 
@@ -323,7 +324,7 @@ impl<'a> Expander<'a> {
 								// but is ignored.
 							}
 							Term::Keyword(Keyword::Set) => (),
-							_ => return Err(Error::InvalidSetOrListObject.at(location)),
+							_ => return Err(JsonLdError::InvalidSetOrListObject.at(location)),
 						}
 					}
 

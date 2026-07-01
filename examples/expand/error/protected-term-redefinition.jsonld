@@ -1,0 +1,8 @@
+{
+	"@context": [
+		{ "@protected": true, "name": "http://xmlns.com/foaf/0.1/name" },
+		{ "name": "http://example.org/differentName" }
+	],
+	"@id": "https://example.com/foo",
+	"name": "Test"
+}

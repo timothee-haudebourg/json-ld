@@ -1,8 +1,8 @@
 use linked_data::{
-	ser::{IdSerializer, SerializeLinkedDataWith},
 	LinkedDataSerializer, RdfUnordered, SerializeLinkedData,
+	ser::{IdSerializer, SerializeLinkedDataWith},
 };
-use rdf_syntax::{Term, RDF_TYPE};
+use rdf_syntax::{RDF_TYPE, Term};
 
 use crate::{Lenient, NodeObject};
 

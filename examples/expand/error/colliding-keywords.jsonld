@@ -1,0 +1,7 @@
+{
+	"@context": {
+		"identifier": "@id"
+	},
+	"@id": "https://example.com/foo",
+	"identifier": "https://example.com/bar"
+}

@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"term": { "@id": "relative" }
+	},
+	"@id": "https://example.com/foo"
+}

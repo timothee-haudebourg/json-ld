@@ -1,0 +1,6 @@
+{
+	"@context": {
+		"": "http://example.org/empty-term"
+	},
+	"@id": "https://example.com/foo"
+}

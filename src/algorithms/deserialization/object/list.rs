@@ -1,7 +1,7 @@
-use linked_data::{ser::SerializeLinkedDataWith, LinkedDataSerializer, SerializeLinkedData};
-use rdf_syntax::{Term, RDF_FIRST, RDF_NIL, RDF_REST};
+use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
+use rdf_syntax::{RDF_FIRST, RDF_NIL, RDF_REST, Term};
 
-use crate::{object::ListObject, IndexedObject};
+use crate::{IndexedObject, object::ListObject};
 
 use super::super::RdfSerializationOptions;
 

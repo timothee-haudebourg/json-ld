@@ -1,5 +1,5 @@
-use crate::syntax::context::ContextTypeContainer;
 use crate::syntax::ContainerItem;
+use crate::syntax::context::ContextTypeContainer;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Container {

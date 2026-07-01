@@ -1,0 +1,4 @@
+{
+	"@context": "https://example.com/missing-context.jsonld",
+	"@id": "https://example.com/foo"
+}

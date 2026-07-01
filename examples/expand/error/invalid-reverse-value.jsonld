@@ -1,0 +1,4 @@
+{
+	"@id": "https://example.com/foo",
+	"@reverse": "not a map"
+}

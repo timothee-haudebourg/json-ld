@@ -1,8 +1,8 @@
 pub use langtag::{InvalidLangTag, LangTag, LangTagBuf};
 
 use crate::{
-	syntax::utils::{CaselessStr, CaselessString},
 	Validate,
+	syntax::utils::{CaselessStr, CaselessString},
 };
 
 impl Validate for LangTagBuf {

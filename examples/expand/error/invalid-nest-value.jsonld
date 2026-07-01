@@ -1,0 +1,4 @@
+{
+	"@id": "https://example.com/foo",
+	"@nest": "not an object"
+}

@@ -1,11 +1,11 @@
 use json_syntax::JsonArray;
 
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, Error, JsonLdLocated, JsonLdLocationStack},
+	Object,
+	algorithms::{AsyncProcessingEnvironment, JsonLdError, JsonLdLocated, JsonLdLocationStack},
 	context::TermDefinitionRef,
 	object::ListObject,
 	syntax::ContainerItem,
-	Object,
 };
 
 use super::{Expanded, Expander};
@@ -19,7 +19,7 @@ impl<'a> Expander<'a> {
 		element: &JsonArray,
 		from_map: bool,
 		location: JsonLdLocationStack<'_>,
-	) -> Result<Expanded, JsonLdLocated<Error>> {
+	) -> Result<Expanded, JsonLdLocated<JsonLdError>> {
 		// Initialize an empty array, result.
 		let mut is_list = false;
 		let mut result = Vec::new();

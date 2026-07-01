@@ -1,8 +1,8 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
 
-use crate::object::{ObjectMut, ObjectRef};
 use crate::VisitJsonLd;
+use crate::object::{ObjectMut, ObjectRef};
 
 /// Indexed objects.
 ///

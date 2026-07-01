@@ -1,6 +1,6 @@
 use crate::{
-	algorithms::{context_processing::ContextProcessingOptions, expansion::ExpansionOptions},
 	ProcessingMode,
+	algorithms::{context_processing::ContextProcessingOptions, expansion::ExpansionOptions},
 };
 
 /// Compaction options.

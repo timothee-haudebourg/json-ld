@@ -4,10 +4,10 @@ use indexmap::IndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
+	Indexed, IndexedObject, Lenient, NodeObject, Object,
 	algorithms::{JsonLdLocated, JsonLdLocationStack},
 	object::ListObject,
 	syntax::Keyword,
-	Indexed, IndexedObject, Lenient, NodeObject, Object,
 };
 
 use super::{ConflictingIndexes, NodeMap};

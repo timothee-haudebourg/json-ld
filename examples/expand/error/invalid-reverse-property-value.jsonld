@@ -1,0 +1,6 @@
+{
+	"@id": "https://example.com/foo",
+	"@reverse": {
+		"http://xmlns.com/foaf/0.1/knows": "just a string, not a node"
+	}
+}
