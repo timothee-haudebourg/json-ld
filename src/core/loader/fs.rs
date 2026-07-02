@@ -1,10 +1,11 @@
-use json_syntax::{JsonValue, ParseJson};
+use json_syntax::parse::JsonParseError;
+use json_syntax::{JsonParse, JsonValue};
 use rdf_syntax::{Iri, IriBuf};
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
-use crate::{Document, DocumentSource, LoadError};
+use crate::{Document, JsonLdSourceCode, LoadError};
 
 use super::Loader;
 
@@ -21,7 +22,7 @@ pub enum Error {
 
 	/// Parse error.
 	#[error("parse error: {0}")]
-	Parse(json_syntax::parse::Error),
+	Parse(JsonParseError),
 }
 
 /// File-system loader.
@@ -86,7 +87,7 @@ impl Loader for FsLoader {
 					Some("application/ld+json".parse().unwrap()),
 					None,
 					Default::default(),
-					Some(DocumentSource::new(contents, code_map)),
+					Some(JsonLdSourceCode::new(contents, code_map)),
 					doc,
 				))
 			}

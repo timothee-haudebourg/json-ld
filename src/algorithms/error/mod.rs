@@ -1,6 +1,6 @@
 use crate::LoadError;
 use crate::algorithms::flattening::ConflictingIndexes;
-use crate::algorithms::{JsonLdLocated, JsonLdLocationStack};
+use crate::algorithms::{JsonLdBacktraceBuilder, JsonLdLocated};
 
 mod code;
 
@@ -140,12 +140,8 @@ pub enum JsonLdError {
 	IriConfusedWithPrefix,
 }
 
-// impl From<Box<ConflictingIndexes> for JsonLdError {
-//     //
-// }
-
 impl JsonLdError {
-	pub fn at(self, location: JsonLdLocationStack<'_>) -> JsonLdLocatedError {
+	pub fn at(self, location: JsonLdBacktraceBuilder<'_>) -> JsonLdLocatedError {
 		Box::new(JsonLdLocated::new(self, location.build()))
 	}
 

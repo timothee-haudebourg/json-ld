@@ -1,5 +1,5 @@
 use hashbrown::HashSet;
-use json_syntax::{JsonCodeMap, JsonValue};
+use json_syntax::{JsonCodeMap, JsonPrint, JsonValue, print::JsonPrintOptions};
 use mime::Mime;
 use rdf_syntax::{Iri, IriBuf};
 
@@ -38,7 +38,7 @@ pub struct Document<T = JsonValue> {
 
 	pub profile: HashSet<Profile>,
 
-	pub source: Option<DocumentSource>,
+	pub source: Option<JsonLdSourceCode>,
 
 	/// The retrieved document.
 	pub document: T,
@@ -75,7 +75,7 @@ impl<T> Document<T> {
 		content_type: Option<Mime>,
 		context_url: Option<IriBuf>,
 		profile: HashSet<Profile>,
-		source: Option<DocumentSource>,
+		source: Option<JsonLdSourceCode>,
 		document: T,
 	) -> Self {
 		Self {
@@ -180,13 +180,20 @@ impl Document {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DocumentSource {
+pub struct JsonLdSourceCode {
 	pub text: String,
 	pub code_map: JsonCodeMap,
 }
 
-impl DocumentSource {
+impl JsonLdSourceCode {
 	pub fn new(text: String, code_map: JsonCodeMap) -> Self {
 		Self { text, code_map }
+	}
+
+	pub fn from_value(value: &JsonValue) -> Self {
+		JsonLdSourceCode {
+			text: value.pretty_print().to_string(),
+			code_map: JsonCodeMap::from_value(value, &JsonPrintOptions::PRETTY),
+		}
 	}
 }

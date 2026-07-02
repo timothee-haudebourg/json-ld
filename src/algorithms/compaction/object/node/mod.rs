@@ -5,8 +5,8 @@ use rdf_syntax::Id;
 use crate::{
 	Lenient, NodeObject, ProcessingMode, Term, Type,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdLocatedError,
-		JsonLdLocationStack,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
+		JsonLdLocatedError,
 		compaction::{Compactor, object::value::add_value},
 		context_processing::ContextProcessingOptions,
 	},
@@ -28,7 +28,7 @@ impl Compactor<'_> {
 		env: &impl AsyncProcessingEnvironment,
 		node: &NodeObject,
 		index: Option<&str>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		// If active context has a previous context, the active context is not propagated.
 		// If element does not contain an @value entry, and element does not consist of
@@ -56,7 +56,7 @@ impl Compactor<'_> {
 						active_property_definition.base_url(),
 						active_context.as_ref(),
 						ContextProcessingOptions::from(self.options).with_override(),
-						JsonLdLocationStack::Root,
+						JsonLdBacktraceBuilder::Root,
 					)
 					.await?
 					.into_raw(),
@@ -97,7 +97,7 @@ impl Compactor<'_> {
 								term_definition.base_url(),
 								active_context.as_ref(),
 								processing_options,
-								JsonLdLocationStack::Root,
+								JsonLdBacktraceBuilder::Root,
 							)
 							.await?
 							.into_raw(),
@@ -202,7 +202,7 @@ impl Compactor<'_> {
 							active_property_definition.base_url(),
 							active_context.as_ref(),
 							ContextProcessingOptions::from(self.options).with_override(),
-							JsonLdLocationStack::Root,
+							JsonLdBacktraceBuilder::Root,
 						)
 						.await?
 						.into_raw(),
@@ -342,7 +342,7 @@ impl Compactor<'_> {
 		self,
 		result: &mut JsonObject,
 		types: Option<&[Lenient<Id>]>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded property is @type:
 		if let Some(types) = types

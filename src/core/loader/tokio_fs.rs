@@ -1,8 +1,8 @@
-use json_syntax::{JsonValue, ParseJson};
+use json_syntax::{JsonParse, JsonValue};
 use rdf_syntax::{Iri, IriBuf};
 use std::path::PathBuf;
 
-use crate::{Document, DocumentSource, LoadError};
+use crate::{Document, JsonLdSourceCode, LoadError};
 
 use super::{AsyncLoader, FsLoader};
 
@@ -57,7 +57,7 @@ impl AsyncLoader for TokioFsLoader {
 					Some("application/ld+json".parse().unwrap()),
 					None,
 					Default::default(),
-					Some(DocumentSource::new(contents, code_map)),
+					Some(JsonLdSourceCode::new(contents, code_map)),
 					doc,
 				))
 			}

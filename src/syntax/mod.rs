@@ -17,10 +17,6 @@ pub use container::{ContainerItem, ContainerValue, UnexpectedContainerItem};
 pub use context::{Context, ContextDocumentValue, ContextEntry};
 pub use direction::*;
 pub use expandable::*;
-pub use json_syntax::{
-	JsonNumber, JsonNumberBuf, JsonObject, JsonString, JsonValue, Kind, ParseJson, PrintJson,
-	lexical, locspan, object, parse, print, tracing,
-};
 pub use keyword::*;
 pub use lang::*;
 pub use nullable::*;

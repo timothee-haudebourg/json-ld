@@ -1,10 +1,9 @@
 use clap::{Parser, Subcommand};
 use json_ld::{
-	AsyncLoader, Document, DocumentSource, ExpandedDocument, Iri, IriBuf, JsonLdOptions,
-	JsonLdProcessor, RemoteDocument, TokioFsLoader,
-	ext::miette::JsonLdDiagnostic,
-	syntax::{JsonValue, ParseJson, PrintJson},
+	AsyncLoader, Document, ExpandedDocument, Iri, IriBuf, JsonLdOptions, JsonLdProcessor,
+	JsonLdSourceCode, RemoteDocument, TokioFsLoader, ext::miette::JsonLdDiagnostic,
 };
+use json_syntax::{JsonParse, JsonPrint, JsonValue};
 use miette::{Diagnostic, NamedSource, SourceSpan};
 use nquads_syntax::grdf_document_from_str;
 use rdf_syntax::{RdfDisplay, generator::BlankIdGenerator};
@@ -169,7 +168,7 @@ fn parse_document(content: &str, base: Option<&Iri>) -> miette::Result<Document>
 		Some("application/ld+json".parse().unwrap()),
 		None,
 		Default::default(),
-		Some(DocumentSource::new(content.to_owned(), code_map)),
+		Some(JsonLdSourceCode::new(content.to_owned(), code_map)),
 		value,
 	))
 }

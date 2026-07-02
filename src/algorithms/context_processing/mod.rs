@@ -18,8 +18,8 @@ use stack::ProcessingStack;
 use crate::{
 	AsyncLoader, ContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError, JsonLdLocationStack,
-		JsonLdSourceRef,
+		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
+		JsonLdSourceFileRef,
 	},
 	context::RawProcessedContext,
 	syntax::{Context, ContextEntry, Keyword, context::KeyOrKeywordRef},
@@ -70,7 +70,7 @@ impl ContextDocument {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 	) -> Result<ProcessedContext<'_>, JsonLdLocatedError> {
-		let loc = JsonLdLocationStack::new().file(JsonLdSourceRef::Context(self.url()));
+		let loc = JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Context(self.url()));
 		self.document
 			.context
 			.process_with(
@@ -99,7 +99,7 @@ impl Context {
 			base_url,
 			&active_context,
 			ContextProcessingOptions::default(),
-			JsonLdLocationStack::Root,
+			JsonLdBacktraceBuilder::Root,
 		)
 		.await
 	}
@@ -113,7 +113,7 @@ impl Context {
 		base_url: Option<&Iri>,
 		active_context: &RawProcessedContext,
 		options: ContextProcessingOptions,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<ProcessedContext<'_>, JsonLdLocatedError> {
 		ContextProcessor {
 			options,
@@ -132,7 +132,7 @@ impl<'a> ContextProcessor<'a> {
 		mut self,
 		env: &impl AsyncProcessingEnvironment,
 		local_context: &Context,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<RawProcessedContext, JsonLdLocatedError> {
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = self.active_context.clone();
@@ -238,9 +238,9 @@ impl<'a> ContextProcessor<'a> {
 							propagate: true,
 						};
 
-						let remote_root = JsonLdLocationStack::new();
+						let remote_root = JsonLdBacktraceBuilder::new();
 						let remote_loc =
-							remote_root.file(JsonLdSourceRef::Context(Some(&context_iri)));
+							remote_root.file(JsonLdSourceFileRef::Context(Some(&context_iri)));
 						result = Box::pin(
 							self.for_sub_context(&result, Some(&context_iri), new_options)
 								.process(env, &loaded_context, remote_loc),

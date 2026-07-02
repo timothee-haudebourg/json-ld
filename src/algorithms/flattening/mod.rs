@@ -7,14 +7,14 @@ mod node_map;
 
 pub use node_map::*;
 
-use crate::algorithms::JsonLdLocationStack;
+use crate::algorithms::JsonLdBacktraceBuilder;
 
 impl ExpandedDocument {
 	pub fn flatten(
 		&self,
 		generator: impl Generator,
 		ordered: bool,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<FlattenedDocument, NodeMapExtendError> {
 		Ok(self
 			.generate_node_map_with(generator, location)?
@@ -24,7 +24,7 @@ impl ExpandedDocument {
 	pub fn flatten_unordered(
 		&self,
 		generator: impl Generator,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<UnorderedFlattenedDocument, NodeMapExtendError> {
 		Ok(self
 			.generate_node_map_with(generator, location)?

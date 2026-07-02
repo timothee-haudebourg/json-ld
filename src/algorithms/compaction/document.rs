@@ -3,7 +3,7 @@ use json_syntax::JsonValue;
 use crate::{
 	ExpandedDocument, FlattenedDocument, ProcessedContext,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdLocationStack,
+		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError,
 		compaction::CompactFragment,
 	},
 };
@@ -18,7 +18,7 @@ impl ExpandedDocument {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		let compactor = Compactor::new(context, options);
 
@@ -38,7 +38,7 @@ impl ExpandedDocument {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.compact_with(env, context, CompactionOptions::default(), location)
 			.await
@@ -51,7 +51,7 @@ impl Compact for ExpandedDocument {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.compact_with(env, context, options, location).await
 	}
@@ -63,7 +63,7 @@ impl Compact for FlattenedDocument {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		let compactor = Compactor::new(context, options);
 

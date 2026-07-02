@@ -8,7 +8,7 @@ use crate::algorithms::JsonLdLocatedError;
 use crate::{
 	Nullable, ProcessingMode, Term, Type,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocationStack,
+		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 		warning::Warning,
 	},
@@ -59,7 +59,7 @@ impl DefinedTerms {
 
 	pub fn begin(
 		&mut self,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 		key: &KeyOrKeyword,
 	) -> Result<bool, JsonLdLocatedError> {
 		match self.0.get(key) {
@@ -97,7 +97,7 @@ impl<'a> ContextProcessor<'a> {
 		local_context: &Merged<'_>,
 		term: KeyOrKeywordRef<'_>,
 		protected: bool,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		let term = term.to_owned();
 		if result.defined.begin(location, &term)? {

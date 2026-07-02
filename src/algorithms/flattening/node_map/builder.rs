@@ -4,7 +4,7 @@ use btree_indexmap::BTreeIndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
-	Indexed, IndexedObject, Lenient, NodeObject, Object, algorithms::JsonLdLocationStack,
+	Indexed, IndexedObject, Lenient, NodeObject, Object, algorithms::JsonLdBacktraceBuilder,
 	object::ListObject, syntax::Keyword,
 };
 
@@ -44,7 +44,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		&mut self,
 		element: &IndexedObject,
 		active_graph: Option<&Lenient<Id>>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<IndexedObject, NodeMapExtendError> {
 		match element.inner() {
 			Object::Value(value) => {
@@ -84,7 +84,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		node: &NodeObject,
 		index: Option<&str>,
 		active_graph: Option<&Lenient<Id>>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Indexed<NodeObject>, NodeMapExtendError> {
 		let id = self.substitution.assign_node_id(node.id.as_ref());
 

@@ -3,7 +3,7 @@ use json_syntax::{JsonObject, JsonValue};
 use crate::{
 	Indexed, Lenient, NodeObject, Object, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError, JsonLdLocationStack,
+		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
 		compaction::{
 			CompactFragment, CompactIndexedFragment, Compactor,
 			object::value::{add_value, value_value},
@@ -25,7 +25,7 @@ impl Compactor<'_> {
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded item is a list object:
 		let mut compacted_item: JsonValue = Box::pin(
@@ -85,7 +85,7 @@ impl Compactor<'_> {
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded item is a graph object
 		let mut compacted_item = Box::pin(
@@ -248,7 +248,7 @@ impl Compactor<'_> {
 		result: &'a mut JsonObject,
 		item_active_property: &str,
 		compact_arrays: bool,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(&'a mut JsonObject, Container, bool), JsonLdLocatedError> {
 		let (nest_result, container) = match self.active_context.get(item_active_property) {
 			Some(term_definition) => {
@@ -328,7 +328,7 @@ impl Compactor<'_> {
 		expanded_property: Term,
 		expanded_value: O,
 		inside_reverse: bool,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError>
 	where
 		O: IntoIterator<Item = &'a Indexed<T>>,

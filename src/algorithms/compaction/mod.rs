@@ -12,7 +12,7 @@ pub use options::*;
 
 use crate::{
 	Indexed, ProcessedContext, Term,
-	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdLocationStack},
+	algorithms::{AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError},
 	context::{
 		RawProcessedContext,
 		inverse::{LangSelection, TypeSelection},
@@ -29,7 +29,7 @@ pub trait Compact {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
 
 	/// Compacts the input document with the default options.
@@ -38,7 +38,7 @@ pub trait Compact {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.compact_with(env, context, CompactionOptions::default(), location)
 			.await
@@ -51,7 +51,7 @@ impl<T: Compact> Compact for std::sync::Arc<T> {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		T::compact_with(self, env, context, options, location).await
 	}
@@ -60,7 +60,7 @@ impl<T: Compact> Compact for std::sync::Arc<T> {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		T::compact(self, env, context, location).await
 	}
@@ -124,7 +124,7 @@ trait CompactFragment {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
 }
 
@@ -142,7 +142,7 @@ trait CompactIndexedFragment {
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
 }
 
@@ -151,7 +151,7 @@ impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.inner()
 			.compact_indexed_fragment(env, compactor, self.index(), location)
@@ -199,7 +199,7 @@ impl EmbedContext for JsonValue {
 						&Term::Keyword(Keyword::Graph),
 						true,
 						false,
-						JsonLdLocationStack::Root,
+						JsonLdBacktraceBuilder::Root,
 					)?;
 
 					obj.insert(key.unwrap(), array.into());

@@ -2,7 +2,7 @@ use json_syntax::JsonArray;
 
 use crate::{
 	Object,
-	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdLocationStack},
+	algorithms::{AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError},
 	context::TermDefinitionRef,
 	object::ListObject,
 	syntax::ContainerItem,
@@ -18,7 +18,7 @@ impl<'a> Expander<'a> {
 		active_property_definition: Option<TermDefinitionRef<'_>>,
 		element: &JsonArray,
 		from_map: bool,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Expanded, JsonLdLocatedError> {
 		// Initialize an empty array, result.
 		let mut is_list = false;

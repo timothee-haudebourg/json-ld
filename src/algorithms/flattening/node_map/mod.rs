@@ -1,7 +1,7 @@
 use crate::{
 	ExpandedDocument, FlattenedDocument, Indexed, IndexedNode, IndexedObject, Lenient, NodeObject,
 	Object,
-	algorithms::{JsonLdLocated, JsonLdLocationStack, JsonLdSource},
+	algorithms::{JsonLdBacktraceBuilder, JsonLdLocated, JsonLdSourceFile},
 };
 use educe::Educe;
 use json_syntax::tracing::JsonBacktraceBuf;
@@ -32,7 +32,7 @@ impl ExpandedDocument {
 	pub fn generate_node_map_with(
 		&self,
 		generator: impl Generator,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<NodeMap, NodeMapExtendError> {
 		let mut builder = NodeMapBuilder::new(generator);
 
@@ -224,7 +224,7 @@ impl IntoIterator for NodeMap {
 pub struct NodeMapGraphEntry {
 	pub node: IndexedNode,
 	/// Location of the `@index` value that was declared for this node, if known.
-	pub index_location: Option<JsonBacktraceBuf<JsonLdSource>>,
+	pub index_location: Option<JsonBacktraceBuf<JsonLdSourceFile>>,
 }
 
 impl NodeMapGraphEntry {
@@ -285,7 +285,7 @@ impl NodeMapGraph {
 	pub fn declare_node(
 		&mut self,
 		id: Lenient<Id>,
-		index: Option<(&str, JsonBacktraceBuf<JsonLdSource>)>,
+		index: Option<(&str, JsonBacktraceBuf<JsonLdSourceFile>)>,
 	) -> DeclareNodeResult<'_> {
 		if let Some(entry) = self.nodes.get_mut(&id) {
 			match (entry.index(), index) {

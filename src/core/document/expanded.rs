@@ -9,6 +9,7 @@ use crate::{
 ///
 /// It is just an alias for a set of (indexed) objects.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ExpandedDocument(BTreeIndexSet<IndexedObject>);
 
 impl ExpandedDocument {

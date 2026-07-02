@@ -1,4 +1,4 @@
-use json_syntax::{JsonNumberBuf, JsonValue, PrintJson};
+use json_syntax::{JsonNumberBuf, JsonPrint, JsonValue};
 use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::Iri;
 use rdf_syntax::{Literal, RDF_JSON, Term};

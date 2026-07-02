@@ -6,7 +6,7 @@ use crate::algorithms::JsonLdLocatedError;
 use crate::{
 	Nullable, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdLocationStack,
+		AsyncProcessingEnvironment, JsonLdBacktraceBuilder,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 		warning::Warning,
 	},
@@ -36,7 +36,7 @@ impl<'a> ContextProcessor<'a> {
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		value: Nullable<ExpandableRef<'_>>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> ExpandIriResult {
 		match value {
 			Nullable::Null => Ok(Term::Null),

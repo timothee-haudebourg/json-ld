@@ -7,8 +7,8 @@ use rdf_syntax::Id;
 use crate::{
 	Indexed, Lenient, Nullable, Object, Term,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdError, JsonLdLocatedError,
-		JsonLdLocationStack, Warning, context_processing::ContextProcessingOptions,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
+		JsonLdError, JsonLdLocatedError, Warning, context_processing::ContextProcessingOptions,
 	},
 	object::ListObject,
 	syntax::{Context, Keyword},
@@ -29,7 +29,7 @@ impl<'a> Expander<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		element: &JsonValue,
 		from_map: bool,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Expanded, JsonLdLocatedError> {
 		// If `element` is null, return null.
 		if element.is_null() {

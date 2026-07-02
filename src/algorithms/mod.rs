@@ -1,3 +1,5 @@
+use crate::{AsyncLoader, Loader, ToAsyncLoader};
+
 mod compaction;
 mod context_processing;
 mod deserialization;
@@ -5,20 +7,16 @@ mod error;
 mod expansion;
 mod flattening;
 mod serialization;
+mod tracing;
 mod warning;
-
-use std::sync::Arc;
 
 pub use compaction::*;
 pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
 pub use error::*;
 pub use expansion::*;
-use json_syntax::tracing::{IntoOwned, JsonFragmentStack, JsonLocated};
-use rdf_syntax::{Iri, IriBuf};
+pub use tracing::*;
 pub use warning::*;
-
-use crate::{AsyncLoader, ExpandedDocument, FlattenedDocument, Loader, ToAsyncLoader};
 
 pub trait AsyncProcessingEnvironment {
 	type Loader: AsyncLoader;
@@ -114,50 +112,4 @@ impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingE
 	fn warn(&self, w: Warning) {
 		self.0.warn(w);
 	}
-}
-
-/// Location stack for context-processing and expansion algorithms.
-pub type JsonLdLocationStack<'a> = JsonFragmentStack<'a, JsonLdSourceRef<'a>>;
-
-pub type JsonLdLocated<T> = JsonLocated<T, JsonLdSource>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum JsonLdSourceRef<'a> {
-	Compact(Option<&'a Iri>),
-	Expanded(Option<&'a Iri>, &'a Arc<ExpandedDocument>),
-	Flattened(Option<&'a Iri>, &'a Arc<FlattenedDocument>),
-	Context(Option<&'a Iri>),
-}
-
-impl IntoOwned for JsonLdSourceRef<'_> {
-	type Owned = JsonLdSource;
-
-	fn into_owned(self) -> JsonLdSource {
-		match self {
-			Self::Compact(iri) => JsonLdSource::Compact(iri.map(Iri::to_owned)),
-			Self::Expanded(iri, document) => {
-				JsonLdSource::Expanded(iri.map(Iri::to_owned), document.clone())
-			}
-			Self::Flattened(iri, document) => {
-				JsonLdSource::Flattened(iri.map(Iri::to_owned), document.clone())
-			}
-			Self::Context(iri) => JsonLdSource::Context(iri.map(Iri::to_owned)),
-		}
-	}
-}
-
-/// JSON-LD source document.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum JsonLdSource {
-	/// Compact JSON-LD document.
-	Compact(Option<IriBuf>),
-
-	/// Intermediate expanded JSON-LD document.
-	Expanded(Option<IriBuf>, Arc<ExpandedDocument>),
-
-	/// Intermediate flattened JSON-LD document.
-	Flattened(Option<IriBuf>, Arc<FlattenedDocument>),
-
-	/// JSON-LD context document.
-	Context(Option<IriBuf>),
 }

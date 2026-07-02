@@ -1,6 +1,6 @@
 //! Simple document and context loader based on [`reqwest`](https://crates.io/crates/reqwest)
 use hashbrown::HashSet;
-use json_syntax::{JsonValue, ParseJson};
+use json_syntax::{JsonParse, JsonValue, parse::JsonParseError};
 use rdf_syntax::Iri;
 use reqwest::{
 	StatusCode,
@@ -8,7 +8,7 @@ use reqwest::{
 };
 use reqwest_middleware::ClientWithMiddleware;
 
-use crate::{Document, DocumentSource, LoadError, Profile};
+use crate::{Document, JsonLdSourceCode, LoadError, Profile};
 
 use super::AsyncLoader;
 
@@ -69,7 +69,7 @@ pub enum Error {
 	TooManyRedirections,
 
 	#[error("JSON parse error: {0}")]
-	Parse(json_syntax::parse::Error<std::io::Error>),
+	Parse(JsonParseError),
 }
 
 /// `reqwest`-based loader.
@@ -204,7 +204,7 @@ impl AsyncLoader for ReqwestLoader {
 								Some(content_type.into_media_type()),
 								context_url,
 								profile,
-								Some(DocumentSource::new(
+								Some(JsonLdSourceCode::new(
 									String::from_utf8_lossy(&bytes).into_owned(),
 									code_map,
 								)),

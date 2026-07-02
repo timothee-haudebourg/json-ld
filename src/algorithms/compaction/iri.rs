@@ -2,7 +2,7 @@ use json_syntax::object::Key;
 
 use crate::{
 	Indexed, JsonLdError, Nullable, Object, ProcessingMode, Term, Type, ValueObject,
-	algorithms::{JsonLdLocatedError, JsonLdLocationStack},
+	algorithms::{JsonLdBacktraceBuilder, JsonLdLocatedError},
 	context::{
 		Container,
 		inverse::{LangSelection, Selection, TypeSelection},
@@ -19,7 +19,7 @@ impl<'a> Compactor<'a> {
 		var: &Term,
 		vocab: bool,
 		reverse: bool,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Option<Key>, JsonLdLocatedError> {
 		Ok(self
 			.compact_iri(var, vocab, reverse, location)?
@@ -34,7 +34,7 @@ impl<'a> Compactor<'a> {
 		var: &Term,
 		vocab: bool,
 		reverse: bool,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Option<String>, JsonLdLocatedError> {
 		self.compact_iri_with::<Object>(var, vocab, reverse, None, location)
 	}
@@ -48,7 +48,7 @@ impl<'a> Compactor<'a> {
 		vocab: bool,
 		reverse: bool,
 		value: Option<&Indexed<O>>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Option<String>, JsonLdLocatedError>
 	where
 		O: AnyObject,

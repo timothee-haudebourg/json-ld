@@ -3,7 +3,8 @@ use json_syntax::JsonValue;
 
 use crate::{
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdLocationStack, compaction::Compactor,
+		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError,
+		compaction::Compactor,
 	},
 	syntax::ContainerItem,
 };
@@ -15,7 +16,7 @@ impl Compactor<'_> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		items: O,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>
 	where
 		T: 'a + CompactFragment,
@@ -63,7 +64,7 @@ impl<T: CompactFragment> CompactFragment for Vec<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		compactor
 			.compact_collection_with(env, self.iter(), location)
@@ -76,7 +77,7 @@ impl<T: CompactFragment> CompactFragment for [T] {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		compactor
 			.compact_collection_with(env, self.iter(), location)
@@ -89,7 +90,7 @@ impl<T: CompactFragment> CompactFragment for BTreeIndexSet<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		compactor
 			.compact_collection_with(env, self.iter(), location)

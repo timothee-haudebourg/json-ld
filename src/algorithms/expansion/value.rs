@@ -3,7 +3,7 @@ use rdf_syntax::Id;
 
 use crate::{
 	Direction, Indexed, IndexedObject, LangString, Lenient, Nullable, Object, Term, ValueObject,
-	algorithms::{JsonLdError, JsonLdLocatedError, JsonLdLocationStack, Warning},
+	algorithms::{JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, Warning},
 	context::RawProcessedContext,
 	object::{LiteralValue, value::LiteralType},
 	syntax::Keyword,
@@ -22,7 +22,7 @@ impl<'a> Expander<'a> {
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry>,
 		value_entry: &JsonValue,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> ValueExpansionResult {
 		let mut is_json = input_type
 			.as_ref()

@@ -1,7 +1,7 @@
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::algorithms::{
-	AsyncProcessingEnvironment, JsonLdError, JsonLdLocatedError, JsonLdLocationStack, Warning,
+	AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, Warning,
 };
 use crate::context::Container;
 use crate::context::RawProcessedContext;
@@ -36,7 +36,7 @@ impl<'a> Expander<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Option<Indexed<NodeObject>>, JsonLdLocatedError> {
 		// Initialize two empty maps, `result` and `nests`.
 		// let mut result = Indexed::new(Node::new(), None);
@@ -95,7 +95,7 @@ impl<'a> Expander<'a> {
 		mut has_value_object_entries: bool,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
-		location: JsonLdLocationStack<'_>,
+		location: JsonLdBacktraceBuilder<'_>,
 	) -> NodeEntriesExpensionResult {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:

@@ -43,7 +43,7 @@
 //!
 //! ```
 //! use rdf_syntax::iri;
-//! use json_ld::{JsonLdProcessor, Document, syntax::{JsonValue, ParseJson}};
+//! use json_ld::{JsonLdProcessor, Document, syntax::{JsonValue, JsonParse}};
 //!
 //! // Parse a JSON-LD document.
 //! let (value, _) = JsonValue::parse_str(r#"{
@@ -100,7 +100,7 @@
 //!
 //! ```no_run
 //! use rdf_syntax::iri;
-//! use json_ld::{JsonLdProcessor, Loader, RemoteContext, syntax::PrintJson};
+//! use json_ld::{JsonLdProcessor, Loader, RemoteContext, syntax::JsonPrint};
 //!
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
@@ -138,7 +138,7 @@
 //!
 //! ```no_run
 //! use rdf_syntax::iri;
-//! use json_ld::{JsonLdProcessor, Loader, syntax::PrintJson};
+//! use json_ld::{JsonLdProcessor, Loader, syntax::JsonPrint};
 //!
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
@@ -148,6 +148,8 @@
 //!
 //! println!("output: {}", flattened.pretty_print());
 //! ```
+pub use json_syntax;
+
 #[cfg(feature = "algorithms")]
 pub mod algorithms;
 mod core;

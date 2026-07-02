@@ -9,8 +9,8 @@ use super::{
 use crate::{
 	Document, RemoteContext,
 	algorithms::{
-		AsyncProcessingEnvironment, Compact, Expand, JsonLdLocatedError, JsonLdLocationStack,
-		JsonLdSourceRef,
+		AsyncProcessingEnvironment, Compact, Expand, JsonLdBacktraceBuilder, JsonLdLocatedError,
+		JsonLdSourceFileRef,
 	},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
@@ -48,7 +48,7 @@ impl JsonLdProcessor for Document {
 				.load(env.loader())
 				.await
 				.map_err(Into::into)
-				.json_err_at(JsonLdLocationStack::Root)?;
+				.json_err_at(JsonLdBacktraceBuilder::Root)?;
 
 			active_context = context_document
 				.document
@@ -58,8 +58,8 @@ impl JsonLdProcessor for Document {
 					active_context.original_base_url(),
 					&active_context,
 					options.context_processing_options(),
-					JsonLdLocationStack::new()
-						.file(JsonLdSourceRef::Context(context_document.url())),
+					JsonLdBacktraceBuilder::new()
+						.file(JsonLdSourceFileRef::Context(context_document.url())),
 				)
 				.await?
 				.into_raw();
@@ -71,7 +71,7 @@ impl JsonLdProcessor for Document {
 				.load(env.loader())
 				.await
 				.map_err(Into::into)
-				.json_err_at(JsonLdLocationStack::Root)?
+				.json_err_at(JsonLdBacktraceBuilder::Root)?
 				.document
 				.context
 				.process_with(
@@ -79,7 +79,8 @@ impl JsonLdProcessor for Document {
 					Some(context_url),
 					&active_context,
 					options.context_processing_options(),
-					JsonLdLocationStack::new().file(JsonLdSourceRef::Context(Some(context_url))),
+					JsonLdBacktraceBuilder::new()
+						.file(JsonLdSourceFileRef::Context(Some(context_url))),
 				)
 				.await?
 				.into_raw()
@@ -106,8 +107,10 @@ impl JsonLdProcessor for Document {
 			env,
 			context,
 			options,
-			JsonLdLocationStack::new()
-				.file(JsonLdSourceRef::Expanded(self.url(), &expanded_document)),
+			JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Expanded(
+				self.url(),
+				&expanded_document,
+			)),
 		)
 		.await
 	}
@@ -128,8 +131,8 @@ impl JsonLdProcessor for Document {
 			.flatten(
 				generator,
 				options.ordered,
-				JsonLdLocationStack::new()
-					.file(JsonLdSourceRef::Expanded(self.url(), &expanded_input)),
+				JsonLdBacktraceBuilder::new()
+					.file(JsonLdSourceFileRef::Expanded(self.url(), &expanded_input)),
 			)
 			.map_err(|e| (*e).cast())?;
 
@@ -143,8 +146,10 @@ impl JsonLdProcessor for Document {
 					env,
 					context,
 					options,
-					JsonLdLocationStack::new()
-						.file(JsonLdSourceRef::Flattened(self.url(), &flattened_output)),
+					JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Flattened(
+						self.url(),
+						&flattened_output,
+					)),
 				)
 				.await
 			}
@@ -159,7 +164,7 @@ async fn compact_expanded(
 	env: impl AsyncProcessingEnvironment,
 	context: RemoteContext,
 	options: JsonLdOptions,
-	location: JsonLdLocationStack<'_>,
+	location: JsonLdBacktraceBuilder<'_>,
 ) -> Result<JsonValue, JsonLdLocatedError> {
 	let context_base = url.or(options.base.as_deref());
 
@@ -167,7 +172,7 @@ async fn compact_expanded(
 		.load(env.loader())
 		.await
 		.map_err(Into::into)
-		.json_err_at(JsonLdLocationStack::Root)?;
+		.json_err_at(JsonLdBacktraceBuilder::Root)?;
 
 	let mut active_context = context
 		.document
@@ -177,8 +182,8 @@ async fn compact_expanded(
 			context_base,
 			&RawProcessedContext::new(None),
 			options.context_processing_options(),
-			json_syntax::tracing::JsonFragmentStack::new()
-				.file(JsonLdSourceRef::Context(context.url())),
+			json_syntax::tracing::JsonBacktraceBuilder::new()
+				.file(JsonLdSourceFileRef::Context(context.url())),
 		)
 		.await?;
 
