@@ -64,7 +64,7 @@ impl StandardProfile {
 ///
 /// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Profile(Inner);
+pub struct JsonLdProfile(Inner);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Inner {
@@ -72,7 +72,7 @@ enum Inner {
 	Custom(IriBuf),
 }
 
-impl Profile {
+impl JsonLdProfile {
 	pub const EXPANDED: Self = Self(Inner::Standard(StandardProfile::Expanded));
 	pub const COMPACTED: Self = Self(Inner::Standard(StandardProfile::Compacted));
 	pub const CONTEXT: Self = Self(Inner::Standard(StandardProfile::Context));

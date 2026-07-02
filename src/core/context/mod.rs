@@ -7,7 +7,7 @@ pub use container::Container;
 use langtag::{LangTag, LangTagBuf};
 
 use crate::syntax::context::ContextTerm;
-use crate::syntax::{Context, KeywordType};
+use crate::syntax::{JsonLdContext, KeywordType};
 use crate::{Direction, Lenient, Term};
 use rdf_syntax::{Iri, IriBuf};
 use std::borrow::{Borrow, Cow};
@@ -26,16 +26,16 @@ pub use inverse::InverseContext;
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
 pub struct ProcessedContext<'a> {
-	unprocessed: Cow<'a, Context>,
+	unprocessed: Cow<'a, JsonLdContext>,
 	raw: RawProcessedContext,
 }
 
 impl<'a> ProcessedContext<'a> {
-	pub fn new(unprocessed: Cow<'a, Context>, raw: RawProcessedContext) -> Self {
+	pub fn new(unprocessed: Cow<'a, JsonLdContext>, raw: RawProcessedContext) -> Self {
 		Self { unprocessed, raw }
 	}
 
-	pub fn unprocessed(&self) -> &Context {
+	pub fn unprocessed(&self) -> &JsonLdContext {
 		&self.unprocessed
 	}
 

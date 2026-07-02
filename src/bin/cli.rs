@@ -1,7 +1,8 @@
 use clap::{Parser, Subcommand};
 use json_ld::{
-	AsyncLoader, Document, ExpandedDocument, Iri, IriBuf, JsonLdOptions, JsonLdProcessor,
-	JsonLdSourceCode, RemoteDocument, TokioFsLoader, ext::miette::JsonLdDiagnostic,
+	AsyncLoader, Iri, IriBuf, JsonLdDocument, JsonLdExpandedDocument, JsonLdOptions,
+	JsonLdProcessor, JsonLdSourceCode, RemoteDocument, TokioFsLoader,
+	ext::miette::JsonLdDiagnostic,
 };
 use json_syntax::{JsonParse, JsonPrint, JsonValue};
 use miette::{Diagnostic, NamedSource, SourceSpan};
@@ -117,10 +118,10 @@ impl Command {
 				})?;
 
 				let expanded =
-					json_ld::linked_data::de::from_rdf_quads::<ExpandedDocument>(quads, [])
+					json_ld::linked_data::de::from_rdf_quads::<JsonLdExpandedDocument>(quads, [])
 						.map_err(|e| FromRdfError {
-							message: e.to_string(),
-						})?;
+						message: e.to_string(),
+					})?;
 
 				println!("{}", expanded_to_json(expanded).pretty_print());
 				Ok(())
@@ -156,14 +157,14 @@ fn read_stdin() -> miette::Result<String> {
 /// Parse a JSON-LD document from a `&str` (e.g. stdin contents).
 ///
 /// Wraps the parse error in a miette diagnostic with source highlighting.
-fn parse_document(content: &str, base: Option<&Iri>) -> miette::Result<Document> {
+fn parse_document(content: &str, base: Option<&Iri>) -> miette::Result<JsonLdDocument> {
 	let (value, code_map) = JsonValue::parse_str(content).map_err(|e| JsonParseError {
 		message: e.to_string(),
 		src: NamedSource::new("stdin", content.to_owned()),
 		span: SourceSpan::new(e.position().into(), 1usize),
 	})?;
 
-	Ok(Document::new_full(
+	Ok(JsonLdDocument::new_full(
 		base.map(ToOwned::to_owned),
 		Some("application/ld+json".parse().unwrap()),
 		None,
@@ -174,7 +175,7 @@ fn parse_document(content: &str, base: Option<&Iri>) -> miette::Result<Document>
 }
 
 /// Serialize an [`ExpandedDocument`] to a pretty-printed JSON value.
-fn expanded_to_json(doc: ExpandedDocument) -> JsonValue {
+fn expanded_to_json(doc: JsonLdExpandedDocument) -> JsonValue {
 	json_ld::syntax::to_value(doc.into_objects()).unwrap()
 }
 

@@ -1,6 +1,6 @@
 use crate::{
-	ExpandedDocument, FlattenedDocument, Indexed, IndexedNode, IndexedObject, Lenient, NodeObject,
-	Object,
+	Indexed, IndexedNode, IndexedObject, JsonLdExpandedDocument, JsonLdFlattenedDocument, Lenient,
+	NodeObject, Object,
 	algorithms::{JsonLdBacktraceBuilder, JsonLdLocated, JsonLdSourceFile},
 };
 use educe::Educe;
@@ -28,7 +28,7 @@ pub struct ConflictingIndexes {
 
 pub type Parts = (NodeMapGraph, HashMap<Lenient<Id>, NodeMapGraph>);
 
-impl ExpandedDocument {
+impl JsonLdExpandedDocument {
 	pub fn generate_node_map_with(
 		&self,
 		generator: impl Generator,
@@ -108,7 +108,7 @@ impl NodeMap {
 		result
 	}
 
-	pub fn flatten(self, ordered: bool) -> FlattenedDocument {
+	pub fn flatten(self, ordered: bool) -> JsonLdFlattenedDocument {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		let mut named_graphs: Vec<_> = named_graphs.into_iter().collect();

@@ -1,6 +1,6 @@
 use rdf_syntax::Iri;
 
-use crate::{Document, LoadError};
+use crate::{JsonLdDocument, LoadError};
 
 use super::{AsyncLoader, Loader};
 
@@ -19,14 +19,14 @@ pub struct CannotLoad;
 
 impl Loader for NoLoader {
 	#[inline(always)]
-	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		Err(LoadError::new(url.to_owned(), CannotLoad))
 	}
 }
 
 impl AsyncLoader for NoLoader {
 	#[inline(always)]
-	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		Err(LoadError::new(url.to_owned(), CannotLoad))
 	}
 }

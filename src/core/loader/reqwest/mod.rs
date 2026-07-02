@@ -8,7 +8,7 @@ use reqwest::{
 };
 use reqwest_middleware::ClientWithMiddleware;
 
-use crate::{Document, JsonLdSourceCode, LoadError, Profile};
+use crate::{JsonLdDocument, JsonLdProfile, JsonLdSourceCode, LoadError};
 
 use super::AsyncLoader;
 
@@ -23,7 +23,7 @@ pub struct Options {
 	/// One or more IRIs to use in the request as a profile parameter.
 	///
 	/// (See [IANA Considerations](https://www.w3.org/TR/json-ld11/#iana-considerations)).
-	pub request_profile: Vec<Profile>,
+	pub request_profile: Vec<JsonLdProfile>,
 
 	/// Maximum number of allowed `Link` header redirections before the loader
 	/// fails.
@@ -129,7 +129,7 @@ impl ReqwestLoader {
 }
 
 impl AsyncLoader for ReqwestLoader {
-	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		let mut redirection_number = 0;
 		let mut url = url.to_owned();
 		'next_url: loop {
@@ -187,7 +187,7 @@ impl AsyncLoader for ReqwestLoader {
 								if let Ok(p) = std::str::from_utf8(p)
 									&& let Ok(iri) = Iri::new(p)
 								{
-									profile.insert(Profile::new(iri));
+									profile.insert(JsonLdProfile::new(iri));
 								}
 							}
 
@@ -199,7 +199,7 @@ impl AsyncLoader for ReqwestLoader {
 							let (document, code_map) = JsonValue::parse_slice(&bytes)
 								.map_err(|e| LoadError::new(url.clone(), e))?;
 
-							break Ok(Document::new_full(
+							break Ok(JsonLdDocument::new_full(
 								Some(url),
 								Some(content_type.into_media_type()),
 								context_url,

@@ -1,4 +1,4 @@
-use json_ld::{Document, FsLoader, JsonLdProcessor, Loader, RemoteDocument};
+use json_ld::{FsLoader, JsonLdDocument, JsonLdProcessor, Loader, RemoteDocument};
 use json_ld_testing::{ManifestEntry, TestKind};
 use json_syntax::JsonPrint;
 
@@ -19,7 +19,7 @@ fn flatten(loader: &FsLoader, entry: &ManifestEntry) {
 			let flattened = input
 				.flatten_with(context, loader, options.clone())
 				.expect("flattening failed");
-			let flattened = Document::new(Some(entry.input.clone()), None, flattened);
+			let flattened = JsonLdDocument::new(Some(entry.input.clone()), None, flattened);
 
 			let mut expected = loader.load(expect).unwrap();
 			expected.set_url(Some(entry.input.clone()));

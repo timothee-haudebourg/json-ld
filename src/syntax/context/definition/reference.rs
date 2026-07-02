@@ -1,5 +1,5 @@
 use super::{
-	BindingsIter, ContextDefinition, ContextTerm, ContextType, TermDefinition, Version, Vocab,
+	BindingsIter, JsonLdContextDefinition, ContextTerm, ContextType, TermDefinition, Version, Vocab,
 };
 use crate::{
 	Lenient,
@@ -9,7 +9,7 @@ use crate::{
 use langtag::LangTagBuf;
 use rdf_syntax::IriRef;
 
-impl ContextDefinition {
+impl JsonLdContextDefinition {
 	pub fn iter(&self) -> Entries<'_> {
 		Entries {
 			base: self.base.as_ref().map(Nullable::as_deref),

@@ -10,36 +10,36 @@ pub use definition::*;
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-pub enum Context {
-	One(ContextEntry),
-	Many(Vec<ContextEntry>),
+pub enum JsonLdContext {
+	One(JsonLdContextEntry),
+	Many(Vec<JsonLdContextEntry>),
 }
 
-impl Default for Context {
+impl Default for JsonLdContext {
 	fn default() -> Self {
 		Self::Many(Vec::new())
 	}
 }
 
-impl Context {
+impl JsonLdContext {
 	/// Creates a new context with a single entry.
-	pub fn one(context: ContextEntry) -> Self {
+	pub fn one(context: JsonLdContextEntry) -> Self {
 		Self::One(context)
 	}
 
 	/// Creates the `null` context.
 	pub fn null() -> Self {
-		Self::one(ContextEntry::Null)
+		Self::one(JsonLdContextEntry::Null)
 	}
 
 	/// Creates a new context with a single IRI-reference entry.
 	pub fn iri_ref(iri_ref: IriRefBuf) -> Self {
-		Self::one(ContextEntry::IriRef(iri_ref))
+		Self::one(JsonLdContextEntry::IriRef(iri_ref))
 	}
 
 	/// Creates a new context with a single context definition entry.
-	pub fn definition(def: ContextDefinition) -> Self {
-		Self::one(ContextEntry::Definition(def))
+	pub fn definition(def: JsonLdContextDefinition) -> Self {
+		Self::one(JsonLdContextEntry::Definition(def))
 	}
 
 	/// Deserializes an optional context, preserving `null`.
@@ -56,7 +56,7 @@ impl Context {
 	}
 }
 
-impl Context {
+impl JsonLdContext {
 	pub fn len(&self) -> usize {
 		match self {
 			Self::One(_) => 1,
@@ -71,7 +71,7 @@ impl Context {
 		}
 	}
 
-	pub fn as_slice(&self) -> &[ContextEntry] {
+	pub fn as_slice(&self) -> &[JsonLdContextEntry] {
 		match self {
 			Self::One(c) => std::slice::from_ref(c),
 			Self::Many(list) => list,
@@ -89,18 +89,18 @@ impl Context {
 		matches!(self, Self::Many(_))
 	}
 
-	pub fn iter(&self) -> std::slice::Iter<'_, ContextEntry> {
+	pub fn iter(&self) -> std::slice::Iter<'_, JsonLdContextEntry> {
 		self.as_slice().iter()
 	}
 }
 
 pub enum IntoIter {
-	One(Option<ContextEntry>),
-	Many(std::vec::IntoIter<ContextEntry>),
+	One(Option<JsonLdContextEntry>),
+	Many(std::vec::IntoIter<JsonLdContextEntry>),
 }
 
 impl Iterator for IntoIter {
-	type Item = ContextEntry;
+	type Item = JsonLdContextEntry;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
@@ -110,8 +110,8 @@ impl Iterator for IntoIter {
 	}
 }
 
-impl IntoIterator for Context {
-	type Item = ContextEntry;
+impl IntoIterator for JsonLdContext {
+	type Item = JsonLdContextEntry;
 	type IntoIter = IntoIter;
 
 	fn into_iter(self) -> Self::IntoIter {
@@ -122,48 +122,48 @@ impl IntoIterator for Context {
 	}
 }
 
-impl<'a> IntoIterator for &'a Context {
-	type IntoIter = std::slice::Iter<'a, ContextEntry>;
-	type Item = &'a ContextEntry;
+impl<'a> IntoIterator for &'a JsonLdContext {
+	type IntoIter = std::slice::Iter<'a, JsonLdContextEntry>;
+	type Item = &'a JsonLdContextEntry;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
 
-impl From<ContextEntry> for Context {
-	fn from(c: ContextEntry) -> Self {
+impl From<JsonLdContextEntry> for JsonLdContext {
+	fn from(c: JsonLdContextEntry) -> Self {
 		Self::One(c)
 	}
 }
 
-impl From<IriRefBuf> for Context {
+impl From<IriRefBuf> for JsonLdContext {
 	fn from(i: IriRefBuf) -> Self {
-		Self::One(ContextEntry::IriRef(i))
+		Self::One(JsonLdContextEntry::IriRef(i))
 	}
 }
 
-impl<'a> From<&'a IriRef> for Context {
+impl<'a> From<&'a IriRef> for JsonLdContext {
 	fn from(i: &'a IriRef) -> Self {
-		Self::One(ContextEntry::IriRef(i.to_owned()))
+		Self::One(JsonLdContextEntry::IriRef(i.to_owned()))
 	}
 }
 
-impl From<IriBuf> for Context {
+impl From<IriBuf> for JsonLdContext {
 	fn from(i: IriBuf) -> Self {
-		Self::One(ContextEntry::IriRef(i.into()))
+		Self::One(JsonLdContextEntry::IriRef(i.into()))
 	}
 }
 
-impl<'a> From<&'a Iri> for Context {
+impl<'a> From<&'a Iri> for JsonLdContext {
 	fn from(i: &'a Iri) -> Self {
-		Self::One(ContextEntry::IriRef(i.to_owned().into()))
+		Self::One(JsonLdContextEntry::IriRef(i.to_owned().into()))
 	}
 }
 
-impl From<ContextDefinition> for Context {
-	fn from(c: ContextDefinition) -> Self {
-		Self::One(ContextEntry::Definition(c))
+impl From<JsonLdContextDefinition> for JsonLdContext {
+	fn from(c: JsonLdContextDefinition) -> Self {
+		Self::One(JsonLdContextEntry::Definition(c))
 	}
 }
 
@@ -174,45 +174,45 @@ impl From<ContextDefinition> for Context {
 	derive(serde::Serialize, serde::Deserialize),
 	serde(untagged)
 )]
-pub enum ContextEntry {
+pub enum JsonLdContextEntry {
 	Null,
 	IriRef(IriRefBuf),
-	Definition(ContextDefinition),
+	Definition(JsonLdContextDefinition),
 }
 
-impl ContextEntry {
+impl JsonLdContextEntry {
 	pub fn is_object(&self) -> bool {
 		matches!(self, Self::Definition(_))
 	}
 }
 
-impl From<IriRefBuf> for ContextEntry {
+impl From<IriRefBuf> for JsonLdContextEntry {
 	fn from(i: IriRefBuf) -> Self {
-		ContextEntry::IriRef(i)
+		JsonLdContextEntry::IriRef(i)
 	}
 }
 
-impl<'a> From<&'a IriRef> for ContextEntry {
+impl<'a> From<&'a IriRef> for JsonLdContextEntry {
 	fn from(i: &'a IriRef) -> Self {
-		ContextEntry::IriRef(i.to_owned())
+		JsonLdContextEntry::IriRef(i.to_owned())
 	}
 }
 
-impl From<IriBuf> for ContextEntry {
+impl From<IriBuf> for JsonLdContextEntry {
 	fn from(i: IriBuf) -> Self {
-		ContextEntry::IriRef(i.into())
+		JsonLdContextEntry::IriRef(i.into())
 	}
 }
 
-impl<'a> From<&'a Iri> for ContextEntry {
+impl<'a> From<&'a Iri> for JsonLdContextEntry {
 	fn from(i: &'a Iri) -> Self {
-		ContextEntry::IriRef(i.to_owned().into())
+		JsonLdContextEntry::IriRef(i.to_owned().into())
 	}
 }
 
-impl From<ContextDefinition> for ContextEntry {
-	fn from(c: ContextDefinition) -> Self {
-		ContextEntry::Definition(c)
+impl From<JsonLdContextDefinition> for JsonLdContextEntry {
+	fn from(c: JsonLdContextDefinition) -> Self {
+		JsonLdContextEntry::Definition(c)
 	}
 }
 
@@ -222,13 +222,13 @@ impl From<ContextDefinition> for ContextEntry {
 /// `@context` entry.
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ContextDocumentValue {
+pub struct JsonLdContextDocumentValue {
 	#[cfg_attr(feature = "serde", serde(rename = "@context"))]
-	pub context: Context,
+	pub context: JsonLdContext,
 }
 
 #[cfg(feature = "serde")]
-impl TryFrom<json_syntax::JsonValue> for ContextDocumentValue {
+impl TryFrom<json_syntax::JsonValue> for JsonLdContextDocumentValue {
 	type Error = crate::syntax::serde::DeserializeError;
 
 	fn try_from(value: json_syntax::JsonValue) -> Result<Self, Self::Error> {

@@ -16,13 +16,13 @@ pub use options::ContextProcessingOptions;
 use stack::ProcessingStack;
 
 use crate::{
-	AsyncLoader, ContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
+	AsyncLoader, JsonLdContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
 	algorithms::{
 		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
 		JsonLdSourceFileRef,
 	},
 	context::RawProcessedContext,
-	syntax::{Context, ContextEntry, Keyword, context::KeyOrKeywordRef},
+	syntax::{JsonLdContext, JsonLdContextEntry, Keyword, context::KeyOrKeywordRef},
 };
 
 struct TargetProcessedContext<'a> {
@@ -62,7 +62,7 @@ impl<'a> ContextProcessor<'a> {
 	}
 }
 
-impl ContextDocument {
+impl JsonLdContextDocument {
 	/// Process this context with the default options.
 	///
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
@@ -84,7 +84,7 @@ impl ContextDocument {
 	}
 }
 
-impl Context {
+impl JsonLdContext {
 	/// Process this context with the default options.
 	///
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
@@ -131,7 +131,7 @@ impl<'a> ContextProcessor<'a> {
 	async fn process(
 		mut self,
 		env: &impl AsyncProcessingEnvironment,
-		local_context: &Context,
+		local_context: &JsonLdContext,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<RawProcessedContext, JsonLdLocatedError> {
 		// 1) Initialize result to the result of cloning active context.
@@ -139,7 +139,7 @@ impl<'a> ContextProcessor<'a> {
 
 		// 2) If `local_context` is an object containing the member @propagate,
 		// its value MUST be boolean true or false, set `propagate` to that value.
-		if let Context::One(ContextEntry::Definition(def)) = local_context
+		if let JsonLdContext::One(JsonLdContextEntry::Definition(def)) = local_context
 			&& let Some(propagate) = def.propagate
 		{
 			if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
@@ -161,7 +161,7 @@ impl<'a> ContextProcessor<'a> {
 			let entry_loc = location.array_index(i);
 			match context {
 				// 5.1) If context is null:
-				ContextEntry::Null => {
+				JsonLdContextEntry::Null => {
 					// If `override_protected` is false and `active_context` contains any protected term
 					// definitions, an invalid context nullification has been detected and processing
 					// is aborted.
@@ -191,7 +191,7 @@ impl<'a> ContextProcessor<'a> {
 				}
 
 				// 5.2) If context is a string,
-				ContextEntry::IriRef(iri_ref) => {
+				JsonLdContextEntry::IriRef(iri_ref) => {
 					// Initialize `context` to the result of resolving context against base URL.
 					// If base URL is not a valid IRI, then context MUST be a valid IRI, otherwise
 					// a loading document failed error has been detected and processing is aborted.
@@ -250,7 +250,7 @@ impl<'a> ContextProcessor<'a> {
 				}
 
 				// 5.4) Context definition.
-				ContextEntry::Definition(context) => {
+				JsonLdContextEntry::Definition(context) => {
 					// 5.5) If context has a @version entry:
 					if context.version.is_some() {
 						// 5.5.2) If processing mode is set to json-ld-1.0, a processing mode conflict
@@ -293,7 +293,9 @@ impl<'a> ContextProcessor<'a> {
 							// detected and processing is aborted; otherwise, set import context
 							// to the value of that entry.
 							match &import_context {
-								Context::One(ContextEntry::Definition(import_context_def)) => {
+								JsonLdContext::One(JsonLdContextEntry::Definition(
+									import_context_def,
+								)) => {
 									// If `import_context` has a @import entry, an invalid context entry
 									// error has been detected and processing is aborted.
 									if import_context_def.import.is_some() {

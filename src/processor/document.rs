@@ -7,7 +7,7 @@ use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
-	Document, RemoteContext,
+	JsonLdDocument, RemoteContext,
 	algorithms::{
 		AsyncProcessingEnvironment, Compact, Expand, JsonLdBacktraceBuilder, JsonLdLocatedError,
 		JsonLdSourceFileRef,
@@ -16,7 +16,7 @@ use crate::{
 	syntax::JsonLdCompare,
 };
 
-impl JsonLdProcessor for Document {
+impl JsonLdProcessor for JsonLdDocument {
 	async fn async_compare_with(
 		&self,
 		other: &Self,

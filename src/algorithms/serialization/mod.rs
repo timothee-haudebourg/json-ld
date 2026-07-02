@@ -1,13 +1,13 @@
 use linked_data::{DeserializeLinkedData, LinkedDataDeserializer};
 use rdf_syntax::{Quad, Term, pattern::CanonicalQuadPattern};
 
-use crate::{ExpandedDocument, Indexed};
+use crate::{Indexed, JsonLdExpandedDocument};
 
 mod object;
 
 use object::*;
 
-impl<R> DeserializeLinkedData<R> for ExpandedDocument
+impl<R> DeserializeLinkedData<R> for JsonLdExpandedDocument
 where
 	R: Clone + Ord,
 {

@@ -1,7 +1,9 @@
 //! Flattening algorithm and related types.
 use rdf_syntax::Generator;
 
-use crate::{ExpandedDocument, FlattenedDocument, flattened::UnorderedFlattenedDocument};
+use crate::{
+	JsonLdExpandedDocument, JsonLdFlattenedDocument, flattened::JsonLdUnorderedFlattenedDocument,
+};
 
 mod node_map;
 
@@ -9,13 +11,13 @@ pub use node_map::*;
 
 use crate::algorithms::JsonLdBacktraceBuilder;
 
-impl ExpandedDocument {
+impl JsonLdExpandedDocument {
 	pub fn flatten(
 		&self,
 		generator: impl Generator,
 		ordered: bool,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<FlattenedDocument, NodeMapExtendError> {
+	) -> Result<JsonLdFlattenedDocument, NodeMapExtendError> {
 		Ok(self
 			.generate_node_map_with(generator, location)?
 			.flatten(ordered))
@@ -25,7 +27,7 @@ impl ExpandedDocument {
 		&self,
 		generator: impl Generator,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<UnorderedFlattenedDocument, NodeMapExtendError> {
+	) -> Result<JsonLdUnorderedFlattenedDocument, NodeMapExtendError> {
 		Ok(self
 			.generate_node_map_with(generator, location)?
 			.flatten_unordered())

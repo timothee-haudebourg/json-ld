@@ -3,7 +3,7 @@ use crate::{Direction, Nullable, Term, Type};
 use crate::{
 	Lenient,
 	syntax::{
-		Context, KeywordType,
+		JsonLdContext, KeywordType,
 		context::{ContextTerm, ContextType, ContextTypeContainer, Index, Nest},
 	},
 };
@@ -355,7 +355,7 @@ impl TermDefinition {
 		}
 	}
 
-	pub fn context(&self) -> Option<&Context> {
+	pub fn context(&self) -> Option<&JsonLdContext> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.context.as_deref(),
@@ -455,7 +455,7 @@ impl<'a> TermDefinitionRef<'a> {
 		}
 	}
 
-	pub fn context(&self) -> Option<&'a Context> {
+	pub fn context(&self) -> Option<&'a JsonLdContext> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.context.as_deref(),
@@ -532,7 +532,7 @@ pub struct NormalTermDefinition {
 	pub base_url: Option<IriBuf>,
 
 	// Optional context.
-	pub context: Option<Box<Context>>,
+	pub context: Option<Box<JsonLdContext>>,
 
 	// Container mapping.
 	pub container: Container,

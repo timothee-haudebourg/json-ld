@@ -1,4 +1,4 @@
-use json_ld::{Document, FsLoader, JsonLdProcessor, Loader, RemoteDocument};
+use json_ld::{FsLoader, JsonLdDocument, JsonLdProcessor, Loader, RemoteDocument};
 use json_ld_testing::{ManifestEntry, TestKind};
 use json_syntax::JsonPrint;
 
@@ -23,7 +23,7 @@ fn compact(loader: &FsLoader, entry: &ManifestEntry) {
 			let compacted = input
 				.compact_with(context, loader, options.clone())
 				.expect("compaction failed");
-			let compacted = Document::new(Some(entry.input.clone()), None, compacted);
+			let compacted = JsonLdDocument::new(Some(entry.input.clone()), None, compacted);
 
 			let mut expected = loader.load(expect).unwrap();
 			expected.set_url(Some(entry.input.clone()));

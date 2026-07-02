@@ -23,7 +23,7 @@ pub use vocab::*;
 /// Context definition.
 #[derive(Default, PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ContextDefinition {
+pub struct JsonLdContextDefinition {
 	#[cfg_attr(
 		feature = "serde",
 		serde(
@@ -110,7 +110,7 @@ pub struct ContextDefinition {
 	pub bindings: Bindings,
 }
 
-impl ContextDefinition {
+impl JsonLdContextDefinition {
 	pub fn new() -> Self {
 		Self::default()
 	}

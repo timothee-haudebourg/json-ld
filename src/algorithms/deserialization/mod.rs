@@ -1,7 +1,7 @@
 use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::{Id, Term};
 
-use crate::{ExpandedDocument, Lenient, Validate};
+use crate::{JsonLdExpandedDocument, Lenient, Validate};
 
 mod object;
 
@@ -16,7 +16,7 @@ pub struct RdfSerializationOptions {
 	pub produce_generalized_rdf: bool,
 }
 
-impl SerializeLinkedDataWith<RdfSerializationOptions> for ExpandedDocument {
+impl SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdExpandedDocument {
 	fn serialize_rdf_with<S>(
 		&self,
 		opts: RdfSerializationOptions,
@@ -34,7 +34,7 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for ExpandedDocument {
 	}
 }
 
-impl SerializeLinkedData for ExpandedDocument {
+impl SerializeLinkedData for JsonLdExpandedDocument {
 	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,

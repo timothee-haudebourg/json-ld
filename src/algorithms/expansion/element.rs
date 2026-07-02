@@ -11,7 +11,7 @@ use crate::{
 		JsonLdError, JsonLdLocatedError, Warning, context_processing::ContextProcessingOptions,
 	},
 	object::ListObject,
-	syntax::{Context, Keyword},
+	syntax::{JsonLdContext, Keyword},
 };
 
 use super::{ExpandableLiteralValue, Expanded, Expander};
@@ -130,8 +130,8 @@ impl<'a> Expander<'a> {
 					.get_unique("@context")
 					.map_err(|e| JsonLdError::duplicate_key_ref(e).at(location))?
 				{
-					let local_context: Context = json_syntax::from_value(local_context.clone())
-						.map_err(|e| {
+					let local_context: JsonLdContext =
+						json_syntax::from_value(local_context.clone()).map_err(|e| {
 							JsonLdError::ContextSyntax(e)
 								.at(location.object_value(Keyword::Context))
 						})?;

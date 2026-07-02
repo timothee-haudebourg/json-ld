@@ -1,7 +1,7 @@
 use rdf_syntax::{Iri, IriBuf};
 use std::collections::{BTreeMap, HashMap};
 
-use crate::{Document, LoadError};
+use crate::{JsonLdDocument, LoadError};
 
 use super::{AsyncLoader, Loader};
 
@@ -11,8 +11,8 @@ use super::{AsyncLoader, Loader};
 #[error("document not found")]
 pub struct EntryNotFound;
 
-impl Loader for HashMap<IriBuf, Document> {
-	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+impl Loader for HashMap<IriBuf, JsonLdDocument> {
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		match self.get(url) {
 			Some(document) => Ok(document.clone()),
 			None => Err(LoadError::new(url.to_owned(), EntryNotFound)),
@@ -20,8 +20,8 @@ impl Loader for HashMap<IriBuf, Document> {
 	}
 }
 
-impl AsyncLoader for HashMap<IriBuf, Document> {
-	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+impl AsyncLoader for HashMap<IriBuf, JsonLdDocument> {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		match self.get(url) {
 			Some(document) => Ok(document.clone()),
 			None => Err(LoadError::new(url.to_owned(), EntryNotFound)),
@@ -29,8 +29,8 @@ impl AsyncLoader for HashMap<IriBuf, Document> {
 	}
 }
 
-impl Loader for BTreeMap<IriBuf, Document> {
-	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+impl Loader for BTreeMap<IriBuf, JsonLdDocument> {
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		match self.get(url) {
 			Some(document) => Ok(document.clone()),
 			None => Err(LoadError::new(url.to_owned(), EntryNotFound)),
@@ -38,8 +38,8 @@ impl Loader for BTreeMap<IriBuf, Document> {
 	}
 }
 
-impl AsyncLoader for BTreeMap<IriBuf, Document> {
-	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+impl AsyncLoader for BTreeMap<IriBuf, JsonLdDocument> {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		match self.get(url) {
 			Some(document) => Ok(document.clone()),
 			None => Err(LoadError::new(url.to_owned(), EntryNotFound)),

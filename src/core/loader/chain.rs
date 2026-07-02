@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::{Document, LoadError};
+use crate::{JsonLdDocument, LoadError};
 use rdf_syntax::Iri;
 
 use super::AsyncLoader;
@@ -27,7 +27,7 @@ where
 	L1: AsyncLoader,
 	L2: AsyncLoader,
 {
-	async fn async_load(&self, url: &Iri) -> Result<Document, LoadError> {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		match self.0.async_load(url).await {
 			Ok(doc) => Ok(doc),
 			Err(LoadError { cause: e1, .. }) => match self.1.async_load(url).await {

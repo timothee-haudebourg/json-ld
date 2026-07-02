@@ -10,9 +10,9 @@ use crate::{
 /// It is just an alias for a set of (indexed) objects.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ExpandedDocument(BTreeIndexSet<IndexedObject>);
+pub struct JsonLdExpandedDocument(BTreeIndexSet<IndexedObject>);
 
-impl ExpandedDocument {
+impl JsonLdExpandedDocument {
 	#[inline(always)]
 	pub fn new() -> Self {
 		Self::default()
@@ -175,7 +175,7 @@ impl ExpandedDocument {
 	}
 }
 
-impl VisitJsonLd for ExpandedDocument {
+impl VisitJsonLd for JsonLdExpandedDocument {
 	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
 		self.0.visit_with(f);
 	}
@@ -185,7 +185,7 @@ impl VisitJsonLd for ExpandedDocument {
 	}
 }
 
-impl From<Indexed<NodeObject>> for ExpandedDocument {
+impl From<Indexed<NodeObject>> for JsonLdExpandedDocument {
 	fn from(value: Indexed<NodeObject>) -> Self {
 		let mut result = Self::default();
 
@@ -195,7 +195,7 @@ impl From<Indexed<NodeObject>> for ExpandedDocument {
 	}
 }
 
-impl IntoIterator for ExpandedDocument {
+impl IntoIterator for JsonLdExpandedDocument {
 	type IntoIter = IntoIter;
 	type Item = IndexedObject;
 
@@ -205,7 +205,7 @@ impl IntoIterator for ExpandedDocument {
 	}
 }
 
-impl<'a> IntoIterator for &'a ExpandedDocument {
+impl<'a> IntoIterator for &'a JsonLdExpandedDocument {
 	type IntoIter = btree_indexmap::set::Iter<'a, IndexedObject>;
 	type Item = &'a IndexedObject;
 
@@ -224,19 +224,19 @@ impl Iterator for IntoIter {
 	}
 }
 
-impl FromIterator<IndexedObject> for ExpandedDocument {
+impl FromIterator<IndexedObject> for JsonLdExpandedDocument {
 	fn from_iter<I: IntoIterator<Item = IndexedObject>>(iter: I) -> Self {
 		Self(iter.into_iter().collect())
 	}
 }
 
-impl Extend<IndexedObject> for ExpandedDocument {
+impl Extend<IndexedObject> for JsonLdExpandedDocument {
 	fn extend<I: IntoIterator<Item = IndexedObject>>(&mut self, iter: I) {
 		self.0.extend(iter)
 	}
 }
 
-impl From<BTreeIndexSet<IndexedObject>> for ExpandedDocument {
+impl From<BTreeIndexSet<IndexedObject>> for JsonLdExpandedDocument {
 	fn from(set: BTreeIndexSet<IndexedObject>) -> Self {
 		Self(set)
 	}

@@ -1,4 +1,4 @@
-use json_ld::{ExpandedDocument, FsLoader, IndexedObject, JsonLdProcessor, Loader};
+use json_ld::{JsonLdExpandedDocument, FsLoader, IndexedObject, JsonLdProcessor, Loader};
 use json_ld_testing::{ManifestEntry, TestKind};
 
 mod common;
@@ -19,7 +19,7 @@ fn expand(loader: &FsLoader, entry: &ManifestEntry) {
 			let expected: Vec<IndexedObject> =
 				json_syntax::serde::from_value(expected_doc.into_document())
 					.expect("failed to parse expected output");
-			let expected: ExpandedDocument = expected.into_iter().collect();
+			let expected: JsonLdExpandedDocument = expected.into_iter().collect();
 
 			assert_eq!(expanded, expected, "test `{}` output mismatch", entry.name);
 		}

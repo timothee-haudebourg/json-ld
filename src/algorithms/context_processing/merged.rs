@@ -4,27 +4,29 @@ use rdf_syntax::IriRef;
 use crate::{
 	Direction, Lenient, Nullable,
 	syntax::{
-		Context, ContextEntry,
+		JsonLdContext, JsonLdContextEntry,
 		context::{
-			BindingsIter, ContextDefinition, ContextTerm, ContextType, EntryValueRef, KeyOrKeyword,
-			TermDefinition, Vocab,
+			BindingsIter, ContextTerm, ContextType, EntryValueRef, JsonLdContextDefinition,
+			KeyOrKeyword, TermDefinition, Vocab,
 		},
 	},
 };
 
 pub struct Merged<'a> {
-	base: &'a ContextDefinition,
-	imported: Option<Context>,
+	base: &'a JsonLdContextDefinition,
+	imported: Option<JsonLdContext>,
 }
 
 impl<'a> Merged<'a> {
-	pub fn new(base: &'a ContextDefinition, imported: Option<Context>) -> Self {
+	pub fn new(base: &'a JsonLdContextDefinition, imported: Option<JsonLdContext>) -> Self {
 		Self { base, imported }
 	}
 
-	pub fn imported(&self) -> Option<&ContextDefinition> {
+	pub fn imported(&self) -> Option<&JsonLdContextDefinition> {
 		self.imported.as_ref().and_then(|imported| match imported {
-			Context::One(ContextEntry::Definition(import_context)) => Some(import_context),
+			JsonLdContext::One(JsonLdContextEntry::Definition(import_context)) => {
+				Some(import_context)
+			}
 			_ => None,
 		})
 	}
@@ -89,8 +91,8 @@ impl<'a> Merged<'a> {
 	}
 }
 
-impl<'a> From<&'a ContextDefinition> for Merged<'a> {
-	fn from(base: &'a ContextDefinition) -> Self {
+impl<'a> From<&'a JsonLdContextDefinition> for Merged<'a> {
+	fn from(base: &'a JsonLdContextDefinition) -> Self {
 		Self {
 			base,
 			imported: None,
@@ -136,7 +138,7 @@ impl<'a> From<&'a ContextDefinition> for Merged<'a> {
 type BindingRef<'a> = (&'a ContextTerm, Nullable<&'a TermDefinition>);
 
 pub struct MergedBindings<'a> {
-	base: &'a ContextDefinition,
+	base: &'a JsonLdContextDefinition,
 	base_bindings: BindingsIter<'a>,
 	imported_bindings: Option<BindingsIter<'a>>,
 }

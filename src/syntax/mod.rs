@@ -14,7 +14,7 @@ mod utils;
 pub use compact_iri::*;
 pub use compare::*;
 pub use container::{ContainerItem, ContainerValue, UnexpectedContainerItem};
-pub use context::{Context, ContextDocumentValue, ContextEntry};
+pub use context::{JsonLdContext, JsonLdContextDocumentValue, JsonLdContextEntry};
 pub use direction::*;
 pub use expandable::*;
 pub use keyword::*;

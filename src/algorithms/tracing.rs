@@ -4,7 +4,7 @@ use into_owned_trait::IntoOwned;
 use json_syntax::tracing::{JsonBacktraceBuilder, JsonLocated};
 use rdf_syntax::{Iri, IriBuf};
 
-use crate::{ExpandedDocument, FlattenedDocument};
+use crate::{JsonLdExpandedDocument, JsonLdFlattenedDocument};
 
 /// Backtrace builder for the JSON-LD processing algorithms.
 ///
@@ -29,10 +29,10 @@ pub enum JsonLdSourceFileRef<'a> {
 	Compact(Option<&'a Iri>),
 
 	/// Intermediate expanded JSON-LD document, together with its content.
-	Expanded(Option<&'a Iri>, &'a Arc<ExpandedDocument>),
+	Expanded(Option<&'a Iri>, &'a Arc<JsonLdExpandedDocument>),
 
 	/// Intermediate flattened JSON-LD document, together with its content.
-	Flattened(Option<&'a Iri>, &'a Arc<FlattenedDocument>),
+	Flattened(Option<&'a Iri>, &'a Arc<JsonLdFlattenedDocument>),
 
 	/// JSON-LD context document.
 	Context(Option<&'a Iri>),
@@ -70,10 +70,10 @@ pub enum JsonLdSourceFile {
 	Compact(Option<IriBuf>),
 
 	/// Intermediate expanded JSON-LD document, together with its content.
-	Expanded(Option<IriBuf>, Arc<ExpandedDocument>),
+	Expanded(Option<IriBuf>, Arc<JsonLdExpandedDocument>),
 
 	/// Intermediate flattened JSON-LD document, together with its content.
-	Flattened(Option<IriBuf>, Arc<FlattenedDocument>),
+	Flattened(Option<IriBuf>, Arc<JsonLdFlattenedDocument>),
 
 	/// JSON-LD context document.
 	Context(Option<IriBuf>),

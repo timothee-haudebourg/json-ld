@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
-use crate::{Document, JsonLdSourceCode, LoadError};
+use crate::{JsonLdDocument, JsonLdSourceCode, LoadError};
 
 use super::Loader;
 
@@ -70,7 +70,7 @@ impl FsLoader {
 }
 
 impl Loader for FsLoader {
-	fn load(&self, url: &Iri) -> Result<Document, LoadError> {
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
 		match self.filepath(url) {
 			Some(filepath) => {
 				let file = File::open(filepath)
@@ -82,7 +82,7 @@ impl Loader for FsLoader {
 					.map_err(|e| LoadError::new(url.to_owned(), Error::IO(e)))?;
 				let (doc, code_map) = JsonValue::parse_str(&contents)
 					.map_err(|e| LoadError::new(url.to_owned(), Error::Parse(e)))?;
-				Ok(Document::new_full(
+				Ok(JsonLdDocument::new_full(
 					Some(url.to_owned()),
 					Some("application/ld+json".parse().unwrap()),
 					None,

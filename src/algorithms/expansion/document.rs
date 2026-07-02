@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	ExpandedDocument,
+	JsonLdExpandedDocument,
 	algorithms::{AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError},
 };
 
@@ -13,15 +13,15 @@ impl<'a> Expander<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		document: &JsonValue,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<ExpandedDocument, JsonLdLocatedError> {
+	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError> {
 		let expanded = self.expand_element(env, document, false, location).await?;
 
 		if expanded.len() == 1 {
 			let obj = expanded.into_iter().next().unwrap();
 			match obj.into_unnamed_graph() {
-				Ok(graph) => Ok(ExpandedDocument::from(graph)),
+				Ok(graph) => Ok(JsonLdExpandedDocument::from(graph)),
 				Err(obj) => {
-					let mut result = ExpandedDocument::new();
+					let mut result = JsonLdExpandedDocument::new();
 					if filter_top_level_item(&obj) {
 						result.insert(obj);
 					}

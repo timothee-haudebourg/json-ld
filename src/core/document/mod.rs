@@ -7,17 +7,17 @@ pub mod expanded;
 pub mod flattened;
 pub mod profile;
 
-pub use expanded::ExpandedDocument;
-pub use flattened::FlattenedDocument;
-pub use profile::Profile;
+pub use expanded::JsonLdExpandedDocument;
+pub use flattened::JsonLdFlattenedDocument;
+pub use profile::JsonLdProfile;
 
-use crate::syntax::ContextDocumentValue;
+use crate::syntax::JsonLdContextDocumentValue;
 
 /// Remote document.
 ///
 /// Stores the content of a loaded remote document along with its original URL.
 #[derive(Debug, Clone)]
-pub struct Document<T = JsonValue> {
+pub struct JsonLdDocument<T = JsonValue> {
 	/// The final URL of the loaded document, after eventual redirection.
 	pub url: Option<IriBuf>,
 
@@ -36,7 +36,7 @@ pub struct Document<T = JsonValue> {
 	/// [RFC 8288]: https://www.rfc-editor.org/rfc/rfc8288
 	pub context_url: Option<IriBuf>,
 
-	pub profile: HashSet<Profile>,
+	pub profile: HashSet<JsonLdProfile>,
 
 	pub source: Option<JsonLdSourceCode>,
 
@@ -44,9 +44,9 @@ pub struct Document<T = JsonValue> {
 	pub document: T,
 }
 
-pub type ContextDocument = Document<ContextDocumentValue>;
+pub type JsonLdContextDocument = JsonLdDocument<JsonLdContextDocumentValue>;
 
-impl<T> Document<T> {
+impl<T> JsonLdDocument<T> {
 	/// Creates a new remote document.
 	///
 	/// `url` is the final URL of the loaded document, after eventual
@@ -74,7 +74,7 @@ impl<T> Document<T> {
 		url: Option<IriBuf>,
 		content_type: Option<Mime>,
 		context_url: Option<IriBuf>,
-		profile: HashSet<Profile>,
+		profile: HashSet<JsonLdProfile>,
 		source: Option<JsonLdSourceCode>,
 		document: T,
 	) -> Self {
@@ -89,8 +89,8 @@ impl<T> Document<T> {
 	}
 
 	/// Maps the content of the remote document.
-	pub fn map<U>(self, f: impl Fn(T) -> U) -> Document<U> {
-		Document {
+	pub fn map<U>(self, f: impl Fn(T) -> U) -> JsonLdDocument<U> {
+		JsonLdDocument {
 			url: self.url,
 			content_type: self.content_type,
 			context_url: self.context_url,
@@ -101,8 +101,8 @@ impl<T> Document<T> {
 	}
 
 	/// Tries to map the content of the remote document.
-	pub fn try_map<U, E>(self, f: impl Fn(T) -> Result<U, E>) -> Result<Document<U>, E> {
-		Ok(Document {
+	pub fn try_map<U, E>(self, f: impl Fn(T) -> Result<U, E>) -> Result<JsonLdDocument<U>, E> {
+		Ok(JsonLdDocument {
 			url: self.url,
 			content_type: self.content_type,
 			context_url: self.context_url,
@@ -163,12 +163,12 @@ impl<T> Document<T> {
 	}
 }
 
-impl Document {
+impl JsonLdDocument {
 	#[cfg(feature = "serde")]
 	pub fn try_into_context_document(
 		self,
-	) -> Result<ContextDocument, crate::syntax::serde::DeserializeError> {
-		Ok(ContextDocument {
+	) -> Result<JsonLdContextDocument, crate::syntax::serde::DeserializeError> {
+		Ok(JsonLdContextDocument {
 			url: self.url,
 			content_type: self.content_type,
 			context_url: self.context_url,

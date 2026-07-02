@@ -23,14 +23,14 @@ fn resolve_sync<F: std::future::Future>(f: F) -> F::Output {
 use crate::VisitJsonLd;
 use crate::algorithms::JsonLdLocatedError;
 use crate::{
-	Direction, Document, ExpandedDocument, ProcessingMode, RemoteContext,
+	Direction, JsonLdDocument, JsonLdExpandedDocument, ProcessingMode, RemoteContext,
 	algorithms::{
 		AsyncProcessingEnvironment, CompactionOptions, ContextProcessingOptions, ExpansionOptions,
 		ExpansionPolicy, ProcessingEnvironment, RdfSerializationOptions,
 	},
 };
 
-mod remote_document;
+mod document;
 
 /// JSON-LD Processor options.
 #[derive(Clone)]
@@ -150,10 +150,10 @@ impl Default for JsonLdOptions {
 }
 
 /// Result returned by the [`JsonLdProcessor::expand`] function.
-pub type ExpandResult = Result<ExpandedDocument, JsonLdLocatedError>;
+pub type ExpandResult = Result<JsonLdExpandedDocument, JsonLdLocatedError>;
 
 /// Result returned by the [`JsonLdProcessor::into_document`] function.
-pub type IntoDocumentResult = Result<Document, JsonLdLocatedError>;
+pub type IntoDocumentResult = Result<JsonLdDocument, JsonLdLocatedError>;
 
 /// Result of the [`JsonLdProcessor::compact`] function.
 pub type CompactResult = Result<JsonValue, JsonLdLocatedError>;

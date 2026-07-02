@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	ExpandedDocument, FlattenedDocument, ProcessedContext,
+	JsonLdExpandedDocument, JsonLdFlattenedDocument, ProcessedContext,
 	algorithms::{
 		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError,
 		compaction::CompactFragment,
@@ -10,7 +10,7 @@ use crate::{
 
 use super::{Compact, CompactionOptions, Compactor, EmbedContext};
 
-impl ExpandedDocument {
+impl JsonLdExpandedDocument {
 	/// Compacts the input document with the given options, starting the location
 	/// backtrace at `location`.
 	pub async fn compact_with(
@@ -45,7 +45,7 @@ impl ExpandedDocument {
 	}
 }
 
-impl Compact for ExpandedDocument {
+impl Compact for JsonLdExpandedDocument {
 	async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
@@ -57,7 +57,7 @@ impl Compact for ExpandedDocument {
 	}
 }
 
-impl Compact for FlattenedDocument {
+impl Compact for JsonLdFlattenedDocument {
 	async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,

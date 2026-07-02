@@ -12,7 +12,7 @@ use miette::{Diagnostic, NamedSource, SourceSpan};
 use rdf_syntax::Iri;
 
 use crate::{
-	AsyncLoader, Document, JsonLdError, JsonLdSourceCode,
+	AsyncLoader, JsonLdDocument, JsonLdError, JsonLdSourceCode,
 	algorithms::{JsonLdLocatedError, JsonLdSourceFile},
 };
 
@@ -30,7 +30,7 @@ pub struct JsonLdDiagnostic {
 impl JsonLdDiagnostic {
 	pub async fn new_async(
 		loader: &impl AsyncLoader,
-		input: &Document,
+		input: &JsonLdDocument,
 		error: JsonLdLocatedError,
 	) -> Self {
 		let mut map = HashMap::new();
@@ -93,7 +93,9 @@ fn url_to_name(url: Option<&Iri>) -> &str {
 	}
 }
 
-fn named_source_from_document(document: Document) -> NamedSource<Arc<JsonLdDiagnosticSourceCode>> {
+fn named_source_from_document(
+	document: JsonLdDocument,
+) -> NamedSource<Arc<JsonLdDiagnosticSourceCode>> {
 	let source = document
 		.source
 		.unwrap_or_else(|| JsonLdSourceCode::from_value(&document.document));

@@ -1,7 +1,7 @@
 use crate::{
 	Lenient,
 	syntax::{
-		CompactIri, CompactIriBuf, ContainerValue, Context, Direction, Keyword, Nullable,
+		CompactIri, CompactIriBuf, ContainerValue, Direction, JsonLdContext, Keyword, Nullable,
 		context::{self, ContextTerm},
 	},
 };
@@ -127,11 +127,11 @@ pub struct ExpandedTermDefinition {
 		serde(
 			rename = "@context",
 			default,
-			deserialize_with = "context::Context::optional",
+			deserialize_with = "context::JsonLdContext::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub context: Option<Box<context::Context>>,
+	pub context: Option<Box<context::JsonLdContext>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -303,7 +303,7 @@ impl ExpandedTermDefinition {
 pub struct ExpandedTermDefinitionRef<'a> {
 	pub id: Option<Nullable<IdRef<'a>>>,
 	pub type_: Option<Nullable<&'a TermType>>,
-	pub context: Option<&'a Context>,
+	pub context: Option<&'a JsonLdContext>,
 	pub reverse: Option<&'a ContextTerm>,
 	pub index: Option<&'a Index>,
 	pub language: Option<Nullable<Lenient<&'a LangTag>>>,
@@ -331,7 +331,7 @@ impl<'a> From<Nullable<&'a TermDefinition>> for ExpandedTermDefinitionRef<'a> {
 pub struct TermDefinitionEntries<'a> {
 	id: Option<Nullable<&'a TermId>>,
 	type_: Option<Nullable<&'a TermType>>,
-	context: Option<&'a context::Context>,
+	context: Option<&'a context::JsonLdContext>,
 	reverse: Option<&'a ContextTerm>,
 	index: Option<&'a Index>,
 	language: Option<Nullable<&'a Lenient<LangTagBuf>>>,
@@ -346,7 +346,7 @@ pub struct TermDefinitionEntries<'a> {
 pub enum TermDefinitionEntryRef<'a> {
 	Id(Nullable<&'a TermId>),
 	Type(Nullable<&'a TermType>),
-	Context(&'a context::Context),
+	Context(&'a context::JsonLdContext),
 	Reverse(&'a ContextTerm),
 	Index(&'a Index),
 	Language(Nullable<&'a Lenient<LangTagBuf>>),
@@ -513,7 +513,7 @@ impl TermDefinitionEntryKey {
 pub enum TermDefinitionEntryValueRef<'a> {
 	Id(Nullable<&'a TermId>),
 	Type(Nullable<&'a TermType>),
-	Context(&'a context::Context),
+	Context(&'a context::JsonLdContext),
 	Reverse(&'a ContextTerm),
 	Index(&'a Index),
 	Language(Nullable<&'a Lenient<LangTagBuf>>),
