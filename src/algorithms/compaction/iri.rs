@@ -19,20 +19,24 @@ impl<'a> Compactor<'a> {
 		var: &Term,
 		vocab: bool,
 		reverse: bool,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<Option<Key>, JsonLdLocatedError> {
-		Ok(self.compact_iri(var, vocab, reverse)?.map(Into::into))
+		Ok(self
+			.compact_iri(var, vocab, reverse, location)?
+			.map(Into::into))
 	}
 
 	/// Compact the given term without considering any value.
 	///
-	/// Calls [`compact_iri_full`] with `None` for `value`.
+	/// Calls [`compact_iri_with`] with `None` for `value`.
 	pub fn compact_iri(
 		&self,
 		var: &Term,
 		vocab: bool,
 		reverse: bool,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<Option<String>, JsonLdLocatedError> {
-		self.compact_iri_with::<Object>(var, vocab, reverse, None)
+		self.compact_iri_with::<Object>(var, vocab, reverse, None, location)
 	}
 
 	/// Compact the given term considering the given value object.
@@ -44,6 +48,7 @@ impl<'a> Compactor<'a> {
 		vocab: bool,
 		reverse: bool,
 		value: Option<&Indexed<O>>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<Option<String>, JsonLdLocatedError>
 	where
 		O: AnyObject,
@@ -280,14 +285,7 @@ impl<'a> Compactor<'a> {
 								has_id_type = true;
 								let mut vocab = false;
 								let compacted_iri = self
-									.compact_iri(
-										// vocabulary,
-										// active_context,
-										&id.clone().into_term(),
-										true,
-										false,
-										// options,
-									)?
+									.compact_iri(&id.clone().into_term(), true, false, location)?
 									.unwrap();
 								if let Some(def) = self.active_context.get(compacted_iri.as_str())
 									&& let Some(iri_mapping) = def.value()
@@ -418,9 +416,7 @@ impl<'a> Compactor<'a> {
 		if let Some(iri) = var.as_iri()
 			&& self.active_context.contains_term(iri.scheme().as_str())
 		{
-			let loc_root = JsonLdLocationStack::new();
-			let loc = loc_root.file(self.source);
-			return Err(JsonLdError::IriConfusedWithPrefix.at(loc));
+			return Err(JsonLdError::IriConfusedWithPrefix.at(location));
 		}
 
 		// If vocab is false,

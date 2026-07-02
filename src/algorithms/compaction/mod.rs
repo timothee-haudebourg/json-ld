@@ -12,7 +12,7 @@ pub use options::*;
 
 use crate::{
 	Indexed, ProcessedContext, Term,
-	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdSourceRef},
+	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdLocationStack},
 	context::{
 		RawProcessedContext,
 		inverse::{LangSelection, TypeSelection},
@@ -29,6 +29,7 @@ pub trait Compact {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
 
 	/// Compacts the input document with the default options.
@@ -37,8 +38,9 @@ pub trait Compact {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
-		self.compact_with(env, context, CompactionOptions::default())
+		self.compact_with(env, context, CompactionOptions::default(), location)
 			.await
 	}
 }
@@ -49,16 +51,18 @@ impl<T: Compact> Compact for std::sync::Arc<T> {
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
 		options: CompactionOptions,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
-		T::compact_with(self, env, context, options).await
+		T::compact_with(self, env, context, options, location).await
 	}
 
 	async fn compact(
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedContext<'_>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
-		T::compact(self, env, context).await
+		T::compact(self, env, context, location).await
 	}
 }
 
@@ -68,21 +72,15 @@ struct Compactor<'a> {
 	pub active_context: &'a RawProcessedContext,
 	pub type_scoped_context: &'a RawProcessedContext,
 	pub active_property: Option<&'a str>,
-	pub source: JsonLdSourceRef<'a>,
 }
 
 impl<'a> Compactor<'a> {
-	pub fn new(
-		active_context: &'a RawProcessedContext,
-		options: CompactionOptions,
-		source: JsonLdSourceRef<'a>,
-	) -> Self {
+	pub fn new(active_context: &'a RawProcessedContext, options: CompactionOptions) -> Self {
 		Self {
 			options,
 			active_context,
 			type_scoped_context: active_context,
 			active_property: None,
-			source,
 		}
 	}
 
@@ -95,7 +93,6 @@ impl<'a> Compactor<'a> {
 			active_context,
 			type_scoped_context: self.type_scoped_context,
 			active_property: self.active_property,
-			source: self.source,
 		}
 	}
 
@@ -108,7 +105,6 @@ impl<'a> Compactor<'a> {
 			active_context: self.active_context,
 			type_scoped_context,
 			active_property: self.active_property,
-			source: self.source,
 		}
 	}
 
@@ -118,7 +114,6 @@ impl<'a> Compactor<'a> {
 			active_context: self.active_context,
 			type_scoped_context: self.type_scoped_context,
 			active_property,
-			source: self.source,
 		}
 	}
 }
@@ -129,6 +124,7 @@ trait CompactFragment {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
 }
 
@@ -146,6 +142,7 @@ trait CompactIndexedFragment {
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
 }
 
@@ -154,9 +151,10 @@ impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.inner()
-			.compact_indexed_fragment(env, compactor, self.index())
+			.compact_indexed_fragment(env, compactor, self.index(), location)
 			.await
 	}
 }
@@ -194,10 +192,15 @@ impl EmbedContext for JsonValue {
 						active_context: context,
 						type_scoped_context: context,
 						active_property: None,
-						source: JsonLdSourceRef::Compact(None),
 					};
 
-					let key = compactor.compact_iri(&Term::Keyword(Keyword::Graph), true, false)?;
+					// No meaningful source location available at this post-processing step.
+					let key = compactor.compact_iri(
+						&Term::Keyword(Keyword::Graph),
+						true,
+						false,
+						JsonLdLocationStack::Root,
+					)?;
 
 					obj.insert(key.unwrap(), array.into());
 				}

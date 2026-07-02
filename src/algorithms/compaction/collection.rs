@@ -2,7 +2,9 @@ use btree_indexmap::BTreeIndexSet;
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, compaction::Compactor},
+	algorithms::{
+		AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdLocationStack, compaction::Compactor,
+	},
 	syntax::ContainerItem,
 };
 
@@ -13,6 +15,7 @@ impl Compactor<'_> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		items: O,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>
 	where
 		T: 'a + CompactFragment,
@@ -20,8 +23,9 @@ impl Compactor<'_> {
 	{
 		let mut result = Vec::new();
 
-		for item in items {
-			let compacted_item = Box::pin(item.compact_fragment(env, self)).await?;
+		for (i, item) in items.enumerate() {
+			let item_loc = location.array_index(i);
+			let compacted_item = Box::pin(item.compact_fragment(env, self, item_loc)).await?;
 
 			if !compacted_item.is_null() {
 				result.push(compacted_item)
@@ -59,8 +63,11 @@ impl<T: CompactFragment> CompactFragment for Vec<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
-		compactor.compact_collection_with(env, self.iter()).await
+		compactor
+			.compact_collection_with(env, self.iter(), location)
+			.await
 	}
 }
 
@@ -69,8 +76,11 @@ impl<T: CompactFragment> CompactFragment for [T] {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
-		compactor.compact_collection_with(env, self.iter()).await
+		compactor
+			.compact_collection_with(env, self.iter(), location)
+			.await
 	}
 }
 
@@ -79,7 +89,10 @@ impl<T: CompactFragment> CompactFragment for BTreeIndexSet<T> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
-		compactor.compact_collection_with(env, self.iter()).await
+		compactor
+			.compact_collection_with(env, self.iter(), location)
+			.await
 	}
 }

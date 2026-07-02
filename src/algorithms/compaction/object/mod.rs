@@ -23,10 +23,17 @@ impl Compactor<'_> {
 		env: &impl AsyncProcessingEnvironment,
 		object: &impl AnyObject,
 		index: Option<&str>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		match object.as_ref() {
-			ObjectRef::Value(value) => self.compact_indexed_value_with(env, value, index).await,
-			ObjectRef::Node(node) => self.compact_indexed_node_with(env, node, index).await,
+			ObjectRef::Value(value) => {
+				self.compact_indexed_value_with(env, value, index, location)
+					.await
+			}
+			ObjectRef::Node(node) => {
+				self.compact_indexed_node_with(env, node, index, location)
+					.await
+			}
 			ObjectRef::List(list) => {
 				let mut active_context = self.active_context;
 				// If active context has a previous context, the active context is not propagated.
@@ -70,7 +77,7 @@ impl Compactor<'_> {
 				if list_container {
 					self.with_active_context(&active_context)
 						.with_type_scoped_context(&active_context)
-						.compact_collection_with(env, list.iter())
+						.compact_collection_with(env, list.iter(), location)
 						.await
 				} else {
 					let mut result = JsonObject::default();
@@ -83,6 +90,7 @@ impl Compactor<'_> {
 							// active_context.as_ref(),
 							// loader,
 							false,
+							location,
 							// options,
 						)
 						.await?;
@@ -109,6 +117,7 @@ impl Compactor<'_> {
 								&Term::Keyword(Keyword::Index),
 								true,
 								false,
+								location,
 							)?;
 
 							// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
@@ -129,7 +138,10 @@ impl<T: AnyObject> CompactIndexedFragment for T {
 		env: &impl AsyncProcessingEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
-		compactor.compact_any_indexed_object(env, self, index).await
+		compactor
+			.compact_any_indexed_object(env, self, index, location)
+			.await
 	}
 }

@@ -6,7 +6,7 @@ use educe::Educe;
 use rdf_syntax::Id;
 use rdf_syntax::Iri;
 use std::convert::TryFrom;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 pub mod properties;
 pub mod reverse_properties;

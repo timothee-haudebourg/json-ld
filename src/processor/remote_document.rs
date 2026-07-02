@@ -177,7 +177,8 @@ async fn compact_expanded(
 			context_base,
 			&RawProcessedContext::new(None),
 			options.context_processing_options(),
-			location,
+			json_syntax::tracing::JsonFragmentStack::new()
+				.file(JsonLdSourceRef::Context(context.url())),
 		)
 		.await?;
 
@@ -191,6 +192,6 @@ async fn compact_expanded(
 	}
 
 	expanded_input
-		.compact_with(env, &active_context, options.compaction_options())
+		.compact_with(env, &active_context, options.compaction_options(), location)
 		.await
 }

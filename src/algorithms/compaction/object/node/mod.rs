@@ -28,8 +28,7 @@ impl Compactor<'_> {
 		env: &impl AsyncProcessingEnvironment,
 		node: &NodeObject,
 		index: Option<&str>,
-		// type_scoped_context: &ProcessedContext,
-		// active_property: Option<&str>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		// If active context has a previous context, the active context is not propagated.
 		// If element does not contain an @value entry, and element does not consist of
@@ -72,11 +71,12 @@ impl Compactor<'_> {
 			// transforming each expanded type of that entry into its compacted form by IRI
 			// compacting expanded type. Then, for each term in compacted types ordered
 			// lexicographically:
+			let type_loc = location.object_entry("@type");
 			let mut compacted_types = Vec::new();
 			for ty in node.types() {
 				let compacted_ty = self
 					.with_active_context(self.type_scoped_context)
-					.compact_iri(&ty.clone().into_term(), true, false)?;
+					.compact_iri(&ty.clone().into_term(), true, false, type_loc)?;
 				compacted_types.push(compacted_ty)
 			}
 
@@ -116,6 +116,7 @@ impl Compactor<'_> {
 		// If expanded property is @id:
 		if let Some(id_entry) = &node.id {
 			let id = id_entry.clone().into_term();
+			let id_loc = location.object_entry("@id");
 
 			if node.is_empty() {
 				// This captures step 7:
@@ -141,7 +142,7 @@ impl Compactor<'_> {
 				if type_mapping == Some(&Type::Id) {
 					let compacted_value = self
 						.with_active_context(&active_context)
-						.compact_iri(&id, false, false)?;
+						.compact_iri(&id, false, false, id_loc)?;
 					return Ok(optional_string(compacted_value));
 				}
 
@@ -150,7 +151,7 @@ impl Compactor<'_> {
 				if type_mapping == Some(&Type::Vocab) {
 					let compacted_value = self
 						.with_active_context(&active_context)
-						.compact_iri(&id, true, false)?;
+						.compact_iri(&id, true, false, id_loc)?;
 					return Ok(optional_string(compacted_value));
 				}
 			}
@@ -159,13 +160,14 @@ impl Compactor<'_> {
 			// compacting expanded value with vocab set to false.
 			let compacted_value = self
 				.with_active_context(&active_context)
-				.compact_iri(&id, false, false)?;
+				.compact_iri(&id, false, false, id_loc)?;
 
 			// Initialize alias by IRI compacting expanded property.
 			let alias = self.with_active_context(&active_context).compact_iri(
 				&Term::Keyword(Keyword::Id),
 				true,
 				false,
+				id_loc,
 			)?;
 
 			// Add an entry alias to result whose value is set to compacted value and continue
@@ -175,13 +177,17 @@ impl Compactor<'_> {
 			}
 		}
 
-		self.with_active_context(&active_context)
-			.compact_types(&mut result, node.types.as_deref())?;
+		self.with_active_context(&active_context).compact_types(
+			&mut result,
+			node.types.as_deref(),
+			location,
+		)?;
 
 		// If expanded property is @reverse:
 		if let Some(reverse_properties) = node.reverse_properties_entry()
 			&& !reverse_properties.is_empty()
 		{
+			let rev_loc = location.object_entry("@reverse");
 			// Initialize compacted value to the result of using this algorithm recursively,
 			// passing active context, @reverse for active property,
 			// expanded value for element, and the compactArrays and ordered flags.
@@ -205,6 +211,7 @@ impl Compactor<'_> {
 
 			let mut reverse_result = JsonObject::default();
 			for (expanded_property, expanded_value) in reverse_properties.iter() {
+				let prop_loc = rev_loc.object_entry(expanded_property.as_str());
 				self.with_active_context(&active_context)
 					.compact_property(
 						env,
@@ -212,6 +219,7 @@ impl Compactor<'_> {
 						expanded_property.clone().into(),
 						expanded_value.iter(),
 						true,
+						prop_loc,
 					)
 					.await?;
 			}
@@ -246,6 +254,7 @@ impl Compactor<'_> {
 					&Term::Keyword(Keyword::Reverse),
 					true,
 					false,
+					rev_loc,
 				)?;
 
 				// Set the value of the alias entry of result to compacted value.
@@ -256,6 +265,7 @@ impl Compactor<'_> {
 		// If expanded property is @index and active property has a container mapping in
 		// active context that includes @index,
 		if let Some(index_entry) = index {
+			let index_loc = location.object_entry("@index");
 			let mut index_container = false;
 			if let Some(active_property) = self.active_property
 				&& let Some(active_property_definition) = active_context.get(active_property)
@@ -274,6 +284,7 @@ impl Compactor<'_> {
 					&Term::Keyword(Keyword::Index),
 					true,
 					false,
+					index_loc,
 				)?;
 
 				// Add an entry alias to result whose value is set to expanded value and continue with the next expanded property.
@@ -282,6 +293,7 @@ impl Compactor<'_> {
 		}
 
 		if let Some(graph_entry) = node.graph_entry() {
+			let graph_loc = location.object_entry("@graph");
 			self.with_active_context(&active_context)
 				.compact_property(
 					env,
@@ -289,11 +301,13 @@ impl Compactor<'_> {
 					Term::Keyword(Keyword::Graph),
 					graph_entry.iter(),
 					false,
+					graph_loc,
 				)
 				.await?
 		}
 
 		for (expanded_property, expanded_value) in expanded_entries {
+			let prop_loc = location.object_entry(expanded_property.as_str());
 			self.with_active_context(&active_context)
 				.compact_property(
 					env,
@@ -301,11 +315,13 @@ impl Compactor<'_> {
 					expanded_property.clone().into(),
 					expanded_value.iter(),
 					false,
+					prop_loc,
 				)
 				.await?
 		}
 
 		if let Some(included_entry) = node.included_entry() {
+			let included_loc = location.object_entry("@included");
 			self.with_active_context(&active_context)
 				.compact_property(
 					env,
@@ -313,6 +329,7 @@ impl Compactor<'_> {
 					Term::Keyword(Keyword::Included),
 					included_entry.iter(),
 					false,
+					included_loc,
 				)
 				.await?
 		}
@@ -325,18 +342,20 @@ impl Compactor<'_> {
 		self,
 		result: &mut JsonObject,
 		types: Option<&[Lenient<Id>]>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded property is @type:
 		if let Some(types) = types
 			&& !types.is_empty()
 		{
+			let type_loc = location.object_entry("@type");
 			// If expanded value is a string,
 			// then initialize compacted value by IRI compacting expanded value using
 			// type-scoped context for active context.
 			let compacted_value = if types.len() == 1 {
 				optional_string(
 					self.with_active_context(self.type_scoped_context)
-						.compact_iri(&types[0].clone().into_term(), true, false)?,
+						.compact_iri(&types[0].clone().into_term(), true, false, type_loc)?,
 				)
 			} else {
 				// Otherwise, expanded value must be a @type array:
@@ -350,7 +369,7 @@ impl Compactor<'_> {
 					// Set term by IRI compacting expanded type using type-scoped context for active context.
 					let compacted_ty = self
 						.with_active_context(self.type_scoped_context)
-						.compact_iri(&ty, true, false)?;
+						.compact_iri(&ty, true, false, type_loc)?;
 
 					// Append term, to compacted value.
 					compacted_value.push(optional_string(compacted_ty))
@@ -361,7 +380,7 @@ impl Compactor<'_> {
 
 			// Initialize alias by IRI compacting expanded property.
 			let alias = self
-				.compact_iri(&Term::Keyword(Keyword::Type), true, false)?
+				.compact_iri(&Term::Keyword(Keyword::Type), true, false, type_loc)?
 				.unwrap();
 
 			// Initialize as array to true if processing mode is json-ld-1.1 and the

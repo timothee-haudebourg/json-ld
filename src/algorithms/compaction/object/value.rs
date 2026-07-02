@@ -21,7 +21,7 @@ impl<'a> Compactor<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		value: &ValueObject,
 		index: Option<&str>,
-		// active_property: Option<&str>,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		// If the term definition for active property in active context has a local context:
 		let mut active_context = Mown::Borrowed(self.active_context);
@@ -115,6 +115,7 @@ impl<'a> Compactor<'a> {
 							&Term::Keyword(Keyword::Value),
 							true,
 							false,
+							location,
 						)?;
 						result.insert(compact_key.unwrap(), lit.value.clone());
 
@@ -122,12 +123,14 @@ impl<'a> Compactor<'a> {
 							&Term::Keyword(Keyword::Type),
 							true,
 							false,
+							location,
 						)?;
 
 						let compact_ty = self.with_active_context(&active_context).compact_iri(
 							&Term::Keyword(Keyword::Json),
 							true,
 							false,
+							location,
 						)?;
 						result.insert(
 							compact_key.unwrap(),
@@ -152,9 +155,13 @@ impl<'a> Compactor<'a> {
 								if ty.is_some() || (language.is_none() && direction.is_none()) {
 									return Ok(JsonValue::String(s.as_str().into()));
 								} else {
-									let compact_key = self
-										.with_active_context(&active_context)
-										.compact_key(&Term::Keyword(Keyword::Value), true, false)?;
+									let compact_key =
+										self.with_active_context(&active_context).compact_key(
+											&Term::Keyword(Keyword::Value),
+											true,
+											false,
+											location,
+										)?;
 									result.insert(
 										compact_key.unwrap(),
 										JsonValue::String(s.as_str().into()),
@@ -162,9 +169,13 @@ impl<'a> Compactor<'a> {
 								}
 							}
 							_ => {
-								let compact_key = self
-									.with_active_context(&active_context)
-									.compact_key(&Term::Keyword(Keyword::Value), true, false)?;
+								let compact_key =
+									self.with_active_context(&active_context).compact_key(
+										&Term::Keyword(Keyword::Value),
+										true,
+										false,
+										location,
+									)?;
 								result.insert(compact_key.unwrap(), lit.value.clone());
 							}
 						}
@@ -173,16 +184,25 @@ impl<'a> Compactor<'a> {
 							&Term::Keyword(Keyword::Value),
 							true,
 							false,
+							location,
 						)?;
 						result.insert(compact_key.unwrap(), lit.value.clone());
 
 						if let Some(ty) = ty {
-							let compact_key = self
-								.with_active_context(&active_context)
-								.compact_key(&Term::Keyword(Keyword::Type), true, false)?;
-							let compact_ty = self
-								.with_active_context(&active_context)
-								.compact_iri(&Term::Id(Lenient::iri(ty.clone())), true, false)?;
+							let compact_key =
+								self.with_active_context(&active_context).compact_key(
+									&Term::Keyword(Keyword::Type),
+									true,
+									false,
+									location,
+								)?;
+							let compact_ty =
+								self.with_active_context(&active_context).compact_iri(
+									&Term::Id(Lenient::iri(ty.clone())),
+									true,
+									false,
+									location,
+								)?;
 							result.insert(
 								compact_key.unwrap(),
 								match compact_ty {
@@ -209,6 +229,7 @@ impl<'a> Compactor<'a> {
 						&Term::Keyword(Keyword::Value),
 						true,
 						false,
+						location,
 					)?;
 					result.insert(compact_key.unwrap(), JsonValue::String(ls.as_str().into()));
 
@@ -217,6 +238,7 @@ impl<'a> Compactor<'a> {
 							&Term::Keyword(Keyword::Language),
 							true,
 							false,
+							location,
 						)?;
 						result.insert(
 							compact_key.unwrap(),
@@ -229,6 +251,7 @@ impl<'a> Compactor<'a> {
 							&Term::Keyword(Keyword::Direction),
 							true,
 							false,
+							location,
 						)?;
 						result.insert(
 							compact_key.unwrap(),
@@ -244,6 +267,7 @@ impl<'a> Compactor<'a> {
 				&Term::Keyword(Keyword::Index),
 				true,
 				false,
+				location,
 			)?;
 			result.insert(compact_key.unwrap(), JsonValue::String(index.into()));
 		}

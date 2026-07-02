@@ -69,6 +69,7 @@ nquads-syntax = { path = "/home/work/Documents/Community/RDF/nquads-syntax", opt
 # Serialization/deserialization with `serde`.
 # linked-data = "0.1"
 linked-data = { path = "/home/work/Documents/Spruce/Core_Tooling/linked-data", features = [
+    "btree-indexmap",
 	"derive"
 ] }
 xsd-types.path = "/home/work/Documents/Community/RDF/xsd-types"

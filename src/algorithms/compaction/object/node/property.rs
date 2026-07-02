@@ -25,12 +25,13 @@ impl Compactor<'_> {
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded item is a list object:
 		let mut compacted_item: JsonValue = Box::pin(
 			self.with_type_scoped_context(self.active_context)
 				.with_active_property(Some(item_active_property))
-				.compact_collection_with(env, list.iter()),
+				.compact_collection_with(env, list.iter(), location),
 		)
 		.await?;
 
@@ -47,7 +48,7 @@ impl Compactor<'_> {
 			// a map containing an entry where the key is the result of
 			// IRI compacting @list and the value is the original
 			// compacted item.
-			let key = self.compact_key(&Term::Keyword(Keyword::List), true, false)?;
+			let key = self.compact_key(&Term::Keyword(Keyword::List), true, false, location)?;
 			let mut compacted_item_list_object = JsonObject::default();
 			compacted_item_list_object.insert(key.unwrap(), compacted_item);
 
@@ -55,7 +56,8 @@ impl Compactor<'_> {
 			// then add an entry to compacted item where the key is
 			// the result of IRI compacting @index and value is value.
 			if let Some(index) = expanded_index {
-				let key = self.compact_key(&Term::Keyword(Keyword::Index), true, false)?;
+				let key =
+					self.compact_key(&Term::Keyword(Keyword::Index), true, false, location)?;
 
 				compacted_item_list_object.insert(key.unwrap(), JsonValue::String(index.into()));
 			}
@@ -83,6 +85,7 @@ impl Compactor<'_> {
 		container: Container,
 		as_array: bool,
 		item_active_property: &str,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded item is a graph object
 		let mut compacted_item = Box::pin(
@@ -91,6 +94,7 @@ impl Compactor<'_> {
 				&self
 					.with_type_scoped_context(self.active_context)
 					.with_active_property(Some(item_active_property)),
+				location,
 			),
 		)
 		.await?;
@@ -125,7 +129,9 @@ impl Compactor<'_> {
 				None => (Term::Keyword(Keyword::None), true),
 			};
 
-			let map_key = self.compact_iri(&id_value, vocab, false)?.unwrap();
+			let map_key = self
+				.compact_iri(&id_value, vocab, false, location)?
+				.unwrap();
 
 			// Use `add_value` to add `compacted_item` to
 			// the `map_key` entry in `map_object` using `as_array`.
@@ -174,7 +180,7 @@ impl Compactor<'_> {
 			compacted_item = match compacted_item {
 				JsonValue::Array(items) if items.len() > 1 => {
 					let key = self
-						.compact_iri(&Term::Keyword(Keyword::Included), true, false)?
+						.compact_iri(&Term::Keyword(Keyword::Included), true, false, location)?
 						.unwrap();
 					let mut map = JsonObject::default();
 					map.insert(key, JsonValue::Array(items));
@@ -193,7 +199,7 @@ impl Compactor<'_> {
 			// Set `compacted_item` to a new map containing the key from
 			// IRI compacting @graph using the original `compacted_item` as a value.
 			let key = self
-				.compact_iri(&Term::Keyword(Keyword::Graph), true, false)?
+				.compact_iri(&Term::Keyword(Keyword::Graph), true, false, location)?
 				.unwrap();
 			let mut map = JsonObject::default();
 			map.insert(key, compacted_item);
@@ -205,10 +211,10 @@ impl Compactor<'_> {
 			// false for vocab.
 			if let Some(id_entry) = &node.id {
 				let key = self
-					.compact_iri(&Term::Keyword(Keyword::Id), false, false)?
+					.compact_iri(&Term::Keyword(Keyword::Id), false, false, location)?
 					.unwrap();
 				let id: Term = id_entry.clone().into();
-				let value = self.compact_iri(&id, false, false)?;
+				let value = self.compact_iri(&id, false, false, location)?;
 				map.insert(
 					key,
 					match value {
@@ -223,7 +229,7 @@ impl Compactor<'_> {
 			// IRI compacting @index and the value of @index in `expanded_item`.
 			if let Some(index_entry) = expanded_index {
 				let key = self
-					.compact_iri(&Term::Keyword(Keyword::Index), true, false)?
+					.compact_iri(&Term::Keyword(Keyword::Index), true, false, location)?
 					.unwrap();
 				map.insert(key, index_entry.into());
 			}
@@ -242,6 +248,7 @@ impl Compactor<'_> {
 		result: &'a mut JsonObject,
 		item_active_property: &str,
 		compact_arrays: bool,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<(&'a mut JsonObject, Container, bool), JsonLdLocatedError> {
 		let (nest_result, container) = match self.active_context.get(item_active_property) {
 			Some(term_definition) => {
@@ -256,9 +263,7 @@ impl Compactor<'_> {
 								Some(term_def)
 									if term_def.value() == Some(&Term::Keyword(Keyword::Nest)) => {}
 								_ => {
-									let loc_root = JsonLdLocationStack::new();
-									let loc = loc_root.file(self.source);
-									return Err(JsonLdError::InvalidNestValue.at(loc));
+									return Err(JsonLdError::InvalidNestValue.at(location));
 								}
 							}
 						}
@@ -282,7 +287,6 @@ impl Compactor<'_> {
 							.unwrap();
 
 						value.as_object_mut().unwrap()
-						// SubObject::Sub(result.get_mut(nest_term).unwrap().as_object_mut().unwrap())
 					}
 					None => {
 						// Otherwise, initialize `nest_result` to result.
@@ -324,6 +328,7 @@ impl Compactor<'_> {
 		expanded_property: Term,
 		expanded_value: O,
 		inside_reverse: bool,
+		location: JsonLdLocationStack<'_>,
 	) -> Result<(), JsonLdLocatedError>
 	where
 		O: IntoIterator<Item = &'a Indexed<T>>,
@@ -332,8 +337,10 @@ impl Compactor<'_> {
 		let mut is_empty = true;
 
 		// For each item `expanded_item` in `expanded value`
-		for expanded_item in expanded_value {
+		for (idx, expanded_item) in expanded_value.into_iter().enumerate() {
 			is_empty = false;
+			let item_loc = location.array_index(idx);
+
 			// Initialize `item_active_property` by IRI compacting `expanded_property`
 			// using `expanded_item` for value and `inside_reverse` for `reverse`.
 			let item_active_property = self.compact_iri_with(
@@ -341,6 +348,7 @@ impl Compactor<'_> {
 				true,
 				inside_reverse,
 				Some(expanded_item),
+				item_loc,
 			)?;
 
 			// If the term definition for `item_active_property` in the active context
@@ -350,6 +358,7 @@ impl Compactor<'_> {
 					result,
 					&item_active_property,
 					self.options.compact_arrays,
+					item_loc,
 				)?;
 
 				// Initialize `compacted_item` to the result of using this algorithm
@@ -369,6 +378,7 @@ impl Compactor<'_> {
 							container,
 							as_array,
 							&item_active_property,
+							item_loc,
 						)
 						.await?
 					}
@@ -381,6 +391,7 @@ impl Compactor<'_> {
 							container,
 							as_array,
 							&item_active_property,
+							item_loc,
 						)
 						.await?
 					}
@@ -391,6 +402,7 @@ impl Compactor<'_> {
 								&self
 									.with_type_scoped_context(self.active_context)
 									.with_active_property(Some(&item_active_property)),
+								item_loc,
 							),
 						)
 						.await?;
@@ -441,6 +453,7 @@ impl Compactor<'_> {
 								&Term::Keyword(container_type.into()),
 								true,
 								false,
+								item_loc,
 							)?;
 
 							// Initialize `index_key` to the value of index mapping in
@@ -477,6 +490,7 @@ impl Compactor<'_> {
 											&Term::Id(Lenient::Invalid(index_key.to_string())),
 											true,
 											false,
+											item_loc,
 										)?;
 
 										// Set `map_key` to the first value of
@@ -635,6 +649,7 @@ impl Compactor<'_> {
 												.with_type_scoped_context(self.active_context)
 												.with_active_property(Some(&item_active_property)),
 											None,
+											item_loc,
 										),
 									)
 									.await?
@@ -652,6 +667,7 @@ impl Compactor<'_> {
 										&Term::Keyword(Keyword::None),
 										true,
 										false,
+										item_loc,
 									)?;
 									key.unwrap()
 								}
@@ -680,6 +696,7 @@ impl Compactor<'_> {
 				true,
 				inside_reverse,
 				Some(&Indexed::new(Object::node(NodeObject::new()), None)),
+				location,
 			)?;
 
 			// If the term definition for `item_active_property` in the active context
@@ -689,6 +706,7 @@ impl Compactor<'_> {
 					result,
 					&item_active_property,
 					self.options.compact_arrays,
+					location,
 				)?;
 
 				// Use `add_value` to add an empty array to the `item_active_property` entry in

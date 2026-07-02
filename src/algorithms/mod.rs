@@ -18,9 +18,7 @@ use json_syntax::tracing::{IntoOwned, JsonFragmentStack, JsonLocated};
 use rdf_syntax::{Iri, IriBuf};
 pub use warning::*;
 
-use crate::{
-	AsyncLoader, ExpandedDocument, FlattenedDocument, Indexed, Loader, NodeObject, ToAsyncLoader,
-};
+use crate::{AsyncLoader, ExpandedDocument, FlattenedDocument, Loader, ToAsyncLoader};
 
 pub trait AsyncProcessingEnvironment {
 	type Loader: AsyncLoader;
