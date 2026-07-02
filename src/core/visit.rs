@@ -1,6 +1,6 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
-use indexmap::IndexSet;
+use btree_indexmap::{BTreeIndexMultiSet, BTreeIndexSet};
 use json_syntax::ryu_js;
 use rdf_syntax::{BlankIdBuf, Generator, Id};
 
@@ -96,9 +96,27 @@ where
 	}
 }
 
-impl<T> VisitJsonLd for IndexSet<T>
+impl<T> VisitJsonLd for BTreeIndexSet<T>
 where
-	T: VisitJsonLd + Eq + Hash,
+	T: VisitJsonLd + Ord,
+{
+	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+		for t in self {
+			t.visit_with(f);
+		}
+	}
+
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+		for mut t in std::mem::take(self) {
+			t.visit_mut_with(f);
+			self.insert(t);
+		}
+	}
+}
+
+impl<T> VisitJsonLd for BTreeIndexMultiSet<T>
+where
+	T: VisitJsonLd + Ord,
 {
 	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
 		for t in self {

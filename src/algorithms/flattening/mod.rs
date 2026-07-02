@@ -11,7 +11,7 @@ use crate::algorithms::JsonLdLocationStack;
 
 impl ExpandedDocument {
 	pub fn flatten(
-		self,
+		&self,
 		generator: impl Generator,
 		ordered: bool,
 		location: JsonLdLocationStack<'_>,
@@ -22,7 +22,7 @@ impl ExpandedDocument {
 	}
 
 	pub fn flatten_unordered(
-		self,
+		&self,
 		generator: impl Generator,
 		location: JsonLdLocationStack<'_>,
 	) -> Result<UnorderedFlattenedDocument, NodeMapExtendError> {

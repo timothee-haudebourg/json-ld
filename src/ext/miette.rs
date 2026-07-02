@@ -101,7 +101,7 @@ async fn locate_error(
 	location: &JsonBacktraceItem<JsonLdSource>,
 ) -> Option<(NamedSource<Arc<JsonLdDiagnosticSourceCode>>, SourceSpan)> {
 	match &location.file {
-		JsonLdSource::Compact(url) | JsonLdSource::Expanded(url) => {
+		JsonLdSource::Compact(url) | JsonLdSource::Expanded(url, _) => {
 			let named_source = match map.entry(url.clone()) {
 				Entry::Occupied(e) => e.get().clone(),
 				Entry::Vacant(e) => {

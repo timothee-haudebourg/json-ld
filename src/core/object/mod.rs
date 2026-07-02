@@ -10,13 +10,13 @@ use rdf_syntax::Iri;
 use std::hash::Hash;
 
 pub mod list;
-mod mapped_eq;
+// mod mapped_eq;
 pub mod node;
 mod typ;
 pub mod value;
 
 pub use list::ListObject;
-pub use mapped_eq::MappedEq;
+// pub use mapped_eq::MappedEq;
 pub use node::{Graph, IndexedNode, NodeObject, Nodes};
 pub use value::{LiteralValue, ValueObject};
 
@@ -105,7 +105,7 @@ pub type IndexedObject = Indexed<Object>;
 /// You can get an `Object` by expanding a JSON-LD document using the
 /// expansion algorithm or by converting an already expanded JSON document
 /// using [`TryFromJson`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum Object {

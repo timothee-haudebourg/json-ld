@@ -107,7 +107,7 @@ impl<'de> serde::Deserialize<'de> for LiteralType {
 /// Literal value.
 ///
 /// A JSON-LD value object with a `@value` entry and an optional `@type`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct LiteralValue {
 	/// The value.
@@ -188,7 +188,7 @@ impl LiteralValue {
 /// Value object.
 ///
 /// Either a typed literal value, or an internationalized language string.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum ValueObject {

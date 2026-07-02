@@ -1,24 +1,22 @@
 use crate::object::{ObjectMut, ObjectRef};
 use crate::syntax::Keyword;
-use crate::{Indexed, IndexedObject, Lenient, Object, Objects, Term, VisitJsonLd, object, utils};
+use crate::{Indexed, IndexedObject, Lenient, Object, Objects, Term, VisitJsonLd, object};
+use btree_indexmap::{BTreeIndexSet, Comparable};
 use educe::Educe;
-use indexmap::IndexSet;
 use rdf_syntax::Id;
 use rdf_syntax::Iri;
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 
-pub mod multiset;
 pub mod properties;
 pub mod reverse_properties;
 
-pub use multiset::Multiset;
 pub use properties::Properties;
 pub use reverse_properties::ReverseProperties;
 
-pub type Graph = IndexSet<IndexedObject>;
+pub type Graph = BTreeIndexSet<IndexedObject>;
 
-pub type Included = IndexSet<IndexedNode>;
+pub type Included = BTreeIndexSet<IndexedNode>;
 
 pub type IndexedNode = Indexed<NodeObject>;
 
@@ -30,7 +28,7 @@ pub type IndexedNode = Indexed<NodeObject>;
 /// (`@included` field).
 // NOTE it may be better to use BTreeSet instead of HashSet to have some ordering?
 //      in which case the Json bound should be lifted.
-#[derive(Debug, Clone, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NodeObject {
 	/// Identifier.
@@ -486,7 +484,7 @@ impl NodeObject {
 	#[inline(always)]
 	pub fn get<Q>(&self, prop: &Q) -> Objects<'_>
 	where
-		Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>,
+		Q: ?Sized + Hash + Comparable<Lenient<Id>>,
 	{
 		self.properties.get(prop)
 	}
@@ -498,7 +496,7 @@ impl NodeObject {
 	#[inline(always)]
 	pub fn get_any<Q>(&self, prop: &Q) -> Option<&IndexedObject>
 	where
-		Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>,
+		Q: ?Sized + Hash + Comparable<Lenient<Id>>,
 	{
 		self.properties.get_any(prop)
 	}
@@ -572,17 +570,6 @@ impl VisitJsonLd for NodeObject {
 	}
 }
 
-impl PartialEq for NodeObject {
-	fn eq(&self, other: &Self) -> bool {
-		self.id.eq(&other.id)
-			&& multiset::compare_unordered_opt(self.types.as_deref(), other.types.as_deref())
-			&& self.graph.as_ref() == other.graph.as_ref()
-			&& self.included.as_ref() == other.included.as_ref()
-			&& self.properties.eq(&other.properties)
-			&& self.reverse_properties.eq(&other.reverse_properties)
-	}
-}
-
 impl Indexed<NodeObject> {
 	pub fn entries(&self) -> IndexedEntries<'_> {
 		IndexedEntries {
@@ -646,8 +633,8 @@ impl<'a> EntryKeyRef<'a> {
 pub enum EntryValueRef<'a> {
 	Id(&'a Lenient<Id>),
 	Type(&'a [Lenient<Id>]),
-	Graph(&'a IndexSet<IndexedObject>),
-	Included(&'a IndexSet<IndexedNode>),
+	Graph(&'a BTreeIndexSet<IndexedObject>),
+	Included(&'a BTreeIndexSet<IndexedNode>),
 	Reverse(&'a ReverseProperties),
 	Property(&'a [IndexedObject]),
 }
@@ -913,18 +900,6 @@ impl TryFrom<Object> for NodeObject {
 			Object::Node(node) => Ok(*node),
 			obj => Err(obj),
 		}
-	}
-}
-
-impl Hash for NodeObject {
-	#[inline]
-	fn hash<H: Hasher>(&self, h: &mut H) {
-		self.id.hash(h);
-		utils::hash_set_opt(self.types.as_ref(), h);
-		utils::hash_set_opt(self.graph.as_ref(), h);
-		utils::hash_set_opt(self.included.as_ref(), h);
-		self.properties.hash(h);
-		self.reverse_properties.hash(h)
 	}
 }
 

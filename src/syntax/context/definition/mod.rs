@@ -2,7 +2,7 @@ use crate::{
 	Lenient,
 	syntax::{Direction, Keyword, Nullable},
 };
-use indexmap::IndexMap;
+use btree_indexmap::BTreeIndexMap;
 use langtag::LangTagBuf;
 use rdf_syntax::IriRefBuf;
 
@@ -154,9 +154,9 @@ impl ContextDefinition {
 #[derive(Default, PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Bindings(IndexMap<ContextTerm, Nullable<TermDefinition>>);
+pub struct Bindings(BTreeIndexMap<ContextTerm, Nullable<TermDefinition>>);
 
-pub struct BindingsIter<'a>(indexmap::map::Iter<'a, ContextTerm, Nullable<TermDefinition>>);
+pub struct BindingsIter<'a>(btree_indexmap::map::Iter<'a, ContextTerm, Nullable<TermDefinition>>);
 
 impl<'a> Iterator for BindingsIter<'a> {
 	type Item = (&'a ContextTerm, Nullable<&'a TermDefinition>);
@@ -203,7 +203,8 @@ impl Bindings {
 
 	pub fn get_entry(&self, i: usize) -> Option<(&ContextTerm, Nullable<&TermDefinition>)> {
 		self.0
-			.get_index(i)
+			.as_entries()
+			.get(i)
 			.map(|(key, value)| (key, value.as_ref()))
 	}
 
@@ -222,7 +223,7 @@ impl Bindings {
 
 impl IntoIterator for Bindings {
 	type Item = (ContextTerm, Nullable<TermDefinition>);
-	type IntoIter = indexmap::map::IntoIter<ContextTerm, Nullable<TermDefinition>>;
+	type IntoIter = btree_indexmap::map::IntoIter<ContextTerm, Nullable<TermDefinition>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()

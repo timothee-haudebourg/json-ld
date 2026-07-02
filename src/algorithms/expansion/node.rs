@@ -11,7 +11,7 @@ use crate::{
 	object::value::LiteralValue,
 };
 use crate::{Lenient, ValueObject};
-use indexmap::IndexSet;
+use btree_indexmap::BTreeIndexSet;
 use json_syntax::JsonValue;
 use json_syntax::object::EntryRef;
 use mown::Mown;
@@ -712,7 +712,7 @@ impl<'a> Expander<'a> {
 											&& !item.is_graph()
 										{
 											let mut node = NodeObject::new();
-											let mut graph = IndexSet::new();
+											let mut graph = BTreeIndexSet::new();
 											graph.insert(item);
 											node.set_graph_entry(Some(graph));
 											item = Object::node(node).into();
@@ -870,7 +870,7 @@ impl<'a> Expander<'a> {
 								.into_iter()
 								.map(|ev| {
 									let mut node = NodeObject::new();
-									let mut graph = IndexSet::new();
+									let mut graph = BTreeIndexSet::new();
 									graph.insert(ev);
 									node.set_graph_entry(Some(graph));
 									Object::node(node).into()

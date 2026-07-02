@@ -1,5 +1,7 @@
+use btree_indexmap::{Comparable, Equivalent};
 use rdf_syntax::{BlankId, BlankIdBuf, Id};
 use rdf_syntax::{Iri, IriBuf};
+use std::cmp::Ordering;
 use std::convert::TryFrom;
 
 use crate::{Lenient, Term, Validate};
@@ -56,7 +58,7 @@ impl Lenient<Id> {
 	}
 }
 
-impl indexmap::Equivalent<Lenient<Id>> for Id {
+impl Equivalent<Lenient<Id>> for Id {
 	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
 			Lenient::Valid(id) => self == id,
@@ -65,7 +67,16 @@ impl indexmap::Equivalent<Lenient<Id>> for Id {
 	}
 }
 
-impl indexmap::Equivalent<Lenient<Id>> for &Iri {
+impl Comparable<Lenient<Id>> for Id {
+	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+		match key {
+			Lenient::Valid(id) => self.cmp(id),
+			Lenient::Invalid(_) => Ordering::Less, // Valid < Invalid
+		}
+	}
+}
+
+impl Equivalent<Lenient<Id>> for &Iri {
 	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
 			Lenient::Valid(Id::Iri(iri)) => *self == iri,
@@ -74,7 +85,17 @@ impl indexmap::Equivalent<Lenient<Id>> for &Iri {
 	}
 }
 
-impl indexmap::Equivalent<Lenient<Id>> for rdf_syntax::IriBuf {
+impl Comparable<Lenient<Id>> for &Iri {
+	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+		match key {
+			Lenient::Valid(Id::Iri(iri)) => (*self).cmp(iri.as_iri()),
+			Lenient::Valid(Id::BlankId(_)) => Ordering::Greater, // Iri > BlankId
+			Lenient::Invalid(_) => Ordering::Less,
+		}
+	}
+}
+
+impl Equivalent<Lenient<Id>> for rdf_syntax::IriBuf {
 	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
 			Lenient::Valid(Id::Iri(iri)) => self == iri,
@@ -83,7 +104,17 @@ impl indexmap::Equivalent<Lenient<Id>> for rdf_syntax::IriBuf {
 	}
 }
 
-impl indexmap::Equivalent<Lenient<Id>> for rdf_syntax::BlankId {
+impl Comparable<Lenient<Id>> for rdf_syntax::IriBuf {
+	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+		match key {
+			Lenient::Valid(Id::Iri(iri)) => self.as_iri().cmp(iri.as_iri()),
+			Lenient::Valid(Id::BlankId(_)) => Ordering::Greater,
+			Lenient::Invalid(_) => Ordering::Less,
+		}
+	}
+}
+
+impl Equivalent<Lenient<Id>> for rdf_syntax::BlankId {
 	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
 			Lenient::Valid(Id::BlankId(b)) => self == b,
@@ -92,11 +123,31 @@ impl indexmap::Equivalent<Lenient<Id>> for rdf_syntax::BlankId {
 	}
 }
 
-impl indexmap::Equivalent<Lenient<Id>> for rdf_syntax::BlankIdBuf {
+impl Comparable<Lenient<Id>> for rdf_syntax::BlankId {
+	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+		match key {
+			Lenient::Valid(Id::BlankId(b)) => self.cmp(b),
+			Lenient::Valid(Id::Iri(_)) => Ordering::Less, // BlankId < Iri
+			Lenient::Invalid(_) => Ordering::Less,
+		}
+	}
+}
+
+impl Equivalent<Lenient<Id>> for rdf_syntax::BlankIdBuf {
 	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key {
 			Lenient::Valid(Id::BlankId(b)) => self == b,
 			_ => false,
+		}
+	}
+}
+
+impl Comparable<Lenient<Id>> for rdf_syntax::BlankIdBuf {
+	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+		match key {
+			Lenient::Valid(Id::BlankId(b)) => self.as_blank_id().cmp(b),
+			Lenient::Valid(Id::Iri(_)) => Ordering::Less,
+			Lenient::Invalid(_) => Ordering::Less,
 		}
 	}
 }
@@ -179,11 +230,21 @@ impl<'a> TryFrom<&'a mut Lenient<Id>> for &'a mut Id {
 	}
 }
 
-impl indexmap::Equivalent<Lenient<Id>> for Iri {
+impl Equivalent<Lenient<Id>> for Iri {
 	fn equivalent(&self, key: &Lenient<Id>) -> bool {
 		match key.as_iri() {
 			Some(iri) => self == iri,
 			None => false,
+		}
+	}
+}
+
+impl Comparable<Lenient<Id>> for Iri {
+	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+		match key {
+			Lenient::Valid(Id::Iri(iri)) => self.cmp(iri.as_iri()),
+			Lenient::Valid(Id::BlankId(_)) => Ordering::Greater,
+			Lenient::Invalid(_) => Ordering::Less,
 		}
 	}
 }

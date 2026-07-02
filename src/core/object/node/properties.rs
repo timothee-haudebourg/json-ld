@@ -1,20 +1,20 @@
-use super::{Multiset, Objects};
+use super::Objects;
 use crate::{
 	IndexedObject, Lenient, VisitJsonLd,
 	object::{ObjectMut, ObjectRef},
 };
+use btree_indexmap::{BTreeIndexMap, BTreeIndexMultiSet, Comparable};
 use educe::Educe;
-use indexmap::IndexMap;
 use rdf_syntax::Id;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
-pub type PropertyObjects = Multiset<IndexedObject>;
+pub type PropertyObjects = BTreeIndexMultiSet<IndexedObject>;
 
 /// Properties of a node object, and their associated objects.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Properties(IndexMap<Lenient<Id>, PropertyObjects>);
+pub struct Properties(BTreeIndexMap<Lenient<Id>, PropertyObjects>);
 
 impl Default for Properties {
 	fn default() -> Self {
@@ -25,7 +25,7 @@ impl Default for Properties {
 impl Properties {
 	/// Creates an empty map.
 	pub fn new() -> Self {
-		Self(IndexMap::new())
+		Self(BTreeIndexMap::new())
 	}
 
 	/// Returns the number of properties.
@@ -62,22 +62,22 @@ impl Properties {
 
 	/// Checks if the given property is associated to any object.
 	#[inline(always)]
-	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> bool {
+	pub fn contains<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(&self, prop: &Q) -> bool {
 		self.0.get(prop).is_some()
 	}
 
 	/// Counts the number of objects associated to the given property.
 	#[inline(always)]
-	pub fn count<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> usize {
-		self.0.get(prop).map(Multiset::len).unwrap_or_default()
+	pub fn count<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(&self, prop: &Q) -> usize {
+		self.0
+			.get(prop)
+			.map(BTreeIndexMultiSet::len)
+			.unwrap_or_default()
 	}
 
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
-	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(
-		&self,
-		prop: &Q,
-	) -> Objects<'_> {
+	pub fn get<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(&self, prop: &Q) -> Objects<'_> {
 		match self.0.get(prop) {
 			Some(values) => Objects::new(Some(values.iter())),
 			None => Objects::new(None),
@@ -88,7 +88,7 @@ impl Properties {
 	///
 	/// If multiple objects are found, there are no guaranties on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(
+	pub fn get_any<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(
 		&self,
 		prop: &Q,
 	) -> Option<&IndexedObject> {
@@ -105,7 +105,7 @@ impl Properties {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(value);
 		} else {
-			self.0.insert(prop, Multiset::singleton(value));
+			self.0.insert(prop, BTreeIndexMultiSet::singleton(value));
 		}
 	}
 
@@ -115,10 +115,10 @@ impl Properties {
 		let prop = prop.into();
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
-				node_values.insert(value)
+				node_values.insert(value);
 			}
 		} else {
-			self.0.insert(prop, Multiset::singleton(value));
+			self.0.insert(prop, BTreeIndexMultiSet::singleton(value));
 		}
 	}
 
@@ -149,15 +149,16 @@ impl Properties {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			for value in values {
 				if node_values.iter().all(|v| !v.equivalent(&value)) {
-					node_values.insert(value)
+					node_values.insert(value);
 				}
 			}
 		} else {
 			let values = values.into_iter();
-			let mut node_values: PropertyObjects = Multiset::with_capacity(values.size_hint().0);
+			let mut node_values: PropertyObjects =
+				BTreeIndexMultiSet::with_capacity(values.size_hint().0);
 			for value in values {
 				if node_values.iter().all(|v| !v.equivalent(&value)) {
-					node_values.insert(value)
+					node_values.insert(value);
 				}
 			}
 
@@ -182,7 +183,7 @@ impl Properties {
 
 	/// Removes and returns all the values associated to the given property.
 	#[inline(always)]
-	pub fn remove<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(
+	pub fn remove<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(
 		&mut self,
 		prop: &Q,
 	) -> Option<PropertyObjects> {
@@ -214,13 +215,6 @@ where
 			result.insert_all(id, values);
 		}
 		result
-	}
-}
-
-impl Hash for Properties {
-	#[inline(always)]
-	fn hash<H: Hasher>(&self, h: &mut H) {
-		crate::utils::hash_map(&self.0, h)
 	}
 }
 
@@ -280,7 +274,7 @@ impl<'a> IntoIterator for &'a mut Properties {
 /// Iterator over the properties of a node.
 ///
 /// It is created by the [`Properties::into_iter`] function.
-pub type IntoIter = indexmap::map::IntoIter<Lenient<Id>, PropertyObjects>;
+pub type IntoIter = std::vec::IntoIter<(Lenient<Id>, PropertyObjects)>;
 
 /// Iterator over the properties of a node.
 ///
@@ -288,7 +282,7 @@ pub type IntoIter = indexmap::map::IntoIter<Lenient<Id>, PropertyObjects>;
 #[derive(Educe)]
 #[educe(Clone)]
 pub struct Iter<'a> {
-	inner: indexmap::map::Iter<'a, Lenient<Id>, PropertyObjects>,
+	inner: btree_indexmap::map::Iter<'a, Lenient<Id>, PropertyObjects>,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -315,4 +309,4 @@ impl<'a> std::iter::FusedIterator for Iter<'a> {}
 /// to the associated objects.
 ///
 /// It is created by the [`Properties::iter_mut`] function.
-pub type IterMut<'a> = indexmap::map::IterMut<'a, Lenient<Id>, PropertyObjects>;
+pub type IterMut<'a> = btree_indexmap::map::IterMut<'a, Lenient<Id>, PropertyObjects>;

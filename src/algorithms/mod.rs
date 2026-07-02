@@ -7,6 +7,8 @@ mod flattening;
 mod serialization;
 mod warning;
 
+use std::sync::Arc;
+
 pub use compaction::*;
 pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
@@ -16,7 +18,9 @@ use json_syntax::tracing::{IntoOwned, JsonFragmentStack, JsonLocated};
 use rdf_syntax::{Iri, IriBuf};
 pub use warning::*;
 
-use crate::{AsyncLoader, Loader, ToAsyncLoader};
+use crate::{
+	AsyncLoader, ExpandedDocument, FlattenedDocument, Indexed, Loader, NodeObject, ToAsyncLoader,
+};
 
 pub trait AsyncProcessingEnvironment {
 	type Loader: AsyncLoader;
@@ -122,7 +126,8 @@ pub type JsonLdLocated<T> = JsonLocated<T, JsonLdSource>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum JsonLdSourceRef<'a> {
 	Compact(Option<&'a Iri>),
-	Expanded(Option<&'a Iri>),
+	Expanded(Option<&'a Iri>, &'a Arc<ExpandedDocument>),
+	Flattened(Option<&'a Iri>, &'a Arc<FlattenedDocument>),
 	Context(Option<&'a Iri>),
 }
 
@@ -132,7 +137,12 @@ impl IntoOwned for JsonLdSourceRef<'_> {
 	fn into_owned(self) -> JsonLdSource {
 		match self {
 			Self::Compact(iri) => JsonLdSource::Compact(iri.map(Iri::to_owned)),
-			Self::Expanded(iri) => JsonLdSource::Expanded(iri.map(Iri::to_owned)),
+			Self::Expanded(iri, document) => {
+				JsonLdSource::Expanded(iri.map(Iri::to_owned), document.clone())
+			}
+			Self::Flattened(iri, document) => {
+				JsonLdSource::Flattened(iri.map(Iri::to_owned), document.clone())
+			}
 			Self::Context(iri) => JsonLdSource::Context(iri.map(Iri::to_owned)),
 		}
 	}
@@ -144,8 +154,11 @@ pub enum JsonLdSource {
 	/// Compact JSON-LD document.
 	Compact(Option<IriBuf>),
 
-	/// Expanded JSON-LD document.
-	Expanded(Option<IriBuf>),
+	/// Intermediate expanded JSON-LD document.
+	Expanded(Option<IriBuf>, Arc<ExpandedDocument>),
+
+	/// Intermediate flattened JSON-LD document.
+	Flattened(Option<IriBuf>, Arc<FlattenedDocument>),
 
 	/// JSON-LD context document.
 	Context(Option<IriBuf>),

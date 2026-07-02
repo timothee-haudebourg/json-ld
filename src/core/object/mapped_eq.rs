@@ -1,4 +1,5 @@
 use crate::{Indexed, Lenient};
+use btree_indexmap::BTreeIndexSet;
 use indexmap::IndexSet;
 use rdf_syntax::{BlankId, Id};
 
@@ -95,7 +96,7 @@ impl<T: MappedEq> UnorderedMappedEq for IndexSet<T> {
 	}
 }
 
-impl<T: MappedEq> MappedEq for IndexSet<T> {
+impl<T: MappedEq> MappedEq for BTreeIndexSet<T> {
 	fn mapped_eq(&self, other: &Self, f: impl Clone + Fn(&BlankId) -> &BlankId) -> bool {
 		self.unordered_mapped_eq(other, f)
 	}

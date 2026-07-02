@@ -1,20 +1,20 @@
-use super::{Multiset, Nodes};
+use super::Nodes;
 use crate::{
 	IndexedNode, Lenient, VisitJsonLd,
 	object::{ObjectMut, ObjectRef},
 };
+use btree_indexmap::{BTreeIndexMap, BTreeIndexMultiSet, Comparable};
 use educe::Educe;
-use indexmap::IndexMap;
 use rdf_syntax::Id;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
-pub type ReversePropertyNodes = Multiset<IndexedNode>;
+pub type ReversePropertyNodes = BTreeIndexMultiSet<IndexedNode>;
 
 /// Reverse properties of a node object, and their associated nodes.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct ReverseProperties(IndexMap<Lenient<Id>, ReversePropertyNodes>);
+pub struct ReverseProperties(BTreeIndexMap<Lenient<Id>, ReversePropertyNodes>);
 
 impl Default for ReverseProperties {
 	fn default() -> Self {
@@ -25,7 +25,7 @@ impl Default for ReverseProperties {
 impl ReverseProperties {
 	/// Creates an empty map.
 	pub fn new() -> Self {
-		Self(IndexMap::new())
+		Self(BTreeIndexMap::new())
 	}
 
 	/// Returns the number of reverse properties.
@@ -62,13 +62,13 @@ impl ReverseProperties {
 
 	/// Checks if the given reverse property is associated to any node.
 	#[inline(always)]
-	pub fn contains<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> bool {
+	pub fn contains<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(&self, prop: &Q) -> bool {
 		self.0.get(prop).is_some()
 	}
 
 	/// Returns an iterator over all the nodes associated to the given reverse property.
 	#[inline(always)]
-	pub fn get<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(&self, prop: &Q) -> Nodes<'_> {
+	pub fn get<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(&self, prop: &Q) -> Nodes<'_> {
 		match self.0.get(prop) {
 			Some(values) => Nodes::new(Some(values.iter())),
 			None => Nodes::new(None),
@@ -79,7 +79,7 @@ impl ReverseProperties {
 	///
 	/// If multiple nodes are found, there are no guaranties on which node will be returned.
 	#[inline(always)]
-	pub fn get_any<Q: ?Sized + Hash + indexmap::Equivalent<Lenient<Id>>>(
+	pub fn get_any<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(
 		&self,
 		prop: &Q,
 	) -> Option<&IndexedNode> {
@@ -95,7 +95,7 @@ impl ReverseProperties {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(value);
 		} else {
-			self.0.insert(prop, Multiset::singleton(value));
+			self.0.insert(prop, BTreeIndexMultiSet::singleton(value));
 		}
 	}
 
@@ -104,10 +104,10 @@ impl ReverseProperties {
 	pub fn insert_unique(&mut self, prop: Lenient<Id>, value: IndexedNode) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
-				node_values.insert(value)
+				node_values.insert(value);
 			}
 		} else {
-			self.0.insert(prop, Multiset::singleton(value));
+			self.0.insert(prop, BTreeIndexMultiSet::singleton(value));
 		}
 	}
 
@@ -135,16 +135,16 @@ impl ReverseProperties {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			for value in values {
 				if node_values.iter().all(|v| !v.equivalent(&value)) {
-					node_values.insert(value)
+					node_values.insert(value);
 				}
 			}
 		} else {
 			let values = values.into_iter();
 			let mut node_values: ReversePropertyNodes =
-				Multiset::with_capacity(values.size_hint().0);
+				BTreeIndexMultiSet::with_capacity(values.size_hint().0);
 			for value in values {
 				if node_values.iter().all(|v| !v.equivalent(&value)) {
-					node_values.insert(value)
+					node_values.insert(value);
 				}
 			}
 
@@ -196,13 +196,6 @@ where
 			result.insert_all(id, values);
 		}
 		result
-	}
-}
-
-impl Hash for ReverseProperties {
-	#[inline(always)]
-	fn hash<H: Hasher>(&self, h: &mut H) {
-		crate::utils::hash_map(&self.0, h)
 	}
 }
 
@@ -262,7 +255,7 @@ impl<'a> IntoIterator for &'a mut ReverseProperties {
 /// Iterator over the reverse properties of a node.
 ///
 /// It is created by the [`ReverseProperties::into_iter`] function.
-pub type IntoIter = indexmap::map::IntoIter<Lenient<Id>, ReversePropertyNodes>;
+pub type IntoIter = btree_indexmap::map::IntoIter<Lenient<Id>, ReversePropertyNodes>;
 
 /// Iterator over the reverse properties of a node.
 ///
@@ -270,7 +263,7 @@ pub type IntoIter = indexmap::map::IntoIter<Lenient<Id>, ReversePropertyNodes>;
 #[derive(Educe)]
 #[educe(Clone)]
 pub struct Iter<'a> {
-	inner: indexmap::map::Iter<'a, Lenient<Id>, ReversePropertyNodes>,
+	inner: btree_indexmap::map::Iter<'a, Lenient<Id>, ReversePropertyNodes>,
 }
 
 impl<'a> Iterator for Iter<'a> {
@@ -297,4 +290,4 @@ impl<'a> std::iter::FusedIterator for Iter<'a> {}
 /// to the associated nodes.
 ///
 /// It is created by the [`ReverseProperties::iter_mut`] function.
-pub type IterMut<'a> = indexmap::map::IterMut<'a, Lenient<Id>, ReversePropertyNodes>;
+pub type IterMut<'a> = btree_indexmap::map::IterMut<'a, Lenient<Id>, ReversePropertyNodes>;

@@ -1,4 +1,4 @@
-use indexmap::IndexSet;
+use btree_indexmap::BTreeIndexSet;
 use json_syntax::JsonValue;
 
 use crate::{
@@ -74,7 +74,7 @@ impl<T: CompactFragment> CompactFragment for [T] {
 	}
 }
 
-impl<T: CompactFragment> CompactFragment for IndexSet<T> {
+impl<T: CompactFragment> CompactFragment for BTreeIndexSet<T> {
 	async fn compact_fragment(
 		&self,
 		env: &impl AsyncProcessingEnvironment,

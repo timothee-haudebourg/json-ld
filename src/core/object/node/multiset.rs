@@ -80,10 +80,6 @@ impl<T, S> Multiset<T, S> {
 	pub fn as_slice(&self) -> &[T] {
 		&self.data
 	}
-
-	// pub fn into_stripped(self) -> Multiset<locspan::Stripped<T>, S> {
-	// 	Multiset { data: unsafe { core::mem::transmute(self.data) }, hasher: self.hasher }
-	// }
 }
 
 impl<T: Hash, S: BuildHasher> Multiset<T, S> {
@@ -197,6 +193,28 @@ pub(crate) fn compare_unordered_opt<T: PartialEq<U>, U>(a: Option<&[T]>, b: Opti
 }
 
 impl<T: Eq, S> Eq for Multiset<T, S> {}
+
+/// Compare two slices as multisets: sort both copies then compare lexicographically.
+/// This is consistent with the unordered [`PartialEq`] implementation.
+fn cmp_as_multiset<T: Ord>(a: &[T], b: &[T]) -> std::cmp::Ordering {
+	let mut a: Vec<&T> = a.iter().collect();
+	let mut b: Vec<&T> = b.iter().collect();
+	a.sort_unstable();
+	b.sort_unstable();
+	a.cmp(&b)
+}
+
+impl<T: Ord, S> PartialOrd for Multiset<T, S> {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl<T: Ord, S> Ord for Multiset<T, S> {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		cmp_as_multiset(&self.data, &other.data)
+	}
+}
 
 impl<T: Hash, S: BuildHasher> Hash for Multiset<T, S> {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

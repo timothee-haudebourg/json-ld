@@ -43,6 +43,25 @@ pub trait Compact {
 	}
 }
 
+impl<T: Compact> Compact for std::sync::Arc<T> {
+	async fn compact_with(
+		&self,
+		env: impl AsyncProcessingEnvironment,
+		context: &ProcessedContext<'_>,
+		options: CompactionOptions,
+	) -> Result<JsonValue, JsonLdLocatedError> {
+		T::compact_with(self, env, context, options).await
+	}
+
+	async fn compact(
+		&self,
+		env: impl AsyncProcessingEnvironment,
+		context: &ProcessedContext<'_>,
+	) -> Result<JsonValue, JsonLdLocatedError> {
+		T::compact(self, env, context).await
+	}
+}
+
 /// Compactor.
 struct Compactor<'a> {
 	pub options: CompactionOptions,

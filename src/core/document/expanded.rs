@@ -1,21 +1,15 @@
+use btree_indexmap::BTreeIndexSet;
+
 use crate::{
 	Indexed, IndexedObject, NodeObject, Object, VisitJsonLd,
 	object::{ObjectMut, ObjectRef},
 };
-use indexmap::IndexSet;
 
 /// Result of the document expansion algorithm.
 ///
 /// It is just an alias for a set of (indexed) objects.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExpandedDocument(IndexSet<IndexedObject>);
-
-impl Default for ExpandedDocument {
-	#[inline(always)]
-	fn default() -> Self {
-		Self(IndexSet::new())
-	}
-}
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ExpandedDocument(BTreeIndexSet<IndexedObject>);
 
 impl ExpandedDocument {
 	#[inline(always)]
@@ -34,17 +28,17 @@ impl ExpandedDocument {
 	}
 
 	#[inline(always)]
-	pub fn objects(&self) -> &IndexSet<IndexedObject> {
+	pub fn objects(&self) -> &BTreeIndexSet<IndexedObject> {
 		&self.0
 	}
 
 	#[inline(always)]
-	pub fn into_objects(self) -> IndexSet<IndexedObject> {
+	pub fn into_objects(self) -> BTreeIndexSet<IndexedObject> {
 		self.0
 	}
 
 	#[inline(always)]
-	pub fn iter(&self) -> indexmap::set::Iter<'_, IndexedObject> {
+	pub fn iter(&self) -> btree_indexmap::set::Iter<'_, IndexedObject> {
 		self.0.iter()
 	}
 
@@ -211,7 +205,7 @@ impl IntoIterator for ExpandedDocument {
 }
 
 impl<'a> IntoIterator for &'a ExpandedDocument {
-	type IntoIter = indexmap::set::Iter<'a, IndexedObject>;
+	type IntoIter = btree_indexmap::set::Iter<'a, IndexedObject>;
 	type Item = &'a IndexedObject;
 
 	#[inline(always)]
@@ -219,7 +213,7 @@ impl<'a> IntoIterator for &'a ExpandedDocument {
 		self.iter()
 	}
 }
-pub struct IntoIter(indexmap::set::IntoIter<IndexedObject>);
+pub struct IntoIter(btree_indexmap::set::IntoIter<IndexedObject>);
 
 impl Iterator for IntoIter {
 	type Item = IndexedObject;
@@ -241,8 +235,8 @@ impl Extend<IndexedObject> for ExpandedDocument {
 	}
 }
 
-impl From<IndexSet<IndexedObject>> for ExpandedDocument {
-	fn from(set: IndexSet<IndexedObject>) -> Self {
+impl From<BTreeIndexSet<IndexedObject>> for ExpandedDocument {
+	fn from(set: BTreeIndexSet<IndexedObject>) -> Self {
 		Self(set)
 	}
 }

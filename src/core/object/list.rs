@@ -1,15 +1,13 @@
 use std::hash::Hash;
 
-use rdf_syntax::BlankId;
-
 use crate::{
 	IndexedObject, VisitJsonLd,
 	object::{ObjectMut, ObjectRef},
 };
 
-use super::{AnyObject, MappedEq};
+use super::AnyObject;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// List object.
 pub struct ListObject {
@@ -106,12 +104,6 @@ impl VisitJsonLd for ListObject {
 impl AnyObject for ListObject {
 	fn as_ref(&self) -> super::ObjectRef<'_> {
 		super::ObjectRef::List(self)
-	}
-}
-
-impl MappedEq for ListObject {
-	fn mapped_eq(&self, other: &Self, f: impl Clone + Fn(&BlankId) -> &BlankId) -> bool {
-		self.entry.mapped_eq(&other.entry, f)
 	}
 }
 

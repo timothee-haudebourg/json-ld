@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use indexmap::IndexSet;
+use btree_indexmap::BTreeIndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
@@ -110,7 +110,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 			self.result.declare_graph(id.clone());
 
 			let graph_loc = location.object_value(Keyword::Graph);
-			let mut flat_graph = IndexSet::new();
+			let mut flat_graph = BTreeIndexSet::new();
 			for (i, object) in graph_entry.iter().enumerate() {
 				let flat_object =
 					self.extend_node_map(object, Some(&id), graph_loc.array_index(i))?;

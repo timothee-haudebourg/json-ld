@@ -20,7 +20,7 @@ default = ["algorithms", "reqwest"]
 algorithms = ["serde"]
 
 # Serialization/deserialization with `serde`.
-serde = ["dep:serde", "indexmap/serde", "rdf-syntax/serde"]
+serde = ["dep:serde", "rdf-syntax/serde", "btree-indexmap/serde"]
 
 # Loader implementation based on `reqwest`.
 reqwest = ["dep:reqwest", "dep:reqwest-middleware"]
@@ -54,9 +54,9 @@ hashbrown = "0.13.1"
 smallvec = "1.10"
 log = "0.4.17"
 thiserror = "1.0.38"
-indexmap = "2.10"
 mime = "0.3"
 anyhow = "1.0.98"
+btree-indexmap = { version = "1.4", features = ["serde"] }
 
 serde = { version = "1.0", features = ["derive"], optional = true }
 
@@ -69,7 +69,6 @@ nquads-syntax = { path = "/home/work/Documents/Community/RDF/nquads-syntax", opt
 # Serialization/deserialization with `serde`.
 # linked-data = "0.1"
 linked-data = { path = "/home/work/Documents/Spruce/Core_Tooling/linked-data", features = [
-	"indexmap",
 	"derive"
 ] }
 xsd-types.path = "/home/work/Documents/Community/RDF/xsd-types"
