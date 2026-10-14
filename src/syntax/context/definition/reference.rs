@@ -1,5 +1,5 @@
 use super::{
-	BindingsIter, JsonLdContextDefinition, ContextTerm, ContextType, TermDefinition, Version, Vocab,
+	BindingsIter, ContextTerm, ContextType, JsonLdContextDefinition, TermDefinition, Version, Vocab,
 };
 use crate::{
 	Lenient,

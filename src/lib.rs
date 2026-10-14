@@ -43,7 +43,7 @@
 //!
 //! ```
 //! use rdf_syntax::iri;
-//! use json_ld::{JsonLdProcessor, Document, syntax::{JsonValue, JsonParse}};
+//! use json_ld::{JsonLdProcessor, JsonLdDocument, json_syntax::{JsonValue, JsonParse}};
 //!
 //! // Parse a JSON-LD document.
 //! let (value, _) = JsonValue::parse_str(r#"{
@@ -52,7 +52,7 @@
 //!   "name": "Rust Programming Language"
 //! }"#).expect("unable to parse file");
 //!
-//! let input = Document::new(
+//! let input = JsonLdDocument::new(
 //!   Some(iri!("https://example.com/sample.jsonld").to_owned()),
 //!   None,
 //!   value,
@@ -100,7 +100,7 @@
 //!
 //! ```no_run
 //! use rdf_syntax::iri;
-//! use json_ld::{JsonLdProcessor, Loader, RemoteContext, syntax::JsonPrint};
+//! use json_ld::{JsonLdProcessor, Loader, RemoteContext, json_syntax::JsonPrint};
 //!
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");
@@ -138,7 +138,7 @@
 //!
 //! ```no_run
 //! use rdf_syntax::iri;
-//! use json_ld::{JsonLdProcessor, Loader, syntax::JsonPrint};
+//! use json_ld::{JsonLdProcessor, Loader, json_syntax::JsonPrint};
 //!
 //! let mut loader = json_ld::FsLoader::default();
 //! loader.mount(iri!("https://example.com/").to_owned(), "examples");

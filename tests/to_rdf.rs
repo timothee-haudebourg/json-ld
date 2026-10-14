@@ -1,6 +1,6 @@
 use json_ld::{
 	FsLoader, JsonLdProcessor, Loader,
-	rdf_syntax::{self, Term, dataset::IndexedBTreeDataset},
+	rdf_syntax::{self, IndexedBTreeDataset, Term},
 };
 use json_ld_testing::{ManifestEntry, TestKind};
 use nquads_syntax::grdf_document_from_str;

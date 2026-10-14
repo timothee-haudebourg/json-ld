@@ -1,4 +1,4 @@
-use json_ld::{JsonLdExpandedDocument, FsLoader, IndexedObject, JsonLdProcessor, Loader};
+use json_ld::{FsLoader, IndexedObject, JsonLdExpandedDocument, JsonLdProcessor, Loader};
 use json_ld_testing::{ManifestEntry, TestKind};
 
 mod common;
