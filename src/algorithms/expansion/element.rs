@@ -17,7 +17,18 @@ use crate::{
 
 use super::{ExpandableLiteralValue, Expanded, Expander};
 
-pub struct ExpandedEntry<'a>(pub &'a str, pub Term, pub &'a JsonValue);
+/// A node/value-object entry after key IRI expansion.
+pub struct ExpandedEntry<'a> {
+	/// The entry's original (un-expanded) key, as it appears in the source
+	/// object.
+	pub key: &'a str,
+
+	/// The result of IRI-expanding `key`.
+	pub expanded_key: Term,
+
+	/// The entry's value.
+	pub value: &'a JsonValue,
+}
 
 impl<'a> Expander<'a> {
 	/// Expand an element.
@@ -162,7 +173,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				type_entries.sort_unstable_by_key(|(_, key)| key);
+				type_entries.sort_unstable_by(|a, b| a.0.cmp(&b.0));
 
 				// Initialize `type_scoped_context` to `active_context`.
 				// This is used for expanding values that may be relevant to any previous
@@ -252,23 +263,34 @@ impl<'a> Expander<'a> {
 						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
 						Term::Keyword(Keyword::List) => {
 							if self.active_property.is_some_and(|p| p != Keyword::Graph) {
-								list_entry = Some(value.clone())
+								list_entry = Some((key.as_str(), value.clone()))
 							}
 						}
-						Term::Keyword(Keyword::Set) => set_entry = Some(value.clone()),
+						Term::Keyword(Keyword::Set) => {
+							set_entry = Some((key.as_str(), value.clone()))
+						}
 						Term::Id(Lenient::Valid(Id::BlankId(id))) => {
 							env.warn(Warning::BlankNodeIdProperty(id.clone()));
 						}
 						_ => (),
 					}
 
-					expanded_entries.push(ExpandedEntry(key, expanded_key, value))
+					expanded_entries.push(ExpandedEntry {
+						key,
+						expanded_key,
+						value,
+					})
 				}
 
-				if let Some(list_entry) = list_entry {
+				if let Some((list_key, list_value)) = list_entry {
 					// List objects.
 					let mut index = None;
-					for ExpandedEntry(_, expanded_key, value) in expanded_entries {
+					for ExpandedEntry {
+						expanded_key,
+						value,
+						..
+					} in expanded_entries
+					{
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
@@ -284,9 +306,9 @@ impl<'a> Expander<'a> {
 					// base URL, and the ordered flags, ensuring that the
 					// result is an array..
 					let mut result = Vec::new();
-					let list_entry = JsonValue::force_as_array(&list_entry);
-					let list_loc = location.object_value(Keyword::List);
-					for (i, item) in list_entry.iter().enumerate() {
+					let list_value = JsonValue::force_as_array(&list_value);
+					let list_loc = location.object_value(list_key);
+					for (i, item) in list_value.iter().enumerate() {
 						let item_loc = list_loc.array_index(i);
 						let e = Box::pin(
 							self.with_active_context(&active_context)
@@ -300,9 +322,9 @@ impl<'a> Expander<'a> {
 						Object::List(ListObject::new(result)),
 						index,
 					)))
-				} else if let Some(set_entry) = set_entry {
+				} else if let Some((set_key, set_value)) = set_entry {
 					// Set objects.
-					for ExpandedEntry(_, expanded_key, _) in expanded_entries {
+					for ExpandedEntry { expanded_key, .. } in expanded_entries {
 						match expanded_key {
 							Term::Keyword(Keyword::Index) => {
 								// having an `@index` here is tolerated,
@@ -316,10 +338,10 @@ impl<'a> Expander<'a> {
 					// set expanded value to the result of using this algorithm recursively,
 					// passing active context, active property, value for element, base URL,
 					// and ordered flags.
-					let set_loc = location.object_value(Keyword::Set);
+					let set_loc = location.object_value(set_key);
 					Box::pin(
 						self.with_active_context(&active_context)
-							.expand_element(env, &set_entry, false, set_loc),
+							.expand_element(env, &set_value, false, set_loc),
 					)
 					.await
 				} else if let Some(value_entry) = value_entry {

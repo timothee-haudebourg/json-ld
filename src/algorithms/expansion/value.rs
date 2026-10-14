@@ -33,7 +33,17 @@ impl<'a> Expander<'a> {
 		let mut language = None;
 		let mut direction = None;
 
-		for ExpandedEntry(_, expanded_key, value) in expanded_entries {
+		for ExpandedEntry {
+			key,
+			expanded_key,
+			value,
+		} in expanded_entries
+		{
+			// Location of this specific entry, rather than the whole value
+			// object, so errors about e.g. a malformed `@language` point at
+			// the `@language` entry itself.
+			let entry_loc = location.object_value(key);
+
 			match expanded_key {
 				// If expanded property is @language:
 				Term::Keyword(Keyword::Language) => {
@@ -49,7 +59,7 @@ impl<'a> Expander<'a> {
 							language = Some(value.to_owned());
 						}
 					} else {
-						return Err(JsonLdError::InvalidLanguageTaggedString.at(location));
+						return Err(JsonLdError::InvalidLanguageTaggedString.at(entry_loc));
 					}
 				}
 				// If expanded property is @direction:
@@ -64,10 +74,10 @@ impl<'a> Expander<'a> {
 						if let Ok(value) = Direction::try_from(value) {
 							direction = Some(value);
 						} else {
-							return Err(JsonLdError::InvalidBaseDirection.at(location));
+							return Err(JsonLdError::InvalidBaseDirection.at(entry_loc));
 						}
 					} else {
-						return Err(JsonLdError::InvalidBaseDirection.at(location));
+						return Err(JsonLdError::InvalidBaseDirection.at(entry_loc));
 					}
 				}
 				// If expanded property is @index:
@@ -77,7 +87,7 @@ impl<'a> Expander<'a> {
 					if let Some(value) = value.as_str() {
 						index = Some(value.to_string())
 					} else {
-						return Err(JsonLdError::InvalidIndexValue.at(location));
+						return Err(JsonLdError::InvalidIndexValue.at(entry_loc));
 					}
 				}
 				// If expanded ...
@@ -99,15 +109,15 @@ impl<'a> Expander<'a> {
 								is_json = false;
 								ty = Some(expanded_ty)
 							}
-							_ => return Err(JsonLdError::InvalidTypedValue.at(location)),
+							_ => return Err(JsonLdError::InvalidTypedValue.at(entry_loc)),
 						}
 					} else {
-						return Err(JsonLdError::InvalidTypedValue.at(location));
+						return Err(JsonLdError::InvalidTypedValue.at(entry_loc));
 					}
 				}
 				Term::Keyword(Keyword::Value) => (),
 				_ => {
-					return Err(JsonLdError::InvalidValueObject.at(location));
+					return Err(JsonLdError::InvalidValueObject.at(entry_loc));
 				}
 			}
 		}

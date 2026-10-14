@@ -99,7 +99,12 @@ impl<'a> Expander<'a> {
 	) -> NodeEntriesExpensionResult {
 		// For each `key` and `value` in `element`, ordered lexicographically by key
 		// if `ordered` is `true`:
-		for ExpandedEntry(key, expanded_key, value) in expanded_entries {
+		for ExpandedEntry {
+			key,
+			expanded_key,
+			value,
+		} in expanded_entries
+		{
 			let entry_loc = location.object_value(key);
 			match expanded_key {
 				Term::Null => (),
@@ -161,7 +166,8 @@ impl<'a> Expander<'a> {
 							// Set `expanded_value` to the result of IRI expanding each
 							// of its values using `type_scoped_context` for active
 							// context, and true for document relative.
-							for ty in value {
+							for (i, ty) in value.iter().enumerate() {
+								let ty_loc = entry_loc.array_index(i);
 								if let Some(str_ty) = ty.as_str() {
 									if let Ok(ty) = type_scoped_context
 										.expand_iri(
@@ -175,10 +181,10 @@ impl<'a> Expander<'a> {
 									{
 										result.types.get_or_insert_default().push_back(ty);
 									} else {
-										return Err(JsonLdError::InvalidTypeValue.at(entry_loc));
+										return Err(JsonLdError::InvalidTypeValue.at(ty_loc));
 									}
 								} else {
-									return Err(JsonLdError::InvalidTypeValue.at(entry_loc));
+									return Err(JsonLdError::InvalidTypeValue.at(ty_loc));
 								}
 							}
 						}
@@ -257,7 +263,7 @@ impl<'a> Expander<'a> {
 								let mut reverse_entries: Vec<_> = value.iter().collect();
 
 								if self.options.ordered {
-									reverse_entries.sort_by_key(|(_, key)| *key)
+									reverse_entries.sort_by(|a, b| a.0.cmp(b.0))
 								}
 
 								for (reverse_key, reverse_value) in reverse_entries {
@@ -356,7 +362,9 @@ impl<'a> Expander<'a> {
 							// Recursively repeat steps 3, 8, 13, and 14 using `nesting_key` for active property,
 							// and nested value for element.
 							let value = JsonValue::force_as_array(value);
-							for nested_value in value {
+							for (nest_index, nested_value) in value.iter().enumerate() {
+								let nested_value_loc = entry_loc.array_index(nest_index);
+
 								// Step 3 again.
 								let mut property_scoped_base_url = None;
 								let property_scoped_context =
@@ -382,7 +390,7 @@ impl<'a> Expander<'a> {
 													property_scoped_base_url,
 													self.active_context,
 													options.with_override(),
-													location,
+													nested_value_loc,
 												)
 												.await?
 												.into_raw(),
@@ -400,7 +408,7 @@ impl<'a> Expander<'a> {
 									}
 
 									if self.options.ordered {
-										nested_entries.sort_by_key(|(_, key)| *key);
+										nested_entries.sort_by(|a, b| a.0.cmp(b.0));
 									}
 
 									let nested_expanded_entries = nested_entries
@@ -413,7 +421,11 @@ impl<'a> Expander<'a> {
 												false,
 												true,
 											);
-											ExpandedEntry(key, expanded_key, value)
+											ExpandedEntry {
+												key,
+												expanded_key,
+												value,
+											}
 										})
 										.collect();
 
@@ -425,7 +437,7 @@ impl<'a> Expander<'a> {
 												has_value_object_entries,
 												type_scoped_context,
 												nested_expanded_entries,
-												location,
+												nested_value_loc,
 											),
 									)
 									.await?;
@@ -433,7 +445,7 @@ impl<'a> Expander<'a> {
 									result = new_result;
 									has_value_object_entries = new_has_value_object_entries;
 								} else {
-									return Err(JsonLdError::InvalidNestValue.at(entry_loc));
+									return Err(JsonLdError::InvalidNestValue.at(nested_value_loc));
 								}
 							}
 						}
@@ -505,16 +517,20 @@ impl<'a> Expander<'a> {
 								}
 
 								if self.options.ordered {
-									language_entries.sort_by_key(|(_, key)| *key);
+									language_entries.sort_by(|a, b| a.0.cmp(b.0));
 								}
 
 								for (language, language_value) in language_entries {
+									let language_entry_loc =
+										entry_loc.object_value(language.as_str());
+
 									// If language value is not an array set language value to
 									// an array containing only language value.
 									let language_value = JsonValue::force_as_array(language_value);
 
 									// For each item in language value:
-									for item in language_value {
+									for (item_index, item) in language_value.iter().enumerate() {
+										let item_loc = language_entry_loc.array_index(item_index);
 										match item {
 											// If item is null, continue to the next entry in
 											// language value.
@@ -580,7 +596,7 @@ impl<'a> Expander<'a> {
 												// invalid language map value error has
 												// been detected and processing is aborted.
 												return Err(JsonLdError::InvalidLanguageMapValue
-													.at(entry_loc));
+													.at(item_loc));
 											}
 										}
 									}
@@ -619,10 +635,11 @@ impl<'a> Expander<'a> {
 								}
 
 								if self.options.ordered {
-									entries.sort_by_key(|(_, key)| *key);
+									entries.sort_by(|a, b| a.0.cmp(b.0));
 								}
 
 								for (index, index_value) in entries {
+									let index_entry_loc = entry_loc.object_value(index.as_str());
 									// If container mapping includes @id or @type,
 									// initialize `map_context` to the `previous_context`
 									// from `active_context` if it exists, otherwise, set
@@ -655,7 +672,7 @@ impl<'a> Expander<'a> {
 													index_definition.base_url(),
 													&map_context,
 													self.options.into(),
-													location,
+													index_entry_loc,
 												)
 												.await?
 												.into_raw(),
@@ -697,7 +714,7 @@ impl<'a> Expander<'a> {
 											env,
 											index_value,
 											true,
-											entry_loc,
+											index_entry_loc,
 										),
 									)
 									.await?;
@@ -735,7 +752,7 @@ impl<'a> Expander<'a> {
 													.expand_literal(
 														|w| env.warn(w),
 														index.as_str().into(),
-														entry_loc,
+														index_entry_loc,
 													)?;
 
 												// Initialize expanded index key to the result
@@ -765,7 +782,7 @@ impl<'a> Expander<'a> {
 													// value object error has been detected and
 													// processing is aborted.
 													return Err(JsonLdError::InvalidValueObject
-														.at(entry_loc));
+														.at(index_entry_loc));
 												}
 											} else if container_mapping
 												.contains(ContainerItem::Index) && item
@@ -816,9 +833,8 @@ impl<'a> Expander<'a> {
 															.push_front(typ);
 													}
 												} else {
-													return Err(
-														JsonLdError::InvalidTypeValue.at(entry_loc)
-													);
+													return Err(JsonLdError::InvalidTypeValue
+														.at(index_entry_loc));
 												}
 											}
 										}
