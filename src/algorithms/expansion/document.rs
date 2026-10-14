@@ -1,8 +1,10 @@
-use json_syntax::JsonValue;
+use json_syntax::{JsonValue, object::Key};
 
 use crate::{
 	JsonLdExpandedDocument,
-	algorithms::{AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError},
+	algorithms::{
+		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
+	},
 };
 
 use super::{Expander, filter_top_level_item};
@@ -14,6 +16,14 @@ impl<'a> Expander<'a> {
 		document: &JsonValue,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError> {
+		// JSON-LD requires object keys to be unique throughout a document
+		// Check this once, up front, for the whole document: every function
+		// downstream of this point assumes it never encounters a duplicate key
+		// and does not re-check.
+		if let Some((path, key)) = document.find_duplicate_key_recursive() {
+			return Err(JsonLdError::DuplicateKey(Key::from(key)).at(location.push_path(&path)));
+		}
+
 		let expanded = self.expand_element(env, document, false, location).await?;
 
 		if expanded.len() == 1 {
