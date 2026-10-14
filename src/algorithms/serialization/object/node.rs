@@ -1,5 +1,5 @@
 use linked_data::LinkedDataDeserializer;
-use rdf_syntax::{Quad, RDF_TYPE, pattern::CanonicalQuadPattern};
+use rdf_syntax::{Quad, RDF_TYPE};
 
 use crate::{Indexed, NodeObject};
 
@@ -21,9 +21,9 @@ where
 	// Extract graph.
 	if graph.is_none() {
 		while let Some(Quad(graph_subject, _, _, _)) =
-			deserializer.peek_quad(CanonicalQuadPattern::from_graph(Some(subject)))?
+			deserializer.peek_quad(Quad(Some(subject), None, None, None))?
 		{
-			let graph_subject = graph_subject.into_owned();
+			let graph_subject = graph_subject.clone();
 
 			result
 				.graph
@@ -46,7 +46,7 @@ where
 			result
 				.types
 				.get_or_insert_default()
-				.push(deserialize_resource_id(deserializer, &object)?.into());
+				.push_back(deserialize_resource_id(deserializer, &object)?.into());
 		}
 
 		result.properties.insert(
@@ -81,7 +81,7 @@ where
 {
 	let mut id = None;
 
-	for term in deserializer.terms_of(subject) {
+	for term in deserializer.terms_of(subject)? {
 		if let Ok(i) = term?.into_id()
 			&& let Some(other) = id.replace(i.into_owned())
 			&& Some(other) != id

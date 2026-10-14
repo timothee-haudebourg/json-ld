@@ -1,5 +1,5 @@
 use linked_data::{
-	LinkedDataSerializer, RdfUnordered, SerializeLinkedData,
+	LinkedDataSerializer, SerializeLinkedData,
 	ser::{IdSerializer, SerializeLinkedDataWith},
 };
 use rdf_syntax::{RDF_TYPE, Term};
@@ -24,14 +24,11 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for NodeObject {
 			None => serializer.interpret(None)?,
 		};
 
-		if !self.types().is_empty() {
+		if let Some(types) = &self.types
+			&& !types.is_empty()
+		{
 			let predicate = Term::iri(RDF_TYPE.to_owned());
-			RdfUnordered(self.types()).serialize_rdf_objects(
-				&mut serializer,
-				&subject,
-				&predicate,
-				graph,
-			)?;
+			types.serialize_rdf_objects(&mut serializer, &subject, &predicate, graph)?;
 		}
 
 		for (id, objects) in self.properties() {

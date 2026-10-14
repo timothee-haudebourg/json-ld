@@ -1,3 +1,4 @@
+use btree_indexmap::BTreeIndexMultiSet;
 use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 use rdf_syntax::Id;
@@ -66,14 +67,16 @@ impl Compactor<'_> {
 		// let inside_reverse = active_property == Some("@reverse");
 		let mut result = JsonObject::default();
 
-		if !node.types().is_empty() {
+		if let Some(types) = &node.types
+			&& !types.is_empty()
+		{
 			// If element has an @type entry, create a new array compacted types initialized by
 			// transforming each expanded type of that entry into its compacted form by IRI
 			// compacting expanded type. Then, for each term in compacted types ordered
 			// lexicographically:
 			let type_loc = location.object_entry("@type");
 			let mut compacted_types = Vec::new();
-			for ty in node.types() {
+			for ty in types {
 				let compacted_ty = self
 					.with_active_context(self.type_scoped_context)
 					.compact_iri(&ty.clone().into_term(), true, false, type_loc)?;
@@ -179,7 +182,7 @@ impl Compactor<'_> {
 
 		self.with_active_context(&active_context).compact_types(
 			&mut result,
-			node.types.as_deref(),
+			node.types.as_ref(),
 			location,
 		)?;
 
@@ -341,7 +344,7 @@ impl Compactor<'_> {
 	fn compact_types(
 		self,
 		result: &mut JsonObject,
-		types: Option<&[Lenient<Id>]>,
+		types: Option<&BTreeIndexMultiSet<Lenient<Id>>>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded property is @type:

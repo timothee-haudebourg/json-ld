@@ -96,7 +96,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 				index.map(|s| (s, index_location.unwrap_or_default())),
 			)?;
 
-			if let Some(entry) = node.types.as_deref() {
+			if let Some(entry) = node.types.as_ref() {
 				flat_node.types = Some(
 					entry
 						.iter()

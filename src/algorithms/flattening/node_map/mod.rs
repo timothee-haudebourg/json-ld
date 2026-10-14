@@ -366,7 +366,7 @@ impl NodeMapGraph {
 			let flat_node = self.nodes.get_mut(id).unwrap();
 
 			if let Some(types) = node.types {
-				flat_node.types_mut_or_default().extend(types);
+				flat_node.types.get_or_insert_default().extend(types);
 			}
 
 			flat_node.set_graph_entry(node.graph);

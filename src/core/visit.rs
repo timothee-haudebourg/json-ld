@@ -67,8 +67,14 @@ pub trait VisitJsonLd {
 fn relabel_object(object: ObjectMut, relabeling: &mut Relabeling<impl Generator>) {
 	if let ObjectMut::Node(node) = object {
 		node.id = Some(relabeling.relabel(node.id.take()));
-		for ty in node.types_mut() {
-			*ty = relabeling.relabel(Some(ty.clone()));
+
+		if let Some(types) = node.types.take() {
+			node.types = Some(
+				types
+					.into_iter()
+					.map(|ty| relabeling.relabel(Some(ty)))
+					.collect(),
+			)
 		}
 	}
 }

@@ -2,6 +2,7 @@
 use crate::object::typ::TypeRef;
 use crate::syntax::Keyword;
 use crate::{Indexed, Lenient, VisitJsonLd};
+use btree_indexmap::BTreeIndexMultiSet;
 use educe::Educe;
 use json_syntax::JsonNumber;
 use langtag::LangTag;
@@ -177,7 +178,7 @@ impl Object {
 	pub fn types(&self) -> Types<'_> {
 		match self {
 			Self::Value(value) => Types::Value(value.typ()),
-			Self::Node(node) => Types::Node(node.types().iter()),
+			Self::Node(node) => Types::Node(node.types.as_ref().map(BTreeIndexMultiSet::iter)),
 			Self::List(_) => Types::List,
 		}
 	}
@@ -723,7 +724,7 @@ impl From<NodeObject> for Object {
 /// Iterator through the types of an object.
 pub enum Types<'a> {
 	Value(Option<value::ValueTypeRef<'a>>),
-	Node(std::slice::Iter<'a, Lenient<Id>>),
+	Node(Option<btree_indexmap::multi_set::Iter<'a, Lenient<Id>>>),
 	List,
 }
 
@@ -733,7 +734,7 @@ impl<'a> Iterator for Types<'a> {
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
 			Self::Value(ty) => ty.take().map(TypeRef::from_value_type),
-			Self::Node(tys) => tys.next().map(TypeRef::from_id),
+			Self::Node(tys) => tys.as_mut()?.next().map(TypeRef::from_id),
 			Self::List => None,
 		}
 	}

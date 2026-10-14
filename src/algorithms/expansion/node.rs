@@ -157,7 +157,7 @@ impl<'a> Expander<'a> {
 							// If value is neither a string nor an array of strings, an
 							// invalid type value error has been detected and processing
 							// is aborted.
-							let value = JsonValue::force_as_array(value);
+							let value = value.force_as_array();
 							// Set `expanded_value` to the result of IRI expanding each
 							// of its values using `type_scoped_context` for active
 							// context, and true for document relative.
@@ -173,7 +173,7 @@ impl<'a> Expander<'a> {
 										)
 										.try_into()
 									{
-										result.types_mut_or_default().push(ty)
+										result.types.get_or_insert_default().push_back(ty);
 									} else {
 										return Err(JsonLdError::InvalidTypeValue.at(entry_loc));
 									}
@@ -811,7 +811,9 @@ impl<'a> Expander<'a> {
 													expanded_index.clone().unwrap().try_into()
 												{
 													if let Object::Node(ref mut node) = *item {
-														node.types_mut_or_default().insert(0, typ);
+														node.types
+															.get_or_insert_default()
+															.push_front(typ);
 													}
 												} else {
 													return Err(

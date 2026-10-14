@@ -1,7 +1,7 @@
 use crate::object::{ObjectMut, ObjectRef};
 use crate::syntax::Keyword;
 use crate::{Indexed, IndexedObject, Lenient, Object, Objects, Term, VisitJsonLd, object};
-use btree_indexmap::{BTreeIndexSet, Comparable};
+use btree_indexmap::{BTreeIndexMultiSet, BTreeIndexSet, Comparable};
 use educe::Educe;
 use rdf_syntax::Id;
 use rdf_syntax::Iri;
@@ -47,7 +47,7 @@ pub struct NodeObject {
 		feature = "serde",
 		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub types: Option<Vec<Lenient<Id>>>,
+	pub types: Option<BTreeIndexMultiSet<Lenient<Id>>>,
 
 	/// Associated graph.
 	///
@@ -240,52 +240,35 @@ impl NodeObject {
 		}
 	}
 
-	/// Get the list of the node's types.
-	#[inline(always)]
-	pub fn types(&self) -> &[Lenient<Id>] {
-		match self.types.as_ref() {
-			Some(entry) => entry,
-			None => &[],
-		}
-	}
+	// /// Get the list of the node's types.
+	// #[inline(always)]
+	// pub fn types(&self) -> &[Lenient<Id>] {
+	// 	match self.types.as_ref() {
+	// 		Some(entry) => entry,
+	// 		None => &[],
+	// 	}
+	// }
 
-	/// Returns a mutable reference to the node's types.
-	#[inline(always)]
-	pub fn types_mut(&mut self) -> &mut [Lenient<Id>] {
-		match self.types.as_mut() {
-			Some(entry) => entry,
-			None => &mut [],
-		}
-	}
+	// /// Returns a mutable reference to the node's types.
+	// #[inline(always)]
+	// pub fn types_mut(&mut self) -> &mut [Lenient<Id>] {
+	// 	match self.types.as_mut() {
+	// 		Some(entry) => entry,
+	// 		None => &mut [],
+	// 	}
+	// }
 
-	pub fn types_mut_or_default(&mut self) -> &mut Vec<Lenient<Id>> {
-		self.types.get_or_insert_with(Vec::new)
-	}
-
-	pub fn types_mut_or_insert(&mut self, value: Vec<Lenient<Id>>) -> &mut Vec<Lenient<Id>> {
-		self.types.get_or_insert(value)
-	}
-
-	pub fn types_mut_or_insert_with(
-		&mut self,
-		f: impl FnOnce() -> Vec<Lenient<Id>>,
-	) -> &mut Vec<Lenient<Id>> {
-		self.types.get_or_insert_with(f)
-	}
+	// pub fn types_mut_or_default(&mut self) -> &mut Vec<Lenient<Id>> {
+	// 	self.types.get_or_insert_with(Vec::new)
+	// }
 
 	/// Checks if the node has the given type.
 	#[inline]
 	pub fn has_type<U>(&self, ty: &U) -> bool
 	where
-		Lenient<Id>: PartialEq<U>,
+		U: ?Sized + Comparable<Lenient<Id>>,
 	{
-		for self_ty in self.types() {
-			if self_ty == ty {
-				return true;
-			}
-		}
-
-		false
+		self.types.as_ref().is_some_and(|types| types.contains(ty))
 	}
 
 	/// Tests if the node is empty.
@@ -445,7 +428,7 @@ impl NodeObject {
 	pub fn entries(&self) -> Entries<'_> {
 		Entries {
 			id: self.id.as_ref(),
-			type_: self.types.as_deref(),
+			type_: self.types.as_ref(),
 			graph: self.graph.as_ref(),
 			included: self.included.as_ref(),
 			reverse: self.reverse_properties.as_ref(),
@@ -632,7 +615,7 @@ impl<'a> EntryKeyRef<'a> {
 #[educe(Clone, Copy)]
 pub enum EntryValueRef<'a> {
 	Id(&'a Lenient<Id>),
-	Type(&'a [Lenient<Id>]),
+	Type(&'a BTreeIndexMultiSet<Lenient<Id>>),
 	Graph(&'a BTreeIndexSet<IndexedObject>),
 	Included(&'a BTreeIndexSet<IndexedNode>),
 	Reverse(&'a ReverseProperties),
@@ -656,7 +639,7 @@ impl<'a> EntryValueRef<'a> {
 #[educe(Clone, Copy)]
 pub enum EntryRef<'a> {
 	Id(&'a Lenient<Id>),
-	Type(&'a [Lenient<Id>]),
+	Type(&'a BTreeIndexMultiSet<Lenient<Id>>),
 	Graph(&'a Graph),
 	Included(&'a Included),
 	Reverse(&'a ReverseProperties),
@@ -721,7 +704,7 @@ impl<'a> EntryRef<'a> {
 #[educe(Clone)]
 pub struct Entries<'a> {
 	id: Option<&'a Lenient<Id>>,
-	type_: Option<&'a [Lenient<Id>]>,
+	type_: Option<&'a BTreeIndexMultiSet<Lenient<Id>>>,
 	graph: Option<&'a Graph>,
 	included: Option<&'a Included>,
 	reverse: Option<&'a ReverseProperties>,
