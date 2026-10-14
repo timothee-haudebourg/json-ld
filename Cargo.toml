@@ -40,12 +40,12 @@ required-features = ["cli"]
 
 [dependencies]
 # json-syntax = "0.12"
-json-syntax = { path = "/home/work/Documents/Community/JSON/syntax", features = [
+json-syntax = { path = "../../JSON/syntax", features = [
 	"serde",
 	"canonicalize",
 ] }
-langtag = "0.4"
-rdf-syntax.path = "/home/work/Documents/Community/RDF/rdf-syntax"
+langtag = "1.1"
+rdf-syntax = "1.0"
 educe = "0.4.23"
 futures = "0.3"
 mown = "0.2.2"
@@ -56,7 +56,7 @@ thiserror = "1.0.38"
 mime = "0.3"
 anyhow = "1.0.98"
 btree-indexmap = { version = "1.4", features = ["serde"] }
-into-owned-trait = "1.0"
+into-owned-trait = "1.2"
 
 serde = { version = "1.0", features = ["derive"], optional = true }
 
@@ -64,7 +64,7 @@ miette = { version = "7", optional = true }
 
 # CLI dependencies (see the `cli` feature).
 clap = { version = "4", features = ["derive"], optional = true }
-nquads-syntax = { path = "/home/work/Documents/Community/RDF/nquads-syntax", optional = true }
+nquads-syntax = { version = "0.20", optional = true }
 
 # Serialization/deserialization with `serde`.
 # linked-data = "0.1"
@@ -82,7 +82,7 @@ tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 [dev-dependencies]
 json-ld-testing = { path = "testing" }
 tokio = { version = "*", features = ["macros", "rt", "rt-multi-thread"] }
-nquads-syntax = { path = "/home/work/Documents/Community/RDF/nquads-syntax" }
+nquads-syntax = "0.20"
 
 [package.metadata.docs.rs]
 all-features = true
