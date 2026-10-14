@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 use linked_data::ser::to_rdf_quads_interpretation_with;
-use rdf_syntax::IriBuf;
-use rdf_syntax::{Generator, Quad, Term, interpretation::GeneratorInterpretation};
+use rdf_syntax::{GenInterpretation, IriBuf};
+use rdf_syntax::{Generator, Quad, Term};
 
 /// Drives a future that is expected to complete synchronously on the first
 /// poll (i.e., backed by a sync [`ProcessingEnvironment`]).
@@ -342,7 +342,7 @@ pub trait JsonLdProcessor: Sized {
 		let rdf_serialization_options = options.rdf_serialization_options();
 		let mut expanded = JsonLdProcessor::async_expand_with(self, env, options).await?;
 		expanded.relabel(&mut generator);
-		let interpretation = GeneratorInterpretation::new(generator);
+		let interpretation = GenInterpretation::new(generator);
 		Ok(
 			to_rdf_quads_interpretation_with(&expanded, interpretation, rdf_serialization_options)
 				.unwrap(),

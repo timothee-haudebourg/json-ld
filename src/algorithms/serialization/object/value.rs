@@ -13,7 +13,7 @@ where
 {
 	let mut value = None;
 
-	for term in deserializer.terms_of(subject) {
+	for term in deserializer.terms_of(subject)? {
 		if let CowTerm::Ground(CowGroundTerm::Literal(literal)) = term?
 			&& let Some(other) = value.replace(literal.into_owned())
 			&& Some(other) != value

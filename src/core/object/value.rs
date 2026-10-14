@@ -368,7 +368,7 @@ impl object::AnyObject for ValueObject {
 
 impl From<Literal> for ValueObject {
 	fn from(literal: Literal) -> Self {
-		match literal.type_ {
+		match literal.r#type {
 			rdf_syntax::LiteralType::Any(ty) => {
 				if ty == XSD_BOOLEAN {
 					match literal.value.as_str() {

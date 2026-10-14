@@ -28,7 +28,7 @@ where
 		while let Some(Quad(_, predicate, object, _)) =
 			deserializer.deserialize_quad(Quad(Some(&head), None, None, Some(graph)))?
 		{
-			for p_term in deserializer.terms_of(&predicate) {
+			for p_term in deserializer.terms_of(&predicate)? {
 				if let CowTerm::Ground(CowGroundTerm::Iri(p_iri)) = p_term? {
 					if *p_iri == RDF_FIRST {
 						first = Some(object.clone());
@@ -61,12 +61,12 @@ where
 	// Check if head is rdf:nil (list terminator).
 	if deserializer.is_iri(head, RDF_NIL)? {
 		// Verify nil has no unexpected outgoing quads.
-		for quad in deserializer.peek_quads(Quad(Some(head), None, None, Some(graph))) {
+		for quad in deserializer.peek_quads(Quad(Some(head), None, None, Some(graph)))? {
 			let Quad(_, predicate, object, _) = quad?;
 
 			// The only allowed quad is `s rdf:type rdf:List`.
-			if !deserializer.is_iri(&*predicate, RDF_TYPE)?
-				|| !deserializer.is_iri(&*object, RDF_LIST)?
+			if !deserializer.is_iri(predicate, RDF_TYPE)?
+				|| !deserializer.is_iri(object, RDF_LIST)?
 			{
 				return Ok(false);
 			}
@@ -77,7 +77,8 @@ where
 
 	// Check that it is used at most once.
 	if deserializer
-		.peek_quads(Quad(None, None, Some(head), Some(graph)))
+		.peek_quads(Quad(None, None, Some(head), Some(graph)))?
+		.filter(Result::is_ok)
 		.count()
 		> 1
 	{
@@ -88,18 +89,18 @@ where
 	let mut first = None;
 	let mut rest = None;
 
-	for quad in deserializer.peek_quads(Quad(Some(head), None, None, Some(graph))) {
+	for quad in deserializer.peek_quads(Quad(Some(head), None, None, Some(graph)))? {
 		let Quad(_, predicate, object, _) = quad?;
 
-		for p_term in deserializer.terms_of(&*predicate) {
+		for p_term in deserializer.terms_of(predicate)? {
 			if let CowTerm::Ground(CowGroundTerm::Iri(p_iri)) = p_term? {
-				if *p_iri == RDF_TYPE && !deserializer.is_iri(&*object, RDF_LIST)? {
+				if *p_iri == RDF_TYPE && !deserializer.is_iri(object, RDF_LIST)? {
 					// Only allowed type is rdf:List.
 					return Ok(false);
 				}
 
 				if *p_iri == RDF_FIRST
-					&& let Some(other) = first.replace(object.clone())
+					&& let Some(other) = first.replace(object)
 					&& other != object
 				{
 					// Can't have multiple first values.
@@ -107,7 +108,7 @@ where
 				}
 
 				if *p_iri == RDF_REST
-					&& let Some(other) = rest.replace(object.clone())
+					&& let Some(other) = rest.replace(object)
 					&& other != object
 				{
 					// Can't have multiple rest values.
@@ -128,5 +129,5 @@ where
 	};
 
 	// Check the rest of the list.
-	is_list_object(deserializer, &*rest, graph)
+	is_list_object(deserializer, rest, graph)
 }
