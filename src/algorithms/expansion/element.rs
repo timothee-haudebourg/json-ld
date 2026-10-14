@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use into_owned_trait::IntoOwned;
 use json_syntax::{JsonValue, object::Entry};
 use mown::Mown;
 use rdf_syntax::Id;
@@ -59,12 +60,6 @@ impl<'a> Expander<'a> {
 			}
 
 			JsonValue::Object(element) => {
-				// let entries: Cow<[Entry<_, C>]> = if options.ordered {
-				// 	Cow::Owned(element.entries().iter().cloned().collect())
-				// } else {
-				// 	Cow::Borrowed(element.entries().as_slice())
-				// };
-
 				// Preliminary key expansions.
 				let mut preliminary_value_entry = None;
 				let mut preliminary_id_entry = None;
@@ -152,20 +147,15 @@ impl<'a> Expander<'a> {
 				}
 
 				let entries: Cow<[Entry]> = if self.options.ordered {
-					Cow::Owned(element.entries().to_vec())
+					Cow::Owned(element.iter_sorted().map(IntoOwned::into_owned).collect())
 				} else {
 					Cow::Borrowed(element.entries())
 				};
 
 				let mut type_entries: Vec<&Entry> = Vec::new();
 				for entry @ (key, _) in entries.iter() {
-					let expanded_key = active_context.expand_iri(
-						// &mut env,
-						// active_context.as_ref(),
-						Nullable::Some(key.as_str().into()),
-						false,
-						true,
-					);
+					let expanded_key =
+						active_context.expand_iri(Nullable::Some(key.as_str().into()), false, true);
 
 					if let Term::Keyword(Keyword::Type) = expanded_key {
 						type_entries.push(entry);
@@ -184,16 +174,11 @@ impl<'a> Expander<'a> {
 				// key IRI expands to @type:
 				for (_, value) in &type_entries {
 					// Convert `value` into an array, if necessary.
-					let value = JsonValue::force_as_array(value);
+					let value = value.force_as_array();
 
 					// For each `term` which is a value of `value` ordered lexicographically,
-					let mut sorted_value = Vec::with_capacity(value.len());
-					for term in value {
-						if let Some(s) = term.as_string() {
-							sorted_value.push(s);
-						}
-					}
-
+					let mut sorted_value: Vec<&str> =
+						value.iter().filter_map(JsonValue::as_str).collect();
 					sorted_value.sort_unstable();
 
 					// if `term` is a string, and `term`'s term definition in `type_scoped_context`
@@ -228,7 +213,7 @@ impl<'a> Expander<'a> {
 				// key.
 				// Both the key and value of the matched entry are IRI expanded.
 				let input_type = if let Some((_, value)) = type_entries.first() {
-					let value = JsonValue::force_as_array(value);
+					let value = value.force_as_array();
 					if let Some(input_type) = value.last() {
 						input_type.as_string().map(|input_type_str| {
 							active_context.expand_iri(
