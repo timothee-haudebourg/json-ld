@@ -99,7 +99,9 @@ impl JsonLdContext {
 			base_url,
 			&active_context,
 			ContextProcessingOptions::default(),
-			JsonLdBacktraceBuilder::Root,
+			// No document URL available here; still need a `File` frame or the
+			// backtrace would be silently empty.
+			JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Context(None)),
 		)
 		.await
 	}
@@ -238,9 +240,11 @@ impl<'a> ContextProcessor<'a> {
 							propagate: true,
 						};
 
-						let remote_root = JsonLdBacktraceBuilder::new();
+						// Extend the caller's trace rather than starting a fresh one, so that
+						// errors raised while processing `loaded_context` still show which
+						// `@context` array slot, in which calling document, pulled it in.
 						let remote_loc =
-							remote_root.file(JsonLdSourceFileRef::Context(Some(&context_iri)));
+							entry_loc.file(JsonLdSourceFileRef::Context(Some(&context_iri)));
 						result = Box::pin(
 							self.for_sub_context(&result, Some(&context_iri), new_options)
 								.process(env, &loaded_context, remote_loc),
