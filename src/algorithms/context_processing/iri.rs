@@ -30,13 +30,15 @@ pub fn resolve_iri(iri_ref: &IriRef, base_iri: Option<&Iri>) -> Option<IriBuf> {
 pub type ExpandIriResult = Result<Term, JsonLdLocatedError>;
 
 impl<'a> ContextProcessor<'a> {
+	/// `context_loc` has the same meaning as in `define` and is only ever
+	/// forwarded, unnarrowed, to `define`.
 	pub async fn expand_iri_recursive(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		value: Nullable<ExpandableRef<'_>>,
-		location: JsonLdBacktraceBuilder<'_>,
+		context_loc: JsonLdBacktraceBuilder<'_>,
 	) -> ExpandIriResult {
 		match value {
 			Nullable::Null => Ok(Term::Null),
@@ -57,7 +59,7 @@ impl<'a> ContextProcessor<'a> {
 					local_context,
 					value.into(),
 					false,
-					location,
+					context_loc,
 				))
 				.await?;
 
@@ -98,7 +100,7 @@ impl<'a> ContextProcessor<'a> {
 							local_context,
 							KeyOrKeywordRef::Key(compact_iri.prefix().into()),
 							false,
-							location,
+							context_loc,
 						))
 						.await?;
 

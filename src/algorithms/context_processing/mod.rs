@@ -428,21 +428,19 @@ impl<'a> ContextProcessor<'a> {
 					// and the value of the @protected entry from context, if any, for protected.
 					// (and the value of override protected)
 					if context.type_().is_some() {
-						let type_loc = entry_loc.object_value(Keyword::Type);
 						self.define(
 							env,
 							&mut result,
 							&context,
 							KeyOrKeywordRef::Keyword(Keyword::Type),
 							protected,
-							type_loc,
+							entry_loc,
 						)
 						.await?
 					}
 
 					for (key, _binding) in context.bindings() {
-						let term_loc = entry_loc.object_value(key.as_str());
-						self.define(env, &mut result, &context, key.into(), protected, term_loc)
+						self.define(env, &mut result, &context, key.into(), protected, entry_loc)
 							.await?
 					}
 				}
