@@ -76,10 +76,15 @@ impl Compactor<'_> {
 			// lexicographically:
 			let type_loc = location.object_entry("@type");
 			let mut compacted_types = Vec::new();
-			for ty in types {
+			for (i, ty) in types.iter().enumerate() {
 				let compacted_ty = self
 					.with_active_context(self.type_scoped_context)
-					.compact_iri(&ty.clone().into_term(), true, false, type_loc)?;
+					.compact_iri(
+						&ty.clone().into_term(),
+						true,
+						false,
+						type_loc.array_index(i),
+					)?;
 				compacted_types.push(compacted_ty)
 			}
 
@@ -358,7 +363,12 @@ impl Compactor<'_> {
 			let compacted_value = if types.len() == 1 {
 				optional_string(
 					self.with_active_context(self.type_scoped_context)
-						.compact_iri(&types[0].clone().into_term(), true, false, type_loc)?,
+						.compact_iri(
+							&types[0].clone().into_term(),
+							true,
+							false,
+							type_loc.array_index(0),
+						)?,
 				)
 			} else {
 				// Otherwise, expanded value must be a @type array:
@@ -366,13 +376,13 @@ impl Compactor<'_> {
 				let mut compacted_value = Vec::with_capacity(types.len());
 
 				// For each item expanded type in expanded value:
-				for ty in types.iter() {
+				for (i, ty) in types.iter().enumerate() {
 					let ty = ty.clone().into_term();
 
 					// Set term by IRI compacting expanded type using type-scoped context for active context.
 					let compacted_ty = self
 						.with_active_context(self.type_scoped_context)
-						.compact_iri(&ty, true, false, type_loc)?;
+						.compact_iri(&ty, true, false, type_loc.array_index(i))?;
 
 					// Append term, to compacted value.
 					compacted_value.push(optional_string(compacted_ty))
