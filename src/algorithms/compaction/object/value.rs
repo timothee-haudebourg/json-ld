@@ -5,7 +5,7 @@ use crate::{
 	Lenient, Term, Type, ValueObject,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdLocatedError, JsonLdSourceFileRef, context_processing::ContextProcessingOptions,
+		JsonLdLocatedError, context_processing::ContextProcessingOptions,
 	},
 	context::Container,
 	object::value::LiteralType,
@@ -29,6 +29,10 @@ impl<'a> Compactor<'a> {
 			&& let Some(active_property_definition) = active_context.get(active_property)
 			&& let Some(local_context) = active_property_definition.context()
 		{
+			let def_loc =
+				location.push_backtrace(active_property_definition.location().unwrap_or_default());
+			let scoped_context_loc = def_loc.object_value(Keyword::Context);
+
 			active_context = Mown::Owned(
 				local_context
 					.process_with(
@@ -36,7 +40,7 @@ impl<'a> Compactor<'a> {
 						active_property_definition.base_url(),
 						active_context.as_ref(),
 						ContextProcessingOptions::from(self.options).with_override(),
-						location.file(JsonLdSourceFileRef::Context(None)),
+						scoped_context_loc,
 					)
 					.await?
 					.into_raw(),

@@ -5,7 +5,7 @@ use crate::{
 	Term,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdLocatedError, JsonLdSourceFileRef, compaction::CompactIndexedFragment,
+		JsonLdLocatedError, compaction::CompactIndexedFragment,
 		context_processing::ContextProcessingOptions,
 	},
 	object::{AnyObject, ObjectRef},
@@ -54,6 +54,11 @@ impl Compactor<'_> {
 						self.type_scoped_context.get(active_property)
 				{
 					if let Some(local_context) = active_property_definition.context() {
+						let def_loc = location.push_backtrace(
+							active_property_definition.location().unwrap_or_default(),
+						);
+						let scoped_context_loc = def_loc.object_value(Keyword::Context);
+
 						active_context = Mown::Owned(
 							local_context
 								.process_with(
@@ -61,7 +66,7 @@ impl Compactor<'_> {
 									active_property_definition.base_url(),
 									active_context.as_ref(),
 									ContextProcessingOptions::from(self.options).with_override(),
-									location.file(JsonLdSourceFileRef::Context(None)), // We don't know where the term definition is coming from.
+									scoped_context_loc,
 								)
 								.await?
 								.into_raw(),

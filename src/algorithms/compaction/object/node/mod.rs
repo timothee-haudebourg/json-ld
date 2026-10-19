@@ -7,7 +7,7 @@ use crate::{
 	Lenient, NodeObject, ProcessingMode, Term, Type,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdLocatedError, JsonLdSourceFileRef,
+		JsonLdLocatedError,
 		compaction::{Compactor, object::value::add_value},
 		context_processing::ContextProcessingOptions,
 	},
@@ -50,6 +50,10 @@ impl Compactor<'_> {
 			&& let Some(active_property_definition) = self.type_scoped_context.get(active_property)
 			&& let Some(local_context) = active_property_definition.context()
 		{
+			let def_loc =
+				location.push_backtrace(active_property_definition.location().unwrap_or_default());
+			let scoped_context_loc = def_loc.object_value(Keyword::Context);
+
 			active_context = Mown::Owned(
 				local_context
 					.process_with(
@@ -57,7 +61,7 @@ impl Compactor<'_> {
 						active_property_definition.base_url(),
 						active_context.as_ref(),
 						ContextProcessingOptions::from(self.options).with_override(),
-						location.file(JsonLdSourceFileRef::Context(None)),
+						scoped_context_loc,
 					)
 					.await?
 					.into_raw(),
@@ -98,6 +102,9 @@ impl Compactor<'_> {
 				{
 					let processing_options =
 						ContextProcessingOptions::from(self.options).without_propagation();
+					let def_loc =
+						type_loc.push_backtrace(term_definition.location().unwrap_or_default());
+					let scoped_context_loc = def_loc.object_value(Keyword::Context);
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
@@ -105,7 +112,7 @@ impl Compactor<'_> {
 								term_definition.base_url(),
 								active_context.as_ref(),
 								processing_options,
-								type_loc.file(JsonLdSourceFileRef::Context(None)),
+								scoped_context_loc,
 							)
 							.await?
 							.into_raw(),
@@ -203,6 +210,10 @@ impl Compactor<'_> {
 			if let Some(active_property_definition) = active_context.get(active_property)
 				&& let Some(local_context) = active_property_definition.context()
 			{
+				let def_loc = rev_loc
+					.push_backtrace(active_property_definition.location().unwrap_or_default());
+				let scoped_context_loc = def_loc.object_value(Keyword::Context);
+
 				active_context = Mown::Owned(
 					local_context
 						.process_with(
@@ -210,7 +221,7 @@ impl Compactor<'_> {
 							active_property_definition.base_url(),
 							active_context.as_ref(),
 							ContextProcessingOptions::from(self.options).with_override(),
-							rev_loc.file(JsonLdSourceFileRef::Context(None)),
+							scoped_context_loc,
 						)
 						.await?
 						.into_raw(),
