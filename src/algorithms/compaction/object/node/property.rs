@@ -27,11 +27,11 @@ impl Compactor<'_> {
 		item_active_property: &str,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
-		// If expanded item is a list object:
+		// If expanded item is a list object.
 		let mut compacted_item: JsonValue = Box::pin(
 			self.with_type_scoped_context(self.active_context)
 				.with_active_property(Some(item_active_property))
-				.compact_collection_with(env, list.iter(), location),
+				.compact_collection_with(env, list.iter(), location.object_entry("@list")),
 		)
 		.await?;
 
@@ -87,14 +87,14 @@ impl Compactor<'_> {
 		item_active_property: &str,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
-		// If expanded item is a graph object
+		// If expanded item is a graph object.
 		let mut compacted_item = Box::pin(
 			node.graph().unwrap().compact_fragment(
 				env,
 				&self
 					.with_type_scoped_context(self.active_context)
 					.with_active_property(Some(item_active_property)),
-				location,
+				location.object_entry("@graph"),
 			),
 		)
 		.await?;

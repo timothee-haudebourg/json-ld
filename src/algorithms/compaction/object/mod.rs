@@ -74,10 +74,14 @@ impl Compactor<'_> {
 						.contains(ContainerItem::List);
 				}
 
+				// `location` is this list object's own position; its items live
+				// one level deeper, under its `@list` entry.
+				let list_loc = location.object_entry("@list");
+
 				if list_container {
 					self.with_active_context(&active_context)
 						.with_type_scoped_context(&active_context)
-						.compact_collection_with(env, list.iter(), location)
+						.compact_collection_with(env, list.iter(), list_loc)
 						.await
 				} else {
 					let mut result = JsonObject::default();
@@ -90,7 +94,7 @@ impl Compactor<'_> {
 							// active_context.as_ref(),
 							// loader,
 							false,
-							location,
+							list_loc,
 							// options,
 						)
 						.await?;
