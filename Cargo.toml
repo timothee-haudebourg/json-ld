@@ -39,8 +39,7 @@ path = "src/bin/cli.rs"
 required-features = ["cli"]
 
 [dependencies]
-# json-syntax = "0.12"
-json-syntax = { path = "../../JSON/syntax", features = [
+json-syntax = { version = "0.13.1", features = [
 	"serde",
 	"canonicalize",
 ] }
