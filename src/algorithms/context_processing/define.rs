@@ -186,6 +186,7 @@ impl<'a> ContextProcessor<'a> {
 						// `false`, `protected` to `protected`, and `reverse_property` to `false`.
 						let mut definition = NormalTermDefinition {
 							protected,
+							location: term_loc.build(),
 							..Default::default()
 						};
 

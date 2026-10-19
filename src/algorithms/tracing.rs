@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use into_owned_trait::IntoOwned;
-use json_syntax::tracing::{JsonBacktraceBuilder, JsonLocated};
+use json_syntax::tracing::{JsonBacktrace, JsonBacktraceBuf, JsonBacktraceBuilder, JsonLocated};
 use rdf_syntax::{Iri, IriBuf};
 
 use crate::{JsonLdExpandedDocument, JsonLdFlattenedDocument};
@@ -11,6 +11,10 @@ use crate::{JsonLdExpandedDocument, JsonLdFlattenedDocument};
 /// Accumulates [`JsonLdSourceFileRef`] frames during processing and produces a
 /// [`JsonLdLocated`] value when an error is emitted.
 pub type JsonLdBacktraceBuilder<'a> = JsonBacktraceBuilder<'a, JsonLdSourceFileRef<'a>>;
+
+pub type JsonLdBacktrace = JsonBacktrace<JsonLdSourceFile>;
+
+pub type JsonLdBacktraceBuf = JsonBacktraceBuf<JsonLdSourceFile>;
 
 /// A value annotated with a JSON-LD processing backtrace.
 ///

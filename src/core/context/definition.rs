@@ -1,4 +1,5 @@
 use super::Container;
+use crate::algorithms::{JsonLdBacktrace, JsonLdBacktraceBuf};
 use crate::{Direction, Nullable, Term, Type};
 use crate::{
 	Lenient,
@@ -16,7 +17,7 @@ use std::{borrow::Borrow, fmt};
 /// Term binding.
 pub enum Binding {
 	/// Normal term definition.
-	Normal(ContextTerm, NormalTermDefinition),
+	Normal(ContextTerm, Box<NormalTermDefinition>),
 
 	/// `@type` term definition.
 	Type(TypeTermDefinition),
@@ -146,7 +147,7 @@ impl Definitions {
 	pub fn insert(&mut self, binding: Binding) -> Option<TermDefinition> {
 		match binding {
 			Binding::Normal(key, definition) => self
-				.insert_normal(key, definition)
+				.insert_normal(key, *definition)
 				.map(TermDefinition::Normal),
 			Binding::Type(definition) => self.insert_type(definition).map(TermDefinition::Type),
 		}
@@ -244,10 +245,11 @@ impl Iterator for IntoIter {
 	type Item = Binding;
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.type_
-			.take()
-			.map(Binding::Type)
-			.or_else(|| self.normal.next().map(|(k, d)| Binding::Normal(k, d)))
+		self.type_.take().map(Binding::Type).or_else(|| {
+			self.normal
+				.next()
+				.map(|(k, d)| Binding::Normal(k, Box::new(d)))
+		})
 	}
 }
 
@@ -462,6 +464,15 @@ impl<'a> TermDefinitionRef<'a> {
 		}
 	}
 
+	/// Location of the term definition itself, as recorded when it was
+	/// created by the Create Term Definition algorithm.
+	pub fn location(&self) -> Option<&'a JsonLdBacktrace> {
+		match self {
+			Self::Type(_) => None,
+			Self::Normal(d) => Some(&d.location),
+		}
+	}
+
 	pub fn container(&self) -> Container {
 		match self {
 			Self::Type(d) => d.container.into(),
@@ -516,6 +527,9 @@ impl<'a> Copy for TermDefinitionRef<'a> {}
 // A term definition.
 #[derive(PartialEq, Eq, Clone, Default)]
 pub struct NormalTermDefinition {
+	/// Location of the term definition.
+	pub location: JsonLdBacktraceBuf,
+
 	// IRI mapping.
 	pub value: Option<Term>,
 
