@@ -5,7 +5,7 @@ use crate::{
 	Lenient, Term, Type, ValueObject,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdLocatedError, context_processing::ContextProcessingOptions,
+		JsonLdLocatedError, JsonLdSourceFileRef, context_processing::ContextProcessingOptions,
 	},
 	context::Container,
 	object::value::LiteralType,
@@ -36,7 +36,7 @@ impl<'a> Compactor<'a> {
 						active_property_definition.base_url(),
 						active_context.as_ref(),
 						ContextProcessingOptions::from(self.options).with_override(),
-						JsonLdBacktraceBuilder::Root,
+						location.file(JsonLdSourceFileRef::Context(None)),
 					)
 					.await?
 					.into_raw(),

@@ -5,7 +5,7 @@ use crate::{
 	Term,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdLocatedError, compaction::CompactIndexedFragment,
+		JsonLdLocatedError, JsonLdSourceFileRef, compaction::CompactIndexedFragment,
 		context_processing::ContextProcessingOptions,
 	},
 	object::{AnyObject, ObjectRef},
@@ -58,11 +58,10 @@ impl Compactor<'_> {
 							local_context
 								.process_with(
 									AsyncProcessingEnvironmentRef(env),
-									// vocabulary,
 									active_property_definition.base_url(),
 									active_context.as_ref(),
 									ContextProcessingOptions::from(self.options).with_override(),
-									JsonLdBacktraceBuilder::Root,
+									location.file(JsonLdSourceFileRef::Context(None)), // We don't know where the term definition is coming from.
 								)
 								.await?
 								.into_raw(),
