@@ -89,6 +89,13 @@ impl<'a> Merged<'a> {
 		// 	.and_then(|i| i.get(key))
 		// 	.or_else(|| self.base.get(key))
 	}
+
+	/// Returns `true` if `key`'s binding comes from the imported context
+	/// rather than from `base` (i.e. it would be shadowed by a `base`
+	/// binding of the same key, if one existed).
+	pub fn key_is_imported(&self, key: &ContextTerm) -> bool {
+		self.imported.is_some() && self.base.get_binding(key).is_none()
+	}
 }
 
 impl<'a> From<&'a JsonLdContextDefinition> for Merged<'a> {

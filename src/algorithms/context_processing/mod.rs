@@ -265,6 +265,7 @@ impl<'a> ContextProcessor<'a> {
 					}
 
 					// 5.6) If context has an @import entry:
+					let mut import_url = None;
 					let import_context = match &context.import {
 						Some(import_value) => {
 							// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
@@ -314,6 +315,7 @@ impl<'a> ContextProcessor<'a> {
 							// Set `context` to the result of merging context into
 							// `import_context`, replacing common entries with those from
 							// `context`.
+							import_url = Some(import);
 							Some(import_context)
 						}
 						None => None,
@@ -440,8 +442,21 @@ impl<'a> ContextProcessor<'a> {
 					}
 
 					for (key, _binding) in context.bindings() {
-						self.define(env, &mut result, &context, key.into(), protected, entry_loc)
-							.await?
+						let binding_loc = if context.key_is_imported(key) {
+							entry_loc.file(JsonLdSourceFileRef::Context(import_url.as_deref()))
+						} else {
+							entry_loc
+						};
+
+						self.define(
+							env,
+							&mut result,
+							&context,
+							key.into(),
+							protected,
+							binding_loc,
+						)
+						.await?
 					}
 				}
 			}
