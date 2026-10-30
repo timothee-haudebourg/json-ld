@@ -22,7 +22,7 @@ macro_rules! keyword {
 		/// JSON-LD keywords.
 		#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 		#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-		pub enum Keyword {
+		pub enum JsonLdKeyword {
 			$(
 				$(#[$meta])*
 				#[cfg_attr(feature = "serde", serde(rename = $lit))]
@@ -30,7 +30,7 @@ macro_rules! keyword {
 			),*
 		}
 
-		impl Keyword {
+		impl JsonLdKeyword {
 			pub fn into_str(self) -> &'static str {
 				match self {
 					$(
@@ -40,10 +40,10 @@ macro_rules! keyword {
 			}
 		}
 
-		impl<'a> TryFrom<&'a str> for Keyword {
+		impl<'a> TryFrom<&'a str> for JsonLdKeyword {
 			type Error = NotAKeyword<&'a str>;
 
-			fn try_from(input: &'a str) -> Result<Keyword, NotAKeyword<&'a str>> {
+			fn try_from(input: &'a str) -> Result<JsonLdKeyword, NotAKeyword<&'a str>> {
 				match input {
 					$(
 						$lit => Ok(Self::$ident),
@@ -166,13 +166,13 @@ keyword! {
 	Vocab : "@vocab"
 }
 
-impl Keyword {
+impl JsonLdKeyword {
 	pub fn as_str(&self) -> &'static str {
 		self.into_str()
 	}
 }
 
-impl FromStr for Keyword {
+impl FromStr for JsonLdKeyword {
 	type Err = NotAKeyword;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -180,44 +180,44 @@ impl FromStr for Keyword {
 	}
 }
 
-impl<'a> From<Keyword> for &'a str {
-	fn from(k: Keyword) -> &'a str {
+impl<'a> From<JsonLdKeyword> for &'a str {
+	fn from(k: JsonLdKeyword) -> &'a str {
 		k.into_str()
 	}
 }
 
-impl fmt::Display for Keyword {
+impl fmt::Display for JsonLdKeyword {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.into_str().fmt(f)
 	}
 }
 
-impl PartialEq<str> for Keyword {
+impl PartialEq<str> for JsonLdKeyword {
 	fn eq(&self, other: &str) -> bool {
 		self.as_str() == other
 	}
 }
 
-impl PartialEq<&str> for Keyword {
+impl PartialEq<&str> for JsonLdKeyword {
 	fn eq(&self, other: &&str) -> bool {
 		self.as_str() == *other
 	}
 }
 
-impl PartialEq<Keyword> for str {
-	fn eq(&self, other: &Keyword) -> bool {
+impl PartialEq<JsonLdKeyword> for str {
+	fn eq(&self, other: &JsonLdKeyword) -> bool {
 		self == other.as_str()
 	}
 }
 
-impl PartialEq<Keyword> for &str {
-	fn eq(&self, other: &Keyword) -> bool {
+impl PartialEq<JsonLdKeyword> for &str {
+	fn eq(&self, other: &JsonLdKeyword) -> bool {
 		*self == other.as_str()
 	}
 }
 
 pub fn is_keyword(str: &str) -> bool {
-	Keyword::try_from(str).is_ok()
+	JsonLdKeyword::try_from(str).is_ok()
 }
 
 fn is_alpha(c: char) -> bool {

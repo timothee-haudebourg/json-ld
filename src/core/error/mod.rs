@@ -46,7 +46,7 @@ pub enum JsonLdError {
 	#[error("Invalid term definition")]
 	InvalidTermDefinition,
 
-	#[error("Keyword redefinition")]
+	#[error("JsonLdKeyword redefinition")]
 	KeywordRedefinition,
 
 	#[error("Invalid `@protected` value")]

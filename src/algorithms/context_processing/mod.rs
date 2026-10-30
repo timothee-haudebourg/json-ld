@@ -21,7 +21,7 @@ use crate::{
 	ProcessedJsonLdContext,
 	algorithms::AsyncProcessingEnvironment,
 	context::RawJsonLdProcessedContext,
-	syntax::{JsonLdContext, JsonLdContextEntry, Keyword, context::JsonLdKeyOrKeywordRef},
+	syntax::{JsonLdContext, JsonLdContextEntry, JsonLdKeyword, context::JsonLdKeyOrKeywordRef},
 };
 
 struct TargetProcessedContext<'a> {
@@ -271,7 +271,7 @@ impl<'a> ContextProcessor<'a> {
 						Some(import_value) => {
 							// 5.6.1) If processing mode is json-ld-1.0, an invalid context entry error
 							// has been detected.
-							let import_loc = entry_loc.object_value(Keyword::Import);
+							let import_loc = entry_loc.object_value(JsonLdKeyword::Import);
 
 							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 								return Err(JsonLdError::InvalidContextEntry.at(import_loc));
@@ -342,7 +342,7 @@ impl<'a> ContextProcessor<'a> {
 										let resolved = resolve_iri(iri_ref, result.base_iri())
 											.ok_or_else(|| {
 												JsonLdError::InvalidBaseIri
-													.at(entry_loc.object_value(Keyword::Base))
+													.at(entry_loc.object_value(JsonLdKeyword::Base))
 											})?;
 										result.set_base_iri(Some(resolved))
 									}
@@ -378,7 +378,7 @@ impl<'a> ContextProcessor<'a> {
 									}
 									_ => {
 										return Err(JsonLdError::InvalidVocabMapping
-											.at(entry_loc.object_value(Keyword::Vocab)));
+											.at(entry_loc.object_value(JsonLdKeyword::Vocab)));
 									}
 								}
 							}
@@ -404,7 +404,7 @@ impl<'a> ContextProcessor<'a> {
 						// has been detected and processing is aborted.
 						if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 							return Err(JsonLdError::InvalidContextEntry
-								.at(entry_loc.object_value(Keyword::Direction)));
+								.at(entry_loc.object_value(JsonLdKeyword::Direction)));
 						}
 
 						match value {
@@ -439,7 +439,7 @@ impl<'a> ContextProcessor<'a> {
 							env,
 							&mut result,
 							&context,
-							JsonLdKeyOrKeywordRef::Keyword(Keyword::Type),
+							JsonLdKeyOrKeywordRef::Keyword(JsonLdKeyword::Type),
 							protected,
 							entry_loc,
 						)

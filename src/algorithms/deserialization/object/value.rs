@@ -7,7 +7,7 @@ use xsd_types::{
 };
 
 use crate::JsonLdLenient;
-use crate::{JsonLdValue, object::value::LiteralType};
+use crate::{JsonLdValue, object::value::JsonLdLiteralType};
 
 use super::super::RdfSerializationOptions;
 
@@ -30,7 +30,7 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdValue {
 					)
 				} else {
 					let ty = match &lit.type_ {
-						Some(LiteralType::Iri(iri)) => iri.as_iri(),
+						Some(JsonLdLiteralType::Iri(iri)) => iri.as_iri(),
 						_ => match &lit.value {
 							JsonValue::Null => XSD_STRING,
 							JsonValue::Boolean(_) => XSD_BOOLEAN,

@@ -2,17 +2,17 @@ use json_syntax::JsonValue;
 use rdf_syntax::Id;
 
 use crate::{
-	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdDirection, JsonLdError, JsonLdIndexed,
-	JsonLdLenient, JsonLdLocatedError, JsonLdNullable, JsonLdObject, JsonLdTerm, JsonLdValue,
-	JsonLdWarning, LangString,
+	JsonLdBacktraceBuilder, JsonLdDirection, JsonLdError, JsonLdIndexed, JsonLdIndexedObject,
+	JsonLdLangString, JsonLdLenient, JsonLdLocatedError, JsonLdNullable, JsonLdObject, JsonLdTerm,
+	JsonLdValue, JsonLdWarning,
 	context::RawJsonLdProcessedContext,
-	object::{LiteralValue, value::LiteralType},
-	syntax::Keyword,
+	object::{JsonLdLiteralValue, value::JsonLdLiteralType},
+	syntax::JsonLdKeyword,
 };
 
 use super::{ExpandedEntry, Expander};
 
-pub type ValueExpansionResult = Result<Option<IndexedJsonLdObject>, JsonLdLocatedError>;
+pub type ValueExpansionResult = Result<Option<JsonLdIndexedObject>, JsonLdLocatedError>;
 
 impl<'a> Expander<'a> {
 	/// Expand a value object.
@@ -27,7 +27,7 @@ impl<'a> Expander<'a> {
 	) -> ValueExpansionResult {
 		let mut is_json = input_type
 			.as_ref()
-			.map(|t| *t == JsonLdTerm::Keyword(Keyword::Json))
+			.map(|t| *t == JsonLdTerm::Keyword(JsonLdKeyword::Json))
 			.unwrap_or(false);
 		let mut ty = None;
 		let mut index = None;
@@ -47,7 +47,7 @@ impl<'a> Expander<'a> {
 
 			match expanded_key {
 				// If expanded property is @language:
-				JsonLdTerm::Keyword(Keyword::Language) => {
+				JsonLdTerm::Keyword(JsonLdKeyword::Language) => {
 					// If value is not a string, an invalid language-tagged string
 					// error has been detected and processing is aborted.
 					if let Some(value) = value.as_str() {
@@ -64,7 +64,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 				// If expanded property is @direction:
-				JsonLdTerm::Keyword(Keyword::Direction) => {
+				JsonLdTerm::Keyword(JsonLdKeyword::Direction) => {
 					// If processing mode is json-ld-1.0, continue with the next key
 					// from element.
 					// TODO processing mode.
@@ -82,7 +82,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 				// If expanded property is @index:
-				JsonLdTerm::Keyword(Keyword::Index) => {
+				JsonLdTerm::Keyword(JsonLdKeyword::Index) => {
 					// If value is not a string, an invalid @index value error has
 					// been detected and processing is aborted.
 					if let Some(value) = value.as_str() {
@@ -92,7 +92,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 				// If expanded ...
-				JsonLdTerm::Keyword(Keyword::Type) => {
+				JsonLdTerm::Keyword(JsonLdKeyword::Type) => {
 					if let Some(ty_value) = value.as_str() {
 						let expanded_ty = type_scoped_context.expand_iri(
 							// env,
@@ -103,7 +103,7 @@ impl<'a> Expander<'a> {
 						);
 
 						match expanded_ty {
-							JsonLdTerm::Keyword(Keyword::Json) => {
+							JsonLdTerm::Keyword(JsonLdKeyword::Json) => {
 								is_json = true;
 							}
 							JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(expanded_ty))) => {
@@ -116,7 +116,7 @@ impl<'a> Expander<'a> {
 						return Err(JsonLdError::InvalidTypedValue.at(entry_loc));
 					}
 				}
-				JsonLdTerm::Keyword(Keyword::Value) => (),
+				JsonLdTerm::Keyword(JsonLdKeyword::Value) => (),
 				_ => {
 					return Err(JsonLdError::InvalidValueObject.at(entry_loc));
 				}
@@ -131,7 +131,7 @@ impl<'a> Expander<'a> {
 				return Err(JsonLdError::InvalidValueObject.at(location));
 			}
 			return Ok(Some(JsonLdIndexed::new(
-				JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::json(
+				JsonLdObject::Value(JsonLdValue::Literal(JsonLdLiteralValue::json(
 					value_entry.clone(),
 				))),
 				index,
@@ -186,7 +186,7 @@ impl<'a> Expander<'a> {
 					None => None,
 				};
 
-				return match LangString::new(s, lang, direction) {
+				return match JsonLdLangString::new(s, lang, direction) {
 					Ok(result) => Ok(Some(JsonLdIndexed::new(
 						JsonLdObject::Value(JsonLdValue::LangString(result)),
 						index,
@@ -204,9 +204,9 @@ impl<'a> Expander<'a> {
 		// TODO
 
 		Ok(Some(JsonLdIndexed::new(
-			JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::new(
+			JsonLdObject::Value(JsonLdValue::Literal(JsonLdLiteralValue::new(
 				result_value,
-				ty.map(LiteralType::Iri),
+				ty.map(JsonLdLiteralType::Iri),
 			))),
 			index,
 		)))

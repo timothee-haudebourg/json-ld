@@ -17,7 +17,7 @@ use crate::{
 		RawJsonLdProcessedContext,
 		inverse::{JsonLdLangSelection, JsonLdTypeSelection},
 	},
-	syntax::Keyword,
+	syntax::JsonLdKeyword,
 };
 
 /// Document that can be compacted.
@@ -199,7 +199,7 @@ impl EmbedContext for JsonValue {
 
 					// No meaningful source location available at this post-processing step.
 					let key = compactor.compact_iri(
-						&JsonLdTerm::Keyword(Keyword::Graph),
+						&JsonLdTerm::Keyword(JsonLdKeyword::Graph),
 						true,
 						false,
 						JsonLdBacktraceBuilder::Root,

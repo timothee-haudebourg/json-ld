@@ -2,7 +2,7 @@
 //!
 //! See: <https://www.w3.org/TR/json-ld-api/#expansion-algorithms>
 use crate::{
-	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdDocument, JsonLdExpandedDocument,
+	JsonLdBacktraceBuilder, JsonLdDocument, JsonLdExpandedDocument, JsonLdIndexedObject,
 	JsonLdLocatedError, JsonLdObject, JsonLdSourceFileRef, algorithms::AsyncProcessingEnvironment,
 	context::RawJsonLdProcessedContext,
 };
@@ -77,7 +77,7 @@ impl JsonLdExpand for JsonLdDocument {
 	}
 }
 
-fn filter_top_level_item(item: &IndexedJsonLdObject) -> bool {
+fn filter_top_level_item(item: &JsonLdIndexedObject) -> bool {
 	// Remove dangling values.
 	!matches!(item.inner(), JsonLdObject::Value(_))
 }

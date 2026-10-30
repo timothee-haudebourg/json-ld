@@ -3,7 +3,7 @@ use std::str::FromStr;
 use crate::context::JsonLdContainer;
 use crate::syntax::context::ContextTypeContainer;
 
-use super::Keyword;
+use super::JsonLdKeyword;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -31,11 +31,11 @@ pub enum JsonLdContainerItem {
 }
 
 impl JsonLdContainerItem {
-	pub fn into_keyword(self) -> Keyword {
+	pub fn into_keyword(self) -> JsonLdKeyword {
 		self.into()
 	}
 
-	pub fn keyword(&self) -> Keyword {
+	pub fn keyword(&self) -> JsonLdKeyword {
 		self.into_keyword()
 	}
 
@@ -86,35 +86,35 @@ impl<'a> TryFrom<&'a str> for JsonLdContainerItem {
 	}
 }
 
-impl TryFrom<Keyword> for JsonLdContainerItem {
-	type Error = Keyword;
+impl TryFrom<JsonLdKeyword> for JsonLdContainerItem {
+	type Error = JsonLdKeyword;
 
-	fn try_from(k: Keyword) -> Result<JsonLdContainerItem, Keyword> {
+	fn try_from(k: JsonLdKeyword) -> Result<JsonLdContainerItem, JsonLdKeyword> {
 		use JsonLdContainerItem::*;
 		match k {
-			Keyword::Graph => Ok(Graph),
-			Keyword::Id => Ok(Id),
-			Keyword::Index => Ok(Index),
-			Keyword::Language => Ok(Language),
-			Keyword::List => Ok(List),
-			Keyword::Set => Ok(Set),
-			Keyword::Type => Ok(Type),
+			JsonLdKeyword::Graph => Ok(Graph),
+			JsonLdKeyword::Id => Ok(Id),
+			JsonLdKeyword::Index => Ok(Index),
+			JsonLdKeyword::Language => Ok(Language),
+			JsonLdKeyword::List => Ok(List),
+			JsonLdKeyword::Set => Ok(Set),
+			JsonLdKeyword::Type => Ok(Type),
 			k => Err(k),
 		}
 	}
 }
 
-impl From<JsonLdContainerItem> for Keyword {
-	fn from(c: JsonLdContainerItem) -> Keyword {
+impl From<JsonLdContainerItem> for JsonLdKeyword {
+	fn from(c: JsonLdContainerItem) -> JsonLdKeyword {
 		use JsonLdContainerItem::*;
 		match c {
-			Graph => Keyword::Graph,
-			Id => Keyword::Id,
-			Index => Keyword::Index,
-			Language => Keyword::Language,
-			List => Keyword::List,
-			Set => Keyword::Set,
-			Type => Keyword::Type,
+			Graph => JsonLdKeyword::Graph,
+			Id => JsonLdKeyword::Id,
+			Index => JsonLdKeyword::Index,
+			Language => JsonLdKeyword::Language,
+			List => JsonLdKeyword::List,
+			Set => JsonLdKeyword::Set,
+			Type => JsonLdKeyword::Type,
 		}
 	}
 }

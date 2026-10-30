@@ -1,6 +1,6 @@
 use crate::{
-	ConflictingIndexes, IndexedJsonLdNode, IndexedJsonLdObject, JsonLdBacktraceBuilder,
-	JsonLdExpandedDocument, JsonLdFlattenedDocument, JsonLdIndexed, JsonLdLenient, JsonLdLocated,
+	ConflictingIndexes, JsonLdBacktraceBuilder, JsonLdExpandedDocument, JsonLdFlattenedDocument,
+	JsonLdIndexed, JsonLdIndexedNode, JsonLdIndexedObject, JsonLdLenient, JsonLdLocated,
 	JsonLdNode, JsonLdObject, JsonLdSourceFile,
 };
 use educe::Educe;
@@ -139,7 +139,7 @@ impl NodeMap {
 		nodes
 	}
 
-	pub fn flatten_unordered(self) -> HashSet<IndexedJsonLdNode> {
+	pub fn flatten_unordered(self) -> HashSet<JsonLdIndexedNode> {
 		let (mut default_graph, named_graphs) = self.into_parts();
 
 		for (graph_id, graph) in named_graphs {
@@ -212,13 +212,13 @@ impl IntoIterator for NodeMap {
 /// Entry in a [`NodeMapGraph`], pairing an indexed node with the optional
 /// source location of its `@index` value.
 pub struct NodeMapGraphEntry {
-	pub node: IndexedJsonLdNode,
+	pub node: JsonLdIndexedNode,
 	/// Location of the `@index` value that was declared for this node, if known.
 	pub index_location: Option<JsonBacktraceBuf<JsonLdSourceFile>>,
 }
 
 impl NodeMapGraphEntry {
-	fn new(node: IndexedJsonLdNode) -> Self {
+	fn new(node: JsonLdIndexedNode) -> Self {
 		Self {
 			node,
 			index_location: None,
@@ -227,7 +227,7 @@ impl NodeMapGraphEntry {
 }
 
 impl std::ops::Deref for NodeMapGraphEntry {
-	type Target = IndexedJsonLdNode;
+	type Target = JsonLdIndexedNode;
 	fn deref(&self) -> &Self::Target {
 		&self.node
 	}
@@ -335,7 +335,7 @@ impl NodeMapGraph {
 	/// - The list of `node` types is concatenated after the preexisting types.
 	/// - The graph and imported values are overridden.
 	/// - Properties and reverse properties are merged.
-	pub fn merge_node(&mut self, node: IndexedJsonLdNode) {
+	pub fn merge_node(&mut self, node: JsonLdIndexedNode) {
 		let (node, index) = node.into_parts();
 
 		if let Some(id) = &node.id {
@@ -403,7 +403,7 @@ impl<'a> IntoIterator for &'a NodeMapGraph {
 	}
 }
 
-fn filter_graph(entry: NodeMapGraphEntry) -> Option<IndexedJsonLdNode> {
+fn filter_graph(entry: NodeMapGraphEntry) -> Option<JsonLdIndexedNode> {
 	if entry.index().is_none() && entry.is_empty() {
 		None
 	} else {
@@ -411,7 +411,7 @@ fn filter_graph(entry: NodeMapGraphEntry) -> Option<IndexedJsonLdNode> {
 	}
 }
 
-fn filter_sub_graph(mut entry: NodeMapGraphEntry) -> Option<IndexedJsonLdObject> {
+fn filter_sub_graph(mut entry: NodeMapGraphEntry) -> Option<JsonLdIndexedObject> {
 	if entry.index().is_none() && entry.properties().is_empty() {
 		None
 	} else {

@@ -3,9 +3,10 @@ use std::borrow::Cow;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
-	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError,
-	JsonLdNode, JsonLdNullable, JsonLdObject, JsonLdType, JsonLdValue, JsonLdWarning, LangString,
-	object::{LiteralValue, value::LiteralType},
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexedObject, JsonLdLangString, JsonLdLenient,
+	JsonLdLocatedError, JsonLdNode, JsonLdNullable, JsonLdObject, JsonLdType, JsonLdValue,
+	JsonLdWarning,
+	object::{JsonLdLiteralValue, value::JsonLdLiteralType},
 };
 
 use super::{Expander, node_id_of_term};
@@ -52,7 +53,7 @@ impl<'a> Expander<'a> {
 		warn: impl FnOnce(JsonLdWarning),
 		value: ExpandableLiteralValue,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<IndexedJsonLdObject, JsonLdLocatedError> {
+	) -> Result<JsonLdIndexedObject, JsonLdLocatedError> {
 		let active_property_definition = self.active_property_definition();
 		let active_property_type =
 			if let Some(active_property_definition) = active_property_definition {
@@ -156,13 +157,13 @@ impl<'a> Expander<'a> {
 							// `language`.
 							// If `direction` is not null, add `@direction` to result with the
 							// value `direction`.
-							return match LangString::new(s, language, direction) {
+							return match JsonLdLangString::new(s, language, direction) {
 								Ok(lang_str) => {
 									Ok(JsonLdObject::Value(JsonLdValue::LangString(lang_str))
 										.into())
 								}
 								Err(s) => Ok(JsonLdObject::Value(JsonLdValue::Literal(
-									LiteralValue::new(JsonValue::String(s), None),
+									JsonLdLiteralValue::new(JsonValue::String(s), None),
 								))
 								.into()),
 							};
@@ -178,11 +179,13 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				Ok(JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::new(
-					result_value,
-					ty.map(LiteralType::Iri),
-				)))
-				.into())
+				Ok(
+					JsonLdObject::Value(JsonLdValue::Literal(JsonLdLiteralValue::new(
+						result_value,
+						ty.map(JsonLdLiteralType::Iri),
+					)))
+					.into(),
+				)
 			}
 		}
 	}

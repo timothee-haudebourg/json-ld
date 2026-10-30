@@ -13,7 +13,8 @@ use crate::{
 	context::JsonLdContainer,
 	context::{JsonLdNormalTermDefinition, JsonLdTypeTermDefinition},
 	syntax::{
-		JsonLdCompactIri, JsonLdContainerItem, JsonLdContainerValue, JsonLdExpandableRef, Keyword,
+		JsonLdCompactIri, JsonLdContainerItem, JsonLdContainerValue, JsonLdExpandableRef,
+		JsonLdKeyword,
 		context::{
 			ExpandedTermDefinitionRef, IdRef, JsonLdContextEntryValueRef, JsonLdKeyOrKeyword,
 			JsonLdKeyOrKeywordRef,
@@ -221,8 +222,8 @@ impl<'a> ContextProcessor<'a> {
 							// json-ld-1.0, an invalid type mapping error has been detected and
 							// processing is aborted.
 							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0
-								&& (typ == JsonLdTerm::Keyword(Keyword::Json)
-									|| typ == JsonLdTerm::Keyword(Keyword::None))
+								&& (typ == JsonLdTerm::Keyword(JsonLdKeyword::Json)
+									|| typ == JsonLdTerm::Keyword(JsonLdKeyword::None))
 							{
 								return Err(JsonLdError::InvalidTypeMapping.at(term_loc));
 							}
@@ -315,7 +316,7 @@ impl<'a> ContextProcessor<'a> {
 										// processors SHOULD generate a warning.
 										if id_value.is_keyword_like() && !id_value.is_keyword() {
 											debug_assert!(
-												Keyword::try_from(id_value.as_str()).is_err()
+												JsonLdKeyword::try_from(id_value.as_str()).is_err()
 											);
 											env.warn(JsonLdWarning::KeywordLikeValue(
 												id_value.to_string(),
@@ -336,7 +337,7 @@ impl<'a> ContextProcessor<'a> {
 											)
 											.await?
 										{
-											JsonLdTerm::Keyword(Keyword::Context) => {
+											JsonLdTerm::Keyword(JsonLdKeyword::Context) => {
 												// if it equals `@context`, an invalid keyword alias error has
 												// been detected and processing is aborted.
 												return Err(
@@ -400,10 +401,10 @@ impl<'a> ContextProcessor<'a> {
 									}
 								}
 							}
-							Some(JsonLdNullable::Some(IdRef::Keyword(Keyword::Type))) => {
+							Some(JsonLdNullable::Some(IdRef::Keyword(JsonLdKeyword::Type))) => {
 								// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
 								// `@type`.
-								definition.value = Some(JsonLdTerm::Keyword(Keyword::Type))
+								definition.value = Some(JsonLdTerm::Keyword(JsonLdKeyword::Type))
 							}
 							_ => {
 								// Otherwise if the `term` contains a colon (:) anywhere after the first
@@ -651,7 +652,7 @@ impl<'a> ContextProcessor<'a> {
 								.process(
 									env,
 									context,
-									term_loc.object_value(Keyword::Context),
+									term_loc.object_value(JsonLdKeyword::Context),
 								),
 							)
 							.await?;

@@ -1,6 +1,6 @@
-use super::Objects;
+use super::JsonLdObjects;
 use crate::{
-	IndexedJsonLdObject, JsonLdLenient, JsonLdVisit,
+	JsonLdIndexedObject, JsonLdLenient, JsonLdVisit,
 	object::{JsonLdObjectMut, JsonLdObjectRef},
 };
 use btree_indexmap::{BTreeIndexMap, BTreeIndexMultiSet, Comparable};
@@ -8,7 +8,7 @@ use educe::Educe;
 use rdf_syntax::Id;
 use std::hash::Hash;
 
-pub type PropertyObjects = BTreeIndexMultiSet<IndexedJsonLdObject>;
+pub type PropertyObjects = BTreeIndexMultiSet<JsonLdIndexedObject>;
 
 /// Properties of a node object, and their associated objects.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -77,10 +77,13 @@ impl JsonLdProperties {
 
 	/// Returns an iterator over all the objects associated to the given property.
 	#[inline(always)]
-	pub fn get<Q: ?Sized + Hash + Comparable<JsonLdLenient<Id>>>(&self, prop: &Q) -> Objects<'_> {
+	pub fn get<Q: ?Sized + Hash + Comparable<JsonLdLenient<Id>>>(
+		&self,
+		prop: &Q,
+	) -> JsonLdObjects<'_> {
 		match self.0.get(prop) {
-			Some(values) => Objects::new(Some(values.iter())),
-			None => Objects::new(None),
+			Some(values) => JsonLdObjects::new(Some(values.iter())),
+			None => JsonLdObjects::new(None),
 		}
 	}
 
@@ -91,7 +94,7 @@ impl JsonLdProperties {
 	pub fn get_any<Q: ?Sized + Hash + Comparable<JsonLdLenient<Id>>>(
 		&self,
 		prop: &Q,
-	) -> Option<&IndexedJsonLdObject> {
+	) -> Option<&JsonLdIndexedObject> {
 		match self.0.get(prop) {
 			Some(values) => values.iter().next(),
 			None => None,
@@ -100,7 +103,7 @@ impl JsonLdProperties {
 
 	/// Associate the given object to the node through the given property with metadata.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: impl Into<JsonLdLenient<Id>>, value: IndexedJsonLdObject) {
+	pub fn insert(&mut self, prop: impl Into<JsonLdLenient<Id>>, value: JsonLdIndexedObject) {
 		let prop = prop.into();
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(value);
@@ -114,7 +117,7 @@ impl JsonLdProperties {
 	pub fn insert_unique(
 		&mut self,
 		prop: impl Into<JsonLdLenient<Id>>,
-		value: IndexedJsonLdObject,
+		value: JsonLdIndexedObject,
 	) {
 		let prop = prop.into();
 		if let Some(node_values) = self.0.get_mut(&prop) {
@@ -128,7 +131,7 @@ impl JsonLdProperties {
 
 	/// Associate all the given objects to the node through the given property.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = IndexedJsonLdObject>>(
+	pub fn insert_all<Objects: IntoIterator<Item = JsonLdIndexedObject>>(
 		&mut self,
 		prop: impl Into<JsonLdLenient<Id>>,
 		values: Objects,
@@ -145,7 +148,7 @@ impl JsonLdProperties {
 	///
 	/// The [equivalence operator](crate::JsonLdObject::equivalent) is used to remove equivalent objects.
 	#[inline(always)]
-	pub fn insert_all_unique<Objects: IntoIterator<Item = IndexedJsonLdObject>>(
+	pub fn insert_all_unique<Objects: IntoIterator<Item = JsonLdIndexedObject>>(
 		&mut self,
 		prop: JsonLdLenient<Id>,
 		values: Objects,
@@ -178,7 +181,7 @@ impl JsonLdProperties {
 	pub fn extend_unique<I, O>(&mut self, iter: I)
 	where
 		I: IntoIterator<Item = (JsonLdLenient<Id>, O)>,
-		O: IntoIterator<Item = IndexedJsonLdObject>,
+		O: IntoIterator<Item = JsonLdIndexedObject>,
 	{
 		for (prop, values) in iter {
 			self.insert_all_unique(prop, values)
@@ -211,7 +214,7 @@ impl JsonLdVisit for JsonLdProperties {
 
 impl<O> FromIterator<(JsonLdLenient<Id>, O)> for JsonLdProperties
 where
-	O: IntoIterator<Item = IndexedJsonLdObject>,
+	O: IntoIterator<Item = JsonLdIndexedObject>,
 {
 	fn from_iter<I: IntoIterator<Item = (JsonLdLenient<Id>, O)>>(iter: I) -> Self {
 		let mut result = Self::default();
@@ -222,10 +225,10 @@ where
 	}
 }
 
-impl Extend<(JsonLdLenient<Id>, Vec<IndexedJsonLdObject>)> for JsonLdProperties {
+impl Extend<(JsonLdLenient<Id>, Vec<JsonLdIndexedObject>)> for JsonLdProperties {
 	fn extend<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (JsonLdLenient<Id>, Vec<IndexedJsonLdObject>)>,
+		I: IntoIterator<Item = (JsonLdLenient<Id>, Vec<JsonLdIndexedObject>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -239,7 +242,7 @@ pub type JsonLdBinding = (JsonLdLenient<Id>, PropertyObjects);
 
 /// Tuple type representing a reference to a binding in a node object,
 /// associating a property to some objects.
-pub type JsonLdBindingRef<'a> = (&'a JsonLdLenient<Id>, &'a [IndexedJsonLdObject]);
+pub type JsonLdBindingRef<'a> = (&'a JsonLdLenient<Id>, &'a [JsonLdIndexedObject]);
 
 /// Tuple type representing a mutable reference to a binding in a node object,
 /// associating a property to some objects, with a mutable access to the objects.

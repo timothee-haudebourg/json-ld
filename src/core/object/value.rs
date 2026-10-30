@@ -1,6 +1,6 @@
 use crate::object::{JsonLdObjectMut, JsonLdObjectRef};
-use crate::syntax::Keyword;
-use crate::{JsonLdDirection, JsonLdLenient, JsonLdType, JsonLdVisit, LangString, object};
+use crate::syntax::JsonLdKeyword;
+use crate::{JsonLdDirection, JsonLdLangString, JsonLdLenient, JsonLdType, JsonLdVisit, object};
 use educe::Educe;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue, ryu_js};
 use langtag::LangTag;
@@ -10,12 +10,12 @@ use std::hash::Hash;
 use xsd_types::{XSD_BOOLEAN, XSD_FLOAT, XSD_INTEGER};
 
 /// Value type.
-pub enum ValueType {
+pub enum JsonLdValueType {
 	Json,
 	Id(IriBuf),
 }
 
-impl ValueType {
+impl JsonLdValueType {
 	pub fn as_id(&self) -> Option<IdRef<'_>> {
 		match self {
 			Self::Json => None,
@@ -27,12 +27,12 @@ impl ValueType {
 /// Value type reference.
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum ValueTypeRef<'a> {
+pub enum JsonLdValueTypeRef<'a> {
 	Json,
 	Id(&'a Iri),
 }
 
-impl<'a> ValueTypeRef<'a> {
+impl<'a> JsonLdValueTypeRef<'a> {
 	pub fn into_object_type(self) -> JsonLdType {
 		match self {
 			Self::Json => JsonLdType::Json,
@@ -50,7 +50,7 @@ impl<'a> ValueTypeRef<'a> {
 
 /// Literal type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum LiteralType {
+pub enum JsonLdLiteralType {
 	/// JSON literal (`@json`).
 	Json,
 
@@ -58,7 +58,7 @@ pub enum LiteralType {
 	Iri(IriBuf),
 }
 
-impl LiteralType {
+impl JsonLdLiteralType {
 	/// Returns this type IRI.
 	///
 	/// If the type is `@json`, this will return [`RDF_JSON`].
@@ -81,7 +81,7 @@ impl LiteralType {
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for LiteralType {
+impl serde::Serialize for JsonLdLiteralType {
 	fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
 		match self {
 			Self::Json => serializer.serialize_str("@json"),
@@ -91,7 +91,7 @@ impl serde::Serialize for LiteralType {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for LiteralType {
+impl<'de> serde::Deserialize<'de> for JsonLdLiteralType {
 	fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
 		let s = String::deserialize(deserializer)?;
 		if s == "@json" {
@@ -109,7 +109,7 @@ impl<'de> serde::Deserialize<'de> for LiteralType {
 /// A JSON-LD value object with a `@value` entry and an optional `@type`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct LiteralValue {
+pub struct JsonLdLiteralValue {
 	/// The value.
 	#[cfg_attr(feature = "serde", serde(rename = "@value"))]
 	pub value: JsonValue,
@@ -119,12 +119,12 @@ pub struct LiteralValue {
 		feature = "serde",
 		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub type_: Option<LiteralType>,
+	pub type_: Option<JsonLdLiteralType>,
 }
 
-impl LiteralValue {
+impl JsonLdLiteralValue {
 	/// Creates a new literal value.
-	pub fn new(value: JsonValue, type_: Option<LiteralType>) -> Self {
+	pub fn new(value: JsonValue, type_: Option<JsonLdLiteralType>) -> Self {
 		Self { value, type_ }
 	}
 
@@ -135,7 +135,7 @@ impl LiteralValue {
 
 	/// Creates a JSON literal value (`@type: "@json"`).
 	pub fn json(value: JsonValue) -> Self {
-		Self::new(value, Some(LiteralType::Json))
+		Self::new(value, Some(JsonLdLiteralType::Json))
 	}
 
 	/// Returns the value as a string if it is one.
@@ -159,14 +159,14 @@ impl LiteralValue {
 	/// Returns the type IRI.
 	pub fn type_iri(&self) -> Option<&Iri> {
 		match &self.type_ {
-			Some(LiteralType::Iri(iri)) => Some(iri),
+			Some(JsonLdLiteralType::Iri(iri)) => Some(iri),
 			_ => None,
 		}
 	}
 
 	/// Returns true if this is a JSON literal.
 	pub fn is_json(&self) -> bool {
-		self.type_.as_ref().is_some_and(LiteralType::is_json)
+		self.type_.as_ref().is_some_and(JsonLdLiteralType::is_json)
 	}
 
 	/// Puts this literal into canonical form using the given `buffer`.
@@ -193,17 +193,17 @@ impl LiteralValue {
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum JsonLdValue {
 	/// Language tagged string.
-	LangString(LangString),
+	LangString(JsonLdLangString),
 
 	/// Typed literal value (including JSON literals).
-	Literal(LiteralValue),
+	Literal(JsonLdLiteralValue),
 }
 
 impl JsonLdValue {
 	/// Creates a `null` value object.
 	#[inline(always)]
 	pub fn null() -> Self {
-		Self::Literal(LiteralValue::null())
+		Self::Literal(JsonLdLiteralValue::null())
 	}
 
 	#[inline(always)]
@@ -215,14 +215,14 @@ impl JsonLdValue {
 	}
 
 	#[inline(always)]
-	pub fn as_literal(&self) -> Option<&LiteralValue> {
+	pub fn as_literal(&self) -> Option<&JsonLdLiteralValue> {
 		match self {
 			Self::Literal(lit) => Some(lit),
 			_ => None,
 		}
 	}
 
-	pub fn literal_type(&self) -> Option<&LiteralType> {
+	pub fn literal_type(&self) -> Option<&JsonLdLiteralType> {
 		match self {
 			Self::Literal(lit) => lit.type_.as_ref(),
 			_ => None,
@@ -239,7 +239,7 @@ impl JsonLdValue {
 	/// Set the literal value type, and returns the old type.
 	///
 	/// Has no effect and return `None` if the value is not a literal value.
-	pub fn set_literal_type(&mut self, ty: Option<LiteralType>) -> Option<LiteralType> {
+	pub fn set_literal_type(&mut self, ty: Option<JsonLdLiteralType>) -> Option<JsonLdLiteralType> {
 		match self {
 			Self::Literal(lit) => std::mem::replace(&mut lit.type_, ty),
 			_ => None,
@@ -263,11 +263,11 @@ impl JsonLdValue {
 	}
 
 	/// Return the type of the value if any.
-	pub fn typ(&self) -> Option<ValueTypeRef<'_>> {
+	pub fn typ(&self) -> Option<JsonLdValueTypeRef<'_>> {
 		match self {
 			JsonLdValue::Literal(lit) => match &lit.type_ {
-				Some(LiteralType::Json) => Some(ValueTypeRef::Json),
-				Some(LiteralType::Iri(iri)) => Some(ValueTypeRef::Id(iri)),
+				Some(JsonLdLiteralType::Json) => Some(JsonLdValueTypeRef::Json),
+				Some(JsonLdLiteralType::Iri(iri)) => Some(JsonLdValueTypeRef::Id(iri)),
 				None => None,
 			},
 			_ => None,
@@ -327,20 +327,20 @@ impl JsonLdValue {
 	}
 
 	#[inline(always)]
-	pub fn entries(&self) -> Entries<'_> {
+	pub fn entries(&self) -> JsonLdValueEntries<'_> {
 		match self {
-			Self::Literal(lit) => Entries {
-				value: Some(ValueEntryRef::Value(&lit.value)),
+			Self::Literal(lit) => JsonLdValueEntries {
+				value: Some(JsonLdValueValueEntryRef::Value(&lit.value)),
 				type_: match &lit.type_ {
-					Some(LiteralType::Json) => Some(ValueTypeRef::Json),
-					Some(LiteralType::Iri(iri)) => Some(ValueTypeRef::Id(iri)),
+					Some(JsonLdLiteralType::Json) => Some(JsonLdValueTypeRef::Json),
+					Some(JsonLdLiteralType::Iri(iri)) => Some(JsonLdValueTypeRef::Id(iri)),
 					None => None,
 				},
 				language: None,
 				direction: None,
 			},
-			Self::LangString(l) => Entries {
-				value: Some(ValueEntryRef::LangString(l.as_str())),
+			Self::LangString(l) => JsonLdValueEntries {
+				value: Some(JsonLdValueValueEntryRef::LangString(l.as_str())),
 				type_: None,
 				language: l.language(),
 				direction: l.direction(),
@@ -373,39 +373,39 @@ impl From<Literal> for JsonLdValue {
 				if ty == XSD_BOOLEAN {
 					match literal.value.as_str() {
 						"true" => {
-							return Self::Literal(LiteralValue::new(
+							return Self::Literal(JsonLdLiteralValue::new(
 								JsonValue::Boolean(true),
-								Some(LiteralType::Iri(ty)),
+								Some(JsonLdLiteralType::Iri(ty)),
 							));
 						}
 						"false" => {
-							return Self::Literal(LiteralValue::new(
+							return Self::Literal(JsonLdLiteralValue::new(
 								JsonValue::Boolean(false),
-								Some(LiteralType::Iri(ty)),
+								Some(JsonLdLiteralType::Iri(ty)),
 							));
 						}
 						_ => (),
 					}
 				} else if ty == XSD_INTEGER || ty == XSD_FLOAT {
 					if let Ok(number) = literal.value.parse::<JsonNumberBuf>() {
-						return Self::Literal(LiteralValue::new(
+						return Self::Literal(JsonLdLiteralValue::new(
 							JsonValue::Number(number),
-							Some(LiteralType::Iri(ty)),
+							Some(JsonLdLiteralType::Iri(ty)),
 						));
 					}
 				} else if ty == RDF_JSON
 					&& let Ok(json) = json_syntax::from_str(&literal.value)
 				{
-					return Self::Literal(LiteralValue::json(json));
+					return Self::Literal(JsonLdLiteralValue::json(json));
 				}
 
-				Self::Literal(LiteralValue::new(
+				Self::Literal(JsonLdLiteralValue::new(
 					JsonValue::String(literal.value.into()),
-					Some(LiteralType::Iri(ty)),
+					Some(JsonLdLiteralType::Iri(ty)),
 				))
 			}
 			rdf_syntax::LiteralType::LangString(langtag) => {
-				Self::LangString(LangString::from_language(literal.value, langtag))
+				Self::LangString(JsonLdLangString::from_language(literal.value, langtag))
 			}
 		}
 	}
@@ -413,87 +413,87 @@ impl From<Literal> for JsonLdValue {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryRef<'a> {
-	Value(ValueEntryRef<'a>),
-	Type(ValueTypeRef<'a>),
+pub enum JsonLdValueEntryRef<'a> {
+	Value(JsonLdValueValueEntryRef<'a>),
+	Type(JsonLdValueTypeRef<'a>),
 	Language(JsonLdLenient<&'a LangTag>),
 	Direction(JsonLdDirection),
 }
 
-impl<'a> EntryRef<'a> {
-	pub fn into_key(self) -> EntryKey {
+impl<'a> JsonLdValueEntryRef<'a> {
+	pub fn into_key(self) -> JsonLdValueEntryKey {
 		match self {
-			Self::Value(_) => EntryKey::Value,
-			Self::Type(_) => EntryKey::Type,
-			Self::Language(_) => EntryKey::Language,
-			Self::Direction(_) => EntryKey::Direction,
+			Self::Value(_) => JsonLdValueEntryKey::Value,
+			Self::Type(_) => JsonLdValueEntryKey::Type,
+			Self::Language(_) => JsonLdValueEntryKey::Language,
+			Self::Direction(_) => JsonLdValueEntryKey::Direction,
 		}
 	}
 
-	pub fn key(&self) -> EntryKey {
+	pub fn key(&self) -> JsonLdValueEntryKey {
 		self.into_key()
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a> {
+	pub fn into_value(self) -> JsonLdValueEntryValueRef<'a> {
 		match self {
-			Self::Value(v) => EntryValueRef::Value(v),
-			Self::Type(v) => EntryValueRef::Type(v),
-			Self::Language(v) => EntryValueRef::Language(v),
-			Self::Direction(v) => EntryValueRef::Direction(v),
+			Self::Value(v) => JsonLdValueEntryValueRef::Value(v),
+			Self::Type(v) => JsonLdValueEntryValueRef::Type(v),
+			Self::Language(v) => JsonLdValueEntryValueRef::Language(v),
+			Self::Direction(v) => JsonLdValueEntryValueRef::Direction(v),
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a> {
+	pub fn value(&self) -> JsonLdValueEntryValueRef<'a> {
 		match self {
-			Self::Value(v) => EntryValueRef::Value(*v),
-			Self::Type(v) => EntryValueRef::Type(*v),
-			Self::Language(v) => EntryValueRef::Language(*v),
-			Self::Direction(v) => EntryValueRef::Direction(*v),
+			Self::Value(v) => JsonLdValueEntryValueRef::Value(*v),
+			Self::Type(v) => JsonLdValueEntryValueRef::Type(*v),
+			Self::Language(v) => JsonLdValueEntryValueRef::Language(*v),
+			Self::Direction(v) => JsonLdValueEntryValueRef::Direction(*v),
 		}
 	}
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryValueRef<'a> {
-	Value(ValueEntryRef<'a>),
-	Type(ValueTypeRef<'a>),
+pub enum JsonLdValueEntryValueRef<'a> {
+	Value(JsonLdValueValueEntryRef<'a>),
+	Type(JsonLdValueTypeRef<'a>),
 	Language(JsonLdLenient<&'a LangTag>),
 	Direction(JsonLdDirection),
 }
 
-pub enum ValueEntryRef<'a> {
+pub enum JsonLdValueValueEntryRef<'a> {
 	Value(&'a JsonValue),
 	LangString(&'a str),
 }
 
-impl<'a> Clone for ValueEntryRef<'a> {
+impl<'a> Clone for JsonLdValueValueEntryRef<'a> {
 	fn clone(&self) -> Self {
 		*self
 	}
 }
 
-impl<'a> Copy for ValueEntryRef<'a> {}
+impl<'a> Copy for JsonLdValueValueEntryRef<'a> {}
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum EntryKey {
+pub enum JsonLdValueEntryKey {
 	Value,
 	Type,
 	Language,
 	Direction,
 }
 
-impl EntryKey {
-	pub fn into_keyword(self) -> Keyword {
+impl JsonLdValueEntryKey {
+	pub fn into_keyword(self) -> JsonLdKeyword {
 		match self {
-			Self::Value => Keyword::Value,
-			Self::Type => Keyword::Type,
-			Self::Language => Keyword::Language,
-			Self::Direction => Keyword::Direction,
+			Self::Value => JsonLdKeyword::Value,
+			Self::Type => JsonLdKeyword::Type,
+			Self::Language => JsonLdKeyword::Language,
+			Self::Direction => JsonLdKeyword::Direction,
 		}
 	}
 
-	pub fn as_keyword(&self) -> Keyword {
+	pub fn as_keyword(&self) -> JsonLdKeyword {
 		self.into_keyword()
 	}
 
@@ -513,15 +513,15 @@ impl EntryKey {
 
 #[derive(Educe)]
 #[educe(Clone)]
-pub struct Entries<'a> {
-	value: Option<ValueEntryRef<'a>>,
-	type_: Option<ValueTypeRef<'a>>,
+pub struct JsonLdValueEntries<'a> {
+	value: Option<JsonLdValueValueEntryRef<'a>>,
+	type_: Option<JsonLdValueTypeRef<'a>>,
 	language: Option<JsonLdLenient<&'a LangTag>>,
 	direction: Option<JsonLdDirection>,
 }
 
-impl<'a> Iterator for Entries<'a> {
-	type Item = EntryRef<'a>;
+impl<'a> Iterator for JsonLdValueEntries<'a> {
+	type Item = JsonLdValueEntryRef<'a>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = 0;
@@ -546,28 +546,40 @@ impl<'a> Iterator for Entries<'a> {
 	}
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.value.take().map(EntryRef::Value).or_else(|| {
-			self.type_.take().map(EntryRef::Type).or_else(|| {
-				self.language
+		self.value
+			.take()
+			.map(JsonLdValueEntryRef::Value)
+			.or_else(|| {
+				self.type_
 					.take()
-					.map(EntryRef::Language)
-					.or_else(|| self.direction.take().map(EntryRef::Direction))
+					.map(JsonLdValueEntryRef::Type)
+					.or_else(|| {
+						self.language
+							.take()
+							.map(JsonLdValueEntryRef::Language)
+							.or_else(|| self.direction.take().map(JsonLdValueEntryRef::Direction))
+					})
 			})
-		})
 	}
 }
 
-impl<'a> ExactSizeIterator for Entries<'a> {}
+impl<'a> ExactSizeIterator for JsonLdValueEntries<'a> {}
 
-impl<'a> DoubleEndedIterator for Entries<'a> {
+impl<'a> DoubleEndedIterator for JsonLdValueEntries<'a> {
 	fn next_back(&mut self) -> Option<Self::Item> {
-		self.direction.take().map(EntryRef::Direction).or_else(|| {
-			self.language.take().map(EntryRef::Language).or_else(|| {
-				self.type_
+		self.direction
+			.take()
+			.map(JsonLdValueEntryRef::Direction)
+			.or_else(|| {
+				self.language
 					.take()
-					.map(EntryRef::Type)
-					.or_else(|| self.value.take().map(EntryRef::Value))
+					.map(JsonLdValueEntryRef::Language)
+					.or_else(|| {
+						self.type_
+							.take()
+							.map(JsonLdValueEntryRef::Type)
+							.or_else(|| self.value.take().map(JsonLdValueEntryRef::Value))
+					})
 			})
-		})
 	}
 }

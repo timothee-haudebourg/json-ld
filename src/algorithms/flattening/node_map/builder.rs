@@ -4,8 +4,8 @@ use btree_indexmap::BTreeIndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
-	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdIndexed, JsonLdLenient, JsonLdNode,
-	JsonLdObject, object::JsonLdList, syntax::Keyword,
+	JsonLdBacktraceBuilder, JsonLdIndexed, JsonLdIndexedObject, JsonLdLenient, JsonLdNode,
+	JsonLdObject, object::JsonLdList, syntax::JsonLdKeyword,
 };
 
 use super::{NodeMap, NodeMapExtendError};
@@ -42,10 +42,10 @@ impl<G: Generator> NodeMapBuilder<G> {
 	/// `location` tracks the current position within the expanded document.
 	pub fn extend_node_map(
 		&mut self,
-		element: &IndexedJsonLdObject,
+		element: &JsonLdIndexedObject,
 		active_graph: Option<&JsonLdLenient<Id>>,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<IndexedJsonLdObject, NodeMapExtendError> {
+	) -> Result<JsonLdIndexedObject, NodeMapExtendError> {
 		match element.inner() {
 			JsonLdObject::Value(value) => {
 				let flat_value = value.clone();
@@ -56,7 +56,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 			}
 			JsonLdObject::List(list) => {
 				let mut flat_list = Vec::new();
-				let list_loc = location.object_value(Keyword::List);
+				let list_loc = location.object_value(JsonLdKeyword::List);
 
 				for (i, item) in list.iter().enumerate() {
 					flat_list.push(self.extend_node_map(
@@ -90,7 +90,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 
 		{
 			// The `@index` value is at `location[ObjectValue("@index")]`.
-			let index_location = index.map(|_| location.object_value(Keyword::Index).build());
+			let index_location = index.map(|_| location.object_value(JsonLdKeyword::Index).build());
 			let flat_node = self.result.graph_mut(active_graph).unwrap().declare_node(
 				id.clone(),
 				index.map(|s| (s, index_location.unwrap_or_default())),
@@ -109,7 +109,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		if let Some(graph_entry) = node.graph_entry() {
 			self.result.declare_graph(id.clone());
 
-			let graph_loc = location.object_value(Keyword::Graph);
+			let graph_loc = location.object_value(JsonLdKeyword::Graph);
 			let mut flat_graph = BTreeIndexSet::new();
 			for (i, object) in graph_entry.iter().enumerate() {
 				let flat_object =
@@ -130,7 +130,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		}
 
 		if let Some(included_entry) = node.included_entry() {
-			let included_loc = location.object_value(Keyword::Included);
+			let included_loc = location.object_value(JsonLdKeyword::Included);
 			for (i, inode) in included_entry.iter().enumerate() {
 				self.extend_node_map_from_node(
 					inode.inner(),
@@ -159,7 +159,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		}
 
 		if let Some(reverse_properties) = node.reverse_properties_entry() {
-			let reverse_loc = location.object_value(Keyword::Reverse);
+			let reverse_loc = location.object_value(JsonLdKeyword::Reverse);
 			for (property, nodes) in reverse_properties.iter() {
 				let prop_loc = reverse_loc.object_value(property.as_str());
 				for (i, subject) in nodes.iter().enumerate() {

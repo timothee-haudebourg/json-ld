@@ -1,5 +1,5 @@
 use crate::syntax::context::definition::JsonLdKeyOrKeywordRef;
-use crate::syntax::{JsonLdCompactIri, JsonLdExpandableRef, Keyword};
+use crate::syntax::{JsonLdCompactIri, JsonLdExpandableRef, JsonLdKeyword};
 use rdf_syntax::BlankId;
 use rdf_syntax::Iri;
 use std::fmt;
@@ -9,7 +9,7 @@ use std::hash::Hash;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
 pub enum TermId {
-	Keyword(Keyword),
+	Keyword(JsonLdKeyword),
 	Term(String),
 }
 
@@ -35,7 +35,7 @@ impl TermId {
 		}
 	}
 
-	pub fn as_keyword(&self) -> Option<Keyword> {
+	pub fn as_keyword(&self) -> Option<JsonLdKeyword> {
 		match self {
 			Self::Keyword(k) => Some(*k),
 			Self::Term(_) => None,
@@ -92,7 +92,7 @@ impl Hash for TermId {
 
 impl From<String> for TermId {
 	fn from(s: String) -> Self {
-		match Keyword::try_from(s.as_str()) {
+		match JsonLdKeyword::try_from(s.as_str()) {
 			Ok(k) => Self::Keyword(k),
 			Err(_) => Self::Term(s),
 		}
@@ -120,7 +120,7 @@ impl fmt::Display for TermId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum IdRef<'a> {
 	Term(&'a str),
-	Keyword(Keyword),
+	Keyword(JsonLdKeyword),
 }
 
 impl<'a> IdRef<'a> {
@@ -142,7 +142,7 @@ impl<'a> IdRef<'a> {
 
 impl<'a> From<&'a str> for IdRef<'a> {
 	fn from(s: &'a str) -> Self {
-		match Keyword::try_from(s) {
+		match JsonLdKeyword::try_from(s) {
 			Ok(k) => Self::Keyword(k),
 			Err(_) => Self::Term(s),
 		}

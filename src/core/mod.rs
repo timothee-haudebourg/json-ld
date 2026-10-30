@@ -25,7 +25,8 @@ pub use lang_string::*;
 pub use lenient::*;
 pub use loader::*;
 pub use object::{
-	IndexedJsonLdNode, IndexedJsonLdObject, JsonLdNode, JsonLdObject, JsonLdValue, Nodes, Objects,
+	JsonLdIndexedNode, JsonLdIndexedObject, JsonLdNode, JsonLdNodes, JsonLdObject, JsonLdObjects,
+	JsonLdValue,
 };
 pub use processing_mode::*;
 pub use term::*;

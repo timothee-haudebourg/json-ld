@@ -7,7 +7,7 @@ use rdf_syntax::Id;
 use rdf_syntax::Iri;
 use std::hash::Hash;
 
-use crate::syntax::Keyword;
+use crate::syntax::JsonLdKeyword;
 use crate::{JsonLdIndexed, JsonLdLenient, JsonLdVisit};
 
 pub mod list;
@@ -16,8 +16,8 @@ mod typ;
 pub mod value;
 
 pub use list::JsonLdList;
-pub use node::{IndexedJsonLdNode, JsonLdGraph, JsonLdNode, Nodes};
-pub use value::{JsonLdValue, LiteralValue};
+pub use node::{JsonLdGraph, JsonLdIndexedNode, JsonLdNode, JsonLdNodes};
+pub use value::{JsonLdLiteralValue, JsonLdValue};
 
 use typ::JsonLdObjectTypeRef;
 
@@ -96,7 +96,7 @@ impl<'a> JsonLdObjectMut<'a> {
 }
 
 /// Indexed object.
-pub type IndexedJsonLdObject = JsonLdIndexed<JsonLdObject>;
+pub type JsonLdIndexedObject = JsonLdIndexed<JsonLdObject>;
 
 /// Object.
 ///
@@ -174,11 +174,13 @@ impl JsonLdObject {
 	// }
 
 	/// Returns an iterator over the types of the object.
-	pub fn types(&self) -> Types<'_> {
+	pub fn types(&self) -> JsonLdObjectTypes<'_> {
 		match self {
-			Self::Value(value) => Types::Value(value.typ()),
-			Self::Node(node) => Types::Node(node.types.as_ref().map(BTreeIndexMultiSet::iter)),
-			Self::List(_) => Types::List,
+			Self::Value(value) => JsonLdObjectTypes::Value(value.typ()),
+			Self::Node(node) => {
+				JsonLdObjectTypes::Node(node.types.as_ref().map(BTreeIndexMultiSet::iter))
+			}
+			Self::List(_) => JsonLdObjectTypes::List,
 		}
 	}
 
@@ -440,13 +442,13 @@ impl JsonLdIndexed<JsonLdObject> {
 #[derive(Educe)]
 #[educe(Clone)]
 pub enum Entries<'a> {
-	Value(value::Entries<'a>),
-	List(Option<&'a [IndexedJsonLdObject]>),
-	Node(node::Entries<'a>),
+	Value(value::JsonLdValueEntries<'a>),
+	List(Option<&'a [JsonLdIndexedObject]>),
+	Node(node::JsonLdNodeEntries<'a>),
 }
 
 impl<'a> Iterator for Entries<'a> {
-	type Item = EntryRef<'a>;
+	type Item = JsonLdObjectEntryRef<'a>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let len = match self {
@@ -460,9 +462,9 @@ impl<'a> Iterator for Entries<'a> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
-			Self::Value(v) => v.next().map(EntryRef::Value),
-			Self::List(l) => l.take().map(EntryRef::List),
-			Self::Node(n) => n.next().map(EntryRef::Node),
+			Self::Value(v) => v.next().map(JsonLdObjectEntryRef::Value),
+			Self::List(l) => l.take().map(JsonLdObjectEntryRef::List),
+			Self::Node(n) => n.next().map(JsonLdObjectEntryRef::Node),
 		}
 	}
 }
@@ -477,7 +479,7 @@ pub struct IndexedEntries<'a> {
 }
 
 impl<'a> Iterator for IndexedEntries<'a> {
-	type Item = IndexedEntryRef<'a>;
+	type Item = JsonLdIndexedObjectEntryRef<'a>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let len = self.inner.len() + usize::from(self.index.is_some());
@@ -487,8 +489,8 @@ impl<'a> Iterator for IndexedEntries<'a> {
 	fn next(&mut self) -> Option<Self::Item> {
 		self.index
 			.take()
-			.map(IndexedEntryRef::Index)
-			.or_else(|| self.inner.next().map(IndexedEntryRef::Object))
+			.map(JsonLdIndexedObjectEntryRef::Index)
+			.or_else(|| self.inner.next().map(JsonLdIndexedObjectEntryRef::Object))
 	}
 }
 
@@ -496,22 +498,22 @@ impl<'a> ExactSizeIterator for IndexedEntries<'a> {}
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
-pub enum EntryKeyRef<'a> {
-	Value(value::EntryKey),
+pub enum JsonLdObjectEntryKeyRef<'a> {
+	Value(value::JsonLdValueEntryKey),
 	List,
-	Node(node::EntryKeyRef<'a>),
+	Node(node::JsonLdNodeEntryKeyRef<'a>),
 }
 
-impl<'a> EntryKeyRef<'a> {
-	pub fn into_keyword(self) -> Option<Keyword> {
+impl<'a> JsonLdObjectEntryKeyRef<'a> {
+	pub fn into_keyword(self) -> Option<JsonLdKeyword> {
 		match self {
 			Self::Value(e) => Some(e.into_keyword()),
-			Self::List => Some(Keyword::List),
+			Self::List => Some(JsonLdKeyword::List),
 			Self::Node(e) => e.into_keyword(),
 		}
 	}
 
-	pub fn as_keyword(&self) -> Option<Keyword> {
+	pub fn as_keyword(&self) -> Option<JsonLdKeyword> {
 		self.into_keyword()
 	}
 
@@ -530,77 +532,86 @@ impl<'a> EntryKeyRef<'a> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryValueRef<'a> {
-	Value(value::EntryRef<'a>),
-	List(&'a [IndexedJsonLdObject]),
-	Node(node::EntryValueRef<'a>),
+pub enum JsonLdObjectEntryValueRef<'a> {
+	Value(value::JsonLdValueEntryRef<'a>),
+	List(&'a [JsonLdIndexedObject]),
+	Node(node::JsonLdNodeEntryValueRef<'a>),
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryRef<'a> {
-	Value(value::EntryRef<'a>),
-	List(&'a [IndexedJsonLdObject]),
-	Node(node::EntryRef<'a>),
+pub enum JsonLdObjectEntryRef<'a> {
+	Value(value::JsonLdValueEntryRef<'a>),
+	List(&'a [JsonLdIndexedObject]),
+	Node(node::JsonLdNodeEntryRef<'a>),
 }
 
-impl<'a> EntryRef<'a> {
-	pub fn into_key(self) -> EntryKeyRef<'a> {
+impl<'a> JsonLdObjectEntryRef<'a> {
+	pub fn into_key(self) -> JsonLdObjectEntryKeyRef<'a> {
 		match self {
-			Self::Value(e) => EntryKeyRef::Value(e.key()),
-			Self::List(_) => EntryKeyRef::List,
-			Self::Node(e) => EntryKeyRef::Node(e.key()),
+			Self::Value(e) => JsonLdObjectEntryKeyRef::Value(e.key()),
+			Self::List(_) => JsonLdObjectEntryKeyRef::List,
+			Self::Node(e) => JsonLdObjectEntryKeyRef::Node(e.key()),
 		}
 	}
 
-	pub fn key(&self) -> EntryKeyRef<'a> {
+	pub fn key(&self) -> JsonLdObjectEntryKeyRef<'a> {
 		self.into_key()
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a> {
+	pub fn into_value(self) -> JsonLdObjectEntryValueRef<'a> {
 		match self {
-			Self::Value(v) => EntryValueRef::Value(v),
-			Self::List(v) => EntryValueRef::List(v),
-			Self::Node(e) => EntryValueRef::Node(e.value()),
+			Self::Value(v) => JsonLdObjectEntryValueRef::Value(v),
+			Self::List(v) => JsonLdObjectEntryValueRef::List(v),
+			Self::Node(e) => JsonLdObjectEntryValueRef::Node(e.value()),
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a> {
+	pub fn value(&self) -> JsonLdObjectEntryValueRef<'a> {
 		self.into_value()
 	}
 
-	pub fn into_key_value(self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
+	pub fn into_key_value(self) -> (JsonLdObjectEntryKeyRef<'a>, JsonLdObjectEntryValueRef<'a>) {
 		match self {
-			Self::Value(e) => (EntryKeyRef::Value(e.key()), EntryValueRef::Value(e)),
-			Self::List(e) => (EntryKeyRef::List, EntryValueRef::List(e)),
+			Self::Value(e) => (
+				JsonLdObjectEntryKeyRef::Value(e.key()),
+				JsonLdObjectEntryValueRef::Value(e),
+			),
+			Self::List(e) => (
+				JsonLdObjectEntryKeyRef::List,
+				JsonLdObjectEntryValueRef::List(e),
+			),
 			Self::Node(e) => {
 				let (k, v) = e.into_key_value();
-				(EntryKeyRef::Node(k), EntryValueRef::Node(v))
+				(
+					JsonLdObjectEntryKeyRef::Node(k),
+					JsonLdObjectEntryValueRef::Node(v),
+				)
 			}
 		}
 	}
 
-	pub fn as_key_value(&self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
+	pub fn as_key_value(&self) -> (JsonLdObjectEntryKeyRef<'a>, JsonLdObjectEntryValueRef<'a>) {
 		self.into_key_value()
 	}
 }
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryKeyRef<'a> {
+pub enum JsonLdIndexedObjectEntryKeyRef<'a> {
 	Index,
-	Object(EntryKeyRef<'a>),
+	Object(JsonLdObjectEntryKeyRef<'a>),
 }
 
-impl<'a> IndexedEntryKeyRef<'a> {
-	pub fn into_keyword(self) -> Option<Keyword> {
+impl<'a> JsonLdIndexedObjectEntryKeyRef<'a> {
+	pub fn into_keyword(self) -> Option<JsonLdKeyword> {
 		match self {
-			Self::Index => Some(Keyword::Index),
+			Self::Index => Some(JsonLdKeyword::Index),
 			Self::Object(e) => e.into_keyword(),
 		}
 	}
 
-	pub fn as_keyword(&self) -> Option<Keyword> {
+	pub fn as_keyword(&self) -> Option<JsonLdKeyword> {
 		self.into_keyword()
 	}
 
@@ -618,88 +629,71 @@ impl<'a> IndexedEntryKeyRef<'a> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryValueRef<'a> {
+pub enum JsonLdIndexedObjectEntryValueRef<'a> {
 	Index(&'a str),
-	Object(EntryValueRef<'a>),
+	Object(JsonLdObjectEntryValueRef<'a>),
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryRef<'a> {
+pub enum JsonLdIndexedObjectEntryRef<'a> {
 	Index(&'a str),
-	Object(EntryRef<'a>),
+	Object(JsonLdObjectEntryRef<'a>),
 }
 
-impl<'a> IndexedEntryRef<'a> {
-	pub fn into_key(self) -> IndexedEntryKeyRef<'a> {
+impl<'a> JsonLdIndexedObjectEntryRef<'a> {
+	pub fn into_key(self) -> JsonLdIndexedObjectEntryKeyRef<'a> {
 		match self {
-			Self::Index(_) => IndexedEntryKeyRef::Index,
-			Self::Object(e) => IndexedEntryKeyRef::Object(e.key()),
+			Self::Index(_) => JsonLdIndexedObjectEntryKeyRef::Index,
+			Self::Object(e) => JsonLdIndexedObjectEntryKeyRef::Object(e.key()),
 		}
 	}
 
-	pub fn key(&self) -> IndexedEntryKeyRef<'a> {
+	pub fn key(&self) -> JsonLdIndexedObjectEntryKeyRef<'a> {
 		self.into_key()
 	}
 
-	pub fn into_value(self) -> IndexedEntryValueRef<'a> {
+	pub fn into_value(self) -> JsonLdIndexedObjectEntryValueRef<'a> {
 		match self {
-			Self::Index(v) => IndexedEntryValueRef::Index(v),
-			Self::Object(e) => IndexedEntryValueRef::Object(e.value()),
+			Self::Index(v) => JsonLdIndexedObjectEntryValueRef::Index(v),
+			Self::Object(e) => JsonLdIndexedObjectEntryValueRef::Object(e.value()),
 		}
 	}
 
-	pub fn value(&self) -> IndexedEntryValueRef<'a> {
+	pub fn value(&self) -> JsonLdIndexedObjectEntryValueRef<'a> {
 		self.into_value()
 	}
 
-	pub fn into_key_value(self) -> (IndexedEntryKeyRef<'a>, IndexedEntryValueRef<'a>) {
+	pub fn into_key_value(
+		self,
+	) -> (
+		JsonLdIndexedObjectEntryKeyRef<'a>,
+		JsonLdIndexedObjectEntryValueRef<'a>,
+	) {
 		match self {
-			Self::Index(v) => (IndexedEntryKeyRef::Index, IndexedEntryValueRef::Index(v)),
+			Self::Index(v) => (
+				JsonLdIndexedObjectEntryKeyRef::Index,
+				JsonLdIndexedObjectEntryValueRef::Index(v),
+			),
 			Self::Object(e) => {
 				let (k, v) = e.into_key_value();
 				(
-					IndexedEntryKeyRef::Object(k),
-					IndexedEntryValueRef::Object(v),
+					JsonLdIndexedObjectEntryKeyRef::Object(k),
+					JsonLdIndexedObjectEntryValueRef::Object(v),
 				)
 			}
 		}
 	}
 
-	pub fn as_key_value(&self) -> (IndexedEntryKeyRef<'a>, IndexedEntryValueRef<'a>) {
+	pub fn as_key_value(
+		&self,
+	) -> (
+		JsonLdIndexedObjectEntryKeyRef<'a>,
+		JsonLdIndexedObjectEntryValueRef<'a>,
+	) {
 		self.into_key_value()
 	}
 }
-
-// /// Invalid expanded JSON object error.
-// ///
-// /// This can be raised when trying to directly convert a JSON value into an
-// /// expanded JSON-LD object without using the expansion algorithm.
-// #[derive(Debug)]
-// pub enum InvalidExpandedJson {
-// 	InvalidObject,
-// 	InvalidList,
-// 	InvalidIndex,
-// 	InvalidId,
-// 	InvalidValueType,
-// 	InvalidLiteral,
-// 	InvalidLanguage,
-// 	InvalidDirection,
-// 	NotExpanded,
-// 	UnexpectedEntry,
-// 	DuplicateKey(json_syntax::object::Key),
-// 	Unexpected(json_syntax::Kind, json_syntax::Kind),
-// }
-
-// impl InvalidExpandedJson {
-// 	pub fn duplicate_key(
-// 		json_syntax::object::Duplicate(a, _): json_syntax::object::Duplicate<
-// 			json_syntax::object::Entry,
-// 		>,
-// 	) -> Self {
-// 		InvalidExpandedJson::DuplicateKey(a.key)
-// 	}
-// }
 
 impl AnyJsonLdObject for JsonLdObject {
 	#[inline(always)]
@@ -727,13 +721,13 @@ impl From<JsonLdNode> for JsonLdObject {
 }
 
 /// Iterator through the types of an object.
-pub enum Types<'a> {
-	Value(Option<value::ValueTypeRef<'a>>),
+pub enum JsonLdObjectTypes<'a> {
+	Value(Option<value::JsonLdValueTypeRef<'a>>),
 	Node(Option<btree_indexmap::multi_set::Iter<'a, JsonLdLenient<Id>>>),
 	List,
 }
 
-impl<'a> Iterator for Types<'a> {
+impl<'a> Iterator for JsonLdObjectTypes<'a> {
 	type Item = JsonLdObjectTypeRef<'a>;
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -746,20 +740,20 @@ impl<'a> Iterator for Types<'a> {
 }
 
 /// Iterator through indexed objects.
-pub struct Objects<'a>(Option<std::slice::Iter<'a, IndexedJsonLdObject>>);
+pub struct JsonLdObjects<'a>(Option<std::slice::Iter<'a, JsonLdIndexedObject>>);
 
-impl<'a> Objects<'a> {
+impl<'a> JsonLdObjects<'a> {
 	#[inline(always)]
-	pub(crate) fn new(inner: Option<std::slice::Iter<'a, IndexedJsonLdObject>>) -> Self {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, JsonLdIndexedObject>>) -> Self {
 		Self(inner)
 	}
 }
 
-impl<'a> Iterator for Objects<'a> {
-	type Item = &'a IndexedJsonLdObject;
+impl<'a> Iterator for JsonLdObjects<'a> {
+	type Item = &'a JsonLdIndexedObject;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a IndexedJsonLdObject> {
+	fn next(&mut self) -> Option<&'a JsonLdIndexedObject> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next(),

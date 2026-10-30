@@ -1,4 +1,4 @@
-use crate::syntax::{JsonLdCompactIri, JsonLdExpandableRef, Keyword};
+use crate::syntax::{JsonLdCompactIri, JsonLdExpandableRef, JsonLdKeyword};
 use rdf_syntax::Iri;
 use std::hash::Hash;
 
@@ -114,11 +114,11 @@ impl Hash for TypeKeyword {
 }
 
 impl TypeKeyword {
-	pub fn keyword(&self) -> Keyword {
+	pub fn keyword(&self) -> JsonLdKeyword {
 		self.into_keyword()
 	}
 
-	pub fn into_keyword(self) -> Keyword {
+	pub fn into_keyword(self) -> JsonLdKeyword {
 		self.into()
 	}
 
@@ -131,11 +131,11 @@ impl TypeKeyword {
 	}
 }
 
-pub struct NotATypeKeyword(pub Keyword);
+pub struct NotATypeKeyword(pub JsonLdKeyword);
 
 pub enum InvalidTypeKeyword<T> {
 	NotAKeyword(T),
-	NotATypeKeyword(Keyword),
+	NotATypeKeyword(JsonLdKeyword),
 }
 
 impl<T> From<NotATypeKeyword> for InvalidTypeKeyword<T> {
@@ -150,7 +150,7 @@ impl<T> From<crate::syntax::NotAKeyword<T>> for InvalidTypeKeyword<T> {
 	}
 }
 
-impl From<TypeKeyword> for Keyword {
+impl From<TypeKeyword> for JsonLdKeyword {
 	fn from(k: TypeKeyword) -> Self {
 		match k {
 			TypeKeyword::Id => Self::Id,
@@ -161,15 +161,15 @@ impl From<TypeKeyword> for Keyword {
 	}
 }
 
-impl TryFrom<Keyword> for TypeKeyword {
+impl TryFrom<JsonLdKeyword> for TypeKeyword {
 	type Error = NotATypeKeyword;
 
-	fn try_from(k: Keyword) -> Result<Self, Self::Error> {
+	fn try_from(k: JsonLdKeyword) -> Result<Self, Self::Error> {
 		match k {
-			Keyword::Id => Ok(Self::Id),
-			Keyword::Json => Ok(Self::Json),
-			Keyword::None => Ok(Self::None),
-			Keyword::Vocab => Ok(Self::Vocab),
+			JsonLdKeyword::Id => Ok(Self::Id),
+			JsonLdKeyword::Json => Ok(Self::Json),
+			JsonLdKeyword::None => Ok(Self::None),
+			JsonLdKeyword::Vocab => Ok(Self::Vocab),
 			_ => Err(NotATypeKeyword(k)),
 		}
 	}
@@ -179,7 +179,7 @@ impl<'a> TryFrom<&'a str> for TypeKeyword {
 	type Error = InvalidTypeKeyword<&'a str>;
 
 	fn try_from(s: &'a str) -> Result<Self, Self::Error> {
-		Ok(Self::try_from(Keyword::try_from(s)?)?)
+		Ok(Self::try_from(JsonLdKeyword::try_from(s)?)?)
 	}
 }
 

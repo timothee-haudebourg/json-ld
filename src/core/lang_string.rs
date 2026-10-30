@@ -10,7 +10,7 @@ use crate::{JsonLdDirection, JsonLdLenient};
 /// A valid language string is associated to either a language tag or a direction, or both.
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct LangString {
+pub struct JsonLdLangString {
 	/// Actual content of the string.
 	#[cfg_attr(feature = "serde", serde(rename = "@value"))]
 	data: JsonString,
@@ -30,9 +30,9 @@ pub struct LangString {
 
 /// Raised when something tried to build a language string without language tag or direction.
 #[derive(Clone, Copy, Debug)]
-pub struct InvalidLangString;
+pub struct InvalidJsonLdLangString;
 
-impl LangString {
+impl JsonLdLangString {
 	/// Create a new language string.
 	pub fn new<T>(
 		data: T,
@@ -111,12 +111,12 @@ impl LangString {
 	pub fn set_language(
 		&mut self,
 		language: Option<JsonLdLenient<LangTagBuf>>,
-	) -> Result<(), InvalidLangString> {
+	) -> Result<(), InvalidJsonLdLangString> {
 		if self.direction.is_some() || language.is_some() {
 			self.language = language;
 			Ok(())
 		} else {
-			Err(InvalidLangString)
+			Err(InvalidJsonLdLangString)
 		}
 	}
 
@@ -133,12 +133,12 @@ impl LangString {
 	pub fn set_direction(
 		&mut self,
 		direction: Option<JsonLdDirection>,
-	) -> Result<(), InvalidLangString> {
+	) -> Result<(), InvalidJsonLdLangString> {
 		if direction.is_some() || self.language.is_some() {
 			self.direction = direction;
 			Ok(())
 		} else {
-			Err(InvalidLangString)
+			Err(InvalidJsonLdLangString)
 		}
 	}
 
@@ -150,19 +150,19 @@ impl LangString {
 		&mut self,
 		language: Option<JsonLdLenient<LangTagBuf>>,
 		direction: Option<JsonLdDirection>,
-	) -> Result<(), InvalidLangString> {
+	) -> Result<(), InvalidJsonLdLangString> {
 		if direction.is_some() || language.is_some() {
 			self.language = language;
 			self.direction = direction;
 			Ok(())
 		} else {
-			Err(InvalidLangString)
+			Err(InvalidJsonLdLangString)
 		}
 	}
 
 	/// Returns a reference to this lang string as a [`LangStr`].
-	pub fn as_lang_str(&self) -> LangStr<'_> {
-		LangStr {
+	pub fn as_lang_str(&self) -> JsonLdLangStr<'_> {
+		JsonLdLangStr {
 			data: &self.data,
 			language: self.language.as_ref().map(JsonLdLenient::as_deref),
 			direction: self.direction,
@@ -171,7 +171,7 @@ impl LangString {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for LangString {
+impl<'de> serde::Deserialize<'de> for JsonLdLangString {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: serde::Deserializer<'de>,
@@ -199,7 +199,7 @@ impl<'de> serde::Deserialize<'de> for LangString {
 /// A valid language string is associated to either a language tag or a direction, or both.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct LangStr<'a> {
+pub struct JsonLdLangStr<'a> {
 	/// Actual content of the string.
 	#[cfg_attr(feature = "serde", serde(rename = "@value"))]
 	data: &'a str,
@@ -217,13 +217,13 @@ pub struct LangStr<'a> {
 	direction: Option<JsonLdDirection>,
 }
 
-impl<'a> LangStr<'a> {
+impl<'a> JsonLdLangStr<'a> {
 	/// Create a new language string reference.
 	pub fn new(
 		data: &'a str,
 		language: Option<JsonLdLenient<&'a LangTag>>,
 		direction: Option<JsonLdDirection>,
-	) -> Result<Self, InvalidLangString> {
+	) -> Result<Self, InvalidJsonLdLangString> {
 		if language.is_some() || direction.is_some() {
 			Ok(Self {
 				data,
@@ -231,7 +231,7 @@ impl<'a> LangStr<'a> {
 				direction,
 			})
 		} else {
-			Err(InvalidLangString)
+			Err(InvalidJsonLdLangString)
 		}
 	}
 

@@ -2,7 +2,7 @@ use crate::{
 	JsonLdLenient,
 	syntax::{
 		CompactIriBuf, JsonLdCompactIri, JsonLdContainerValue, JsonLdContext, JsonLdDirection,
-		JsonLdNullable, Keyword,
+		JsonLdKeyword, JsonLdNullable,
 		context::{self, JsonLdContextTerm},
 	},
 };
@@ -489,20 +489,20 @@ pub enum TermDefinitionEntryKey {
 }
 
 impl TermDefinitionEntryKey {
-	pub fn keyword(&self) -> Keyword {
+	pub fn keyword(&self) -> JsonLdKeyword {
 		match self {
-			Self::Id => Keyword::Id,
-			Self::Type => Keyword::Type,
-			Self::Context => Keyword::Context,
-			Self::Reverse => Keyword::Reverse,
-			Self::Index => Keyword::Index,
-			Self::Language => Keyword::Language,
-			Self::Direction => Keyword::Direction,
-			Self::Container => Keyword::Container,
-			Self::Nest => Keyword::Nest,
-			Self::Prefix => Keyword::Prefix,
-			Self::Propagate => Keyword::Propagate,
-			Self::Protected => Keyword::Protected,
+			Self::Id => JsonLdKeyword::Id,
+			Self::Type => JsonLdKeyword::Type,
+			Self::Context => JsonLdKeyword::Context,
+			Self::Reverse => JsonLdKeyword::Reverse,
+			Self::Index => JsonLdKeyword::Index,
+			Self::Language => JsonLdKeyword::Language,
+			Self::Direction => JsonLdKeyword::Direction,
+			Self::Container => JsonLdKeyword::Container,
+			Self::Nest => JsonLdKeyword::Nest,
+			Self::Prefix => JsonLdKeyword::Prefix,
+			Self::Propagate => JsonLdKeyword::Propagate,
+			Self::Protected => JsonLdKeyword::Protected,
 		}
 	}
 

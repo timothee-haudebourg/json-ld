@@ -8,7 +8,7 @@ use crate::{
 		compaction::CompactIndexedFragment, context_processing::ContextProcessingOptions,
 	},
 	object::{AnyJsonLdObject, JsonLdObjectRef},
-	syntax::{JsonLdContainerItem, Keyword},
+	syntax::{JsonLdContainerItem, JsonLdKeyword},
 };
 
 use super::Compactor;
@@ -56,7 +56,7 @@ impl Compactor<'_> {
 						let def_loc = location.push_backtrace(
 							active_property_definition.location().unwrap_or_default(),
 						);
-						let scoped_context_loc = def_loc.object_value(Keyword::Context);
+						let scoped_context_loc = def_loc.object_value(JsonLdKeyword::Context);
 
 						active_context = Mown::Owned(
 							local_context
@@ -92,7 +92,7 @@ impl Compactor<'_> {
 						.compact_property(
 							env,
 							&mut result,
-							JsonLdTerm::Keyword(Keyword::List),
+							JsonLdTerm::Keyword(JsonLdKeyword::List),
 							list,
 							// active_context.as_ref(),
 							// loader,
@@ -121,7 +121,7 @@ impl Compactor<'_> {
 						if !index_container {
 							// Initialize alias by IRI compacting expanded property.
 							let alias = self.with_active_context(&active_context).compact_key(
-								&JsonLdTerm::Keyword(Keyword::Index),
+								&JsonLdTerm::Keyword(JsonLdKeyword::Index),
 								true,
 								false,
 								location,

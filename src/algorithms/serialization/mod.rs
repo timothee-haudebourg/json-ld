@@ -1,7 +1,7 @@
 use linked_data::{DeserializeLinkedData, LinkedDataDeserializer};
 use rdf_syntax::{Quad, Term};
 
-use crate::{JsonLdIndexed, JsonLdExpandedDocument};
+use crate::{JsonLdExpandedDocument, JsonLdIndexed};
 
 mod object;
 

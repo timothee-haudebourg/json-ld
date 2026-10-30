@@ -1,7 +1,7 @@
 use btree_indexmap::BTreeIndexSet;
 
 use crate::{
-	IndexedJsonLdObject, JsonLdIndexed, JsonLdNode, JsonLdObject, JsonLdVisit,
+	JsonLdIndexed, JsonLdIndexedObject, JsonLdNode, JsonLdObject, JsonLdVisit,
 	object::{JsonLdObjectMut, JsonLdObjectRef},
 };
 
@@ -10,7 +10,7 @@ use crate::{
 /// It is just an alias for a set of (indexed) objects.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct JsonLdExpandedDocument(BTreeIndexSet<IndexedJsonLdObject>);
+pub struct JsonLdExpandedDocument(BTreeIndexSet<JsonLdIndexedObject>);
 
 impl JsonLdExpandedDocument {
 	#[inline(always)]
@@ -29,17 +29,17 @@ impl JsonLdExpandedDocument {
 	}
 
 	#[inline(always)]
-	pub fn objects(&self) -> &BTreeIndexSet<IndexedJsonLdObject> {
+	pub fn objects(&self) -> &BTreeIndexSet<JsonLdIndexedObject> {
 		&self.0
 	}
 
 	#[inline(always)]
-	pub fn into_objects(self) -> BTreeIndexSet<IndexedJsonLdObject> {
+	pub fn into_objects(self) -> BTreeIndexSet<JsonLdIndexedObject> {
 		self.0
 	}
 
 	#[inline(always)]
-	pub fn iter(&self) -> btree_indexmap::set::Iter<'_, IndexedJsonLdObject> {
+	pub fn iter(&self) -> btree_indexmap::set::Iter<'_, JsonLdIndexedObject> {
 		self.0.iter()
 	}
 
@@ -84,7 +84,7 @@ impl JsonLdExpandedDocument {
 	}
 
 	#[inline(always)]
-	pub fn insert(&mut self, object: IndexedJsonLdObject) -> bool {
+	pub fn insert(&mut self, object: JsonLdIndexedObject) -> bool {
 		self.0.insert(object)
 	}
 }
@@ -131,7 +131,7 @@ impl From<JsonLdIndexed<JsonLdNode>> for JsonLdExpandedDocument {
 
 impl IntoIterator for JsonLdExpandedDocument {
 	type IntoIter = IntoIter;
-	type Item = IndexedJsonLdObject;
+	type Item = JsonLdIndexedObject;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -140,38 +140,38 @@ impl IntoIterator for JsonLdExpandedDocument {
 }
 
 impl<'a> IntoIterator for &'a JsonLdExpandedDocument {
-	type IntoIter = btree_indexmap::set::Iter<'a, IndexedJsonLdObject>;
-	type Item = &'a IndexedJsonLdObject;
+	type IntoIter = btree_indexmap::set::Iter<'a, JsonLdIndexedObject>;
+	type Item = &'a JsonLdIndexedObject;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
 	}
 }
-pub struct IntoIter(btree_indexmap::set::IntoIter<IndexedJsonLdObject>);
+pub struct IntoIter(btree_indexmap::set::IntoIter<JsonLdIndexedObject>);
 
 impl Iterator for IntoIter {
-	type Item = IndexedJsonLdObject;
+	type Item = JsonLdIndexedObject;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next()
 	}
 }
 
-impl FromIterator<IndexedJsonLdObject> for JsonLdExpandedDocument {
-	fn from_iter<I: IntoIterator<Item = IndexedJsonLdObject>>(iter: I) -> Self {
+impl FromIterator<JsonLdIndexedObject> for JsonLdExpandedDocument {
+	fn from_iter<I: IntoIterator<Item = JsonLdIndexedObject>>(iter: I) -> Self {
 		Self(iter.into_iter().collect())
 	}
 }
 
-impl Extend<IndexedJsonLdObject> for JsonLdExpandedDocument {
-	fn extend<I: IntoIterator<Item = IndexedJsonLdObject>>(&mut self, iter: I) {
+impl Extend<JsonLdIndexedObject> for JsonLdExpandedDocument {
+	fn extend<I: IntoIterator<Item = JsonLdIndexedObject>>(&mut self, iter: I) {
 		self.0.extend(iter)
 	}
 }
 
-impl From<BTreeIndexSet<IndexedJsonLdObject>> for JsonLdExpandedDocument {
-	fn from(set: BTreeIndexSet<IndexedJsonLdObject>) -> Self {
+impl From<BTreeIndexSet<JsonLdIndexedObject>> for JsonLdExpandedDocument {
+	fn from(set: BTreeIndexSet<JsonLdIndexedObject>) -> Self {
 		Self(set)
 	}
 }

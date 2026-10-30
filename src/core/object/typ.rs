@@ -13,10 +13,10 @@ pub enum JsonLdObjectType {
 }
 
 impl JsonLdObjectType {
-	pub fn from_value_type(value_ty: super::value::ValueType) -> Self {
+	pub fn from_value_type(value_ty: super::value::JsonLdValueType) -> Self {
 		match value_ty {
-			super::value::ValueType::Json => Self::Json,
-			super::value::ValueType::Id(id) => Self::Id(id),
+			super::value::JsonLdValueType::Json => Self::Json,
+			super::value::JsonLdValueType::Id(id) => Self::Id(id),
 		}
 	}
 
@@ -89,10 +89,10 @@ pub enum JsonLdObjectTypeRef<'a> {
 }
 
 impl<'a> JsonLdObjectTypeRef<'a> {
-	pub fn from_value_type(value_ty: super::value::ValueTypeRef<'a>) -> Self {
+	pub fn from_value_type(value_ty: super::value::JsonLdValueTypeRef<'a>) -> Self {
 		match value_ty {
-			super::value::ValueTypeRef::Json => Self::Json,
-			super::value::ValueTypeRef::Id(id) => Self::Id(id),
+			super::value::JsonLdValueTypeRef::Json => Self::Json,
+			super::value::JsonLdValueTypeRef::Id(id) => Self::Id(id),
 		}
 	}
 

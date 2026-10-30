@@ -12,7 +12,7 @@ use crate::{
 		context_processing::ContextProcessingOptions,
 	},
 	context::JsonLdContainer,
-	syntax::{JsonLdContainerItem, Keyword},
+	syntax::{JsonLdContainerItem, JsonLdKeyword},
 };
 
 mod property;
@@ -52,7 +52,7 @@ impl Compactor<'_> {
 		{
 			let def_loc =
 				location.push_backtrace(active_property_definition.location().unwrap_or_default());
-			let scoped_context_loc = def_loc.object_value(Keyword::Context);
+			let scoped_context_loc = def_loc.object_value(JsonLdKeyword::Context);
 
 			active_context = Mown::Owned(
 				local_context
@@ -104,7 +104,7 @@ impl Compactor<'_> {
 						ContextProcessingOptions::from(self.options).without_propagation();
 					let def_loc =
 						type_loc.push_backtrace(term_definition.location().unwrap_or_default());
-					let scoped_context_loc = def_loc.object_value(Keyword::Context);
+					let scoped_context_loc = def_loc.object_value(JsonLdKeyword::Context);
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
@@ -179,7 +179,7 @@ impl Compactor<'_> {
 
 			// Initialize alias by IRI compacting expanded property.
 			let alias = self.with_active_context(&active_context).compact_iri(
-				&JsonLdTerm::Keyword(Keyword::Id),
+				&JsonLdTerm::Keyword(JsonLdKeyword::Id),
 				true,
 				false,
 				id_loc,
@@ -212,7 +212,7 @@ impl Compactor<'_> {
 			{
 				let def_loc = rev_loc
 					.push_backtrace(active_property_definition.location().unwrap_or_default());
-				let scoped_context_loc = def_loc.object_value(Keyword::Context);
+				let scoped_context_loc = def_loc.object_value(JsonLdKeyword::Context);
 
 				active_context = Mown::Owned(
 					local_context
@@ -272,7 +272,7 @@ impl Compactor<'_> {
 			if !reverse_map.is_empty() {
 				// Initialize alias by IRI compacting @reverse.
 				let alias = self.with_active_context(&active_context).compact_iri(
-					&JsonLdTerm::Keyword(Keyword::Reverse),
+					&JsonLdTerm::Keyword(JsonLdKeyword::Reverse),
 					true,
 					false,
 					rev_loc,
@@ -302,7 +302,7 @@ impl Compactor<'_> {
 			if !index_container {
 				// Initialize alias by IRI compacting expanded property.
 				let alias = self.with_active_context(&active_context).compact_iri(
-					&JsonLdTerm::Keyword(Keyword::Index),
+					&JsonLdTerm::Keyword(JsonLdKeyword::Index),
 					true,
 					false,
 					index_loc,
@@ -319,7 +319,7 @@ impl Compactor<'_> {
 				.compact_property(
 					env,
 					&mut result,
-					JsonLdTerm::Keyword(Keyword::Graph),
+					JsonLdTerm::Keyword(JsonLdKeyword::Graph),
 					graph_entry.iter(),
 					false,
 					graph_loc,
@@ -347,7 +347,7 @@ impl Compactor<'_> {
 				.compact_property(
 					env,
 					&mut result,
-					JsonLdTerm::Keyword(Keyword::Included),
+					JsonLdTerm::Keyword(JsonLdKeyword::Included),
 					included_entry.iter(),
 					false,
 					included_loc,
@@ -406,7 +406,12 @@ impl Compactor<'_> {
 
 			// Initialize alias by IRI compacting expanded property.
 			let alias = self
-				.compact_iri(&JsonLdTerm::Keyword(Keyword::Type), true, false, type_loc)?
+				.compact_iri(
+					&JsonLdTerm::Keyword(JsonLdKeyword::Type),
+					true,
+					false,
+					type_loc,
+				)?
 				.unwrap();
 
 			// Initialize as array to true if processing mode is json-ld-1.1 and the

@@ -1,7 +1,7 @@
 use std::hash::Hash;
 
 use crate::{
-	IndexedJsonLdObject, JsonLdVisit,
+	JsonLdIndexedObject, JsonLdVisit,
 	object::{JsonLdObjectMut, JsonLdObjectRef},
 };
 
@@ -12,12 +12,12 @@ use super::AnyJsonLdObject;
 /// List object.
 pub struct JsonLdList {
 	#[cfg_attr(feature = "serde", serde(rename = "@list"))]
-	entry: Vec<IndexedJsonLdObject>,
+	entry: Vec<JsonLdIndexedObject>,
 }
 
 impl JsonLdList {
 	/// Creates a new list object.
-	pub fn new(objects: Vec<IndexedJsonLdObject>) -> Self {
+	pub fn new(objects: Vec<JsonLdIndexedObject>) -> Self {
 		Self { entry: objects }
 	}
 
@@ -32,57 +32,41 @@ impl JsonLdList {
 	/// Returns a reference to the "@list" entry of the list object.
 	///
 	/// Alias for `as_slice`.
-	pub fn entry(&self) -> &[IndexedJsonLdObject] {
+	pub fn entry(&self) -> &[JsonLdIndexedObject] {
 		&self.entry
 	}
 
-	pub fn entry_mut(&mut self) -> &mut Vec<IndexedJsonLdObject> {
+	pub fn entry_mut(&mut self) -> &mut Vec<JsonLdIndexedObject> {
 		&mut self.entry
 	}
 
-	pub fn as_slice(&self) -> &[IndexedJsonLdObject] {
+	pub fn as_slice(&self) -> &[JsonLdIndexedObject] {
 		self.entry.as_slice()
 	}
 
-	pub fn as_mut_slice(&mut self) -> &mut [IndexedJsonLdObject] {
+	pub fn as_mut_slice(&mut self) -> &mut [JsonLdIndexedObject] {
 		self.entry.as_mut_slice()
 	}
 
-	pub fn into_entry(self) -> Vec<IndexedJsonLdObject> {
+	pub fn into_entry(self) -> Vec<JsonLdIndexedObject> {
 		self.entry
 	}
 
-	pub fn push(&mut self, object: IndexedJsonLdObject) {
+	pub fn push(&mut self, object: JsonLdIndexedObject) {
 		self.entry.push(object)
 	}
 
-	pub fn pop(&mut self) -> Option<IndexedJsonLdObject> {
+	pub fn pop(&mut self) -> Option<JsonLdIndexedObject> {
 		self.entry.pop()
 	}
 
-	pub fn iter(&self) -> core::slice::Iter<'_, IndexedJsonLdObject> {
+	pub fn iter(&self) -> core::slice::Iter<'_, JsonLdIndexedObject> {
 		self.entry.iter()
 	}
 
-	pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, IndexedJsonLdObject> {
+	pub fn iter_mut(&mut self) -> core::slice::IterMut<'_, JsonLdIndexedObject> {
 		self.entry.iter_mut()
 	}
-
-	// /// Puts this list object literals into canonical form using the given
-	// /// `buffer`.
-	// ///
-	// /// The buffer is used to compute the canonical form of numbers.
-	// pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
-	// 	for object in self {
-	// 		object.canonicalize_with(buffer)
-	// 	}
-	// }
-
-	// /// Puts this list object literals into canonical form.
-	// pub fn canonicalize(&mut self) {
-	// 	let mut buffer = ryu_js::Buffer::new();
-	// 	self.canonicalize_with(&mut buffer)
-	// }
 }
 
 impl JsonLdVisit for JsonLdList {
@@ -108,8 +92,8 @@ impl AnyJsonLdObject for JsonLdList {
 }
 
 impl<'a> IntoIterator for &'a JsonLdList {
-	type Item = &'a IndexedJsonLdObject;
-	type IntoIter = core::slice::Iter<'a, IndexedJsonLdObject>;
+	type Item = &'a JsonLdIndexedObject;
+	type IntoIter = core::slice::Iter<'a, JsonLdIndexedObject>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter()
@@ -117,8 +101,8 @@ impl<'a> IntoIterator for &'a JsonLdList {
 }
 
 impl<'a> IntoIterator for &'a mut JsonLdList {
-	type Item = &'a mut IndexedJsonLdObject;
-	type IntoIter = core::slice::IterMut<'a, IndexedJsonLdObject>;
+	type Item = &'a mut JsonLdIndexedObject;
+	type IntoIter = core::slice::IterMut<'a, JsonLdIndexedObject>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.iter_mut()
@@ -126,8 +110,8 @@ impl<'a> IntoIterator for &'a mut JsonLdList {
 }
 
 impl IntoIterator for JsonLdList {
-	type Item = IndexedJsonLdObject;
-	type IntoIter = std::vec::IntoIter<IndexedJsonLdObject>;
+	type Item = JsonLdIndexedObject;
+	type IntoIter = std::vec::IntoIter<JsonLdIndexedObject>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.entry.into_iter()

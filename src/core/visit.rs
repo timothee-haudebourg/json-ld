@@ -22,14 +22,14 @@ pub trait JsonLdVisit {
 		self.visit_mut_with(&mut f);
 	}
 
-	fn relabel_with(&mut self, relabeling: &mut Relabeling<impl Generator>) {
+	fn relabel_with(&mut self, relabeling: &mut JsonLdRelabeling<impl Generator>) {
 		self.visit_mut(|object| {
 			relabel_object(object, relabeling);
 		})
 	}
 
-	fn relabel<G: Generator>(&mut self, generator: G) -> Relabeling<G> {
-		let mut relabeling = Relabeling::new(generator);
+	fn relabel<G: Generator>(&mut self, generator: G) -> JsonLdRelabeling<G> {
+		let mut relabeling = JsonLdRelabeling::new(generator);
 		self.relabel_with(&mut relabeling);
 		relabeling
 	}
@@ -47,7 +47,7 @@ pub trait JsonLdVisit {
 
 	fn relabel_and_canonicalize_with(
 		&mut self,
-		relabeling: &mut Relabeling<impl Generator>,
+		relabeling: &mut JsonLdRelabeling<impl Generator>,
 		buffer: &mut ryu_js::Buffer,
 	) {
 		self.visit_mut(|mut object| {
@@ -56,15 +56,15 @@ pub trait JsonLdVisit {
 		});
 	}
 
-	fn relabel_and_canonicalize<G: Generator>(&mut self, generator: G) -> Relabeling<G> {
-		let mut relabeling = Relabeling::new(generator);
+	fn relabel_and_canonicalize<G: Generator>(&mut self, generator: G) -> JsonLdRelabeling<G> {
+		let mut relabeling = JsonLdRelabeling::new(generator);
 		let mut buffer = ryu_js::Buffer::new();
 		self.relabel_and_canonicalize_with(&mut relabeling, &mut buffer);
 		relabeling
 	}
 }
 
-fn relabel_object(object: JsonLdObjectMut, relabeling: &mut Relabeling<impl Generator>) {
+fn relabel_object(object: JsonLdObjectMut, relabeling: &mut JsonLdRelabeling<impl Generator>) {
 	if let JsonLdObjectMut::Node(node) = object {
 		node.id = Some(relabeling.relabel(node.id.take()));
 
@@ -155,12 +155,12 @@ where
 	}
 }
 
-pub struct Relabeling<G> {
+pub struct JsonLdRelabeling<G> {
 	generator: G,
 	map: HashMap<BlankIdBuf, Id>,
 }
 
-impl<G> Relabeling<G> {
+impl<G> JsonLdRelabeling<G> {
 	pub fn new(generator: G) -> Self {
 		Self {
 			generator,
@@ -169,7 +169,7 @@ impl<G> Relabeling<G> {
 	}
 }
 
-impl<G> Relabeling<G>
+impl<G> JsonLdRelabeling<G>
 where
 	G: Generator,
 {

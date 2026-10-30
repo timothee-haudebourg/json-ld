@@ -1,6 +1,6 @@
 use crate::{
 	JsonLdLenient,
-	syntax::{JsonLdDirection, JsonLdNullable, Keyword},
+	syntax::{JsonLdDirection, JsonLdKeyword, JsonLdNullable},
 };
 use btree_indexmap::BTreeIndexMap;
 use langtag::LangTagBuf;
@@ -116,26 +116,32 @@ impl JsonLdContextDefinition {
 	pub fn get(&self, key: &JsonLdKeyOrKeyword) -> Option<JsonLdContextEntryValueRef<'_>> {
 		match key {
 			JsonLdKeyOrKeyword::Keyword(k) => match k {
-				Keyword::Base => self
+				JsonLdKeyword::Base => self
 					.base
 					.as_ref()
 					.map(JsonLdNullable::as_deref)
 					.map(JsonLdContextEntryValueRef::Base),
-				Keyword::Import => self
+				JsonLdKeyword::Import => self
 					.import
 					.as_deref()
 					.map(JsonLdContextEntryValueRef::Import),
-				Keyword::Language => self
+				JsonLdKeyword::Language => self
 					.language
 					.as_ref()
 					.map(JsonLdNullable::as_ref)
 					.map(JsonLdContextEntryValueRef::Language),
-				Keyword::Direction => self.direction.map(JsonLdContextEntryValueRef::Direction),
-				Keyword::Propagate => self.propagate.map(JsonLdContextEntryValueRef::Propagate),
-				Keyword::Protected => self.protected.map(JsonLdContextEntryValueRef::Protected),
-				Keyword::Type => self.type_.map(JsonLdContextEntryValueRef::Type),
-				Keyword::Version => self.version.map(JsonLdContextEntryValueRef::Version),
-				Keyword::Vocab => self
+				JsonLdKeyword::Direction => {
+					self.direction.map(JsonLdContextEntryValueRef::Direction)
+				}
+				JsonLdKeyword::Propagate => {
+					self.propagate.map(JsonLdContextEntryValueRef::Propagate)
+				}
+				JsonLdKeyword::Protected => {
+					self.protected.map(JsonLdContextEntryValueRef::Protected)
+				}
+				JsonLdKeyword::Type => self.type_.map(JsonLdContextEntryValueRef::Type),
+				JsonLdKeyword::Version => self.version.map(JsonLdContextEntryValueRef::Version),
+				JsonLdKeyword::Vocab => self
 					.vocab
 					.as_ref()
 					.map(JsonLdNullable::as_ref)

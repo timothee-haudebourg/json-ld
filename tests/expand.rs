@@ -1,5 +1,5 @@
 use json_ld::{
-	IndexedJsonLdObject, JsonLdExpandedDocument, JsonLdFsLoader, JsonLdLoader, JsonLdProcessor,
+	JsonLdExpandedDocument, JsonLdFsLoader, JsonLdIndexedObject, JsonLdLoader, JsonLdProcessor,
 };
 
 mod common;
@@ -23,7 +23,7 @@ fn expand(loader: &JsonLdFsLoader, entry: &ManifestEntry) {
 				.expect("expansion failed");
 
 			let expected_doc = loader.load(expect).unwrap();
-			let expected: Vec<IndexedJsonLdObject> =
+			let expected: Vec<JsonLdIndexedObject> =
 				json_syntax::serde::from_value(expected_doc.into_document())
 					.expect("failed to parse expected output");
 			let expected: JsonLdExpandedDocument = expected.into_iter().collect();

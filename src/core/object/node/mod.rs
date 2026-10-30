@@ -1,7 +1,7 @@
-use crate::object::{JsonLdObjectMut, JsonLdObjectRef, Objects};
-use crate::syntax::Keyword;
+use crate::object::{JsonLdObjectMut, JsonLdObjectRef, JsonLdObjects};
+use crate::syntax::JsonLdKeyword;
 use crate::{
-	IndexedJsonLdObject, JsonLdIndexed, JsonLdLenient, JsonLdObject, JsonLdTerm, JsonLdVisit,
+	JsonLdIndexed, JsonLdIndexedObject, JsonLdLenient, JsonLdObject, JsonLdTerm, JsonLdVisit,
 	object,
 };
 use btree_indexmap::{BTreeIndexMultiSet, BTreeIndexSet, Comparable};
@@ -17,11 +17,11 @@ pub mod reverse_properties;
 pub use properties::JsonLdProperties;
 pub use reverse_properties::JsonLdReverseProperties;
 
-pub type JsonLdGraph = BTreeIndexSet<IndexedJsonLdObject>;
+pub type JsonLdGraph = BTreeIndexSet<JsonLdIndexedObject>;
 
-pub type JsonLdIncluded = BTreeIndexSet<IndexedJsonLdNode>;
+pub type JsonLdIncluded = BTreeIndexSet<JsonLdIndexedNode>;
 
-pub type IndexedJsonLdNode = JsonLdIndexed<JsonLdNode>;
+pub type JsonLdIndexedNode = JsonLdIndexed<JsonLdNode>;
 
 /// Node object.
 ///
@@ -142,84 +142,6 @@ impl JsonLdNode {
 		self.included.get_or_insert_with(JsonLdIncluded::default)
 	}
 
-	// /// Assigns an identifier to this node and every other node included in this
-	// /// one using the given `generator`.
-	// pub fn identify_all_with(&mut self, generator: &mut impl Generator) {
-	// 	if self.id.is_none() {
-	// 		self.id = Some(generator.next(vocabulary).into())
-	// 	}
-
-	// 	if let Some(graph) = self.graph_mut() {
-	// 		*graph = std::mem::take(graph)
-	// 			.into_iter()
-	// 			.map(|mut o| {
-	// 				o.identify_all_with(vocabulary, generator);
-	// 				o
-	// 			})
-	// 			.collect();
-	// 	}
-
-	// 	if let Some(included) = self.included_mut() {
-	// 		*included = std::mem::take(included)
-	// 			.into_iter()
-	// 			.map(|mut n| {
-	// 				n.identify_all_with(vocabulary, generator);
-	// 				n
-	// 			})
-	// 			.collect();
-	// 	}
-
-	// 	for (_, objects) in self.properties_mut() {
-	// 		for object in objects {
-	// 			object.identify_all_with(vocabulary, generator);
-	// 		}
-	// 	}
-
-	// 	if let Some(reverse_properties) = self.reverse_properties_mut() {
-	// 		for (_, nodes) in reverse_properties.iter_mut() {
-	// 			for node in nodes {
-	// 				node.identify_all_with(vocabulary, generator);
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// /// Assigns an identifier to this node and every other node included in this one using the given `generator`.
-	// pub fn identify_all<G: Generator>(&mut self, generator: &mut G)
-	// where
-	// 	T: Eq + Hash,
-	// 	B: Eq + Hash,
-	// 	(): Vocabulary<Iri = T, BlankId = B>,
-	// {
-	// 	self.identify_all_with(&mut (), generator)
-	// }
-
-	// /// Puts this node object literals into canonical form using the given
-	// /// `buffer`.
-	// ///
-	// /// The buffer is used to compute the canonical form of numbers.
-	// pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer) {
-	// 	for (_, objects) in self.properties_mut() {
-	// 		for object in objects {
-	// 			object.canonicalize_with(buffer)
-	// 		}
-	// 	}
-
-	// 	if let Some(reverse_properties) = self.reverse_properties_mut() {
-	// 		for (_, nodes) in reverse_properties.iter_mut() {
-	// 			for node in nodes {
-	// 				node.canonicalize_with(buffer)
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// /// Puts this node object literals into canonical form.
-	// pub fn canonicalize(&mut self) {
-	// 	let mut buffer = ryu_js::Buffer::new();
-	// 	self.canonicalize_with(&mut buffer)
-	// }
-
 	/// Get the node's as an IRI if possible.
 	///
 	/// Returns the node's IRI id if any. Returns `None` otherwise.
@@ -242,28 +164,6 @@ impl JsonLdNode {
 			None => None,
 		}
 	}
-
-	// /// Get the list of the node's types.
-	// #[inline(always)]
-	// pub fn types(&self) -> &[Lenient<Id>] {
-	// 	match self.types.as_ref() {
-	// 		Some(entry) => entry,
-	// 		None => &[],
-	// 	}
-	// }
-
-	// /// Returns a mutable reference to the node's types.
-	// #[inline(always)]
-	// pub fn types_mut(&mut self) -> &mut [Lenient<Id>] {
-	// 	match self.types.as_mut() {
-	// 		Some(entry) => entry,
-	// 		None => &mut [],
-	// 	}
-	// }
-
-	// pub fn types_mut_or_default(&mut self) -> &mut Vec<Lenient<Id>> {
-	// 	self.types.get_or_insert_with(Vec::new)
-	// }
 
 	/// Checks if the node has the given type.
 	#[inline]
@@ -428,8 +328,8 @@ impl JsonLdNode {
 		}
 	}
 
-	pub fn entries(&self) -> Entries<'_> {
-		Entries {
+	pub fn entries(&self) -> JsonLdNodeEntries<'_> {
+		JsonLdNodeEntries {
 			id: self.id.as_ref(),
 			type_: self.types.as_ref(),
 			graph: self.graph.as_ref(),
@@ -444,23 +344,23 @@ impl JsonLdNode {
 	/// # Example
 	/// ```
 	/// use json_ld::{JsonLdNode, JsonLdTerm};
-	/// use json_ld::syntax::Keyword;
+	/// use json_ld::syntax::JsonLdKeyword;
 	///
 	/// let node = JsonLdNode::new();
 	///
 	/// // Checks if the JSON object representation of the node has an `@id` key.
-	/// if node.has_key(&JsonLdTerm::Keyword(Keyword::Id)) {
+	/// if node.has_key(&JsonLdTerm::Keyword(JsonLdKeyword::Id)) {
 	///   // ...
 	/// }
 	/// ```
 	#[inline(always)]
 	pub fn has_key(&self, key: &JsonLdTerm) -> bool {
 		match key {
-			JsonLdTerm::Keyword(Keyword::Id) => self.id.is_some(),
-			JsonLdTerm::Keyword(Keyword::Type) => self.types.is_some(),
-			JsonLdTerm::Keyword(Keyword::Graph) => self.graph.is_some(),
-			JsonLdTerm::Keyword(Keyword::Included) => self.included.is_some(),
-			JsonLdTerm::Keyword(Keyword::Reverse) => self.reverse_properties.is_some(),
+			JsonLdTerm::Keyword(JsonLdKeyword::Id) => self.id.is_some(),
+			JsonLdTerm::Keyword(JsonLdKeyword::Type) => self.types.is_some(),
+			JsonLdTerm::Keyword(JsonLdKeyword::Graph) => self.graph.is_some(),
+			JsonLdTerm::Keyword(JsonLdKeyword::Included) => self.included.is_some(),
+			JsonLdTerm::Keyword(JsonLdKeyword::Reverse) => self.reverse_properties.is_some(),
 			JsonLdTerm::Id(prop) => self.properties.contains(prop),
 			_ => false,
 		}
@@ -468,7 +368,7 @@ impl JsonLdNode {
 
 	/// Get all the objects associated to the node with the given property.
 	#[inline(always)]
-	pub fn get<Q>(&self, prop: &Q) -> Objects<'_>
+	pub fn get<Q>(&self, prop: &Q) -> JsonLdObjects<'_>
 	where
 		Q: ?Sized + Hash + Comparable<JsonLdLenient<Id>>,
 	{
@@ -480,7 +380,7 @@ impl JsonLdNode {
 	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<Q>(&self, prop: &Q) -> Option<&IndexedJsonLdObject>
+	pub fn get_any<Q>(&self, prop: &Q) -> Option<&JsonLdIndexedObject>
 	where
 		Q: ?Sized + Hash + Comparable<JsonLdLenient<Id>>,
 	{
@@ -489,7 +389,7 @@ impl JsonLdNode {
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: JsonLdLenient<Id>, value: IndexedJsonLdObject) {
+	pub fn insert(&mut self, prop: JsonLdLenient<Id>, value: JsonLdIndexedObject) {
 		self.properties.insert(prop, value)
 	}
 
@@ -498,7 +398,7 @@ impl JsonLdNode {
 	/// If there already exists objects associated to the given reverse property,
 	/// `reverse_value` is added to the list. Duplicate objects are not removed.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = IndexedJsonLdObject>>(
+	pub fn insert_all<Objects: IntoIterator<Item = JsonLdIndexedObject>>(
 		&mut self,
 		prop: JsonLdLenient<Id>,
 		values: Objects,
@@ -557,8 +457,8 @@ impl JsonLdVisit for JsonLdNode {
 }
 
 impl JsonLdIndexed<JsonLdNode> {
-	pub fn entries(&self) -> IndexedEntries<'_> {
-		IndexedEntries {
+	pub fn entries(&self) -> JsonLdIndexedNodeEntries<'_> {
+		JsonLdIndexedNodeEntries {
 			index: self.index(),
 			inner: self.inner().entries(),
 		}
@@ -573,7 +473,7 @@ impl JsonLdIndexed<JsonLdNode> {
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
-pub enum EntryKeyRef<'a> {
+pub enum JsonLdNodeEntryKeyRef<'a> {
 	Id,
 	Type,
 	Graph,
@@ -582,19 +482,19 @@ pub enum EntryKeyRef<'a> {
 	Property(&'a JsonLdLenient<Id>),
 }
 
-impl<'a> EntryKeyRef<'a> {
-	pub fn into_keyword(self) -> Option<Keyword> {
+impl<'a> JsonLdNodeEntryKeyRef<'a> {
+	pub fn into_keyword(self) -> Option<JsonLdKeyword> {
 		match self {
-			Self::Id => Some(Keyword::Id),
-			Self::Type => Some(Keyword::Type),
-			Self::Graph => Some(Keyword::Graph),
-			Self::Included => Some(Keyword::Included),
-			Self::Reverse => Some(Keyword::Reverse),
+			Self::Id => Some(JsonLdKeyword::Id),
+			Self::Type => Some(JsonLdKeyword::Type),
+			Self::Graph => Some(JsonLdKeyword::Graph),
+			Self::Included => Some(JsonLdKeyword::Included),
+			Self::Reverse => Some(JsonLdKeyword::Reverse),
 			Self::Property(_) => None,
 		}
 	}
 
-	pub fn as_keyword(&self) -> Option<Keyword> {
+	pub fn as_keyword(&self) -> Option<JsonLdKeyword> {
 		self.into_keyword()
 	}
 
@@ -616,16 +516,16 @@ impl<'a> EntryKeyRef<'a> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryValueRef<'a> {
+pub enum JsonLdNodeEntryValueRef<'a> {
 	Id(&'a JsonLdLenient<Id>),
 	Type(&'a BTreeIndexMultiSet<JsonLdLenient<Id>>),
-	Graph(&'a BTreeIndexSet<IndexedJsonLdObject>),
-	Included(&'a BTreeIndexSet<IndexedJsonLdNode>),
+	Graph(&'a BTreeIndexSet<JsonLdIndexedObject>),
+	Included(&'a BTreeIndexSet<JsonLdIndexedNode>),
 	Reverse(&'a JsonLdReverseProperties),
-	Property(&'a [IndexedJsonLdObject]),
+	Property(&'a [JsonLdIndexedObject]),
 }
 
-impl<'a> EntryValueRef<'a> {
+impl<'a> JsonLdNodeEntryValueRef<'a> {
 	pub fn is_json_array(&self) -> bool {
 		matches!(
 			self,
@@ -640,72 +540,102 @@ impl<'a> EntryValueRef<'a> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum EntryRef<'a> {
+pub enum JsonLdNodeEntryRef<'a> {
 	Id(&'a JsonLdLenient<Id>),
 	Type(&'a BTreeIndexMultiSet<JsonLdLenient<Id>>),
 	Graph(&'a JsonLdGraph),
 	Included(&'a JsonLdIncluded),
 	Reverse(&'a JsonLdReverseProperties),
-	Property(&'a JsonLdLenient<Id>, &'a [IndexedJsonLdObject]),
+	Property(&'a JsonLdLenient<Id>, &'a [JsonLdIndexedObject]),
 }
 
-impl<'a> EntryRef<'a> {
-	pub fn into_key(self) -> EntryKeyRef<'a> {
+impl<'a> JsonLdNodeEntryRef<'a> {
+	pub fn into_key(self) -> JsonLdNodeEntryKeyRef<'a> {
 		match self {
-			Self::Id(_) => EntryKeyRef::Id,
-			Self::Type(_) => EntryKeyRef::Type,
-			Self::Graph(_) => EntryKeyRef::Graph,
-			Self::Included(_) => EntryKeyRef::Included,
-			Self::Reverse(_) => EntryKeyRef::Reverse,
-			Self::Property(k, _) => EntryKeyRef::Property(k),
+			Self::Id(_) => JsonLdNodeEntryKeyRef::Id,
+			Self::Type(_) => JsonLdNodeEntryKeyRef::Type,
+			Self::Graph(_) => JsonLdNodeEntryKeyRef::Graph,
+			Self::Included(_) => JsonLdNodeEntryKeyRef::Included,
+			Self::Reverse(_) => JsonLdNodeEntryKeyRef::Reverse,
+			Self::Property(k, _) => JsonLdNodeEntryKeyRef::Property(k),
 		}
 	}
 
-	pub fn key(&self) -> EntryKeyRef<'a> {
+	pub fn key(&self) -> JsonLdNodeEntryKeyRef<'a> {
 		self.into_key()
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a> {
+	pub fn into_value(self) -> JsonLdNodeEntryValueRef<'a> {
 		match self {
-			Self::Id(v) => EntryValueRef::Id(v),
-			Self::Type(v) => EntryValueRef::Type(v),
-			Self::Graph(v) => EntryValueRef::Graph(v),
-			Self::Included(v) => EntryValueRef::Included(v),
-			Self::Reverse(v) => EntryValueRef::Reverse(v),
-			Self::Property(_, v) => EntryValueRef::Property(v),
+			Self::Id(v) => JsonLdNodeEntryValueRef::Id(v),
+			Self::Type(v) => JsonLdNodeEntryValueRef::Type(v),
+			Self::Graph(v) => JsonLdNodeEntryValueRef::Graph(v),
+			Self::Included(v) => JsonLdNodeEntryValueRef::Included(v),
+			Self::Reverse(v) => JsonLdNodeEntryValueRef::Reverse(v),
+			Self::Property(_, v) => JsonLdNodeEntryValueRef::Property(v),
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a> {
+	pub fn value(&self) -> JsonLdNodeEntryValueRef<'a> {
 		self.into_value()
 	}
 
-	pub fn into_key_value(self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
+	pub fn into_key_value(self) -> (JsonLdNodeEntryKeyRef<'a>, JsonLdNodeEntryValueRef<'a>) {
 		match self {
-			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
-			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(v)),
-			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
-			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
-			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(v)),
-			Self::Property(k, v) => (EntryKeyRef::Property(k), EntryValueRef::Property(v)),
+			Self::Id(v) => (JsonLdNodeEntryKeyRef::Id, JsonLdNodeEntryValueRef::Id(v)),
+			Self::Type(v) => (
+				JsonLdNodeEntryKeyRef::Type,
+				JsonLdNodeEntryValueRef::Type(v),
+			),
+			Self::Graph(v) => (
+				JsonLdNodeEntryKeyRef::Graph,
+				JsonLdNodeEntryValueRef::Graph(v),
+			),
+			Self::Included(v) => (
+				JsonLdNodeEntryKeyRef::Included,
+				JsonLdNodeEntryValueRef::Included(v),
+			),
+			Self::Reverse(v) => (
+				JsonLdNodeEntryKeyRef::Reverse,
+				JsonLdNodeEntryValueRef::Reverse(v),
+			),
+			Self::Property(k, v) => (
+				JsonLdNodeEntryKeyRef::Property(k),
+				JsonLdNodeEntryValueRef::Property(v),
+			),
 		}
 	}
 
-	pub fn as_key_value(&self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
+	pub fn as_key_value(&self) -> (JsonLdNodeEntryKeyRef<'a>, JsonLdNodeEntryValueRef<'a>) {
 		match self {
-			Self::Id(v) => (EntryKeyRef::Id, EntryValueRef::Id(v)),
-			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(v)),
-			Self::Graph(v) => (EntryKeyRef::Graph, EntryValueRef::Graph(v)),
-			Self::Included(v) => (EntryKeyRef::Included, EntryValueRef::Included(v)),
-			Self::Reverse(v) => (EntryKeyRef::Reverse, EntryValueRef::Reverse(v)),
-			Self::Property(k, v) => (EntryKeyRef::Property(k), EntryValueRef::Property(v)),
+			Self::Id(v) => (JsonLdNodeEntryKeyRef::Id, JsonLdNodeEntryValueRef::Id(v)),
+			Self::Type(v) => (
+				JsonLdNodeEntryKeyRef::Type,
+				JsonLdNodeEntryValueRef::Type(v),
+			),
+			Self::Graph(v) => (
+				JsonLdNodeEntryKeyRef::Graph,
+				JsonLdNodeEntryValueRef::Graph(v),
+			),
+			Self::Included(v) => (
+				JsonLdNodeEntryKeyRef::Included,
+				JsonLdNodeEntryValueRef::Included(v),
+			),
+			Self::Reverse(v) => (
+				JsonLdNodeEntryKeyRef::Reverse,
+				JsonLdNodeEntryValueRef::Reverse(v),
+			),
+			Self::Property(k, v) => (
+				JsonLdNodeEntryKeyRef::Property(k),
+				JsonLdNodeEntryValueRef::Property(v),
+			),
 		}
 	}
 }
 
 #[derive(Educe)]
 #[educe(Clone)]
-pub struct Entries<'a> {
+pub struct JsonLdNodeEntries<'a> {
 	id: Option<&'a JsonLdLenient<Id>>,
 	type_: Option<&'a BTreeIndexMultiSet<JsonLdLenient<Id>>>,
 	graph: Option<&'a JsonLdGraph>,
@@ -714,8 +644,8 @@ pub struct Entries<'a> {
 	properties: properties::JsonLdPropertiesIter<'a>,
 }
 
-impl<'a> Iterator for Entries<'a> {
-	type Item = EntryRef<'a>;
+impl<'a> Iterator for JsonLdNodeEntries<'a> {
+	type Item = JsonLdNodeEntryRef<'a>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = self.properties.len();
@@ -744,33 +674,42 @@ impl<'a> Iterator for Entries<'a> {
 	}
 
 	fn next(&mut self) -> Option<Self::Item> {
-		self.id.take().map(EntryRef::Id).or_else(|| {
-			self.type_.take().map(EntryRef::Type).or_else(|| {
-				self.graph.take().map(EntryRef::Graph).or_else(|| {
-					self.included.take().map(EntryRef::Included).or_else(|| {
-						self.reverse.take().map(EntryRef::Reverse).or_else(|| {
-							self.properties
-								.next()
-								.map(|(k, v)| EntryRef::Property(k, v))
-						})
+		self.id.take().map(JsonLdNodeEntryRef::Id).or_else(|| {
+			self.type_.take().map(JsonLdNodeEntryRef::Type).or_else(|| {
+				self.graph
+					.take()
+					.map(JsonLdNodeEntryRef::Graph)
+					.or_else(|| {
+						self.included
+							.take()
+							.map(JsonLdNodeEntryRef::Included)
+							.or_else(|| {
+								self.reverse
+									.take()
+									.map(JsonLdNodeEntryRef::Reverse)
+									.or_else(|| {
+										self.properties
+											.next()
+											.map(|(k, v)| JsonLdNodeEntryRef::Property(k, v))
+									})
+							})
 					})
-				})
 			})
 		})
 	}
 }
 
-impl<'a> ExactSizeIterator for Entries<'a> {}
+impl<'a> ExactSizeIterator for JsonLdNodeEntries<'a> {}
 
 #[derive(Educe)]
 #[educe(Clone)]
-pub struct IndexedEntries<'a> {
+pub struct JsonLdIndexedNodeEntries<'a> {
 	index: Option<&'a str>,
-	inner: Entries<'a>,
+	inner: JsonLdNodeEntries<'a>,
 }
 
-impl<'a> Iterator for IndexedEntries<'a> {
-	type Item = IndexedEntryRef<'a>;
+impl<'a> Iterator for JsonLdIndexedNodeEntries<'a> {
+	type Item = JsonLdIndexedNodeEntryRef<'a>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let len = self.inner.len() + usize::from(self.index.is_some());
@@ -780,29 +719,29 @@ impl<'a> Iterator for IndexedEntries<'a> {
 	fn next(&mut self) -> Option<Self::Item> {
 		self.index
 			.take()
-			.map(IndexedEntryRef::Index)
-			.or_else(|| self.inner.next().map(IndexedEntryRef::Node))
+			.map(JsonLdIndexedNodeEntryRef::Index)
+			.or_else(|| self.inner.next().map(JsonLdIndexedNodeEntryRef::Node))
 	}
 }
 
-impl<'a> ExactSizeIterator for IndexedEntries<'a> {}
+impl<'a> ExactSizeIterator for JsonLdIndexedNodeEntries<'a> {}
 
 #[derive(Educe, PartialEq, Eq)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryKeyRef<'a> {
+pub enum JsonLdIndexedNodeEntryKeyRef<'a> {
 	Index,
-	Node(EntryKeyRef<'a>),
+	Node(JsonLdNodeEntryKeyRef<'a>),
 }
 
-impl<'a> IndexedEntryKeyRef<'a> {
-	pub fn into_keyword(self) -> Option<Keyword> {
+impl<'a> JsonLdIndexedNodeEntryKeyRef<'a> {
+	pub fn into_keyword(self) -> Option<JsonLdKeyword> {
 		match self {
-			Self::Index => Some(Keyword::Index),
+			Self::Index => Some(JsonLdKeyword::Index),
 			Self::Node(e) => e.into_keyword(),
 		}
 	}
 
-	pub fn as_keyword(&self) -> Option<Keyword> {
+	pub fn as_keyword(&self) -> Option<JsonLdKeyword> {
 		self.into_keyword()
 	}
 
@@ -820,52 +759,68 @@ impl<'a> IndexedEntryKeyRef<'a> {
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryValueRef<'a> {
+pub enum JsonLdIndexedNodeEntryValueRef<'a> {
 	Index(&'a str),
-	Node(EntryValueRef<'a>),
+	Node(JsonLdNodeEntryValueRef<'a>),
 }
 
 #[derive(Educe)]
 #[educe(Clone, Copy)]
-pub enum IndexedEntryRef<'a> {
+pub enum JsonLdIndexedNodeEntryRef<'a> {
 	Index(&'a str),
-	Node(EntryRef<'a>),
+	Node(JsonLdNodeEntryRef<'a>),
 }
 
-impl<'a> IndexedEntryRef<'a> {
-	pub fn into_key(self) -> IndexedEntryKeyRef<'a> {
+impl<'a> JsonLdIndexedNodeEntryRef<'a> {
+	pub fn into_key(self) -> JsonLdIndexedNodeEntryKeyRef<'a> {
 		match self {
-			Self::Index(_) => IndexedEntryKeyRef::Index,
-			Self::Node(e) => IndexedEntryKeyRef::Node(e.key()),
+			Self::Index(_) => JsonLdIndexedNodeEntryKeyRef::Index,
+			Self::Node(e) => JsonLdIndexedNodeEntryKeyRef::Node(e.key()),
 		}
 	}
 
-	pub fn key(&self) -> IndexedEntryKeyRef<'a> {
+	pub fn key(&self) -> JsonLdIndexedNodeEntryKeyRef<'a> {
 		self.into_key()
 	}
 
-	pub fn into_value(self) -> IndexedEntryValueRef<'a> {
+	pub fn into_value(self) -> JsonLdIndexedNodeEntryValueRef<'a> {
 		match self {
-			Self::Index(v) => IndexedEntryValueRef::Index(v),
-			Self::Node(e) => IndexedEntryValueRef::Node(e.value()),
+			Self::Index(v) => JsonLdIndexedNodeEntryValueRef::Index(v),
+			Self::Node(e) => JsonLdIndexedNodeEntryValueRef::Node(e.value()),
 		}
 	}
 
-	pub fn value(&self) -> IndexedEntryValueRef<'a> {
+	pub fn value(&self) -> JsonLdIndexedNodeEntryValueRef<'a> {
 		self.into_value()
 	}
 
-	pub fn into_key_value(self) -> (IndexedEntryKeyRef<'a>, IndexedEntryValueRef<'a>) {
+	pub fn into_key_value(
+		self,
+	) -> (
+		JsonLdIndexedNodeEntryKeyRef<'a>,
+		JsonLdIndexedNodeEntryValueRef<'a>,
+	) {
 		match self {
-			Self::Index(v) => (IndexedEntryKeyRef::Index, IndexedEntryValueRef::Index(v)),
+			Self::Index(v) => (
+				JsonLdIndexedNodeEntryKeyRef::Index,
+				JsonLdIndexedNodeEntryValueRef::Index(v),
+			),
 			Self::Node(e) => {
 				let (k, v) = e.into_key_value();
-				(IndexedEntryKeyRef::Node(k), IndexedEntryValueRef::Node(v))
+				(
+					JsonLdIndexedNodeEntryKeyRef::Node(k),
+					JsonLdIndexedNodeEntryValueRef::Node(v),
+				)
 			}
 		}
 	}
 
-	pub fn as_key_value(&self) -> (IndexedEntryKeyRef<'a>, IndexedEntryValueRef<'a>) {
+	pub fn as_key_value(
+		&self,
+	) -> (
+		JsonLdIndexedNodeEntryKeyRef<'a>,
+		JsonLdIndexedNodeEntryValueRef<'a>,
+	) {
 		self.into_key_value()
 	}
 }
@@ -890,20 +845,20 @@ impl TryFrom<JsonLdObject> for JsonLdNode {
 }
 
 /// Iterator through indexed nodes.
-pub struct Nodes<'a>(Option<std::slice::Iter<'a, IndexedJsonLdNode>>);
+pub struct JsonLdNodes<'a>(Option<std::slice::Iter<'a, JsonLdIndexedNode>>);
 
-impl<'a> Nodes<'a> {
+impl<'a> JsonLdNodes<'a> {
 	#[inline(always)]
-	pub(crate) fn new(inner: Option<std::slice::Iter<'a, IndexedJsonLdNode>>) -> Self {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, JsonLdIndexedNode>>) -> Self {
 		Self(inner)
 	}
 }
 
-impl<'a> Iterator for Nodes<'a> {
-	type Item = &'a IndexedJsonLdNode;
+impl<'a> Iterator for JsonLdNodes<'a> {
+	type Item = &'a JsonLdIndexedNode;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a IndexedJsonLdNode> {
+	fn next(&mut self) -> Option<&'a JsonLdIndexedNode> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next(),

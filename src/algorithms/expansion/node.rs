@@ -3,11 +3,11 @@ use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
 use crate::context::JsonLdContainer;
 use crate::context::RawJsonLdProcessedContext;
-use crate::syntax::{JsonLdContainerItem, JsonLdNullable, Keyword};
+use crate::syntax::{JsonLdContainerItem, JsonLdKeyword, JsonLdNullable};
 use crate::{
-	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexed, JsonLdLocatedError,
-	JsonLdNode, JsonLdObject, JsonLdProcessingMode, JsonLdTerm, JsonLdType, JsonLdWarning,
-	LangString, object, object::value::LiteralValue,
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexed, JsonLdIndexedObject, JsonLdLangString,
+	JsonLdLocatedError, JsonLdNode, JsonLdObject, JsonLdProcessingMode, JsonLdTerm, JsonLdType,
+	JsonLdWarning, object, object::value::JsonLdLiteralValue,
 };
 use crate::{JsonLdLenient, JsonLdValue};
 use btree_indexmap::BTreeIndexSet;
@@ -71,7 +71,9 @@ impl<'a> Expander<'a> {
 		// If active property is null or @graph, drop free-floating
 		// values as follows:
 		if self.active_property.is_none()
-			|| self.active_property.is_some_and(|p| p == Keyword::Graph)
+			|| self
+				.active_property
+				.is_some_and(|p| p == JsonLdKeyword::Graph)
 		{
 			// If `result` is a map which is empty,
 			// [or contains only the entries `@value` or `@list` (does not apply here)]
@@ -109,7 +111,7 @@ impl<'a> Expander<'a> {
 				JsonLdTerm::Null => (),
 
 				// If key is @context, continue to the next key.
-				JsonLdTerm::Keyword(Keyword::Context) => (),
+				JsonLdTerm::Keyword(JsonLdKeyword::Context) => (),
 				// Initialize `expanded_property` to the result of IRI expanding `key`.
 
 				// If `expanded_property` is `null` or it neither contains a colon (:)
@@ -120,7 +122,10 @@ impl<'a> Expander<'a> {
 				JsonLdTerm::Keyword(expanded_property) => {
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
-					if self.active_property.is_some_and(|p| p == Keyword::Reverse) {
+					if self
+						.active_property
+						.is_some_and(|p| p == JsonLdKeyword::Reverse)
+					{
 						return Err(JsonLdError::InvalidReversePropertyMap.at(entry_loc));
 					}
 
@@ -129,8 +134,8 @@ impl<'a> Expander<'a> {
 					// colliding keywords error has been detected and processing is
 					// aborted.
 					if (self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0
-						|| (expanded_property != Keyword::Included
-							&& expanded_property != Keyword::Type))
+						|| (expanded_property != JsonLdKeyword::Included
+							&& expanded_property != JsonLdKeyword::Type))
 						&& result.has_key(&JsonLdTerm::Keyword(expanded_property))
 					{
 						return Err(JsonLdError::CollidingKeywords.at(entry_loc));
@@ -138,7 +143,7 @@ impl<'a> Expander<'a> {
 
 					match expanded_property {
 						// If `expanded_property` is @id:
-						Keyword::Id => {
+						JsonLdKeyword::Id => {
 							// If `value` is not a string, an invalid @id value error has
 							// been detected and processing is aborted.
 							if let Some(str_value) = value.as_str() {
@@ -157,7 +162,7 @@ impl<'a> Expander<'a> {
 							}
 						}
 						// If expanded property is @type:
-						Keyword::Type => {
+						JsonLdKeyword::Type => {
 							// If value is neither a string nor an array of strings, an
 							// invalid type value error has been detected and processing
 							// is aborted.
@@ -188,7 +193,7 @@ impl<'a> Expander<'a> {
 							}
 						}
 						// If expanded property is @graph
-						Keyword::Graph => {
+						JsonLdKeyword::Graph => {
 							// Set `expanded_value` to the result of using this algorithm
 							// recursively passing `active_context`, `@graph` for active
 							// property, `value` for element, `base_url`, and the
@@ -208,7 +213,7 @@ impl<'a> Expander<'a> {
 							));
 						}
 						// If expanded property is @included:
-						Keyword::Included => {
+						JsonLdKeyword::Included => {
 							// If processing mode is json-ld-1.0, continue with the next
 							// key from element.
 							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
@@ -241,11 +246,11 @@ impl<'a> Expander<'a> {
 							}
 						}
 						// If expanded property is @language:
-						Keyword::Language => has_value_object_entries = true,
+						JsonLdKeyword::Language => has_value_object_entries = true,
 						// If expanded property is @direction:
-						Keyword::Direction => has_value_object_entries = true,
+						JsonLdKeyword::Direction => has_value_object_entries = true,
 						// If expanded property is @index:
-						Keyword::Index => {
+						JsonLdKeyword::Index => {
 							if let Some(index) = value.as_str() {
 								result.set_index(Some(index.to_string()))
 							} else {
@@ -255,7 +260,7 @@ impl<'a> Expander<'a> {
 							}
 						}
 						// If expanded property is @reverse:
-						Keyword::Reverse => {
+						JsonLdKeyword::Reverse => {
 							// If value is not a map, an invalid @reverse value error
 							// has been detected and processing is aborted.
 							if let Some(value) = value.as_object() {
@@ -356,7 +361,7 @@ impl<'a> Expander<'a> {
 							}
 						}
 						// If expanded property is @nest
-						Keyword::Nest => {
+						JsonLdKeyword::Nest => {
 							let nesting_key = key;
 							// Recursively repeat steps 3, 8, 13, and 14 using `nesting_key` for active property,
 							// and nested value for element.
@@ -448,7 +453,9 @@ impl<'a> Expander<'a> {
 								}
 							}
 						}
-						Keyword::Value => return Err(JsonLdError::InvalidNestValue.at(entry_loc)),
+						JsonLdKeyword::Value => {
+							return Err(JsonLdError::InvalidNestValue.at(entry_loc));
+						}
 						_ => (),
 					}
 				}
@@ -485,7 +492,7 @@ impl<'a> Expander<'a> {
 
 					let mut expanded_value = if is_json {
 						Expanded::Object(
-							JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::json(
+							JsonLdObject::Value(JsonLdValue::Literal(JsonLdLiteralValue::json(
 								value.clone(),
 							)))
 							.into(),
@@ -548,7 +555,7 @@ impl<'a> Expander<'a> {
 													false,
 													true,
 												) == JsonLdTerm::Keyword(
-													Keyword::None,
+													JsonLdKeyword::None,
 												) {
 													None
 												} else {
@@ -572,7 +579,7 @@ impl<'a> Expander<'a> {
 												// initialize a new map v consisting of two
 												// key-value pairs: (@value-item) and
 												// (@language-language).
-												if let Ok(v) = LangString::new(
+												if let Ok(v) = JsonLdLangString::new(
 													item.clone(),
 													language,
 													direction,
@@ -592,7 +599,7 @@ impl<'a> Expander<'a> {
 												} else {
 													expanded_value.push(
 														JsonLdObject::Value(JsonLdValue::Literal(
-															LiteralValue::new(
+															JsonLdLiteralValue::new(
 																JsonValue::String(item.clone()),
 																None,
 															),
@@ -623,7 +630,7 @@ impl<'a> Expander<'a> {
 								// is a map then value is expanded from a map as follows:
 
 								// Initialize expanded value to an empty array.
-								let mut expanded_value: Vec<IndexedJsonLdObject> = Vec::new();
+								let mut expanded_value: Vec<JsonLdIndexedObject> = Vec::new();
 
 								// Initialize `index_key` to the key's index mapping in
 								// `active_context`, or @index, if it does not exist.
@@ -701,9 +708,8 @@ impl<'a> Expander<'a> {
 										false,
 										true,
 									) {
-										JsonLdTerm::Null | JsonLdTerm::Keyword(Keyword::None) => {
-											None
-										}
+										JsonLdTerm::Null
+										| JsonLdTerm::Keyword(JsonLdKeyword::None) => None,
 										key => Some(key),
 									};
 

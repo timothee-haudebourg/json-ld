@@ -1,4 +1,4 @@
-use crate::syntax::{JsonLdCompactIri, Keyword};
+use crate::syntax::{JsonLdCompactIri, JsonLdKeyword};
 use rdf_syntax::BlankId;
 use rdf_syntax::Iri;
 use std::borrow::Borrow;
@@ -127,7 +127,7 @@ impl<'a> fmt::Display for KeyRef<'a> {
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum JsonLdKeyOrKeyword {
-	Keyword(Keyword),
+	Keyword(JsonLdKeyword),
 	Key(JsonLdContextTerm),
 }
 
@@ -139,7 +139,7 @@ impl JsonLdKeyOrKeyword {
 		}
 	}
 
-	pub fn into_keyword(self) -> Option<Keyword> {
+	pub fn into_keyword(self) -> Option<JsonLdKeyword> {
 		match self {
 			Self::Keyword(k) => Some(k),
 			Self::Key(_) => None,
@@ -153,7 +153,7 @@ impl JsonLdKeyOrKeyword {
 		}
 	}
 
-	pub fn as_keyword(&self) -> Option<Keyword> {
+	pub fn as_keyword(&self) -> Option<JsonLdKeyword> {
 		match self {
 			Self::Keyword(k) => Some(*k),
 			Self::Key(_) => None,
@@ -193,7 +193,7 @@ impl fmt::Display for JsonLdKeyOrKeyword {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum JsonLdKeyOrKeywordRef<'a> {
-	Keyword(Keyword),
+	Keyword(JsonLdKeyword),
 	Key(KeyRef<'a>),
 }
 
@@ -215,7 +215,7 @@ impl<'a> JsonLdKeyOrKeywordRef<'a> {
 
 impl<'a> From<&'a str> for JsonLdKeyOrKeywordRef<'a> {
 	fn from(s: &'a str) -> Self {
-		match Keyword::try_from(s) {
+		match JsonLdKeyword::try_from(s) {
 			Ok(k) => Self::Keyword(k),
 			Err(_) => Self::Key(s.into()),
 		}

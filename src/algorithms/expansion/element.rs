@@ -13,7 +13,7 @@ use crate::{
 		context_processing::ContextProcessingOptions,
 	},
 	object::JsonLdList,
-	syntax::{JsonLdContext, Keyword},
+	syntax::{JsonLdContext, JsonLdKeyword},
 };
 
 use super::{ExpandableLiteralValue, Expanded, Expander};
@@ -83,10 +83,10 @@ impl<'a> Expander<'a> {
 						false,
 						true,
 					) {
-						JsonLdTerm::Keyword(Keyword::Value) => {
+						JsonLdTerm::Keyword(JsonLdKeyword::Value) => {
 							preliminary_value_entry = Some(value.clone())
 						}
-						JsonLdTerm::Keyword(Keyword::Id) => {
+						JsonLdTerm::Keyword(JsonLdKeyword::Id) => {
 							preliminary_id_entry = Some(value.clone())
 						}
 						_ => (),
@@ -142,10 +142,10 @@ impl<'a> Expander<'a> {
 					let local_context: JsonLdContext =
 						json_syntax::from_value(local_context.clone()).map_err(|e| {
 							JsonLdError::ContextSyntax(e.to_string())
-								.at(location.object_value(Keyword::Context))
+								.at(location.object_value(JsonLdKeyword::Context))
 						})?;
 
-					let context_loc = location.object_value(Keyword::Context);
+					let context_loc = location.object_value(JsonLdKeyword::Context);
 					active_context = Mown::Owned(
 						local_context
 							.process_with(
@@ -174,7 +174,7 @@ impl<'a> Expander<'a> {
 						true,
 					);
 
-					if let JsonLdTerm::Keyword(Keyword::Type) = expanded_key {
+					if let JsonLdTerm::Keyword(JsonLdKeyword::Type) = expanded_key {
 						type_entries.push(entry);
 					}
 				}
@@ -266,13 +266,18 @@ impl<'a> Expander<'a> {
 					);
 
 					match &expanded_key {
-						JsonLdTerm::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
-						JsonLdTerm::Keyword(Keyword::List) => {
-							if self.active_property.is_some_and(|p| p != Keyword::Graph) {
+						JsonLdTerm::Keyword(JsonLdKeyword::Value) => {
+							value_entry = Some(value.clone())
+						}
+						JsonLdTerm::Keyword(JsonLdKeyword::List) => {
+							if self
+								.active_property
+								.is_some_and(|p| p != JsonLdKeyword::Graph)
+							{
 								list_entry = Some((key.as_str(), value.clone()))
 							}
 						}
-						JsonLdTerm::Keyword(Keyword::Set) => {
+						JsonLdTerm::Keyword(JsonLdKeyword::Set) => {
 							set_entry = Some((key.as_str(), value.clone()))
 						}
 						JsonLdTerm::Id(JsonLdLenient::Valid(Id::BlankId(id))) => {
@@ -298,11 +303,11 @@ impl<'a> Expander<'a> {
 					} in expanded_entries
 					{
 						match expanded_key {
-							JsonLdTerm::Keyword(Keyword::Index) => match value.as_string() {
+							JsonLdTerm::Keyword(JsonLdKeyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
 								None => return Err(JsonLdError::InvalidIndexValue.at(location)),
 							},
-							JsonLdTerm::Keyword(Keyword::List) => (),
+							JsonLdTerm::Keyword(JsonLdKeyword::List) => (),
 							_ => return Err(JsonLdError::InvalidSetOrListObject.at(location)),
 						}
 					}
@@ -332,11 +337,11 @@ impl<'a> Expander<'a> {
 					// Set objects.
 					for ExpandedEntry { expanded_key, .. } in expanded_entries {
 						match expanded_key {
-							JsonLdTerm::Keyword(Keyword::Index) => {
+							JsonLdTerm::Keyword(JsonLdKeyword::Index) => {
 								// having an `@index` here is tolerated,
 								// but is ignored.
 							}
-							JsonLdTerm::Keyword(Keyword::Set) => (),
+							JsonLdTerm::Keyword(JsonLdKeyword::Set) => (),
 							_ => return Err(JsonLdError::InvalidSetOrListObject.at(location)),
 						}
 					}
@@ -386,7 +391,10 @@ impl<'a> Expander<'a> {
 				// If element is a scalar (bool, int, string, null),
 				// If `active_property` is `null` or `@graph`, drop the free-floating scalar by
 				// returning null.
-				if self.active_property.is_none_or(|p| p == Keyword::Graph) {
+				if self
+					.active_property
+					.is_none_or(|p| p == JsonLdKeyword::Graph)
+				{
 					return Ok(Expanded::Null);
 				}
 

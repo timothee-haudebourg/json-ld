@@ -1,7 +1,7 @@
 use rdf_syntax::{Id, Iri, IriBuf};
 use std::fmt;
 
-use crate::{JsonLdLenient, syntax::Keyword};
+use crate::{JsonLdLenient, syntax::JsonLdKeyword};
 
 /// Identifier, keyword or `@null`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -13,7 +13,7 @@ pub enum JsonLdTerm {
 	Id(JsonLdLenient<Id>),
 
 	/// Keyword.
-	Keyword(Keyword),
+	Keyword(JsonLdKeyword),
 }
 
 impl JsonLdTerm {

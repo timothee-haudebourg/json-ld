@@ -4,7 +4,7 @@ use std::fmt;
 use rdf_syntax::{Id, Iri, IriBuf};
 
 use super::JsonLdTerm;
-use crate::{JsonLdLenient, syntax::Keyword};
+use crate::{JsonLdLenient, syntax::JsonLdKeyword};
 
 /// Object type.
 ///
@@ -63,10 +63,10 @@ impl JsonLdType {
 impl From<JsonLdType> for JsonLdTerm {
 	fn from(t: JsonLdType) -> JsonLdTerm {
 		match t {
-			JsonLdType::Id => JsonLdTerm::Keyword(Keyword::Id),
-			JsonLdType::Json => JsonLdTerm::Keyword(Keyword::Json),
-			JsonLdType::None => JsonLdTerm::Keyword(Keyword::None),
-			JsonLdType::Vocab => JsonLdTerm::Keyword(Keyword::Vocab),
+			JsonLdType::Id => JsonLdTerm::Keyword(JsonLdKeyword::Id),
+			JsonLdType::Json => JsonLdTerm::Keyword(JsonLdKeyword::Json),
+			JsonLdType::None => JsonLdTerm::Keyword(JsonLdKeyword::None),
+			JsonLdType::Vocab => JsonLdTerm::Keyword(JsonLdKeyword::Vocab),
 			JsonLdType::Iri(id) => JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(id))),
 		}
 	}
@@ -77,10 +77,10 @@ impl TryFrom<JsonLdTerm> for JsonLdType {
 
 	fn try_from(term: JsonLdTerm) -> Result<JsonLdType, JsonLdTerm> {
 		match term {
-			JsonLdTerm::Keyword(Keyword::Id) => Ok(JsonLdType::Id),
-			JsonLdTerm::Keyword(Keyword::Json) => Ok(JsonLdType::Json),
-			JsonLdTerm::Keyword(Keyword::None) => Ok(JsonLdType::None),
-			JsonLdTerm::Keyword(Keyword::Vocab) => Ok(JsonLdType::Vocab),
+			JsonLdTerm::Keyword(JsonLdKeyword::Id) => Ok(JsonLdType::Id),
+			JsonLdTerm::Keyword(JsonLdKeyword::Json) => Ok(JsonLdType::Json),
+			JsonLdTerm::Keyword(JsonLdKeyword::None) => Ok(JsonLdType::None),
+			JsonLdTerm::Keyword(JsonLdKeyword::Vocab) => Ok(JsonLdType::Vocab),
 			JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(id))) => Ok(JsonLdType::Iri(id)),
 			term => Err(term),
 		}

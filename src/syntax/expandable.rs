@@ -2,16 +2,16 @@ use std::fmt;
 
 use crate::syntax::context::JsonLdKeyOrKeyword;
 
-use super::Keyword;
+use super::JsonLdKeyword;
 
 pub enum JsonLdExpandable {
-	Keyword(Keyword),
+	Keyword(JsonLdKeyword),
 	String(String),
 }
 
 pub enum JsonLdExpandableRef<'a> {
 	/// Keyword.
-	Keyword(Keyword),
+	Keyword(JsonLdKeyword),
 
 	/// Other term.
 	String(&'a str),
@@ -28,7 +28,7 @@ impl<'a> From<&'a JsonLdKeyOrKeyword> for JsonLdExpandableRef<'a> {
 
 impl<'a> From<&'a str> for JsonLdExpandableRef<'a> {
 	fn from(s: &'a str) -> Self {
-		match Keyword::try_from(s) {
+		match JsonLdKeyword::try_from(s) {
 			Ok(k) => Self::Keyword(k),
 			Err(_) => Self::String(s),
 		}

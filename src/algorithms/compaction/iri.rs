@@ -116,10 +116,12 @@ impl<'a> Compactor<'a> {
 													)))
 												}
 												JsonLdValue::Literal(lit) => match &lit.type_ {
-													Some(object::value::LiteralType::Json) => {
-														item_type = Some(JsonLdType::Json)
-													}
-													Some(object::value::LiteralType::Iri(ty)) => {
+													Some(
+														object::value::JsonLdLiteralType::Json,
+													) => item_type = Some(JsonLdType::Json),
+													Some(
+														object::value::JsonLdLiteralType::Iri(ty),
+													) => {
 														item_type =
 															Some(JsonLdType::Iri(ty.clone()))
 													}
