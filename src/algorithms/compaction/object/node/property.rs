@@ -12,7 +12,7 @@ use crate::{
 	},
 	context::JsonLdContainer,
 	object::{AnyJsonLdObject, JsonLdList, JsonLdObjectRef},
-	syntax::{JsonLdContainerItem, JsonLdKeyword, context::Nest},
+	syntax::{JsonLdContainerItem, JsonLdKeyword, context::JsonLdNest},
 };
 
 impl Compactor<'_> {
@@ -290,7 +290,7 @@ impl Compactor<'_> {
 						// or a term in the active context that expands to @nest,
 						// an invalid @nest value error has been detected,
 						// and processing is aborted.
-						if *nest_term != Nest::Nest {
+						if *nest_term != JsonLdNest::Nest {
 							match self.active_context.get(nest_term.as_str()) {
 								Some(term_def)
 									if term_def.value()

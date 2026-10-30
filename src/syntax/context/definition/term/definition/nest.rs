@@ -3,14 +3,14 @@ use std::hash::Hash;
 use crate::syntax::is_keyword;
 
 #[derive(Clone, PartialOrd, Ord, Debug)]
-pub enum Nest {
+pub enum JsonLdNest {
 	Nest,
 
 	/// Must not be a keyword.
 	Term(String),
 }
 
-impl Nest {
+impl JsonLdNest {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Nest => "@nest",
@@ -26,7 +26,7 @@ impl Nest {
 	}
 }
 
-impl PartialEq for Nest {
+impl PartialEq for JsonLdNest {
 	fn eq(&self, other: &Self) -> bool {
 		match (self, other) {
 			(Self::Nest, Self::Nest) => true,
@@ -36,9 +36,9 @@ impl PartialEq for Nest {
 	}
 }
 
-impl Eq for Nest {}
+impl Eq for JsonLdNest {}
 
-impl Hash for Nest {
+impl Hash for JsonLdNest {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)
 	}
@@ -48,7 +48,7 @@ impl Hash for Nest {
 #[error("invalid `@nest` value")]
 pub struct InvalidNest(pub String);
 
-impl TryFrom<String> for Nest {
+impl TryFrom<String> for JsonLdNest {
 	type Error = InvalidNest;
 
 	fn try_from(s: String) -> Result<Self, InvalidNest> {
@@ -63,7 +63,7 @@ impl TryFrom<String> for Nest {
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for Nest {
+impl serde::Serialize for JsonLdNest {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: serde::Serializer,
@@ -73,7 +73,7 @@ impl serde::Serialize for Nest {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for Nest {
+impl<'de> serde::Deserialize<'de> for JsonLdNest {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: serde::Deserializer<'de>,
@@ -81,7 +81,7 @@ impl<'de> serde::Deserialize<'de> for Nest {
 		struct Visitor;
 
 		impl<'de> serde::de::Visitor<'de> for Visitor {
-			type Value = Nest;
+			type Value = JsonLdNest;
 
 			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
 				formatter.write_str("`@nest` value")
@@ -98,7 +98,7 @@ impl<'de> serde::Deserialize<'de> for Nest {
 			where
 				E: serde::de::Error,
 			{
-				Nest::try_from(v).map_err(|e| E::custom(e))
+				JsonLdNest::try_from(v).map_err(|e| E::custom(e))
 			}
 		}
 

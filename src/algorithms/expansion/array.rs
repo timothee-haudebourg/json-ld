@@ -2,7 +2,7 @@ use json_syntax::JsonArray;
 
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdObject,
-	algorithms::AsyncProcessingEnvironment, context::TermDefinitionRef, object::JsonLdList,
+	algorithms::AsyncProcessingEnvironment, context::JsonLdTermDefinitionRef, object::JsonLdList,
 	syntax::JsonLdContainerItem,
 };
 
@@ -13,7 +13,7 @@ impl<'a> Expander<'a> {
 	pub async fn expand_array(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		active_property_definition: Option<TermDefinitionRef<'_>>,
+		active_property_definition: Option<JsonLdTermDefinitionRef<'_>>,
 		element: &JsonArray,
 		from_map: bool,
 		location: JsonLdBacktraceBuilder<'_>,

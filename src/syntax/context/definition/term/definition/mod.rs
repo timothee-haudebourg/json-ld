@@ -144,7 +144,7 @@ pub struct ExpandedTermDefinition {
 		feature = "serde",
 		serde(rename = "@index", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub index: Option<Index>,
+	pub index: Option<JsonLdIndex>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -182,7 +182,7 @@ pub struct ExpandedTermDefinition {
 		feature = "serde",
 		serde(rename = "@nest", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub nest: Option<Nest>,
+	pub nest: Option<JsonLdNest>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -306,11 +306,11 @@ pub struct ExpandedTermDefinitionRef<'a> {
 	pub type_: Option<JsonLdNullable<&'a TermType>>,
 	pub context: Option<&'a JsonLdContext>,
 	pub reverse: Option<&'a JsonLdContextTerm>,
-	pub index: Option<&'a Index>,
+	pub index: Option<&'a JsonLdIndex>,
 	pub language: Option<JsonLdNullable<JsonLdLenient<&'a LangTag>>>,
 	pub direction: Option<JsonLdNullable<JsonLdDirection>>,
 	pub container: Option<&'a JsonLdContainerValue>,
-	pub nest: Option<&'a Nest>,
+	pub nest: Option<&'a JsonLdNest>,
 	pub prefix: Option<bool>,
 	pub propagate: Option<bool>,
 	pub protected: Option<bool>,
@@ -334,11 +334,11 @@ pub struct TermDefinitionEntries<'a> {
 	type_: Option<JsonLdNullable<&'a TermType>>,
 	context: Option<&'a context::JsonLdContext>,
 	reverse: Option<&'a JsonLdContextTerm>,
-	index: Option<&'a Index>,
+	index: Option<&'a JsonLdIndex>,
 	language: Option<JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>>,
 	direction: Option<JsonLdNullable<JsonLdDirection>>,
 	container: Option<&'a JsonLdContainerValue>,
-	nest: Option<&'a Nest>,
+	nest: Option<&'a JsonLdNest>,
 	prefix: Option<bool>,
 	propagate: Option<bool>,
 	protected: Option<bool>,
@@ -349,11 +349,11 @@ pub enum TermDefinitionEntryRef<'a> {
 	Type(JsonLdNullable<&'a TermType>),
 	Context(&'a context::JsonLdContext),
 	Reverse(&'a JsonLdContextTerm),
-	Index(&'a Index),
+	Index(&'a JsonLdIndex),
 	Language(JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>),
 	Direction(JsonLdNullable<JsonLdDirection>),
 	Container(&'a JsonLdContainerValue),
-	Nest(&'a Nest),
+	Nest(&'a JsonLdNest),
 	Prefix(bool),
 	Propagate(bool),
 	Protected(bool),
@@ -516,11 +516,11 @@ pub enum TermDefinitionEntryValueRef<'a> {
 	Type(JsonLdNullable<&'a TermType>),
 	Context(&'a context::JsonLdContext),
 	Reverse(&'a JsonLdContextTerm),
-	Index(&'a Index),
+	Index(&'a JsonLdIndex),
 	Language(JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>),
 	Direction(JsonLdNullable<JsonLdDirection>),
 	Container(&'a JsonLdContainerValue),
-	Nest(&'a Nest),
+	Nest(&'a JsonLdNest),
 	Prefix(bool),
 	Propagate(bool),
 	Protected(bool),

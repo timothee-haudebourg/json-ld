@@ -144,8 +144,8 @@ impl<T> From<NotATypeKeyword> for InvalidTypeKeyword<T> {
 	}
 }
 
-impl<T> From<crate::syntax::NotAKeyword<T>> for InvalidTypeKeyword<T> {
-	fn from(crate::syntax::NotAKeyword(t): crate::syntax::NotAKeyword<T>) -> Self {
+impl<T> From<crate::syntax::NotAJsonLdKeyword<T>> for InvalidTypeKeyword<T> {
+	fn from(crate::syntax::NotAJsonLdKeyword(t): crate::syntax::NotAJsonLdKeyword<T>) -> Self {
 		Self::NotAKeyword(t)
 	}
 }

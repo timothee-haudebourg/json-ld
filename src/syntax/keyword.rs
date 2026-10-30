@@ -4,11 +4,11 @@ use std::fmt;
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug)]
-pub struct NotAKeyword<T = String>(pub T);
+pub struct NotAJsonLdKeyword<T = String>(pub T);
 
-impl<T: ?Sized + ToOwned> NotAKeyword<&T> {
-	pub fn into_owned(self) -> NotAKeyword<T::Owned> {
-		NotAKeyword(self.0.to_owned())
+impl<T: ?Sized + ToOwned> NotAJsonLdKeyword<&T> {
+	pub fn into_owned(self) -> NotAJsonLdKeyword<T::Owned> {
+		NotAJsonLdKeyword(self.0.to_owned())
 	}
 }
 
@@ -41,14 +41,14 @@ macro_rules! keyword {
 		}
 
 		impl<'a> TryFrom<&'a str> for JsonLdKeyword {
-			type Error = NotAKeyword<&'a str>;
+			type Error = NotAJsonLdKeyword<&'a str>;
 
-			fn try_from(input: &'a str) -> Result<JsonLdKeyword, NotAKeyword<&'a str>> {
+			fn try_from(input: &'a str) -> Result<JsonLdKeyword, NotAJsonLdKeyword<&'a str>> {
 				match input {
 					$(
 						$lit => Ok(Self::$ident),
 					)*
-					_ => Err(NotAKeyword(input))
+					_ => Err(NotAJsonLdKeyword(input))
 				}
 			}
 		}
@@ -173,10 +173,10 @@ impl JsonLdKeyword {
 }
 
 impl FromStr for JsonLdKeyword {
-	type Err = NotAKeyword;
+	type Err = NotAJsonLdKeyword;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		Self::try_from(s).map_err(NotAKeyword::into_owned)
+		Self::try_from(s).map_err(NotAJsonLdKeyword::into_owned)
 	}
 }
 
@@ -240,15 +240,15 @@ pub fn is_keyword_like(s: &str) -> bool {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub struct KeywordType;
+pub struct JsonLdKeywordType;
 
-impl KeywordType {
+impl JsonLdKeywordType {
 	pub fn as_str(&self) -> &'static str {
 		"@type"
 	}
 }
 
-impl Borrow<str> for KeywordType {
+impl Borrow<str> for JsonLdKeywordType {
 	fn borrow(&self) -> &str {
 		self.as_str()
 	}

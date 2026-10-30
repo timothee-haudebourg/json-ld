@@ -8,7 +8,7 @@ pub use container::JsonLdContainer;
 use langtag::{LangTag, LangTagBuf};
 
 use crate::syntax::context::JsonLdContextTerm;
-use crate::syntax::{JsonLdContext, KeywordType};
+use crate::syntax::{JsonLdContext, JsonLdKeywordType};
 use crate::{JsonLdDirection, JsonLdLenient, JsonLdTerm};
 use rdf_syntax::{Iri, IriBuf};
 use std::borrow::{Borrow, Cow};
@@ -86,11 +86,11 @@ pub struct RawJsonLdProcessedContext {
 	default_language: Option<JsonLdLenient<LangTagBuf>>,
 	default_base_direction: Option<JsonLdDirection>,
 	previous_context: Option<Box<Self>>,
-	definitions: Definitions,
+	definitions: JsonLdDefinitions,
 	inverse: OnceLock<InverseJsonLdContext>,
 }
 
-pub type DefinitionEntryRef<'a> = (&'a JsonLdContextTerm, &'a TermDefinition);
+pub type DefinitionEntryRef<'a> = (&'a JsonLdContextTerm, &'a JsonLdTermDefinition);
 
 impl RawJsonLdProcessedContext {
 	/// Create a new context with the given base IRI.
@@ -102,16 +102,16 @@ impl RawJsonLdProcessedContext {
 			default_language: None,
 			default_base_direction: None,
 			previous_context: None,
-			definitions: Definitions::default(),
+			definitions: JsonLdDefinitions::default(),
 			inverse: OnceLock::default(),
 		}
 	}
 
 	/// Returns a reference to the given `term` definition, if any.
-	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<'_>>
+	pub fn get<Q>(&self, term: &Q) -> Option<JsonLdTermDefinitionRef<'_>>
 	where
 		JsonLdContextTerm: Borrow<Q>,
-		KeywordType: Borrow<Q>,
+		JsonLdKeywordType: Borrow<Q>,
 		Q: ?Sized + Hash + Eq,
 	{
 		self.definitions.get(term)
@@ -135,7 +135,7 @@ impl RawJsonLdProcessedContext {
 	pub fn contains_term<Q>(&self, term: &Q) -> bool
 	where
 		JsonLdContextTerm: Borrow<Q>,
-		KeywordType: Borrow<Q>,
+		JsonLdKeywordType: Borrow<Q>,
 		Q: ?Sized + Hash + Eq,
 	{
 		self.definitions.contains_term(term)
@@ -188,7 +188,7 @@ impl RawJsonLdProcessedContext {
 	}
 
 	/// Returns a handle to the term definitions.
-	pub fn definitions(&self) -> &Definitions {
+	pub fn definitions(&self) -> &JsonLdDefinitions {
 		&self.definitions
 	}
 

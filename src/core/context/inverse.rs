@@ -1,7 +1,7 @@
 use langtag::LangTag;
 use langtag::LangTagBuf;
 
-use super::BindingRef;
+use super::JsonLdBindingRef;
 use super::JsonLdContainer;
 use super::JsonLdContextTerm;
 use super::RawJsonLdProcessedContext;
@@ -263,7 +263,7 @@ impl<'a> From<&'a RawJsonLdProcessedContext> for InverseJsonLdContext {
 		});
 
 		for binding in definitions {
-			if let BindingRef::Normal(term, term_definition) = binding
+			if let JsonLdBindingRef::Normal(term, term_definition) = binding
 				&& let Some(var) = term_definition.value.as_ref()
 			{
 				let container = &term_definition.container;

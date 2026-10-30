@@ -6,9 +6,9 @@ use std::hash::Hash;
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Index(String);
+pub struct JsonLdIndex(String);
 
-impl Index {
+impl JsonLdIndex {
 	pub fn as_iri(&self) -> Option<&Iri> {
 		Iri::new(&self.0).ok()
 	}
@@ -26,27 +26,27 @@ impl Index {
 	}
 }
 
-impl PartialEq for Index {
+impl PartialEq for JsonLdIndex {
 	fn eq(&self, other: &Self) -> bool {
 		self.0 == other.0
 	}
 }
 
-impl fmt::Display for Index {
+impl fmt::Display for JsonLdIndex {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
-impl Eq for Index {}
+impl Eq for JsonLdIndex {}
 
-impl Hash for Index {
+impl Hash for JsonLdIndex {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)
 	}
 }
 
-impl From<String> for Index {
+impl From<String> for JsonLdIndex {
 	fn from(s: String) -> Self {
 		Self(s)
 	}
