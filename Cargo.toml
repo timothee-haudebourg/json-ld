@@ -79,6 +79,8 @@ xsd-types = "0.12"
 # Loader implementation based on `reqwest`.
 reqwest = { version = "0.12.22", optional = true }
 reqwest-middleware = { version = "0.4.2", optional = true }
+
+# Async FS loader implementation based on `tokio`.
 tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 
 [dev-dependencies]
