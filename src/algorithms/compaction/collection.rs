@@ -3,7 +3,7 @@ use json_syntax::JsonValue;
 
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdLocatedError,
-	algorithms::{AsyncProcessingEnvironment, compaction::Compactor},
+	algorithms::{AsyncJsonLdEnvironment, compaction::Compactor},
 	syntax::JsonLdContainerItem,
 };
 
@@ -12,7 +12,7 @@ use super::CompactFragment;
 impl Compactor<'_> {
 	pub async fn compact_collection_with<'a, O, T>(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		items: O,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>
@@ -60,7 +60,7 @@ impl Compactor<'_> {
 impl<T: CompactFragment> CompactFragment for Vec<T> {
 	async fn compact_fragment(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		compactor: &Compactor<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -73,7 +73,7 @@ impl<T: CompactFragment> CompactFragment for Vec<T> {
 impl<T: CompactFragment> CompactFragment for [T] {
 	async fn compact_fragment(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		compactor: &Compactor<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -86,7 +86,7 @@ impl<T: CompactFragment> CompactFragment for [T] {
 impl<T: CompactFragment> CompactFragment for BTreeIndexSet<T> {
 	async fn compact_fragment(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		compactor: &Compactor<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {

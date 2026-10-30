@@ -5,7 +5,7 @@ use crate::{
 	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdNullable, JsonLdTerm,
 	JsonLdWarning,
 	algorithms::{
-		AsyncProcessingEnvironment,
+		AsyncJsonLdEnvironment,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 	},
 	context::RawJsonLdProcessedContext,
@@ -32,7 +32,7 @@ impl<'a> ContextProcessor<'a> {
 	/// forwarded, unnarrowed, to `define`.
 	pub async fn expand_iri_recursive(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		value: JsonLdNullable<JsonLdExpandableRef<'_>>,

@@ -4,7 +4,7 @@ use crate::{
 	JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexed, JsonLdLenient, JsonLdLocatedError,
 	JsonLdNode, JsonLdObject, JsonLdTerm,
 	algorithms::{
-		AsyncProcessingEnvironment,
+		AsyncJsonLdEnvironment,
 		compaction::{
 			CompactFragment, CompactIndexedFragment, Compactor,
 			object::value::{add_value, value_value},
@@ -19,7 +19,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_property_list(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		list: &JsonLdList,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
@@ -88,7 +88,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_property_graph(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		node: &JsonLdNode,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
@@ -356,7 +356,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn compact_property<'a, O, T>(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		result: &mut JsonObject,
 		expanded_property: JsonLdTerm,
 		expanded_value: O,

@@ -2,11 +2,11 @@ use rdf_syntax::Iri;
 
 use crate::{
 	algorithms::expansion::JsonLdExpansionOptions,
-	context::{JsonLdTermDefinitionRef, RawJsonLdProcessedContext},
+	context::{JsonLdProcessedTermDefinitionRef, RawJsonLdProcessedContext},
 };
 
 /// Expander.
-pub struct Expander<'a> {
+pub(crate) struct Expander<'a> {
 	pub base_url: Option<&'a Iri>,
 	pub options: JsonLdExpansionOptions,
 	pub active_context: &'a RawJsonLdProcessedContext,
@@ -14,7 +14,7 @@ pub struct Expander<'a> {
 }
 
 impl<'a> Expander<'a> {
-	pub fn active_property_definition(&self) -> Option<JsonLdTermDefinitionRef<'_>> {
+	pub fn active_property_definition(&self) -> Option<JsonLdProcessedTermDefinitionRef<'_>> {
 		self.active_property
 			.and_then(|t| self.active_context.get(t))
 	}

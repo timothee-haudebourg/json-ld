@@ -12,14 +12,14 @@ mod stack;
 use define::*;
 use iri::*;
 use merged::Merged;
-pub use options::ContextProcessingOptions;
+pub use options::JsonLdContextProcessingOptions;
 use stack::ProcessingStack;
 
 use crate::{
 	AsyncJsonLdLoader, JsonLdBacktraceBuilder, JsonLdContextDocument, JsonLdError,
-	JsonLdLocatedError, JsonLdNullable, JsonLdProcessingMode, JsonLdSourceFileRef, JsonLdTerm,
-	ProcessedJsonLdContext,
-	algorithms::AsyncProcessingEnvironment,
+	JsonLdLocatedError, JsonLdNullable, JsonLdProcessedContext, JsonLdProcessingMode,
+	JsonLdSourceFileRef, JsonLdTerm,
+	algorithms::AsyncJsonLdEnvironment,
 	context::RawJsonLdProcessedContext,
 	syntax::{JsonLdContext, JsonLdContextEntry, JsonLdKeyword, context::JsonLdKeyOrKeywordRef},
 };
@@ -33,7 +33,7 @@ struct ContextProcessor<'a> {
 	pub remote_contexts: ProcessingStack,
 	pub active_context: &'a RawJsonLdProcessedContext,
 	pub base_url: Option<&'a Iri>,
-	pub options: ContextProcessingOptions,
+	pub options: JsonLdContextProcessingOptions,
 }
 
 impl<'a> ContextProcessor<'a> {
@@ -50,7 +50,7 @@ impl<'a> ContextProcessor<'a> {
 		&'b self,
 		active_context: &'b RawJsonLdProcessedContext,
 		base_url: Option<&'b Iri>,
-		options: ContextProcessingOptions,
+		options: JsonLdContextProcessingOptions,
 	) -> ContextProcessor<'b> {
 		ContextProcessor {
 			remote_contexts: self.remote_contexts.clone(),
@@ -67,8 +67,8 @@ impl JsonLdContextDocument {
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 	pub async fn process(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
+		env: impl AsyncJsonLdEnvironment,
+	) -> Result<JsonLdProcessedContext<'_>, JsonLdLocatedError> {
 		let loc = JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::original(self.url()));
 		self.document
 			.context
@@ -76,7 +76,7 @@ impl JsonLdContextDocument {
 				env,
 				self.url(),
 				&RawJsonLdProcessedContext::new(None),
-				ContextProcessingOptions::default(),
+				JsonLdContextProcessingOptions::default(),
 				loc,
 			)
 			.await
@@ -89,15 +89,15 @@ impl JsonLdContext {
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 	pub async fn process(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		base_url: Option<&Iri>,
-	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
+	) -> Result<JsonLdProcessedContext<'_>, JsonLdLocatedError> {
 		let active_context = RawJsonLdProcessedContext::new(None);
 		self.process_with(
 			env,
 			base_url,
 			&active_context,
-			ContextProcessingOptions::default(),
+			JsonLdContextProcessingOptions::default(),
 			// No document URL available here; still need a `File` frame or the
 			// backtrace would be silently empty.
 			JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::original(None)),
@@ -110,12 +110,12 @@ impl JsonLdContext {
 	/// See: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 	pub async fn process_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		base_url: Option<&Iri>,
 		active_context: &RawJsonLdProcessedContext,
-		options: ContextProcessingOptions,
+		options: JsonLdContextProcessingOptions,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
+	) -> Result<JsonLdProcessedContext<'_>, JsonLdLocatedError> {
 		ContextProcessor {
 			options,
 			remote_contexts: ProcessingStack::new(),
@@ -124,14 +124,14 @@ impl JsonLdContext {
 		}
 		.process(&env, self, location)
 		.await
-		.map(|raw| ProcessedJsonLdContext::new(Cow::Borrowed(self), raw))
+		.map(|raw| JsonLdProcessedContext::new(Cow::Borrowed(self), raw))
 	}
 }
 
 impl<'a> ContextProcessor<'a> {
 	async fn process(
 		mut self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		local_context: &JsonLdContext,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<RawJsonLdProcessedContext, JsonLdLocatedError> {
@@ -235,7 +235,7 @@ impl<'a> ContextProcessor<'a> {
 						// Set result to the result of recursively calling this algorithm, passing result
 						// for active context, loaded context for local context, the documentUrl of context
 						// document for base URL, and a copy of remote contexts.
-						let new_options = ContextProcessingOptions {
+						let new_options = JsonLdContextProcessingOptions {
 							processing_mode: self.options.processing_mode,
 							override_protected: false,
 							propagate: true,

@@ -14,14 +14,17 @@ use builder::NodeMapBuilder;
 
 pub type NodeMapExtendError = Box<JsonLdLocated<ConflictingIndexes>>;
 
-pub type Parts = (NodeMapGraph, HashMap<JsonLdLenient<Id>, NodeMapGraph>);
+pub type Parts = (
+	JsonLdNodeMapGraph,
+	HashMap<JsonLdLenient<Id>, JsonLdNodeMapGraph>,
+);
 
 impl JsonLdExpandedDocument {
 	pub fn generate_node_map_with(
 		&self,
 		generator: impl Generator,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<NodeMap, NodeMapExtendError> {
+	) -> Result<JsonLdNodeMap, NodeMapExtendError> {
 		let mut builder = NodeMapBuilder::new(generator);
 
 		for (i, object) in self.iter().enumerate() {
@@ -35,16 +38,16 @@ impl JsonLdExpandedDocument {
 /// Node identifier to node definition map.
 #[derive(Educe)]
 #[educe(Default)]
-pub struct NodeMap {
-	graphs: HashMap<JsonLdLenient<Id>, NodeMapGraph>,
-	default_graph: NodeMapGraph,
+pub struct JsonLdNodeMap {
+	graphs: HashMap<JsonLdLenient<Id>, JsonLdNodeMapGraph>,
+	default_graph: JsonLdNodeMapGraph,
 }
 
-impl NodeMap {
+impl JsonLdNodeMap {
 	pub fn new() -> Self {
 		Self {
 			graphs: HashMap::new(),
-			default_graph: NodeMapGraph::new(),
+			default_graph: JsonLdNodeMapGraph::new(),
 		}
 	}
 
@@ -61,18 +64,18 @@ impl NodeMap {
 
 	pub fn iter_named(
 		&self,
-	) -> std::collections::hash_map::Iter<'_, JsonLdLenient<Id>, NodeMapGraph> {
+	) -> std::collections::hash_map::Iter<'_, JsonLdLenient<Id>, JsonLdNodeMapGraph> {
 		self.graphs.iter()
 	}
 
-	pub fn graph(&self, id: Option<&JsonLdLenient<Id>>) -> Option<&NodeMapGraph> {
+	pub fn graph(&self, id: Option<&JsonLdLenient<Id>>) -> Option<&JsonLdNodeMapGraph> {
 		match id {
 			Some(id) => self.graphs.get(id),
 			None => Some(&self.default_graph),
 		}
 	}
 
-	pub fn graph_mut(&mut self, id: Option<&JsonLdLenient<Id>>) -> Option<&mut NodeMapGraph> {
+	pub fn graph_mut(&mut self, id: Option<&JsonLdLenient<Id>>) -> Option<&mut JsonLdNodeMapGraph> {
 		match id {
 			Some(id) => self.graphs.get_mut(id),
 			None => Some(&mut self.default_graph),
@@ -81,14 +84,14 @@ impl NodeMap {
 
 	pub fn declare_graph(&mut self, id: JsonLdLenient<Id>) {
 		if let std::collections::hash_map::Entry::Vacant(entry) = self.graphs.entry(id) {
-			entry.insert(NodeMapGraph::new());
+			entry.insert(JsonLdNodeMapGraph::new());
 		}
 	}
 
 	/// Merge all the graphs into a single `NodeMapGraph`.
 	///
 	/// The order in which graphs are merged is not defined.
-	pub fn merge(self) -> NodeMapGraph {
+	pub fn merge(self) -> JsonLdNodeMapGraph {
 		let mut result = self.default_graph;
 
 		for (_, graph) in self.graphs {
@@ -157,12 +160,12 @@ impl NodeMap {
 }
 
 pub struct Iter<'a> {
-	default_graph: Option<&'a NodeMapGraph>,
-	graphs: std::collections::hash_map::Iter<'a, JsonLdLenient<Id>, NodeMapGraph>,
+	default_graph: Option<&'a JsonLdNodeMapGraph>,
+	graphs: std::collections::hash_map::Iter<'a, JsonLdLenient<Id>, JsonLdNodeMapGraph>,
 }
 
 impl<'a> Iterator for Iter<'a> {
-	type Item = (Option<&'a JsonLdLenient<Id>>, &'a NodeMapGraph);
+	type Item = (Option<&'a JsonLdLenient<Id>>, &'a JsonLdNodeMapGraph);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
@@ -172,8 +175,8 @@ impl<'a> Iterator for Iter<'a> {
 	}
 }
 
-impl<'a> IntoIterator for &'a NodeMap {
-	type Item = (Option<&'a JsonLdLenient<Id>>, &'a NodeMapGraph);
+impl<'a> IntoIterator for &'a JsonLdNodeMap {
+	type Item = (Option<&'a JsonLdLenient<Id>>, &'a JsonLdNodeMapGraph);
 	type IntoIter = Iter<'a>;
 
 	fn into_iter(self) -> Self::IntoIter {
@@ -182,12 +185,12 @@ impl<'a> IntoIterator for &'a NodeMap {
 }
 
 pub struct IntoIter {
-	default_graph: Option<NodeMapGraph>,
-	graphs: std::collections::hash_map::IntoIter<JsonLdLenient<Id>, NodeMapGraph>,
+	default_graph: Option<JsonLdNodeMapGraph>,
+	graphs: std::collections::hash_map::IntoIter<JsonLdLenient<Id>, JsonLdNodeMapGraph>,
 }
 
 impl Iterator for IntoIter {
-	type Item = (Option<JsonLdLenient<Id>>, NodeMapGraph);
+	type Item = (Option<JsonLdLenient<Id>>, JsonLdNodeMapGraph);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.default_graph.take() {
@@ -197,8 +200,8 @@ impl Iterator for IntoIter {
 	}
 }
 
-impl IntoIterator for NodeMap {
-	type Item = (Option<JsonLdLenient<Id>>, NodeMapGraph);
+impl IntoIterator for JsonLdNodeMap {
+	type Item = (Option<JsonLdLenient<Id>>, JsonLdNodeMapGraph);
 	type IntoIter = IntoIter;
 
 	fn into_iter(self) -> Self::IntoIter {
@@ -211,13 +214,13 @@ impl IntoIterator for NodeMap {
 
 /// Entry in a [`NodeMapGraph`], pairing an indexed node with the optional
 /// source location of its `@index` value.
-pub struct NodeMapGraphEntry {
+pub struct JsonLdNodeMapGraphEntry {
 	pub node: JsonLdIndexedNode,
 	/// Location of the `@index` value that was declared for this node, if known.
 	pub index_location: Option<JsonBacktraceBuf<JsonLdSourceFile>>,
 }
 
-impl NodeMapGraphEntry {
+impl JsonLdNodeMapGraphEntry {
 	fn new(node: JsonLdIndexedNode) -> Self {
 		Self {
 			node,
@@ -226,14 +229,14 @@ impl NodeMapGraphEntry {
 	}
 }
 
-impl std::ops::Deref for NodeMapGraphEntry {
+impl std::ops::Deref for JsonLdNodeMapGraphEntry {
 	type Target = JsonLdIndexedNode;
 	fn deref(&self) -> &Self::Target {
 		&self.node
 	}
 }
 
-impl std::ops::DerefMut for NodeMapGraphEntry {
+impl std::ops::DerefMut for JsonLdNodeMapGraphEntry {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.node
 	}
@@ -241,11 +244,11 @@ impl std::ops::DerefMut for NodeMapGraphEntry {
 
 #[derive(Educe)]
 #[educe(Default)]
-pub struct NodeMapGraph {
-	nodes: HashMap<JsonLdLenient<Id>, NodeMapGraphEntry>,
+pub struct JsonLdNodeMapGraph {
+	nodes: HashMap<JsonLdLenient<Id>, JsonLdNodeMapGraphEntry>,
 }
 
-impl NodeMapGraph {
+impl JsonLdNodeMapGraph {
 	pub fn new() -> Self {
 		Self {
 			nodes: HashMap::new(),
@@ -253,18 +256,18 @@ impl NodeMapGraph {
 	}
 }
 
-pub type DeclareNodeResult<'a> = Result<&'a mut NodeMapGraphEntry, NodeMapExtendError>;
+pub type DeclareNodeResult<'a> = Result<&'a mut JsonLdNodeMapGraphEntry, NodeMapExtendError>;
 
-impl NodeMapGraph {
+impl JsonLdNodeMapGraph {
 	pub fn contains(&self, id: &JsonLdLenient<Id>) -> bool {
 		self.nodes.contains_key(id)
 	}
 
-	pub fn get(&self, id: &JsonLdLenient<Id>) -> Option<&NodeMapGraphEntry> {
+	pub fn get(&self, id: &JsonLdLenient<Id>) -> Option<&JsonLdNodeMapGraphEntry> {
 		self.nodes.get(id)
 	}
 
-	pub fn get_mut(&mut self, id: &JsonLdLenient<Id>) -> Option<&mut NodeMapGraphEntry> {
+	pub fn get_mut(&mut self, id: &JsonLdLenient<Id>) -> Option<&mut JsonLdNodeMapGraphEntry> {
 		self.nodes.get_mut(id)
 	}
 
@@ -308,7 +311,7 @@ impl NodeMapGraph {
 			};
 			self.nodes.insert(
 				id.clone(),
-				NodeMapGraphEntry {
+				JsonLdNodeMapGraphEntry {
 					node: JsonLdIndexed::new(JsonLdNode::new_with_id(Some(id.clone())), index_str),
 					index_location,
 				},
@@ -346,7 +349,7 @@ impl NodeMapGraph {
 			} else {
 				self.nodes.insert(
 					id.clone(),
-					NodeMapGraphEntry::new(JsonLdIndexed::new(
+					JsonLdNodeMapGraphEntry::new(JsonLdIndexed::new(
 						JsonLdNode::new_with_id(Some(id.clone())),
 						index,
 					)),
@@ -381,29 +384,31 @@ impl NodeMapGraph {
 }
 
 pub type NodeMapGraphNodes<'a> =
-	std::collections::hash_map::Values<'a, JsonLdLenient<Id>, NodeMapGraphEntry>;
+	std::collections::hash_map::Values<'a, JsonLdLenient<Id>, JsonLdNodeMapGraphEntry>;
 pub type IntoNodeMapGraphNodes =
-	std::collections::hash_map::IntoValues<JsonLdLenient<Id>, NodeMapGraphEntry>;
+	std::collections::hash_map::IntoValues<JsonLdLenient<Id>, JsonLdNodeMapGraphEntry>;
 
-impl IntoIterator for NodeMapGraph {
-	type Item = (JsonLdLenient<Id>, NodeMapGraphEntry);
-	type IntoIter = std::collections::hash_map::IntoIter<JsonLdLenient<Id>, NodeMapGraphEntry>;
+impl IntoIterator for JsonLdNodeMapGraph {
+	type Item = (JsonLdLenient<Id>, JsonLdNodeMapGraphEntry);
+	type IntoIter =
+		std::collections::hash_map::IntoIter<JsonLdLenient<Id>, JsonLdNodeMapGraphEntry>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.into_iter()
 	}
 }
 
-impl<'a> IntoIterator for &'a NodeMapGraph {
-	type Item = (&'a JsonLdLenient<Id>, &'a NodeMapGraphEntry);
-	type IntoIter = std::collections::hash_map::Iter<'a, JsonLdLenient<Id>, NodeMapGraphEntry>;
+impl<'a> IntoIterator for &'a JsonLdNodeMapGraph {
+	type Item = (&'a JsonLdLenient<Id>, &'a JsonLdNodeMapGraphEntry);
+	type IntoIter =
+		std::collections::hash_map::Iter<'a, JsonLdLenient<Id>, JsonLdNodeMapGraphEntry>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.nodes.iter()
 	}
 }
 
-fn filter_graph(entry: NodeMapGraphEntry) -> Option<JsonLdIndexedNode> {
+fn filter_graph(entry: JsonLdNodeMapGraphEntry) -> Option<JsonLdIndexedNode> {
 	if entry.index().is_none() && entry.is_empty() {
 		None
 	} else {
@@ -411,7 +416,7 @@ fn filter_graph(entry: NodeMapGraphEntry) -> Option<JsonLdIndexedNode> {
 	}
 }
 
-fn filter_sub_graph(mut entry: NodeMapGraphEntry) -> Option<JsonLdIndexedObject> {
+fn filter_sub_graph(mut entry: JsonLdNodeMapGraphEntry) -> Option<JsonLdIndexedObject> {
 	if entry.index().is_none() && entry.properties().is_empty() {
 		None
 	} else {

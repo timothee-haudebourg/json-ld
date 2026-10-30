@@ -7,9 +7,9 @@ use crate::{
 	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdNode, JsonLdProcessingMode,
 	JsonLdTerm, JsonLdType,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
+		AsyncJsonLdEnvironment, AsyncProcessingEnvironmentRef,
 		compaction::{Compactor, object::value::add_value},
-		context_processing::ContextProcessingOptions,
+		context_processing::JsonLdContextProcessingOptions,
 	},
 	context::JsonLdContainer,
 	syntax::{JsonLdContainerItem, JsonLdKeyword},
@@ -26,7 +26,7 @@ impl Compactor<'_> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn compact_indexed_node_with(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		node: &JsonLdNode,
 		index: Option<&str>,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -60,7 +60,7 @@ impl Compactor<'_> {
 						AsyncProcessingEnvironmentRef(env),
 						active_property_definition.base_url(),
 						active_context.as_ref(),
-						ContextProcessingOptions::from(self.options).with_override(),
+						JsonLdContextProcessingOptions::from(self.options).with_override(),
 						scoped_context_loc,
 					)
 					.await?
@@ -101,7 +101,7 @@ impl Compactor<'_> {
 					&& let Some(local_context) = term_definition.context()
 				{
 					let processing_options =
-						ContextProcessingOptions::from(self.options).without_propagation();
+						JsonLdContextProcessingOptions::from(self.options).without_propagation();
 					let def_loc =
 						type_loc.push_backtrace(term_definition.location().unwrap_or_default());
 					let scoped_context_loc = def_loc.object_value(JsonLdKeyword::Context);
@@ -220,7 +220,7 @@ impl Compactor<'_> {
 							AsyncProcessingEnvironmentRef(env),
 							active_property_definition.base_url(),
 							active_context.as_ref(),
-							ContextProcessingOptions::from(self.options).with_override(),
+							JsonLdContextProcessingOptions::from(self.options).with_override(),
 							scoped_context_loc,
 						)
 						.await?

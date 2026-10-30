@@ -5,7 +5,7 @@ use std::{hash::Hash, str::FromStr};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct JsonLdContextType {
 	#[cfg_attr(feature = "serde", serde(rename = "@container"))]
-	pub container: ContextTypeContainer,
+	pub container: JsonLdContextTypeContainer,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -19,21 +19,21 @@ pub struct JsonLdContextType {
 }
 
 impl JsonLdContextType {
-	pub fn iter(&self) -> ContextTypeEntries {
-		ContextTypeEntries {
+	pub fn iter(&self) -> JsonLdContextTypeEntries {
+		JsonLdContextTypeEntries {
 			container: Some(self.container),
 			protected: self.protected,
 		}
 	}
 }
 
-pub struct ContextTypeEntries {
-	container: Option<ContextTypeContainer>,
+pub struct JsonLdContextTypeEntries {
+	container: Option<JsonLdContextTypeContainer>,
 	protected: Option<bool>,
 }
 
-impl Iterator for ContextTypeEntries {
-	type Item = ContextTypeEntry;
+impl Iterator for JsonLdContextTypeEntries {
+	type Item = JsonLdContextTypeEntry;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = 0;
@@ -51,34 +51,34 @@ impl Iterator for ContextTypeEntries {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.container.take() {
-			Some(c) => Some(ContextTypeEntry::Container(c)),
-			None => self.protected.take().map(ContextTypeEntry::Protected),
+			Some(c) => Some(JsonLdContextTypeEntry::Container(c)),
+			None => self.protected.take().map(JsonLdContextTypeEntry::Protected),
 		}
 	}
 }
 
-impl ExactSizeIterator for ContextTypeEntries {}
+impl ExactSizeIterator for JsonLdContextTypeEntries {}
 
-pub enum ContextTypeEntry {
-	Container(ContextTypeContainer),
+pub enum JsonLdContextTypeEntry {
+	Container(JsonLdContextTypeContainer),
 	Protected(bool),
 }
 
-impl ContextTypeEntry {
-	pub fn key(&self) -> ContextTypeKey {
+impl JsonLdContextTypeEntry {
+	pub fn key(&self) -> JsonLdContextTypeKey {
 		match self {
-			Self::Container(_) => ContextTypeKey::Container,
-			Self::Protected(_) => ContextTypeKey::Protected,
+			Self::Container(_) => JsonLdContextTypeKey::Container,
+			Self::Protected(_) => JsonLdContextTypeKey::Protected,
 		}
 	}
 }
 
-pub enum ContextTypeKey {
+pub enum JsonLdContextTypeKey {
 	Container,
 	Protected,
 }
 
-impl ContextTypeKey {
+impl JsonLdContextTypeKey {
 	pub fn as_str(&self) -> &'static str {
 		match self {
 			Self::Container => "@container",
@@ -89,14 +89,14 @@ impl ContextTypeKey {
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid JSON-LD `@type` container `{0}`")]
-pub struct InvalidTypeContainer<T = String>(pub T);
+pub struct InvalidJsonLdTypeContainer<T = String>(pub T);
 
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
-pub enum ContextTypeContainer {
+pub enum JsonLdContextTypeContainer {
 	Set,
 }
 
-impl ContextTypeContainer {
+impl JsonLdContextTypeContainer {
 	pub fn as_str(&self) -> &'static str {
 		match self {
 			Self::Set => "@set",
@@ -108,33 +108,33 @@ impl ContextTypeContainer {
 	}
 }
 
-impl PartialEq for ContextTypeContainer {
+impl PartialEq for JsonLdContextTypeContainer {
 	fn eq(&self, _other: &Self) -> bool {
 		true
 	}
 }
 
-impl Eq for ContextTypeContainer {}
+impl Eq for JsonLdContextTypeContainer {}
 
-impl Hash for ContextTypeContainer {
+impl Hash for JsonLdContextTypeContainer {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.into_str().hash(state)
 	}
 }
 
-impl FromStr for ContextTypeContainer {
-	type Err = InvalidTypeContainer;
+impl FromStr for JsonLdContextTypeContainer {
+	type Err = InvalidJsonLdTypeContainer;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s {
 			"@set" => Ok(Self::Set),
-			other => Err(InvalidTypeContainer(other.to_owned())),
+			other => Err(InvalidJsonLdTypeContainer(other.to_owned())),
 		}
 	}
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for ContextTypeContainer {
+impl serde::Serialize for JsonLdContextTypeContainer {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: serde::Serializer,
@@ -144,7 +144,7 @@ impl serde::Serialize for ContextTypeContainer {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for ContextTypeContainer {
+impl<'de> serde::Deserialize<'de> for JsonLdContextTypeContainer {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: serde::Deserializer<'de>,
@@ -152,7 +152,7 @@ impl<'de> serde::Deserialize<'de> for ContextTypeContainer {
 		struct Visitor;
 
 		impl<'de> serde::de::Visitor<'de> for Visitor {
-			type Value = ContextTypeContainer;
+			type Value = JsonLdContextTypeContainer;
 
 			fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
 				formatter.write_str("JSON-LD type container")

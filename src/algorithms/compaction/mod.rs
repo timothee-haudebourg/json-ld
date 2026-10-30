@@ -11,8 +11,8 @@ use json_syntax::{JsonObject, JsonValue};
 pub use options::*;
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdIndexed, JsonLdLocatedError, JsonLdTerm, ProcessedJsonLdContext,
-	algorithms::AsyncProcessingEnvironment,
+	JsonLdBacktraceBuilder, JsonLdIndexed, JsonLdLocatedError, JsonLdProcessedContext, JsonLdTerm,
+	algorithms::AsyncJsonLdEnvironment,
 	context::{
 		RawJsonLdProcessedContext,
 		inverse::{JsonLdLangSelection, JsonLdTypeSelection},
@@ -26,8 +26,8 @@ pub trait JsonLdCompact {
 	#[allow(async_fn_in_trait)]
 	async fn compact_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedJsonLdContext<'_>,
+		env: impl AsyncJsonLdEnvironment,
+		context: &JsonLdProcessedContext<'_>,
 		options: JsonLdCompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
@@ -36,8 +36,8 @@ pub trait JsonLdCompact {
 	#[allow(async_fn_in_trait)]
 	async fn compact(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedJsonLdContext<'_>,
+		env: impl AsyncJsonLdEnvironment,
+		context: &JsonLdProcessedContext<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.compact_with(env, context, JsonLdCompactionOptions::default(), location)
@@ -48,8 +48,8 @@ pub trait JsonLdCompact {
 impl<T: JsonLdCompact> JsonLdCompact for std::sync::Arc<T> {
 	async fn compact_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedJsonLdContext<'_>,
+		env: impl AsyncJsonLdEnvironment,
+		context: &JsonLdProcessedContext<'_>,
 		options: JsonLdCompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -58,8 +58,8 @@ impl<T: JsonLdCompact> JsonLdCompact for std::sync::Arc<T> {
 
 	async fn compact(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedJsonLdContext<'_>,
+		env: impl AsyncJsonLdEnvironment,
+		context: &JsonLdProcessedContext<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		T::compact(self, env, context, location).await
@@ -155,7 +155,7 @@ trait CompactFragment {
 	#[allow(async_fn_in_trait)]
 	async fn compact_fragment(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		compactor: &Compactor,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
@@ -172,7 +172,7 @@ trait CompactIndexedFragment {
 	#[allow(clippy::too_many_arguments)]
 	async fn compact_indexed_fragment(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -182,7 +182,7 @@ trait CompactIndexedFragment {
 impl<T: CompactIndexedFragment> CompactFragment for JsonLdIndexed<T> {
 	async fn compact_fragment(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		compactor: &Compactor<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {

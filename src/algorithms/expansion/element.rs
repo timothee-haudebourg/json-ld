@@ -9,8 +9,8 @@ use crate::{
 	JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexed, JsonLdLenient, JsonLdLocatedError,
 	JsonLdNullable, JsonLdObject, JsonLdTerm, JsonLdWarning,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
-		context_processing::ContextProcessingOptions,
+		AsyncJsonLdEnvironment, AsyncProcessingEnvironmentRef,
+		context_processing::JsonLdContextProcessingOptions,
 	},
 	object::JsonLdList,
 	syntax::{JsonLdContext, JsonLdKeyword},
@@ -39,7 +39,7 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn expand_element(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		element: &JsonValue,
 		from_map: bool,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -117,7 +117,7 @@ impl<'a> Expander<'a> {
 				// definition for `active_property`, in `active_context` and `true` for
 				// `override_protected`.
 				if let Some(property_scoped_context) = property_scoped_context {
-					let options: ContextProcessingOptions = self.options.into();
+					let options: JsonLdContextProcessingOptions = self.options.into();
 					active_context = Mown::Owned(
 						property_scoped_context
 							.process_with(
@@ -208,7 +208,7 @@ impl<'a> Expander<'a> {
 							// Context Processing algorithm, passing `active_context`, the value of the
 							// `term`'s local context as `local_context`, `base_url` from the term
 							// definition for value in `active_context`, and `false` for `propagate`.
-							let options: ContextProcessingOptions = self.options.into();
+							let options: JsonLdContextProcessingOptions = self.options.into();
 							active_context = Mown::Owned(
 								local_context
 									.process_with(

@@ -7,17 +7,17 @@ use crate::{
 	JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdNullable,
 	JsonLdProcessingMode, JsonLdTerm, JsonLdType, JsonLdWarning,
 	algorithms::{
-		AsyncProcessingEnvironment,
+		AsyncJsonLdEnvironment,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 	},
 	context::JsonLdContainer,
-	context::{JsonLdNormalTermDefinition, JsonLdTypeTermDefinition},
+	context::{JsonLdProcessedNormalTermDefinition, JsonLdProcessedTypeTermDefinition},
 	syntax::{
 		JsonLdCompactIri, JsonLdContainerItem, JsonLdContainerValue, JsonLdExpandableRef,
 		JsonLdKeyword,
 		context::{
-			ExpandedTermDefinitionRef, IdRef, JsonLdContextEntryValueRef, JsonLdKeyOrKeyword,
-			JsonLdKeyOrKeywordRef,
+			JsonLdContextEntryValueRef, JsonLdExpandedTermDefinitionRef, JsonLdIdRef,
+			JsonLdKeyOrKeyword, JsonLdKeyOrKeywordRef,
 		},
 	},
 };
@@ -102,7 +102,7 @@ impl<'a> ContextProcessor<'a> {
 	/// (`term_loc`), rather than receiving it pre-narrowed by the caller.
 	pub async fn define(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
 		term: JsonLdKeyOrKeywordRef<'_>,
@@ -141,7 +141,7 @@ impl<'a> ContextProcessor<'a> {
 						// Any other value means that a keyword redefinition error has been detected
 						// and processing is aborted.
 						// Checked during parsing.
-						let mut definition = JsonLdTypeTermDefinition {
+						let mut definition = JsonLdProcessedTypeTermDefinition {
 							container: d.container,
 							..Default::default()
 						};
@@ -182,11 +182,11 @@ impl<'a> ContextProcessor<'a> {
 						let previous_definition = result.value.set_normal(key.clone(), None);
 
 						let simple_term = !d.map(|d| d.is_expanded()).unwrap_or(false);
-						let value = ExpandedTermDefinitionRef::from(d);
+						let value = JsonLdExpandedTermDefinitionRef::from(d);
 
 						// Create a new term definition, `definition`, initializing `prefix` flag to
 						// `false`, `protected` to `protected`, and `reverse_property` to `false`.
-						let mut definition = JsonLdNormalTermDefinition {
+						let mut definition = JsonLdProcessedNormalTermDefinition {
 							protected,
 							location: term_loc.build(),
 							..Default::default()
@@ -401,7 +401,9 @@ impl<'a> ContextProcessor<'a> {
 									}
 								}
 							}
-							Some(JsonLdNullable::Some(IdRef::Keyword(JsonLdKeyword::Type))) => {
+							Some(JsonLdNullable::Some(JsonLdIdRef::Keyword(
+								JsonLdKeyword::Type,
+							))) => {
 								// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
 								// `@type`.
 								definition.value = Some(JsonLdTerm::Keyword(JsonLdKeyword::Type))

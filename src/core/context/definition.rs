@@ -7,7 +7,8 @@ use crate::{
 	syntax::{
 		JsonLdContext, JsonLdKeywordType,
 		context::{
-			ContextTypeContainer, JsonLdContextTerm, JsonLdContextType, JsonLdIndex, JsonLdNest,
+			JsonLdContextTerm, JsonLdContextType, JsonLdContextTypeContainer, JsonLdIndex,
+			JsonLdNest,
 		},
 	},
 };
@@ -20,19 +21,22 @@ use std::{borrow::Borrow, fmt};
 /// Term binding.
 pub enum JsonLdBinding {
 	/// Normal term definition.
-	Normal(JsonLdContextTerm, Box<JsonLdNormalTermDefinition>),
+	Normal(JsonLdContextTerm, Box<JsonLdProcessedNormalTermDefinition>),
 
 	/// `@type` term definition.
-	Type(JsonLdTypeTermDefinition),
+	Type(JsonLdProcessedTypeTermDefinition),
 }
 
 /// Term binding reference.
 pub enum JsonLdBindingRef<'a> {
 	/// Normal term definition.
-	Normal(&'a JsonLdContextTerm, &'a JsonLdNormalTermDefinition),
+	Normal(
+		&'a JsonLdContextTerm,
+		&'a JsonLdProcessedNormalTermDefinition,
+	),
 
 	/// `@type` term definition.
-	Type(&'a JsonLdTypeTermDefinition),
+	Type(&'a JsonLdProcessedTypeTermDefinition),
 }
 
 pub enum JsonLdBindingTerm<'a> {
@@ -65,10 +69,10 @@ impl<'a> JsonLdBindingRef<'a> {
 	}
 
 	/// Returns a reference to the bound term definition.
-	pub fn definition(&self) -> JsonLdTermDefinitionRef<'a> {
+	pub fn definition(&self) -> JsonLdProcessedTermDefinitionRef<'a> {
 		match self {
-			Self::Normal(_, d) => JsonLdTermDefinitionRef::Normal(d),
-			Self::Type(d) => JsonLdTermDefinitionRef::Type(d),
+			Self::Normal(_, d) => JsonLdProcessedTermDefinitionRef::Normal(d),
+			Self::Type(d) => JsonLdProcessedTermDefinitionRef::Type(d),
 		}
 	}
 }
@@ -76,8 +80,8 @@ impl<'a> JsonLdBindingRef<'a> {
 /// Context term definitions.
 #[derive(Clone, Default)]
 pub struct JsonLdDefinitions {
-	normal: HashMap<JsonLdContextTerm, JsonLdNormalTermDefinition>,
-	type_: Option<JsonLdTypeTermDefinition>,
+	normal: HashMap<JsonLdContextTerm, JsonLdProcessedNormalTermDefinition>,
+	type_: Option<JsonLdProcessedTypeTermDefinition>,
 }
 
 impl JsonLdDefinitions {
@@ -85,8 +89,8 @@ impl JsonLdDefinitions {
 	pub fn into_parts(
 		self,
 	) -> (
-		HashMap<JsonLdContextTerm, JsonLdNormalTermDefinition>,
-		Option<JsonLdTypeTermDefinition>,
+		HashMap<JsonLdContextTerm, JsonLdProcessedNormalTermDefinition>,
+		Option<JsonLdProcessedTypeTermDefinition>,
 	) {
 		(self.normal, self.type_)
 	}
@@ -106,21 +110,25 @@ impl JsonLdDefinitions {
 	}
 
 	/// Returns a reference to the definition of the given `term`, if any.
-	pub fn get<Q>(&self, term: &Q) -> Option<JsonLdTermDefinitionRef<'_>>
+	pub fn get<Q>(&self, term: &Q) -> Option<JsonLdProcessedTermDefinitionRef<'_>>
 	where
 		Q: ?Sized + Hash + Eq,
 		JsonLdContextTerm: Borrow<Q>,
 		JsonLdKeywordType: Borrow<Q>,
 	{
 		if JsonLdKeywordType.borrow() == term {
-			self.type_.as_ref().map(JsonLdTermDefinitionRef::Type)
+			self.type_
+				.as_ref()
+				.map(JsonLdProcessedTermDefinitionRef::Type)
 		} else {
-			self.normal.get(term).map(JsonLdTermDefinitionRef::Normal)
+			self.normal
+				.get(term)
+				.map(JsonLdProcessedTermDefinitionRef::Normal)
 		}
 	}
 
 	/// Returns a reference to the normal definition of the given `term`, if any.
-	pub fn get_normal<Q>(&self, term: &Q) -> Option<&JsonLdNormalTermDefinition>
+	pub fn get_normal<Q>(&self, term: &Q) -> Option<&JsonLdProcessedNormalTermDefinition>
 	where
 		Q: ?Sized + Hash + Eq,
 		JsonLdContextTerm: Borrow<Q>,
@@ -129,7 +137,7 @@ impl JsonLdDefinitions {
 	}
 
 	/// Returns a reference to the `@type` definition, if any.
-	pub fn get_type(&self) -> Option<&JsonLdTypeTermDefinition> {
+	pub fn get_type(&self) -> Option<&JsonLdProcessedTypeTermDefinition> {
 		self.type_.as_ref()
 	}
 
@@ -147,14 +155,14 @@ impl JsonLdDefinitions {
 	}
 
 	/// Inserts the given `binding`.
-	pub fn insert(&mut self, binding: JsonLdBinding) -> Option<JsonLdTermDefinition> {
+	pub fn insert(&mut self, binding: JsonLdBinding) -> Option<JsonLdProcessedTermDefinition> {
 		match binding {
 			JsonLdBinding::Normal(key, definition) => self
 				.insert_normal(key, *definition)
-				.map(JsonLdTermDefinition::Normal),
-			JsonLdBinding::Type(definition) => {
-				self.insert_type(definition).map(JsonLdTermDefinition::Type)
-			}
+				.map(JsonLdProcessedTermDefinition::Normal),
+			JsonLdBinding::Type(definition) => self
+				.insert_type(definition)
+				.map(JsonLdProcessedTermDefinition::Type),
 		}
 	}
 
@@ -162,16 +170,16 @@ impl JsonLdDefinitions {
 	pub fn insert_normal(
 		&mut self,
 		term: JsonLdContextTerm,
-		definition: JsonLdNormalTermDefinition,
-	) -> Option<JsonLdNormalTermDefinition> {
+		definition: JsonLdProcessedNormalTermDefinition,
+	) -> Option<JsonLdProcessedNormalTermDefinition> {
 		self.normal.insert(term, definition)
 	}
 
 	/// Inserts the given `@type` definition.
 	pub fn insert_type(
 		&mut self,
-		definition: JsonLdTypeTermDefinition,
-	) -> Option<JsonLdTypeTermDefinition> {
+		definition: JsonLdProcessedTypeTermDefinition,
+	) -> Option<JsonLdProcessedTypeTermDefinition> {
 		self.type_.replace(definition)
 	}
 
@@ -179,8 +187,8 @@ impl JsonLdDefinitions {
 	pub fn set_normal(
 		&mut self,
 		term: JsonLdContextTerm,
-		definition: Option<JsonLdNormalTermDefinition>,
-	) -> Option<JsonLdNormalTermDefinition> {
+		definition: Option<JsonLdProcessedNormalTermDefinition>,
+	) -> Option<JsonLdProcessedNormalTermDefinition> {
 		match definition {
 			Some(d) => self.normal.insert(term, d),
 			None => self.normal.remove(&term),
@@ -190,8 +198,8 @@ impl JsonLdDefinitions {
 	/// Sets the given `@type` definition.
 	pub fn set_type(
 		&mut self,
-		definition: Option<JsonLdTypeTermDefinition>,
-	) -> Option<JsonLdTypeTermDefinition> {
+		definition: Option<JsonLdProcessedTypeTermDefinition>,
+	) -> Option<JsonLdProcessedTypeTermDefinition> {
 		std::mem::replace(&mut self.type_, definition)
 	}
 
@@ -202,26 +210,15 @@ impl JsonLdDefinitions {
 			normal: self.normal.iter(),
 		}
 	}
-
-	// pub fn map_ids(
-	// 	self,
-	// 	mut map_iri: impl FnMut(IriBuf) -> IriBuf,
-	// 	mut map_id: impl FnMut(Id) -> Id,
-	// ) -> Definitions {
-	// 	Definitions {
-	// 		normal: self
-	// 			.normal
-	// 			.into_iter()
-	// 			.map(|(key, d)| (key, d.map_ids(&mut map_iri, &mut map_id)))
-	// 			.collect(),
-	// 		type_: self.type_,
-	// 	}
-	// }
 }
 
 pub struct JsonLdDefinitionsIter<'a> {
-	type_: Option<&'a JsonLdTypeTermDefinition>,
-	normal: std::collections::hash_map::Iter<'a, JsonLdContextTerm, JsonLdNormalTermDefinition>,
+	type_: Option<&'a JsonLdProcessedTypeTermDefinition>,
+	normal: std::collections::hash_map::Iter<
+		'a,
+		JsonLdContextTerm,
+		JsonLdProcessedNormalTermDefinition,
+	>,
 }
 
 impl<'a> Iterator for JsonLdDefinitionsIter<'a> {
@@ -246,8 +243,11 @@ impl<'a> IntoIterator for &'a JsonLdDefinitions {
 }
 
 pub struct JsonLdDefinitionsIntoIter {
-	type_: Option<JsonLdTypeTermDefinition>,
-	normal: std::collections::hash_map::IntoIter<JsonLdContextTerm, JsonLdNormalTermDefinition>,
+	type_: Option<JsonLdProcessedTypeTermDefinition>,
+	normal: std::collections::hash_map::IntoIter<
+		JsonLdContextTerm,
+		JsonLdProcessedNormalTermDefinition,
+	>,
 }
 
 impl Iterator for JsonLdDefinitionsIntoIter {
@@ -279,24 +279,24 @@ impl IntoIterator for JsonLdDefinitions {
 /// Such definition compared to a [`NormalTermDefinition`] can only contain
 /// a `@container` and `@protected` value.
 #[derive(PartialEq, Eq, Clone)]
-pub struct JsonLdTypeTermDefinition {
+pub struct JsonLdProcessedTypeTermDefinition {
 	/// Type container.
-	pub container: ContextTypeContainer,
+	pub container: JsonLdContextTypeContainer,
 
 	/// Protection flag.
 	pub protected: bool,
 }
 
-impl Default for JsonLdTypeTermDefinition {
+impl Default for JsonLdProcessedTypeTermDefinition {
 	fn default() -> Self {
 		Self {
-			container: ContextTypeContainer::Set,
+			container: JsonLdContextTypeContainer::Set,
 			protected: false,
 		}
 	}
 }
 
-impl JsonLdTypeTermDefinition {
+impl JsonLdProcessedTypeTermDefinition {
 	pub fn modulo_protected_field(&self) -> JsonLdModuloProtected<&Self> {
 		JsonLdModuloProtected(self)
 	}
@@ -311,23 +311,25 @@ impl JsonLdTypeTermDefinition {
 
 /// Term definition.
 #[derive(PartialEq, Eq, Clone)]
-pub enum JsonLdTermDefinition {
+pub enum JsonLdProcessedTermDefinition {
 	/// `@type` term definition.
-	Type(JsonLdTypeTermDefinition),
+	Type(JsonLdProcessedTypeTermDefinition),
 
 	/// Normal term definition.
-	Normal(JsonLdNormalTermDefinition),
+	Normal(JsonLdProcessedNormalTermDefinition),
 }
 
-impl JsonLdTermDefinition {
-	pub fn as_ref(&self) -> JsonLdTermDefinitionRef<'_> {
+impl JsonLdProcessedTermDefinition {
+	pub fn as_ref(&self) -> JsonLdProcessedTermDefinitionRef<'_> {
 		match self {
-			Self::Type(t) => JsonLdTermDefinitionRef::Type(t),
-			Self::Normal(n) => JsonLdTermDefinitionRef::Normal(n),
+			Self::Type(t) => JsonLdProcessedTermDefinitionRef::Type(t),
+			Self::Normal(n) => JsonLdProcessedTermDefinitionRef::Normal(n),
 		}
 	}
 
-	pub fn modulo_protected_field(&self) -> JsonLdModuloProtected<JsonLdTermDefinitionRef<'_>> {
+	pub fn modulo_protected_field(
+		&self,
+	) -> JsonLdModuloProtected<JsonLdProcessedTermDefinitionRef<'_>> {
 		JsonLdModuloProtected(self.as_ref())
 	}
 
@@ -418,15 +420,15 @@ impl JsonLdTermDefinition {
 
 /// Term definition reference.
 #[derive(PartialEq, Eq)]
-pub enum JsonLdTermDefinitionRef<'a> {
+pub enum JsonLdProcessedTermDefinitionRef<'a> {
 	/// `@type` definition.
-	Type(&'a JsonLdTypeTermDefinition),
+	Type(&'a JsonLdProcessedTypeTermDefinition),
 
 	/// Normal definition.
-	Normal(&'a JsonLdNormalTermDefinition),
+	Normal(&'a JsonLdProcessedNormalTermDefinition),
 }
 
-impl<'a> JsonLdTermDefinitionRef<'a> {
+impl<'a> JsonLdProcessedTermDefinitionRef<'a> {
 	pub fn modulo_protected_field(&self) -> JsonLdModuloProtected<Self> {
 		JsonLdModuloProtected(*self)
 	}
@@ -525,17 +527,17 @@ impl<'a> JsonLdTermDefinitionRef<'a> {
 	}
 }
 
-impl<'a> Clone for JsonLdTermDefinitionRef<'a> {
+impl<'a> Clone for JsonLdProcessedTermDefinitionRef<'a> {
 	fn clone(&self) -> Self {
 		*self
 	}
 }
 
-impl<'a> Copy for JsonLdTermDefinitionRef<'a> {}
+impl<'a> Copy for JsonLdProcessedTermDefinitionRef<'a> {}
 
 // A term definition.
 #[derive(PartialEq, Eq, Clone, Default)]
-pub struct JsonLdNormalTermDefinition {
+pub struct JsonLdProcessedNormalTermDefinition {
 	/// Location of the term definition.
 	pub location: JsonLdBacktraceBuf,
 
@@ -576,7 +578,7 @@ pub struct JsonLdNormalTermDefinition {
 	pub typ: Option<JsonLdType>,
 }
 
-impl JsonLdNormalTermDefinition {
+impl JsonLdProcessedNormalTermDefinition {
 	pub fn modulo_protected_field(&self) -> JsonLdModuloProtected<&Self> {
 		JsonLdModuloProtected(self)
 	}
@@ -584,83 +586,15 @@ impl JsonLdNormalTermDefinition {
 	pub fn base_url(&self) -> Option<&IriBuf> {
 		self.base_url.as_ref()
 	}
-
-	// pub fn into_syntax_definition(
-	// 	self,
-	// 	vocabulary: &impl Vocabulary<Iri = IriBuf, BlankId = BlankIdBuf>,
-	// ) -> Nullable<json_ld_syntax::context::TermDefinition> {
-	// 	use json_ld_syntax::context::term_definition::{Id, Type as SyntaxType, TypeKeyword};
-
-	// 	fn term_into_id(
-	// 		vocabulary: &impl Vocabulary<Iri = IriBuf, BlankId = BlankIdBuf>,
-	// 		term: Term<IriBuf, BlankIdBuf>,
-	// 	) -> Nullable<Id> {
-	// 		match term {
-	// 			Term::Null => Nullable::Null,
-	// 			Term::Keyword(k) => Nullable::Some(Id::Keyword(k)),
-	// 			Term::Id(r) => Nullable::Some(Id::Term(r.with(vocabulary).to_string())),
-	// 		}
-	// 	}
-
-	// 	fn term_into_key(
-	// 		vocabulary: &impl Vocabulary<Iri = IriBuf, BlankId = BlankIdBuf>,
-	// 		term: Term<IriBuf, BlankIdBuf>,
-	// 	) -> Key {
-	// 		match term {
-	// 			Term::Null => panic!("invalid key"),
-	// 			Term::Keyword(k) => k.to_string().into(),
-	// 			Term::Id(r) => r.with(vocabulary).to_string().into(),
-	// 		}
-	// 	}
-
-	// 	fn type_into_syntax(
-	// 		vocabulary: &impl IriVocabulary<Iri = IriBuf>,
-	// 		ty: Type<IriBuf>,
-	// 	) -> SyntaxType {
-	// 		match ty {
-	// 			Type::Id => SyntaxType::Keyword(TypeKeyword::Id),
-	// 			Type::Json => SyntaxType::Keyword(TypeKeyword::Json),
-	// 			Type::None => SyntaxType::Keyword(TypeKeyword::None),
-	// 			Type::Vocab => SyntaxType::Keyword(TypeKeyword::Vocab),
-	// 			Type::Iri(t) => SyntaxType::Term(vocabulary.iri(&t).unwrap().to_string()),
-	// 		}
-	// 	}
-
-	// 	let (id, reverse) = if self.reverse_property {
-	// 		(None, self.value.map(|t| term_into_key(vocabulary, t)))
-	// 	} else {
-	// 		(self.value.map(|t| term_into_id(vocabulary, t)), None)
-	// 	};
-
-	// 	let container = self.container.into_syntax();
-
-	// 	json_ld_syntax::context::term_definition::Expanded {
-	// 		id,
-	// 		type_: self
-	// 			.typ
-	// 			.map(|t| Nullable::Some(type_into_syntax(vocabulary, t))),
-	// 		context: self.context.map(|e| Box::new(e.into_syntax(vocabulary))),
-	// 		reverse,
-	// 		index: self.index.clone(),
-	// 		language: self.language,
-	// 		direction: self.direction,
-	// 		container: container.map(Nullable::Some),
-	// 		nest: self.nest.clone(),
-	// 		prefix: if self.prefix { Some(true) } else { None },
-	// 		propagate: None,
-	// 		protected: if self.protected { Some(true) } else { None },
-	// 	}
-	// 	.simplify()
-	// }
 }
 
 /// Wrapper to consider a term definition without the `@protected` flag.
 pub struct JsonLdModuloProtected<T>(T);
 
-impl<'b> PartialEq<JsonLdModuloProtected<&'b JsonLdNormalTermDefinition>>
-	for JsonLdModuloProtected<&JsonLdNormalTermDefinition>
+impl<'b> PartialEq<JsonLdModuloProtected<&'b JsonLdProcessedNormalTermDefinition>>
+	for JsonLdModuloProtected<&JsonLdProcessedNormalTermDefinition>
 {
-	fn eq(&self, other: &JsonLdModuloProtected<&'b JsonLdNormalTermDefinition>) -> bool {
+	fn eq(&self, other: &JsonLdModuloProtected<&'b JsonLdProcessedNormalTermDefinition>) -> bool {
 		// NOTE we ignore the `protected` flag.
 		self.0.prefix == other.0.prefix
 			&& self.0.reverse_property == other.0.reverse_property
@@ -676,23 +610,23 @@ impl<'b> PartialEq<JsonLdModuloProtected<&'b JsonLdNormalTermDefinition>>
 	}
 }
 
-impl Eq for JsonLdModuloProtected<&JsonLdNormalTermDefinition> {}
+impl Eq for JsonLdModuloProtected<&JsonLdProcessedNormalTermDefinition> {}
 
-impl<'b> PartialEq<JsonLdModuloProtected<&'b JsonLdTypeTermDefinition>>
-	for JsonLdModuloProtected<&JsonLdTypeTermDefinition>
+impl<'b> PartialEq<JsonLdModuloProtected<&'b JsonLdProcessedTypeTermDefinition>>
+	for JsonLdModuloProtected<&JsonLdProcessedTypeTermDefinition>
 {
-	fn eq(&self, other: &JsonLdModuloProtected<&'b JsonLdTypeTermDefinition>) -> bool {
+	fn eq(&self, other: &JsonLdModuloProtected<&'b JsonLdProcessedTypeTermDefinition>) -> bool {
 		// NOTE we ignore the `protected` flag.
 		self.0.container == other.0.container
 	}
 }
 
-impl Eq for JsonLdModuloProtected<&JsonLdTypeTermDefinition> {}
+impl Eq for JsonLdModuloProtected<&JsonLdProcessedTypeTermDefinition> {}
 
-impl<'a, 'b> PartialEq<JsonLdModuloProtected<JsonLdTermDefinitionRef<'b>>>
-	for JsonLdModuloProtected<JsonLdTermDefinitionRef<'a>>
+impl<'a, 'b> PartialEq<JsonLdModuloProtected<JsonLdProcessedTermDefinitionRef<'b>>>
+	for JsonLdModuloProtected<JsonLdProcessedTermDefinitionRef<'a>>
 {
-	fn eq(&self, other: &JsonLdModuloProtected<JsonLdTermDefinitionRef<'b>>) -> bool {
+	fn eq(&self, other: &JsonLdModuloProtected<JsonLdProcessedTermDefinitionRef<'b>>) -> bool {
 		// NOTE we ignore the `protected` flag.
 		self.0.prefix() == other.0.prefix()
 			&& self.0.reverse_property() == other.0.reverse_property()
@@ -708,4 +642,4 @@ impl<'a, 'b> PartialEq<JsonLdModuloProtected<JsonLdTermDefinitionRef<'b>>>
 	}
 }
 
-impl<'a> Eq for JsonLdModuloProtected<JsonLdTermDefinitionRef<'a>> {}
+impl<'a> Eq for JsonLdModuloProtected<JsonLdProcessedTermDefinitionRef<'a>> {}

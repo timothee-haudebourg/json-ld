@@ -1,9 +1,8 @@
 use json_syntax::JsonArray;
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdObject,
-	algorithms::AsyncProcessingEnvironment, context::JsonLdTermDefinitionRef, object::JsonLdList,
-	syntax::JsonLdContainerItem,
+	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdObject, algorithms::AsyncJsonLdEnvironment,
+	context::JsonLdProcessedTermDefinitionRef, object::JsonLdList, syntax::JsonLdContainerItem,
 };
 
 use super::{Expanded, Expander};
@@ -12,8 +11,8 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	pub async fn expand_array(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
-		active_property_definition: Option<JsonLdTermDefinitionRef<'_>>,
+		env: &impl AsyncJsonLdEnvironment,
+		active_property_definition: Option<JsonLdProcessedTermDefinitionRef<'_>>,
 		element: &JsonArray,
 		from_map: bool,
 		location: JsonLdBacktraceBuilder<'_>,

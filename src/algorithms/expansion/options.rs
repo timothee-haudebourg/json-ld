@@ -1,4 +1,4 @@
-use crate::{JsonLdProcessingMode, algorithms::context_processing::ContextProcessingOptions};
+use crate::{JsonLdProcessingMode, algorithms::context_processing::JsonLdContextProcessingOptions};
 
 /// Expansion options.
 #[derive(Clone, Copy, Default)]
@@ -9,7 +9,7 @@ pub struct JsonLdExpansionOptions {
 	/// Term expansion policy.
 	///
 	/// Default is `ExpansionPolicy::Standard`.
-	pub policy: ExpansionPolicy,
+	pub policy: JsonLdExpansionPolicy,
 
 	/// If set to true, input document entries are processed lexicographically.
 	/// If false, order is not considered in processing.
@@ -25,9 +25,9 @@ impl JsonLdExpansionOptions {
 	}
 }
 
-impl From<JsonLdExpansionOptions> for ContextProcessingOptions {
-	fn from(options: JsonLdExpansionOptions) -> ContextProcessingOptions {
-		ContextProcessingOptions {
+impl From<JsonLdExpansionOptions> for JsonLdContextProcessingOptions {
+	fn from(options: JsonLdExpansionOptions) -> JsonLdContextProcessingOptions {
+		JsonLdContextProcessingOptions {
 			processing_mode: options.processing_mode,
 			..Default::default()
 		}
@@ -49,7 +49,7 @@ impl From<JsonLdExpansionOptions> for ContextProcessingOptions {
 /// You can define your preferred policy using one of this type variant
 /// with the [`ExpansionOptions::policy`] field.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
-pub enum ExpansionPolicy {
+pub enum JsonLdExpansionPolicy {
 	/// Relaxed policy.
 	///
 	/// Undefined keys are always kept in the expanded document
@@ -76,7 +76,7 @@ pub enum ExpansionPolicy {
 	Strictest,
 }
 
-impl ExpansionPolicy {
+impl JsonLdExpansionPolicy {
 	/// Returns `true` is the policy is `Strict` or `Strictest`.
 	pub fn is_strict(&self) -> bool {
 		matches!(self, Self::Strict | Self::Strictest)

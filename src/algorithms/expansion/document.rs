@@ -2,7 +2,7 @@ use json_syntax::{JsonValue, object::Key};
 
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdError, JsonLdExpandedDocument, JsonLdLocatedError,
-	algorithms::AsyncProcessingEnvironment,
+	algorithms::AsyncJsonLdEnvironment,
 };
 
 use super::{Expander, filter_top_level_item};
@@ -10,7 +10,7 @@ use super::{Expander, filter_top_level_item};
 impl<'a> Expander<'a> {
 	pub async fn expand_document(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		document: &JsonValue,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError> {

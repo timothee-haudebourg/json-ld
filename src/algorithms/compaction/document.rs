@@ -2,8 +2,8 @@ use json_syntax::JsonValue;
 
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdExpandedDocument, JsonLdFlattenedDocument, JsonLdLocatedError,
-	ProcessedJsonLdContext,
-	algorithms::{AsyncProcessingEnvironment, compaction::CompactFragment},
+	JsonLdProcessedContext,
+	algorithms::{AsyncJsonLdEnvironment, compaction::CompactFragment},
 	context::JsonLdEmbedContext,
 };
 
@@ -14,8 +14,8 @@ impl JsonLdExpandedDocument {
 	/// backtrace at `location`.
 	pub async fn compact_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedJsonLdContext<'_>,
+		env: impl AsyncJsonLdEnvironment,
+		context: &JsonLdProcessedContext<'_>,
 		options: JsonLdCompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -27,7 +27,7 @@ impl JsonLdExpandedDocument {
 			.await?;
 
 		let mut compact = compactor.wrap_in_graph(compact)?;
-		compact.embed_context(context)?;
+		compact.embed_context(context.unprocessed())?;
 
 		Ok(compact)
 	}
@@ -36,8 +36,8 @@ impl JsonLdExpandedDocument {
 	/// location backtrace at `location`.
 	pub async fn compact(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedJsonLdContext<'_>,
+		env: impl AsyncJsonLdEnvironment,
+		context: &JsonLdProcessedContext<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.compact_with(env, context, JsonLdCompactionOptions::default(), location)
@@ -48,8 +48,8 @@ impl JsonLdExpandedDocument {
 impl JsonLdCompact for JsonLdExpandedDocument {
 	async fn compact_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedJsonLdContext<'_>,
+		env: impl AsyncJsonLdEnvironment,
+		context: &JsonLdProcessedContext<'_>,
 		options: JsonLdCompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -60,8 +60,8 @@ impl JsonLdCompact for JsonLdExpandedDocument {
 impl JsonLdCompact for JsonLdFlattenedDocument {
 	async fn compact_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedJsonLdContext<'_>,
+		env: impl AsyncJsonLdEnvironment,
+		context: &JsonLdProcessedContext<'_>,
 		options: JsonLdCompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -70,7 +70,7 @@ impl JsonLdCompact for JsonLdFlattenedDocument {
 		let compact = self.compact_fragment(&env, &compactor, location).await?;
 
 		let mut compact = compactor.wrap_in_graph(compact)?;
-		compact.embed_context(context)?;
+		compact.embed_context(context.unprocessed())?;
 
 		Ok(compact)
 	}

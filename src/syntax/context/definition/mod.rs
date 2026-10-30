@@ -105,7 +105,7 @@ pub struct JsonLdContextDefinition {
 	pub vocab: Option<JsonLdNullable<JsonLdVocab>>,
 
 	#[cfg_attr(feature = "serde", serde(flatten))]
-	pub bindings: Bindings,
+	pub bindings: JsonLdContextBindings,
 }
 
 impl JsonLdContextDefinition {
@@ -155,7 +155,10 @@ impl JsonLdContextDefinition {
 		}
 	}
 
-	pub fn get_binding(&self, key: &JsonLdContextTerm) -> Option<JsonLdNullable<&TermDefinition>> {
+	pub fn get_binding(
+		&self,
+		key: &JsonLdContextTerm,
+	) -> Option<JsonLdNullable<&JsonLdTermDefinition>> {
 		self.bindings.get(key)
 	}
 }
@@ -164,14 +167,19 @@ impl JsonLdContextDefinition {
 #[derive(Default, PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Bindings(BTreeIndexMap<JsonLdContextTerm, JsonLdNullable<TermDefinition>>);
+pub struct JsonLdContextBindings(
+	BTreeIndexMap<JsonLdContextTerm, JsonLdNullable<JsonLdTermDefinition>>,
+);
 
 pub struct JsonLdContextBindingsIter<'a>(
-	btree_indexmap::map::Iter<'a, JsonLdContextTerm, JsonLdNullable<TermDefinition>>,
+	btree_indexmap::map::Iter<'a, JsonLdContextTerm, JsonLdNullable<JsonLdTermDefinition>>,
 );
 
 impl<'a> Iterator for JsonLdContextBindingsIter<'a> {
-	type Item = (&'a JsonLdContextTerm, JsonLdNullable<&'a TermDefinition>);
+	type Item = (
+		&'a JsonLdContextTerm,
+		JsonLdNullable<&'a JsonLdTermDefinition>,
+	);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next().map(|(k, d)| (k, d.as_ref()))
@@ -186,17 +194,17 @@ impl<'a> DoubleEndedIterator for JsonLdContextBindingsIter<'a> {
 
 impl<'a> ExactSizeIterator for JsonLdContextBindingsIter<'a> {}
 
-impl Bindings {
+impl JsonLdContextBindings {
 	pub fn insert(
 		&mut self,
 		key: JsonLdContextTerm,
-		def: JsonLdNullable<TermDefinition>,
-	) -> Option<JsonLdNullable<TermDefinition>> {
+		def: JsonLdNullable<JsonLdTermDefinition>,
+	) -> Option<JsonLdNullable<JsonLdTermDefinition>> {
 		self.0.insert(key, def)
 	}
 }
 
-impl Bindings {
+impl JsonLdContextBindings {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -209,14 +217,14 @@ impl Bindings {
 		self.0.is_empty()
 	}
 
-	pub fn get(&self, key: &JsonLdContextTerm) -> Option<JsonLdNullable<&TermDefinition>> {
+	pub fn get(&self, key: &JsonLdContextTerm) -> Option<JsonLdNullable<&JsonLdTermDefinition>> {
 		self.0.get(key).map(JsonLdNullable::as_ref)
 	}
 
 	pub fn get_entry(
 		&self,
 		i: usize,
-	) -> Option<(&JsonLdContextTerm, JsonLdNullable<&TermDefinition>)> {
+	) -> Option<(&JsonLdContextTerm, JsonLdNullable<&JsonLdTermDefinition>)> {
 		self.0
 			.as_entries()
 			.get(i)
@@ -230,24 +238,28 @@ impl Bindings {
 	pub fn insert_with(
 		&mut self,
 		key: JsonLdContextTerm,
-		def: JsonLdNullable<TermDefinition>,
-	) -> Option<JsonLdNullable<TermDefinition>> {
+		def: JsonLdNullable<JsonLdTermDefinition>,
+	) -> Option<JsonLdNullable<JsonLdTermDefinition>> {
 		self.0.insert(key, def)
 	}
 }
 
-impl IntoIterator for Bindings {
-	type Item = (JsonLdContextTerm, JsonLdNullable<TermDefinition>);
+impl IntoIterator for JsonLdContextBindings {
+	type Item = (JsonLdContextTerm, JsonLdNullable<JsonLdTermDefinition>);
 	type IntoIter =
-		btree_indexmap::map::IntoIter<JsonLdContextTerm, JsonLdNullable<TermDefinition>>;
+		btree_indexmap::map::IntoIter<JsonLdContextTerm, JsonLdNullable<JsonLdTermDefinition>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
 	}
 }
 
-impl FromIterator<(JsonLdContextTerm, JsonLdNullable<TermDefinition>)> for Bindings {
-	fn from_iter<T: IntoIterator<Item = (JsonLdContextTerm, JsonLdNullable<TermDefinition>)>>(
+impl FromIterator<(JsonLdContextTerm, JsonLdNullable<JsonLdTermDefinition>)>
+	for JsonLdContextBindings
+{
+	fn from_iter<
+		T: IntoIterator<Item = (JsonLdContextTerm, JsonLdNullable<JsonLdTermDefinition>)>,
+	>(
 		iter: T,
 	) -> Self {
 		let mut result = Self::new();

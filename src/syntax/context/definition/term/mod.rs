@@ -87,9 +87,9 @@ impl Borrow<str> for JsonLdContextTerm {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct KeyRef<'a>(&'a str);
+pub struct JsonLdKeyRef<'a>(&'a str);
 
-impl<'a> KeyRef<'a> {
+impl<'a> JsonLdKeyRef<'a> {
 	pub fn is_empty(&self) -> bool {
 		self.0.is_empty()
 	}
@@ -107,19 +107,19 @@ impl<'a> KeyRef<'a> {
 	}
 }
 
-impl<'a> From<&'a str> for KeyRef<'a> {
+impl<'a> From<&'a str> for JsonLdKeyRef<'a> {
 	fn from(s: &'a str) -> Self {
 		Self(s)
 	}
 }
 
-impl<'a> From<&'a JsonLdContextTerm> for KeyRef<'a> {
+impl<'a> From<&'a JsonLdContextTerm> for JsonLdKeyRef<'a> {
 	fn from(k: &'a JsonLdContextTerm) -> Self {
 		Self(&k.0)
 	}
 }
 
-impl<'a> fmt::Display for KeyRef<'a> {
+impl<'a> fmt::Display for JsonLdKeyRef<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.0.fmt(f)
 	}
@@ -194,7 +194,7 @@ impl fmt::Display for JsonLdKeyOrKeyword {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum JsonLdKeyOrKeywordRef<'a> {
 	Keyword(JsonLdKeyword),
-	Key(KeyRef<'a>),
+	Key(JsonLdKeyRef<'a>),
 }
 
 impl<'a> JsonLdKeyOrKeywordRef<'a> {
@@ -231,8 +231,8 @@ impl<'a> From<&'a JsonLdKeyOrKeyword> for JsonLdKeyOrKeywordRef<'a> {
 	}
 }
 
-impl<'a> From<KeyRef<'a>> for JsonLdKeyOrKeywordRef<'a> {
-	fn from(k: KeyRef<'a>) -> Self {
+impl<'a> From<JsonLdKeyRef<'a>> for JsonLdKeyOrKeywordRef<'a> {
+	fn from(k: JsonLdKeyRef<'a>) -> Self {
 		Self::Key(k)
 	}
 }
@@ -243,12 +243,12 @@ impl<'a> From<&'a JsonLdContextTerm> for JsonLdKeyOrKeywordRef<'a> {
 	}
 }
 
-pub enum KeyOrType {
+pub enum JsonLdKeyOrType {
 	Key(JsonLdContextTerm),
 	Type,
 }
 
-impl KeyOrType {
+impl JsonLdKeyOrType {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Key(k) => k.as_str(),
@@ -257,7 +257,7 @@ impl KeyOrType {
 	}
 }
 
-impl fmt::Display for KeyOrType {
+impl fmt::Display for JsonLdKeyOrType {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.as_str().fmt(f)
 	}

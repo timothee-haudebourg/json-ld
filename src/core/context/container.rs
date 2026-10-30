@@ -1,5 +1,5 @@
 use crate::syntax::JsonLdContainerItem;
-use crate::syntax::context::ContextTypeContainer;
+use crate::syntax::context::JsonLdContextTypeContainer;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum JsonLdContainer {
@@ -182,10 +182,10 @@ impl From<JsonLdContainerItem> for JsonLdContainer {
 	}
 }
 
-impl From<ContextTypeContainer> for JsonLdContainer {
-	fn from(c: ContextTypeContainer) -> Self {
+impl From<JsonLdContextTypeContainer> for JsonLdContainer {
+	fn from(c: JsonLdContextTypeContainer) -> Self {
 		match c {
-			ContextTypeContainer::Set => Self::Set,
+			JsonLdContextTypeContainer::Set => Self::Set,
 		}
 	}
 }

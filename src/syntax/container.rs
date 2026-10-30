@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use crate::context::JsonLdContainer;
-use crate::syntax::context::ContextTypeContainer;
+use crate::syntax::context::JsonLdContextTypeContainer;
 
 use super::JsonLdKeyword;
 
@@ -147,12 +147,12 @@ impl JsonLdContainerValue {
 	}
 
 	/// Process this syntax value into a [`Container`].
-	pub fn to_container(&self) -> Result<JsonLdContainer, UnexpectedContainerItem> {
+	pub fn to_container(&self) -> Result<JsonLdContainer, UnexpectedJsonLdContainerItem> {
 		match self {
 			Self::Null => Ok(JsonLdContainer::Null),
 			Self::Item(item) => Ok((*item).into()),
 			Self::Array(items) => {
-				JsonLdContainer::from(items.iter()).map_err(UnexpectedContainerItem)
+				JsonLdContainer::from(items.iter()).map_err(UnexpectedJsonLdContainerItem)
 			}
 		}
 	}
@@ -162,12 +162,12 @@ impl JsonLdContainerValue {
 /// combination.
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 #[error("unexpected `@container` item: `{0}`")]
-pub struct UnexpectedContainerItem(pub JsonLdContainerItem);
+pub struct UnexpectedJsonLdContainerItem(pub JsonLdContainerItem);
 
-impl From<ContextTypeContainer> for JsonLdContainerValue {
-	fn from(c: ContextTypeContainer) -> Self {
+impl From<JsonLdContextTypeContainer> for JsonLdContainerValue {
+	fn from(c: JsonLdContextTypeContainer) -> Self {
 		match c {
-			ContextTypeContainer::Set => JsonLdContainerValue::Item(JsonLdContainerItem::Set),
+			JsonLdContextTypeContainer::Set => JsonLdContainerValue::Item(JsonLdContainerItem::Set),
 		}
 	}
 }

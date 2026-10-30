@@ -4,8 +4,8 @@ use mown::Mown;
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdTerm,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
-		compaction::CompactIndexedFragment, context_processing::ContextProcessingOptions,
+		AsyncJsonLdEnvironment, AsyncProcessingEnvironmentRef, compaction::CompactIndexedFragment,
+		context_processing::JsonLdContextProcessingOptions,
 	},
 	object::{AnyJsonLdObject, JsonLdObjectRef},
 	syntax::{JsonLdContainerItem, JsonLdKeyword},
@@ -19,7 +19,7 @@ mod value;
 impl Compactor<'_> {
 	pub async fn compact_any_indexed_object(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		object: &impl AnyJsonLdObject,
 		index: Option<&str>,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -64,7 +64,8 @@ impl Compactor<'_> {
 									AsyncProcessingEnvironmentRef(env),
 									active_property_definition.base_url(),
 									active_context.as_ref(),
-									ContextProcessingOptions::from(self.options).with_override(),
+									JsonLdContextProcessingOptions::from(self.options)
+										.with_override(),
 									scoped_context_loc,
 								)
 								.await?
@@ -142,7 +143,7 @@ impl Compactor<'_> {
 impl<T: AnyJsonLdObject> CompactIndexedFragment for T {
 	async fn compact_indexed_fragment(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		compactor: &Compactor<'_>,
 		index: Option<&str>,
 		location: JsonLdBacktraceBuilder<'_>,

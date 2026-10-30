@@ -4,12 +4,13 @@ use json_syntax::{JsonValue, tracing::JsonErrorAt};
 use rdf_syntax::Iri;
 
 use super::{
-	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
+	JsonLdCompactResult, JsonLdCompareResult, JsonLdExpandResult, JsonLdFlattenResult,
+	JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdDocument, JsonLdLocatedError, JsonLdSourceFileRef,
 	RemoteJsonLdContext,
-	algorithms::{AsyncProcessingEnvironment, JsonLdCompact, JsonLdExpand},
+	algorithms::{AsyncJsonLdEnvironment, JsonLdCompact, JsonLdExpand},
 	context::RawJsonLdProcessedContext,
 	syntax::JsonLdCompare,
 };
@@ -18,9 +19,9 @@ impl JsonLdProcessor for JsonLdDocument {
 	async fn async_compare_with(
 		&self,
 		other: &Self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> CompareResult {
+	) -> JsonLdCompareResult {
 		if self.document.compare_json_ld(&other.document) {
 			return Ok(true);
 		}
@@ -33,9 +34,9 @@ impl JsonLdProcessor for JsonLdDocument {
 
 	async fn async_expand_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		mut options: JsonLdOptions,
-	) -> ExpandResult {
+	) -> JsonLdExpandResult {
 		// Initialize the active context.
 		let mut active_context =
 			RawJsonLdProcessedContext::new(options.base.clone().or_else(|| self.url.clone()));
@@ -91,9 +92,9 @@ impl JsonLdProcessor for JsonLdDocument {
 	async fn async_compact_with(
 		&self,
 		context: RemoteJsonLdContext,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> CompactResult {
+	) -> JsonLdCompactResult {
 		let expanded_document = Arc::new(
 			JsonLdProcessor::async_expand_with(self, env.as_ref(), options.clone().unordered())
 				.await?,
@@ -116,9 +117,9 @@ impl JsonLdProcessor for JsonLdDocument {
 	async fn async_flatten_with(
 		&self,
 		context: Option<RemoteJsonLdContext>,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> FlattenResult {
+	) -> JsonLdFlattenResult {
 		let expanded_input = Arc::new(
 			JsonLdProcessor::async_expand_with(self, env.as_ref(), options.clone().unordered())
 				.await?,
@@ -159,7 +160,7 @@ impl JsonLdProcessor for JsonLdDocument {
 async fn compact_expanded(
 	expanded_input: &impl JsonLdCompact,
 	url: Option<&Iri>,
-	env: impl AsyncProcessingEnvironment,
+	env: impl AsyncJsonLdEnvironment,
 	context: RemoteJsonLdContext,
 	options: JsonLdOptions,
 	location: JsonLdBacktraceBuilder<'_>,

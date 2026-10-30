@@ -17,7 +17,7 @@ pub mod utils;
 mod visit;
 mod warning;
 
-pub use context::ProcessedJsonLdContext;
+pub use context::JsonLdProcessedContext;
 pub use document::*;
 pub use error::*;
 pub use indexed::*;

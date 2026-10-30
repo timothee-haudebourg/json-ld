@@ -4,7 +4,7 @@ use rdf_syntax::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid compact IRI")]
-pub struct InvalidCompactIri<T>(pub T);
+pub struct InvalidJsonLdCompactIri<T>(pub T);
 
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct JsonLdCompactIri(str);
@@ -23,15 +23,15 @@ impl JsonLdCompactIri {
 	/// valid compact IRI but not a valid absolute IRI. See
 	/// [§ 4.1.5 Compact IRIs](https://www.w3.org/TR/json-ld11/#compact-iris)
 	/// of the JSON-LD 1.1 specification.
-	pub fn new(s: &str) -> Result<&Self, InvalidCompactIri<&str>> {
+	pub fn new(s: &str) -> Result<&Self, InvalidJsonLdCompactIri<&str>> {
 		match s.split_once(':') {
 			Some((prefix, suffix)) if prefix != "_" && !suffix.starts_with("//") => {
 				match IriRef::new(s) {
 					Ok(_) => Ok(unsafe { Self::new_unchecked(s) }),
-					Err(_) => Err(InvalidCompactIri(s)),
+					Err(_) => Err(InvalidJsonLdCompactIri(s)),
 				}
 			}
-			_ => Err(InvalidCompactIri(s)),
+			_ => Err(InvalidJsonLdCompactIri(s)),
 		}
 	}
 
@@ -48,8 +48,8 @@ impl JsonLdCompactIri {
 		&self.0
 	}
 
-	pub fn to_owned(&self) -> CompactIriBuf {
-		CompactIriBuf(self.0.to_owned())
+	pub fn to_owned(&self) -> JsonLdCompactIriBuf {
+		JsonLdCompactIriBuf(self.0.to_owned())
 	}
 
 	pub fn prefix(&self) -> &str {
@@ -112,13 +112,13 @@ impl AsRef<str> for JsonLdCompactIri {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub struct CompactIriBuf(String);
+pub struct JsonLdCompactIriBuf(String);
 
-impl CompactIriBuf {
-	pub fn from_string(s: String) -> Result<Self, InvalidCompactIri<String>> {
+impl JsonLdCompactIriBuf {
+	pub fn from_string(s: String) -> Result<Self, InvalidJsonLdCompactIri<String>> {
 		match JsonLdCompactIri::new(&s) {
 			Ok(_) => Ok(unsafe { Self::new_unchecked(s) }),
-			Err(_) => Err(InvalidCompactIri(s)),
+			Err(_) => Err(InvalidJsonLdCompactIri(s)),
 		}
 	}
 
@@ -144,13 +144,13 @@ impl CompactIriBuf {
 	}
 }
 
-impl std::borrow::Borrow<JsonLdCompactIri> for CompactIriBuf {
+impl std::borrow::Borrow<JsonLdCompactIri> for JsonLdCompactIriBuf {
 	fn borrow(&self) -> &JsonLdCompactIri {
 		self.as_compact_iri()
 	}
 }
 
-impl std::ops::Deref for CompactIriBuf {
+impl std::ops::Deref for JsonLdCompactIriBuf {
 	type Target = JsonLdCompactIri;
 
 	fn deref(&self) -> &JsonLdCompactIri {

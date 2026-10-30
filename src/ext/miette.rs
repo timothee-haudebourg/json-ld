@@ -24,7 +24,7 @@ pub struct JsonLdDiagnostic {
 	pub src: Option<(NamedSource<Arc<JsonLdDiagnosticSourceCode>>, SourceSpan)>,
 
 	/// Related diagnostic.
-	pub related: Vec<RelatedJsonLdDiagnostic>,
+	pub related: Vec<JsonLdRelatedDiagnostic>,
 }
 
 impl JsonLdDiagnostic {
@@ -48,7 +48,7 @@ impl JsonLdDiagnostic {
 
 			for location in rest.iter().rev() {
 				if let Some((src, span)) = locate_error(&mut map, loader, location).await {
-					related.push(RelatedJsonLdDiagnostic { src, span })
+					related.push(JsonLdRelatedDiagnostic { src, span })
 				}
 			}
 		};
@@ -196,13 +196,13 @@ impl miette::SourceCode for JsonLdDiagnosticSourceCode {
 
 #[derive(Debug, thiserror::Error)]
 #[error("required by")]
-pub struct RelatedJsonLdDiagnostic {
+pub struct JsonLdRelatedDiagnostic {
 	pub src: NamedSource<Arc<JsonLdDiagnosticSourceCode>>,
 
 	pub span: SourceSpan,
 }
 
-impl Diagnostic for RelatedJsonLdDiagnostic {
+impl Diagnostic for JsonLdRelatedDiagnostic {
 	fn source_code(&self) -> Option<&dyn miette::SourceCode> {
 		Some(&self.src)
 	}

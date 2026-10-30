@@ -6,12 +6,12 @@ use std::hash::Hash;
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-pub enum TermType {
-	Keyword(TypeKeyword),
+pub enum JsonLdTermType {
+	Keyword(JsonLdTypeKeyword),
 	Term(String),
 }
 
-impl TermType {
+impl JsonLdTermType {
 	pub fn as_iri(&self) -> Option<&Iri> {
 		match self {
 			Self::Term(t) => Iri::new(t).ok(),
@@ -26,7 +26,7 @@ impl TermType {
 		}
 	}
 
-	pub fn as_keyword(&self) -> Option<TypeKeyword> {
+	pub fn as_keyword(&self) -> Option<JsonLdTypeKeyword> {
 		match self {
 			Self::Keyword(k) => Some(*k),
 			Self::Term(_) => None,
@@ -48,7 +48,7 @@ impl TermType {
 	}
 }
 
-impl PartialEq for TermType {
+impl PartialEq for JsonLdTermType {
 	fn eq(&self, other: &Self) -> bool {
 		match (self, other) {
 			(Self::Term(a), Self::Term(b)) => a == b,
@@ -58,17 +58,17 @@ impl PartialEq for TermType {
 	}
 }
 
-impl Eq for TermType {}
+impl Eq for JsonLdTermType {}
 
-impl Hash for TermType {
+impl Hash for JsonLdTermType {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)
 	}
 }
 
-impl From<String> for TermType {
+impl From<String> for JsonLdTermType {
 	fn from(s: String) -> Self {
-		match TypeKeyword::try_from(s.as_str()) {
+		match JsonLdTypeKeyword::try_from(s.as_str()) {
 			Ok(k) => Self::Keyword(k),
 			Err(_) => Self::Term(s),
 		}
@@ -79,7 +79,7 @@ impl From<String> for TermType {
 /// of an expanded term definition.
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum TypeKeyword {
+pub enum JsonLdTypeKeyword {
 	#[cfg_attr(feature = "serde", serde(rename = "@id"))]
 	Id,
 
@@ -93,7 +93,7 @@ pub enum TypeKeyword {
 	Vocab,
 }
 
-impl PartialEq for TypeKeyword {
+impl PartialEq for JsonLdTypeKeyword {
 	fn eq(&self, other: &Self) -> bool {
 		matches!(
 			(self, other),
@@ -105,15 +105,15 @@ impl PartialEq for TypeKeyword {
 	}
 }
 
-impl Eq for TypeKeyword {}
+impl Eq for JsonLdTypeKeyword {}
 
-impl Hash for TypeKeyword {
+impl Hash for JsonLdTypeKeyword {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.into_str().hash(state)
 	}
 }
 
-impl TypeKeyword {
+impl JsonLdTypeKeyword {
 	pub fn keyword(&self) -> JsonLdKeyword {
 		self.into_keyword()
 	}
@@ -131,38 +131,38 @@ impl TypeKeyword {
 	}
 }
 
-pub struct NotATypeKeyword(pub JsonLdKeyword);
+pub struct NotAJsonLdTypeKeyword(pub JsonLdKeyword);
 
-pub enum InvalidTypeKeyword<T> {
+pub enum InvalidJsonLdTypeKeyword<T> {
 	NotAKeyword(T),
 	NotATypeKeyword(JsonLdKeyword),
 }
 
-impl<T> From<NotATypeKeyword> for InvalidTypeKeyword<T> {
-	fn from(NotATypeKeyword(k): NotATypeKeyword) -> Self {
+impl<T> From<NotAJsonLdTypeKeyword> for InvalidJsonLdTypeKeyword<T> {
+	fn from(NotAJsonLdTypeKeyword(k): NotAJsonLdTypeKeyword) -> Self {
 		Self::NotATypeKeyword(k)
 	}
 }
 
-impl<T> From<crate::syntax::NotAJsonLdKeyword<T>> for InvalidTypeKeyword<T> {
+impl<T> From<crate::syntax::NotAJsonLdKeyword<T>> for InvalidJsonLdTypeKeyword<T> {
 	fn from(crate::syntax::NotAJsonLdKeyword(t): crate::syntax::NotAJsonLdKeyword<T>) -> Self {
 		Self::NotAKeyword(t)
 	}
 }
 
-impl From<TypeKeyword> for JsonLdKeyword {
-	fn from(k: TypeKeyword) -> Self {
+impl From<JsonLdTypeKeyword> for JsonLdKeyword {
+	fn from(k: JsonLdTypeKeyword) -> Self {
 		match k {
-			TypeKeyword::Id => Self::Id,
-			TypeKeyword::Json => Self::Json,
-			TypeKeyword::None => Self::None,
-			TypeKeyword::Vocab => Self::Vocab,
+			JsonLdTypeKeyword::Id => Self::Id,
+			JsonLdTypeKeyword::Json => Self::Json,
+			JsonLdTypeKeyword::None => Self::None,
+			JsonLdTypeKeyword::Vocab => Self::Vocab,
 		}
 	}
 }
 
-impl TryFrom<JsonLdKeyword> for TypeKeyword {
-	type Error = NotATypeKeyword;
+impl TryFrom<JsonLdKeyword> for JsonLdTypeKeyword {
+	type Error = NotAJsonLdTypeKeyword;
 
 	fn try_from(k: JsonLdKeyword) -> Result<Self, Self::Error> {
 		match k {
@@ -170,13 +170,13 @@ impl TryFrom<JsonLdKeyword> for TypeKeyword {
 			JsonLdKeyword::Json => Ok(Self::Json),
 			JsonLdKeyword::None => Ok(Self::None),
 			JsonLdKeyword::Vocab => Ok(Self::Vocab),
-			_ => Err(NotATypeKeyword(k)),
+			_ => Err(NotAJsonLdTypeKeyword(k)),
 		}
 	}
 }
 
-impl<'a> TryFrom<&'a str> for TypeKeyword {
-	type Error = InvalidTypeKeyword<&'a str>;
+impl<'a> TryFrom<&'a str> for JsonLdTypeKeyword {
+	type Error = InvalidJsonLdTypeKeyword<&'a str>;
 
 	fn try_from(s: &'a str) -> Result<Self, Self::Error> {
 		Ok(Self::try_from(JsonLdKeyword::try_from(s)?)?)
@@ -192,11 +192,11 @@ impl<'a> TryFrom<&'a str> for TypeKeyword {
 // 	}
 // }
 
-impl<'a> From<&'a TermType> for JsonLdExpandableRef<'a> {
-	fn from(d: &'a TermType) -> Self {
+impl<'a> From<&'a JsonLdTermType> for JsonLdExpandableRef<'a> {
+	fn from(d: &'a JsonLdTermType) -> Self {
 		match d {
-			TermType::Term(t) => Self::String(t),
-			TermType::Keyword(k) => Self::Keyword((*k).into()),
+			JsonLdTermType::Term(t) => Self::String(t),
+			JsonLdTermType::Keyword(k) => Self::Keyword((*k).into()),
 		}
 	}
 }

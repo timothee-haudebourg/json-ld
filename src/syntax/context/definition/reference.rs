@@ -1,6 +1,6 @@
 use super::{
 	JsonLdContextBindingsIter, JsonLdContextDefinition, JsonLdContextTerm, JsonLdContextType,
-	JsonLdVersion, JsonLdVocab, TermDefinition,
+	JsonLdTermDefinition, JsonLdVersion, JsonLdVocab,
 };
 use crate::{
 	JsonLdLenient,
@@ -133,7 +133,7 @@ pub enum JsonLdContextEntryValueRef<'a> {
 	Type(JsonLdContextType),
 	Version(JsonLdVersion),
 	Vocab(JsonLdNullable<&'a JsonLdVocab>),
-	Definition(JsonLdNullable<&'a TermDefinition>),
+	Definition(JsonLdNullable<&'a JsonLdTermDefinition>),
 }
 
 impl<'a> JsonLdContextEntryValueRef<'a> {
@@ -156,7 +156,10 @@ pub enum JsonLdContextEntryRef<'a> {
 	Type(JsonLdContextType),
 	Version(JsonLdVersion),
 	Vocab(JsonLdNullable<&'a JsonLdVocab>),
-	Definition(&'a JsonLdContextTerm, JsonLdNullable<&'a TermDefinition>),
+	Definition(
+		&'a JsonLdContextTerm,
+		JsonLdNullable<&'a JsonLdTermDefinition>,
+	),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -27,12 +27,12 @@ pub use inverse::InverseJsonLdContext;
 ///
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
-pub struct ProcessedJsonLdContext<'a> {
+pub struct JsonLdProcessedContext<'a> {
 	unprocessed: Cow<'a, JsonLdContext>,
 	raw: RawJsonLdProcessedContext,
 }
 
-impl<'a> ProcessedJsonLdContext<'a> {
+impl<'a> JsonLdProcessedContext<'a> {
 	pub fn new(unprocessed: Cow<'a, JsonLdContext>, raw: RawJsonLdProcessedContext) -> Self {
 		Self { unprocessed, raw }
 	}
@@ -49,15 +49,15 @@ impl<'a> ProcessedJsonLdContext<'a> {
 		self.raw
 	}
 
-	pub fn into_owned(self) -> ProcessedJsonLdContext<'static> {
-		ProcessedJsonLdContext {
+	pub fn into_owned(self) -> JsonLdProcessedContext<'static> {
+		JsonLdProcessedContext {
 			unprocessed: Cow::Owned(self.unprocessed.into_owned()),
 			raw: self.raw,
 		}
 	}
 }
 
-impl Deref for ProcessedJsonLdContext<'_> {
+impl Deref for JsonLdProcessedContext<'_> {
 	type Target = RawJsonLdProcessedContext;
 
 	fn deref(&self) -> &Self::Target {
@@ -65,7 +65,7 @@ impl Deref for ProcessedJsonLdContext<'_> {
 	}
 }
 
-impl DerefMut for ProcessedJsonLdContext<'_> {
+impl DerefMut for JsonLdProcessedContext<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.raw
 	}
@@ -90,7 +90,7 @@ pub struct RawJsonLdProcessedContext {
 	inverse: OnceLock<InverseJsonLdContext>,
 }
 
-pub type DefinitionEntryRef<'a> = (&'a JsonLdContextTerm, &'a JsonLdTermDefinition);
+pub type DefinitionEntryRef<'a> = (&'a JsonLdContextTerm, &'a JsonLdProcessedTermDefinition);
 
 impl RawJsonLdProcessedContext {
 	/// Create a new context with the given base IRI.
@@ -108,7 +108,7 @@ impl RawJsonLdProcessedContext {
 	}
 
 	/// Returns a reference to the given `term` definition, if any.
-	pub fn get<Q>(&self, term: &Q) -> Option<JsonLdTermDefinitionRef<'_>>
+	pub fn get<Q>(&self, term: &Q) -> Option<JsonLdProcessedTermDefinitionRef<'_>>
 	where
 		JsonLdContextTerm: Borrow<Q>,
 		JsonLdKeywordType: Borrow<Q>,
@@ -118,7 +118,7 @@ impl RawJsonLdProcessedContext {
 	}
 
 	/// Returns a reference to the given `term` normal definition, if any.
-	pub fn get_normal<Q>(&self, term: &Q) -> Option<&JsonLdNormalTermDefinition>
+	pub fn get_normal<Q>(&self, term: &Q) -> Option<&JsonLdProcessedNormalTermDefinition>
 	where
 		JsonLdContextTerm: Borrow<Q>,
 		Q: ?Sized + Hash + Eq,
@@ -127,7 +127,7 @@ impl RawJsonLdProcessedContext {
 	}
 
 	/// Returns a reference to the `@type` definition, if any.
-	pub fn get_type(&self) -> Option<&JsonLdTypeTermDefinition> {
+	pub fn get_type(&self) -> Option<&JsonLdProcessedTypeTermDefinition> {
 		self.definitions.get_type()
 	}
 
@@ -212,8 +212,8 @@ impl RawJsonLdProcessedContext {
 	pub fn set_normal(
 		&mut self,
 		key: JsonLdContextTerm,
-		definition: Option<JsonLdNormalTermDefinition>,
-	) -> Option<JsonLdNormalTermDefinition> {
+		definition: Option<JsonLdProcessedNormalTermDefinition>,
+	) -> Option<JsonLdProcessedNormalTermDefinition> {
 		self.inverse.take();
 		self.definitions.set_normal(key, definition)
 	}
@@ -221,8 +221,8 @@ impl RawJsonLdProcessedContext {
 	/// Sets the `@type` definition.
 	pub fn set_type(
 		&mut self,
-		type_: Option<JsonLdTypeTermDefinition>,
-	) -> Option<JsonLdTypeTermDefinition> {
+		type_: Option<JsonLdProcessedTypeTermDefinition>,
+	) -> Option<JsonLdProcessedTypeTermDefinition> {
 		self.definitions.set_type(type_)
 	}
 

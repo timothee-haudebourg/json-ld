@@ -3,7 +3,7 @@
 //! See: <https://www.w3.org/TR/json-ld-api/#expansion-algorithms>
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdDocument, JsonLdExpandedDocument, JsonLdIndexedObject,
-	JsonLdLocatedError, JsonLdObject, JsonLdSourceFileRef, algorithms::AsyncProcessingEnvironment,
+	JsonLdLocatedError, JsonLdObject, JsonLdSourceFileRef, algorithms::AsyncJsonLdEnvironment,
 	context::RawJsonLdProcessedContext,
 };
 
@@ -35,7 +35,7 @@ pub trait JsonLdExpand {
 	#[allow(async_fn_in_trait)]
 	async fn expand(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError>;
 
 	/// Expand this document with the given expansion options and active
@@ -43,7 +43,7 @@ pub trait JsonLdExpand {
 	#[allow(async_fn_in_trait)]
 	async fn expand_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		active_context: &RawJsonLdProcessedContext,
 		options: JsonLdExpansionOptions,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError>;
@@ -52,7 +52,7 @@ pub trait JsonLdExpand {
 impl JsonLdExpand for JsonLdDocument {
 	async fn expand(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError> {
 		let active_context = RawJsonLdProcessedContext::new(self.url().map(ToOwned::to_owned));
 		self.expand_with(env, &active_context, JsonLdExpansionOptions::default())
@@ -61,7 +61,7 @@ impl JsonLdExpand for JsonLdDocument {
 
 	async fn expand_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		active_context: &RawJsonLdProcessedContext,
 		options: JsonLdExpansionOptions,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError> {

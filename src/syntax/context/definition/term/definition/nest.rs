@@ -46,16 +46,16 @@ impl Hash for JsonLdNest {
 
 #[derive(Debug, thiserror::Error)]
 #[error("invalid `@nest` value")]
-pub struct InvalidNest(pub String);
+pub struct InvalidJsonLdNest(pub String);
 
 impl TryFrom<String> for JsonLdNest {
-	type Error = InvalidNest;
+	type Error = InvalidJsonLdNest;
 
-	fn try_from(s: String) -> Result<Self, InvalidNest> {
+	fn try_from(s: String) -> Result<Self, InvalidJsonLdNest> {
 		if s == "@nest" {
 			Ok(Self::Nest)
 		} else if is_keyword(&s) {
-			Err(InvalidNest(s))
+			Err(InvalidJsonLdNest(s))
 		} else {
 			Ok(Self::Term(s))
 		}

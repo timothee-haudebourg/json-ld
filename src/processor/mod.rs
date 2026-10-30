@@ -25,9 +25,8 @@ use crate::{
 	JsonLdDirection, JsonLdDocument, JsonLdExpandedDocument, JsonLdLocatedError,
 	JsonLdProcessingMode, RemoteJsonLdContext,
 	algorithms::{
-		AsyncProcessingEnvironment, ContextProcessingOptions, ExpansionPolicy,
-		JsonLdCompactionOptions, JsonLdExpansionOptions, ProcessingEnvironment,
-		RdfSerializationOptions,
+		AsyncJsonLdEnvironment, JsonLdCompactionOptions, JsonLdContextProcessingOptions,
+		JsonLdEnvironment, JsonLdExpansionOptions, JsonLdExpansionPolicy, RdfSerializationOptions,
 	},
 };
 
@@ -79,7 +78,7 @@ pub struct JsonLdOptions {
 	pub produce_generalized_rdf: bool,
 
 	/// Term expansion policy, passed to the document expansion algorithm.
-	pub expansion_policy: ExpansionPolicy,
+	pub expansion_policy: JsonLdExpansionPolicy,
 }
 
 impl JsonLdOptions {
@@ -101,8 +100,8 @@ impl JsonLdOptions {
 	}
 
 	/// Builds options for the context processing algorithm from these options.
-	pub fn context_processing_options(&self) -> ContextProcessingOptions {
-		ContextProcessingOptions {
+	pub fn context_processing_options(&self) -> JsonLdContextProcessingOptions {
+		JsonLdContextProcessingOptions {
 			processing_mode: self.processing_mode,
 			..Default::default()
 		}
@@ -145,27 +144,27 @@ impl Default for JsonLdOptions {
 			processing_mode: JsonLdProcessingMode::JsonLd1_1,
 			rdf_direction: None,
 			produce_generalized_rdf: false,
-			expansion_policy: ExpansionPolicy::default(),
+			expansion_policy: JsonLdExpansionPolicy::default(),
 		}
 	}
 }
 
 /// Result returned by the [`JsonLdProcessor::expand`] function.
-pub type ExpandResult = Result<JsonLdExpandedDocument, JsonLdLocatedError>;
+pub type JsonLdExpandResult = Result<JsonLdExpandedDocument, JsonLdLocatedError>;
 
 /// Result of converting into a [`JsonLdDocument`].
-pub type IntoDocumentResult = Result<JsonLdDocument, JsonLdLocatedError>;
+pub type JsonLdIntoDocumentResult = Result<JsonLdDocument, JsonLdLocatedError>;
 
 /// Result of the [`JsonLdProcessor::compact`] function.
-pub type CompactResult = Result<JsonValue, JsonLdLocatedError>;
+pub type JsonLdCompactResult = Result<JsonValue, JsonLdLocatedError>;
 
 /// Result of the [`JsonLdProcessor::flatten`] function.
-pub type FlattenResult = Result<JsonValue, JsonLdLocatedError>;
+pub type JsonLdFlattenResult = Result<JsonValue, JsonLdLocatedError>;
 
-pub type ToRdfResult = Result<Vec<Quad<Term>>, JsonLdLocatedError>;
+pub type JsonLdToRdfResult = Result<Vec<Quad<Term>>, JsonLdLocatedError>;
 
 /// Result of the [`JsonLdProcessor::compare`] function.
-pub type CompareResult = Result<bool, JsonLdLocatedError>;
+pub type JsonLdCompareResult = Result<bool, JsonLdLocatedError>;
 
 /// The `JsonLdProcessor` interface is the high-level programming structure that
 /// developers use to access the JSON-LD transformation methods.
@@ -183,14 +182,14 @@ pub trait JsonLdProcessor: Sized {
 	fn compare_with(
 		&self,
 		other: &Self,
-		env: impl ProcessingEnvironment,
+		env: impl JsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> CompareResult {
+	) -> JsonLdCompareResult {
 		resolve_sync(self.async_compare_with(other, env.into_async_environment(), options))
 	}
 
 	/// Compare this document against `other` using default options.
-	fn compare(&self, other: &Self, env: impl ProcessingEnvironment) -> CompareResult {
+	fn compare(&self, other: &Self, env: impl JsonLdEnvironment) -> JsonLdCompareResult {
 		self.compare_with(other, env, JsonLdOptions::default())
 	}
 
@@ -199,28 +198,32 @@ pub trait JsonLdProcessor: Sized {
 	async fn async_compare_with(
 		&self,
 		other: &Self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> CompareResult;
+	) -> JsonLdCompareResult;
 
 	/// Compare this document against `other` using default options.
 	#[allow(async_fn_in_trait)]
 	async fn async_compare(
 		&self,
 		other: &Self,
-		env: impl AsyncProcessingEnvironment,
-	) -> CompareResult {
+		env: impl AsyncJsonLdEnvironment,
+	) -> JsonLdCompareResult {
 		self.async_compare_with(other, env, JsonLdOptions::default())
 			.await
 	}
 
 	/// Expand the document using the given `options`.
-	fn expand_with(&self, env: impl ProcessingEnvironment, options: JsonLdOptions) -> ExpandResult {
+	fn expand_with(
+		&self,
+		env: impl JsonLdEnvironment,
+		options: JsonLdOptions,
+	) -> JsonLdExpandResult {
 		resolve_sync(self.async_expand_with(env.into_async_environment(), options))
 	}
 
 	/// Expand the document using default options.
-	fn expand(&self, env: impl ProcessingEnvironment) -> ExpandResult {
+	fn expand(&self, env: impl JsonLdEnvironment) -> JsonLdExpandResult {
 		self.expand_with(env, JsonLdOptions::default())
 	}
 
@@ -228,13 +231,13 @@ pub trait JsonLdProcessor: Sized {
 	#[allow(async_fn_in_trait)]
 	async fn async_expand_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> ExpandResult;
+	) -> JsonLdExpandResult;
 
 	/// Expand the document using default options.
 	#[allow(async_fn_in_trait)]
-	async fn async_expand(&self, env: impl AsyncProcessingEnvironment) -> ExpandResult {
+	async fn async_expand(&self, env: impl AsyncJsonLdEnvironment) -> JsonLdExpandResult {
 		self.async_expand_with(env, JsonLdOptions::default()).await
 	}
 
@@ -242,9 +245,9 @@ pub trait JsonLdProcessor: Sized {
 	fn compact_with(
 		&self,
 		context: RemoteJsonLdContext,
-		env: impl ProcessingEnvironment,
+		env: impl JsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> CompactResult {
+	) -> JsonLdCompactResult {
 		resolve_sync(self.async_compact_with(context, env.into_async_environment(), options))
 	}
 
@@ -252,8 +255,8 @@ pub trait JsonLdProcessor: Sized {
 	fn compact(
 		&self,
 		context: RemoteJsonLdContext,
-		env: impl ProcessingEnvironment,
-	) -> CompactResult {
+		env: impl JsonLdEnvironment,
+	) -> JsonLdCompactResult {
 		self.compact_with(context, env, JsonLdOptions::default())
 	}
 
@@ -262,17 +265,17 @@ pub trait JsonLdProcessor: Sized {
 	async fn async_compact_with(
 		&self,
 		context: RemoteJsonLdContext,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> CompactResult;
+	) -> JsonLdCompactResult;
 
 	/// Compact the document relative to `context` using default options.
 	#[allow(async_fn_in_trait)]
 	async fn async_compact(
 		&self,
 		context: RemoteJsonLdContext,
-		env: impl AsyncProcessingEnvironment,
-	) -> CompactResult {
+		env: impl AsyncJsonLdEnvironment,
+	) -> JsonLdCompactResult {
 		self.async_compact_with(context, env, JsonLdOptions::default())
 			.await
 	}
@@ -283,9 +286,9 @@ pub trait JsonLdProcessor: Sized {
 	fn flatten_with(
 		&self,
 		context: Option<RemoteJsonLdContext>,
-		env: impl ProcessingEnvironment,
+		env: impl JsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> FlattenResult {
+	) -> JsonLdFlattenResult {
 		resolve_sync(self.async_flatten_with(context, env.into_async_environment(), options))
 	}
 
@@ -293,8 +296,8 @@ pub trait JsonLdProcessor: Sized {
 	fn flatten(
 		&self,
 		context: Option<RemoteJsonLdContext>,
-		env: impl ProcessingEnvironment,
-	) -> FlattenResult {
+		env: impl JsonLdEnvironment,
+	) -> JsonLdFlattenResult {
 		self.flatten_with(context, env, JsonLdOptions::default())
 	}
 
@@ -305,17 +308,17 @@ pub trait JsonLdProcessor: Sized {
 	async fn async_flatten_with(
 		&self,
 		context: Option<RemoteJsonLdContext>,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		options: JsonLdOptions,
-	) -> FlattenResult;
+	) -> JsonLdFlattenResult;
 
 	/// Flatten the document using default options.
 	#[allow(async_fn_in_trait)]
 	async fn async_flatten(
 		&self,
 		context: Option<RemoteJsonLdContext>,
-		env: impl AsyncProcessingEnvironment,
-	) -> FlattenResult {
+		env: impl AsyncJsonLdEnvironment,
+	) -> JsonLdFlattenResult {
 		self.async_flatten_with(context, env, JsonLdOptions::default())
 			.await
 	}
@@ -323,15 +326,15 @@ pub trait JsonLdProcessor: Sized {
 	/// Serialize the document to RDF using the given `options`.
 	fn to_rdf_with(
 		&self,
-		env: impl ProcessingEnvironment,
+		env: impl JsonLdEnvironment,
 		generator: impl Generator,
 		options: JsonLdOptions,
-	) -> ToRdfResult {
+	) -> JsonLdToRdfResult {
 		resolve_sync(self.async_to_rdf_with(env.into_async_environment(), generator, options))
 	}
 
 	/// Serialize the document to RDF using default options.
-	fn to_rdf(&self, env: impl ProcessingEnvironment, generator: impl Generator) -> ToRdfResult {
+	fn to_rdf(&self, env: impl JsonLdEnvironment, generator: impl Generator) -> JsonLdToRdfResult {
 		self.to_rdf_with(env, generator, JsonLdOptions::default())
 	}
 
@@ -339,10 +342,10 @@ pub trait JsonLdProcessor: Sized {
 	#[allow(async_fn_in_trait)]
 	async fn async_to_rdf_with(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		mut generator: impl Generator,
 		options: JsonLdOptions,
-	) -> ToRdfResult {
+	) -> JsonLdToRdfResult {
 		let rdf_serialization_options = options.rdf_serialization_options();
 		let mut expanded = JsonLdProcessor::async_expand_with(self, env, options).await?;
 		expanded.relabel(&mut generator);
@@ -357,9 +360,9 @@ pub trait JsonLdProcessor: Sized {
 	#[allow(async_fn_in_trait)]
 	async fn async_to_rdf(
 		&self,
-		env: impl AsyncProcessingEnvironment,
+		env: impl AsyncJsonLdEnvironment,
 		generator: impl Generator,
-	) -> ToRdfResult {
+	) -> JsonLdToRdfResult {
 		self.async_to_rdf_with(env, generator, JsonLdOptions::default())
 			.await
 	}

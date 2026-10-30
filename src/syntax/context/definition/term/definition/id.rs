@@ -8,12 +8,12 @@ use std::hash::Hash;
 #[derive(Clone, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-pub enum TermId {
+pub enum JsonLdTermId {
 	Keyword(JsonLdKeyword),
 	Term(String),
 }
 
-impl TermId {
+impl JsonLdTermId {
 	pub fn as_iri(&self) -> Option<&Iri> {
 		match self {
 			Self::Term(t) => Iri::new(t).ok(),
@@ -64,15 +64,15 @@ impl TermId {
 		crate::syntax::is_keyword_like(self.as_str())
 	}
 
-	pub fn as_id_ref(&self) -> IdRef<'_> {
+	pub fn as_id_ref(&self) -> JsonLdIdRef<'_> {
 		match self {
-			Self::Term(t) => IdRef::Term(t),
-			Self::Keyword(k) => IdRef::Keyword(*k),
+			Self::Term(t) => JsonLdIdRef::Term(t),
+			Self::Keyword(k) => JsonLdIdRef::Keyword(*k),
 		}
 	}
 }
 
-impl PartialEq for TermId {
+impl PartialEq for JsonLdTermId {
 	fn eq(&self, other: &Self) -> bool {
 		match (self, other) {
 			(Self::Term(a), Self::Term(b)) => a == b,
@@ -82,15 +82,15 @@ impl PartialEq for TermId {
 	}
 }
 
-impl Eq for TermId {}
+impl Eq for JsonLdTermId {}
 
-impl Hash for TermId {
+impl Hash for JsonLdTermId {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)
 	}
 }
 
-impl From<String> for TermId {
+impl From<String> for JsonLdTermId {
 	fn from(s: String) -> Self {
 		match JsonLdKeyword::try_from(s.as_str()) {
 			Ok(k) => Self::Keyword(k),
@@ -99,16 +99,16 @@ impl From<String> for TermId {
 	}
 }
 
-impl<'a> From<&'a TermId> for JsonLdExpandableRef<'a> {
-	fn from(i: &'a TermId) -> Self {
+impl<'a> From<&'a JsonLdTermId> for JsonLdExpandableRef<'a> {
+	fn from(i: &'a JsonLdTermId) -> Self {
 		match i {
-			TermId::Term(t) => Self::String(t),
-			TermId::Keyword(k) => Self::Keyword(*k),
+			JsonLdTermId::Term(t) => Self::String(t),
+			JsonLdTermId::Keyword(k) => Self::Keyword(*k),
 		}
 	}
 }
 
-impl fmt::Display for TermId {
+impl fmt::Display for JsonLdTermId {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Term(t) => t.fmt(f),
@@ -118,12 +118,12 @@ impl fmt::Display for TermId {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum IdRef<'a> {
+pub enum JsonLdIdRef<'a> {
 	Term(&'a str),
 	Keyword(JsonLdKeyword),
 }
 
-impl<'a> IdRef<'a> {
+impl<'a> JsonLdIdRef<'a> {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Term(t) => t,
@@ -140,7 +140,7 @@ impl<'a> IdRef<'a> {
 	}
 }
 
-impl<'a> From<&'a str> for IdRef<'a> {
+impl<'a> From<&'a str> for JsonLdIdRef<'a> {
 	fn from(s: &'a str) -> Self {
 		match JsonLdKeyword::try_from(s) {
 			Ok(k) => Self::Keyword(k),
@@ -149,26 +149,26 @@ impl<'a> From<&'a str> for IdRef<'a> {
 	}
 }
 
-impl<'a> From<IdRef<'a>> for JsonLdExpandableRef<'a> {
-	fn from(i: IdRef<'a>) -> Self {
+impl<'a> From<JsonLdIdRef<'a>> for JsonLdExpandableRef<'a> {
+	fn from(i: JsonLdIdRef<'a>) -> Self {
 		match i {
-			IdRef::Term(t) => Self::String(t),
-			IdRef::Keyword(k) => Self::Keyword(k),
+			JsonLdIdRef::Term(t) => Self::String(t),
+			JsonLdIdRef::Keyword(k) => Self::Keyword(k),
 		}
 	}
 }
 
-impl<'a> fmt::Display for IdRef<'a> {
+impl<'a> fmt::Display for JsonLdIdRef<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		self.as_str().fmt(f)
 	}
 }
 
-impl<'a> From<IdRef<'a>> for JsonLdKeyOrKeywordRef<'a> {
-	fn from(i: IdRef<'a>) -> Self {
+impl<'a> From<JsonLdIdRef<'a>> for JsonLdKeyOrKeywordRef<'a> {
+	fn from(i: JsonLdIdRef<'a>) -> Self {
 		match i {
-			IdRef::Term(t) => Self::Key(t.into()),
-			IdRef::Keyword(k) => Self::Keyword(k),
+			JsonLdIdRef::Term(t) => Self::Key(t.into()),
+			JsonLdIdRef::Keyword(k) => Self::Keyword(k),
 		}
 	}
 }

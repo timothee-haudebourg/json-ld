@@ -1,6 +1,6 @@
-use crate::algorithms::AsyncProcessingEnvironment;
-use crate::algorithms::context_processing::ContextProcessingOptions;
-use crate::algorithms::expansion::{Expander, ExpansionPolicy};
+use crate::algorithms::AsyncJsonLdEnvironment;
+use crate::algorithms::context_processing::JsonLdContextProcessingOptions;
+use crate::algorithms::expansion::{Expander, JsonLdExpansionPolicy};
 use crate::context::JsonLdContainer;
 use crate::context::RawJsonLdProcessedContext;
 use crate::syntax::{JsonLdContainerItem, JsonLdKeyword, JsonLdNullable};
@@ -32,7 +32,7 @@ impl<'a> Expander<'a> {
 	/// Expand a node object.
 	pub async fn expand_node(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		type_scoped_context: &RawJsonLdProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -91,7 +91,7 @@ impl<'a> Expander<'a> {
 	#[allow(clippy::too_many_arguments)]
 	async fn expand_node_entries(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		mut result: JsonLdIndexed<JsonLdNode>,
 		mut has_value_object_entries: bool,
 		type_scoped_context: &RawJsonLdProcessedContext,
@@ -284,7 +284,7 @@ impl<'a> Expander<'a> {
 										}
 										JsonLdTerm::Id(JsonLdLenient::Invalid(_))
 											if self.options.policy
-												== ExpansionPolicy::Strictest =>
+												== JsonLdExpansionPolicy::Strictest =>
 										{
 											return Err(JsonLdError::KeyExpansionFailed(
 												reverse_key.to_string(),
@@ -294,7 +294,7 @@ impl<'a> Expander<'a> {
 										JsonLdTerm::Id(reverse_prop)
 											if reverse_prop.as_str().contains(':')
 												|| self.options.policy
-													== ExpansionPolicy::Relaxed =>
+													== JsonLdExpansionPolicy::Relaxed =>
 										{
 											let reverse_expanded_value = Box::pin(
 												self.with_active_property(Some(
@@ -386,7 +386,8 @@ impl<'a> Expander<'a> {
 								// Step 8 again.
 								let active_context = match property_scoped_context {
 									Some(property_scoped_context) => {
-										let options: ContextProcessingOptions = self.options.into();
+										let options: JsonLdContextProcessingOptions =
+											self.options.into();
 										Mown::Owned(
 											property_scoped_context
 												.process_with(
@@ -461,14 +462,14 @@ impl<'a> Expander<'a> {
 				}
 
 				JsonLdTerm::Id(JsonLdLenient::Invalid(name))
-					if self.options.policy == ExpansionPolicy::Strictest =>
+					if self.options.policy == JsonLdExpansionPolicy::Strictest =>
 				{
 					return Err(JsonLdError::KeyExpansionFailed(name).at(entry_loc));
 				}
 
 				JsonLdTerm::Id(prop)
 					if prop.as_str().contains(':')
-						|| self.options.policy == ExpansionPolicy::Relaxed =>
+						|| self.options.policy == JsonLdExpansionPolicy::Relaxed =>
 				{
 					let mut container_mapping = JsonLdContainer::new();
 

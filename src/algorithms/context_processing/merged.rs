@@ -7,7 +7,8 @@ use crate::{
 		JsonLdContext, JsonLdContextEntry,
 		context::{
 			JsonLdContextBindingsIter, JsonLdContextDefinition, JsonLdContextEntryValueRef,
-			JsonLdContextTerm, JsonLdContextType, JsonLdKeyOrKeyword, JsonLdVocab, TermDefinition,
+			JsonLdContextTerm, JsonLdContextType, JsonLdKeyOrKeyword, JsonLdTermDefinition,
+			JsonLdVocab,
 		},
 	},
 };
@@ -142,7 +143,10 @@ impl<'a> From<&'a JsonLdContextDefinition> for Merged<'a> {
 // 	}
 // }
 
-type BindingRef<'a> = (&'a JsonLdContextTerm, JsonLdNullable<&'a TermDefinition>);
+type BindingRef<'a> = (
+	&'a JsonLdContextTerm,
+	JsonLdNullable<&'a JsonLdTermDefinition>,
+);
 
 pub struct MergedBindings<'a> {
 	base: &'a JsonLdContextDefinition,

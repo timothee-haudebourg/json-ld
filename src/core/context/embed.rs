@@ -1,6 +1,4 @@
-use json_syntax::JsonValue;
-
-use crate::{JsonLdLocatedError, ProcessedJsonLdContext};
+use crate::{JsonLdLocatedError, syntax::JsonLdContext};
 
 /// Context embeding method.
 ///
@@ -8,17 +6,14 @@ use crate::{JsonLdLocatedError, ProcessedJsonLdContext};
 /// to include a JSON-LD context to a JSON-LD document.
 pub trait JsonLdEmbedContext {
 	/// Embeds the given context into the document.
-	fn embed_context(&mut self, context: &ProcessedJsonLdContext)
-	-> Result<(), JsonLdLocatedError>;
+	fn embed_context(&mut self, context: &JsonLdContext) -> Result<(), JsonLdLocatedError>;
 }
 
-impl JsonLdEmbedContext for JsonValue {
-	fn embed_context(
-		&mut self,
-		context: &ProcessedJsonLdContext,
-	) -> Result<(), JsonLdLocatedError> {
+#[cfg(feature = "serde")]
+impl JsonLdEmbedContext for json_syntax::JsonValue {
+	fn embed_context(&mut self, context: &JsonLdContext) -> Result<(), JsonLdLocatedError> {
 		if let Some(obj) = self.as_object_mut() {
-			let json_context = json_syntax::to_value(context.unprocessed()).unwrap();
+			let json_context = json_syntax::to_value(context).unwrap();
 
 			if !obj.is_empty()
 				&& !json_context.is_null()

@@ -4,8 +4,8 @@ use mown::Mown;
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, JsonLdType, JsonLdValue,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
-		context_processing::ContextProcessingOptions,
+		AsyncJsonLdEnvironment, AsyncProcessingEnvironmentRef,
+		context_processing::JsonLdContextProcessingOptions,
 	},
 	context::JsonLdContainer,
 	object::value::JsonLdLiteralType,
@@ -18,7 +18,7 @@ impl<'a> Compactor<'a> {
 	/// Compact the given indexed value.
 	pub async fn compact_indexed_value_with(
 		&self,
-		env: &impl AsyncProcessingEnvironment,
+		env: &impl AsyncJsonLdEnvironment,
 		value: &JsonLdValue,
 		index: Option<&str>,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -39,7 +39,7 @@ impl<'a> Compactor<'a> {
 						AsyncProcessingEnvironmentRef(env),
 						active_property_definition.base_url(),
 						active_context.as_ref(),
-						ContextProcessingOptions::from(self.options).with_override(),
+						JsonLdContextProcessingOptions::from(self.options).with_override(),
 						scoped_context_loc,
 					)
 					.await?

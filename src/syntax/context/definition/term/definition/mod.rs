@@ -1,8 +1,8 @@
 use crate::{
 	JsonLdLenient,
 	syntax::{
-		CompactIriBuf, JsonLdCompactIri, JsonLdContainerValue, JsonLdContext, JsonLdDirection,
-		JsonLdKeyword, JsonLdNullable,
+		JsonLdCompactIri, JsonLdCompactIriBuf, JsonLdContainerValue, JsonLdContext,
+		JsonLdDirection, JsonLdKeyword, JsonLdNullable,
 		context::{self, JsonLdContextTerm},
 	},
 };
@@ -24,12 +24,12 @@ pub use type_::*;
 #[derive(PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-pub enum TermDefinition {
-	Simple(SimpleTermDefinition),
-	Expanded(Box<ExpandedTermDefinition>),
+pub enum JsonLdTermDefinition {
+	Simple(JsonLdSimpleTermDefinition),
+	Expanded(Box<JsonLdExpandedTermDefinition>),
 }
 
-impl TermDefinition {
+impl JsonLdTermDefinition {
 	pub fn is_expanded(&self) -> bool {
 		matches!(self, Self::Expanded(_))
 	}
@@ -38,9 +38,9 @@ impl TermDefinition {
 		self.is_expanded()
 	}
 
-	pub fn as_expanded(&self) -> ExpandedTermDefinitionRef<'_> {
+	pub fn as_expanded(&self) -> JsonLdExpandedTermDefinitionRef<'_> {
 		match self {
-			Self::Simple(term) => ExpandedTermDefinitionRef {
+			Self::Simple(term) => JsonLdExpandedTermDefinitionRef {
 				id: Some(JsonLdNullable::Some(term.as_str().into())),
 				..Default::default()
 			},
@@ -55,9 +55,9 @@ impl TermDefinition {
 	derive(serde::Serialize, serde::Deserialize),
 	serde(transparent)
 )]
-pub struct SimpleTermDefinition(pub String);
+pub struct JsonLdSimpleTermDefinition(pub String);
 
-impl SimpleTermDefinition {
+impl JsonLdSimpleTermDefinition {
 	pub fn as_iri(&self) -> Option<&Iri> {
 		Iri::new(&self.0).ok()
 	}
@@ -79,19 +79,19 @@ impl SimpleTermDefinition {
 	}
 }
 
-impl From<IriBuf> for SimpleTermDefinition {
+impl From<IriBuf> for JsonLdSimpleTermDefinition {
 	fn from(value: IriBuf) -> Self {
 		Self(value.into_string())
 	}
 }
 
-impl From<CompactIriBuf> for SimpleTermDefinition {
-	fn from(value: CompactIriBuf) -> Self {
+impl From<JsonLdCompactIriBuf> for JsonLdSimpleTermDefinition {
+	fn from(value: JsonLdCompactIriBuf) -> Self {
 		Self(value.into_string())
 	}
 }
 
-impl From<BlankIdBuf> for SimpleTermDefinition {
+impl From<BlankIdBuf> for JsonLdSimpleTermDefinition {
 	fn from(value: BlankIdBuf) -> Self {
 		Self(value.to_string())
 	}
@@ -100,7 +100,7 @@ impl From<BlankIdBuf> for SimpleTermDefinition {
 /// Expanded term definition.
 #[derive(Default, PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ExpandedTermDefinition {
+pub struct JsonLdExpandedTermDefinition {
 	#[cfg_attr(
 		feature = "serde",
 		serde(
@@ -110,7 +110,7 @@ pub struct ExpandedTermDefinition {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub id: Option<JsonLdNullable<TermId>>,
+	pub id: Option<JsonLdNullable<JsonLdTermId>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -121,7 +121,7 @@ pub struct ExpandedTermDefinition {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub type_: Option<JsonLdNullable<TermType>>,
+	pub type_: Option<JsonLdNullable<JsonLdTermType>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -211,7 +211,7 @@ pub struct ExpandedTermDefinition {
 	pub protected: Option<bool>,
 }
 
-impl ExpandedTermDefinition {
+impl JsonLdExpandedTermDefinition {
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -246,20 +246,20 @@ impl ExpandedTermDefinition {
 			&& self.protected.is_none()
 	}
 
-	pub fn simplify(self) -> JsonLdNullable<TermDefinition> {
+	pub fn simplify(self) -> JsonLdNullable<JsonLdTermDefinition> {
 		if self.is_null() {
 			JsonLdNullable::Null
 		} else if self.is_simple_definition() {
-			JsonLdNullable::Some(TermDefinition::Simple(SimpleTermDefinition(
+			JsonLdNullable::Some(JsonLdTermDefinition::Simple(JsonLdSimpleTermDefinition(
 				self.id.unwrap().unwrap().into_string(),
 			)))
 		} else {
-			JsonLdNullable::Some(TermDefinition::Expanded(Box::new(self)))
+			JsonLdNullable::Some(JsonLdTermDefinition::Expanded(Box::new(self)))
 		}
 	}
 
-	pub fn iter(&self) -> TermDefinitionEntries<'_> {
-		TermDefinitionEntries {
+	pub fn iter(&self) -> JsonLdTermDefinitionEntries<'_> {
+		JsonLdTermDefinitionEntries {
 			id: self.id.as_ref().map(JsonLdNullable::as_ref),
 			type_: self.type_.as_ref().map(JsonLdNullable::as_ref),
 			context: self.context.as_deref(),
@@ -275,8 +275,8 @@ impl ExpandedTermDefinition {
 		}
 	}
 
-	pub fn as_expanded_ref(&self) -> ExpandedTermDefinitionRef<'_> {
-		ExpandedTermDefinitionRef {
+	pub fn as_expanded_ref(&self) -> JsonLdExpandedTermDefinitionRef<'_> {
+		JsonLdExpandedTermDefinitionRef {
 			id: self
 				.id
 				.as_ref()
@@ -301,9 +301,9 @@ impl ExpandedTermDefinition {
 
 /// Expanded term definition.
 #[derive(Default, Debug)]
-pub struct ExpandedTermDefinitionRef<'a> {
-	pub id: Option<JsonLdNullable<IdRef<'a>>>,
-	pub type_: Option<JsonLdNullable<&'a TermType>>,
+pub struct JsonLdExpandedTermDefinitionRef<'a> {
+	pub id: Option<JsonLdNullable<JsonLdIdRef<'a>>>,
+	pub type_: Option<JsonLdNullable<&'a JsonLdTermType>>,
 	pub context: Option<&'a JsonLdContext>,
 	pub reverse: Option<&'a JsonLdContextTerm>,
 	pub index: Option<&'a JsonLdIndex>,
@@ -316,8 +316,8 @@ pub struct ExpandedTermDefinitionRef<'a> {
 	pub protected: Option<bool>,
 }
 
-impl<'a> From<JsonLdNullable<&'a TermDefinition>> for ExpandedTermDefinitionRef<'a> {
-	fn from(value: JsonLdNullable<&'a TermDefinition>) -> Self {
+impl<'a> From<JsonLdNullable<&'a JsonLdTermDefinition>> for JsonLdExpandedTermDefinitionRef<'a> {
+	fn from(value: JsonLdNullable<&'a JsonLdTermDefinition>) -> Self {
 		match value {
 			JsonLdNullable::Some(d) => d.as_expanded(),
 			JsonLdNullable::Null => Self {
@@ -329,9 +329,9 @@ impl<'a> From<JsonLdNullable<&'a TermDefinition>> for ExpandedTermDefinitionRef<
 }
 
 /// Term definition entries.
-pub struct TermDefinitionEntries<'a> {
-	id: Option<JsonLdNullable<&'a TermId>>,
-	type_: Option<JsonLdNullable<&'a TermType>>,
+pub struct JsonLdTermDefinitionEntries<'a> {
+	id: Option<JsonLdNullable<&'a JsonLdTermId>>,
+	type_: Option<JsonLdNullable<&'a JsonLdTermType>>,
 	context: Option<&'a context::JsonLdContext>,
 	reverse: Option<&'a JsonLdContextTerm>,
 	index: Option<&'a JsonLdIndex>,
@@ -344,9 +344,9 @@ pub struct TermDefinitionEntries<'a> {
 	protected: Option<bool>,
 }
 
-pub enum TermDefinitionEntryRef<'a> {
-	Id(JsonLdNullable<&'a TermId>),
-	Type(JsonLdNullable<&'a TermType>),
+pub enum JsonLdTermDefinitionEntryRef<'a> {
+	Id(JsonLdNullable<&'a JsonLdTermId>),
+	Type(JsonLdNullable<&'a JsonLdTermType>),
 	Context(&'a context::JsonLdContext),
 	Reverse(&'a JsonLdContextTerm),
 	Index(&'a JsonLdIndex),
@@ -359,121 +359,131 @@ pub enum TermDefinitionEntryRef<'a> {
 	Protected(bool),
 }
 
-impl<'a> TermDefinitionEntryRef<'a> {
-	pub fn into_key(self) -> TermDefinitionEntryKey {
+impl<'a> JsonLdTermDefinitionEntryRef<'a> {
+	pub fn into_key(self) -> JsonLdTermDefinitionEntryKey {
 		match self {
-			Self::Id(_) => TermDefinitionEntryKey::Id,
-			Self::Type(_) => TermDefinitionEntryKey::Type,
-			Self::Context(_) => TermDefinitionEntryKey::Context,
-			Self::Reverse(_) => TermDefinitionEntryKey::Reverse,
-			Self::Index(_) => TermDefinitionEntryKey::Index,
-			Self::Language(_) => TermDefinitionEntryKey::Language,
-			Self::Direction(_) => TermDefinitionEntryKey::Direction,
-			Self::Container(_) => TermDefinitionEntryKey::Container,
-			Self::Nest(_) => TermDefinitionEntryKey::Nest,
-			Self::Prefix(_) => TermDefinitionEntryKey::Prefix,
-			Self::Propagate(_) => TermDefinitionEntryKey::Propagate,
-			Self::Protected(_) => TermDefinitionEntryKey::Protected,
+			Self::Id(_) => JsonLdTermDefinitionEntryKey::Id,
+			Self::Type(_) => JsonLdTermDefinitionEntryKey::Type,
+			Self::Context(_) => JsonLdTermDefinitionEntryKey::Context,
+			Self::Reverse(_) => JsonLdTermDefinitionEntryKey::Reverse,
+			Self::Index(_) => JsonLdTermDefinitionEntryKey::Index,
+			Self::Language(_) => JsonLdTermDefinitionEntryKey::Language,
+			Self::Direction(_) => JsonLdTermDefinitionEntryKey::Direction,
+			Self::Container(_) => JsonLdTermDefinitionEntryKey::Container,
+			Self::Nest(_) => JsonLdTermDefinitionEntryKey::Nest,
+			Self::Prefix(_) => JsonLdTermDefinitionEntryKey::Prefix,
+			Self::Propagate(_) => JsonLdTermDefinitionEntryKey::Propagate,
+			Self::Protected(_) => JsonLdTermDefinitionEntryKey::Protected,
 		}
 	}
 
-	pub fn key(&self) -> TermDefinitionEntryKey {
+	pub fn key(&self) -> JsonLdTermDefinitionEntryKey {
 		match self {
-			Self::Id(_) => TermDefinitionEntryKey::Id,
-			Self::Type(_) => TermDefinitionEntryKey::Type,
-			Self::Context(_) => TermDefinitionEntryKey::Context,
-			Self::Reverse(_) => TermDefinitionEntryKey::Reverse,
-			Self::Index(_) => TermDefinitionEntryKey::Index,
-			Self::Language(_) => TermDefinitionEntryKey::Language,
-			Self::Direction(_) => TermDefinitionEntryKey::Direction,
-			Self::Container(_) => TermDefinitionEntryKey::Container,
-			Self::Nest(_) => TermDefinitionEntryKey::Nest,
-			Self::Prefix(_) => TermDefinitionEntryKey::Prefix,
-			Self::Propagate(_) => TermDefinitionEntryKey::Propagate,
-			Self::Protected(_) => TermDefinitionEntryKey::Protected,
+			Self::Id(_) => JsonLdTermDefinitionEntryKey::Id,
+			Self::Type(_) => JsonLdTermDefinitionEntryKey::Type,
+			Self::Context(_) => JsonLdTermDefinitionEntryKey::Context,
+			Self::Reverse(_) => JsonLdTermDefinitionEntryKey::Reverse,
+			Self::Index(_) => JsonLdTermDefinitionEntryKey::Index,
+			Self::Language(_) => JsonLdTermDefinitionEntryKey::Language,
+			Self::Direction(_) => JsonLdTermDefinitionEntryKey::Direction,
+			Self::Container(_) => JsonLdTermDefinitionEntryKey::Container,
+			Self::Nest(_) => JsonLdTermDefinitionEntryKey::Nest,
+			Self::Prefix(_) => JsonLdTermDefinitionEntryKey::Prefix,
+			Self::Propagate(_) => JsonLdTermDefinitionEntryKey::Propagate,
+			Self::Protected(_) => JsonLdTermDefinitionEntryKey::Protected,
 		}
 	}
 
-	pub fn into_value(self) -> TermDefinitionEntryValueRef<'a> {
+	pub fn into_value(self) -> JsonLdTermDefinitionEntryValueRef<'a> {
 		self.value()
 	}
 
-	pub fn value(&self) -> TermDefinitionEntryValueRef<'a> {
+	pub fn value(&self) -> JsonLdTermDefinitionEntryValueRef<'a> {
 		match self {
-			Self::Id(e) => TermDefinitionEntryValueRef::Id(*e),
-			Self::Type(e) => TermDefinitionEntryValueRef::Type(*e),
-			Self::Context(e) => TermDefinitionEntryValueRef::Context(e),
-			Self::Reverse(e) => TermDefinitionEntryValueRef::Reverse(e),
-			Self::Index(e) => TermDefinitionEntryValueRef::Index(e),
-			Self::Language(e) => TermDefinitionEntryValueRef::Language(*e),
-			Self::Direction(e) => TermDefinitionEntryValueRef::Direction(*e),
-			Self::Container(e) => TermDefinitionEntryValueRef::Container(e),
-			Self::Nest(e) => TermDefinitionEntryValueRef::Nest(e),
-			Self::Prefix(e) => TermDefinitionEntryValueRef::Prefix(*e),
-			Self::Propagate(e) => TermDefinitionEntryValueRef::Propagate(*e),
-			Self::Protected(e) => TermDefinitionEntryValueRef::Protected(*e),
+			Self::Id(e) => JsonLdTermDefinitionEntryValueRef::Id(*e),
+			Self::Type(e) => JsonLdTermDefinitionEntryValueRef::Type(*e),
+			Self::Context(e) => JsonLdTermDefinitionEntryValueRef::Context(e),
+			Self::Reverse(e) => JsonLdTermDefinitionEntryValueRef::Reverse(e),
+			Self::Index(e) => JsonLdTermDefinitionEntryValueRef::Index(e),
+			Self::Language(e) => JsonLdTermDefinitionEntryValueRef::Language(*e),
+			Self::Direction(e) => JsonLdTermDefinitionEntryValueRef::Direction(*e),
+			Self::Container(e) => JsonLdTermDefinitionEntryValueRef::Container(e),
+			Self::Nest(e) => JsonLdTermDefinitionEntryValueRef::Nest(e),
+			Self::Prefix(e) => JsonLdTermDefinitionEntryValueRef::Prefix(*e),
+			Self::Propagate(e) => JsonLdTermDefinitionEntryValueRef::Propagate(*e),
+			Self::Protected(e) => JsonLdTermDefinitionEntryValueRef::Protected(*e),
 		}
 	}
 
-	pub fn into_key_value(self) -> (TermDefinitionEntryKey, TermDefinitionEntryValueRef<'a>) {
+	pub fn into_key_value(
+		self,
+	) -> (
+		JsonLdTermDefinitionEntryKey,
+		JsonLdTermDefinitionEntryValueRef<'a>,
+	) {
 		self.key_value()
 	}
 
-	pub fn key_value(&self) -> (TermDefinitionEntryKey, TermDefinitionEntryValueRef<'a>) {
+	pub fn key_value(
+		&self,
+	) -> (
+		JsonLdTermDefinitionEntryKey,
+		JsonLdTermDefinitionEntryValueRef<'a>,
+	) {
 		match self {
 			Self::Id(e) => (
-				TermDefinitionEntryKey::Id,
-				TermDefinitionEntryValueRef::Id(*e),
+				JsonLdTermDefinitionEntryKey::Id,
+				JsonLdTermDefinitionEntryValueRef::Id(*e),
 			),
 			Self::Type(e) => (
-				TermDefinitionEntryKey::Type,
-				TermDefinitionEntryValueRef::Type(*e),
+				JsonLdTermDefinitionEntryKey::Type,
+				JsonLdTermDefinitionEntryValueRef::Type(*e),
 			),
 			Self::Context(e) => (
-				TermDefinitionEntryKey::Context,
-				TermDefinitionEntryValueRef::Context(e),
+				JsonLdTermDefinitionEntryKey::Context,
+				JsonLdTermDefinitionEntryValueRef::Context(e),
 			),
 			Self::Reverse(e) => (
-				TermDefinitionEntryKey::Reverse,
-				TermDefinitionEntryValueRef::Reverse(e),
+				JsonLdTermDefinitionEntryKey::Reverse,
+				JsonLdTermDefinitionEntryValueRef::Reverse(e),
 			),
 			Self::Index(e) => (
-				TermDefinitionEntryKey::Index,
-				TermDefinitionEntryValueRef::Index(e),
+				JsonLdTermDefinitionEntryKey::Index,
+				JsonLdTermDefinitionEntryValueRef::Index(e),
 			),
 			Self::Language(e) => (
-				TermDefinitionEntryKey::Language,
-				TermDefinitionEntryValueRef::Language(*e),
+				JsonLdTermDefinitionEntryKey::Language,
+				JsonLdTermDefinitionEntryValueRef::Language(*e),
 			),
 			Self::Direction(e) => (
-				TermDefinitionEntryKey::Direction,
-				TermDefinitionEntryValueRef::Direction(*e),
+				JsonLdTermDefinitionEntryKey::Direction,
+				JsonLdTermDefinitionEntryValueRef::Direction(*e),
 			),
 			Self::Container(e) => (
-				TermDefinitionEntryKey::Container,
-				TermDefinitionEntryValueRef::Container(e),
+				JsonLdTermDefinitionEntryKey::Container,
+				JsonLdTermDefinitionEntryValueRef::Container(e),
 			),
 			Self::Nest(e) => (
-				TermDefinitionEntryKey::Nest,
-				TermDefinitionEntryValueRef::Nest(e),
+				JsonLdTermDefinitionEntryKey::Nest,
+				JsonLdTermDefinitionEntryValueRef::Nest(e),
 			),
 			Self::Prefix(e) => (
-				TermDefinitionEntryKey::Prefix,
-				TermDefinitionEntryValueRef::Prefix(*e),
+				JsonLdTermDefinitionEntryKey::Prefix,
+				JsonLdTermDefinitionEntryValueRef::Prefix(*e),
 			),
 			Self::Propagate(e) => (
-				TermDefinitionEntryKey::Propagate,
-				TermDefinitionEntryValueRef::Propagate(*e),
+				JsonLdTermDefinitionEntryKey::Propagate,
+				JsonLdTermDefinitionEntryValueRef::Propagate(*e),
 			),
 			Self::Protected(e) => (
-				TermDefinitionEntryKey::Protected,
-				TermDefinitionEntryValueRef::Protected(*e),
+				JsonLdTermDefinitionEntryKey::Protected,
+				JsonLdTermDefinitionEntryValueRef::Protected(*e),
 			),
 		}
 	}
 }
 
-pub enum TermDefinitionEntryKey {
+pub enum JsonLdTermDefinitionEntryKey {
 	Id,
 	Type,
 	Context,
@@ -488,7 +498,7 @@ pub enum TermDefinitionEntryKey {
 	Protected,
 }
 
-impl TermDefinitionEntryKey {
+impl JsonLdTermDefinitionEntryKey {
 	pub fn keyword(&self) -> JsonLdKeyword {
 		match self {
 			Self::Id => JsonLdKeyword::Id,
@@ -511,9 +521,9 @@ impl TermDefinitionEntryKey {
 	}
 }
 
-pub enum TermDefinitionEntryValueRef<'a> {
-	Id(JsonLdNullable<&'a TermId>),
-	Type(JsonLdNullable<&'a TermType>),
+pub enum JsonLdTermDefinitionEntryValueRef<'a> {
+	Id(JsonLdNullable<&'a JsonLdTermId>),
+	Type(JsonLdNullable<&'a JsonLdTermType>),
 	Context(&'a context::JsonLdContext),
 	Reverse(&'a JsonLdContextTerm),
 	Index(&'a JsonLdIndex),
@@ -526,8 +536,8 @@ pub enum TermDefinitionEntryValueRef<'a> {
 	Protected(bool),
 }
 
-impl<'a> Iterator for TermDefinitionEntries<'a> {
-	type Item = TermDefinitionEntryRef<'a>;
+impl<'a> Iterator for JsonLdTermDefinitionEntries<'a> {
+	type Item = JsonLdTermDefinitionEntryRef<'a>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = 0;
@@ -585,39 +595,42 @@ impl<'a> Iterator for TermDefinitionEntries<'a> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.id.take() {
-			Some(value) => Some(TermDefinitionEntryRef::Id(value)),
+			Some(value) => Some(JsonLdTermDefinitionEntryRef::Id(value)),
 			None => match self.type_.take() {
-				Some(value) => Some(TermDefinitionEntryRef::Type(value)),
+				Some(value) => Some(JsonLdTermDefinitionEntryRef::Type(value)),
 				None => match self.context.take() {
-					Some(value) => Some(TermDefinitionEntryRef::Context(value)),
+					Some(value) => Some(JsonLdTermDefinitionEntryRef::Context(value)),
 					None => match self.reverse.take() {
-						Some(value) => Some(TermDefinitionEntryRef::Reverse(value)),
+						Some(value) => Some(JsonLdTermDefinitionEntryRef::Reverse(value)),
 						None => match self.index.take() {
-							Some(value) => Some(TermDefinitionEntryRef::Index(value)),
+							Some(value) => Some(JsonLdTermDefinitionEntryRef::Index(value)),
 							None => match self.language.take() {
-								Some(value) => Some(TermDefinitionEntryRef::Language(value)),
+								Some(value) => Some(JsonLdTermDefinitionEntryRef::Language(value)),
 								None => match self.direction.take() {
-									Some(value) => Some(TermDefinitionEntryRef::Direction(value)),
+									Some(value) => {
+										Some(JsonLdTermDefinitionEntryRef::Direction(value))
+									}
 									None => match self.container.take() {
 										Some(value) => {
-											Some(TermDefinitionEntryRef::Container(value))
+											Some(JsonLdTermDefinitionEntryRef::Container(value))
 										}
 										None => match self.nest.take() {
 											Some(value) => {
-												Some(TermDefinitionEntryRef::Nest(value))
+												Some(JsonLdTermDefinitionEntryRef::Nest(value))
 											}
 											None => match self.prefix.take() {
-												Some(value) => {
-													Some(TermDefinitionEntryRef::Prefix(value))
-												}
+												Some(value) => Some(
+													JsonLdTermDefinitionEntryRef::Prefix(value),
+												),
 												None => match self.propagate.take() {
 													Some(value) => Some(
-														TermDefinitionEntryRef::Propagate(value),
+														JsonLdTermDefinitionEntryRef::Propagate(
+															value,
+														),
 													),
-													None => self
-														.protected
-														.take()
-														.map(TermDefinitionEntryRef::Protected),
+													None => self.protected.take().map(
+														JsonLdTermDefinitionEntryRef::Protected,
+													),
 												},
 											},
 										},
@@ -632,4 +645,4 @@ impl<'a> Iterator for TermDefinitionEntries<'a> {
 	}
 }
 
-impl<'a> ExactSizeIterator for TermDefinitionEntries<'a> {}
+impl<'a> ExactSizeIterator for JsonLdTermDefinitionEntries<'a> {}

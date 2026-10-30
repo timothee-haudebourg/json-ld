@@ -12,7 +12,7 @@ pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
 pub use expansion::*;
 
-pub trait AsyncProcessingEnvironment {
+pub trait AsyncJsonLdEnvironment {
 	type Loader: AsyncJsonLdLoader;
 
 	fn loader(&self) -> &Self::Loader;
@@ -24,7 +24,7 @@ pub trait AsyncProcessingEnvironment {
 	}
 }
 
-impl<L: AsyncJsonLdLoader> AsyncProcessingEnvironment for L {
+impl<L: AsyncJsonLdLoader> AsyncJsonLdEnvironment for L {
 	type Loader = Self;
 
 	fn loader(&self) -> &Self::Loader {
@@ -38,7 +38,7 @@ impl<L: AsyncJsonLdLoader> AsyncProcessingEnvironment for L {
 
 pub struct AsyncProcessingEnvironmentRef<'a, T: ?Sized>(pub &'a T);
 
-impl<'a, T: ?Sized + AsyncProcessingEnvironment> AsyncProcessingEnvironment
+impl<'a, T: ?Sized + AsyncJsonLdEnvironment> AsyncJsonLdEnvironment
 	for AsyncProcessingEnvironmentRef<'a, T>
 {
 	type Loader = T::Loader;
@@ -52,26 +52,26 @@ impl<'a, T: ?Sized + AsyncProcessingEnvironment> AsyncProcessingEnvironment
 	}
 }
 
-pub trait ProcessingEnvironment {
+pub trait JsonLdEnvironment {
 	type Loader: JsonLdLoader;
 
 	fn loader(&self) -> &Self::Loader;
 
 	fn warn(&self, w: JsonLdWarning);
 
-	fn as_async_environment(&self) -> &ToAsyncProcessingEnvironment<Self> {
-		ToAsyncProcessingEnvironment::from_ref(self)
+	fn as_async_environment(&self) -> &ToAsyncJsonLdEnvironment<Self> {
+		ToAsyncJsonLdEnvironment::from_ref(self)
 	}
 
-	fn into_async_environment(self) -> ToAsyncProcessingEnvironment<Self>
+	fn into_async_environment(self) -> ToAsyncJsonLdEnvironment<Self>
 	where
 		Self: Sized,
 	{
-		ToAsyncProcessingEnvironment(self)
+		ToAsyncJsonLdEnvironment(self)
 	}
 }
 
-impl<L: JsonLdLoader> ProcessingEnvironment for L {
+impl<L: JsonLdLoader> JsonLdEnvironment for L {
 	type Loader = Self;
 
 	fn loader(&self) -> &Self::Loader {
@@ -85,9 +85,9 @@ impl<L: JsonLdLoader> ProcessingEnvironment for L {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct ToAsyncProcessingEnvironment<T: ?Sized>(pub T);
+pub struct ToAsyncJsonLdEnvironment<T: ?Sized>(pub T);
 
-impl<T: ?Sized> ToAsyncProcessingEnvironment<T> {
+impl<T: ?Sized> ToAsyncJsonLdEnvironment<T> {
 	pub fn from_ref(env: &T) -> &Self {
 		unsafe {
 			// SAFETY: `ToAsyncProcessingEnvironment` uses the `transparent` repr.
@@ -96,7 +96,7 @@ impl<T: ?Sized> ToAsyncProcessingEnvironment<T> {
 	}
 }
 
-impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingEnvironment<T> {
+impl<T: JsonLdEnvironment> AsyncJsonLdEnvironment for ToAsyncJsonLdEnvironment<T> {
 	type Loader = ToAsyncJsonLdLoader<T::Loader>;
 
 	fn loader(&self) -> &Self::Loader {

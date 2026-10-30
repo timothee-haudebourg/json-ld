@@ -1,6 +1,8 @@
 use crate::{
 	JsonLdProcessingMode,
-	algorithms::{context_processing::ContextProcessingOptions, expansion::JsonLdExpansionOptions},
+	algorithms::{
+		context_processing::JsonLdContextProcessingOptions, expansion::JsonLdExpansionOptions,
+	},
 };
 
 /// Compaction options.
@@ -30,7 +32,7 @@ impl JsonLdCompactionOptions {
 	}
 }
 
-impl From<JsonLdCompactionOptions> for ContextProcessingOptions {
+impl From<JsonLdCompactionOptions> for JsonLdContextProcessingOptions {
 	fn from(options: JsonLdCompactionOptions) -> Self {
 		Self {
 			processing_mode: options.processing_mode,

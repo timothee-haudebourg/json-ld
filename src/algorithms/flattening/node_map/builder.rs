@@ -8,11 +8,11 @@ use crate::{
 	JsonLdObject, object::JsonLdList, syntax::JsonLdKeyword,
 };
 
-use super::{NodeMap, NodeMapExtendError};
+use super::{JsonLdNodeMap, NodeMapExtendError};
 
 pub struct NodeMapBuilder<G> {
 	substitution: Substitution<G>,
-	result: NodeMap,
+	result: JsonLdNodeMap,
 }
 
 impl<G> NodeMapBuilder<G> {
@@ -22,11 +22,11 @@ impl<G> NodeMapBuilder<G> {
 				generator,
 				id_map: HashMap::new(),
 			},
-			result: NodeMap::new(),
+			result: JsonLdNodeMap::new(),
 		}
 	}
 
-	pub fn end(self) -> NodeMap {
+	pub fn end(self) -> JsonLdNodeMap {
 		self.result
 	}
 }
