@@ -74,6 +74,36 @@ struct Compactor<'a> {
 	pub active_property: Option<&'a str>,
 }
 
+impl Compactor<'_> {
+	/// Wraps a compacted top-level array into a node object, using the
+	/// (possibly aliased) `@graph` key.
+	///
+	/// An empty array becomes an empty object. Any other value is returned
+	/// unchanged. This is the last compaction step before the context is
+	/// embedded into the result.
+	fn wrap_in_graph(&self, compact: JsonValue) -> Result<JsonValue, JsonLdLocatedError> {
+		let JsonValue::Array(array) = compact else {
+			return Ok(compact);
+		};
+
+		let mut obj = JsonObject::new();
+
+		if !array.is_empty() {
+			// No meaningful source location available at this post-processing step.
+			let key = self.compact_iri(
+				&JsonLdTerm::Keyword(JsonLdKeyword::Graph),
+				true,
+				false,
+				JsonLdBacktraceBuilder::Root,
+			)?;
+
+			obj.insert(key.unwrap(), array.into());
+		}
+
+		Ok(obj.into())
+	}
+}
+
 impl<'a> Compactor<'a> {
 	pub fn new(
 		active_context: &'a RawJsonLdProcessedContext,
@@ -159,75 +189,5 @@ impl<T: CompactIndexedFragment> CompactFragment for JsonLdIndexed<T> {
 		self.inner()
 			.compact_indexed_fragment(env, compactor, self.index(), location)
 			.await
-	}
-}
-
-/// Context embeding method.
-///
-/// This trait provides the `embed_context` method that can be used
-/// to include a JSON-LD context to a JSON-LD document.
-/// It is used at the end of compaction algorithm to embed to
-/// context used to compact the document into the compacted output.
-pub trait EmbedContext {
-	/// Embeds the given context into the document.
-	fn embed_context(
-		&mut self,
-		context: &ProcessedJsonLdContext,
-		options: JsonLdCompactionOptions,
-	) -> Result<(), JsonLdLocatedError>;
-}
-
-impl EmbedContext for JsonValue {
-	fn embed_context(
-		&mut self,
-		context: &ProcessedJsonLdContext,
-		options: JsonLdCompactionOptions,
-	) -> Result<(), JsonLdLocatedError> {
-		let value = self.take();
-
-		let obj = match value {
-			JsonValue::Array(array) => {
-				let mut obj = JsonObject::new();
-
-				if !array.is_empty() {
-					let compactor = Compactor {
-						options,
-						active_context: context,
-						type_scoped_context: context,
-						active_property: None,
-					};
-
-					// No meaningful source location available at this post-processing step.
-					let key = compactor.compact_iri(
-						&JsonLdTerm::Keyword(JsonLdKeyword::Graph),
-						true,
-						false,
-						JsonLdBacktraceBuilder::Root,
-					)?;
-
-					obj.insert(key.unwrap(), array.into());
-				}
-
-				Some(obj)
-			}
-			JsonValue::Object(obj) => Some(obj),
-			_null => None,
-		};
-
-		if let Some(mut obj) = obj {
-			// let json_context = IntoJson::into_json(context.unprocessed().clone());
-			let json_context = json_syntax::to_value(context.unprocessed()).unwrap();
-
-			if !obj.is_empty()
-				&& !json_context.is_null()
-				&& !json_context.is_empty_array_or_object()
-			{
-				obj.push_front("@context", json_context);
-			}
-
-			*self = obj.into()
-		};
-
-		Ok(())
 	}
 }

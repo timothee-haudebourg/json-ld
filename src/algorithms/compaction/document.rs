@@ -4,9 +4,10 @@ use crate::{
 	JsonLdBacktraceBuilder, JsonLdExpandedDocument, JsonLdFlattenedDocument, JsonLdLocatedError,
 	ProcessedJsonLdContext,
 	algorithms::{AsyncProcessingEnvironment, compaction::CompactFragment},
+	context::JsonLdEmbedContext,
 };
 
-use super::{Compactor, EmbedContext, JsonLdCompact, JsonLdCompactionOptions};
+use super::{Compactor, JsonLdCompact, JsonLdCompactionOptions};
 
 impl JsonLdExpandedDocument {
 	/// Compacts the input document with the given options, starting the location
@@ -20,12 +21,13 @@ impl JsonLdExpandedDocument {
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		let compactor = Compactor::new(context, options);
 
-		let mut compact = self
+		let compact = self
 			.objects()
 			.compact_fragment(&env, &compactor, location)
 			.await?;
 
-		compact.embed_context(context, options)?;
+		let mut compact = compactor.wrap_in_graph(compact)?;
+		compact.embed_context(context)?;
 
 		Ok(compact)
 	}
@@ -65,9 +67,10 @@ impl JsonLdCompact for JsonLdFlattenedDocument {
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		let compactor = Compactor::new(context, options);
 
-		let mut compact = self.compact_fragment(&env, &compactor, location).await?;
+		let compact = self.compact_fragment(&env, &compactor, location).await?;
 
-		compact.embed_context(context, options)?;
+		let mut compact = compactor.wrap_in_graph(compact)?;
+		compact.embed_context(context)?;
 
 		Ok(compact)
 	}

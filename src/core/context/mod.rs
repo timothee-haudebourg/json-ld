@@ -1,6 +1,7 @@
 //! Context processing algorithm and related types.
 mod container;
 mod definition;
+mod embed;
 pub mod inverse;
 
 pub use container::JsonLdContainer;
@@ -16,6 +17,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::OnceLock;
 
 pub use definition::*;
+pub use embed::*;
 pub use inverse::InverseJsonLdContext;
 
 /// Processed JSON-LD context.
@@ -253,36 +255,6 @@ impl RawJsonLdProcessedContext {
 		self.inverse.take();
 		self.previous_context = Some(Box::new(previous))
 	}
-
-	// /// Converts this context into its syntactic definition.
-	// pub fn into_syntax_definition(
-	// 	self,
-	// 	vocabulary: &impl Vocabulary<Iri = T, BlankId = B>,
-	// ) -> TermDefinition {
-	// 	let (bindings, type_) = self.definitions.into_parts();
-
-	// 	json_ld_syntax::context::Definition {
-	// 		base: self
-	// 			.base_iri
-	// 			.map(|i| Nullable::Some(vocabulary.iri(&i).unwrap().to_owned().into())),
-	// 		import: None,
-	// 		language: self.default_language.map(Nullable::Some),
-	// 		direction: self.default_base_direction.map(Nullable::Some),
-	// 		propagate: None,
-	// 		protected: None,
-	// 		type_: type_.map(TypeTermDefinition::into_syntax_definition),
-	// 		version: None,
-	// 		vocab: self.vocabulary.map(|v| match v {
-	// 			Term::Null => Nullable::Null,
-	// 			Term::Id(r) => Nullable::Some(r.with(vocabulary).to_string().into()),
-	// 			Term::Keyword(_) => panic!("invalid vocab"),
-	// 		}),
-	// 		bindings: bindings
-	// 			.into_iter()
-	// 			.map(|(key, definition)| (key, definition.into_syntax_definition(vocabulary)))
-	// 			.collect(),
-	// 	}
-	// }
 }
 
 impl Clone for RawJsonLdProcessedContext {
