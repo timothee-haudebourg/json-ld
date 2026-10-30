@@ -2,8 +2,8 @@ use json_syntax::JsonValue;
 use rdf_syntax::Id;
 
 use crate::{
-	Direction, Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
-	JsonLdObject, JsonLdTerm, JsonLdValue, LangString, Lenient, Nullable, Warning,
+	Direction, Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient,
+	JsonLdLocatedError, JsonLdObject, JsonLdTerm, JsonLdValue, LangString, Nullable, Warning,
 	context::RawProcessedContext,
 	object::{LiteralValue, value::LiteralType},
 	syntax::Keyword,
@@ -105,7 +105,7 @@ impl<'a> Expander<'a> {
 							JsonLdTerm::Keyword(Keyword::Json) => {
 								is_json = true;
 							}
-							JsonLdTerm::Id(Lenient::Valid(Id::Iri(expanded_ty))) => {
+							JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(expanded_ty))) => {
 								is_json = false;
 								ty = Some(expanded_ty)
 							}
@@ -171,7 +171,7 @@ impl<'a> Expander<'a> {
 			if let JsonValue::String(s) = result_value {
 				let lang = match language {
 					Some(language) => {
-						let (language, error) = Lenient::from_string(language);
+						let (language, error) = JsonLdLenient::from_string(language);
 
 						if let Some(error) = error {
 							warn(Warning::MalformedLanguageTag(language.to_string(), error))

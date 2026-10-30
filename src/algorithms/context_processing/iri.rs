@@ -2,7 +2,7 @@ use rdf_syntax::BlankId;
 use rdf_syntax::{Iri, IriBuf, IriRef};
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdTerm, Lenient, Nullable, Warning,
+	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, Nullable, Warning,
 	algorithms::{
 		AsyncProcessingEnvironment,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
@@ -78,11 +78,11 @@ impl<'a> ContextProcessor<'a> {
 
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
-						return Ok(JsonLdTerm::Id(Lenient::blank(blank_id.to_owned())));
+						return Ok(JsonLdTerm::Id(JsonLdLenient::blank(blank_id.to_owned())));
 					}
 
 					if value == "_:" {
-						return Ok(JsonLdTerm::Id(Lenient::Invalid("_:".to_string())));
+						return Ok(JsonLdTerm::Id(JsonLdLenient::Invalid("_:".to_string())));
 					}
 
 					if let Ok(compact_iri) = CompactIri::new(value) {
@@ -112,12 +112,12 @@ impl<'a> ContextProcessor<'a> {
 							let mut result = mapping.as_str().to_owned();
 							result.push_str(compact_iri.suffix());
 
-							return Ok(JsonLdTerm::Id(Lenient::from_string(result).0));
+							return Ok(JsonLdTerm::Id(JsonLdLenient::from_string(result).0));
 						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Ok(JsonLdTerm::Id(Lenient::iri(iri.to_owned())));
+						return Ok(JsonLdTerm::Id(JsonLdLenient::iri(iri.to_owned())));
 					}
 				}
 
@@ -128,7 +128,7 @@ impl<'a> ContextProcessor<'a> {
 						let mut result = mapping.as_str().to_owned();
 						result.push_str(value);
 
-						return Ok(JsonLdTerm::Id(Lenient::from_string(result).0));
+						return Ok(JsonLdTerm::Id(JsonLdLenient::from_string(result).0));
 					}
 					Some(_) => return Ok(invalid_iri(value.to_owned(), |w| env.warn(w))),
 					None => (),
@@ -187,11 +187,11 @@ impl RawProcessedContext {
 
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
-						return JsonLdTerm::Id(Lenient::blank(blank_id.to_owned()));
+						return JsonLdTerm::Id(JsonLdLenient::blank(blank_id.to_owned()));
 					}
 
 					if value == "_:" {
-						return JsonLdTerm::Id(Lenient::Invalid("_:".to_string()));
+						return JsonLdTerm::Id(JsonLdLenient::Invalid("_:".to_string()));
 					}
 
 					if let Ok(compact_iri) = CompactIri::new(value) {
@@ -205,12 +205,12 @@ impl RawProcessedContext {
 						{
 							let mut result = mapping.as_str().to_owned();
 							result.push_str(compact_iri.suffix());
-							return JsonLdTerm::Id(Lenient::from_string(result).0);
+							return JsonLdTerm::Id(JsonLdLenient::from_string(result).0);
 						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return JsonLdTerm::Id(Lenient::iri(iri.to_owned()));
+						return JsonLdTerm::Id(JsonLdLenient::iri(iri.to_owned()));
 					}
 				}
 
@@ -222,7 +222,7 @@ impl RawProcessedContext {
 							let mut result = mapping.as_str().to_owned();
 							result.push_str(value);
 
-							return JsonLdTerm::Id(Lenient::from_string(result).0);
+							return JsonLdTerm::Id(JsonLdLenient::from_string(result).0);
 						}
 						Some(_) => return invalid_iri(value.to_string(), on_warning),
 						None => (),
@@ -251,5 +251,5 @@ impl RawProcessedContext {
 
 fn invalid_iri(value: String, on_warning: impl FnOnce(Warning)) -> JsonLdTerm {
 	(on_warning)(Warning::MalformedIri(value.clone()));
-	JsonLdTerm::Id(Lenient::Invalid(value))
+	JsonLdTerm::Id(JsonLdLenient::Invalid(value))
 }

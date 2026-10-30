@@ -1,6 +1,6 @@
 use crate::object::{JsonLdObjectRef, ObjectMut};
 use crate::syntax::Keyword;
-use crate::{Direction, LangString, Lenient, Type, VisitJsonLd, object};
+use crate::{Direction, JsonLdLenient, LangString, Type, VisitJsonLd, object};
 use educe::Educe;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue, ryu_js};
 use langtag::LangTag;
@@ -278,7 +278,7 @@ impl JsonLdValue {
 	///
 	/// Returns `None` if the value is not a language tagged string.
 	#[inline(always)]
-	pub fn language(&self) -> Option<Lenient<&LangTag>> {
+	pub fn language(&self) -> Option<JsonLdLenient<&LangTag>> {
 		match self {
 			JsonLdValue::LangString(tag) => tag.language(),
 			_ => None,
@@ -416,7 +416,7 @@ impl From<Literal> for JsonLdValue {
 pub enum EntryRef<'a> {
 	Value(ValueEntryRef<'a>),
 	Type(ValueTypeRef<'a>),
-	Language(Lenient<&'a LangTag>),
+	Language(JsonLdLenient<&'a LangTag>),
 	Direction(Direction),
 }
 
@@ -458,7 +458,7 @@ impl<'a> EntryRef<'a> {
 pub enum EntryValueRef<'a> {
 	Value(ValueEntryRef<'a>),
 	Type(ValueTypeRef<'a>),
-	Language(Lenient<&'a LangTag>),
+	Language(JsonLdLenient<&'a LangTag>),
 	Direction(Direction),
 }
 
@@ -516,7 +516,7 @@ impl EntryKey {
 pub struct Entries<'a> {
 	value: Option<ValueEntryRef<'a>>,
 	type_: Option<ValueTypeRef<'a>>,
-	language: Option<Lenient<&'a LangTag>>,
+	language: Option<JsonLdLenient<&'a LangTag>>,
 	direction: Option<Direction>,
 }
 

@@ -1,7 +1,7 @@
 use rdf_syntax::{Id, Iri, IriBuf};
 use std::fmt;
 
-use crate::{Lenient, syntax::Keyword};
+use crate::{JsonLdLenient, syntax::Keyword};
 
 /// Identifier, keyword or `@null`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -10,7 +10,7 @@ pub enum JsonLdTerm {
 	Null,
 
 	/// Node identifier.
-	Id(Lenient<Id>),
+	Id(JsonLdLenient<Id>),
 
 	/// Keyword.
 	Keyword(Keyword),
@@ -27,7 +27,7 @@ impl JsonLdTerm {
 	/// If it is not an IRI, returns the term itself.
 	pub fn into_iri(self) -> Result<IriBuf, Self> {
 		match self {
-			JsonLdTerm::Id(Lenient::Valid(Id::Iri(id))) => Ok(id),
+			JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(id))) => Ok(id),
 			term => Err(term),
 		}
 	}
@@ -56,12 +56,12 @@ impl JsonLdTerm {
 
 impl From<IriBuf> for JsonLdTerm {
 	fn from(id: IriBuf) -> JsonLdTerm {
-		JsonLdTerm::Id(Lenient::Valid(Id::Iri(id)))
+		JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(id)))
 	}
 }
 
-impl From<Lenient<Id>> for JsonLdTerm {
-	fn from(prop: Lenient<Id>) -> JsonLdTerm {
+impl From<JsonLdLenient<Id>> for JsonLdTerm {
+	fn from(prop: JsonLdLenient<Id>) -> JsonLdTerm {
 		JsonLdTerm::Id(prop)
 	}
 }

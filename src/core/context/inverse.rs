@@ -5,7 +5,7 @@ use super::BindingRef;
 use super::Container;
 use super::ContextTerm;
 use super::RawProcessedContext;
-use crate::Lenient;
+use crate::JsonLdLenient;
 use crate::{Direction, JsonLdTerm, Nullable, Type};
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -49,7 +49,7 @@ impl InverseType {
 	}
 }
 
-type LangDir = Nullable<(Option<Lenient<LangTagBuf>>, Option<Direction>)>;
+type LangDir = Nullable<(Option<JsonLdLenient<LangTagBuf>>, Option<Direction>)>;
 
 struct InverseLang {
 	any: Option<ContextTerm>,
@@ -59,7 +59,7 @@ struct InverseLang {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LangSelection<'a> {
 	Any,
-	Lang(Nullable<(Option<Lenient<&'a LangTag>>, Option<Direction>)>),
+	Lang(Nullable<(Option<JsonLdLenient<&'a LangTag>>, Option<Direction>)>),
 }
 
 impl InverseLang {
@@ -85,7 +85,7 @@ impl InverseLang {
 
 	fn set(
 		&mut self,
-		lang_dir: Nullable<(Option<Lenient<&LangTag>>, Option<Direction>)>,
+		lang_dir: Nullable<(Option<JsonLdLenient<&LangTag>>, Option<Direction>)>,
 		term: &ContextTerm,
 	) {
 		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.into_owned()), d));

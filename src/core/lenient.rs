@@ -1,6 +1,6 @@
 use std::{convert::Infallible, fmt, ops::Deref, str::FromStr};
 
-pub trait Validate {
+pub trait JsonLdValidate {
 	type Invalid;
 }
 
@@ -8,12 +8,12 @@ pub trait Validate {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-pub enum Lenient<T: Validate> {
+pub enum JsonLdLenient<T: JsonLdValidate> {
 	Valid(T),
 	Invalid(T::Invalid),
 }
 
-impl<T: Validate> Lenient<T> {
+impl<T: JsonLdValidate> JsonLdLenient<T> {
 	pub fn new(value: &str) -> (Self, Option<T::Err>)
 	where
 		T: FromStr,
@@ -77,15 +77,15 @@ impl<T: Validate> Lenient<T> {
 		}
 	}
 
-	pub fn as_deref<'a>(&'a self) -> Lenient<&'a T::Target>
+	pub fn as_deref<'a>(&'a self) -> JsonLdLenient<&'a T::Target>
 	where
 		T: Deref,
 		T::Invalid: Deref,
-		&'a T::Target: Validate<Invalid = &'a <T::Invalid as Deref>::Target>,
+		&'a T::Target: JsonLdValidate<Invalid = &'a <T::Invalid as Deref>::Target>,
 	{
 		match self {
-			Self::Valid(t) => Lenient::Valid(t),
-			Self::Invalid(s) => Lenient::Invalid(s.deref()),
+			Self::Valid(t) => JsonLdLenient::Valid(t),
+			Self::Invalid(s) => JsonLdLenient::Invalid(s.deref()),
 		}
 	}
 
@@ -100,32 +100,32 @@ impl<T: Validate> Lenient<T> {
 		}
 	}
 
-	pub fn map(self, f: impl FnOnce(T) -> T) -> Lenient<T> {
+	pub fn map(self, f: impl FnOnce(T) -> T) -> JsonLdLenient<T> {
 		match self {
-			Self::Valid(id) => Lenient::Valid(f(id)),
-			Self::Invalid(id) => Lenient::Invalid(id),
+			Self::Valid(id) => JsonLdLenient::Valid(f(id)),
+			Self::Invalid(id) => JsonLdLenient::Invalid(id),
 		}
 	}
 }
 
-impl<'a, T, U> Lenient<&'a T>
+impl<'a, T, U> JsonLdLenient<&'a T>
 where
-	&'a T: Validate<Invalid = &'a U>,
+	&'a T: JsonLdValidate<Invalid = &'a U>,
 	T: ?Sized + ToOwned,
 	U: 'a + ?Sized + ToOwned,
-	T::Owned: Validate<Invalid = U::Owned>,
+	T::Owned: JsonLdValidate<Invalid = U::Owned>,
 {
-	pub fn into_owned(self) -> Lenient<T::Owned> {
+	pub fn into_owned(self) -> JsonLdLenient<T::Owned> {
 		match self {
-			Self::Valid(t) => Lenient::Valid(t.to_owned()),
-			Self::Invalid(i) => Lenient::Invalid(i.to_owned()),
+			Self::Valid(t) => JsonLdLenient::Valid(t.to_owned()),
+			Self::Invalid(i) => JsonLdLenient::Invalid(i.to_owned()),
 		}
 	}
 }
 
-impl<T> AsRef<str> for Lenient<T>
+impl<T> AsRef<str> for JsonLdLenient<T>
 where
-	T: Validate + AsRef<str>,
+	T: JsonLdValidate + AsRef<str>,
 	T::Invalid: AsRef<str>,
 {
 	fn as_ref(&self) -> &str {
@@ -133,9 +133,9 @@ where
 	}
 }
 
-impl<T> fmt::Display for Lenient<T>
+impl<T> fmt::Display for JsonLdLenient<T>
 where
-	T: Validate + fmt::Display,
+	T: JsonLdValidate + fmt::Display,
 	T::Invalid: fmt::Display,
 {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -146,9 +146,9 @@ where
 	}
 }
 
-impl<T> FromStr for Lenient<T>
+impl<T> FromStr for JsonLdLenient<T>
 where
-	T: Validate + FromStr,
+	T: JsonLdValidate + FromStr,
 	T::Invalid: From<String>,
 {
 	type Err = Infallible;
@@ -161,13 +161,13 @@ where
 	}
 }
 
-impl<T: Validate> From<T> for Lenient<T> {
+impl<T: JsonLdValidate> From<T> for JsonLdLenient<T> {
 	fn from(value: T) -> Self {
 		Self::Valid(value)
 	}
 }
 
-impl<T: Validate + FromStr> From<&str> for Lenient<T>
+impl<T: JsonLdValidate + FromStr> From<&str> for JsonLdLenient<T>
 where
 	T::Invalid: From<String>,
 {

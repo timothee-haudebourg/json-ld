@@ -1,5 +1,5 @@
 use crate::{
-	Lenient,
+	JsonLdLenient,
 	syntax::{Direction, Keyword, Nullable},
 };
 use btree_indexmap::BTreeIndexMap;
@@ -50,7 +50,7 @@ pub struct JsonLdContextDefinition {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub language: Option<Nullable<Lenient<LangTagBuf>>>,
+	pub language: Option<Nullable<JsonLdLenient<LangTagBuf>>>,
 
 	#[cfg_attr(
 		feature = "serde",

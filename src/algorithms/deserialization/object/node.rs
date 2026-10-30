@@ -4,7 +4,7 @@ use linked_data::{
 };
 use rdf_syntax::{RDF_TYPE, Term};
 
-use crate::{JsonLdNode, Lenient};
+use crate::{JsonLdLenient, JsonLdNode};
 
 use super::super::RdfSerializationOptions;
 
@@ -19,8 +19,8 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdNode {
 		S: LinkedDataSerializer<Term>,
 	{
 		let subject = match &self.id {
-			Some(Lenient::Valid(id)) => id.clone().into(),
-			Some(Lenient::Invalid(_)) => return serializer.end(),
+			Some(JsonLdLenient::Valid(id)) => id.clone().into(),
+			Some(JsonLdLenient::Invalid(_)) => return serializer.end(),
 			None => serializer.interpret(None)?,
 		};
 

@@ -4,7 +4,7 @@ use std::fmt;
 use rdf_syntax::{Id, Iri, IriBuf};
 
 use super::JsonLdTerm;
-use crate::{Lenient, syntax::Keyword};
+use crate::{JsonLdLenient, syntax::Keyword};
 
 /// Object type.
 ///
@@ -67,7 +67,7 @@ impl From<Type> for JsonLdTerm {
 			Type::Json => JsonLdTerm::Keyword(Keyword::Json),
 			Type::None => JsonLdTerm::Keyword(Keyword::None),
 			Type::Vocab => JsonLdTerm::Keyword(Keyword::Vocab),
-			Type::Iri(id) => JsonLdTerm::Id(Lenient::Valid(Id::Iri(id))),
+			Type::Iri(id) => JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(id))),
 		}
 	}
 }
@@ -81,7 +81,7 @@ impl TryFrom<JsonLdTerm> for Type {
 			JsonLdTerm::Keyword(Keyword::Json) => Ok(Type::Json),
 			JsonLdTerm::Keyword(Keyword::None) => Ok(Type::None),
 			JsonLdTerm::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			JsonLdTerm::Id(Lenient::Valid(Id::Iri(id))) => Ok(Type::Iri(id)),
+			JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(id))) => Ok(Type::Iri(id)),
 			term => Err(term),
 		}
 	}

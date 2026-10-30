@@ -2,7 +2,7 @@ use super::{
 	BindingsIter, ContextTerm, ContextType, JsonLdContextDefinition, TermDefinition, Version, Vocab,
 };
 use crate::{
-	Lenient,
+	JsonLdLenient,
 	syntax::{Direction, Nullable},
 };
 
@@ -29,7 +29,7 @@ impl JsonLdContextDefinition {
 pub struct Entries<'a> {
 	base: Option<Nullable<&'a IriRef>>,
 	import: Option<&'a IriRef>,
-	language: Option<Nullable<&'a Lenient<LangTagBuf>>>,
+	language: Option<Nullable<&'a JsonLdLenient<LangTagBuf>>>,
 	direction: Option<Nullable<Direction>>,
 	propagate: Option<bool>,
 	protected: Option<bool>,
@@ -124,7 +124,7 @@ impl<'a> ExactSizeIterator for Entries<'a> {}
 pub enum EntryValueRef<'a> {
 	Base(Nullable<&'a IriRef>),
 	Import(&'a IriRef),
-	Language(Nullable<&'a Lenient<LangTagBuf>>),
+	Language(Nullable<&'a JsonLdLenient<LangTagBuf>>),
 	Direction(Nullable<Direction>),
 	Propagate(bool),
 	Protected(bool),
@@ -147,7 +147,7 @@ impl<'a> EntryValueRef<'a> {
 pub enum EntryRef<'a> {
 	Base(Nullable<&'a IriRef>),
 	Import(&'a IriRef),
-	Language(Nullable<&'a Lenient<LangTagBuf>>),
+	Language(Nullable<&'a JsonLdLenient<LangTagBuf>>),
 	Direction(Nullable<Direction>),
 	Propagate(bool),
 	Protected(bool),

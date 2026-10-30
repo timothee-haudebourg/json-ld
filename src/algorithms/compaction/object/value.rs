@@ -2,7 +2,7 @@ use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdTerm, JsonLdValue, Lenient, Type,
+	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, JsonLdValue, Type,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		context_processing::ContextProcessingOptions,
@@ -202,7 +202,7 @@ impl<'a> Compactor<'a> {
 								)?;
 							let compact_ty =
 								self.with_active_context(&active_context).compact_iri(
-									&JsonLdTerm::Id(Lenient::iri(ty.clone())),
+									&JsonLdTerm::Id(JsonLdLenient::iri(ty.clone())),
 									true,
 									false,
 									location,

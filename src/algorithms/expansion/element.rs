@@ -6,8 +6,8 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdObject, JsonLdTerm,
-	Lenient, Nullable, Warning,
+	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdObject,
+	JsonLdTerm, Nullable, Warning,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		context_processing::ContextProcessingOptions,
@@ -272,7 +272,7 @@ impl<'a> Expander<'a> {
 						JsonLdTerm::Keyword(Keyword::Set) => {
 							set_entry = Some((key.as_str(), value.clone()))
 						}
-						JsonLdTerm::Id(Lenient::Valid(Id::BlankId(id))) => {
+						JsonLdTerm::Id(JsonLdLenient::Valid(Id::BlankId(id))) => {
 							env.warn(Warning::BlankNodeIdProperty(id.clone()));
 						}
 						_ => (),

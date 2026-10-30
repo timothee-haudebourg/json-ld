@@ -9,7 +9,7 @@ use crate::{
 	JsonLdObject, JsonLdTerm, LangString, ProcessingMode, Type, Warning, object,
 	object::value::LiteralValue,
 };
-use crate::{JsonLdValue, Lenient};
+use crate::{JsonLdLenient, JsonLdValue};
 use btree_indexmap::BTreeIndexSet;
 use json_syntax::JsonValue;
 use json_syntax::object::EntryRef;
@@ -20,11 +20,11 @@ use super::{Expanded, ExpandedEntry, filter_top_level_item};
 
 /// Convert a term to a node id, if possible.
 /// Return `None` if the term is `null`.
-pub fn node_id_of_term(term: JsonLdTerm) -> Option<Lenient<Id>> {
+pub fn node_id_of_term(term: JsonLdTerm) -> Option<JsonLdLenient<Id>> {
 	match term {
 		JsonLdTerm::Null => None,
 		JsonLdTerm::Id(prop) => Some(prop),
-		JsonLdTerm::Keyword(kw) => Some(Lenient::Invalid(kw.into_str().to_string())),
+		JsonLdTerm::Keyword(kw) => Some(JsonLdLenient::Invalid(kw.into_str().to_string())),
 	}
 }
 
@@ -277,7 +277,7 @@ impl<'a> Expander<'a> {
 											return Err(JsonLdError::InvalidReversePropertyMap
 												.at(rev_entry_loc));
 										}
-										JsonLdTerm::Id(Lenient::Invalid(_))
+										JsonLdTerm::Id(JsonLdLenient::Invalid(_))
 											if self.options.policy
 												== ExpansionPolicy::Strictest =>
 										{
@@ -453,7 +453,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				JsonLdTerm::Id(Lenient::Invalid(name))
+				JsonLdTerm::Id(JsonLdLenient::Invalid(name))
 					if self.options.policy == ExpansionPolicy::Strictest =>
 				{
 					return Err(JsonLdError::KeyExpansionFailed(name).at(entry_loc));
@@ -551,7 +551,9 @@ impl<'a> Expander<'a> {
 													None
 												} else {
 													let (language, error) =
-														Lenient::from_string(language.to_string());
+														JsonLdLenient::from_string(
+															language.to_string(),
+														);
 
 													if let Some(error) = error {
 														env.warn(Warning::MalformedLanguageTag(

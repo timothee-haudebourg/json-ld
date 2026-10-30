@@ -2,7 +2,7 @@ use langtag::LangTagBuf;
 use rdf_syntax::IriRef;
 
 use crate::{
-	Direction, Lenient, Nullable,
+	Direction, JsonLdLenient, Nullable,
 	syntax::{
 		JsonLdContext, JsonLdContextEntry,
 		context::{
@@ -47,7 +47,7 @@ impl<'a> Merged<'a> {
 			.map(Nullable::as_ref)
 	}
 
-	pub fn language(&self) -> Option<Nullable<&Lenient<LangTagBuf>>> {
+	pub fn language(&self) -> Option<Nullable<&JsonLdLenient<LangTagBuf>>> {
 		self.base
 			.language
 			.as_ref()

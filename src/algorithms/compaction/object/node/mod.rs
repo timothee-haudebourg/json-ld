@@ -4,8 +4,8 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdNode, JsonLdTerm, Lenient, ProcessingMode,
-	Type,
+	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdNode, JsonLdTerm,
+	ProcessingMode, Type,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		compaction::{Compactor, object::value::add_value},
@@ -360,7 +360,7 @@ impl Compactor<'_> {
 	fn compact_types(
 		self,
 		result: &mut JsonObject,
-		types: Option<&BTreeIndexMultiSet<Lenient<Id>>>,
+		types: Option<&BTreeIndexMultiSet<JsonLdLenient<Id>>>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
 		// If expanded property is @type:

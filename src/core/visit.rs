@@ -5,7 +5,7 @@ use json_syntax::ryu_js;
 use rdf_syntax::{BlankIdBuf, Generator, Id};
 
 use crate::{
-	Lenient,
+	JsonLdLenient,
 	object::{JsonLdObjectRef, ObjectMut},
 };
 
@@ -173,16 +173,16 @@ impl<G> Relabeling<G>
 where
 	G: Generator,
 {
-	pub fn relabel(&mut self, id: Option<Lenient<Id>>) -> Lenient<Id> {
+	pub fn relabel(&mut self, id: Option<JsonLdLenient<Id>>) -> JsonLdLenient<Id> {
 		match id {
-			Some(Lenient::Valid(Id::BlankId(b))) => Lenient::Valid(
+			Some(JsonLdLenient::Valid(Id::BlankId(b))) => JsonLdLenient::Valid(
 				self.map
 					.entry(b)
 					.or_insert_with(|| self.generator.next_id())
 					.clone(),
 			),
 			Some(id) => id,
-			None => Lenient::Valid(self.generator.next_id()),
+			None => JsonLdLenient::Valid(self.generator.next_id()),
 		}
 	}
 }

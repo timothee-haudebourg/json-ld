@@ -1,7 +1,7 @@
 use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::{Id, Term};
 
-use crate::{JsonLdExpandedDocument, Lenient, Validate};
+use crate::{JsonLdExpandedDocument, JsonLdLenient, JsonLdValidate};
 
 mod object;
 
@@ -43,7 +43,7 @@ impl SerializeLinkedData for JsonLdExpandedDocument {
 	}
 }
 
-impl Lenient<Id> {
+impl JsonLdLenient<Id> {
 	pub fn serialize_rdf_term<S>(&self, serializer: &mut S) -> Result<Term, S::Error>
 	where
 		S: LinkedDataSerializer,
@@ -55,9 +55,9 @@ impl Lenient<Id> {
 	}
 }
 
-impl<T, Q> SerializeLinkedDataWith<Q> for Lenient<T>
+impl<T, Q> SerializeLinkedDataWith<Q> for JsonLdLenient<T>
 where
-	T: Validate + SerializeLinkedDataWith<Q>,
+	T: JsonLdValidate + SerializeLinkedDataWith<Q>,
 {
 	fn serialize_rdf_with<S>(
 		&self,
@@ -75,9 +75,9 @@ where
 	}
 }
 
-impl<T> SerializeLinkedData for Lenient<T>
+impl<T> SerializeLinkedData for JsonLdLenient<T>
 where
-	T: Validate + SerializeLinkedData,
+	T: JsonLdValidate + SerializeLinkedData,
 {
 	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where

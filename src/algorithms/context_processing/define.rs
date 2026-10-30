@@ -4,7 +4,7 @@ use rdf_syntax::{BlankId, Id};
 use rdf_syntax::{Iri, IriRef};
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdTerm, Lenient, Nullable,
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, Nullable,
 	ProcessingMode, Type, Warning,
 	algorithms::{
 		AsyncProcessingEnvironment,
@@ -25,8 +25,8 @@ fn is_gen_delim(c: char) -> bool {
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
 fn is_gen_delim_or_blank(t: &JsonLdTerm) -> bool {
 	match t {
-		JsonLdTerm::Id(Lenient::Valid(Id::BlankId(_))) => true,
-		JsonLdTerm::Id(Lenient::Valid(Id::Iri(iri))) => {
+		JsonLdTerm::Id(JsonLdLenient::Valid(Id::BlankId(_))) => true,
+		JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(iri))) => {
 			if let Some(c) = iri.chars().last() {
 				is_gen_delim(c)
 			} else {
@@ -434,7 +434,7 @@ impl<'a> ContextProcessor<'a> {
 
 											if let Ok(iri) = Iri::new(result.as_str()) {
 												definition.value = Some(JsonLdTerm::Id(
-													Lenient::iri(iri.to_owned()),
+													JsonLdLenient::iri(iri.to_owned()),
 												))
 											} else {
 												return Err(
@@ -447,14 +447,14 @@ impl<'a> ContextProcessor<'a> {
 									// not a compact IRI
 									if definition.value.is_none() {
 										if let Ok(blank_id) = BlankId::new(term.as_str()) {
-											definition.value = Some(JsonLdTerm::Id(Lenient::blank(
-												blank_id.to_owned(),
-											)))
+											definition.value = Some(JsonLdTerm::Id(
+												JsonLdLenient::blank(blank_id.to_owned()),
+											))
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
 											match iri_ref.as_iri() {
 												Some(iri) => {
 													definition.value = Some(JsonLdTerm::Id(
-														Lenient::iri(iri.to_owned()),
+														JsonLdLenient::iri(iri.to_owned()),
 													))
 												}
 												None => {
@@ -470,9 +470,9 @@ impl<'a> ContextProcessor<'a> {
 															true,
 															|w| env.warn(w),
 														) {
-															JsonLdTerm::Id(Lenient::Valid(
-																Id::Iri(id),
-															)) => definition.value = Some(id.into()),
+															JsonLdTerm::Id(
+																JsonLdLenient::Valid(Id::Iri(id)),
+															) => definition.value = Some(id.into()),
 															// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
 															// error has been detected and processing is aborted.
 															_ => {
@@ -608,7 +608,7 @@ impl<'a> ContextProcessor<'a> {
 								true,
 								|w| env.warn(w),
 							) {
-								JsonLdTerm::Id(Lenient::Valid(Id::Iri(_))) => (),
+								JsonLdTerm::Id(JsonLdLenient::Valid(Id::Iri(_))) => (),
 								_ => return Err(JsonLdError::InvalidTermDefinition.at(term_loc)),
 							}
 
@@ -662,7 +662,8 @@ impl<'a> ContextProcessor<'a> {
 								// Otherwise, an invalid language mapping error has been detected and
 								// processing is aborted.
 								// Set the `language` mapping of definition to `language`.
-								definition.language = Some(language_value.map(Lenient::into_owned));
+								definition.language =
+									Some(language_value.map(JsonLdLenient::into_owned));
 							}
 
 							// If `value` contains the entry `@direction` and does not contain the

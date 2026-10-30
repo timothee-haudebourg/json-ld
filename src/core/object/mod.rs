@@ -1,7 +1,7 @@
 //! Nodes, lists and values.
 use crate::object::typ::TypeRef;
 use crate::syntax::Keyword;
-use crate::{Indexed, Lenient, VisitJsonLd};
+use crate::{Indexed, JsonLdLenient, VisitJsonLd};
 use btree_indexmap::BTreeIndexMultiSet;
 use educe::Educe;
 use json_syntax::JsonNumber;
@@ -26,7 +26,7 @@ pub trait AnyJsonLdObject {
 	fn as_ref(&self) -> JsonLdObjectRef<'_>;
 
 	#[inline]
-	fn id(&self) -> Option<&Lenient<Id>> {
+	fn id(&self) -> Option<&JsonLdLenient<Id>> {
 		match self.as_ref() {
 			JsonLdObjectRef::Node(n) => n.id.as_ref(),
 			_ => None,
@@ -34,7 +34,7 @@ pub trait AnyJsonLdObject {
 	}
 
 	#[inline]
-	fn language(&self) -> Option<Lenient<&LangTag>> {
+	fn language(&self) -> Option<JsonLdLenient<&LangTag>> {
 		match self.as_ref() {
 			JsonLdObjectRef::Value(value) => value.language(),
 			_ => None,
@@ -134,7 +134,7 @@ impl JsonLdObject {
 
 	/// Identifier of the object, if it is a node object.
 	#[inline(always)]
-	pub fn id(&self) -> Option<&Lenient<Id>> {
+	pub fn id(&self) -> Option<&JsonLdLenient<Id>> {
 		match self {
 			JsonLdObject::Node(n) => n.id.as_ref(),
 			_ => None,
@@ -337,7 +337,7 @@ impl JsonLdObject {
 	/// If the object is a language-tagged value,
 	/// Return its associated language.
 	#[inline(always)]
-	pub fn language(&self) -> Option<Lenient<&LangTag>> {
+	pub fn language(&self) -> Option<JsonLdLenient<&LangTag>> {
 		match self {
 			JsonLdObject::Value(value) => value.language(),
 			_ => None,
@@ -723,7 +723,7 @@ impl From<JsonLdNode> for JsonLdObject {
 /// Iterator through the types of an object.
 pub enum Types<'a> {
 	Value(Option<value::ValueTypeRef<'a>>),
-	Node(Option<btree_indexmap::multi_set::Iter<'a, Lenient<Id>>>),
+	Node(Option<btree_indexmap::multi_set::Iter<'a, JsonLdLenient<Id>>>),
 	List,
 }
 

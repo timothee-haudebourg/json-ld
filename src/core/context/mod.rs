@@ -8,7 +8,7 @@ use langtag::{LangTag, LangTagBuf};
 
 use crate::syntax::context::ContextTerm;
 use crate::syntax::{JsonLdContext, KeywordType};
-use crate::{Direction, JsonLdTerm, Lenient};
+use crate::{Direction, JsonLdLenient, JsonLdTerm};
 use rdf_syntax::{Iri, IriBuf};
 use std::borrow::{Borrow, Cow};
 use std::hash::Hash;
@@ -81,7 +81,7 @@ pub struct RawProcessedContext {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<JsonLdTerm>,
-	default_language: Option<Lenient<LangTagBuf>>,
+	default_language: Option<JsonLdLenient<LangTagBuf>>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
 	definitions: Definitions,
@@ -158,7 +158,7 @@ impl RawProcessedContext {
 	}
 
 	/// Returns the default `@language` value.
-	pub fn default_language(&self) -> Option<Lenient<&LangTag>> {
+	pub fn default_language(&self) -> Option<JsonLdLenient<&LangTag>> {
 		self.default_language.as_ref().map(|tag| tag.as_deref())
 	}
 
@@ -234,7 +234,7 @@ impl RawProcessedContext {
 	}
 
 	/// Sets the default `@language` value.
-	pub fn set_default_language(&mut self, lang: Option<Lenient<LangTagBuf>>) {
+	pub fn set_default_language(&mut self, lang: Option<JsonLdLenient<LangTagBuf>>) {
 		self.inverse.take();
 		self.default_language = lang;
 	}

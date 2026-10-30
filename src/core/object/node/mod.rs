@@ -1,6 +1,6 @@
 use crate::object::{JsonLdObjectRef, ObjectMut, Objects};
 use crate::syntax::Keyword;
-use crate::{Indexed, IndexedObject, JsonLdObject, JsonLdTerm, Lenient, VisitJsonLd, object};
+use crate::{Indexed, IndexedObject, JsonLdLenient, JsonLdObject, JsonLdTerm, VisitJsonLd, object};
 use btree_indexmap::{BTreeIndexMultiSet, BTreeIndexSet, Comparable};
 use educe::Educe;
 use rdf_syntax::Id;
@@ -38,7 +38,7 @@ pub struct JsonLdNode {
 		feature = "serde",
 		serde(rename = "@id", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub id: Option<Lenient<Id>>,
+	pub id: Option<JsonLdLenient<Id>>,
 
 	/// Types.
 	///
@@ -47,7 +47,7 @@ pub struct JsonLdNode {
 		feature = "serde",
 		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub types: Option<BTreeIndexMultiSet<Lenient<Id>>>,
+	pub types: Option<BTreeIndexMultiSet<JsonLdLenient<Id>>>,
 
 	/// Associated graph.
 	///
@@ -99,7 +99,7 @@ impl JsonLdNode {
 
 	/// Creates a new empty node.
 	#[inline(always)]
-	pub fn new_with_id(id: Option<Lenient<Id>>) -> Self {
+	pub fn new_with_id(id: Option<JsonLdLenient<Id>>) -> Self {
 		Self {
 			id,
 			types: None,
@@ -111,7 +111,7 @@ impl JsonLdNode {
 	}
 
 	/// Creates a new graph node.
-	pub fn new_graph(id: Lenient<Id>, graph: Graph) -> Self {
+	pub fn new_graph(id: JsonLdLenient<Id>, graph: Graph) -> Self {
 		Self {
 			id: Some(id),
 			types: None,
@@ -266,7 +266,7 @@ impl JsonLdNode {
 	#[inline]
 	pub fn has_type<U>(&self, ty: &U) -> bool
 	where
-		U: ?Sized + Comparable<Lenient<Id>>,
+		U: ?Sized + Comparable<JsonLdLenient<Id>>,
 	{
 		self.types.as_ref().is_some_and(|types| types.contains(ty))
 	}
@@ -467,7 +467,7 @@ impl JsonLdNode {
 	#[inline(always)]
 	pub fn get<Q>(&self, prop: &Q) -> Objects<'_>
 	where
-		Q: ?Sized + Hash + Comparable<Lenient<Id>>,
+		Q: ?Sized + Hash + Comparable<JsonLdLenient<Id>>,
 	{
 		self.properties.get(prop)
 	}
@@ -479,14 +479,14 @@ impl JsonLdNode {
 	#[inline(always)]
 	pub fn get_any<Q>(&self, prop: &Q) -> Option<&IndexedObject>
 	where
-		Q: ?Sized + Hash + Comparable<Lenient<Id>>,
+		Q: ?Sized + Hash + Comparable<JsonLdLenient<Id>>,
 	{
 		self.properties.get_any(prop)
 	}
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Lenient<Id>, value: IndexedObject) {
+	pub fn insert(&mut self, prop: JsonLdLenient<Id>, value: IndexedObject) {
 		self.properties.insert(prop, value)
 	}
 
@@ -497,7 +497,7 @@ impl JsonLdNode {
 	#[inline(always)]
 	pub fn insert_all<Objects: IntoIterator<Item = IndexedObject>>(
 		&mut self,
-		prop: Lenient<Id>,
+		prop: JsonLdLenient<Id>,
 		values: Objects,
 	) {
 		self.properties.insert_all(prop, values)
@@ -576,7 +576,7 @@ pub enum EntryKeyRef<'a> {
 	Graph,
 	Included,
 	Reverse,
-	Property(&'a Lenient<Id>),
+	Property(&'a JsonLdLenient<Id>),
 }
 
 impl<'a> EntryKeyRef<'a> {
@@ -614,8 +614,8 @@ impl<'a> EntryKeyRef<'a> {
 #[derive(Educe)]
 #[educe(Clone, Copy)]
 pub enum EntryValueRef<'a> {
-	Id(&'a Lenient<Id>),
-	Type(&'a BTreeIndexMultiSet<Lenient<Id>>),
+	Id(&'a JsonLdLenient<Id>),
+	Type(&'a BTreeIndexMultiSet<JsonLdLenient<Id>>),
 	Graph(&'a BTreeIndexSet<IndexedObject>),
 	Included(&'a BTreeIndexSet<IndexedJsonLdNode>),
 	Reverse(&'a ReverseProperties),
@@ -638,12 +638,12 @@ impl<'a> EntryValueRef<'a> {
 #[derive(Educe)]
 #[educe(Clone, Copy)]
 pub enum EntryRef<'a> {
-	Id(&'a Lenient<Id>),
-	Type(&'a BTreeIndexMultiSet<Lenient<Id>>),
+	Id(&'a JsonLdLenient<Id>),
+	Type(&'a BTreeIndexMultiSet<JsonLdLenient<Id>>),
 	Graph(&'a Graph),
 	Included(&'a Included),
 	Reverse(&'a ReverseProperties),
-	Property(&'a Lenient<Id>, &'a [IndexedObject]),
+	Property(&'a JsonLdLenient<Id>, &'a [IndexedObject]),
 }
 
 impl<'a> EntryRef<'a> {
@@ -703,8 +703,8 @@ impl<'a> EntryRef<'a> {
 #[derive(Educe)]
 #[educe(Clone)]
 pub struct Entries<'a> {
-	id: Option<&'a Lenient<Id>>,
-	type_: Option<&'a BTreeIndexMultiSet<Lenient<Id>>>,
+	id: Option<&'a JsonLdLenient<Id>>,
+	type_: Option<&'a BTreeIndexMultiSet<JsonLdLenient<Id>>>,
 	graph: Option<&'a Graph>,
 	included: Option<&'a Included>,
 	reverse: Option<&'a ReverseProperties>,

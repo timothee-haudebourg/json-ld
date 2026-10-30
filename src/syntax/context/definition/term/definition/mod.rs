@@ -1,5 +1,5 @@
 use crate::{
-	Lenient,
+	JsonLdLenient,
 	syntax::{
 		CompactIri, CompactIriBuf, ContainerValue, Direction, JsonLdContext, Keyword, Nullable,
 		context::{self, ContextTerm},
@@ -154,7 +154,7 @@ pub struct ExpandedTermDefinition {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub language: Option<Nullable<Lenient<LangTagBuf>>>,
+	pub language: Option<Nullable<JsonLdLenient<LangTagBuf>>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -287,7 +287,7 @@ impl ExpandedTermDefinition {
 			language: self
 				.language
 				.as_ref()
-				.map(|n| n.as_ref().map(Lenient::as_deref)),
+				.map(|n| n.as_ref().map(JsonLdLenient::as_deref)),
 			direction: self.direction,
 			container: self.container.as_ref(),
 			nest: self.nest.as_ref(),
@@ -306,7 +306,7 @@ pub struct ExpandedTermDefinitionRef<'a> {
 	pub context: Option<&'a JsonLdContext>,
 	pub reverse: Option<&'a ContextTerm>,
 	pub index: Option<&'a Index>,
-	pub language: Option<Nullable<Lenient<&'a LangTag>>>,
+	pub language: Option<Nullable<JsonLdLenient<&'a LangTag>>>,
 	pub direction: Option<Nullable<Direction>>,
 	pub container: Option<&'a ContainerValue>,
 	pub nest: Option<&'a Nest>,
@@ -334,7 +334,7 @@ pub struct TermDefinitionEntries<'a> {
 	context: Option<&'a context::JsonLdContext>,
 	reverse: Option<&'a ContextTerm>,
 	index: Option<&'a Index>,
-	language: Option<Nullable<&'a Lenient<LangTagBuf>>>,
+	language: Option<Nullable<&'a JsonLdLenient<LangTagBuf>>>,
 	direction: Option<Nullable<Direction>>,
 	container: Option<&'a ContainerValue>,
 	nest: Option<&'a Nest>,
@@ -349,7 +349,7 @@ pub enum TermDefinitionEntryRef<'a> {
 	Context(&'a context::JsonLdContext),
 	Reverse(&'a ContextTerm),
 	Index(&'a Index),
-	Language(Nullable<&'a Lenient<LangTagBuf>>),
+	Language(Nullable<&'a JsonLdLenient<LangTagBuf>>),
 	Direction(Nullable<Direction>),
 	Container(&'a ContainerValue),
 	Nest(&'a Nest),
@@ -516,7 +516,7 @@ pub enum TermDefinitionEntryValueRef<'a> {
 	Context(&'a context::JsonLdContext),
 	Reverse(&'a ContextTerm),
 	Index(&'a Index),
-	Language(Nullable<&'a Lenient<LangTagBuf>>),
+	Language(Nullable<&'a JsonLdLenient<LangTagBuf>>),
 	Direction(Nullable<Direction>),
 	Container(&'a ContainerValue),
 	Nest(&'a Nest),

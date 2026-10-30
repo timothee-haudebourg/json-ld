@@ -6,7 +6,7 @@ use xsd_types::{
 	XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING, XsdBoolean, XsdDouble, XsdFromStr,
 };
 
-use crate::Lenient;
+use crate::JsonLdLenient;
 use crate::{JsonLdValue, object::value::LiteralType};
 
 use super::super::RdfSerializationOptions;
@@ -60,8 +60,8 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdValue {
 			}
 			Self::LangString(s) => match s.language() {
 				Some(lang) => match lang {
-					Lenient::Valid(tag) => Literal::new(s.as_str(), tag),
-					Lenient::Invalid(_) => return serializer.end(),
+					JsonLdLenient::Valid(tag) => Literal::new(s.as_str(), tag),
+					JsonLdLenient::Invalid(_) => return serializer.end(),
 				},
 				None => Literal::new(s.as_str(), XSD_STRING),
 			},

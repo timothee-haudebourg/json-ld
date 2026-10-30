@@ -1,7 +1,7 @@
 use json_syntax::JsonString;
 use langtag::{LangTag, LangTagBuf};
 
-use crate::{Direction, Lenient};
+use crate::{Direction, JsonLdLenient};
 
 /// Language string.
 ///
@@ -19,7 +19,7 @@ pub struct LangString {
 		feature = "serde",
 		serde(rename = "@language", skip_serializing_if = "Option::is_none")
 	)]
-	language: Option<Lenient<LangTagBuf>>,
+	language: Option<JsonLdLenient<LangTagBuf>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -36,7 +36,7 @@ impl LangString {
 	/// Create a new language string.
 	pub fn new<T>(
 		data: T,
-		language: Option<Lenient<LangTagBuf>>,
+		language: Option<JsonLdLenient<LangTagBuf>>,
 		direction: Option<Direction>,
 	) -> Result<Self, T>
 	where
@@ -55,7 +55,7 @@ impl LangString {
 
 	pub fn from_language(
 		data: impl Into<JsonString>,
-		language: impl Into<Lenient<LangTagBuf>>,
+		language: impl Into<JsonLdLenient<LangTagBuf>>,
 	) -> Self {
 		Self {
 			data: data.into(),
@@ -72,11 +72,17 @@ impl LangString {
 		}
 	}
 
-	pub fn into_parts(self) -> (JsonString, Option<Lenient<LangTagBuf>>, Option<Direction>) {
+	pub fn into_parts(
+		self,
+	) -> (
+		JsonString,
+		Option<JsonLdLenient<LangTagBuf>>,
+		Option<Direction>,
+	) {
 		(self.data, self.language, self.direction)
 	}
 
-	pub fn parts(&self) -> (&str, Option<&Lenient<LangTagBuf>>, Option<&Direction>) {
+	pub fn parts(&self) -> (&str, Option<&JsonLdLenient<LangTagBuf>>, Option<&Direction>) {
 		(&self.data, self.language.as_ref(), self.direction.as_ref())
 	}
 
@@ -88,7 +94,7 @@ impl LangString {
 
 	/// Gets the associated language tag, if any.
 	#[inline(always)]
-	pub fn language(&self) -> Option<Lenient<&LangTag>> {
+	pub fn language(&self) -> Option<JsonLdLenient<&LangTag>> {
 		self.language.as_ref().map(|tag| tag.as_deref())
 	}
 
@@ -98,7 +104,7 @@ impl LangString {
 	/// otherwise this function will fail with an [`InvalidLangString`] error.
 	pub fn set_language(
 		&mut self,
-		language: Option<Lenient<LangTagBuf>>,
+		language: Option<JsonLdLenient<LangTagBuf>>,
 	) -> Result<(), InvalidLangString> {
 		if self.direction.is_some() || language.is_some() {
 			self.language = language;
@@ -133,7 +139,7 @@ impl LangString {
 	/// this function will fail with an [`InvalidLangString`] error.
 	pub fn set(
 		&mut self,
-		language: Option<Lenient<LangTagBuf>>,
+		language: Option<JsonLdLenient<LangTagBuf>>,
 		direction: Option<Direction>,
 	) -> Result<(), InvalidLangString> {
 		if direction.is_some() || language.is_some() {
@@ -149,7 +155,7 @@ impl LangString {
 	pub fn as_lang_str(&self) -> LangStr<'_> {
 		LangStr {
 			data: &self.data,
-			language: self.language.as_ref().map(Lenient::as_deref),
+			language: self.language.as_ref().map(JsonLdLenient::as_deref),
 			direction: self.direction,
 		}
 	}
@@ -166,7 +172,7 @@ impl<'de> serde::Deserialize<'de> for LangString {
 			#[serde(rename = "@value")]
 			data: JsonString,
 			#[serde(rename = "@language")]
-			language: Option<Lenient<LangTagBuf>>,
+			language: Option<JsonLdLenient<LangTagBuf>>,
 			#[serde(rename = "@direction")]
 			direction: Option<Direction>,
 		}
@@ -193,7 +199,7 @@ pub struct LangStr<'a> {
 		feature = "serde",
 		serde(rename = "@language", skip_serializing_if = "Option::is_none")
 	)]
-	language: Option<Lenient<&'a LangTag>>,
+	language: Option<JsonLdLenient<&'a LangTag>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -206,7 +212,7 @@ impl<'a> LangStr<'a> {
 	/// Create a new language string reference.
 	pub fn new(
 		data: &'a str,
-		language: Option<Lenient<&'a LangTag>>,
+		language: Option<JsonLdLenient<&'a LangTag>>,
 		direction: Option<Direction>,
 	) -> Result<Self, InvalidLangString> {
 		if language.is_some() || direction.is_some() {
@@ -220,7 +226,13 @@ impl<'a> LangStr<'a> {
 		}
 	}
 
-	pub fn into_parts(self) -> (&'a str, Option<Lenient<&'a LangTag>>, Option<Direction>) {
+	pub fn into_parts(
+		self,
+	) -> (
+		&'a str,
+		Option<JsonLdLenient<&'a LangTag>>,
+		Option<Direction>,
+	) {
 		(self.data, self.language, self.direction)
 	}
 
@@ -232,7 +244,7 @@ impl<'a> LangStr<'a> {
 
 	/// Gets the associated language tag, if any.
 	#[inline(always)]
-	pub fn language(&self) -> Option<Lenient<&'a LangTag>> {
+	pub fn language(&self) -> Option<JsonLdLenient<&'a LangTag>> {
 		self.language
 	}
 

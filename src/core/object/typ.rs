@@ -1,7 +1,7 @@
 use rdf_syntax::{BlankId, BlankIdBuf};
 use rdf_syntax::{Id, Iri, IriBuf};
 
-use crate::Lenient;
+use crate::JsonLdLenient;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -20,19 +20,19 @@ impl Type {
 		}
 	}
 
-	pub fn from_id(r: Lenient<Id>) -> Self {
+	pub fn from_id(r: JsonLdLenient<Id>) -> Self {
 		match r {
-			Lenient::Valid(Id::Iri(id)) => Self::Id(id),
-			Lenient::Valid(Id::BlankId(id)) => Self::Blank(id),
-			Lenient::Invalid(id) => Self::Invalid(id),
+			JsonLdLenient::Valid(Id::Iri(id)) => Self::Id(id),
+			JsonLdLenient::Valid(Id::BlankId(id)) => Self::Blank(id),
+			JsonLdLenient::Invalid(id) => Self::Invalid(id),
 		}
 	}
 
-	pub fn into_id(self) -> Result<Lenient<Id>, Self> {
+	pub fn into_id(self) -> Result<JsonLdLenient<Id>, Self> {
 		match self {
-			Type::Id(id) => Ok(Lenient::Valid(Id::Iri(id))),
-			Type::Blank(id) => Ok(Lenient::Valid(Id::BlankId(id))),
-			Type::Invalid(id) => Ok(Lenient::Invalid(id)),
+			Type::Id(id) => Ok(JsonLdLenient::Valid(Id::Iri(id))),
+			Type::Blank(id) => Ok(JsonLdLenient::Valid(Id::BlankId(id))),
+			Type::Invalid(id) => Ok(JsonLdLenient::Invalid(id)),
 			typ => Err(typ),
 		}
 	}
@@ -96,11 +96,11 @@ impl<'a> TypeRef<'a> {
 		}
 	}
 
-	pub fn from_id(r: &'a Lenient<Id>) -> Self {
+	pub fn from_id(r: &'a JsonLdLenient<Id>) -> Self {
 		match r {
-			Lenient::Valid(Id::Iri(id)) => Self::Id(id),
-			Lenient::Valid(Id::BlankId(id)) => Self::Blank(id),
-			Lenient::Invalid(id) => Self::Invalid(id),
+			JsonLdLenient::Valid(Id::Iri(id)) => Self::Id(id),
+			JsonLdLenient::Valid(Id::BlankId(id)) => Self::Blank(id),
+			JsonLdLenient::Invalid(id) => Self::Invalid(id),
 		}
 	}
 

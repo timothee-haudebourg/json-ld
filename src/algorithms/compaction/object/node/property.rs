@@ -1,8 +1,8 @@
 use json_syntax::{JsonObject, JsonValue};
 
 use crate::{
-	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdNode, JsonLdObject,
-	JsonLdTerm, Lenient,
+	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdNode,
+	JsonLdObject, JsonLdTerm,
 	algorithms::{
 		AsyncProcessingEnvironment,
 		compaction::{
@@ -497,7 +497,7 @@ impl Compactor<'_> {
 										// Reinitialize `container_key` by
 										// IRI compacting `index_key`.
 										container_key = self.compact_iri(
-											&JsonLdTerm::Id(Lenient::Invalid(
+											&JsonLdTerm::Id(JsonLdLenient::Invalid(
 												index_key.to_string(),
 											)),
 											true,

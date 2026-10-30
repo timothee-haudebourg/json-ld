@@ -1,7 +1,7 @@
 use super::Container;
 use crate::{Direction, JsonLdBacktrace, JsonLdBacktraceBuf, JsonLdTerm, Nullable, Type};
 use crate::{
-	Lenient,
+	JsonLdLenient,
 	syntax::{
 		JsonLdContext, KeywordType,
 		context::{ContextTerm, ContextType, ContextTypeContainer, Index, Nest},
@@ -384,7 +384,7 @@ impl TermDefinition {
 		}
 	}
 
-	pub fn language(&self) -> Option<Nullable<&Lenient<LangTagBuf>>> {
+	pub fn language(&self) -> Option<Nullable<&JsonLdLenient<LangTagBuf>>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.language.as_ref().map(Nullable::as_ref),
@@ -493,7 +493,7 @@ impl<'a> TermDefinitionRef<'a> {
 		}
 	}
 
-	pub fn language(&self) -> Option<Nullable<&'a Lenient<LangTagBuf>>> {
+	pub fn language(&self) -> Option<Nullable<&'a JsonLdLenient<LangTagBuf>>> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.language.as_ref().map(Nullable::as_ref),
@@ -557,7 +557,7 @@ pub struct NormalTermDefinition {
 	pub index: Option<Index>,
 
 	// Optional language mapping.
-	pub language: Option<Nullable<Lenient<LangTagBuf>>>,
+	pub language: Option<Nullable<JsonLdLenient<LangTagBuf>>>,
 
 	// Optional nest value.
 	pub nest: Option<Nest>,

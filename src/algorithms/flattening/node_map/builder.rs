@@ -4,7 +4,7 @@ use btree_indexmap::BTreeIndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
-	Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdNode, JsonLdObject, Lenient,
+	Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdLenient, JsonLdNode, JsonLdObject,
 	object::JsonLdList, syntax::Keyword,
 };
 
@@ -43,7 +43,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 	pub fn extend_node_map(
 		&mut self,
 		element: &IndexedObject,
-		active_graph: Option<&Lenient<Id>>,
+		active_graph: Option<&JsonLdLenient<Id>>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<IndexedObject, NodeMapExtendError> {
 		match element.inner() {
@@ -83,7 +83,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		&mut self,
 		node: &JsonLdNode,
 		index: Option<&str>,
-		active_graph: Option<&Lenient<Id>>,
+		active_graph: Option<&JsonLdLenient<Id>>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Indexed<JsonLdNode>, NodeMapExtendError> {
 		let id = self.substitution.assign_node_id(node.id.as_ref());
@@ -230,9 +230,9 @@ impl<G: Generator> Substitution<G> {
 		}
 	}
 
-	pub fn assign_node_id(&mut self, r: Option<&Lenient<Id>>) -> Lenient<Id> {
+	pub fn assign_node_id(&mut self, r: Option<&JsonLdLenient<Id>>) -> JsonLdLenient<Id> {
 		match r {
-			Some(Lenient::Valid(Id::BlankId(id))) => self.assign(id).into(),
+			Some(JsonLdLenient::Valid(Id::BlankId(id))) => self.assign(id).into(),
 			Some(r) => r.clone(),
 			None => self.generator.next_id().into(),
 		}

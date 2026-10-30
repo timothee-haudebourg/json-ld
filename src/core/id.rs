@@ -4,13 +4,13 @@ use rdf_syntax::{Iri, IriBuf};
 use std::cmp::Ordering;
 use std::convert::TryFrom;
 
-use crate::{JsonLdTerm, Lenient, Validate};
+use crate::{JsonLdLenient, JsonLdTerm, JsonLdValidate};
 
-impl Validate for Id {
+impl JsonLdValidate for Id {
 	type Invalid = String;
 }
 
-impl Lenient<Id> {
+impl JsonLdLenient<Id> {
 	pub fn iri(iri: IriBuf) -> Self {
 		Self::Valid(Id::Iri(iri))
 	}
@@ -58,108 +58,108 @@ impl Lenient<Id> {
 	}
 }
 
-impl Equivalent<Lenient<Id>> for Id {
-	fn equivalent(&self, key: &Lenient<Id>) -> bool {
+impl Equivalent<JsonLdLenient<Id>> for Id {
+	fn equivalent(&self, key: &JsonLdLenient<Id>) -> bool {
 		match key {
-			Lenient::Valid(id) => self == id,
+			JsonLdLenient::Valid(id) => self == id,
 			_ => false,
 		}
 	}
 }
 
-impl Comparable<Lenient<Id>> for Id {
-	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+impl Comparable<JsonLdLenient<Id>> for Id {
+	fn compare(&self, key: &JsonLdLenient<Id>) -> Ordering {
 		match key {
-			Lenient::Valid(id) => self.cmp(id),
-			Lenient::Invalid(_) => Ordering::Less, // Valid < Invalid
+			JsonLdLenient::Valid(id) => self.cmp(id),
+			JsonLdLenient::Invalid(_) => Ordering::Less, // Valid < Invalid
 		}
 	}
 }
 
-impl Equivalent<Lenient<Id>> for &Iri {
-	fn equivalent(&self, key: &Lenient<Id>) -> bool {
+impl Equivalent<JsonLdLenient<Id>> for &Iri {
+	fn equivalent(&self, key: &JsonLdLenient<Id>) -> bool {
 		match key {
-			Lenient::Valid(Id::Iri(iri)) => *self == iri,
+			JsonLdLenient::Valid(Id::Iri(iri)) => *self == iri,
 			_ => false,
 		}
 	}
 }
 
-impl Comparable<Lenient<Id>> for &Iri {
-	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+impl Comparable<JsonLdLenient<Id>> for &Iri {
+	fn compare(&self, key: &JsonLdLenient<Id>) -> Ordering {
 		match key {
-			Lenient::Valid(Id::Iri(iri)) => (*self).cmp(iri.as_iri()),
-			Lenient::Valid(Id::BlankId(_)) => Ordering::Greater, // Iri > BlankId
-			Lenient::Invalid(_) => Ordering::Less,
+			JsonLdLenient::Valid(Id::Iri(iri)) => (*self).cmp(iri.as_iri()),
+			JsonLdLenient::Valid(Id::BlankId(_)) => Ordering::Greater, // Iri > BlankId
+			JsonLdLenient::Invalid(_) => Ordering::Less,
 		}
 	}
 }
 
-impl Equivalent<Lenient<Id>> for rdf_syntax::IriBuf {
-	fn equivalent(&self, key: &Lenient<Id>) -> bool {
+impl Equivalent<JsonLdLenient<Id>> for rdf_syntax::IriBuf {
+	fn equivalent(&self, key: &JsonLdLenient<Id>) -> bool {
 		match key {
-			Lenient::Valid(Id::Iri(iri)) => self == iri,
+			JsonLdLenient::Valid(Id::Iri(iri)) => self == iri,
 			_ => false,
 		}
 	}
 }
 
-impl Comparable<Lenient<Id>> for rdf_syntax::IriBuf {
-	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+impl Comparable<JsonLdLenient<Id>> for rdf_syntax::IriBuf {
+	fn compare(&self, key: &JsonLdLenient<Id>) -> Ordering {
 		match key {
-			Lenient::Valid(Id::Iri(iri)) => self.as_iri().cmp(iri.as_iri()),
-			Lenient::Valid(Id::BlankId(_)) => Ordering::Greater,
-			Lenient::Invalid(_) => Ordering::Less,
+			JsonLdLenient::Valid(Id::Iri(iri)) => self.as_iri().cmp(iri.as_iri()),
+			JsonLdLenient::Valid(Id::BlankId(_)) => Ordering::Greater,
+			JsonLdLenient::Invalid(_) => Ordering::Less,
 		}
 	}
 }
 
-impl Equivalent<Lenient<Id>> for rdf_syntax::BlankId {
-	fn equivalent(&self, key: &Lenient<Id>) -> bool {
+impl Equivalent<JsonLdLenient<Id>> for rdf_syntax::BlankId {
+	fn equivalent(&self, key: &JsonLdLenient<Id>) -> bool {
 		match key {
-			Lenient::Valid(Id::BlankId(b)) => self == b,
+			JsonLdLenient::Valid(Id::BlankId(b)) => self == b,
 			_ => false,
 		}
 	}
 }
 
-impl Comparable<Lenient<Id>> for rdf_syntax::BlankId {
-	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+impl Comparable<JsonLdLenient<Id>> for rdf_syntax::BlankId {
+	fn compare(&self, key: &JsonLdLenient<Id>) -> Ordering {
 		match key {
-			Lenient::Valid(Id::BlankId(b)) => self.cmp(b),
-			Lenient::Valid(Id::Iri(_)) => Ordering::Less, // BlankId < Iri
-			Lenient::Invalid(_) => Ordering::Less,
+			JsonLdLenient::Valid(Id::BlankId(b)) => self.cmp(b),
+			JsonLdLenient::Valid(Id::Iri(_)) => Ordering::Less, // BlankId < Iri
+			JsonLdLenient::Invalid(_) => Ordering::Less,
 		}
 	}
 }
 
-impl Equivalent<Lenient<Id>> for rdf_syntax::BlankIdBuf {
-	fn equivalent(&self, key: &Lenient<Id>) -> bool {
+impl Equivalent<JsonLdLenient<Id>> for rdf_syntax::BlankIdBuf {
+	fn equivalent(&self, key: &JsonLdLenient<Id>) -> bool {
 		match key {
-			Lenient::Valid(Id::BlankId(b)) => self == b,
+			JsonLdLenient::Valid(Id::BlankId(b)) => self == b,
 			_ => false,
 		}
 	}
 }
 
-impl Comparable<Lenient<Id>> for rdf_syntax::BlankIdBuf {
-	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+impl Comparable<JsonLdLenient<Id>> for rdf_syntax::BlankIdBuf {
+	fn compare(&self, key: &JsonLdLenient<Id>) -> Ordering {
 		match key {
-			Lenient::Valid(Id::BlankId(b)) => self.as_blank_id().cmp(b),
-			Lenient::Valid(Id::Iri(_)) => Ordering::Less,
-			Lenient::Invalid(_) => Ordering::Less,
+			JsonLdLenient::Valid(Id::BlankId(b)) => self.as_blank_id().cmp(b),
+			JsonLdLenient::Valid(Id::Iri(_)) => Ordering::Less,
+			JsonLdLenient::Invalid(_) => Ordering::Less,
 		}
 	}
 }
 
-impl From<IriBuf> for Lenient<Id> {
+impl From<IriBuf> for JsonLdLenient<Id> {
 	#[inline(always)]
 	fn from(iri: IriBuf) -> Self {
 		Self::iri(iri)
 	}
 }
 
-impl PartialEq<Iri> for Lenient<Id> {
+impl PartialEq<Iri> for JsonLdLenient<Id> {
 	fn eq(&self, other: &Iri) -> bool {
 		self.as_iri() == Some(other)
 	}
@@ -169,15 +169,15 @@ impl PartialEq<JsonLdTerm> for Id {
 	#[inline]
 	fn eq(&self, term: &JsonLdTerm) -> bool {
 		match term {
-			JsonLdTerm::Id(Lenient::Valid(prop)) => self == prop,
+			JsonLdTerm::Id(JsonLdLenient::Valid(prop)) => self == prop,
 			_ => false,
 		}
 	}
 }
 
-impl PartialEq<Lenient<Id>> for JsonLdTerm {
+impl PartialEq<JsonLdLenient<Id>> for JsonLdTerm {
 	#[inline]
-	fn eq(&self, r: &Lenient<Id>) -> bool {
+	fn eq(&self, r: &JsonLdLenient<Id>) -> bool {
 		match self {
 			JsonLdTerm::Id(prop) => prop == r,
 			_ => false,
@@ -185,7 +185,7 @@ impl PartialEq<Lenient<Id>> for JsonLdTerm {
 	}
 }
 
-impl TryFrom<JsonLdTerm> for Lenient<Id> {
+impl TryFrom<JsonLdTerm> for JsonLdLenient<Id> {
 	type Error = JsonLdTerm;
 
 	#[inline]
@@ -197,41 +197,41 @@ impl TryFrom<JsonLdTerm> for Lenient<Id> {
 	}
 }
 
-impl TryFrom<Lenient<Id>> for Id {
+impl TryFrom<JsonLdLenient<Id>> for Id {
 	type Error = String;
 
-	fn try_from(r: Lenient<Id>) -> Result<Self, Self::Error> {
+	fn try_from(r: JsonLdLenient<Id>) -> Result<Self, Self::Error> {
 		match r {
-			Lenient::Valid(r) => Ok(r),
-			Lenient::Invalid(id) => Err(id),
+			JsonLdLenient::Valid(r) => Ok(r),
+			JsonLdLenient::Invalid(id) => Err(id),
 		}
 	}
 }
 
-impl<'a> TryFrom<&'a Lenient<Id>> for &'a Id {
+impl<'a> TryFrom<&'a JsonLdLenient<Id>> for &'a Id {
 	type Error = &'a String;
 
-	fn try_from(r: &'a Lenient<Id>) -> Result<Self, Self::Error> {
+	fn try_from(r: &'a JsonLdLenient<Id>) -> Result<Self, Self::Error> {
 		match r {
-			Lenient::Valid(r) => Ok(r),
-			Lenient::Invalid(id) => Err(id),
+			JsonLdLenient::Valid(r) => Ok(r),
+			JsonLdLenient::Invalid(id) => Err(id),
 		}
 	}
 }
 
-impl<'a> TryFrom<&'a mut Lenient<Id>> for &'a mut Id {
+impl<'a> TryFrom<&'a mut JsonLdLenient<Id>> for &'a mut Id {
 	type Error = &'a mut String;
 
-	fn try_from(r: &'a mut Lenient<Id>) -> Result<Self, Self::Error> {
+	fn try_from(r: &'a mut JsonLdLenient<Id>) -> Result<Self, Self::Error> {
 		match r {
-			Lenient::Valid(r) => Ok(r),
-			Lenient::Invalid(id) => Err(id),
+			JsonLdLenient::Valid(r) => Ok(r),
+			JsonLdLenient::Invalid(id) => Err(id),
 		}
 	}
 }
 
-impl Equivalent<Lenient<Id>> for Iri {
-	fn equivalent(&self, key: &Lenient<Id>) -> bool {
+impl Equivalent<JsonLdLenient<Id>> for Iri {
+	fn equivalent(&self, key: &JsonLdLenient<Id>) -> bool {
 		match key.as_iri() {
 			Some(iri) => self == iri,
 			None => false,
@@ -239,12 +239,12 @@ impl Equivalent<Lenient<Id>> for Iri {
 	}
 }
 
-impl Comparable<Lenient<Id>> for Iri {
-	fn compare(&self, key: &Lenient<Id>) -> Ordering {
+impl Comparable<JsonLdLenient<Id>> for Iri {
+	fn compare(&self, key: &JsonLdLenient<Id>) -> Ordering {
 		match key {
-			Lenient::Valid(Id::Iri(iri)) => self.cmp(iri.as_iri()),
-			Lenient::Valid(Id::BlankId(_)) => Ordering::Greater,
-			Lenient::Invalid(_) => Ordering::Less,
+			JsonLdLenient::Valid(Id::Iri(iri)) => self.cmp(iri.as_iri()),
+			JsonLdLenient::Valid(Id::BlankId(_)) => Ordering::Greater,
+			JsonLdLenient::Invalid(_) => Ordering::Less,
 		}
 	}
 }

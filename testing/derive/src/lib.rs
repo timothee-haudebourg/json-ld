@@ -445,8 +445,8 @@ fn test_fn_name(fn_name: &syn::Ident, id: &Iri) -> syn::Ident {
 /// as the root resource when deserializing the entry's quads back.
 fn entry_root_term(entry: &json_ld::JsonLdNode) -> json_ld::rdf_syntax::Term {
 	match entry.id.as_ref().expect("missing id") {
-		json_ld::Lenient::Valid(id) => json_ld::rdf_syntax::Term::id(id.clone()),
-		json_ld::Lenient::Invalid(_) => panic!("invalid manifest entry id"),
+		json_ld::JsonLdLenient::Valid(id) => json_ld::rdf_syntax::Term::id(id.clone()),
+		json_ld::JsonLdLenient::Invalid(_) => panic!("invalid manifest entry id"),
 	}
 }
 

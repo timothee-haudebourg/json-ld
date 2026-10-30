@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
-	IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdNode,
-	JsonLdObject, JsonLdValue, LangString, Lenient, Nullable, Type, Warning,
+	IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError,
+	JsonLdNode, JsonLdObject, JsonLdValue, LangString, Nullable, Type, Warning,
 	object::{LiteralValue, value::LiteralType},
 };
 
@@ -126,12 +126,12 @@ impl<'a> Expander<'a> {
 								} else {
 									self.active_context
 										.default_language()
-										.map(Lenient::into_owned)
+										.map(JsonLdLenient::into_owned)
 								}
 							} else {
 								self.active_context
 									.default_language()
-									.map(Lenient::into_owned)
+									.map(JsonLdLenient::into_owned)
 							};
 
 							// Initialize `direction` to the direction mapping for

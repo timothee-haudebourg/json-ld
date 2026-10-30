@@ -182,7 +182,7 @@ mod tests {
 	use rdf_syntax::{Id, iri};
 
 	use super::*;
-	use crate::Lenient;
+	use crate::JsonLdLenient;
 
 	#[test]
 	fn empty_document_to_json() {
@@ -194,7 +194,7 @@ mod tests {
 
 	#[test]
 	fn node_document_to_json() {
-		let id = Lenient::Valid(Id::Iri(iri!("https://example.org/a").to_owned()));
+		let id = JsonLdLenient::Valid(Id::Iri(iri!("https://example.org/a").to_owned()));
 		let document =
 			JsonLdExpandedDocument::from(Indexed::new(JsonLdNode::new_with_id(Some(id)), None));
 

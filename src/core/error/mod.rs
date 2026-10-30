@@ -1,6 +1,6 @@
 use rdf_syntax::Id;
 
-use crate::{JsonLdBacktraceBuilder, JsonLdLoadError, JsonLdLocated, Lenient};
+use crate::{JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLoadError, JsonLdLocated};
 
 mod code;
 
@@ -204,7 +204,7 @@ impl JsonLdError {
 #[derive(Clone, Debug, thiserror::Error)]
 #[error("Index `{defined_index}` conflicts with index `{conflicting_index}`")]
 pub struct ConflictingIndexes {
-	pub node_id: Lenient<Id>,
+	pub node_id: JsonLdLenient<Id>,
 	/// The previously-declared index, with its source location if known.
 	pub defined_index: JsonLdLocated<String>,
 	pub conflicting_index: String,
