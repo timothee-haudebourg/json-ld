@@ -1,3 +1,4 @@
+use json_syntax::JsonValue;
 use rdf_syntax::{Iri, IriBuf, IriRef, IriRefBuf};
 
 mod definition;
@@ -53,6 +54,10 @@ impl JsonLdContext {
 		D: serde::Deserializer<'de>,
 	{
 		<Self as serde::Deserialize>::deserialize(deserializer).map(|c| Some(Box::new(c)))
+	}
+
+	pub fn to_json(&self) -> JsonValue {
+		json_syntax::to_value(self).unwrap()
 	}
 }
 
@@ -184,6 +189,17 @@ impl JsonLdContextEntry {
 	pub fn is_object(&self) -> bool {
 		matches!(self, Self::Definition(_))
 	}
+
+	pub fn is_iri_ref(&self) -> bool {
+		matches!(self, Self::IriRef(_))
+	}
+
+	pub fn as_iri_ref(&self) -> Option<&IriRef> {
+		match self {
+			Self::IriRef(r) => Some(r),
+			_ => None,
+		}
+	}
 }
 
 impl From<IriRefBuf> for JsonLdContextEntry {
@@ -216,6 +232,30 @@ impl From<JsonLdContextDefinition> for JsonLdContextEntry {
 	}
 }
 
+impl PartialEq<IriRef> for JsonLdContextEntry {
+	fn eq(&self, other: &IriRef) -> bool {
+		self.as_iri_ref().is_some_and(|r| r == other)
+	}
+}
+
+impl<'a> PartialEq<&'a IriRef> for JsonLdContextEntry {
+	fn eq(&self, other: &&'a IriRef) -> bool {
+		self.as_iri_ref().is_some_and(|r| r == other)
+	}
+}
+
+impl PartialEq<Iri> for JsonLdContextEntry {
+	fn eq(&self, other: &Iri) -> bool {
+		self.as_iri_ref().is_some_and(|r| r == other)
+	}
+}
+
+impl<'a> PartialEq<&'a Iri> for JsonLdContextEntry {
+	fn eq(&self, other: &&'a Iri) -> bool {
+		self.as_iri_ref().is_some_and(|r| r == other)
+	}
+}
+
 /// Context document.
 ///
 /// A context document is a JSON-LD document containing an object with a single
@@ -225,6 +265,12 @@ impl From<JsonLdContextDefinition> for JsonLdContextEntry {
 pub struct JsonLdContextDocumentValue {
 	#[cfg_attr(feature = "serde", serde(rename = "@context"))]
 	pub context: JsonLdContext,
+}
+
+impl JsonLdContextDocumentValue {
+	pub fn to_json(&self) -> JsonValue {
+		json_syntax::to_value(self).unwrap()
+	}
 }
 
 #[cfg(feature = "serde")]

@@ -1,11 +1,28 @@
-use rdf_syntax::{IriRef, IriRefBuf};
+use std::borrow::Cow;
 
+use rdf_syntax::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
+
+#[derive(Debug, thiserror::Error)]
+#[error("invalid compact IRI")]
 pub struct InvalidCompactIri<T>(pub T);
 
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct CompactIri(str);
 
 impl CompactIri {
+	/// Checks that `s` has the syntactic shape of a compact IRI, namely
+	/// `prefix:suffix`, where `prefix` is not `_` (which denotes a blank
+	/// node identifier instead) and `suffix` does not start with `//`
+	/// (which would make it ambiguous with an absolute IRI with an
+	/// authority).
+	///
+	/// A compact IRI's `prefix` is a term name, resolved against the active
+	/// context, so it is **not** required to also be a syntactically valid
+	/// IRI on its own: term names may use characters, such as `_`, that are
+	/// not permitted in an IRI scheme. For instance `my_term:value` is a
+	/// valid compact IRI but not a valid absolute IRI. See
+	/// [§ 4.1.5 Compact IRIs](https://www.w3.org/TR/json-ld11/#compact-iris)
+	/// of the JSON-LD 1.1 specification.
 	pub fn new(s: &str) -> Result<&Self, InvalidCompactIri<&str>> {
 		match s.split_once(':') {
 			Some((prefix, suffix)) if prefix != "_" && !suffix.starts_with("//") => {
@@ -45,8 +62,32 @@ impl CompactIri {
 		&self[i + 1..]
 	}
 
-	pub fn as_iri_ref(&self) -> &IriRef {
-		IriRef::new(self.as_str()).unwrap()
+	/// Returns this compact IRI as an absolute IRI, if it happens to also be
+	/// a syntactically valid one.
+	///
+	/// This is `None` whenever `prefix` is not itself a valid IRI scheme
+	/// (e.g. because it contains a `_`). To properly turn a compact IRI into
+	/// an absolute IRI, resolve its prefix against the active context and
+	/// use [`Self::resolve`] instead.
+	pub fn as_iri(&self) -> Option<&Iri> {
+		Iri::new(self.as_str()).ok()
+	}
+
+	/// Returns this compact IRI as an IRI reference, if it happens to also
+	/// be a syntactically valid one. See [`Self::as_iri`] for why this may
+	/// be `None`.
+	pub fn as_iri_ref(&self) -> Option<&IriRef> {
+		IriRef::new(self.as_str()).ok()
+	}
+
+	pub fn resolve<'a>(
+		&self,
+		resolver: impl FnOnce(&str) -> Option<Cow<'a, Iri>>,
+	) -> Result<IriBuf, InvalidIri<String>> {
+		match resolver(self.prefix()) {
+			Some(prefix) => IriBuf::from_string(format!("{}{}", prefix, self.suffix())),
+			None => IriBuf::from_string(self.as_str().to_owned()),
+		}
 	}
 }
 
@@ -74,7 +115,7 @@ impl AsRef<str> for CompactIri {
 pub struct CompactIriBuf(String);
 
 impl CompactIriBuf {
-	pub fn new(s: String) -> Result<Self, InvalidCompactIri<String>> {
+	pub fn from_string(s: String) -> Result<Self, InvalidCompactIri<String>> {
 		match CompactIri::new(&s) {
 			Ok(_) => Ok(unsafe { Self::new_unchecked(s) }),
 			Err(_) => Err(InvalidCompactIri(s)),
