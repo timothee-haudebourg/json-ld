@@ -167,62 +167,12 @@ impl<T: Validate> From<T> for Lenient<T> {
 	}
 }
 
-// #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-// #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-// #[cfg_attr(feature = "serde", serde(untagged))]
-// pub enum LenientRef<'a, T> {
-// 	Valid(T),
-// 	Invalid(&'a str),
-// }
-
-// impl<'a, T: Copy> LenientRef<'a, T> {
-// 	/// Returns `true` if the value is valid.
-// 	#[inline(always)]
-// 	pub fn is_valid(self) -> bool {
-// 		matches!(self, Self::Valid(_))
-// 	}
-
-// 	/// Returns the valid value, or `None` if invalid.
-// 	#[inline(always)]
-// 	pub fn ok(self) -> Option<T> {
-// 		match self {
-// 			Self::Valid(t) => Some(t),
-// 			Self::Invalid(_) => None,
-// 		}
-// 	}
-// }
-
-// impl<'a, T: AsRef<str>> LenientRef<'a, T> {
-// 	/// Returns the string representation of the value.
-// 	pub fn as_str(&self) -> &str {
-// 		match self {
-// 			Self::Valid(t) => t.as_ref(),
-// 			Self::Invalid(s) => s,
-// 		}
-// 	}
-// }
-
-// impl<'a, T: ToOwned + ?Sized> LenientRef<'a, &'a T> {
-// 	/// Converts to an owned [`Lenient`] value.
-// 	pub fn to_owned(self) -> Lenient<T::Owned> {
-// 		match self {
-// 			Self::Valid(t) => Lenient::Valid(t.to_owned()),
-// 			Self::Invalid(s) => Lenient::Invalid(s.to_owned()),
-// 		}
-// 	}
-// }
-
-// impl<'a, T: AsRef<str>> AsRef<str> for LenientRef<'a, T> {
-// 	fn as_ref(&self) -> &str {
-// 		self.as_str()
-// 	}
-// }
-
-// impl<'a, T: fmt::Display> fmt::Display for LenientRef<'a, T> {
-// 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-// 		match self {
-// 			Self::Valid(t) => t.fmt(f),
-// 			Self::Invalid(s) => s.fmt(f),
-// 		}
-// 	}
-// }
+impl<T: Validate + FromStr> From<&str> for Lenient<T>
+where
+	T::Invalid: From<String>,
+{
+	fn from(value: &str) -> Self {
+		let (this, _) = Self::new(value);
+		this
+	}
+}
