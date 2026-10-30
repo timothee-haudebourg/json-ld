@@ -1,9 +1,12 @@
 [package]
 name = "json-ld-testing"
-version = "0.1.0"
-edition = "2021"
 description = "Testing library for the json-ld crate"
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
-# json-ld-testing-core = { path = "core" }
-json-ld-testing-derive = { path = "derive" }
+json-ld-testing-derive.workspace = true

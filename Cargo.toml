@@ -1,23 +1,32 @@
 [workspace]
 members = ["testing", "testing/derive"]
-resolver = "2"
 
-[workspace.dependencies]
-linked-data = "0.2"
-
-[package]
-name = "json-ld"
+[workspace.package]
 authors = ["Timothée Haudebourg <timothee@haudebourg.net>"]
-description = "JSON-LD implementation"
-categories = ["web-programming", "database", "data-structures"]
-keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
 repository = "https://github.com/timothee-haudebourg/json-ld"
-documentation = "https://docs.rs/json-ld"
-readme = "README.md"
 license = "MIT/Apache-2.0"
 edition = "2024"
 rust-version = "1.96.0"
 version = "0.19.1"
+
+[workspace.dependencies]
+json-ld = { path = ".", version = "0.19.1" }
+json-ld-testing-derive = { path = "testing/derive", version = "0.19.1" } # Keep version in sync
+linked-data = "0.2"
+
+[package]
+name = "json-ld"
+authors.workspace = true
+description = "JSON-LD implementation"
+categories = ["web-programming", "database", "data-structures"]
+keywords = ["json-ld", "json", "semantic-web", "linked-data", "rdf"]
+repository.workspace = true
+documentation = "https://docs.rs/json-ld"
+readme = "README.md"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [features]
 default = ["algorithms", "reqwest"]
@@ -84,6 +93,8 @@ reqwest-middleware = { version = "0.4.2", optional = true }
 tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 
 [dev-dependencies]
+# Path-only on purpose: Cargo drops such dev-dependencies when publishing, which
+# breaks the dependency cycle json-ld -> json-ld-testing -> json-ld.
 json-ld-testing = { path = "testing" }
 tokio = { version = "*", features = ["macros", "rt", "rt-multi-thread"] }
 linked-data = { workspace = true, features = ["derive"] }

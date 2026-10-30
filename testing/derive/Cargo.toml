@@ -1,8 +1,12 @@
 [package]
 name = "json-ld-testing-derive"
-version = "0.1.0"
-edition = "2021"
 description = "Derive macro for JSON-LD test suite generation"
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+version.workspace = true
 
 [lib]
 proc-macro = true
@@ -11,6 +15,5 @@ proc-macro = true
 syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
-json-ld = { path = "../.." }
+json-ld.workspace = true
 linked-data.workspace = true
-# json-ld-testing-core = { path = "../core", features = ["proc_macro2"] }
