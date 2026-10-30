@@ -1,6 +1,5 @@
 use super::Container;
-use crate::algorithms::{JsonLdBacktrace, JsonLdBacktraceBuf};
-use crate::{Direction, JsonLdTerm, Nullable, Type};
+use crate::{Direction, JsonLdBacktrace, JsonLdBacktraceBuf, JsonLdTerm, Nullable, Type};
 use crate::{
 	Lenient,
 	syntax::{

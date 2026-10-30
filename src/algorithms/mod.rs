@@ -1,22 +1,16 @@
-use crate::{AsyncJsonLdLoader, JsonLdLoader, ToAsyncJsonLdLoader};
+use crate::{AsyncJsonLdLoader, JsonLdLoader, ToAsyncJsonLdLoader, Warning};
 
 mod compaction;
 mod context_processing;
 mod deserialization;
-mod error;
 mod expansion;
 mod flattening;
 mod serialization;
-mod tracing;
-mod warning;
 
 pub use compaction::*;
 pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
-pub use error::*;
 pub use expansion::*;
-pub use tracing::*;
-pub use warning::*;
 
 pub trait AsyncProcessingEnvironment {
 	type Loader: AsyncJsonLdLoader;

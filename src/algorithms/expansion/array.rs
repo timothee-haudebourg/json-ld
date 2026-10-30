@@ -1,10 +1,8 @@
 use json_syntax::JsonArray;
 
 use crate::{
-	JsonLdObject,
-	algorithms::{AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError},
-	context::TermDefinitionRef,
-	object::JsonLdList,
+	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdObject,
+	algorithms::AsyncProcessingEnvironment, context::TermDefinitionRef, object::JsonLdList,
 	syntax::ContainerItem,
 };
 

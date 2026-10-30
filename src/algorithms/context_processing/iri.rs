@@ -1,14 +1,11 @@
 use rdf_syntax::BlankId;
 use rdf_syntax::{Iri, IriBuf, IriRef};
 
-use crate::Lenient;
-use crate::algorithms::JsonLdLocatedError;
 use crate::{
-	JsonLdTerm, Nullable,
+	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdTerm, Lenient, Nullable, Warning,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdBacktraceBuilder,
+		AsyncProcessingEnvironment,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
-		warning::Warning,
 	},
 	context::RawProcessedContext,
 	syntax::{

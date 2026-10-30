@@ -2,14 +2,13 @@
 use rdf_syntax::Generator;
 
 use crate::{
-	JsonLdExpandedDocument, JsonLdFlattenedDocument, flattened::JsonLdUnorderedFlattenedDocument,
+	JsonLdBacktraceBuilder, JsonLdExpandedDocument, JsonLdFlattenedDocument,
+	flattened::JsonLdUnorderedFlattenedDocument,
 };
 
 mod node_map;
 
 pub use node_map::*;
-
-use crate::algorithms::JsonLdBacktraceBuilder;
 
 impl JsonLdExpandedDocument {
 	pub fn flatten(

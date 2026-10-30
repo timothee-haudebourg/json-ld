@@ -1,9 +1,10 @@
 use json_syntax::{JsonObject, JsonValue};
 
 use crate::{
-	Indexed, JsonLdNode, JsonLdObject, JsonLdTerm, Lenient,
+	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdNode, JsonLdObject,
+	JsonLdTerm, Lenient,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
+		AsyncProcessingEnvironment,
 		compaction::{
 			CompactFragment, CompactIndexedFragment, Compactor,
 			object::value::{add_value, value_value},

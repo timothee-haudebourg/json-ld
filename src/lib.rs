@@ -158,10 +158,12 @@ pub mod ext;
 #[cfg(feature = "algorithms")]
 mod processor;
 pub mod syntax;
+mod tracing;
 
 #[cfg(feature = "algorithms")]
-pub use algorithms::{JsonLdError, JsonLdErrorCode, RdfSerializationOptions, Warning};
+pub use algorithms::RdfSerializationOptions;
 pub use core::*;
 pub use linked_data;
 #[cfg(feature = "algorithms")]
 pub use processor::*;
+pub use tracing::*;

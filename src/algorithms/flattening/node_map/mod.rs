@@ -1,7 +1,7 @@
 use crate::{
-	Indexed, IndexedJsonLdNode, IndexedObject, JsonLdExpandedDocument, JsonLdFlattenedDocument,
-	JsonLdNode, JsonLdObject, Lenient,
-	algorithms::{JsonLdBacktraceBuilder, JsonLdLocated, JsonLdSourceFile},
+	ConflictingIndexes, Indexed, IndexedJsonLdNode, IndexedObject, JsonLdBacktraceBuilder,
+	JsonLdExpandedDocument, JsonLdFlattenedDocument, JsonLdLocated, JsonLdNode, JsonLdObject,
+	JsonLdSourceFile, Lenient,
 };
 use educe::Educe;
 use json_syntax::tracing::JsonBacktraceBuf;
@@ -13,18 +13,6 @@ mod builder;
 use builder::NodeMapBuilder;
 
 pub type NodeMapExtendError = Box<JsonLdLocated<ConflictingIndexes>>;
-
-/// Conflicting indexes error.
-///
-/// Raised when a single node is declared with two different indexes.
-#[derive(Clone, Debug, thiserror::Error)]
-#[error("Index `{defined_index}` conflicts with index `{conflicting_index}`")]
-pub struct ConflictingIndexes {
-	pub node_id: Lenient<Id>,
-	/// The previously-declared index, with its source location if known.
-	pub defined_index: JsonLdLocated<String>,
-	pub conflicting_index: String,
-}
 
 pub type Parts = (NodeMapGraph, HashMap<Lenient<Id>, NodeMapGraph>);
 

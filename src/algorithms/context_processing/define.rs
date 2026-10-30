@@ -3,14 +3,12 @@ use std::collections::HashMap;
 use rdf_syntax::{BlankId, Id};
 use rdf_syntax::{Iri, IriRef};
 
-use crate::Lenient;
-use crate::algorithms::JsonLdLocatedError;
 use crate::{
-	JsonLdTerm, Nullable, ProcessingMode, Type,
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdTerm, Lenient, Nullable,
+	ProcessingMode, Type, Warning,
 	algorithms::{
-		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError,
+		AsyncProcessingEnvironment,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
-		warning::Warning,
 	},
 	context::Container,
 	context::{NormalTermDefinition, TypeTermDefinition},

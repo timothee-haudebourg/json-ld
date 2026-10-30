@@ -2,10 +2,8 @@ use btree_indexmap::BTreeIndexSet;
 use json_syntax::JsonValue;
 
 use crate::{
-	algorithms::{
-		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError,
-		compaction::Compactor,
-	},
+	JsonLdBacktraceBuilder, JsonLdLocatedError,
+	algorithms::{AsyncProcessingEnvironment, compaction::Compactor},
 	syntax::ContainerItem,
 };
 

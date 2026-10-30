@@ -16,12 +16,10 @@ pub use options::ContextProcessingOptions;
 use stack::ProcessingStack;
 
 use crate::{
-	AsyncJsonLdLoader, JsonLdContextDocument, JsonLdTerm, Nullable, ProcessedJsonLdContext,
+	AsyncJsonLdLoader, JsonLdBacktraceBuilder, JsonLdContextDocument, JsonLdError,
+	JsonLdLocatedError, JsonLdSourceFileRef, JsonLdTerm, Nullable, ProcessedJsonLdContext,
 	ProcessingMode,
-	algorithms::{
-		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
-		JsonLdSourceFileRef,
-	},
+	algorithms::AsyncProcessingEnvironment,
 	context::RawProcessedContext,
 	syntax::{JsonLdContext, JsonLdContextEntry, Keyword, context::KeyOrKeywordRef},
 };
@@ -71,7 +69,7 @@ impl JsonLdContextDocument {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
-		let loc = JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Context(self.url()));
+		let loc = JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::original(self.url()));
 		self.document
 			.context
 			.process_with(
@@ -102,7 +100,7 @@ impl JsonLdContext {
 			ContextProcessingOptions::default(),
 			// No document URL available here; still need a `File` frame or the
 			// backtrace would be silently empty.
-			JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Context(None)),
+			JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::original(None)),
 		)
 		.await
 	}
@@ -228,7 +226,9 @@ impl<'a> ContextProcessor<'a> {
 							.await
 							.map_err(|e| JsonLdError::ContextLoadingFailed(e).at(entry_loc))?
 							.try_into_context_document()
-							.map_err(|e| JsonLdError::RemoteContextSyntax(e).at(entry_loc))?
+							.map_err(|e| {
+								JsonLdError::RemoteContextSyntax(e.to_string()).at(entry_loc)
+							})?
 							.into_document()
 							.context;
 
@@ -245,7 +245,7 @@ impl<'a> ContextProcessor<'a> {
 						// errors raised while processing `loaded_context` still show which
 						// `@context` array slot, in which calling document, pulled it in.
 						let remote_loc =
-							entry_loc.file(JsonLdSourceFileRef::Context(Some(&context_iri)));
+							entry_loc.file(JsonLdSourceFileRef::original(Some(&context_iri)));
 						result = Box::pin(
 							self.for_sub_context(&result, Some(&context_iri), new_options)
 								.process(env, &loaded_context, remote_loc),
@@ -289,7 +289,9 @@ impl<'a> ContextProcessor<'a> {
 								.await
 								.map_err(|e| JsonLdError::ContextLoadingFailed(e).at(import_loc))?
 								.try_into_context_document()
-								.map_err(|e| JsonLdError::RemoteContextSyntax(e).at(import_loc))?
+								.map_err(|e| {
+									JsonLdError::RemoteContextSyntax(e.to_string()).at(import_loc)
+								})?
 								.into_document()
 								.context;
 
@@ -446,7 +448,7 @@ impl<'a> ContextProcessor<'a> {
 
 					for (key, _binding) in context.bindings() {
 						let binding_loc = if context.key_is_imported(key) {
-							entry_loc.file(JsonLdSourceFileRef::Context(import_url.as_deref()))
+							entry_loc.file(JsonLdSourceFileRef::original(import_url.as_deref()))
 						} else {
 							entry_loc
 						};

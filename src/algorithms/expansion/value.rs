@@ -2,9 +2,8 @@ use json_syntax::JsonValue;
 use rdf_syntax::Id;
 
 use crate::{
-	Direction, Indexed, IndexedObject, JsonLdObject, JsonLdTerm, JsonLdValue, LangString, Lenient,
-	Nullable,
-	algorithms::{JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, Warning},
+	Direction, Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
+	JsonLdObject, JsonLdTerm, JsonLdValue, LangString, Lenient, Nullable, Warning,
 	context::RawProcessedContext,
 	object::{LiteralValue, value::LiteralType},
 	syntax::Keyword,

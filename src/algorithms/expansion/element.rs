@@ -6,10 +6,11 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	Indexed, JsonLdObject, JsonLdTerm, Lenient, Nullable,
+	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdObject, JsonLdTerm,
+	Lenient, Nullable, Warning,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdError, JsonLdLocatedError, Warning, context_processing::ContextProcessingOptions,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
+		context_processing::ContextProcessingOptions,
 	},
 	object::JsonLdList,
 	syntax::{JsonLdContext, Keyword},
@@ -140,7 +141,7 @@ impl<'a> Expander<'a> {
 				{
 					let local_context: JsonLdContext =
 						json_syntax::from_value(local_context.clone()).map_err(|e| {
-							JsonLdError::ContextSyntax(e)
+							JsonLdError::ContextSyntax(e.to_string())
 								.at(location.object_value(Keyword::Context))
 						})?;
 

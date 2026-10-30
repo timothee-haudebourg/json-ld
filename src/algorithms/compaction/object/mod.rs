@@ -2,11 +2,10 @@ use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
-	JsonLdTerm,
+	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdTerm,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdLocatedError, compaction::CompactIndexedFragment,
-		context_processing::ContextProcessingOptions,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
+		compaction::CompactIndexedFragment, context_processing::ContextProcessingOptions,
 	},
 	object::{AnyJsonLdObject, JsonLdObjectRef},
 	syntax::{ContainerItem, Keyword},

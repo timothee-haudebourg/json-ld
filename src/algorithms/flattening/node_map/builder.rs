@@ -4,7 +4,7 @@ use btree_indexmap::BTreeIndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
-	Indexed, IndexedObject, JsonLdNode, JsonLdObject, Lenient, algorithms::JsonLdBacktraceBuilder,
+	Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdNode, JsonLdObject, Lenient,
 	object::JsonLdList, syntax::Keyword,
 };
 

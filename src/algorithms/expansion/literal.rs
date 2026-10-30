@@ -3,9 +3,8 @@ use std::borrow::Cow;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
-	IndexedObject, JsonLdError, JsonLdNode, JsonLdObject, JsonLdValue, LangString, Lenient,
-	Nullable, Type,
-	algorithms::{JsonLdBacktraceBuilder, JsonLdLocatedError, Warning},
+	IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdNode,
+	JsonLdObject, JsonLdValue, LangString, Lenient, Nullable, Type, Warning,
 	object::{LiteralValue, value::LiteralType},
 };
 

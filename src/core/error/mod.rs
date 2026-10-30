@@ -1,6 +1,6 @@
-use crate::JsonLdLoadError;
-use crate::algorithms::flattening::ConflictingIndexes;
-use crate::algorithms::{JsonLdBacktraceBuilder, JsonLdLocated};
+use rdf_syntax::Id;
+
+use crate::{JsonLdBacktraceBuilder, JsonLdLoadError, JsonLdLocated, Lenient};
 
 mod code;
 
@@ -19,8 +19,8 @@ pub enum JsonLdError {
 	#[error("Processing mode conflict")]
 	ProcessingModeConflict,
 
-	#[error("Invalid context")]
-	ContextSyntax(crate::syntax::serde::DeserializeError),
+	#[error("Invalid context: {0}")]
+	ContextSyntax(String),
 
 	#[error("Invalid `@context` entry")]
 	InvalidContextEntry,
@@ -77,7 +77,7 @@ pub enum JsonLdError {
 	ContextLoadingFailed(#[from] JsonLdLoadError),
 
 	#[error("Unable to parse JSON-LD context: {0}")]
-	RemoteContextSyntax(crate::syntax::serde::DeserializeError),
+	RemoteContextSyntax(String),
 
 	#[error("Invalid `@index` value")]
 	InvalidIndexValue,
@@ -196,4 +196,16 @@ impl JsonLdError {
 			Self::IriConfusedWithPrefix => JsonLdErrorCode::IriConfusedWithPrefix,
 		}
 	}
+}
+
+/// Conflicting indexes error.
+///
+/// Raised when a single node is declared with two different indexes.
+#[derive(Clone, Debug, thiserror::Error)]
+#[error("Index `{defined_index}` conflicts with index `{conflicting_index}`")]
+pub struct ConflictingIndexes {
+	pub node_id: Lenient<Id>,
+	/// The previously-declared index, with its source location if known.
+	pub defined_index: JsonLdLocated<String>,
+	pub conflicting_index: String,
 }

@@ -4,10 +4,10 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	JsonLdNode, JsonLdTerm, Lenient, ProcessingMode, Type,
+	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdNode, JsonLdTerm, Lenient, ProcessingMode,
+	Type,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdLocatedError,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		compaction::{Compactor, object::value::add_value},
 		context_processing::ContextProcessingOptions,
 	},

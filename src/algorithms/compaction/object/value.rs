@@ -2,10 +2,10 @@ use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
-	JsonLdTerm, JsonLdValue, Lenient, Type,
+	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdTerm, JsonLdValue, Lenient, Type,
 	algorithms::{
-		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
-		JsonLdLocatedError, context_processing::ContextProcessingOptions,
+		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
+		context_processing::ContextProcessingOptions,
 	},
 	context::Container,
 	object::value::LiteralType,

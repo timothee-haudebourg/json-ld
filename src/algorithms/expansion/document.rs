@@ -1,10 +1,8 @@
 use json_syntax::{JsonValue, object::Key};
 
 use crate::{
-	JsonLdExpandedDocument,
-	algorithms::{
-		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
-	},
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdExpandedDocument, JsonLdLocatedError,
+	algorithms::AsyncProcessingEnvironment,
 };
 
 use super::{Expander, filter_top_level_item};

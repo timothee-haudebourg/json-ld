@@ -1,14 +1,13 @@
+use crate::algorithms::AsyncProcessingEnvironment;
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
-use crate::algorithms::{
-	AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, Warning,
-};
 use crate::context::Container;
 use crate::context::RawProcessedContext;
 use crate::syntax::{ContainerItem, Keyword, Nullable};
 use crate::{
-	Indexed, IndexedObject, JsonLdNode, JsonLdObject, JsonLdTerm, LangString, ProcessingMode, Type,
-	object, object::value::LiteralValue,
+	Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdNode,
+	JsonLdObject, JsonLdTerm, LangString, ProcessingMode, Type, Warning, object,
+	object::value::LiteralValue,
 };
 use crate::{JsonLdValue, Lenient};
 use btree_indexmap::BTreeIndexSet;

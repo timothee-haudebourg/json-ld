@@ -12,8 +12,8 @@ use miette::{Diagnostic, NamedSource, SourceSpan};
 use rdf_syntax::Iri;
 
 use crate::{
-	AsyncJsonLdLoader, JsonLdDocument, JsonLdError, JsonLdSourceCode,
-	algorithms::{JsonLdLocatedError, JsonLdSourceFile},
+	AsyncJsonLdLoader, JsonLdDocument, JsonLdDocumentForm, JsonLdError, JsonLdLocatedError,
+	JsonLdSourceCode, JsonLdSourceFile,
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -36,7 +36,7 @@ impl JsonLdDiagnostic {
 		let mut map = HashMap::new();
 
 		map.insert(
-			JsonLdSourceFile::Compact(input.url.clone()),
+			JsonLdSourceFile::original(input.url.clone()),
 			named_source_from_document(input.clone()),
 		);
 
@@ -44,11 +44,12 @@ impl JsonLdDiagnostic {
 		let mut related = Vec::new();
 
 		if let Some((location, rest)) = error.location.split_last() {
-			src = Some(locate_error(&mut map, loader, location).await);
+			src = locate_error(&mut map, loader, location).await;
 
 			for location in rest.iter().rev() {
-				let (src, span) = locate_error(&mut map, loader, location).await;
-				related.push(RelatedJsonLdDiagnostic { src, span })
+				if let Some((src, span)) = locate_error(&mut map, loader, location).await {
+					related.push(RelatedJsonLdDiagnostic { src, span })
+				}
 			}
 		};
 
@@ -113,34 +114,36 @@ async fn get_named_source(
 	map: &mut HashMap<JsonLdSourceFile, NamedSource<Arc<JsonLdDiagnosticSourceCode>>>,
 	loader: &impl AsyncJsonLdLoader,
 	file: &JsonLdSourceFile,
-) -> NamedSource<Arc<JsonLdDiagnosticSourceCode>> {
+) -> Option<NamedSource<Arc<JsonLdDiagnosticSourceCode>>> {
 	match map.entry(file.clone()) {
-		Entry::Occupied(e) => e.get().clone(),
-		Entry::Vacant(e) => e
-			.insert(match file {
-				JsonLdSourceFile::Compact(url) | JsonLdSourceFile::Context(url) => {
-					let url = url.as_deref().expect("document not found");
-					let document = loader.async_load(&url).await.expect("document not found");
+		Entry::Occupied(e) => Some(e.get().clone()),
+		Entry::Vacant(e) => {
+			let named_source = match &file.form {
+				JsonLdDocumentForm::Original => {
+					let url = file.iri.as_deref()?;
+					let document = loader.async_load(url).await.ok()?;
 					named_source_from_document(document)
 				}
-				JsonLdSourceFile::Expanded(url, document) => {
-					let value = json_syntax::to_value(&**document).unwrap();
+				JsonLdDocumentForm::Expanded(document) => {
+					let value = document.to_json();
 					let source = JsonLdSourceCode::from_value(&value);
 					NamedSource::new(
-						url_to_name(url.as_deref()),
+						url_to_name(file.iri.as_deref()),
 						Arc::new(JsonLdDiagnosticSourceCode { value, source }),
 					)
 				}
-				JsonLdSourceFile::Flattened(url, document) => {
+				JsonLdDocumentForm::Flattened(document) => {
 					let value = json_syntax::to_value(&**document).unwrap();
 					let source = JsonLdSourceCode::from_value(&value);
 					NamedSource::new(
-						url_to_name(url.as_deref()),
+						url_to_name(file.iri.as_deref()),
 						Arc::new(JsonLdDiagnosticSourceCode { value, source }),
 					)
 				}
-			})
-			.clone(),
+			};
+
+			Some(e.insert(named_source).clone())
+		}
 	}
 }
 
@@ -148,14 +151,11 @@ async fn locate_error(
 	map: &mut HashMap<JsonLdSourceFile, NamedSource<Arc<JsonLdDiagnosticSourceCode>>>,
 	loader: &impl AsyncJsonLdLoader,
 	location: &JsonBacktraceFrame<JsonLdSourceFile>,
-) -> (NamedSource<Arc<JsonLdDiagnosticSourceCode>>, SourceSpan) {
-	let named_source = get_named_source(map, loader, &location.file).await;
-	let span = named_source
-		.inner()
-		.locate_fragment(&location.fragment)
-		.expect("fragment not found");
+) -> Option<(NamedSource<Arc<JsonLdDiagnosticSourceCode>>, SourceSpan)> {
+	let named_source = get_named_source(map, loader, &location.file).await?;
+	let span = named_source.inner().locate_fragment(&location.fragment)?;
 
-	(named_source, span.into())
+	Some((named_source, span.into()))
 }
 
 impl miette::SourceCode for JsonLdSourceCode {

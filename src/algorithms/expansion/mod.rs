@@ -2,12 +2,10 @@
 //!
 //! See: <https://www.w3.org/TR/json-ld-api/#expansion-algorithms>
 use crate::{
-	IndexedObject, JsonLdDocument, JsonLdExpandedDocument, JsonLdObject,
-	algorithms::{AsyncProcessingEnvironment, JsonLdLocatedError, JsonLdSourceFileRef},
+	IndexedObject, JsonLdBacktraceBuilder, JsonLdDocument, JsonLdExpandedDocument,
+	JsonLdLocatedError, JsonLdObject, JsonLdSourceFileRef, algorithms::AsyncProcessingEnvironment,
 	context::RawProcessedContext,
 };
-
-use super::JsonLdBacktraceBuilder;
 
 mod array;
 mod document;
@@ -67,7 +65,7 @@ impl Expand for JsonLdDocument {
 		active_context: &RawProcessedContext,
 		options: ExpansionOptions,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError> {
-		let loc = JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Compact(self.url()));
+		let loc = JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::original(self.url()));
 		Expander {
 			base_url: self.url(),
 			options,

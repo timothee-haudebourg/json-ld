@@ -7,11 +7,9 @@ use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
-	JsonLdDocument, RemoteJsonLdContext,
-	algorithms::{
-		AsyncProcessingEnvironment, Compact, Expand, JsonLdBacktraceBuilder, JsonLdLocatedError,
-		JsonLdSourceFileRef,
-	},
+	JsonLdBacktraceBuilder, JsonLdDocument, JsonLdLocatedError, JsonLdSourceFileRef,
+	RemoteJsonLdContext,
+	algorithms::{AsyncProcessingEnvironment, Compact, Expand},
 	context::RawProcessedContext,
 	syntax::JsonLdCompare,
 };
@@ -59,7 +57,7 @@ impl JsonLdProcessor for JsonLdDocument {
 					&active_context,
 					options.context_processing_options(),
 					JsonLdBacktraceBuilder::new()
-						.file(JsonLdSourceFileRef::Context(context_document.url())),
+						.file(JsonLdSourceFileRef::original(context_document.url())),
 				)
 				.await?
 				.into_raw();
@@ -80,7 +78,7 @@ impl JsonLdProcessor for JsonLdDocument {
 					&active_context,
 					options.context_processing_options(),
 					JsonLdBacktraceBuilder::new()
-						.file(JsonLdSourceFileRef::Context(Some(context_url))),
+						.file(JsonLdSourceFileRef::original(Some(context_url))),
 				)
 				.await?
 				.into_raw()
@@ -107,7 +105,7 @@ impl JsonLdProcessor for JsonLdDocument {
 			env,
 			context,
 			options,
-			JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Expanded(
+			JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::expanded(
 				self.url(),
 				&expanded_document,
 			)),
@@ -132,7 +130,7 @@ impl JsonLdProcessor for JsonLdDocument {
 				generator,
 				options.ordered,
 				JsonLdBacktraceBuilder::new()
-					.file(JsonLdSourceFileRef::Expanded(self.url(), &expanded_input)),
+					.file(JsonLdSourceFileRef::expanded(self.url(), &expanded_input)),
 			)
 			.map_err(|e| (*e).cast())?;
 
@@ -146,7 +144,7 @@ impl JsonLdProcessor for JsonLdDocument {
 					env,
 					context,
 					options,
-					JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Flattened(
+					JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::flattened(
 						self.url(),
 						&flattened_output,
 					)),
@@ -183,7 +181,7 @@ async fn compact_expanded(
 			&RawProcessedContext::new(None),
 			options.context_processing_options(),
 			json_syntax::tracing::JsonBacktraceBuilder::new()
-				.file(JsonLdSourceFileRef::Context(context.url())),
+				.file(JsonLdSourceFileRef::original(context.url())),
 		)
 		.await?;
 
