@@ -7,11 +7,11 @@ repository = "https://github.com/timothee-haudebourg/json-ld"
 license = "MIT/Apache-2.0"
 edition = "2024"
 rust-version = "1.96.0"
-version = "0.19.1"
+version = "0.22.0"
 
 [workspace.dependencies]
-json-ld = { path = ".", version = "0.19.1" }
-json-ld-testing-derive = { path = "testing/derive", version = "0.19.1" } # Keep version in sync
+json-ld = { path = ".", version = "0.22.0" } # Keep version in sync
+json-ld-testing-derive = { path = "testing/derive", version = "0.22.0" } # Keep version in sync
 linked-data = "0.2"
 
 [package]
