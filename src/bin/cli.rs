@@ -10,6 +10,8 @@ use nquads_syntax::grdf_document_from_str;
 use rdf_syntax::{RdfDisplay, generator::BlankIdGenerator};
 use std::future::Future;
 use std::io::{self, Read};
+use std::path::PathBuf;
+use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Parser)]
@@ -26,6 +28,11 @@ struct Cli {
 	/// Override the base IRI for the document.
 	#[arg(long, global = true)]
 	base: Option<IriBuf>,
+
+	/// Load any document whose IRI starts with `IRI` from the local directory
+	/// `PATH` (can be repeated).
+	#[arg(short, long = "mount", global = true, value_name = "PATH=IRI")]
+	mounts: Vec<Mount>,
 }
 
 #[derive(Subcommand)]
@@ -51,6 +58,45 @@ enum Command {
 
 	/// Deserialize RDF N-Quads to an expanded JSON-LD document.
 	FromRdf,
+}
+
+/// Mount point of the form `path=IRI`
+#[derive(Clone)]
+struct Mount {
+	path: PathBuf,
+	iri: IriBuf,
+}
+
+impl FromStr for Mount {
+	type Err = ParseMountError;
+
+	/// Parses a mount point, splitting at the first `=`.
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let (path, iri) = s.split_once('=').ok_or(ParseMountError::MissingSeparator)?;
+
+		if path.is_empty() {
+			return Err(ParseMountError::EmptyPath);
+		}
+
+		Ok(Self {
+			path: PathBuf::from(path),
+			iri: iri.parse().map_err(|e: <IriBuf as FromStr>::Err| {
+				ParseMountError::InvalidIri(e.to_string())
+			})?,
+		})
+	}
+}
+
+#[derive(Debug, Error)]
+enum ParseMountError {
+	#[error("expected a mount point of the form `PATH=IRI`")]
+	MissingSeparator,
+
+	#[error("the mount path is empty")]
+	EmptyPath,
+
+	#[error("invalid mount IRI: {0}")]
+	InvalidIri(String),
 }
 
 impl Command {
@@ -134,7 +180,11 @@ impl Command {
 async fn main() -> miette::Result<()> {
 	let cli = Cli::parse();
 
-	let loader = JsonLdTokioFsLoader::new();
+	let mut loader = JsonLdTokioFsLoader::new();
+	for mount in cli.mounts {
+		loader.mount(mount.iri, mount.path);
+	}
+
 	let input = read_stdin()?;
 
 	let mut options = JsonLdOptions::default();
