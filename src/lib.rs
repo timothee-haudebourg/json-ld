@@ -166,4 +166,5 @@ pub use core::*;
 pub use linked_data;
 #[cfg(feature = "algorithms")]
 pub use processor::*;
+pub use syntax::{JsonLdContext, JsonLdContextEntry};
 pub use tracing::*;
