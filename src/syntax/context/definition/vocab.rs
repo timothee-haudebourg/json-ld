@@ -1,19 +1,19 @@
-use crate::syntax::{CompactIri, ExpandableRef};
+use crate::syntax::{JsonLdCompactIri, JsonLdExpandableRef};
 use rdf_syntax::BlankId;
 use rdf_syntax::Iri;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Vocab(String);
+pub struct JsonLdVocab(String);
 
-impl Vocab {
+impl JsonLdVocab {
 	pub fn as_iri(&self) -> Option<&Iri> {
 		Iri::new(&self.0).ok()
 	}
 
-	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-		CompactIri::new(&self.0).ok()
+	pub fn as_compact_iri(&self) -> Option<&JsonLdCompactIri> {
+		JsonLdCompactIri::new(&self.0).ok()
 	}
 
 	pub fn as_blank_id(&self) -> Option<&BlankId> {
@@ -29,14 +29,14 @@ impl Vocab {
 	}
 }
 
-impl From<String> for Vocab {
+impl From<String> for JsonLdVocab {
 	fn from(s: String) -> Self {
 		Self(s)
 	}
 }
 
-impl<'a> From<&'a Vocab> for ExpandableRef<'a> {
-	fn from(v: &'a Vocab) -> Self {
-		ExpandableRef::String(&v.0)
+impl<'a> From<&'a JsonLdVocab> for JsonLdExpandableRef<'a> {
+	fn from(v: &'a JsonLdVocab) -> Self {
+		JsonLdExpandableRef::String(&v.0)
 	}
 }

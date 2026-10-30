@@ -9,7 +9,7 @@ use std::fmt;
 #[derive(
 	Default, Clone, Copy, PartialEq, Eq, Hash, Debug, SerializeLinkedData, DeserializeLinkedData,
 )]
-pub enum ProcessingMode {
+pub enum JsonLdProcessingMode {
 	/// JSON-LD 1.0.
 	#[ld(literal = "json-ld-1.0")]
 	JsonLd1_0,
@@ -20,30 +20,30 @@ pub enum ProcessingMode {
 	JsonLd1_1,
 }
 
-impl ProcessingMode {
+impl JsonLdProcessingMode {
 	/// Returns the name of the processing mode.
 	#[inline(always)]
 	pub fn as_str(&self) -> &str {
 		match self {
-			ProcessingMode::JsonLd1_0 => "json-ld-1.0",
-			ProcessingMode::JsonLd1_1 => "json-ld-1.1",
+			JsonLdProcessingMode::JsonLd1_0 => "json-ld-1.0",
+			JsonLdProcessingMode::JsonLd1_1 => "json-ld-1.1",
 		}
 	}
 }
 
-impl<'a> TryFrom<&'a str> for ProcessingMode {
+impl<'a> TryFrom<&'a str> for JsonLdProcessingMode {
 	type Error = ();
 
-	fn try_from(name: &'a str) -> Result<ProcessingMode, ()> {
+	fn try_from(name: &'a str) -> Result<JsonLdProcessingMode, ()> {
 		match name {
-			"json-ld-1.0" => Ok(ProcessingMode::JsonLd1_0),
-			"json-ld-1.1" => Ok(ProcessingMode::JsonLd1_1),
+			"json-ld-1.0" => Ok(JsonLdProcessingMode::JsonLd1_0),
+			"json-ld-1.1" => Ok(JsonLdProcessingMode::JsonLd1_1),
 			_ => Err(()),
 		}
 	}
 }
 
-impl fmt::Display for ProcessingMode {
+impl fmt::Display for JsonLdProcessingMode {
 	#[inline(always)]
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.as_str())

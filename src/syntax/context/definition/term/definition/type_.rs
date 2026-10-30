@@ -1,4 +1,4 @@
-use crate::syntax::{CompactIri, ExpandableRef, Keyword};
+use crate::syntax::{JsonLdCompactIri, JsonLdExpandableRef, Keyword};
 use rdf_syntax::Iri;
 use std::hash::Hash;
 
@@ -19,9 +19,9 @@ impl TermType {
 		}
 	}
 
-	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
+	pub fn as_compact_iri(&self) -> Option<&JsonLdCompactIri> {
 		match self {
-			Self::Term(t) => CompactIri::new(t).ok(),
+			Self::Term(t) => JsonLdCompactIri::new(t).ok(),
 			Self::Keyword(_) => None,
 		}
 	}
@@ -192,7 +192,7 @@ impl<'a> TryFrom<&'a str> for TypeKeyword {
 // 	}
 // }
 
-impl<'a> From<&'a TermType> for ExpandableRef<'a> {
+impl<'a> From<&'a TermType> for JsonLdExpandableRef<'a> {
 	fn from(d: &'a TermType) -> Self {
 		match d {
 			TermType::Term(t) => Self::String(t),

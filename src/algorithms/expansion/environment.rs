@@ -1,15 +1,15 @@
 use rdf_syntax::Iri;
 
 use crate::{
-	algorithms::expansion::ExpansionOptions,
-	context::{RawProcessedContext, TermDefinitionRef},
+	algorithms::expansion::JsonLdExpansionOptions,
+	context::{RawJsonLdProcessedContext, TermDefinitionRef},
 };
 
 /// Expander.
 pub struct Expander<'a> {
 	pub base_url: Option<&'a Iri>,
-	pub options: ExpansionOptions,
-	pub active_context: &'a RawProcessedContext,
+	pub options: JsonLdExpansionOptions,
+	pub active_context: &'a RawJsonLdProcessedContext,
 	pub active_property: Option<&'a str>,
 }
 
@@ -25,7 +25,7 @@ impl<'a> Expander<'a> {
 
 	pub fn with_active_context<'b>(
 		&'b self,
-		active_context: &'b RawProcessedContext,
+		active_context: &'b RawJsonLdProcessedContext,
 	) -> Expander<'b> {
 		Expander {
 			// loader: &mut *self.loader,
@@ -50,7 +50,7 @@ impl<'a> Expander<'a> {
 
 	pub fn with_active_context_and_property<'b>(
 		&'b self,
-		active_context: &'b RawProcessedContext,
+		active_context: &'b RawJsonLdProcessedContext,
 		active_property: Option<&'b str>,
 	) -> Expander<'b> {
 		Expander {

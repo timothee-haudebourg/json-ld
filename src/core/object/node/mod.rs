@@ -1,6 +1,9 @@
-use crate::object::{JsonLdObjectRef, ObjectMut, Objects};
+use crate::object::{JsonLdObjectMut, JsonLdObjectRef, Objects};
 use crate::syntax::Keyword;
-use crate::{Indexed, IndexedObject, JsonLdLenient, JsonLdObject, JsonLdTerm, VisitJsonLd, object};
+use crate::{
+	IndexedJsonLdObject, JsonLdIndexed, JsonLdLenient, JsonLdObject, JsonLdTerm, JsonLdVisit,
+	object,
+};
 use btree_indexmap::{BTreeIndexMultiSet, BTreeIndexSet, Comparable};
 use educe::Educe;
 use rdf_syntax::Id;
@@ -11,14 +14,14 @@ use std::hash::Hash;
 pub mod properties;
 pub mod reverse_properties;
 
-pub use properties::Properties;
-pub use reverse_properties::ReverseProperties;
+pub use properties::JsonLdProperties;
+pub use reverse_properties::JsonLdReverseProperties;
 
-pub type Graph = BTreeIndexSet<IndexedObject>;
+pub type JsonLdGraph = BTreeIndexSet<IndexedJsonLdObject>;
 
-pub type Included = BTreeIndexSet<IndexedJsonLdNode>;
+pub type JsonLdIncluded = BTreeIndexSet<IndexedJsonLdNode>;
 
-pub type IndexedJsonLdNode = Indexed<JsonLdNode>;
+pub type IndexedJsonLdNode = JsonLdIndexed<JsonLdNode>;
 
 /// Node object.
 ///
@@ -56,7 +59,7 @@ pub struct JsonLdNode {
 		feature = "serde",
 		serde(rename = "@graph", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub graph: Option<Graph>,
+	pub graph: Option<JsonLdGraph>,
 
 	/// Included nodes.
 	///
@@ -65,13 +68,13 @@ pub struct JsonLdNode {
 		feature = "serde",
 		serde(rename = "@included", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub included: Option<Included>,
+	pub included: Option<JsonLdIncluded>,
 
 	/// Properties.
 	///
 	/// Any non-keyword field.
 	#[cfg_attr(feature = "serde", serde(flatten))]
-	pub properties: Properties,
+	pub properties: JsonLdProperties,
 
 	/// Reverse properties.
 	///
@@ -80,7 +83,7 @@ pub struct JsonLdNode {
 		feature = "serde",
 		serde(rename = "@reverse", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub reverse_properties: Option<ReverseProperties>,
+	pub reverse_properties: Option<JsonLdReverseProperties>,
 }
 
 impl Default for JsonLdNode {
@@ -105,19 +108,19 @@ impl JsonLdNode {
 			types: None,
 			graph: None,
 			included: None,
-			properties: Properties::new(),
+			properties: JsonLdProperties::new(),
 			reverse_properties: None,
 		}
 	}
 
 	/// Creates a new graph node.
-	pub fn new_graph(id: JsonLdLenient<Id>, graph: Graph) -> Self {
+	pub fn new_graph(id: JsonLdLenient<Id>, graph: JsonLdGraph) -> Self {
 		Self {
 			id: Some(id),
 			types: None,
 			graph: Some(graph),
 			included: None,
-			properties: Properties::new(),
+			properties: JsonLdProperties::new(),
 			reverse_properties: None,
 		}
 	}
@@ -126,17 +129,17 @@ impl JsonLdNode {
 	///
 	/// If no `@reverse` entry is present, one is created.
 	#[inline(always)]
-	pub fn reverse_properties_mut_or_default(&mut self) -> &mut ReverseProperties {
+	pub fn reverse_properties_mut_or_default(&mut self) -> &mut JsonLdReverseProperties {
 		self.reverse_properties
-			.get_or_insert_with(ReverseProperties::default)
+			.get_or_insert_with(JsonLdReverseProperties::default)
 	}
 
 	/// Returns a mutable reference to the included nodes.
 	///
 	/// If no `@included` entry is present, one is created.
 	#[inline(always)]
-	pub fn included_mut_or_default(&mut self) -> &mut Included {
-		self.included.get_or_insert_with(Included::default)
+	pub fn included_mut_or_default(&mut self) -> &mut JsonLdIncluded {
+		self.included.get_or_insert_with(JsonLdIncluded::default)
 	}
 
 	// /// Assigns an identifier to this node and every other node included in this
@@ -303,31 +306,31 @@ impl JsonLdNode {
 
 	/// If the node is a graph object, get the graph.
 	#[inline(always)]
-	pub fn graph(&self) -> Option<&Graph> {
+	pub fn graph(&self) -> Option<&JsonLdGraph> {
 		self.graph.as_ref()
 	}
 
 	/// If the node is a graph object, get the mutable graph.
 	#[inline(always)]
-	pub fn graph_mut(&mut self) -> Option<&mut Graph> {
+	pub fn graph_mut(&mut self) -> Option<&mut JsonLdGraph> {
 		self.graph.as_mut()
 	}
 
 	/// If the node is a graph object, get the graph.
 	#[inline(always)]
-	pub fn graph_entry(&self) -> Option<&Graph> {
+	pub fn graph_entry(&self) -> Option<&JsonLdGraph> {
 		self.graph.as_ref()
 	}
 
 	/// If the node is a graph object, get the mutable graph.
 	#[inline(always)]
-	pub fn graph_entry_mut(&mut self) -> Option<&mut Graph> {
+	pub fn graph_entry_mut(&mut self) -> Option<&mut JsonLdGraph> {
 		self.graph.as_mut()
 	}
 
 	/// Set the graph.
 	#[inline(always)]
-	pub fn set_graph_entry(&mut self, graph: Option<Graph>) {
+	pub fn set_graph_entry(&mut self, graph: Option<JsonLdGraph>) {
 		self.graph = graph
 	}
 
@@ -335,7 +338,7 @@ impl JsonLdNode {
 	///
 	/// This correspond to the `@included` field in the JSON representation.
 	#[inline(always)]
-	pub fn included_entry(&self) -> Option<&Included> {
+	pub fn included_entry(&self) -> Option<&JsonLdIncluded> {
 		self.included.as_ref()
 	}
 
@@ -343,57 +346,57 @@ impl JsonLdNode {
 	///
 	/// This correspond to the `@included` field in the JSON representation.
 	#[inline(always)]
-	pub fn included_entry_mut(&mut self) -> Option<&mut Included> {
+	pub fn included_entry_mut(&mut self) -> Option<&mut JsonLdIncluded> {
 		self.included.as_mut()
 	}
 
 	/// Returns a reference to the set of `@included` nodes.
-	pub fn included(&self) -> Option<&Included> {
+	pub fn included(&self) -> Option<&JsonLdIncluded> {
 		self.included.as_ref()
 	}
 
 	/// Returns a mutable reference to the set of `@included` nodes.
-	pub fn included_mut(&mut self) -> Option<&mut Included> {
+	pub fn included_mut(&mut self) -> Option<&mut JsonLdIncluded> {
 		self.included.as_mut()
 	}
 
 	/// Set the set of nodes included by the node.
 	#[inline(always)]
-	pub fn set_included(&mut self, included: Option<Included>) {
+	pub fn set_included(&mut self, included: Option<JsonLdIncluded>) {
 		self.included = included
 	}
 
 	/// Returns a reference to the properties of the node.
 	#[inline(always)]
-	pub fn properties(&self) -> &Properties {
+	pub fn properties(&self) -> &JsonLdProperties {
 		&self.properties
 	}
 
 	/// Returns a mutable reference to the properties of the node.
 	#[inline(always)]
-	pub fn properties_mut(&mut self) -> &mut Properties {
+	pub fn properties_mut(&mut self) -> &mut JsonLdProperties {
 		&mut self.properties
 	}
 
 	/// Returns a reference to the properties of the node.
 	#[inline(always)]
-	pub fn reverse_properties(&self) -> Option<&ReverseProperties> {
+	pub fn reverse_properties(&self) -> Option<&JsonLdReverseProperties> {
 		self.reverse_properties.as_ref()
 	}
 
 	/// Returns a reference to the reverse properties of the node.
 	#[inline(always)]
-	pub fn reverse_properties_entry(&self) -> Option<&ReverseProperties> {
+	pub fn reverse_properties_entry(&self) -> Option<&JsonLdReverseProperties> {
 		self.reverse_properties.as_ref()
 	}
 
 	/// Returns a mutable reference to the reverse properties of the node.
 	#[inline(always)]
-	pub fn reverse_properties_mut(&mut self) -> Option<&mut ReverseProperties> {
+	pub fn reverse_properties_mut(&mut self) -> Option<&mut JsonLdReverseProperties> {
 		self.reverse_properties.as_mut()
 	}
 
-	pub fn set_reverse_properties(&mut self, reverse_properties: Option<ReverseProperties>) {
+	pub fn set_reverse_properties(&mut self, reverse_properties: Option<JsonLdReverseProperties>) {
 		self.reverse_properties = reverse_properties
 	}
 
@@ -417,7 +420,7 @@ impl JsonLdNode {
 	/// Fails and returns itself if the node is *not* an unnamed graph.
 	#[allow(clippy::result_large_err)]
 	#[inline(always)]
-	pub fn into_unnamed_graph(self) -> Result<Graph, Self> {
+	pub fn into_unnamed_graph(self) -> Result<JsonLdGraph, Self> {
 		if self.is_unnamed_graph() {
 			Ok(self.graph.unwrap())
 		} else {
@@ -477,7 +480,7 @@ impl JsonLdNode {
 	/// If multiple objects are attached to the node with this property, there are no guaranties
 	/// on which object will be returned.
 	#[inline(always)]
-	pub fn get_any<Q>(&self, prop: &Q) -> Option<&IndexedObject>
+	pub fn get_any<Q>(&self, prop: &Q) -> Option<&IndexedJsonLdObject>
 	where
 		Q: ?Sized + Hash + Comparable<JsonLdLenient<Id>>,
 	{
@@ -486,7 +489,7 @@ impl JsonLdNode {
 
 	/// Associates the given object to the node through the given property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: JsonLdLenient<Id>, value: IndexedObject) {
+	pub fn insert(&mut self, prop: JsonLdLenient<Id>, value: IndexedJsonLdObject) {
 		self.properties.insert(prop, value)
 	}
 
@@ -495,7 +498,7 @@ impl JsonLdNode {
 	/// If there already exists objects associated to the given reverse property,
 	/// `reverse_value` is added to the list. Duplicate objects are not removed.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = IndexedObject>>(
+	pub fn insert_all<Objects: IntoIterator<Item = IndexedJsonLdObject>>(
 		&mut self,
 		prop: JsonLdLenient<Id>,
 		values: Objects,
@@ -505,20 +508,20 @@ impl JsonLdNode {
 
 	pub fn reverse_properties_or_insert(
 		&mut self,
-		props: ReverseProperties,
-	) -> &mut ReverseProperties {
+		props: JsonLdReverseProperties,
+	) -> &mut JsonLdReverseProperties {
 		self.reverse_properties.get_or_insert(props)
 	}
 
-	pub fn reverse_properties_or_default(&mut self) -> &mut ReverseProperties {
+	pub fn reverse_properties_or_default(&mut self) -> &mut JsonLdReverseProperties {
 		self.reverse_properties
-			.get_or_insert_with(ReverseProperties::default)
+			.get_or_insert_with(JsonLdReverseProperties::default)
 	}
 
 	pub fn reverse_properties_or_insert_with(
 		&mut self,
-		f: impl FnOnce() -> ReverseProperties,
-	) -> &mut ReverseProperties {
+		f: impl FnOnce() -> JsonLdReverseProperties,
+	) -> &mut JsonLdReverseProperties {
 		self.reverse_properties.get_or_insert_with(f)
 	}
 
@@ -535,7 +538,7 @@ impl JsonLdNode {
 	}
 }
 
-impl VisitJsonLd for JsonLdNode {
+impl JsonLdVisit for JsonLdNode {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		f(JsonLdObjectRef::Node(self));
 		self.graph.visit_with(f);
@@ -544,8 +547,8 @@ impl VisitJsonLd for JsonLdNode {
 		self.reverse_properties.visit_with(f);
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
-		f(ObjectMut::Node(self));
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
+		f(JsonLdObjectMut::Node(self));
 		self.graph.visit_mut_with(f);
 		self.included.visit_mut_with(f);
 		self.properties.visit_mut_with(f);
@@ -553,7 +556,7 @@ impl VisitJsonLd for JsonLdNode {
 	}
 }
 
-impl Indexed<JsonLdNode> {
+impl JsonLdIndexed<JsonLdNode> {
 	pub fn entries(&self) -> IndexedEntries<'_> {
 		IndexedEntries {
 			index: self.index(),
@@ -562,7 +565,7 @@ impl Indexed<JsonLdNode> {
 	}
 }
 
-impl Indexed<JsonLdNode> {
+impl JsonLdIndexed<JsonLdNode> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
@@ -616,10 +619,10 @@ impl<'a> EntryKeyRef<'a> {
 pub enum EntryValueRef<'a> {
 	Id(&'a JsonLdLenient<Id>),
 	Type(&'a BTreeIndexMultiSet<JsonLdLenient<Id>>),
-	Graph(&'a BTreeIndexSet<IndexedObject>),
+	Graph(&'a BTreeIndexSet<IndexedJsonLdObject>),
 	Included(&'a BTreeIndexSet<IndexedJsonLdNode>),
-	Reverse(&'a ReverseProperties),
-	Property(&'a [IndexedObject]),
+	Reverse(&'a JsonLdReverseProperties),
+	Property(&'a [IndexedJsonLdObject]),
 }
 
 impl<'a> EntryValueRef<'a> {
@@ -640,10 +643,10 @@ impl<'a> EntryValueRef<'a> {
 pub enum EntryRef<'a> {
 	Id(&'a JsonLdLenient<Id>),
 	Type(&'a BTreeIndexMultiSet<JsonLdLenient<Id>>),
-	Graph(&'a Graph),
-	Included(&'a Included),
-	Reverse(&'a ReverseProperties),
-	Property(&'a JsonLdLenient<Id>, &'a [IndexedObject]),
+	Graph(&'a JsonLdGraph),
+	Included(&'a JsonLdIncluded),
+	Reverse(&'a JsonLdReverseProperties),
+	Property(&'a JsonLdLenient<Id>, &'a [IndexedJsonLdObject]),
 }
 
 impl<'a> EntryRef<'a> {
@@ -705,10 +708,10 @@ impl<'a> EntryRef<'a> {
 pub struct Entries<'a> {
 	id: Option<&'a JsonLdLenient<Id>>,
 	type_: Option<&'a BTreeIndexMultiSet<JsonLdLenient<Id>>>,
-	graph: Option<&'a Graph>,
-	included: Option<&'a Included>,
-	reverse: Option<&'a ReverseProperties>,
-	properties: properties::Iter<'a>,
+	graph: Option<&'a JsonLdGraph>,
+	included: Option<&'a JsonLdIncluded>,
+	reverse: Option<&'a JsonLdReverseProperties>,
+	properties: properties::JsonLdPropertiesIter<'a>,
 }
 
 impl<'a> Iterator for Entries<'a> {

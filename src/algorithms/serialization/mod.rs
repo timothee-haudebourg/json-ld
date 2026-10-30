@@ -1,7 +1,7 @@
 use linked_data::{DeserializeLinkedData, LinkedDataDeserializer};
 use rdf_syntax::{Quad, Term};
 
-use crate::{Indexed, JsonLdExpandedDocument};
+use crate::{JsonLdIndexed, JsonLdExpandedDocument};
 
 mod object;
 
@@ -21,7 +21,7 @@ where
 			deserializer.peek_quad(Quad(None, None, None, Some(graph)))?
 		{
 			let subject = subject.clone();
-			result.insert(Indexed::unindexed(deserialize_object(
+			result.insert(JsonLdIndexed::unindexed(deserialize_object(
 				&mut deserializer,
 				&subject,
 				graph,
@@ -32,7 +32,7 @@ where
 	}
 }
 
-impl<T: DeserializeLinkedData> DeserializeLinkedData for Indexed<T> {
+impl<T: DeserializeLinkedData> DeserializeLinkedData for JsonLdIndexed<T> {
 	fn deserialize_rdf<D>(deserializer: D, graph: Option<&Term>) -> Result<Self, D::Error>
 	where
 		D: LinkedDataDeserializer<Term>,

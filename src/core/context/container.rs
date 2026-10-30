@@ -1,8 +1,8 @@
-use crate::syntax::ContainerItem;
+use crate::syntax::JsonLdContainerItem;
 use crate::syntax::context::ContextTypeContainer;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum Container {
+pub enum JsonLdContainer {
 	// Empty container
 	Null,
 
@@ -26,21 +26,21 @@ pub enum Container {
 	GraphIndexSet,
 }
 
-impl Default for Container {
+impl Default for JsonLdContainer {
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl Container {
-	pub fn new() -> Container {
-		Container::Null
+impl JsonLdContainer {
+	pub fn new() -> JsonLdContainer {
+		JsonLdContainer::Null
 	}
 
-	pub fn from<'a, I: IntoIterator<Item = &'a ContainerItem>>(
+	pub fn from<'a, I: IntoIterator<Item = &'a JsonLdContainerItem>>(
 		iter: I,
-	) -> Result<Container, ContainerItem> {
-		let mut container = Container::new();
+	) -> Result<JsonLdContainer, JsonLdContainerItem> {
+		let mut container = JsonLdContainer::new();
 		for item in iter {
 			if !container.add(*item) {
 				return Err(*item);
@@ -50,34 +50,38 @@ impl Container {
 		Ok(container)
 	}
 
-	pub fn as_slice(&self) -> &[ContainerItem] {
-		use Container::*;
+	pub fn as_slice(&self) -> &[JsonLdContainerItem] {
+		use JsonLdContainer::*;
 		match self {
 			Null => &[],
-			Graph => &[ContainerItem::Graph],
-			Id => &[ContainerItem::Id],
-			Index => &[ContainerItem::Index],
-			Language => &[ContainerItem::Language],
-			List => &[ContainerItem::List],
-			Set => &[ContainerItem::Set],
-			Type => &[ContainerItem::Type],
-			GraphSet => &[ContainerItem::Graph, ContainerItem::Set],
-			GraphId => &[ContainerItem::Graph, ContainerItem::Id],
-			GraphIndex => &[ContainerItem::Graph, ContainerItem::Index],
-			IdSet => &[ContainerItem::Id, ContainerItem::Set],
-			IndexSet => &[ContainerItem::Index, ContainerItem::Set],
-			LanguageSet => &[ContainerItem::Language, ContainerItem::Set],
-			SetType => &[ContainerItem::Type, ContainerItem::Set],
-			GraphIdSet => &[ContainerItem::Graph, ContainerItem::Id, ContainerItem::Set],
+			Graph => &[JsonLdContainerItem::Graph],
+			Id => &[JsonLdContainerItem::Id],
+			Index => &[JsonLdContainerItem::Index],
+			Language => &[JsonLdContainerItem::Language],
+			List => &[JsonLdContainerItem::List],
+			Set => &[JsonLdContainerItem::Set],
+			Type => &[JsonLdContainerItem::Type],
+			GraphSet => &[JsonLdContainerItem::Graph, JsonLdContainerItem::Set],
+			GraphId => &[JsonLdContainerItem::Graph, JsonLdContainerItem::Id],
+			GraphIndex => &[JsonLdContainerItem::Graph, JsonLdContainerItem::Index],
+			IdSet => &[JsonLdContainerItem::Id, JsonLdContainerItem::Set],
+			IndexSet => &[JsonLdContainerItem::Index, JsonLdContainerItem::Set],
+			LanguageSet => &[JsonLdContainerItem::Language, JsonLdContainerItem::Set],
+			SetType => &[JsonLdContainerItem::Type, JsonLdContainerItem::Set],
+			GraphIdSet => &[
+				JsonLdContainerItem::Graph,
+				JsonLdContainerItem::Id,
+				JsonLdContainerItem::Set,
+			],
 			GraphIndexSet => &[
-				ContainerItem::Graph,
-				ContainerItem::Index,
-				ContainerItem::Set,
+				JsonLdContainerItem::Graph,
+				JsonLdContainerItem::Index,
+				JsonLdContainerItem::Set,
 			],
 		}
 	}
 
-	pub fn iter(&self) -> impl Iterator<Item = &ContainerItem> {
+	pub fn iter(&self) -> impl Iterator<Item = &JsonLdContainerItem> {
 		self.as_slice().iter()
 	}
 
@@ -86,70 +90,74 @@ impl Container {
 	}
 
 	pub fn is_empty(&self) -> bool {
-		matches!(self, Container::Null)
+		matches!(self, JsonLdContainer::Null)
 	}
 
-	pub fn contains(&self, c: ContainerItem) -> bool {
+	pub fn contains(&self, c: JsonLdContainerItem) -> bool {
 		self.as_slice().contains(&c)
 	}
 
-	pub fn with(&self, c: ContainerItem) -> Option<Container> {
+	pub fn with(&self, c: JsonLdContainerItem) -> Option<JsonLdContainer> {
 		let new_container = match (self, c) {
-			(Container::Null, c) => c.into(),
-			(Container::Graph, ContainerItem::Graph) => *self,
-			(Container::Graph, ContainerItem::Set) => Container::GraphSet,
-			(Container::Graph, ContainerItem::Id) => Container::GraphId,
-			(Container::Graph, ContainerItem::Index) => Container::GraphIndex,
-			(Container::Id, ContainerItem::Id) => *self,
-			(Container::Id, ContainerItem::Graph) => Container::GraphId,
-			(Container::Id, ContainerItem::Set) => Container::IdSet,
-			(Container::Index, ContainerItem::Index) => *self,
-			(Container::Index, ContainerItem::Graph) => Container::GraphIndex,
-			(Container::Index, ContainerItem::Set) => Container::IndexSet,
-			(Container::Language, ContainerItem::Language) => *self,
-			(Container::Language, ContainerItem::Set) => Container::LanguageSet,
-			(Container::List, ContainerItem::List) => *self,
-			(Container::Set, ContainerItem::Set) => *self,
-			(Container::Set, ContainerItem::Graph) => Container::GraphSet,
-			(Container::Set, ContainerItem::Id) => Container::IdSet,
-			(Container::Set, ContainerItem::Index) => Container::IndexSet,
-			(Container::Set, ContainerItem::Language) => Container::LanguageSet,
-			(Container::Set, ContainerItem::Type) => Container::SetType,
-			(Container::Type, ContainerItem::Type) => *self,
-			(Container::Type, ContainerItem::Set) => Container::SetType,
-			(Container::GraphSet, ContainerItem::Graph) => *self,
-			(Container::GraphSet, ContainerItem::Set) => *self,
-			(Container::GraphSet, ContainerItem::Id) => Container::GraphIdSet,
-			(Container::GraphSet, ContainerItem::Index) => Container::GraphIdSet,
-			(Container::GraphId, ContainerItem::Graph) => *self,
-			(Container::GraphId, ContainerItem::Id) => *self,
-			(Container::GraphId, ContainerItem::Set) => Container::GraphIdSet,
-			(Container::GraphIndex, ContainerItem::Graph) => *self,
-			(Container::GraphIndex, ContainerItem::Index) => *self,
-			(Container::GraphIndex, ContainerItem::Set) => Container::GraphIndexSet,
-			(Container::IdSet, ContainerItem::Id) => *self,
-			(Container::IdSet, ContainerItem::Set) => *self,
-			(Container::IdSet, ContainerItem::Graph) => Container::GraphIdSet,
-			(Container::IndexSet, ContainerItem::Index) => *self,
-			(Container::IndexSet, ContainerItem::Set) => *self,
-			(Container::IndexSet, ContainerItem::Graph) => Container::GraphIndexSet,
-			(Container::LanguageSet, ContainerItem::Language) => *self,
-			(Container::LanguageSet, ContainerItem::Set) => *self,
-			(Container::SetType, ContainerItem::Set) => *self,
-			(Container::SetType, ContainerItem::Type) => *self,
-			(Container::GraphIdSet, ContainerItem::Graph) => *self,
-			(Container::GraphIdSet, ContainerItem::Id) => *self,
-			(Container::GraphIdSet, ContainerItem::Set) => *self,
-			(Container::GraphIndexSet, ContainerItem::Graph) => *self,
-			(Container::GraphIndexSet, ContainerItem::Index) => *self,
-			(Container::GraphIndexSet, ContainerItem::Set) => *self,
+			(JsonLdContainer::Null, c) => c.into(),
+			(JsonLdContainer::Graph, JsonLdContainerItem::Graph) => *self,
+			(JsonLdContainer::Graph, JsonLdContainerItem::Set) => JsonLdContainer::GraphSet,
+			(JsonLdContainer::Graph, JsonLdContainerItem::Id) => JsonLdContainer::GraphId,
+			(JsonLdContainer::Graph, JsonLdContainerItem::Index) => JsonLdContainer::GraphIndex,
+			(JsonLdContainer::Id, JsonLdContainerItem::Id) => *self,
+			(JsonLdContainer::Id, JsonLdContainerItem::Graph) => JsonLdContainer::GraphId,
+			(JsonLdContainer::Id, JsonLdContainerItem::Set) => JsonLdContainer::IdSet,
+			(JsonLdContainer::Index, JsonLdContainerItem::Index) => *self,
+			(JsonLdContainer::Index, JsonLdContainerItem::Graph) => JsonLdContainer::GraphIndex,
+			(JsonLdContainer::Index, JsonLdContainerItem::Set) => JsonLdContainer::IndexSet,
+			(JsonLdContainer::Language, JsonLdContainerItem::Language) => *self,
+			(JsonLdContainer::Language, JsonLdContainerItem::Set) => JsonLdContainer::LanguageSet,
+			(JsonLdContainer::List, JsonLdContainerItem::List) => *self,
+			(JsonLdContainer::Set, JsonLdContainerItem::Set) => *self,
+			(JsonLdContainer::Set, JsonLdContainerItem::Graph) => JsonLdContainer::GraphSet,
+			(JsonLdContainer::Set, JsonLdContainerItem::Id) => JsonLdContainer::IdSet,
+			(JsonLdContainer::Set, JsonLdContainerItem::Index) => JsonLdContainer::IndexSet,
+			(JsonLdContainer::Set, JsonLdContainerItem::Language) => JsonLdContainer::LanguageSet,
+			(JsonLdContainer::Set, JsonLdContainerItem::Type) => JsonLdContainer::SetType,
+			(JsonLdContainer::Type, JsonLdContainerItem::Type) => *self,
+			(JsonLdContainer::Type, JsonLdContainerItem::Set) => JsonLdContainer::SetType,
+			(JsonLdContainer::GraphSet, JsonLdContainerItem::Graph) => *self,
+			(JsonLdContainer::GraphSet, JsonLdContainerItem::Set) => *self,
+			(JsonLdContainer::GraphSet, JsonLdContainerItem::Id) => JsonLdContainer::GraphIdSet,
+			(JsonLdContainer::GraphSet, JsonLdContainerItem::Index) => JsonLdContainer::GraphIdSet,
+			(JsonLdContainer::GraphId, JsonLdContainerItem::Graph) => *self,
+			(JsonLdContainer::GraphId, JsonLdContainerItem::Id) => *self,
+			(JsonLdContainer::GraphId, JsonLdContainerItem::Set) => JsonLdContainer::GraphIdSet,
+			(JsonLdContainer::GraphIndex, JsonLdContainerItem::Graph) => *self,
+			(JsonLdContainer::GraphIndex, JsonLdContainerItem::Index) => *self,
+			(JsonLdContainer::GraphIndex, JsonLdContainerItem::Set) => {
+				JsonLdContainer::GraphIndexSet
+			}
+			(JsonLdContainer::IdSet, JsonLdContainerItem::Id) => *self,
+			(JsonLdContainer::IdSet, JsonLdContainerItem::Set) => *self,
+			(JsonLdContainer::IdSet, JsonLdContainerItem::Graph) => JsonLdContainer::GraphIdSet,
+			(JsonLdContainer::IndexSet, JsonLdContainerItem::Index) => *self,
+			(JsonLdContainer::IndexSet, JsonLdContainerItem::Set) => *self,
+			(JsonLdContainer::IndexSet, JsonLdContainerItem::Graph) => {
+				JsonLdContainer::GraphIndexSet
+			}
+			(JsonLdContainer::LanguageSet, JsonLdContainerItem::Language) => *self,
+			(JsonLdContainer::LanguageSet, JsonLdContainerItem::Set) => *self,
+			(JsonLdContainer::SetType, JsonLdContainerItem::Set) => *self,
+			(JsonLdContainer::SetType, JsonLdContainerItem::Type) => *self,
+			(JsonLdContainer::GraphIdSet, JsonLdContainerItem::Graph) => *self,
+			(JsonLdContainer::GraphIdSet, JsonLdContainerItem::Id) => *self,
+			(JsonLdContainer::GraphIdSet, JsonLdContainerItem::Set) => *self,
+			(JsonLdContainer::GraphIndexSet, JsonLdContainerItem::Graph) => *self,
+			(JsonLdContainer::GraphIndexSet, JsonLdContainerItem::Index) => *self,
+			(JsonLdContainer::GraphIndexSet, JsonLdContainerItem::Set) => *self,
 			_ => return None,
 		};
 
 		Some(new_container)
 	}
 
-	pub fn add(&mut self, c: ContainerItem) -> bool {
+	pub fn add(&mut self, c: JsonLdContainerItem) -> bool {
 		match self.with(c) {
 			Some(container) => {
 				*self = container;
@@ -160,21 +168,21 @@ impl Container {
 	}
 }
 
-impl From<ContainerItem> for Container {
-	fn from(c: ContainerItem) -> Self {
+impl From<JsonLdContainerItem> for JsonLdContainer {
+	fn from(c: JsonLdContainerItem) -> Self {
 		match c {
-			ContainerItem::Graph => Self::Graph,
-			ContainerItem::Id => Self::Id,
-			ContainerItem::Index => Self::Index,
-			ContainerItem::Language => Self::Language,
-			ContainerItem::List => Self::List,
-			ContainerItem::Set => Self::Set,
-			ContainerItem::Type => Self::Type,
+			JsonLdContainerItem::Graph => Self::Graph,
+			JsonLdContainerItem::Id => Self::Id,
+			JsonLdContainerItem::Index => Self::Index,
+			JsonLdContainerItem::Language => Self::Language,
+			JsonLdContainerItem::List => Self::List,
+			JsonLdContainerItem::Set => Self::Set,
+			JsonLdContainerItem::Type => Self::Type,
 		}
 	}
 }
 
-impl From<ContextTypeContainer> for Container {
+impl From<ContextTypeContainer> for JsonLdContainer {
 	fn from(c: ContextTypeContainer) -> Self {
 		match c {
 			ContextTypeContainer::Set => Self::Set,

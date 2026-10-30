@@ -1,7 +1,7 @@
 use json_syntax::JsonString;
 use langtag::{LangTag, LangTagBuf};
 
-use crate::{Direction, JsonLdLenient};
+use crate::{JsonLdDirection, JsonLdLenient};
 
 /// Language string.
 ///
@@ -25,7 +25,7 @@ pub struct LangString {
 		feature = "serde",
 		serde(rename = "@direction", skip_serializing_if = "Option::is_none")
 	)]
-	direction: Option<Direction>,
+	direction: Option<JsonLdDirection>,
 }
 
 /// Raised when something tried to build a language string without language tag or direction.
@@ -37,7 +37,7 @@ impl LangString {
 	pub fn new<T>(
 		data: T,
 		language: Option<JsonLdLenient<LangTagBuf>>,
-		direction: Option<Direction>,
+		direction: Option<JsonLdDirection>,
 	) -> Result<Self, T>
 	where
 		T: Into<JsonString>,
@@ -64,7 +64,7 @@ impl LangString {
 		}
 	}
 
-	pub fn from_direction(data: impl Into<JsonString>, direction: Direction) -> Self {
+	pub fn from_direction(data: impl Into<JsonString>, direction: JsonLdDirection) -> Self {
 		Self {
 			data: data.into(),
 			language: None,
@@ -77,12 +77,18 @@ impl LangString {
 	) -> (
 		JsonString,
 		Option<JsonLdLenient<LangTagBuf>>,
-		Option<Direction>,
+		Option<JsonLdDirection>,
 	) {
 		(self.data, self.language, self.direction)
 	}
 
-	pub fn parts(&self) -> (&str, Option<&JsonLdLenient<LangTagBuf>>, Option<&Direction>) {
+	pub fn parts(
+		&self,
+	) -> (
+		&str,
+		Option<&JsonLdLenient<LangTagBuf>>,
+		Option<&JsonLdDirection>,
+	) {
 		(&self.data, self.language.as_ref(), self.direction.as_ref())
 	}
 
@@ -116,7 +122,7 @@ impl LangString {
 
 	/// Gets the associated direction, if any.
 	#[inline(always)]
-	pub fn direction(&self) -> Option<Direction> {
+	pub fn direction(&self) -> Option<JsonLdDirection> {
 		self.direction
 	}
 
@@ -124,7 +130,10 @@ impl LangString {
 	///
 	/// If `None` is given, a language tag must be set,
 	/// otherwise this function will fail with an [`InvalidLangString`] error.
-	pub fn set_direction(&mut self, direction: Option<Direction>) -> Result<(), InvalidLangString> {
+	pub fn set_direction(
+		&mut self,
+		direction: Option<JsonLdDirection>,
+	) -> Result<(), InvalidLangString> {
 		if direction.is_some() || self.language.is_some() {
 			self.direction = direction;
 			Ok(())
@@ -140,7 +149,7 @@ impl LangString {
 	pub fn set(
 		&mut self,
 		language: Option<JsonLdLenient<LangTagBuf>>,
-		direction: Option<Direction>,
+		direction: Option<JsonLdDirection>,
 	) -> Result<(), InvalidLangString> {
 		if direction.is_some() || language.is_some() {
 			self.language = language;
@@ -174,7 +183,7 @@ impl<'de> serde::Deserialize<'de> for LangString {
 			#[serde(rename = "@language")]
 			language: Option<JsonLdLenient<LangTagBuf>>,
 			#[serde(rename = "@direction")]
-			direction: Option<Direction>,
+			direction: Option<JsonLdDirection>,
 		}
 
 		let value = Value::deserialize(deserializer)?;
@@ -205,7 +214,7 @@ pub struct LangStr<'a> {
 		feature = "serde",
 		serde(rename = "@direction", skip_serializing_if = "Option::is_none")
 	)]
-	direction: Option<Direction>,
+	direction: Option<JsonLdDirection>,
 }
 
 impl<'a> LangStr<'a> {
@@ -213,7 +222,7 @@ impl<'a> LangStr<'a> {
 	pub fn new(
 		data: &'a str,
 		language: Option<JsonLdLenient<&'a LangTag>>,
-		direction: Option<Direction>,
+		direction: Option<JsonLdDirection>,
 	) -> Result<Self, InvalidLangString> {
 		if language.is_some() || direction.is_some() {
 			Ok(Self {
@@ -231,7 +240,7 @@ impl<'a> LangStr<'a> {
 	) -> (
 		&'a str,
 		Option<JsonLdLenient<&'a LangTag>>,
-		Option<Direction>,
+		Option<JsonLdDirection>,
 	) {
 		(self.data, self.language, self.direction)
 	}
@@ -250,7 +259,7 @@ impl<'a> LangStr<'a> {
 
 	/// Gets the associated direction, if any.
 	#[inline(always)]
-	pub fn direction(&self) -> Option<Direction> {
+	pub fn direction(&self) -> Option<JsonLdDirection> {
 		self.direction
 	}
 }

@@ -25,7 +25,7 @@ use json_ld::{
 	iref::{iri, Iri, IriBuf, IriRef},
 	linked_data,
 	rdf_syntax::{GrdfQuad, GroundTerm, LiteralType, Quad},
-	syntax::CompactIri,
+	syntax::JsonLdCompactIri,
 	IriRefBuf, JsonLdFsLoader, JsonLdLoader, JsonLdNode,
 };
 
@@ -36,7 +36,7 @@ fn resolve_iri_ref(
 	prefixes: &[ResolvedPrefixBinding],
 	iri_ref: &IriRef,
 ) -> IriBuf {
-	match CompactIri::new(iri_ref) {
+	match JsonLdCompactIri::new(iri_ref) {
 		Ok(compact) => compact.resolve(prefix_resolver(prefixes)).unwrap(),
 		Err(_) => match base_iri {
 			Some(base_iri) => iri_ref.resolved(base_iri),

@@ -1,7 +1,4 @@
 //! Nodes, lists and values.
-use crate::object::typ::TypeRef;
-use crate::syntax::Keyword;
-use crate::{Indexed, JsonLdLenient, VisitJsonLd};
 use btree_indexmap::BTreeIndexMultiSet;
 use educe::Educe;
 use json_syntax::JsonNumber;
@@ -10,16 +7,19 @@ use rdf_syntax::Id;
 use rdf_syntax::Iri;
 use std::hash::Hash;
 
+use crate::syntax::Keyword;
+use crate::{JsonLdIndexed, JsonLdLenient, JsonLdVisit};
+
 pub mod list;
-// mod mapped_eq;
 pub mod node;
 mod typ;
 pub mod value;
 
 pub use list::JsonLdList;
-// pub use mapped_eq::MappedEq;
-pub use node::{Graph, IndexedJsonLdNode, JsonLdNode, Nodes};
+pub use node::{IndexedJsonLdNode, JsonLdGraph, JsonLdNode, Nodes};
 pub use value::{JsonLdValue, LiteralValue};
+
+use typ::JsonLdObjectTypeRef;
 
 /// Abstract object.
 pub trait AnyJsonLdObject {
@@ -77,7 +77,7 @@ pub enum JsonLdObjectRef<'a> {
 	List(&'a JsonLdList),
 }
 
-pub enum ObjectMut<'a> {
+pub enum JsonLdObjectMut<'a> {
 	Value(&'a mut JsonLdValue),
 
 	Node(&'a mut JsonLdNode),
@@ -85,18 +85,18 @@ pub enum ObjectMut<'a> {
 	List(&'a mut JsonLdList),
 }
 
-impl<'a> ObjectMut<'a> {
-	pub fn reborrow(&mut self) -> ObjectMut<'_> {
+impl<'a> JsonLdObjectMut<'a> {
+	pub fn reborrow(&mut self) -> JsonLdObjectMut<'_> {
 		match self {
-			Self::Value(v) => ObjectMut::Value(v),
-			Self::Node(n) => ObjectMut::Node(n),
-			Self::List(l) => ObjectMut::List(l),
+			Self::Value(v) => JsonLdObjectMut::Value(v),
+			Self::Node(n) => JsonLdObjectMut::Node(n),
+			Self::List(l) => JsonLdObjectMut::List(l),
 		}
 	}
 }
 
 /// Indexed object.
-pub type IndexedObject = Indexed<JsonLdObject>;
+pub type IndexedJsonLdObject = JsonLdIndexed<JsonLdObject>;
 
 /// Object.
 ///
@@ -367,7 +367,7 @@ impl JsonLdObject {
 	}
 }
 
-impl VisitJsonLd for JsonLdObject {
+impl JsonLdVisit for JsonLdObject {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		match self {
 			Self::Value(v) => v.visit_with(f),
@@ -376,7 +376,7 @@ impl VisitJsonLd for JsonLdObject {
 		}
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
 		match self {
 			Self::Value(v) => v.visit_mut_with(f),
 			Self::List(l) => l.visit_mut_with(f),
@@ -385,41 +385,47 @@ impl VisitJsonLd for JsonLdObject {
 	}
 }
 
-impl Indexed<JsonLdObject> {
+impl JsonLdIndexed<JsonLdObject> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
 
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_node(self) -> Option<Indexed<JsonLdNode>> {
+	pub fn into_indexed_node(self) -> Option<JsonLdIndexed<JsonLdNode>> {
 		let (object, index) = self.into_parts();
-		object.into_node().map(|node| Indexed::new(node, index))
+		object
+			.into_node()
+			.map(|node| JsonLdIndexed::new(node, index))
 	}
 
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_value(self) -> Option<Indexed<JsonLdValue>> {
+	pub fn into_indexed_value(self) -> Option<JsonLdIndexed<JsonLdValue>> {
 		let (object, index) = self.into_parts();
-		object.into_value().map(|value| Indexed::new(value, index))
+		object
+			.into_value()
+			.map(|value| JsonLdIndexed::new(value, index))
 	}
 
 	/// Converts this indexed object into an indexed list, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_list(self) -> Option<Indexed<JsonLdList>> {
+	pub fn into_indexed_list(self) -> Option<JsonLdIndexed<JsonLdList>> {
 		let (object, index) = self.into_parts();
-		object.into_list().map(|list| Indexed::new(list, index))
+		object
+			.into_list()
+			.map(|list| JsonLdIndexed::new(list, index))
 	}
 
 	/// Try to convert this object into an unnamed graph.
-	pub fn into_unnamed_graph(self) -> Result<Graph, Self> {
+	pub fn into_unnamed_graph(self) -> Result<JsonLdGraph, Self> {
 		let (obj, index) = self.into_parts();
 		match obj {
 			JsonLdObject::Node(n) => match n.into_unnamed_graph() {
 				Ok(g) => Ok(g),
-				Err(n) => Err(Indexed::new(JsonLdObject::node(n), index)),
+				Err(n) => Err(JsonLdIndexed::new(JsonLdObject::node(n), index)),
 			},
-			obj => Err(Indexed::new(obj, index)),
+			obj => Err(JsonLdIndexed::new(obj, index)),
 		}
 	}
 
@@ -435,7 +441,7 @@ impl Indexed<JsonLdObject> {
 #[educe(Clone)]
 pub enum Entries<'a> {
 	Value(value::Entries<'a>),
-	List(Option<&'a [IndexedObject]>),
+	List(Option<&'a [IndexedJsonLdObject]>),
 	Node(node::Entries<'a>),
 }
 
@@ -526,7 +532,7 @@ impl<'a> EntryKeyRef<'a> {
 #[educe(Clone, Copy)]
 pub enum EntryValueRef<'a> {
 	Value(value::EntryRef<'a>),
-	List(&'a [IndexedObject]),
+	List(&'a [IndexedJsonLdObject]),
 	Node(node::EntryValueRef<'a>),
 }
 
@@ -534,7 +540,7 @@ pub enum EntryValueRef<'a> {
 #[educe(Clone, Copy)]
 pub enum EntryRef<'a> {
 	Value(value::EntryRef<'a>),
-	List(&'a [IndexedObject]),
+	List(&'a [IndexedJsonLdObject]),
 	Node(node::EntryRef<'a>),
 }
 
@@ -728,32 +734,32 @@ pub enum Types<'a> {
 }
 
 impl<'a> Iterator for Types<'a> {
-	type Item = TypeRef<'a>;
+	type Item = JsonLdObjectTypeRef<'a>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self {
-			Self::Value(ty) => ty.take().map(TypeRef::from_value_type),
-			Self::Node(tys) => tys.as_mut()?.next().map(TypeRef::from_id),
+			Self::Value(ty) => ty.take().map(JsonLdObjectTypeRef::from_value_type),
+			Self::Node(tys) => tys.as_mut()?.next().map(JsonLdObjectTypeRef::from_id),
 			Self::List => None,
 		}
 	}
 }
 
 /// Iterator through indexed objects.
-pub struct Objects<'a>(Option<std::slice::Iter<'a, IndexedObject>>);
+pub struct Objects<'a>(Option<std::slice::Iter<'a, IndexedJsonLdObject>>);
 
 impl<'a> Objects<'a> {
 	#[inline(always)]
-	pub(crate) fn new(inner: Option<std::slice::Iter<'a, IndexedObject>>) -> Self {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, IndexedJsonLdObject>>) -> Self {
 		Self(inner)
 	}
 }
 
 impl<'a> Iterator for Objects<'a> {
-	type Item = &'a IndexedObject;
+	type Item = &'a IndexedJsonLdObject;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a IndexedObject> {
+	fn next(&mut self) -> Option<&'a IndexedJsonLdObject> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next(),

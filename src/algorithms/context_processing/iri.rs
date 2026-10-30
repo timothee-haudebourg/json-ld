@@ -2,15 +2,16 @@ use rdf_syntax::BlankId;
 use rdf_syntax::{Iri, IriBuf, IriRef};
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, Nullable, Warning,
+	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdNullable, JsonLdTerm,
+	JsonLdWarning,
 	algorithms::{
 		AsyncProcessingEnvironment,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 	},
-	context::RawProcessedContext,
+	context::RawJsonLdProcessedContext,
 	syntax::{
-		CompactIri, ExpandableRef,
-		context::{ContextTerm, KeyOrKeywordRef},
+		JsonLdCompactIri, JsonLdExpandableRef,
+		context::{JsonLdContextTerm, JsonLdKeyOrKeywordRef},
 		is_keyword_like,
 	},
 };
@@ -34,13 +35,13 @@ impl<'a> ContextProcessor<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
-		value: Nullable<ExpandableRef<'_>>,
+		value: JsonLdNullable<JsonLdExpandableRef<'_>>,
 		context_loc: JsonLdBacktraceBuilder<'_>,
 	) -> ExpandIriResult {
 		match value {
-			Nullable::Null => Ok(JsonLdTerm::Null),
-			Nullable::Some(ExpandableRef::Keyword(k)) => Ok(JsonLdTerm::Keyword(k)),
-			Nullable::Some(ExpandableRef::String(value)) => {
+			JsonLdNullable::Null => Ok(JsonLdTerm::Null),
+			JsonLdNullable::Some(JsonLdExpandableRef::Keyword(k)) => Ok(JsonLdTerm::Keyword(k)),
+			JsonLdNullable::Some(JsonLdExpandableRef::String(value)) => {
 				if is_keyword_like(value) {
 					return Ok(JsonLdTerm::Null);
 				}
@@ -85,7 +86,7 @@ impl<'a> ContextProcessor<'a> {
 						return Ok(JsonLdTerm::Id(JsonLdLenient::Invalid("_:".to_string())));
 					}
 
-					if let Ok(compact_iri) = CompactIri::new(value) {
+					if let Ok(compact_iri) = JsonLdCompactIri::new(value) {
 						// If local context is not null, it contains a `prefix` entry, and the value of the
 						// prefix entry in defined is not true, invoke the Create Term Definition
 						// algorithm, passing active context, local context, prefix as term, and defined.
@@ -95,7 +96,7 @@ impl<'a> ContextProcessor<'a> {
 							env,
 							result,
 							local_context,
-							KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+							JsonLdKeyOrKeywordRef::Key(compact_iri.prefix().into()),
 							false,
 							context_loc,
 						))
@@ -104,7 +105,7 @@ impl<'a> ContextProcessor<'a> {
 						// If active context contains a term definition for prefix having a non-null IRI
 						// mapping and the prefix flag of the term definition is true, return the result
 						// of concatenating the IRI mapping associated with prefix and suffix.
-						let prefix_key = ContextTerm::from(compact_iri.prefix().to_string());
+						let prefix_key = JsonLdContextTerm::from(compact_iri.prefix().to_string());
 						if let Some(term_definition) = result.value.get_normal(&prefix_key)
 							&& term_definition.prefix
 							&& let Some(mapping) = &term_definition.value
@@ -141,10 +142,10 @@ impl<'a> ContextProcessor<'a> {
 	}
 }
 
-impl RawProcessedContext {
+impl RawJsonLdProcessedContext {
 	pub fn expand_iri(
 		&self,
-		value: Nullable<ExpandableRef<'_>>,
+		value: JsonLdNullable<JsonLdExpandableRef<'_>>,
 		document_relative: bool,
 		vocab: bool,
 	) -> JsonLdTerm {
@@ -153,15 +154,15 @@ impl RawProcessedContext {
 
 	pub fn expand_iri_with(
 		&self,
-		value: Nullable<ExpandableRef<'_>>,
+		value: JsonLdNullable<JsonLdExpandableRef<'_>>,
 		document_relative: bool,
 		vocab: bool,
-		on_warning: impl FnOnce(Warning),
+		on_warning: impl FnOnce(JsonLdWarning),
 	) -> JsonLdTerm {
 		match value {
-			Nullable::Null => JsonLdTerm::Null,
-			Nullable::Some(ExpandableRef::Keyword(k)) => JsonLdTerm::Keyword(k),
-			Nullable::Some(ExpandableRef::String(value)) => {
+			JsonLdNullable::Null => JsonLdTerm::Null,
+			JsonLdNullable::Some(JsonLdExpandableRef::Keyword(k)) => JsonLdTerm::Keyword(k),
+			JsonLdNullable::Some(JsonLdExpandableRef::String(value)) => {
 				if is_keyword_like(value) {
 					return JsonLdTerm::Null;
 				}
@@ -194,11 +195,11 @@ impl RawProcessedContext {
 						return JsonLdTerm::Id(JsonLdLenient::Invalid("_:".to_string()));
 					}
 
-					if let Ok(compact_iri) = CompactIri::new(value) {
+					if let Ok(compact_iri) = JsonLdCompactIri::new(value) {
 						// If active context contains a term definition for prefix having a non-null IRI
 						// mapping and the prefix flag of the term definition is true, return the result
 						// of concatenating the IRI mapping associated with prefix and suffix.
-						let prefix_key = ContextTerm::from(compact_iri.prefix().to_string());
+						let prefix_key = JsonLdContextTerm::from(compact_iri.prefix().to_string());
 						if let Some(term_definition) = self.get_normal(&prefix_key)
 							&& term_definition.prefix
 							&& let Some(mapping) = &term_definition.value
@@ -249,7 +250,7 @@ impl RawProcessedContext {
 	}
 }
 
-fn invalid_iri(value: String, on_warning: impl FnOnce(Warning)) -> JsonLdTerm {
-	(on_warning)(Warning::MalformedIri(value.clone()));
+fn invalid_iri(value: String, on_warning: impl FnOnce(JsonLdWarning)) -> JsonLdTerm {
+	(on_warning)(JsonLdWarning::MalformedIri(value.clone()));
 	JsonLdTerm::Id(JsonLdLenient::Invalid(value))
 }

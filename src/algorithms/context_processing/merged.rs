@@ -2,12 +2,12 @@ use langtag::LangTagBuf;
 use rdf_syntax::IriRef;
 
 use crate::{
-	Direction, JsonLdLenient, Nullable,
+	JsonLdDirection, JsonLdLenient, JsonLdNullable,
 	syntax::{
 		JsonLdContext, JsonLdContextEntry,
 		context::{
-			BindingsIter, ContextTerm, ContextType, EntryValueRef, JsonLdContextDefinition,
-			KeyOrKeyword, TermDefinition, Vocab,
+			JsonLdContextBindingsIter, JsonLdContextDefinition, JsonLdContextEntryValueRef,
+			JsonLdContextTerm, JsonLdContextType, JsonLdKeyOrKeyword, JsonLdVocab, TermDefinition,
 		},
 	},
 };
@@ -31,31 +31,31 @@ impl<'a> Merged<'a> {
 		})
 	}
 
-	pub fn base(&self) -> Option<Nullable<&IriRef>> {
+	pub fn base(&self) -> Option<JsonLdNullable<&IriRef>> {
 		self.base
 			.base
 			.as_ref()
 			.or_else(|| self.imported().and_then(|i| i.base.as_ref()))
-			.map(Nullable::as_deref)
+			.map(JsonLdNullable::as_deref)
 	}
 
-	pub fn vocab(&self) -> Option<Nullable<&Vocab>> {
+	pub fn vocab(&self) -> Option<JsonLdNullable<&JsonLdVocab>> {
 		self.base
 			.vocab
 			.as_ref()
 			.or_else(|| self.imported().and_then(|i| i.vocab.as_ref()))
-			.map(Nullable::as_ref)
+			.map(JsonLdNullable::as_ref)
 	}
 
-	pub fn language(&self) -> Option<Nullable<&JsonLdLenient<LangTagBuf>>> {
+	pub fn language(&self) -> Option<JsonLdNullable<&JsonLdLenient<LangTagBuf>>> {
 		self.base
 			.language
 			.as_ref()
 			.or_else(|| self.imported().and_then(|i| i.language.as_ref()))
-			.map(Nullable::as_ref)
+			.map(JsonLdNullable::as_ref)
 	}
 
-	pub fn direction(&self) -> Option<Nullable<Direction>> {
+	pub fn direction(&self) -> Option<JsonLdNullable<JsonLdDirection>> {
 		self.base
 			.direction
 			.or_else(|| self.imported().and_then(|i| i.direction))
@@ -67,7 +67,7 @@ impl<'a> Merged<'a> {
 			.or_else(|| self.imported().and_then(|i| i.protected))
 	}
 
-	pub fn type_(&self) -> Option<ContextType> {
+	pub fn type_(&self) -> Option<JsonLdContextType> {
 		self.base
 			.type_
 			.or_else(|| self.imported().and_then(|i| i.type_))
@@ -81,7 +81,7 @@ impl<'a> Merged<'a> {
 		}
 	}
 
-	pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<'_>> {
+	pub fn get(&self, key: &JsonLdKeyOrKeyword) -> Option<JsonLdContextEntryValueRef<'_>> {
 		self.base
 			.get(key)
 			.or_else(|| self.imported().and_then(|i| i.get(key)))
@@ -93,7 +93,7 @@ impl<'a> Merged<'a> {
 	/// Returns `true` if `key`'s binding comes from the imported context
 	/// rather than from `base` (i.e. it would be shadowed by a `base`
 	/// binding of the same key, if one existed).
-	pub fn key_is_imported(&self, key: &ContextTerm) -> bool {
+	pub fn key_is_imported(&self, key: &JsonLdContextTerm) -> bool {
 		self.imported.is_some() && self.base.get_binding(key).is_none()
 	}
 }
@@ -142,12 +142,12 @@ impl<'a> From<&'a JsonLdContextDefinition> for Merged<'a> {
 // 	}
 // }
 
-type BindingRef<'a> = (&'a ContextTerm, Nullable<&'a TermDefinition>);
+type BindingRef<'a> = (&'a JsonLdContextTerm, JsonLdNullable<&'a TermDefinition>);
 
 pub struct MergedBindings<'a> {
 	base: &'a JsonLdContextDefinition,
-	base_bindings: BindingsIter<'a>,
-	imported_bindings: Option<BindingsIter<'a>>,
+	base_bindings: JsonLdContextBindingsIter<'a>,
+	imported_bindings: Option<JsonLdContextBindingsIter<'a>>,
 }
 
 impl<'a> Iterator for MergedBindings<'a> {

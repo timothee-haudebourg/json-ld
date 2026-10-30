@@ -2,24 +2,25 @@ use json_syntax::JsonValue;
 use rdf_syntax::Id;
 
 use crate::{
-	Direction, Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient,
-	JsonLdLocatedError, JsonLdObject, JsonLdTerm, JsonLdValue, LangString, Nullable, Warning,
-	context::RawProcessedContext,
+	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdDirection, JsonLdError, JsonLdIndexed,
+	JsonLdLenient, JsonLdLocatedError, JsonLdNullable, JsonLdObject, JsonLdTerm, JsonLdValue,
+	JsonLdWarning, LangString,
+	context::RawJsonLdProcessedContext,
 	object::{LiteralValue, value::LiteralType},
 	syntax::Keyword,
 };
 
 use super::{ExpandedEntry, Expander};
 
-pub type ValueExpansionResult = Result<Option<IndexedObject>, JsonLdLocatedError>;
+pub type ValueExpansionResult = Result<Option<IndexedJsonLdObject>, JsonLdLocatedError>;
 
 impl<'a> Expander<'a> {
 	/// Expand a value object.
 	pub fn expand_value(
 		&self,
-		mut warn: impl FnMut(Warning),
+		mut warn: impl FnMut(JsonLdWarning),
 		input_type: Option<JsonLdTerm>,
-		type_scoped_context: &RawProcessedContext,
+		type_scoped_context: &RawJsonLdProcessedContext,
 		expanded_entries: Vec<ExpandedEntry>,
 		value_entry: &JsonValue,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -71,7 +72,7 @@ impl<'a> Expander<'a> {
 					// If value is neither "ltr" nor "rtl", an invalid base direction
 					// error has been detected and processing is aborted.
 					if let Some(value) = value.as_str() {
-						if let Ok(value) = Direction::try_from(value) {
+						if let Ok(value) = JsonLdDirection::try_from(value) {
 							direction = Some(value);
 						} else {
 							return Err(JsonLdError::InvalidBaseDirection.at(entry_loc));
@@ -96,7 +97,7 @@ impl<'a> Expander<'a> {
 						let expanded_ty = type_scoped_context.expand_iri(
 							// env,
 							// type_scoped_context,
-							Nullable::Some(ty_value.into()),
+							JsonLdNullable::Some(ty_value.into()),
 							true,
 							true,
 						);
@@ -129,7 +130,7 @@ impl<'a> Expander<'a> {
 			if language.is_some() || direction.is_some() {
 				return Err(JsonLdError::InvalidValueObject.at(location));
 			}
-			return Ok(Some(Indexed::new(
+			return Ok(Some(JsonLdIndexed::new(
 				JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::json(
 					value_entry.clone(),
 				))),
@@ -174,7 +175,10 @@ impl<'a> Expander<'a> {
 						let (language, error) = JsonLdLenient::from_string(language);
 
 						if let Some(error) = error {
-							warn(Warning::MalformedLanguageTag(language.to_string(), error))
+							warn(JsonLdWarning::MalformedLanguageTag(
+								language.to_string(),
+								error,
+							))
 						}
 
 						Some(language)
@@ -183,7 +187,7 @@ impl<'a> Expander<'a> {
 				};
 
 				return match LangString::new(s, lang, direction) {
-					Ok(result) => Ok(Some(Indexed::new(
+					Ok(result) => Ok(Some(JsonLdIndexed::new(
 						JsonLdObject::Value(JsonLdValue::LangString(result)),
 						index,
 					))),
@@ -199,7 +203,7 @@ impl<'a> Expander<'a> {
 		// @list, set result to null.
 		// TODO
 
-		Ok(Some(Indexed::new(
+		Ok(Some(JsonLdIndexed::new(
 			JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::new(
 				result_value,
 				ty.map(LiteralType::Iri),

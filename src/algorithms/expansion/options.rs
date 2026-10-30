@@ -1,10 +1,10 @@
-use crate::{ProcessingMode, algorithms::context_processing::ContextProcessingOptions};
+use crate::{JsonLdProcessingMode, algorithms::context_processing::ContextProcessingOptions};
 
 /// Expansion options.
 #[derive(Clone, Copy, Default)]
-pub struct ExpansionOptions {
+pub struct JsonLdExpansionOptions {
 	/// Sets the processing mode.
-	pub processing_mode: ProcessingMode,
+	pub processing_mode: JsonLdProcessingMode,
 
 	/// Term expansion policy.
 	///
@@ -16,7 +16,7 @@ pub struct ExpansionOptions {
 	pub ordered: bool,
 }
 
-impl ExpansionOptions {
+impl JsonLdExpansionOptions {
 	pub fn unordered(self) -> Self {
 		Self {
 			ordered: false,
@@ -25,8 +25,8 @@ impl ExpansionOptions {
 	}
 }
 
-impl From<ExpansionOptions> for ContextProcessingOptions {
-	fn from(options: ExpansionOptions) -> ContextProcessingOptions {
+impl From<JsonLdExpansionOptions> for ContextProcessingOptions {
+	fn from(options: JsonLdExpansionOptions) -> ContextProcessingOptions {
 		ContextProcessingOptions {
 			processing_mode: options.processing_mode,
 			..Default::default()

@@ -5,14 +5,14 @@ use crate::JsonLdLenient;
 use std::fmt;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub enum Type {
+pub enum JsonLdObjectType {
 	Json,
 	Id(IriBuf),
 	Blank(BlankIdBuf),
 	Invalid(String),
 }
 
-impl Type {
+impl JsonLdObjectType {
 	pub fn from_value_type(value_ty: super::value::ValueType) -> Self {
 		match value_ty {
 			super::value::ValueType::Json => Self::Json,
@@ -30,15 +30,15 @@ impl Type {
 
 	pub fn into_id(self) -> Result<JsonLdLenient<Id>, Self> {
 		match self {
-			Type::Id(id) => Ok(JsonLdLenient::Valid(Id::Iri(id))),
-			Type::Blank(id) => Ok(JsonLdLenient::Valid(Id::BlankId(id))),
-			Type::Invalid(id) => Ok(JsonLdLenient::Invalid(id)),
+			JsonLdObjectType::Id(id) => Ok(JsonLdLenient::Valid(Id::Iri(id))),
+			JsonLdObjectType::Blank(id) => Ok(JsonLdLenient::Valid(Id::BlankId(id))),
+			JsonLdObjectType::Invalid(id) => Ok(JsonLdLenient::Invalid(id)),
 			typ => Err(typ),
 		}
 	}
 }
 
-impl Type {
+impl JsonLdObjectType {
 	pub fn as_iri(&self) -> Option<&Iri> {
 		match self {
 			Self::Id(id) => Some(id),
@@ -47,7 +47,7 @@ impl Type {
 	}
 }
 
-impl Type {
+impl JsonLdObjectType {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Json => "@json",
@@ -58,18 +58,18 @@ impl Type {
 	}
 }
 
-impl<'a> From<&'a Type> for TypeRef<'a> {
-	fn from(t: &'a Type) -> TypeRef<'a> {
+impl<'a> From<&'a JsonLdObjectType> for JsonLdObjectTypeRef<'a> {
+	fn from(t: &'a JsonLdObjectType) -> JsonLdObjectTypeRef<'a> {
 		match t {
-			Type::Json => Self::Json,
-			Type::Id(id) => Self::Id(id),
-			Type::Blank(id) => Self::Blank(id),
-			Type::Invalid(id) => Self::Invalid(id),
+			JsonLdObjectType::Json => Self::Json,
+			JsonLdObjectType::Id(id) => Self::Id(id),
+			JsonLdObjectType::Blank(id) => Self::Blank(id),
+			JsonLdObjectType::Invalid(id) => Self::Invalid(id),
 		}
 	}
 }
 
-impl fmt::Display for Type {
+impl fmt::Display for JsonLdObjectType {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Json => write!(f, "@json"),
@@ -81,14 +81,14 @@ impl fmt::Display for Type {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TypeRef<'a> {
+pub enum JsonLdObjectTypeRef<'a> {
 	Json,
 	Id(&'a Iri),
 	Blank(&'a BlankId),
 	Invalid(&'a str),
 }
 
-impl<'a> TypeRef<'a> {
+impl<'a> JsonLdObjectTypeRef<'a> {
 	pub fn from_value_type(value_ty: super::value::ValueTypeRef<'a>) -> Self {
 		match value_ty {
 			super::value::ValueTypeRef::Json => Self::Json,
@@ -104,17 +104,17 @@ impl<'a> TypeRef<'a> {
 		}
 	}
 
-	pub fn to_owned(self) -> Type {
+	pub fn to_owned(self) -> JsonLdObjectType {
 		match self {
-			Self::Json => Type::Json,
-			Self::Id(id) => Type::Id(id.to_owned()),
-			Self::Blank(id) => Type::Blank(id.to_owned()),
-			Self::Invalid(id) => Type::Invalid(id.to_owned()),
+			Self::Json => JsonLdObjectType::Json,
+			Self::Id(id) => JsonLdObjectType::Id(id.to_owned()),
+			Self::Blank(id) => JsonLdObjectType::Blank(id.to_owned()),
+			Self::Invalid(id) => JsonLdObjectType::Invalid(id.to_owned()),
 		}
 	}
 }
 
-impl<'a> TypeRef<'a> {
+impl<'a> JsonLdObjectTypeRef<'a> {
 	pub fn as_iri(&self) -> Option<&'a Iri> {
 		match self {
 			Self::Id(id) => Some(id),
@@ -123,7 +123,7 @@ impl<'a> TypeRef<'a> {
 	}
 }
 
-impl<'a> TypeRef<'a> {
+impl<'a> JsonLdObjectTypeRef<'a> {
 	pub fn as_str(&self) -> &str {
 		match self {
 			Self::Json => "@json",
@@ -134,21 +134,21 @@ impl<'a> TypeRef<'a> {
 	}
 }
 
-impl<'a> PartialEq<Type> for TypeRef<'a> {
-	fn eq(&self, other: &Type) -> bool {
-		let other_ref: TypeRef = other.into();
+impl<'a> PartialEq<JsonLdObjectType> for JsonLdObjectTypeRef<'a> {
+	fn eq(&self, other: &JsonLdObjectType) -> bool {
+		let other_ref: JsonLdObjectTypeRef = other.into();
 		*self == other_ref
 	}
 }
 
-impl<'a> PartialEq<TypeRef<'a>> for Type {
-	fn eq(&self, other: &TypeRef<'a>) -> bool {
-		let self_ref: TypeRef = self.into();
+impl<'a> PartialEq<JsonLdObjectTypeRef<'a>> for JsonLdObjectType {
+	fn eq(&self, other: &JsonLdObjectTypeRef<'a>) -> bool {
+		let self_ref: JsonLdObjectTypeRef = self.into();
 		self_ref == *other
 	}
 }
 
-impl<'a> fmt::Display for TypeRef<'a> {
+impl<'a> fmt::Display for JsonLdObjectTypeRef<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		match self {
 			Self::Json => write!(f, "@json"),

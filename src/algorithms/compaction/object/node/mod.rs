@@ -4,15 +4,15 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdNode, JsonLdTerm, JsonLdType,
-	ProcessingMode,
+	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdNode, JsonLdProcessingMode,
+	JsonLdTerm, JsonLdType,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		compaction::{Compactor, object::value::add_value},
 		context_processing::ContextProcessingOptions,
 	},
-	context::Container,
-	syntax::{ContainerItem, Keyword},
+	context::JsonLdContainer,
+	syntax::{JsonLdContainerItem, Keyword},
 };
 
 mod property;
@@ -256,7 +256,9 @@ impl Compactor<'_> {
 				{
 					// Initialize as array to true if the container mapping for property in
 					// the active context includes @set, otherwise the negation of compactArrays.
-					let as_array = term_definition.container().contains(ContainerItem::Set)
+					let as_array = term_definition
+						.container()
+						.contains(JsonLdContainerItem::Set)
 						|| !self.options.compact_arrays;
 
 					// Use add value to add value to the property entry in result using as array.
@@ -290,7 +292,7 @@ impl Compactor<'_> {
 				&& let Some(active_property_definition) = active_context.get(active_property)
 				&& active_property_definition
 					.container()
-					.contains(ContainerItem::Index)
+					.contains(JsonLdContainerItem::Index)
 			{
 				// then the compacted result will be inside of an @index container,
 				// drop the @index entry by continuing to the next expanded property.
@@ -412,10 +414,10 @@ impl Compactor<'_> {
 			// otherwise to the negation of compactArrays.
 			let container_mapping = match self.active_context.get(alias.as_str()) {
 				Some(def) => def.container(),
-				None => Container::Null,
+				None => JsonLdContainer::Null,
 			};
-			let as_array = (self.options.processing_mode == ProcessingMode::JsonLd1_1
-				&& container_mapping.contains(ContainerItem::Set))
+			let as_array = (self.options.processing_mode == JsonLdProcessingMode::JsonLd1_1
+				&& container_mapping.contains(JsonLdContainerItem::Set))
 				|| !self.options.compact_arrays;
 
 			// Use add value to add compacted value to the alias entry in result using as array.

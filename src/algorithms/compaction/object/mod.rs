@@ -8,7 +8,7 @@ use crate::{
 		compaction::CompactIndexedFragment, context_processing::ContextProcessingOptions,
 	},
 	object::{AnyJsonLdObject, JsonLdObjectRef},
-	syntax::{ContainerItem, Keyword},
+	syntax::{JsonLdContainerItem, Keyword},
 };
 
 use super::Compactor;
@@ -74,7 +74,7 @@ impl Compactor<'_> {
 
 					list_container = active_property_definition
 						.container()
-						.contains(ContainerItem::List);
+						.contains(JsonLdContainerItem::List);
 				}
 
 				// `location` is this list object's own position; its items live
@@ -111,7 +111,7 @@ impl Compactor<'_> {
 								active_context.get(active_property)
 							&& active_property_definition
 								.container()
-								.contains(ContainerItem::Index)
+								.contains(JsonLdContainerItem::Index)
 						{
 							// then the compacted result will be inside of an @index container,
 							// drop the @index entry by continuing to the next expanded property.

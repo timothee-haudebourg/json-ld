@@ -1,10 +1,10 @@
-use crate::ProcessingMode;
+use crate::JsonLdProcessingMode;
 
 /// Options of the Context Processing Algorithm.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ContextProcessingOptions {
 	/// The processing mode
-	pub processing_mode: ProcessingMode,
+	pub processing_mode: JsonLdProcessingMode,
 
 	/// Override protected definitions.
 	pub override_protected: bool,
@@ -42,7 +42,7 @@ impl ContextProcessingOptions {
 impl Default for ContextProcessingOptions {
 	fn default() -> ContextProcessingOptions {
 		ContextProcessingOptions {
-			processing_mode: ProcessingMode::default(),
+			processing_mode: JsonLdProcessingMode::default(),
 			override_protected: false,
 			propagate: true,
 		}

@@ -4,7 +4,7 @@ use json_syntax::JsonValue;
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdLocatedError,
 	algorithms::{AsyncProcessingEnvironment, compaction::Compactor},
-	syntax::ContainerItem,
+	syntax::JsonLdContainerItem,
 };
 
 use super::CompactFragment;
@@ -37,10 +37,10 @@ impl Compactor<'_> {
 		{
 			list_or_set = active_property_definition
 				.container()
-				.contains(ContainerItem::List)
+				.contains(JsonLdContainerItem::List)
 				|| active_property_definition
 					.container()
-					.contains(ContainerItem::Set);
+					.contains(JsonLdContainerItem::Set);
 		}
 
 		if result.is_empty()

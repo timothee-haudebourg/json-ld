@@ -1,15 +1,15 @@
 use std::fmt;
 
-use crate::syntax::context::KeyOrKeyword;
+use crate::syntax::context::JsonLdKeyOrKeyword;
 
 use super::Keyword;
 
-pub enum Expandable {
+pub enum JsonLdExpandable {
 	Keyword(Keyword),
 	String(String),
 }
 
-pub enum ExpandableRef<'a> {
+pub enum JsonLdExpandableRef<'a> {
 	/// Keyword.
 	Keyword(Keyword),
 
@@ -17,16 +17,16 @@ pub enum ExpandableRef<'a> {
 	String(&'a str),
 }
 
-impl<'a> From<&'a KeyOrKeyword> for ExpandableRef<'a> {
-	fn from(k: &'a KeyOrKeyword) -> Self {
+impl<'a> From<&'a JsonLdKeyOrKeyword> for JsonLdExpandableRef<'a> {
+	fn from(k: &'a JsonLdKeyOrKeyword) -> Self {
 		match k {
-			KeyOrKeyword::Keyword(k) => Self::Keyword(*k),
-			KeyOrKeyword::Key(k) => Self::String(k.as_str()),
+			JsonLdKeyOrKeyword::Keyword(k) => Self::Keyword(*k),
+			JsonLdKeyOrKeyword::Key(k) => Self::String(k.as_str()),
 		}
 	}
 }
 
-impl<'a> From<&'a str> for ExpandableRef<'a> {
+impl<'a> From<&'a str> for JsonLdExpandableRef<'a> {
 	fn from(s: &'a str) -> Self {
 		match Keyword::try_from(s) {
 			Ok(k) => Self::Keyword(k),
@@ -35,7 +35,7 @@ impl<'a> From<&'a str> for ExpandableRef<'a> {
 	}
 }
 
-impl<'a> fmt::Display for ExpandableRef<'a> {
+impl<'a> fmt::Display for JsonLdExpandableRef<'a> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Keyword(k) => k.fmt(f),

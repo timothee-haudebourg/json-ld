@@ -1,5 +1,5 @@
 //! JSON-LD core types.
-pub use crate::syntax::{Direction, Nullable};
+pub use crate::syntax::{JsonLdDirection, JsonLdNullable};
 
 pub mod context;
 mod document;
@@ -25,7 +25,7 @@ pub use lang_string::*;
 pub use lenient::*;
 pub use loader::*;
 pub use object::{
-	IndexedJsonLdNode, IndexedObject, JsonLdNode, JsonLdObject, JsonLdValue, Nodes, Objects,
+	IndexedJsonLdNode, IndexedJsonLdObject, JsonLdNode, JsonLdObject, JsonLdValue, Nodes, Objects,
 };
 pub use processing_mode::*;
 pub use term::*;

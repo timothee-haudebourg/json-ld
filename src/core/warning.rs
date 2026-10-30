@@ -2,7 +2,7 @@ use langtag::InvalidLangTag;
 use rdf_syntax::BlankIdBuf;
 
 #[derive(Debug, thiserror::Error)]
-pub enum Warning {
+pub enum JsonLdWarning {
 	#[error("keyword-like term `{0}`")]
 	KeywordLikeTerm(String),
 
@@ -22,4 +22,4 @@ pub enum Warning {
 	MalformedLanguageTag(String, InvalidLangTag<String>),
 }
 
-pub fn ignore_warnings(_: Warning) {}
+pub fn ignore_warnings(_: JsonLdWarning) {}

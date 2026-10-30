@@ -1,11 +1,11 @@
 use json_syntax::object::Key;
 
 use crate::{
-	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdObject, JsonLdTerm,
-	JsonLdType, JsonLdValue, Nullable, ProcessingMode,
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexed, JsonLdLocatedError, JsonLdNullable,
+	JsonLdObject, JsonLdProcessingMode, JsonLdTerm, JsonLdType, JsonLdValue,
 	context::{
-		Container,
-		inverse::{LangSelection, Selection, TypeSelection},
+		JsonLdContainer,
+		inverse::{JsonLdLangSelection, JsonLdSelection, JsonLdTypeSelection},
 	},
 	object::{self, AnyJsonLdObject},
 	syntax::{is_keyword, is_keyword_like},
@@ -47,7 +47,7 @@ impl<'a> Compactor<'a> {
 		var: &JsonLdTerm,
 		vocab: bool,
 		reverse: bool,
-		value: Option<&Indexed<O>>,
+		value: Option<&JsonLdIndexed<O>>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Option<String>, JsonLdLocatedError>
 	where
@@ -69,16 +69,16 @@ impl<'a> Compactor<'a> {
 					&& value.index().is_some()
 					&& !value.is_graph()
 				{
-					containers.push(Container::Index);
-					containers.push(Container::IndexSet);
+					containers.push(JsonLdContainer::Index);
+					containers.push(JsonLdContainer::IndexSet);
 				}
 
 				let mut has_index = false;
 				let mut is_simple_value = false; // value object with no type, no index, no language and no direction.
 
 				if reverse {
-					type_lang_value = Some(TypeLangValue::Type(TypeSelection::Reverse));
-					containers.push(Container::Set);
+					type_lang_value = Some(TypeLangValue::Type(JsonLdTypeSelection::Reverse));
+					containers.push(JsonLdContainer::Set);
 				} else {
 					let value_ref = value.map(|v| {
 						has_index = v.index().is_some();
@@ -88,14 +88,14 @@ impl<'a> Compactor<'a> {
 					match value_ref {
 						Some(object::JsonLdObjectRef::List(list)) => {
 							if !has_index {
-								containers.push(Container::List);
+								containers.push(JsonLdContainer::List);
 							}
 
 							let mut common_type = None;
 							let mut common_lang_dir = None;
 
 							if list.is_empty() {
-								common_lang_dir = Some(Nullable::Some((
+								common_lang_dir = Some(JsonLdNullable::Some((
 									self.active_context.default_language(),
 									self.active_context.default_base_direction(),
 								)))
@@ -110,7 +110,7 @@ impl<'a> Compactor<'a> {
 											is_value = true;
 											match value {
 												JsonLdValue::LangString(lang_str) => {
-													item_lang_dir = Some(Nullable::Some((
+													item_lang_dir = Some(JsonLdNullable::Some((
 														lang_str.language(),
 														lang_str.direction(),
 													)))
@@ -123,7 +123,9 @@ impl<'a> Compactor<'a> {
 														item_type =
 															Some(JsonLdType::Iri(ty.clone()))
 													}
-													None => item_lang_dir = Some(Nullable::Null),
+													None => {
+														item_lang_dir = Some(JsonLdNullable::Null)
+													}
 												},
 											}
 										}
@@ -133,7 +135,7 @@ impl<'a> Compactor<'a> {
 									if common_lang_dir.is_none() {
 										common_lang_dir = item_lang_dir
 									} else if is_value && common_lang_dir != item_lang_dir {
-										common_lang_dir = Some(Nullable::Some((None, None)))
+										common_lang_dir = Some(JsonLdNullable::Some((None, None)))
 									}
 
 									if common_type.is_none() {
@@ -142,7 +144,7 @@ impl<'a> Compactor<'a> {
 										common_type = Some(None)
 									}
 
-									if common_lang_dir == Some(Nullable::Some((None, None)))
+									if common_lang_dir == Some(JsonLdNullable::Some((None, None)))
 										&& common_type == Some(None)
 									{
 										break;
@@ -151,7 +153,7 @@ impl<'a> Compactor<'a> {
 							}
 
 							if common_lang_dir.is_none() {
-								common_lang_dir = Some(Nullable::Some((None, None)))
+								common_lang_dir = Some(JsonLdNullable::Some((None, None)))
 							}
 							let common_lang_dir = common_lang_dir.unwrap();
 
@@ -161,11 +163,13 @@ impl<'a> Compactor<'a> {
 							let common_type = common_type.unwrap();
 
 							if let Some(common_type) = common_type {
-								type_lang_value =
-									Some(TypeLangValue::Type(TypeSelection::Type(common_type)))
+								type_lang_value = Some(TypeLangValue::Type(
+									JsonLdTypeSelection::Type(common_type),
+								))
 							} else {
-								type_lang_value =
-									Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
+								type_lang_value = Some(TypeLangValue::Lang(
+									JsonLdLangSelection::Lang(common_lang_dir),
+								))
 							}
 						}
 						Some(object::JsonLdObjectRef::Node(node)) if node.is_graph() => {
@@ -174,87 +178,92 @@ impl<'a> Compactor<'a> {
 							if has_index {
 								// If value contains an @index entry, append the values
 								// @graph@index and @graph@index@set to containers.
-								containers.push(Container::GraphIndex);
-								containers.push(Container::GraphIndexSet);
+								containers.push(JsonLdContainer::GraphIndex);
+								containers.push(JsonLdContainer::GraphIndexSet);
 							}
 
 							if node.id.is_some() {
 								// If value contains an @id entry, append the values @graph@id and
 								// @graph@id@set to containers.
-								containers.push(Container::GraphId);
-								containers.push(Container::GraphIdSet);
+								containers.push(JsonLdContainer::GraphId);
+								containers.push(JsonLdContainer::GraphIdSet);
 							}
 
 							// Append the values @graph, @graph@set, and @set to containers.
-							containers.push(Container::Graph);
-							containers.push(Container::GraphSet);
-							containers.push(Container::Set);
+							containers.push(JsonLdContainer::Graph);
+							containers.push(JsonLdContainer::GraphSet);
+							containers.push(JsonLdContainer::Set);
 
 							if !has_index {
 								// If value does not contain an @index entry, append the values
 								// @graph@index and @graph@index@set to containers.
-								containers.push(Container::GraphIndex);
-								containers.push(Container::GraphIndexSet);
+								containers.push(JsonLdContainer::GraphIndex);
+								containers.push(JsonLdContainer::GraphIndexSet);
 							}
 
 							if node.id.is_none() {
 								// If the value does not contain an @id entry, append the values
 								// @graph@id and @graph@id@set to containers.
-								containers.push(Container::GraphId);
-								containers.push(Container::GraphIdSet);
+								containers.push(JsonLdContainer::GraphId);
+								containers.push(JsonLdContainer::GraphIdSet);
 							}
 
 							// Append the values @index and @index@set to containers.
-							containers.push(Container::Index);
-							containers.push(Container::IndexSet);
+							containers.push(JsonLdContainer::Index);
+							containers.push(JsonLdContainer::IndexSet);
 
-							type_lang_value =
-								Some(TypeLangValue::Type(TypeSelection::Type(JsonLdType::Id)))
+							type_lang_value = Some(TypeLangValue::Type(JsonLdTypeSelection::Type(
+								JsonLdType::Id,
+							)))
 						}
 						Some(object::JsonLdObjectRef::Value(v)) => {
 							// If value is a value object:
 							if (v.direction().is_some() || v.language().is_some()) && !has_index {
-								type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(
-									Nullable::Some((v.language(), v.direction())),
-								)));
-								containers.push(Container::Language);
-								containers.push(Container::LanguageSet)
+								type_lang_value =
+									Some(TypeLangValue::Lang(JsonLdLangSelection::Lang(
+										JsonLdNullable::Some((v.language(), v.direction())),
+									)));
+								containers.push(JsonLdContainer::Language);
+								containers.push(JsonLdContainer::LanguageSet)
 							} else if let Some(ty) = v.typ() {
-								type_lang_value = Some(TypeLangValue::Type(TypeSelection::Type(
-									ty.into_object_type(),
-								)))
+								type_lang_value = Some(TypeLangValue::Type(
+									JsonLdTypeSelection::Type(ty.into_object_type()),
+								))
 							} else {
 								is_simple_value =
 									v.direction().is_none() && v.language().is_none() && !has_index
 							}
 
-							containers.push(Container::Set)
+							containers.push(JsonLdContainer::Set)
 						}
 						_ => {
 							// Otherwise, set type/language to @type and set type/language value
 							// to @id, and append @id, @id@set, @type, and @set@type, to containers.
-							type_lang_value =
-								Some(TypeLangValue::Type(TypeSelection::Type(JsonLdType::Id)));
-							containers.push(Container::Id);
-							containers.push(Container::IdSet);
-							containers.push(Container::Type);
-							containers.push(Container::SetType);
+							type_lang_value = Some(TypeLangValue::Type(JsonLdTypeSelection::Type(
+								JsonLdType::Id,
+							)));
+							containers.push(JsonLdContainer::Id);
+							containers.push(JsonLdContainer::IdSet);
+							containers.push(JsonLdContainer::Type);
+							containers.push(JsonLdContainer::SetType);
 
-							containers.push(Container::Set)
+							containers.push(JsonLdContainer::Set)
 						}
 					}
 				}
 
-				containers.push(Container::Null);
+				containers.push(JsonLdContainer::Null);
 
-				if self.options.processing_mode != ProcessingMode::JsonLd1_0 && !has_index {
-					containers.push(Container::Index);
-					containers.push(Container::IndexSet)
+				if self.options.processing_mode != JsonLdProcessingMode::JsonLd1_0 && !has_index {
+					containers.push(JsonLdContainer::Index);
+					containers.push(JsonLdContainer::IndexSet)
 				}
 
-				if self.options.processing_mode != ProcessingMode::JsonLd1_0 && is_simple_value {
-					containers.push(Container::Language);
-					containers.push(Container::LanguageSet)
+				if self.options.processing_mode != JsonLdProcessingMode::JsonLd1_0
+					&& is_simple_value
+				{
+					containers.push(JsonLdContainer::Language);
+					containers.push(JsonLdContainer::LanguageSet)
 				}
 
 				let mut is_empty_list = false;
@@ -267,21 +276,21 @@ impl<'a> Compactor<'a> {
 
 				// If type/language value is @reverse, append @reverse to preferred values.
 				let selection = if is_empty_list {
-					Selection::Any
+					JsonLdSelection::Any
 				} else {
 					match type_lang_value {
 						Some(TypeLangValue::Type(type_value)) => {
-							let mut selection: Vec<TypeSelection> = Vec::new();
+							let mut selection: Vec<JsonLdTypeSelection> = Vec::new();
 
-							if type_value == TypeSelection::Reverse {
-								selection.push(TypeSelection::Reverse);
+							if type_value == JsonLdTypeSelection::Reverse {
+								selection.push(JsonLdTypeSelection::Reverse);
 							}
 
 							let mut has_id_type = false;
 							if let Some(value) = value
 								&& let Some(id) = value.id()
-								&& (type_value == TypeSelection::Type(JsonLdType::Id)
-									|| type_value == TypeSelection::Reverse)
+								&& (type_value == JsonLdTypeSelection::Type(JsonLdType::Id)
+									|| type_value == JsonLdTypeSelection::Reverse)
 							{
 								has_id_type = true;
 								let mut vocab = false;
@@ -295,45 +304,49 @@ impl<'a> Compactor<'a> {
 								}
 
 								if vocab {
-									selection.push(TypeSelection::Type(JsonLdType::Vocab));
-									selection.push(TypeSelection::Type(JsonLdType::Id));
+									selection.push(JsonLdTypeSelection::Type(JsonLdType::Vocab));
+									selection.push(JsonLdTypeSelection::Type(JsonLdType::Id));
 								} else {
-									selection.push(TypeSelection::Type(JsonLdType::Id));
-									selection.push(TypeSelection::Type(JsonLdType::Vocab));
+									selection.push(JsonLdTypeSelection::Type(JsonLdType::Id));
+									selection.push(JsonLdTypeSelection::Type(JsonLdType::Vocab));
 								}
 
-								selection.push(TypeSelection::Type(JsonLdType::None));
+								selection.push(JsonLdTypeSelection::Type(JsonLdType::None));
 							}
 
 							if !has_id_type {
 								selection.push(type_value);
-								selection.push(TypeSelection::Type(JsonLdType::None));
+								selection.push(JsonLdTypeSelection::Type(JsonLdType::None));
 							}
 
-							selection.push(TypeSelection::Any);
+							selection.push(JsonLdTypeSelection::Any);
 
-							Selection::Type(selection)
+							JsonLdSelection::Type(selection)
 						}
 						Some(TypeLangValue::Lang(lang_value)) => {
 							let mut selection = vec![
 								lang_value,
-								LangSelection::Lang(Nullable::Some((None, None))),
-								LangSelection::Any,
+								JsonLdLangSelection::Lang(JsonLdNullable::Some((None, None))),
+								JsonLdLangSelection::Any,
 							];
 
-							if let LangSelection::Lang(Nullable::Some((Some(_), Some(dir)))) =
-								lang_value
+							if let JsonLdLangSelection::Lang(JsonLdNullable::Some((
+								Some(_),
+								Some(dir),
+							))) = lang_value
 							{
-								selection
-									.push(LangSelection::Lang(Nullable::Some((None, Some(dir)))));
+								selection.push(JsonLdLangSelection::Lang(JsonLdNullable::Some((
+									None,
+									Some(dir),
+								))));
 							}
 
-							Selection::Lang(selection)
+							JsonLdSelection::Lang(selection)
 						}
-						None => Selection::Lang(vec![
-							LangSelection::Lang(Nullable::Null),
-							LangSelection::Lang(Nullable::Some((None, None))),
-							LangSelection::Any,
+						None => JsonLdSelection::Lang(vec![
+							JsonLdLangSelection::Lang(JsonLdNullable::Null),
+							JsonLdLangSelection::Lang(JsonLdNullable::Some((None, None))),
+							JsonLdLangSelection::Any,
 						]),
 					}
 				};

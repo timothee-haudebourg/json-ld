@@ -1,6 +1,6 @@
-use crate::object::{JsonLdObjectRef, ObjectMut};
+use crate::object::{JsonLdObjectMut, JsonLdObjectRef};
 use crate::syntax::Keyword;
-use crate::{Direction, JsonLdLenient, JsonLdType, LangString, VisitJsonLd, object};
+use crate::{JsonLdDirection, JsonLdLenient, JsonLdType, JsonLdVisit, LangString, object};
 use educe::Educe;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue, ryu_js};
 use langtag::LangTag;
@@ -289,7 +289,7 @@ impl JsonLdValue {
 	///
 	/// Returns `None` if the value is not a language tagged string.
 	#[inline(always)]
-	pub fn direction(&self) -> Option<Direction> {
+	pub fn direction(&self) -> Option<JsonLdDirection> {
 		match self {
 			JsonLdValue::LangString(s) => s.direction(),
 			_ => None,
@@ -349,13 +349,13 @@ impl JsonLdValue {
 	}
 }
 
-impl VisitJsonLd for JsonLdValue {
+impl JsonLdVisit for JsonLdValue {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		f(JsonLdObjectRef::Value(self))
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
-		f(ObjectMut::Value(self))
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
+		f(JsonLdObjectMut::Value(self))
 	}
 }
 
@@ -417,7 +417,7 @@ pub enum EntryRef<'a> {
 	Value(ValueEntryRef<'a>),
 	Type(ValueTypeRef<'a>),
 	Language(JsonLdLenient<&'a LangTag>),
-	Direction(Direction),
+	Direction(JsonLdDirection),
 }
 
 impl<'a> EntryRef<'a> {
@@ -459,7 +459,7 @@ pub enum EntryValueRef<'a> {
 	Value(ValueEntryRef<'a>),
 	Type(ValueTypeRef<'a>),
 	Language(JsonLdLenient<&'a LangTag>),
-	Direction(Direction),
+	Direction(JsonLdDirection),
 }
 
 pub enum ValueEntryRef<'a> {
@@ -517,7 +517,7 @@ pub struct Entries<'a> {
 	value: Option<ValueEntryRef<'a>>,
 	type_: Option<ValueTypeRef<'a>>,
 	language: Option<JsonLdLenient<&'a LangTag>>,
-	direction: Option<Direction>,
+	direction: Option<JsonLdDirection>,
 }
 
 impl<'a> Iterator for Entries<'a> {

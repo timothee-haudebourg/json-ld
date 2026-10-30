@@ -1,4 +1,4 @@
-use crate::{AsyncJsonLdLoader, JsonLdLoader, ToAsyncJsonLdLoader, Warning};
+use crate::{AsyncJsonLdLoader, JsonLdLoader, JsonLdWarning, ToAsyncJsonLdLoader};
 
 mod compaction;
 mod context_processing;
@@ -17,7 +17,7 @@ pub trait AsyncProcessingEnvironment {
 
 	fn loader(&self) -> &Self::Loader;
 
-	fn warn(&self, w: Warning);
+	fn warn(&self, w: JsonLdWarning);
 
 	fn as_ref(&self) -> AsyncProcessingEnvironmentRef<'_, Self> {
 		AsyncProcessingEnvironmentRef(self)
@@ -31,7 +31,7 @@ impl<L: AsyncJsonLdLoader> AsyncProcessingEnvironment for L {
 		self
 	}
 
-	fn warn(&self, _: Warning) {
+	fn warn(&self, _: JsonLdWarning) {
 		// Ignore.
 	}
 }
@@ -47,7 +47,7 @@ impl<'a, T: ?Sized + AsyncProcessingEnvironment> AsyncProcessingEnvironment
 		self.0.loader()
 	}
 
-	fn warn(&self, w: Warning) {
+	fn warn(&self, w: JsonLdWarning) {
 		self.0.warn(w);
 	}
 }
@@ -57,7 +57,7 @@ pub trait ProcessingEnvironment {
 
 	fn loader(&self) -> &Self::Loader;
 
-	fn warn(&self, w: Warning);
+	fn warn(&self, w: JsonLdWarning);
 
 	fn as_async_environment(&self) -> &ToAsyncProcessingEnvironment<Self> {
 		ToAsyncProcessingEnvironment::from_ref(self)
@@ -78,7 +78,7 @@ impl<L: JsonLdLoader> ProcessingEnvironment for L {
 		self
 	}
 
-	fn warn(&self, _: Warning) {
+	fn warn(&self, _: JsonLdWarning) {
 		// Ignore.
 	}
 }
@@ -103,7 +103,7 @@ impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingE
 		self.0.loader().as_async_loader()
 	}
 
-	fn warn(&self, w: Warning) {
+	fn warn(&self, w: JsonLdWarning) {
 		self.0.warn(w);
 	}
 }

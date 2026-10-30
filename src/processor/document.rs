@@ -9,8 +9,8 @@ use super::{
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdDocument, JsonLdLocatedError, JsonLdSourceFileRef,
 	RemoteJsonLdContext,
-	algorithms::{AsyncProcessingEnvironment, Compact, Expand},
-	context::RawProcessedContext,
+	algorithms::{AsyncProcessingEnvironment, JsonLdCompact, JsonLdExpand},
+	context::RawJsonLdProcessedContext,
 	syntax::JsonLdCompare,
 };
 
@@ -38,7 +38,7 @@ impl JsonLdProcessor for JsonLdDocument {
 	) -> ExpandResult {
 		// Initialize the active context.
 		let mut active_context =
-			RawProcessedContext::new(options.base.clone().or_else(|| self.url.clone()));
+			RawJsonLdProcessedContext::new(options.base.clone().or_else(|| self.url.clone()));
 
 		// Process expand context if provided.
 		if let Some(expand_context) = options.expand_context.take() {
@@ -85,7 +85,7 @@ impl JsonLdProcessor for JsonLdDocument {
 		}
 
 		// Expand the document.
-		Expand::expand_with(self, env, &active_context, options.expansion_options()).await
+		JsonLdExpand::expand_with(self, env, &active_context, options.expansion_options()).await
 	}
 
 	async fn async_compact_with(
@@ -157,7 +157,7 @@ impl JsonLdProcessor for JsonLdDocument {
 }
 
 async fn compact_expanded(
-	expanded_input: &impl Compact,
+	expanded_input: &impl JsonLdCompact,
 	url: Option<&Iri>,
 	env: impl AsyncProcessingEnvironment,
 	context: RemoteJsonLdContext,
@@ -178,7 +178,7 @@ async fn compact_expanded(
 		.process_with(
 			env.as_ref(),
 			context_base,
-			&RawProcessedContext::new(None),
+			&RawJsonLdProcessedContext::new(None),
 			options.context_processing_options(),
 			json_syntax::tracing::JsonBacktraceBuilder::new()
 				.file(JsonLdSourceFileRef::original(context.url())),

@@ -1,13 +1,13 @@
 use std::str::FromStr;
 
-use crate::context::Container;
+use crate::context::JsonLdContainer;
 use crate::syntax::context::ContextTypeContainer;
 
 use super::Keyword;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum ContainerItem {
+pub enum JsonLdContainerItem {
 	#[cfg_attr(feature = "serde", serde(rename = "@graph"))]
 	Graph,
 
@@ -30,7 +30,7 @@ pub enum ContainerItem {
 	Type,
 }
 
-impl ContainerItem {
+impl JsonLdContainerItem {
 	pub fn into_keyword(self) -> Keyword {
 		self.into()
 	}
@@ -44,7 +44,7 @@ impl ContainerItem {
 	}
 }
 
-impl std::fmt::Display for ContainerItem {
+impl std::fmt::Display for JsonLdContainerItem {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str(self.as_str())
 	}
@@ -52,27 +52,27 @@ impl std::fmt::Display for ContainerItem {
 
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 #[error("Invalid `@container` item: `{0}`")]
-pub struct InvalidContainerItem<T = String>(pub T);
+pub struct InvalidJsonLdContainerItem<T = String>(pub T);
 
-impl<T: ?Sized + ToOwned> InvalidContainerItem<&T> {
-	pub fn into_owned(self) -> InvalidContainerItem<T::Owned> {
-		InvalidContainerItem(self.0.to_owned())
+impl<T: ?Sized + ToOwned> InvalidJsonLdContainerItem<&T> {
+	pub fn into_owned(self) -> InvalidJsonLdContainerItem<T::Owned> {
+		InvalidJsonLdContainerItem(self.0.to_owned())
 	}
 }
 
-impl FromStr for ContainerItem {
-	type Err = InvalidContainerItem;
+impl FromStr for JsonLdContainerItem {
+	type Err = InvalidJsonLdContainerItem;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		s.try_into().map_err(InvalidContainerItem::into_owned)
+		s.try_into().map_err(InvalidJsonLdContainerItem::into_owned)
 	}
 }
 
-impl<'a> TryFrom<&'a str> for ContainerItem {
-	type Error = InvalidContainerItem<&'a str>;
+impl<'a> TryFrom<&'a str> for JsonLdContainerItem {
+	type Error = InvalidJsonLdContainerItem<&'a str>;
 
-	fn try_from(str: &'a str) -> Result<ContainerItem, InvalidContainerItem<&'a str>> {
-		use ContainerItem::*;
+	fn try_from(str: &'a str) -> Result<JsonLdContainerItem, InvalidJsonLdContainerItem<&'a str>> {
+		use JsonLdContainerItem::*;
 		match str {
 			"@graph" => Ok(Graph),
 			"@id" => Ok(Id),
@@ -81,16 +81,16 @@ impl<'a> TryFrom<&'a str> for ContainerItem {
 			"@list" => Ok(List),
 			"@set" => Ok(Set),
 			"@type" => Ok(Type),
-			_ => Err(InvalidContainerItem(str)),
+			_ => Err(InvalidJsonLdContainerItem(str)),
 		}
 	}
 }
 
-impl TryFrom<Keyword> for ContainerItem {
+impl TryFrom<Keyword> for JsonLdContainerItem {
 	type Error = Keyword;
 
-	fn try_from(k: Keyword) -> Result<ContainerItem, Keyword> {
-		use ContainerItem::*;
+	fn try_from(k: Keyword) -> Result<JsonLdContainerItem, Keyword> {
+		use JsonLdContainerItem::*;
 		match k {
 			Keyword::Graph => Ok(Graph),
 			Keyword::Id => Ok(Id),
@@ -104,9 +104,9 @@ impl TryFrom<Keyword> for ContainerItem {
 	}
 }
 
-impl From<ContainerItem> for Keyword {
-	fn from(c: ContainerItem) -> Keyword {
-		use ContainerItem::*;
+impl From<JsonLdContainerItem> for Keyword {
+	fn from(c: JsonLdContainerItem) -> Keyword {
+		use JsonLdContainerItem::*;
 		match c {
 			Graph => Keyword::Graph,
 			Id => Keyword::Id,
@@ -129,29 +129,31 @@ impl From<ContainerItem> for Keyword {
 	derive(serde::Serialize, serde::Deserialize),
 	serde(untagged)
 )]
-pub enum ContainerValue {
+pub enum JsonLdContainerValue {
 	/// Null container value.
 	Null,
 
 	/// A single container keyword, e.g. `"@set"`.
-	Item(ContainerItem),
+	Item(JsonLdContainerItem),
 
 	/// An array of container keywords, e.g. `["@set"]` or `["@graph", "@id"]`.
-	Array(Vec<ContainerItem>),
+	Array(Vec<JsonLdContainerItem>),
 }
 
-impl ContainerValue {
+impl JsonLdContainerValue {
 	/// Whether this value was specified as an array in the source JSON.
 	pub fn is_array(&self) -> bool {
 		matches!(self, Self::Array(_))
 	}
 
 	/// Process this syntax value into a [`Container`].
-	pub fn to_container(&self) -> Result<Container, UnexpectedContainerItem> {
+	pub fn to_container(&self) -> Result<JsonLdContainer, UnexpectedContainerItem> {
 		match self {
-			Self::Null => Ok(Container::Null),
+			Self::Null => Ok(JsonLdContainer::Null),
 			Self::Item(item) => Ok((*item).into()),
-			Self::Array(items) => Container::from(items.iter()).map_err(UnexpectedContainerItem),
+			Self::Array(items) => {
+				JsonLdContainer::from(items.iter()).map_err(UnexpectedContainerItem)
+			}
 		}
 	}
 }
@@ -160,12 +162,12 @@ impl ContainerValue {
 /// combination.
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 #[error("unexpected `@container` item: `{0}`")]
-pub struct UnexpectedContainerItem(pub ContainerItem);
+pub struct UnexpectedContainerItem(pub JsonLdContainerItem);
 
-impl From<ContextTypeContainer> for ContainerValue {
+impl From<ContextTypeContainer> for JsonLdContainerValue {
 	fn from(c: ContextTypeContainer) -> Self {
 		match c {
-			ContextTypeContainer::Set => ContainerValue::Item(ContainerItem::Set),
+			ContextTypeContainer::Set => JsonLdContainerValue::Item(JsonLdContainerItem::Set),
 		}
 	}
 }

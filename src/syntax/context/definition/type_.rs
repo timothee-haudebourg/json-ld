@@ -3,7 +3,7 @@ use std::{hash::Hash, str::FromStr};
 /// Context type.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ContextType {
+pub struct JsonLdContextType {
 	#[cfg_attr(feature = "serde", serde(rename = "@container"))]
 	pub container: ContextTypeContainer,
 
@@ -18,7 +18,7 @@ pub struct ContextType {
 	pub protected: Option<bool>,
 }
 
-impl ContextType {
+impl JsonLdContextType {
 	pub fn iter(&self) -> ContextTypeEntries {
 		ContextTypeEntries {
 			container: Some(self.container),

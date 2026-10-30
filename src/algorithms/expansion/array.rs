@@ -3,7 +3,7 @@ use json_syntax::JsonArray;
 use crate::{
 	JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdObject,
 	algorithms::AsyncProcessingEnvironment, context::TermDefinitionRef, object::JsonLdList,
-	syntax::ContainerItem,
+	syntax::JsonLdContainerItem,
 };
 
 use super::{Expanded, Expander};
@@ -26,7 +26,7 @@ impl<'a> Expander<'a> {
 		// `expanded_item` is an array, set `expanded_item` to a new map containing
 		// the entry `@list` where the value is the original `expanded_item`.
 		if let Some(definition) = active_property_definition {
-			is_list = definition.container().contains(ContainerItem::List);
+			is_list = definition.container().contains(JsonLdContainerItem::List);
 		}
 
 		// For each item in element:

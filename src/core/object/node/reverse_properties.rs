@@ -1,28 +1,28 @@
 use super::Nodes;
 use crate::{
-	IndexedJsonLdNode, JsonLdLenient, VisitJsonLd,
-	object::{JsonLdObjectRef, ObjectMut},
+	IndexedJsonLdNode, JsonLdLenient, JsonLdVisit,
+	object::{JsonLdObjectMut, JsonLdObjectRef},
 };
 use btree_indexmap::{BTreeIndexMap, BTreeIndexMultiSet, Comparable};
 use educe::Educe;
 use rdf_syntax::Id;
 use std::hash::Hash;
 
-pub type ReversePropertyNodes = BTreeIndexMultiSet<IndexedJsonLdNode>;
+pub type JsonLdReversePropertyNodes = BTreeIndexMultiSet<IndexedJsonLdNode>;
 
 /// Reverse properties of a node object, and their associated nodes.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct ReverseProperties(BTreeIndexMap<JsonLdLenient<Id>, ReversePropertyNodes>);
+pub struct JsonLdReverseProperties(BTreeIndexMap<JsonLdLenient<Id>, JsonLdReversePropertyNodes>);
 
-impl Default for ReverseProperties {
+impl Default for JsonLdReverseProperties {
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl ReverseProperties {
+impl JsonLdReverseProperties {
 	/// Creates an empty map.
 	pub fn new() -> Self {
 		Self(BTreeIndexMap::new())
@@ -42,15 +42,15 @@ impl ReverseProperties {
 
 	/// Returns an iterator over the reverse properties and their associated nodes.
 	#[inline(always)]
-	pub fn iter(&self) -> Iter<'_> {
-		Iter {
+	pub fn iter(&self) -> JsonLdReversePropertiesIter<'_> {
+		JsonLdReversePropertiesIter {
 			inner: self.0.iter(),
 		}
 	}
 
 	/// Returns an iterator over the reverse properties with a mutable reference to their associated nodes.
 	#[inline(always)]
-	pub fn iter_mut(&mut self) -> IterMut<'_> {
+	pub fn iter_mut(&mut self) -> JsonLdReversePropertiesIterMut<'_> {
 		self.0.iter_mut()
 	}
 
@@ -140,7 +140,7 @@ impl ReverseProperties {
 			}
 		} else {
 			let values = values.into_iter();
-			let mut node_values: ReversePropertyNodes =
+			let mut node_values: JsonLdReversePropertyNodes =
 				BTreeIndexMultiSet::with_capacity(values.size_hint().0);
 			for value in values {
 				if node_values.iter().all(|v| !v.equivalent(&value)) {
@@ -152,7 +152,7 @@ impl ReverseProperties {
 		}
 	}
 
-	pub fn set(&mut self, prop: JsonLdLenient<Id>, values: ReversePropertyNodes) {
+	pub fn set(&mut self, prop: JsonLdLenient<Id>, values: JsonLdReversePropertyNodes) {
 		self.0.insert(prop, values);
 	}
 
@@ -167,26 +167,26 @@ impl ReverseProperties {
 
 	/// Removes and returns all the values associated to the given reverse property.
 	#[inline(always)]
-	pub fn remove(&mut self, prop: &JsonLdLenient<Id>) -> Option<ReversePropertyNodes> {
+	pub fn remove(&mut self, prop: &JsonLdLenient<Id>) -> Option<JsonLdReversePropertyNodes> {
 		self.0.swap_remove(prop)
 	}
 }
 
-impl VisitJsonLd for ReverseProperties {
+impl JsonLdVisit for JsonLdReverseProperties {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for (_, t) in self {
 			t.visit_with(f);
 		}
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
 		for (_, t) in self {
 			t.visit_mut_with(f);
 		}
 	}
 }
 
-impl<N> FromIterator<(JsonLdLenient<Id>, N)> for ReverseProperties
+impl<N> FromIterator<(JsonLdLenient<Id>, N)> for JsonLdReverseProperties
 where
 	N: IntoIterator<Item = IndexedJsonLdNode>,
 {
@@ -199,7 +199,7 @@ where
 	}
 }
 
-impl Extend<(JsonLdLenient<Id>, Vec<IndexedJsonLdNode>)> for ReverseProperties {
+impl Extend<(JsonLdLenient<Id>, Vec<IndexedJsonLdNode>)> for JsonLdReverseProperties {
 	fn extend<I>(&mut self, iter: I)
 	where
 		I: IntoIterator<Item = (JsonLdLenient<Id>, Vec<IndexedJsonLdNode>)>,
@@ -212,19 +212,19 @@ impl Extend<(JsonLdLenient<Id>, Vec<IndexedJsonLdNode>)> for ReverseProperties {
 
 /// Tuple type representing a reverse binding in a node object,
 /// associating a reverse property to some nodes.
-pub type ReverseBinding = (JsonLdLenient<Id>, ReversePropertyNodes);
+pub type JsonLdReverseBinding = (JsonLdLenient<Id>, JsonLdReversePropertyNodes);
 
 /// Tuple type representing a reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes.
-pub type ReverseBindingRef<'a> = (&'a JsonLdLenient<Id>, &'a [IndexedJsonLdNode]);
+pub type JsonLdReverseBindingRef<'a> = (&'a JsonLdLenient<Id>, &'a [IndexedJsonLdNode]);
 
 /// Tuple type representing a mutable reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes, with a mutable access to the nodes.
-pub type ReverseBindingMut<'a> = (&'a JsonLdLenient<Id>, &'a mut ReversePropertyNodes);
+pub type JsonLdReverseBindingMut<'a> = (&'a JsonLdLenient<Id>, &'a mut JsonLdReversePropertyNodes);
 
-impl IntoIterator for ReverseProperties {
-	type Item = ReverseBinding;
-	type IntoIter = IntoIter;
+impl IntoIterator for JsonLdReverseProperties {
+	type Item = JsonLdReverseBinding;
+	type IntoIter = JsonLdReversePropertiesIntoIter;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -232,9 +232,9 @@ impl IntoIterator for ReverseProperties {
 	}
 }
 
-impl<'a> IntoIterator for &'a ReverseProperties {
-	type Item = ReverseBindingRef<'a>;
-	type IntoIter = Iter<'a>;
+impl<'a> IntoIterator for &'a JsonLdReverseProperties {
+	type Item = JsonLdReverseBindingRef<'a>;
+	type IntoIter = JsonLdReversePropertiesIter<'a>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -242,9 +242,9 @@ impl<'a> IntoIterator for &'a ReverseProperties {
 	}
 }
 
-impl<'a> IntoIterator for &'a mut ReverseProperties {
-	type Item = ReverseBindingMut<'a>;
-	type IntoIter = IterMut<'a>;
+impl<'a> IntoIterator for &'a mut JsonLdReverseProperties {
+	type Item = JsonLdReverseBindingMut<'a>;
+	type IntoIter = JsonLdReversePropertiesIterMut<'a>;
 
 	#[inline(always)]
 	fn into_iter(self) -> Self::IntoIter {
@@ -255,19 +255,20 @@ impl<'a> IntoIterator for &'a mut ReverseProperties {
 /// Iterator over the reverse properties of a node.
 ///
 /// It is created by the [`ReverseProperties::into_iter`] function.
-pub type IntoIter = btree_indexmap::map::IntoIter<JsonLdLenient<Id>, ReversePropertyNodes>;
+pub type JsonLdReversePropertiesIntoIter =
+	btree_indexmap::map::IntoIter<JsonLdLenient<Id>, JsonLdReversePropertyNodes>;
 
 /// Iterator over the reverse properties of a node.
 ///
 /// It is created by the [`ReverseProperties::iter`] function.
 #[derive(Educe)]
 #[educe(Clone)]
-pub struct Iter<'a> {
-	inner: btree_indexmap::map::Iter<'a, JsonLdLenient<Id>, ReversePropertyNodes>,
+pub struct JsonLdReversePropertiesIter<'a> {
+	inner: btree_indexmap::map::Iter<'a, JsonLdLenient<Id>, JsonLdReversePropertyNodes>,
 }
 
-impl<'a> Iterator for Iter<'a> {
-	type Item = ReverseBindingRef<'a>;
+impl<'a> Iterator for JsonLdReversePropertiesIter<'a> {
+	type Item = JsonLdReverseBindingRef<'a>;
 
 	#[inline(always)]
 	fn size_hint(&self) -> (usize, Option<usize>) {
@@ -282,12 +283,13 @@ impl<'a> Iterator for Iter<'a> {
 	}
 }
 
-impl<'a> ExactSizeIterator for Iter<'a> {}
+impl<'a> ExactSizeIterator for JsonLdReversePropertiesIter<'a> {}
 
-impl<'a> std::iter::FusedIterator for Iter<'a> {}
+impl<'a> std::iter::FusedIterator for JsonLdReversePropertiesIter<'a> {}
 
 /// Iterator over the reverse properties of a node, giving a mutable reference
 /// to the associated nodes.
 ///
 /// It is created by the [`ReverseProperties::iter_mut`] function.
-pub type IterMut<'a> = btree_indexmap::map::IterMut<'a, JsonLdLenient<Id>, ReversePropertyNodes>;
+pub type JsonLdReversePropertiesIterMut<'a> =
+	btree_indexmap::map::IterMut<'a, JsonLdLenient<Id>, JsonLdReversePropertyNodes>;

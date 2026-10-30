@@ -1,7 +1,7 @@
 use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::Term;
 
-use crate::{Indexed, JsonLdObject};
+use crate::{JsonLdIndexed, JsonLdObject};
 
 use super::RdfSerializationOptions;
 
@@ -37,7 +37,7 @@ impl SerializeLinkedData for JsonLdObject {
 }
 
 impl<T: SerializeLinkedDataWith<RdfSerializationOptions>>
-	SerializeLinkedDataWith<RdfSerializationOptions> for Indexed<T>
+	SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdIndexed<T>
 {
 	fn serialize_rdf_with<S>(
 		&self,
@@ -52,7 +52,7 @@ impl<T: SerializeLinkedDataWith<RdfSerializationOptions>>
 	}
 }
 
-impl<T: SerializeLinkedData> SerializeLinkedData for Indexed<T> {
+impl<T: SerializeLinkedData> SerializeLinkedData for JsonLdIndexed<T> {
 	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,

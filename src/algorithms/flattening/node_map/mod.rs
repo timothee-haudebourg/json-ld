@@ -1,7 +1,7 @@
 use crate::{
-	ConflictingIndexes, Indexed, IndexedJsonLdNode, IndexedObject, JsonLdBacktraceBuilder,
-	JsonLdExpandedDocument, JsonLdFlattenedDocument, JsonLdLenient, JsonLdLocated, JsonLdNode,
-	JsonLdObject, JsonLdSourceFile,
+	ConflictingIndexes, IndexedJsonLdNode, IndexedJsonLdObject, JsonLdBacktraceBuilder,
+	JsonLdExpandedDocument, JsonLdFlattenedDocument, JsonLdIndexed, JsonLdLenient, JsonLdLocated,
+	JsonLdNode, JsonLdObject, JsonLdSourceFile,
 };
 use educe::Educe;
 use json_syntax::tracing::JsonBacktraceBuf;
@@ -309,7 +309,7 @@ impl NodeMapGraph {
 			self.nodes.insert(
 				id.clone(),
 				NodeMapGraphEntry {
-					node: Indexed::new(JsonLdNode::new_with_id(Some(id.clone())), index_str),
+					node: JsonLdIndexed::new(JsonLdNode::new_with_id(Some(id.clone())), index_str),
 					index_location,
 				},
 			);
@@ -346,7 +346,7 @@ impl NodeMapGraph {
 			} else {
 				self.nodes.insert(
 					id.clone(),
-					NodeMapGraphEntry::new(Indexed::new(
+					NodeMapGraphEntry::new(JsonLdIndexed::new(
 						JsonLdNode::new_with_id(Some(id.clone())),
 						index,
 					)),
@@ -411,7 +411,7 @@ fn filter_graph(entry: NodeMapGraphEntry) -> Option<IndexedJsonLdNode> {
 	}
 }
 
-fn filter_sub_graph(mut entry: NodeMapGraphEntry) -> Option<IndexedObject> {
+fn filter_sub_graph(mut entry: NodeMapGraphEntry) -> Option<IndexedJsonLdObject> {
 	if entry.index().is_none() && entry.properties().is_empty() {
 		None
 	} else {

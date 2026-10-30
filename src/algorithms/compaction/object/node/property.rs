@@ -1,8 +1,8 @@
 use json_syntax::{JsonObject, JsonValue};
 
 use crate::{
-	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdNode,
-	JsonLdObject, JsonLdTerm,
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexed, JsonLdLenient, JsonLdLocatedError,
+	JsonLdNode, JsonLdObject, JsonLdTerm,
 	algorithms::{
 		AsyncProcessingEnvironment,
 		compaction::{
@@ -10,9 +10,9 @@ use crate::{
 			object::value::{add_value, value_value},
 		},
 	},
-	context::Container,
+	context::JsonLdContainer,
 	object::{AnyJsonLdObject, JsonLdList, JsonLdObjectRef},
-	syntax::{ContainerItem, Keyword, context::Nest},
+	syntax::{JsonLdContainerItem, Keyword, context::Nest},
 };
 
 impl Compactor<'_> {
@@ -23,7 +23,7 @@ impl Compactor<'_> {
 		list: &JsonLdList,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
-		container: Container,
+		container: JsonLdContainer,
 		as_array: bool,
 		item_active_property: &str,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -44,7 +44,7 @@ impl Compactor<'_> {
 		}
 
 		// If container does not include @list:
-		if !container.contains(ContainerItem::List) {
+		if !container.contains(JsonLdContainerItem::List) {
 			// Convert `compacted_item` to a list object by setting it to
 			// a map containing an entry where the key is the result of
 			// IRI compacting @list and the value is the original
@@ -84,7 +84,7 @@ impl Compactor<'_> {
 		node: &JsonLdNode,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
-		container: Container,
+		container: JsonLdContainer,
 		as_array: bool,
 		item_active_property: &str,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -102,7 +102,9 @@ impl Compactor<'_> {
 		.await?;
 
 		// If `container` includes @graph and @id:
-		if container.contains(ContainerItem::Graph) && container.contains(ContainerItem::Id) {
+		if container.contains(JsonLdContainerItem::Graph)
+			&& container.contains(JsonLdContainerItem::Id)
+		{
 			// Initialize `map_object` to the value of `item_active_property`
 			// in `nest_result`, initializing it to a new empty map,
 			// if necessary.
@@ -138,8 +140,8 @@ impl Compactor<'_> {
 			// Use `add_value` to add `compacted_item` to
 			// the `map_key` entry in `map_object` using `as_array`.
 			add_value(map_object, &map_key, compacted_item, as_array)
-		} else if container.contains(ContainerItem::Graph)
-			&& container.contains(ContainerItem::Index)
+		} else if container.contains(JsonLdContainerItem::Graph)
+			&& container.contains(JsonLdContainerItem::Index)
 			&& node.is_simple_graph()
 		{
 			// Initialize `map_object` to the value of `item_active_property`
@@ -168,7 +170,7 @@ impl Compactor<'_> {
 			// Use `add_value` to add `compacted_item` to
 			// the `map_key` entry in `map_object` using `as_array`.
 			add_value(map_object, map_key, compacted_item, as_array)
-		} else if container.contains(ContainerItem::Graph) && node.is_simple_graph() {
+		} else if container.contains(JsonLdContainerItem::Graph) && node.is_simple_graph() {
 			// Otherwise, if `container` includes @graph and
 			// `expanded_item` is a simple graph object
 			// the value cannot be represented as a map object.
@@ -256,7 +258,7 @@ impl Compactor<'_> {
 		item_active_property: &str,
 		compact_arrays: bool,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<(&'a mut JsonObject, Container, bool), JsonLdLocatedError> {
+	) -> Result<(&'a mut JsonObject, JsonLdContainer, bool), JsonLdLocatedError> {
 		let (nest_result, container) = match self.active_context.get(item_active_property) {
 			Some(term_definition) => {
 				let nest_result = match term_definition.nest() {
@@ -304,7 +306,7 @@ impl Compactor<'_> {
 
 				(nest_result, term_definition.container())
 			}
-			None => (result, Container::Null),
+			None => (result, JsonLdContainer::Null),
 		};
 
 		// Initialize container to container mapping for item active property
@@ -315,7 +317,7 @@ impl Compactor<'_> {
 		// Initialize `as_array` to true if `container` includes @set,
 		// or if `item_active_property` is @graph or @list,
 		// otherwise the negation of `options.compact_arrays`.
-		let as_array = if container.contains(ContainerItem::Set)
+		let as_array = if container.contains(JsonLdContainerItem::Set)
 			|| item_active_property == "@graph"
 			|| item_active_property == "@list"
 		{
@@ -339,7 +341,7 @@ impl Compactor<'_> {
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError>
 	where
-		O: IntoIterator<Item = &'a Indexed<T>>,
+		O: IntoIterator<Item = &'a JsonLdIndexed<T>>,
 		T: 'a + AnyJsonLdObject,
 	{
 		let mut is_empty = true;
@@ -417,11 +419,11 @@ impl Compactor<'_> {
 
 						// if container includes @language, @index, @id,
 						// or @type and container does not include @graph:
-						if !container.contains(ContainerItem::Graph)
-							&& (container.contains(ContainerItem::Language)
-								|| container.contains(ContainerItem::Index)
-								|| container.contains(ContainerItem::Id)
-								|| container.contains(ContainerItem::Type))
+						if !container.contains(JsonLdContainerItem::Graph)
+							&& (container.contains(JsonLdContainerItem::Language)
+								|| container.contains(JsonLdContainerItem::Index)
+								|| container.contains(JsonLdContainerItem::Id)
+								|| container.contains(JsonLdContainerItem::Type))
 						{
 							// Initialize `map_object` to the value of
 							// `item_active_property` in `nest_result`,
@@ -447,15 +449,16 @@ impl Compactor<'_> {
 
 							// Initialize container key by IRI compacting either
 							// @language, @index, @id, or @type based on the contents of container.
-							let container_type = if container.contains(ContainerItem::Language) {
-								ContainerItem::Language
-							} else if container.contains(ContainerItem::Index) {
-								ContainerItem::Index
-							} else if container.contains(ContainerItem::Id) {
-								ContainerItem::Id
-							} else {
-								ContainerItem::Type
-							};
+							let container_type =
+								if container.contains(JsonLdContainerItem::Language) {
+									JsonLdContainerItem::Language
+								} else if container.contains(JsonLdContainerItem::Index) {
+									JsonLdContainerItem::Index
+								} else if container.contains(JsonLdContainerItem::Id) {
+									JsonLdContainerItem::Id
+								} else {
+									JsonLdContainerItem::Type
+								};
 
 							let mut container_key = self.compact_iri(
 								&JsonLdTerm::Keyword(container_type.into()),
@@ -478,7 +481,7 @@ impl Compactor<'_> {
 							// the value associated with its @value entry.
 							// Set `map_key` to the value of @language in `expanded_item`,
 							// if any.
-							let map_key = if container_type == ContainerItem::Language
+							let map_key = if container_type == JsonLdContainerItem::Language
 								&& expanded_item.is_value()
 							{
 								if let JsonLdObjectRef::Value(value) =
@@ -488,7 +491,7 @@ impl Compactor<'_> {
 								}
 
 								expanded_item.language().map(|lang| lang.to_string())
-							} else if container_type == ContainerItem::Index {
+							} else if container_type == JsonLdContainerItem::Index {
 								match index_key {
 									Some(index_key) => {
 										// Otherwise, if `container` includes @index and
@@ -568,7 +571,7 @@ impl Compactor<'_> {
 										expanded_item.index().map(ToOwned::to_owned)
 									}
 								}
-							} else if container_type == ContainerItem::Id {
+							} else if container_type == JsonLdContainerItem::Id {
 								// Otherwise, if `container` includes @id,
 								// set `map_key` to the value of `container_key` in
 								// `compacted_item` and remove `container_key` from
@@ -707,7 +710,10 @@ impl Compactor<'_> {
 				&expanded_property,
 				true,
 				inside_reverse,
-				Some(&Indexed::new(JsonLdObject::node(JsonLdNode::new()), None)),
+				Some(&JsonLdIndexed::new(
+					JsonLdObject::node(JsonLdNode::new()),
+					None,
+				)),
 				location,
 			)?;
 

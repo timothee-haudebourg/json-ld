@@ -7,9 +7,9 @@ use crate::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		context_processing::ContextProcessingOptions,
 	},
-	context::Container,
+	context::JsonLdContainer,
 	object::value::LiteralType,
-	syntax::{ContainerItem, Keyword},
+	syntax::{JsonLdContainerItem, Keyword},
 };
 
 use super::Compactor;
@@ -102,10 +102,11 @@ impl<'a> Compactor<'a> {
 
 		let container_mapping = match active_property_definition {
 			Some(def) => def.container(),
-			None => Container::Null,
+			None => JsonLdContainer::Null,
 		};
 
-		let remove_index = (index.is_some() && container_mapping.contains(ContainerItem::Index))
+		let remove_index = (index.is_some()
+			&& container_mapping.contains(JsonLdContainerItem::Index))
 			|| index.is_none();
 
 		match value {

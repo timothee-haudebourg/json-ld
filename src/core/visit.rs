@@ -6,19 +6,19 @@ use rdf_syntax::{BlankIdBuf, Generator, Id};
 
 use crate::{
 	JsonLdLenient,
-	object::{JsonLdObjectRef, ObjectMut},
+	object::{JsonLdObjectMut, JsonLdObjectRef},
 };
 
-pub trait VisitJsonLd {
+pub trait JsonLdVisit {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef));
 
 	fn visit(&self, mut f: impl FnMut(JsonLdObjectRef)) {
 		self.visit_with(&mut f);
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut));
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut));
 
-	fn visit_mut(&mut self, mut f: impl FnMut(ObjectMut)) {
+	fn visit_mut(&mut self, mut f: impl FnMut(JsonLdObjectMut)) {
 		self.visit_mut_with(&mut f);
 	}
 
@@ -64,8 +64,8 @@ pub trait VisitJsonLd {
 	}
 }
 
-fn relabel_object(object: ObjectMut, relabeling: &mut Relabeling<impl Generator>) {
-	if let ObjectMut::Node(node) = object {
+fn relabel_object(object: JsonLdObjectMut, relabeling: &mut Relabeling<impl Generator>) {
+	if let JsonLdObjectMut::Node(node) = object {
 		node.id = Some(relabeling.relabel(node.id.take()));
 
 		if let Some(types) = node.types.take() {
@@ -79,15 +79,15 @@ fn relabel_object(object: ObjectMut, relabeling: &mut Relabeling<impl Generator>
 	}
 }
 
-fn canonicalize_object(object: ObjectMut, buffer: &mut ryu_js::Buffer) {
-	if let ObjectMut::Value(value) = object {
+fn canonicalize_object(object: JsonLdObjectMut, buffer: &mut ryu_js::Buffer) {
+	if let JsonLdObjectMut::Value(value) = object {
 		value.canonicalize_with(buffer);
 	}
 }
 
-impl<T> VisitJsonLd for [T]
+impl<T> JsonLdVisit for [T]
 where
-	T: VisitJsonLd,
+	T: JsonLdVisit,
 {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for t in self {
@@ -95,16 +95,16 @@ where
 		}
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
 		for t in self {
 			t.visit_mut_with(f);
 		}
 	}
 }
 
-impl<T> VisitJsonLd for BTreeIndexSet<T>
+impl<T> JsonLdVisit for BTreeIndexSet<T>
 where
-	T: VisitJsonLd + Ord,
+	T: JsonLdVisit + Ord,
 {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for t in self {
@@ -112,7 +112,7 @@ where
 		}
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
 		for mut t in std::mem::take(self) {
 			t.visit_mut_with(f);
 			self.insert(t);
@@ -120,9 +120,9 @@ where
 	}
 }
 
-impl<T> VisitJsonLd for BTreeIndexMultiSet<T>
+impl<T> JsonLdVisit for BTreeIndexMultiSet<T>
 where
-	T: VisitJsonLd + Ord,
+	T: JsonLdVisit + Ord,
 {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for t in self {
@@ -130,7 +130,7 @@ where
 		}
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
 		for mut t in std::mem::take(self) {
 			t.visit_mut_with(f);
 			self.insert(t);
@@ -138,9 +138,9 @@ where
 	}
 }
 
-impl<T> VisitJsonLd for Option<T>
+impl<T> JsonLdVisit for Option<T>
 where
-	T: VisitJsonLd,
+	T: JsonLdVisit,
 {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		if let Some(t) = self {
@@ -148,7 +148,7 @@ where
 		}
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
 		if let Some(t) = self {
 			t.visit_mut_with(f);
 		}

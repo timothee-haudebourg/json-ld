@@ -4,17 +4,17 @@ use json_syntax::{JsonNumber, JsonNumberBuf};
 
 #[derive(Debug, thiserror::Error)]
 #[error("unknown JSON-LD version `{0}`")]
-pub struct UnknownVersion(pub String);
+pub struct UnknownJsonLdVersion(pub String);
 
 /// Version number.
 ///
 /// The only allowed value is a number with the value `1.1`.
 #[derive(Clone, Copy, PartialOrd, Ord, Debug)]
-pub enum Version {
+pub enum JsonLdVersion {
 	V1_1,
 }
 
-impl Version {
+impl JsonLdVersion {
 	pub fn into_bytes(self) -> &'static [u8] {
 		match self {
 			Self::V1_1 => b"1.1",
@@ -36,82 +36,82 @@ impl Version {
 	}
 }
 
-impl PartialEq for Version {
+impl PartialEq for JsonLdVersion {
 	fn eq(&self, _other: &Self) -> bool {
 		true
 	}
 }
 
-impl Eq for Version {}
+impl Eq for JsonLdVersion {}
 
-impl Hash for Version {
+impl Hash for JsonLdVersion {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.into_str().hash(state)
 	}
 }
 
-impl From<Version> for &JsonNumber {
-	fn from(v: Version) -> Self {
+impl From<JsonLdVersion> for &JsonNumber {
+	fn from(v: JsonLdVersion) -> Self {
 		v.into_json_number()
 	}
 }
 
-impl From<Version> for JsonNumberBuf {
-	fn from(v: Version) -> Self {
+impl From<JsonLdVersion> for JsonNumberBuf {
+	fn from(v: JsonLdVersion) -> Self {
 		v.into_json_number_buf()
 	}
 }
 
-impl TryFrom<JsonNumberBuf> for Version {
-	type Error = UnknownVersion;
+impl TryFrom<JsonNumberBuf> for JsonLdVersion {
+	type Error = UnknownJsonLdVersion;
 
 	fn try_from(value: JsonNumberBuf) -> Result<Self, Self::Error> {
 		if value.trimmed().as_str() == "1.1" {
 			Ok(Self::V1_1)
 		} else {
-			Err(UnknownVersion(value.to_string()))
+			Err(UnknownJsonLdVersion(value.to_string()))
 		}
 	}
 }
 
-impl FromStr for Version {
-	type Err = UnknownVersion;
+impl FromStr for JsonLdVersion {
+	type Err = UnknownJsonLdVersion;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		if s == "1.1" {
-			Ok(Version::V1_1)
+			Ok(JsonLdVersion::V1_1)
 		} else {
-			Err(UnknownVersion(s.to_owned()))
+			Err(UnknownJsonLdVersion(s.to_owned()))
 		}
 	}
 }
 
-impl TryFrom<f32> for Version {
-	type Error = UnknownVersion;
+impl TryFrom<f32> for JsonLdVersion {
+	type Error = UnknownJsonLdVersion;
 
 	fn try_from(value: f32) -> Result<Self, Self::Error> {
 		if value == 1.1 {
-			Ok(Version::V1_1)
+			Ok(JsonLdVersion::V1_1)
 		} else {
-			Err(UnknownVersion(value.to_string()))
+			Err(UnknownJsonLdVersion(value.to_string()))
 		}
 	}
 }
 
-impl TryFrom<f64> for Version {
-	type Error = UnknownVersion;
+impl TryFrom<f64> for JsonLdVersion {
+	type Error = UnknownJsonLdVersion;
 
 	fn try_from(value: f64) -> Result<Self, Self::Error> {
 		if value == 1.1 {
-			Ok(Version::V1_1)
+			Ok(JsonLdVersion::V1_1)
 		} else {
-			Err(UnknownVersion(value.to_string()))
+			Err(UnknownJsonLdVersion(value.to_string()))
 		}
 	}
 }
 
 #[cfg(feature = "serde")]
-impl serde::Serialize for Version {
+impl serde::Serialize for JsonLdVersion {
 	fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: serde::Serializer,
@@ -121,7 +121,7 @@ impl serde::Serialize for Version {
 }
 
 #[cfg(feature = "serde")]
-impl<'de> serde::Deserialize<'de> for Version {
+impl<'de> serde::Deserialize<'de> for JsonLdVersion {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
 	where
 		D: serde::Deserializer<'de>,

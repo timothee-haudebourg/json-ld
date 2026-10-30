@@ -4,17 +4,20 @@ use rdf_syntax::{BlankId, Id};
 use rdf_syntax::{Iri, IriRef};
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, JsonLdType,
-	Nullable, ProcessingMode, Warning,
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdNullable,
+	JsonLdProcessingMode, JsonLdTerm, JsonLdType, JsonLdWarning,
 	algorithms::{
 		AsyncProcessingEnvironment,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
 	},
-	context::Container,
-	context::{NormalTermDefinition, TypeTermDefinition},
+	context::JsonLdContainer,
+	context::{JsonLdNormalTermDefinition, JsonLdTypeTermDefinition},
 	syntax::{
-		CompactIri, ContainerItem, ContainerValue, ExpandableRef, Keyword,
-		context::{EntryValueRef, ExpandedTermDefinitionRef, IdRef, KeyOrKeyword, KeyOrKeywordRef},
+		JsonLdCompactIri, JsonLdContainerItem, JsonLdContainerValue, JsonLdExpandableRef, Keyword,
+		context::{
+			ExpandedTermDefinitionRef, IdRef, JsonLdContextEntryValueRef, JsonLdKeyOrKeyword,
+			JsonLdKeyOrKeywordRef,
+		},
 	},
 };
 
@@ -48,7 +51,7 @@ fn contains_between_boundaries(id: &str, c: char) -> bool {
 }
 
 #[derive(Default)]
-pub struct DefinedTerms(HashMap<KeyOrKeyword, DefinedTerm>);
+pub struct DefinedTerms(HashMap<JsonLdKeyOrKeyword, DefinedTerm>);
 
 impl DefinedTerms {
 	pub fn new() -> Self {
@@ -60,7 +63,7 @@ impl DefinedTerms {
 	pub fn begin(
 		&mut self,
 		location: JsonLdBacktraceBuilder<'_>,
-		key: &KeyOrKeyword,
+		key: &JsonLdKeyOrKeyword,
 	) -> Result<bool, JsonLdLocatedError> {
 		match self.0.get(key) {
 			Some(d) => {
@@ -78,7 +81,7 @@ impl DefinedTerms {
 		}
 	}
 
-	pub fn end(&mut self, key: &KeyOrKeyword) {
+	pub fn end(&mut self, key: &JsonLdKeyOrKeyword) {
 		self.0.get_mut(key).unwrap().pending = false
 	}
 }
@@ -101,7 +104,7 @@ impl<'a> ContextProcessor<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		result: &mut TargetProcessedContext<'_>,
 		local_context: &Merged<'_>,
-		term: KeyOrKeywordRef<'_>,
+		term: JsonLdKeyOrKeywordRef<'_>,
 		protected: bool,
 		context_loc: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError> {
@@ -121,10 +124,10 @@ impl<'a> ContextProcessor<'a> {
 				// Done with `defined.begin`.
 				match value {
 					// If term is @type, ...
-					EntryValueRef::Type(d) => {
+					JsonLdContextEntryValueRef::Type(d) => {
 						// ... and processing mode is json-ld-1.0, a keyword
 						// redefinition error has been detected and processing is aborted.
-						if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+						if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 							return Err(JsonLdError::KeywordRedefinition.at(term_loc));
 						}
 
@@ -137,13 +140,13 @@ impl<'a> ContextProcessor<'a> {
 						// Any other value means that a keyword redefinition error has been detected
 						// and processing is aborted.
 						// Checked during parsing.
-						let mut definition = TypeTermDefinition {
+						let mut definition = JsonLdTypeTermDefinition {
 							container: d.container,
 							..Default::default()
 						};
 
 						if let Some(protected) = d.protected {
-							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 								return Err(JsonLdError::InvalidTermDefinition.at(term_loc));
 							}
 
@@ -171,7 +174,7 @@ impl<'a> ContextProcessor<'a> {
 
 						result.value.set_type(Some(definition));
 					}
-					EntryValueRef::Definition(d) => {
+					JsonLdContextEntryValueRef::Definition(d) => {
 						let key = term.as_key().unwrap();
 						// Initialize `previous_definition` to any existing term definition for `term` in
 						// `active_context`, removing that term definition from active context.
@@ -182,7 +185,7 @@ impl<'a> ContextProcessor<'a> {
 
 						// Create a new term definition, `definition`, initializing `prefix` flag to
 						// `false`, `protected` to `protected`, and `reverse_property` to `false`.
-						let mut definition = NormalTermDefinition {
+						let mut definition = JsonLdNormalTermDefinition {
 							protected,
 							location: term_loc.build(),
 							..Default::default()
@@ -193,7 +196,7 @@ impl<'a> ContextProcessor<'a> {
 						if let Some(protected) = value.protected {
 							// If processing mode is json-ld-1.0, an invalid term definition has
 							// been detected and processing is aborted.
-							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 								return Err(JsonLdError::InvalidTermDefinition.at(term_loc));
 							}
 
@@ -217,7 +220,7 @@ impl<'a> ContextProcessor<'a> {
 							// If the expanded type is @json or @none, and processing mode is
 							// json-ld-1.0, an invalid type mapping error has been detected and
 							// processing is aborted.
-							if self.options.processing_mode == ProcessingMode::JsonLd1_0
+							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0
 								&& (typ == JsonLdTerm::Keyword(Keyword::Json)
 									|| typ == JsonLdTerm::Keyword(Keyword::None))
 							{
@@ -243,7 +246,9 @@ impl<'a> ContextProcessor<'a> {
 							// If the value associated with the @reverse entry is a string having
 							// the form of a keyword, return; processors SHOULD generate a warning.
 							if reverse_value.is_keyword_like() {
-								env.warn(Warning::KeywordLikeValue(reverse_value.to_string()));
+								env.warn(JsonLdWarning::KeywordLikeValue(
+									reverse_value.to_string(),
+								));
 								return Ok(());
 							}
 
@@ -258,7 +263,7 @@ impl<'a> ContextProcessor<'a> {
 									env,
 									result,
 									local_context,
-									Nullable::Some(reverse_value.as_str().into()),
+									JsonLdNullable::Some(reverse_value.as_str().into()),
 									context_loc,
 								)
 								.await?
@@ -278,7 +283,10 @@ impl<'a> ContextProcessor<'a> {
 								let container = container_value.to_container().map_err(|_| {
 									JsonLdError::InvalidContainerMapping.at(term_loc)
 								})?;
-								if matches!(container, Container::Set | Container::Index) {
+								if matches!(
+									container,
+									JsonLdContainer::Set | JsonLdContainer::Index
+								) {
 									definition.container = container
 								} else {
 									return Err(JsonLdError::InvalidReverseProperty.at(term_loc));
@@ -292,15 +300,15 @@ impl<'a> ContextProcessor<'a> {
 						match value.id {
 							// If `value` contains the entry `@id` and its value does not equal `term`:
 							Some(id_value)
-								if id_value.cast::<KeyOrKeywordRef>()
-									!= Nullable::Some(key.into()) =>
+								if id_value.cast::<JsonLdKeyOrKeywordRef>()
+									!= JsonLdNullable::Some(key.into()) =>
 							{
 								match id_value {
 									// If the `@id` entry of value is `null`, the term is not used for IRI
 									// expansion, but is retained to be able to detect future redefinitions
 									// of this term.
-									Nullable::Null => (),
-									Nullable::Some(id_value) => {
+									JsonLdNullable::Null => (),
+									JsonLdNullable::Some(id_value) => {
 										// Otherwise:
 										// If the value associated with the `@id` entry is not a
 										// keyword, but has the form of a keyword, return;
@@ -309,7 +317,7 @@ impl<'a> ContextProcessor<'a> {
 											debug_assert!(
 												Keyword::try_from(id_value.as_str()).is_err()
 											);
-											env.warn(Warning::KeywordLikeValue(
+											env.warn(JsonLdWarning::KeywordLikeValue(
 												id_value.to_string(),
 											));
 											return Ok(());
@@ -323,7 +331,7 @@ impl<'a> ContextProcessor<'a> {
 												env,
 												result,
 												local_context,
-												Nullable::Some(id_value.into()),
+												JsonLdNullable::Some(id_value.into()),
 												context_loc,
 											)
 											.await?
@@ -366,7 +374,7 @@ impl<'a> ContextProcessor<'a> {
 													env,
 													result,
 													local_context,
-													Nullable::Some((&term).into()),
+													JsonLdNullable::Some((&term).into()),
 													context_loc,
 												)
 												.await?;
@@ -392,7 +400,7 @@ impl<'a> ContextProcessor<'a> {
 									}
 								}
 							}
-							Some(Nullable::Some(IdRef::Keyword(Keyword::Type))) => {
+							Some(JsonLdNullable::Some(IdRef::Keyword(Keyword::Type))) => {
 								// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
 								// `@type`.
 								definition.value = Some(JsonLdTerm::Keyword(Keyword::Type))
@@ -400,8 +408,8 @@ impl<'a> ContextProcessor<'a> {
 							_ => {
 								// Otherwise if the `term` contains a colon (:) anywhere after the first
 								// character.
-								if let KeyOrKeyword::Key(term) = &term {
-									if let Ok(compact_iri) = CompactIri::new(term.as_str()) {
+								if let JsonLdKeyOrKeyword::Key(term) = &term {
+									if let Ok(compact_iri) = JsonLdCompactIri::new(term.as_str()) {
 										// If `term` is a compact IRI with a prefix that is an entry in local
 										// context a dependency has been found.
 										// Use this algorithm recursively passing `active_context`,
@@ -410,7 +418,7 @@ impl<'a> ContextProcessor<'a> {
 											env,
 											result,
 											local_context,
-											KeyOrKeywordRef::Key(compact_iri.prefix().into()),
+											JsonLdKeyOrKeywordRef::Key(compact_iri.prefix().into()),
 											false,
 											context_loc,
 										))
@@ -463,9 +471,11 @@ impl<'a> ContextProcessor<'a> {
 														// Set the IRI mapping of definition to the result of IRI expanding
 														// term.
 														match result.value.expand_iri_with(
-															Nullable::Some(ExpandableRef::String(
-																iri_ref.as_str(),
-															)),
+															JsonLdNullable::Some(
+																JsonLdExpandableRef::String(
+																	iri_ref.as_str(),
+																),
+															),
 															false,
 															true,
 															|w| env.warn(w),
@@ -533,13 +543,13 @@ impl<'a> ContextProcessor<'a> {
 							// If the container value is @graph, @id, or @type, or is otherwise not a
 							// string, generate an invalid container mapping error and abort processing
 							// if processing mode is json-ld-1.0.
-							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 								match &container_value {
-									ContainerValue::Item(
-										ContainerItem::Index
-										| ContainerItem::Language
-										| ContainerItem::List
-										| ContainerItem::Set,
+									JsonLdContainerValue::Item(
+										JsonLdContainerItem::Index
+										| JsonLdContainerItem::Language
+										| JsonLdContainerItem::List
+										| JsonLdContainerItem::Set,
 									) => (),
 									_ => {
 										return Err(
@@ -567,7 +577,7 @@ impl<'a> ContextProcessor<'a> {
 							// already done.
 
 							// If the `container` mapping of definition includes `@type`:
-							if definition.container.contains(ContainerItem::Type) {
+							if definition.container.contains(JsonLdContainerItem::Type) {
 								if let Some(typ) = &definition.typ {
 									// If type mapping in definition is neither `@id` nor `@vocab`,
 									// an invalid type mapping error has been detected and processing
@@ -592,8 +602,8 @@ impl<'a> ContextProcessor<'a> {
 							// If processing mode is json-ld-1.0 or container mapping does not include
 							// `@index`, an invalid term definition has been detected and processing
 							// is aborted.
-							if !definition.container.contains(ContainerItem::Index)
-								|| self.options.processing_mode == ProcessingMode::JsonLd1_0
+							if !definition.container.contains(JsonLdContainerItem::Index)
+								|| self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0
 							{
 								return Err(JsonLdError::InvalidTermDefinition.at(term_loc));
 							}
@@ -603,7 +613,7 @@ impl<'a> ContextProcessor<'a> {
 							// Otherwise, an invalid term definition has been detected and processing
 							// is aborted.
 							match result.value.expand_iri_with(
-								Nullable::Some(index_value.as_str().into()),
+								JsonLdNullable::Some(index_value.as_str().into()),
 								false,
 								true,
 								|w| env.warn(w),
@@ -619,7 +629,7 @@ impl<'a> ContextProcessor<'a> {
 						if let Some(context) = value.context {
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
-							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 								return Err(JsonLdError::InvalidTermDefinition.at(term_loc));
 							}
 
@@ -679,7 +689,7 @@ impl<'a> ContextProcessor<'a> {
 						if let Some(nest_value) = value.nest {
 							// If processing mode is json-ld-1.0, an invalid term definition has been
 							// detected and processing is aborted.
-							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 								return Err(JsonLdError::InvalidTermDefinition.at(term_loc));
 							}
 
@@ -693,7 +703,7 @@ impl<'a> ContextProcessor<'a> {
 							// is aborted.
 							if key.as_str().contains(':')
 								|| key.as_str().contains('/')
-								|| self.options.processing_mode == ProcessingMode::JsonLd1_0
+								|| self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0
 							{
 								return Err(JsonLdError::InvalidTermDefinition.at(term_loc));
 							}

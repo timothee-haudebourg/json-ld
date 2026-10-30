@@ -7,9 +7,9 @@ use rdf_syntax::{InvalidIri, Iri, IriBuf, IriRef, IriRefBuf};
 pub struct InvalidCompactIri<T>(pub T);
 
 #[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub struct CompactIri(str);
+pub struct JsonLdCompactIri(str);
 
-impl CompactIri {
+impl JsonLdCompactIri {
 	/// Checks that `s` has the syntactic shape of a compact IRI, namely
 	/// `prefix:suffix`, where `prefix` is not `_` (which denotes a blank
 	/// node identifier instead) and `suffix` does not start with `//`
@@ -91,7 +91,7 @@ impl CompactIri {
 	}
 }
 
-impl std::ops::Deref for CompactIri {
+impl std::ops::Deref for JsonLdCompactIri {
 	type Target = str;
 
 	fn deref(&self) -> &str {
@@ -99,13 +99,13 @@ impl std::ops::Deref for CompactIri {
 	}
 }
 
-impl std::borrow::Borrow<str> for CompactIri {
+impl std::borrow::Borrow<str> for JsonLdCompactIri {
 	fn borrow(&self) -> &str {
 		&self.0
 	}
 }
 
-impl AsRef<str> for CompactIri {
+impl AsRef<str> for JsonLdCompactIri {
 	fn as_ref(&self) -> &str {
 		&self.0
 	}
@@ -116,7 +116,7 @@ pub struct CompactIriBuf(String);
 
 impl CompactIriBuf {
 	pub fn from_string(s: String) -> Result<Self, InvalidCompactIri<String>> {
-		match CompactIri::new(&s) {
+		match JsonLdCompactIri::new(&s) {
 			Ok(_) => Ok(unsafe { Self::new_unchecked(s) }),
 			Err(_) => Err(InvalidCompactIri(s)),
 		}
@@ -131,8 +131,8 @@ impl CompactIriBuf {
 		Self(s)
 	}
 
-	pub fn as_compact_iri(&self) -> &CompactIri {
-		unsafe { CompactIri::new_unchecked(&self.0) }
+	pub fn as_compact_iri(&self) -> &JsonLdCompactIri {
+		unsafe { JsonLdCompactIri::new_unchecked(&self.0) }
 	}
 
 	pub fn into_iri_ref(self) -> IriRefBuf {
@@ -144,16 +144,16 @@ impl CompactIriBuf {
 	}
 }
 
-impl std::borrow::Borrow<CompactIri> for CompactIriBuf {
-	fn borrow(&self) -> &CompactIri {
+impl std::borrow::Borrow<JsonLdCompactIri> for CompactIriBuf {
+	fn borrow(&self) -> &JsonLdCompactIri {
 		self.as_compact_iri()
 	}
 }
 
 impl std::ops::Deref for CompactIriBuf {
-	type Target = CompactIri;
+	type Target = JsonLdCompactIri;
 
-	fn deref(&self) -> &CompactIri {
+	fn deref(&self) -> &JsonLdCompactIri {
 		self.as_compact_iri()
 	}
 }

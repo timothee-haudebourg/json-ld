@@ -17,21 +17,21 @@ use stack::ProcessingStack;
 
 use crate::{
 	AsyncJsonLdLoader, JsonLdBacktraceBuilder, JsonLdContextDocument, JsonLdError,
-	JsonLdLocatedError, JsonLdSourceFileRef, JsonLdTerm, Nullable, ProcessedJsonLdContext,
-	ProcessingMode,
+	JsonLdLocatedError, JsonLdNullable, JsonLdProcessingMode, JsonLdSourceFileRef, JsonLdTerm,
+	ProcessedJsonLdContext,
 	algorithms::AsyncProcessingEnvironment,
-	context::RawProcessedContext,
-	syntax::{JsonLdContext, JsonLdContextEntry, Keyword, context::KeyOrKeywordRef},
+	context::RawJsonLdProcessedContext,
+	syntax::{JsonLdContext, JsonLdContextEntry, Keyword, context::JsonLdKeyOrKeywordRef},
 };
 
 struct TargetProcessedContext<'a> {
-	pub value: &'a mut RawProcessedContext,
+	pub value: &'a mut RawJsonLdProcessedContext,
 	pub defined: DefinedTerms,
 }
 
 struct ContextProcessor<'a> {
 	pub remote_contexts: ProcessingStack,
-	pub active_context: &'a RawProcessedContext,
+	pub active_context: &'a RawJsonLdProcessedContext,
 	pub base_url: Option<&'a Iri>,
 	pub options: ContextProcessingOptions,
 }
@@ -48,7 +48,7 @@ impl<'a> ContextProcessor<'a> {
 
 	fn for_sub_context<'b>(
 		&'b self,
-		active_context: &'b RawProcessedContext,
+		active_context: &'b RawJsonLdProcessedContext,
 		base_url: Option<&'b Iri>,
 		options: ContextProcessingOptions,
 	) -> ContextProcessor<'b> {
@@ -75,7 +75,7 @@ impl JsonLdContextDocument {
 			.process_with(
 				env,
 				self.url(),
-				&RawProcessedContext::new(None),
+				&RawJsonLdProcessedContext::new(None),
 				ContextProcessingOptions::default(),
 				loc,
 			)
@@ -92,7 +92,7 @@ impl JsonLdContext {
 		env: impl AsyncProcessingEnvironment,
 		base_url: Option<&Iri>,
 	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
-		let active_context = RawProcessedContext::new(None);
+		let active_context = RawJsonLdProcessedContext::new(None);
 		self.process_with(
 			env,
 			base_url,
@@ -112,7 +112,7 @@ impl JsonLdContext {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		base_url: Option<&Iri>,
-		active_context: &RawProcessedContext,
+		active_context: &RawJsonLdProcessedContext,
 		options: ContextProcessingOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
@@ -134,7 +134,7 @@ impl<'a> ContextProcessor<'a> {
 		env: &impl AsyncProcessingEnvironment,
 		local_context: &JsonLdContext,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<RawProcessedContext, JsonLdLocatedError> {
+	) -> Result<RawJsonLdProcessedContext, JsonLdLocatedError> {
 		// 1) Initialize result to the result of cloning active context.
 		let mut result = self.active_context.clone();
 
@@ -143,7 +143,7 @@ impl<'a> ContextProcessor<'a> {
 		if let JsonLdContext::One(JsonLdContextEntry::Definition(def)) = local_context
 			&& let Some(propagate) = def.propagate
 		{
-			if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+			if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 				return Err(JsonLdError::InvalidContextEntry.at(location));
 			}
 
@@ -177,7 +177,7 @@ impl<'a> ContextProcessor<'a> {
 						// Initialize `result` as a newly-initialized active context, setting both
 						// `base_iri` and `original_base_url` to the value of `original_base_url` in
 						// active context, ...
-						result = RawProcessedContext::new(
+						result = RawJsonLdProcessedContext::new(
 							self.active_context
 								.original_base_url()
 								.map(ToOwned::to_owned),
@@ -260,7 +260,7 @@ impl<'a> ContextProcessor<'a> {
 					if context.version.is_some() {
 						// 5.5.2) If processing mode is set to json-ld-1.0, a processing mode conflict
 						// error has been detected.
-						if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+						if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 							return Err(JsonLdError::ProcessingModeConflict.at(entry_loc));
 						}
 					}
@@ -273,7 +273,7 @@ impl<'a> ContextProcessor<'a> {
 							// has been detected.
 							let import_loc = entry_loc.object_value(Keyword::Import);
 
-							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 								return Err(JsonLdError::InvalidContextEntry.at(import_loc));
 							}
 
@@ -332,11 +332,11 @@ impl<'a> ContextProcessor<'a> {
 						// Initialize value to the value associated with the @base entry.
 						if let Some(value) = context.base() {
 							match value {
-								Nullable::Null => {
+								JsonLdNullable::Null => {
 									// If value is null, remove the base IRI of result.
 									result.set_base_iri(None);
 								}
-								Nullable::Some(iri_ref) => match iri_ref.as_iri() {
+								JsonLdNullable::Some(iri_ref) => match iri_ref.as_iri() {
 									Some(iri) => result.set_base_iri(Some(iri.to_owned())),
 									None => {
 										let resolved = resolve_iri(iri_ref, result.base_iri())
@@ -355,11 +355,11 @@ impl<'a> ContextProcessor<'a> {
 					// Initialize value to the value associated with the @vocab entry.
 					if let Some(value) = context.vocab() {
 						match value {
-							Nullable::Null => {
+							JsonLdNullable::Null => {
 								// If value is null, remove any vocabulary mapping from result.
 								result.set_vocabulary(None);
 							}
-							Nullable::Some(value) => {
+							JsonLdNullable::Some(value) => {
 								// Otherwise, if value is an IRI or blank node identifier, the
 								// vocabulary mapping of result is set to the result of IRI
 								// expanding value using true for document relative. If it is not
@@ -368,7 +368,7 @@ impl<'a> ContextProcessor<'a> {
 								// NOTE: The use of blank node identifiers to value for @vocab is
 								// obsolete, and may be removed in a future version of JSON-LD.
 								match result.expand_iri_with(
-									Nullable::Some(value.into()),
+									JsonLdNullable::Some(value.into()),
 									true,
 									true,
 									|w| env.warn(w),
@@ -388,11 +388,11 @@ impl<'a> ContextProcessor<'a> {
 					// 5.9) If context has a @language entry:
 					if let Some(value) = context.language() {
 						match value {
-							Nullable::Null => {
+							JsonLdNullable::Null => {
 								// 5.9.2) If value is null, remove any default language from result.
 								result.set_default_language(None);
 							}
-							Nullable::Some(tag) => {
+							JsonLdNullable::Some(tag) => {
 								result.set_default_language(Some(tag.to_owned()));
 							}
 						}
@@ -402,17 +402,17 @@ impl<'a> ContextProcessor<'a> {
 					if let Some(value) = context.direction() {
 						// 5.10.1) If processing mode is json-ld-1.0, an invalid context entry error
 						// has been detected and processing is aborted.
-						if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+						if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 							return Err(JsonLdError::InvalidContextEntry
 								.at(entry_loc.object_value(Keyword::Direction)));
 						}
 
 						match value {
-							Nullable::Null => {
+							JsonLdNullable::Null => {
 								// 5.10.3) If value is null, remove any base direction from result.
 								result.set_default_base_direction(None);
 							}
-							Nullable::Some(dir) => {
+							JsonLdNullable::Some(dir) => {
 								result.set_default_base_direction(Some(dir));
 							}
 						}
@@ -439,7 +439,7 @@ impl<'a> ContextProcessor<'a> {
 							env,
 							&mut result,
 							&context,
-							KeyOrKeywordRef::Keyword(Keyword::Type),
+							JsonLdKeyOrKeywordRef::Keyword(Keyword::Type),
 							protected,
 							entry_loc,
 						)

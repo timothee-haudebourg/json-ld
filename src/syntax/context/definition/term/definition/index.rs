@@ -1,4 +1,4 @@
-use crate::syntax::CompactIri;
+use crate::syntax::JsonLdCompactIri;
 use rdf_syntax::Iri;
 use std::fmt;
 use std::hash::Hash;
@@ -13,8 +13,8 @@ impl Index {
 		Iri::new(&self.0).ok()
 	}
 
-	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-		CompactIri::new(&self.0).ok()
+	pub fn as_compact_iri(&self) -> Option<&JsonLdCompactIri> {
+		JsonLdCompactIri::new(&self.0).ok()
 	}
 
 	pub fn as_str(&self) -> &str {

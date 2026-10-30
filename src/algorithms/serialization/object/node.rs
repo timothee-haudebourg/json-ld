@@ -1,7 +1,7 @@
 use linked_data::LinkedDataDeserializer;
 use rdf_syntax::{Quad, RDF_TYPE};
 
-use crate::{Indexed, JsonLdNode};
+use crate::{JsonLdIndexed, JsonLdNode};
 
 use super::{deserialize_object, deserialize_object_ref};
 
@@ -28,7 +28,7 @@ where
 			result
 				.graph
 				.get_or_insert_default()
-				.insert(Indexed::unindexed(deserialize_object(
+				.insert(JsonLdIndexed::unindexed(deserialize_object(
 					deserializer,
 					&graph_subject,
 					Some(subject),
@@ -51,7 +51,7 @@ where
 
 		result.properties.insert(
 			property,
-			Indexed::unindexed(deserialize_object_ref(deserializer, &object, graph)?),
+			JsonLdIndexed::unindexed(deserialize_object_ref(deserializer, &object, graph)?),
 		);
 	}
 

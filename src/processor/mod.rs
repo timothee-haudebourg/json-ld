@@ -20,13 +20,14 @@ fn resolve_sync<F: std::future::Future>(f: F) -> F::Output {
 	}
 }
 
-use crate::VisitJsonLd;
+use crate::JsonLdVisit;
 use crate::{
-	Direction, JsonLdDocument, JsonLdExpandedDocument, JsonLdLocatedError, ProcessingMode,
-	RemoteJsonLdContext,
+	JsonLdDirection, JsonLdDocument, JsonLdExpandedDocument, JsonLdLocatedError,
+	JsonLdProcessingMode, RemoteJsonLdContext,
 	algorithms::{
-		AsyncProcessingEnvironment, CompactionOptions, ContextProcessingOptions, ExpansionOptions,
-		ExpansionPolicy, ProcessingEnvironment, RdfSerializationOptions,
+		AsyncProcessingEnvironment, ContextProcessingOptions, ExpansionPolicy,
+		JsonLdCompactionOptions, JsonLdExpansionOptions, ProcessingEnvironment,
+		RdfSerializationOptions,
 	},
 };
 
@@ -67,11 +68,11 @@ pub struct JsonLdOptions {
 	/// Sets the processing mode.
 	///
 	/// Defaults to `ProcessingMode::JsonLd1_1`.
-	pub processing_mode: ProcessingMode,
+	pub processing_mode: JsonLdProcessingMode,
 
 	/// Determines how value objects containing a base direction are transformed
 	/// to and from RDF.
-	pub rdf_direction: Option<Direction>,
+	pub rdf_direction: Option<JsonLdDirection>,
 
 	/// If set to `true`, the JSON-LD processor may emit blank nodes for triple
 	/// predicates, otherwise they will be omitted.
@@ -108,8 +109,8 @@ impl JsonLdOptions {
 	}
 
 	/// Builds options for the expansion algorithm from these options.
-	pub fn expansion_options(&self) -> ExpansionOptions {
-		ExpansionOptions {
+	pub fn expansion_options(&self) -> JsonLdExpansionOptions {
+		JsonLdExpansionOptions {
 			processing_mode: self.processing_mode,
 			ordered: self.ordered,
 			policy: self.expansion_policy,
@@ -117,8 +118,8 @@ impl JsonLdOptions {
 	}
 
 	/// Builds options for the compaction algorithm from these options.
-	pub fn compaction_options(&self) -> CompactionOptions {
-		CompactionOptions {
+	pub fn compaction_options(&self) -> JsonLdCompactionOptions {
+		JsonLdCompactionOptions {
 			processing_mode: self.processing_mode,
 			compact_to_relative: self.compact_to_relative,
 			compact_arrays: self.compact_arrays,
@@ -141,7 +142,7 @@ impl Default for JsonLdOptions {
 			compact_to_relative: true,
 			expand_context: None,
 			ordered: false,
-			processing_mode: ProcessingMode::JsonLd1_1,
+			processing_mode: JsonLdProcessingMode::JsonLd1_1,
 			rdf_direction: None,
 			produce_generalized_rdf: false,
 			expansion_policy: ExpansionPolicy::default(),

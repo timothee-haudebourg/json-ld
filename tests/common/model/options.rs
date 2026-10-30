@@ -1,4 +1,4 @@
-use json_ld::ProcessingMode;
+use json_ld::JsonLdProcessingMode;
 use linked_data::DeserializeLinkedData;
 use rdf_syntax::IriBuf;
 
@@ -17,7 +17,7 @@ pub struct TestOptions {
 
 	/// Processing mode.
 	#[ld(prop = "test:processingMode")]
-	pub processing_mode: Option<ProcessingMode>,
+	pub processing_mode: Option<JsonLdProcessingMode>,
 
 	// 	/// Spec version.
 	// 	#[ld(prop = "test:specVersion")]

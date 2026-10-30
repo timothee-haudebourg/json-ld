@@ -1,9 +1,9 @@
-use crate::IndexedObject;
+use crate::IndexedJsonLdObject;
 
 pub enum Expanded {
 	Null,
-	Object(IndexedObject),
-	Array(Vec<IndexedObject>),
+	Object(IndexedJsonLdObject),
+	Array(Vec<IndexedJsonLdObject>),
 }
 
 impl Expanded {
@@ -40,7 +40,7 @@ impl Expanded {
 }
 
 impl IntoIterator for Expanded {
-	type Item = IndexedObject;
+	type Item = IndexedJsonLdObject;
 	type IntoIter = IntoIter;
 
 	fn into_iter(self) -> IntoIter {
@@ -53,7 +53,7 @@ impl IntoIterator for Expanded {
 }
 
 impl<'a> IntoIterator for &'a Expanded {
-	type Item = &'a IndexedObject;
+	type Item = &'a IndexedJsonLdObject;
 	type IntoIter = Iter<'a>;
 
 	fn into_iter(self) -> Iter<'a> {
@@ -63,14 +63,14 @@ impl<'a> IntoIterator for &'a Expanded {
 
 pub enum Iter<'a> {
 	Null,
-	Object(Option<&'a IndexedObject>),
-	Array(std::slice::Iter<'a, IndexedObject>),
+	Object(Option<&'a IndexedJsonLdObject>),
+	Array(std::slice::Iter<'a, IndexedJsonLdObject>),
 }
 
 impl<'a> Iterator for Iter<'a> {
-	type Item = &'a IndexedObject;
+	type Item = &'a IndexedJsonLdObject;
 
-	fn next(&mut self) -> Option<&'a IndexedObject> {
+	fn next(&mut self) -> Option<&'a IndexedJsonLdObject> {
 		match self {
 			Iter::Null => None,
 			Iter::Object(o) => {
@@ -85,14 +85,14 @@ impl<'a> Iterator for Iter<'a> {
 
 pub enum IntoIter {
 	Null,
-	Object(Option<IndexedObject>),
-	Array(std::vec::IntoIter<IndexedObject>),
+	Object(Option<IndexedJsonLdObject>),
+	Array(std::vec::IntoIter<IndexedJsonLdObject>),
 }
 
 impl Iterator for IntoIter {
-	type Item = IndexedObject;
+	type Item = IndexedJsonLdObject;
 
-	fn next(&mut self) -> Option<IndexedObject> {
+	fn next(&mut self) -> Option<IndexedJsonLdObject> {
 		match self {
 			IntoIter::Null => None,
 			IntoIter::Object(o) => {
@@ -105,14 +105,14 @@ impl Iterator for IntoIter {
 	}
 }
 
-impl From<IndexedObject> for Expanded {
-	fn from(obj: IndexedObject) -> Expanded {
+impl From<IndexedJsonLdObject> for Expanded {
+	fn from(obj: IndexedJsonLdObject) -> Expanded {
 		Expanded::Object(obj)
 	}
 }
 
-impl From<Vec<IndexedObject>> for Expanded {
-	fn from(list: Vec<IndexedObject>) -> Expanded {
+impl From<Vec<IndexedJsonLdObject>> for Expanded {
+	fn from(list: Vec<IndexedJsonLdObject>) -> Expanded {
 		Expanded::Array(list)
 	}
 }

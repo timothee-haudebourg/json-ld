@@ -2,9 +2,9 @@
 //!
 //! See: <https://www.w3.org/TR/json-ld-api/#expansion-algorithms>
 use crate::{
-	IndexedObject, JsonLdBacktraceBuilder, JsonLdDocument, JsonLdExpandedDocument,
+	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdDocument, JsonLdExpandedDocument,
 	JsonLdLocatedError, JsonLdObject, JsonLdSourceFileRef, algorithms::AsyncProcessingEnvironment,
-	context::RawProcessedContext,
+	context::RawJsonLdProcessedContext,
 };
 
 mod array;
@@ -30,7 +30,7 @@ pub use options::*;
 /// This provides direct access to the expansion algorithm with full control
 /// over the active context and options. For the high-level processor entry
 /// point, use [`JsonLdProcessor::expand_with`](crate::JsonLdProcessor::expand_with).
-pub trait Expand {
+pub trait JsonLdExpand {
 	/// Expand this document with the default expansion options.
 	#[allow(async_fn_in_trait)]
 	async fn expand(
@@ -44,26 +44,26 @@ pub trait Expand {
 	async fn expand_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		active_context: &RawProcessedContext,
-		options: ExpansionOptions,
+		active_context: &RawJsonLdProcessedContext,
+		options: JsonLdExpansionOptions,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError>;
 }
 
-impl Expand for JsonLdDocument {
+impl JsonLdExpand for JsonLdDocument {
 	async fn expand(
 		&self,
 		env: impl AsyncProcessingEnvironment,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError> {
-		let active_context = RawProcessedContext::new(self.url().map(ToOwned::to_owned));
-		self.expand_with(env, &active_context, ExpansionOptions::default())
+		let active_context = RawJsonLdProcessedContext::new(self.url().map(ToOwned::to_owned));
+		self.expand_with(env, &active_context, JsonLdExpansionOptions::default())
 			.await
 	}
 
 	async fn expand_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		active_context: &RawProcessedContext,
-		options: ExpansionOptions,
+		active_context: &RawJsonLdProcessedContext,
+		options: JsonLdExpansionOptions,
 	) -> Result<JsonLdExpandedDocument, JsonLdLocatedError> {
 		let loc = JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::original(self.url()));
 		Expander {
@@ -77,7 +77,7 @@ impl Expand for JsonLdDocument {
 	}
 }
 
-fn filter_top_level_item(item: &IndexedObject) -> bool {
+fn filter_top_level_item(item: &IndexedJsonLdObject) -> bool {
 	// Remove dangling values.
 	!matches!(item.inner(), JsonLdObject::Value(_))
 }

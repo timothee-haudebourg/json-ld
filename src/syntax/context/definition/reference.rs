@@ -1,46 +1,47 @@
 use super::{
-	BindingsIter, ContextTerm, ContextType, JsonLdContextDefinition, TermDefinition, Version, Vocab,
+	JsonLdContextBindingsIter, JsonLdContextDefinition, JsonLdContextTerm, JsonLdContextType,
+	JsonLdVersion, JsonLdVocab, TermDefinition,
 };
 use crate::{
 	JsonLdLenient,
-	syntax::{Direction, Nullable},
+	syntax::{JsonLdDirection, JsonLdNullable},
 };
 
 use langtag::LangTagBuf;
 use rdf_syntax::IriRef;
 
 impl JsonLdContextDefinition {
-	pub fn iter(&self) -> Entries<'_> {
-		Entries {
-			base: self.base.as_ref().map(Nullable::as_deref),
+	pub fn iter(&self) -> JsonLdContextEntries<'_> {
+		JsonLdContextEntries {
+			base: self.base.as_ref().map(JsonLdNullable::as_deref),
 			import: self.import.as_deref(),
-			language: self.language.as_ref().map(Nullable::as_ref),
+			language: self.language.as_ref().map(JsonLdNullable::as_ref),
 			direction: self.direction,
 			propagate: self.propagate,
 			protected: self.protected,
 			type_: self.type_,
 			version: self.version,
-			vocab: self.vocab.as_ref().map(Nullable::as_ref),
+			vocab: self.vocab.as_ref().map(JsonLdNullable::as_ref),
 			bindings: self.bindings.iter(),
 		}
 	}
 }
 
-pub struct Entries<'a> {
-	base: Option<Nullable<&'a IriRef>>,
+pub struct JsonLdContextEntries<'a> {
+	base: Option<JsonLdNullable<&'a IriRef>>,
 	import: Option<&'a IriRef>,
-	language: Option<Nullable<&'a JsonLdLenient<LangTagBuf>>>,
-	direction: Option<Nullable<Direction>>,
+	language: Option<JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>>,
+	direction: Option<JsonLdNullable<JsonLdDirection>>,
 	propagate: Option<bool>,
 	protected: Option<bool>,
-	type_: Option<ContextType>,
-	version: Option<Version>,
-	vocab: Option<Nullable<&'a Vocab>>,
-	bindings: BindingsIter<'a>,
+	type_: Option<JsonLdContextType>,
+	version: Option<JsonLdVersion>,
+	vocab: Option<JsonLdNullable<&'a JsonLdVocab>>,
+	bindings: JsonLdContextBindingsIter<'a>,
 }
 
-impl<'a> Iterator for Entries<'a> {
-	type Item = EntryRef<'a>;
+impl<'a> Iterator for JsonLdContextEntries<'a> {
+	type Item = JsonLdContextEntryRef<'a>;
 
 	fn size_hint(&self) -> (usize, Option<usize>) {
 		let mut len = self.bindings.len();
@@ -86,27 +87,28 @@ impl<'a> Iterator for Entries<'a> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		match self.base.take() {
-			Some(value) => Some(EntryRef::Base(value)),
+			Some(value) => Some(JsonLdContextEntryRef::Base(value)),
 			None => match self.import.take() {
-				Some(value) => Some(EntryRef::Import(value)),
+				Some(value) => Some(JsonLdContextEntryRef::Import(value)),
 				None => match self.language.take() {
-					Some(value) => Some(EntryRef::Language(value)),
+					Some(value) => Some(JsonLdContextEntryRef::Language(value)),
 					None => match self.direction.take() {
-						Some(value) => Some(EntryRef::Direction(value)),
+						Some(value) => Some(JsonLdContextEntryRef::Direction(value)),
 						None => match self.propagate.take() {
-							Some(value) => Some(EntryRef::Propagate(value)),
+							Some(value) => Some(JsonLdContextEntryRef::Propagate(value)),
 							None => match self.protected.take() {
-								Some(value) => Some(EntryRef::Protected(value)),
+								Some(value) => Some(JsonLdContextEntryRef::Protected(value)),
 								None => match self.type_.take() {
-									Some(value) => Some(EntryRef::Type(value)),
+									Some(value) => Some(JsonLdContextEntryRef::Type(value)),
 									None => match self.version.take() {
-										Some(value) => Some(EntryRef::Version(value)),
+										Some(value) => Some(JsonLdContextEntryRef::Version(value)),
 										None => match self.vocab.take() {
-											Some(value) => Some(EntryRef::Vocab(value)),
-											None => self
-												.bindings
-												.next()
-												.map(|(k, v)| EntryRef::Definition(k, v)),
+											Some(value) => {
+												Some(JsonLdContextEntryRef::Vocab(value))
+											}
+											None => self.bindings.next().map(|(k, v)| {
+												JsonLdContextEntryRef::Definition(k, v)
+											}),
 										},
 									},
 								},
@@ -119,46 +121,46 @@ impl<'a> Iterator for Entries<'a> {
 	}
 }
 
-impl<'a> ExactSizeIterator for Entries<'a> {}
+impl<'a> ExactSizeIterator for JsonLdContextEntries<'a> {}
 
-pub enum EntryValueRef<'a> {
-	Base(Nullable<&'a IriRef>),
+pub enum JsonLdContextEntryValueRef<'a> {
+	Base(JsonLdNullable<&'a IriRef>),
 	Import(&'a IriRef),
-	Language(Nullable<&'a JsonLdLenient<LangTagBuf>>),
-	Direction(Nullable<Direction>),
+	Language(JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>),
+	Direction(JsonLdNullable<JsonLdDirection>),
 	Propagate(bool),
 	Protected(bool),
-	Type(ContextType),
-	Version(Version),
-	Vocab(Nullable<&'a Vocab>),
-	Definition(Nullable<&'a TermDefinition>),
+	Type(JsonLdContextType),
+	Version(JsonLdVersion),
+	Vocab(JsonLdNullable<&'a JsonLdVocab>),
+	Definition(JsonLdNullable<&'a TermDefinition>),
 }
 
-impl<'a> EntryValueRef<'a> {
+impl<'a> JsonLdContextEntryValueRef<'a> {
 	pub fn is_object(&self) -> bool {
 		match self {
 			Self::Type(_) => true,
-			Self::Definition(Nullable::Some(d)) => d.is_object(),
+			Self::Definition(JsonLdNullable::Some(d)) => d.is_object(),
 			_ => false,
 		}
 	}
 }
 
-pub enum EntryRef<'a> {
-	Base(Nullable<&'a IriRef>),
+pub enum JsonLdContextEntryRef<'a> {
+	Base(JsonLdNullable<&'a IriRef>),
 	Import(&'a IriRef),
-	Language(Nullable<&'a JsonLdLenient<LangTagBuf>>),
-	Direction(Nullable<Direction>),
+	Language(JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>),
+	Direction(JsonLdNullable<JsonLdDirection>),
 	Propagate(bool),
 	Protected(bool),
-	Type(ContextType),
-	Version(Version),
-	Vocab(Nullable<&'a Vocab>),
-	Definition(&'a ContextTerm, Nullable<&'a TermDefinition>),
+	Type(JsonLdContextType),
+	Version(JsonLdVersion),
+	Vocab(JsonLdNullable<&'a JsonLdVocab>),
+	Definition(&'a JsonLdContextTerm, JsonLdNullable<&'a TermDefinition>),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum EntryKeyRef<'a> {
+pub enum JsonLdContextEntryKeyRef<'a> {
 	Base,
 	Import,
 	Language,
@@ -168,10 +170,10 @@ pub enum EntryKeyRef<'a> {
 	Type,
 	Version,
 	Vocab,
-	Definition(&'a ContextTerm),
+	Definition(&'a JsonLdContextTerm),
 }
 
-impl<'a> EntryKeyRef<'a> {
+impl<'a> JsonLdContextEntryKeyRef<'a> {
 	pub fn as_str(&self) -> &'a str {
 		match self {
 			Self::Base => "@base",
@@ -188,85 +190,113 @@ impl<'a> EntryKeyRef<'a> {
 	}
 }
 
-impl<'a> EntryRef<'a> {
-	pub fn into_key(self) -> EntryKeyRef<'a> {
+impl<'a> JsonLdContextEntryRef<'a> {
+	pub fn into_key(self) -> JsonLdContextEntryKeyRef<'a> {
 		match self {
-			Self::Base(_) => EntryKeyRef::Base,
-			Self::Import(_) => EntryKeyRef::Import,
-			Self::Language(_) => EntryKeyRef::Language,
-			Self::Direction(_) => EntryKeyRef::Direction,
-			Self::Propagate(_) => EntryKeyRef::Propagate,
-			Self::Protected(_) => EntryKeyRef::Protected,
-			Self::Type(_) => EntryKeyRef::Type,
-			Self::Version(_) => EntryKeyRef::Version,
-			Self::Vocab(_) => EntryKeyRef::Vocab,
-			Self::Definition(key, _) => EntryKeyRef::Definition(key),
+			Self::Base(_) => JsonLdContextEntryKeyRef::Base,
+			Self::Import(_) => JsonLdContextEntryKeyRef::Import,
+			Self::Language(_) => JsonLdContextEntryKeyRef::Language,
+			Self::Direction(_) => JsonLdContextEntryKeyRef::Direction,
+			Self::Propagate(_) => JsonLdContextEntryKeyRef::Propagate,
+			Self::Protected(_) => JsonLdContextEntryKeyRef::Protected,
+			Self::Type(_) => JsonLdContextEntryKeyRef::Type,
+			Self::Version(_) => JsonLdContextEntryKeyRef::Version,
+			Self::Vocab(_) => JsonLdContextEntryKeyRef::Vocab,
+			Self::Definition(key, _) => JsonLdContextEntryKeyRef::Definition(key),
 		}
 	}
 
-	pub fn key(&self) -> EntryKeyRef<'a> {
+	pub fn key(&self) -> JsonLdContextEntryKeyRef<'a> {
 		match self {
-			Self::Base(_) => EntryKeyRef::Base,
-			Self::Import(_) => EntryKeyRef::Import,
-			Self::Language(_) => EntryKeyRef::Language,
-			Self::Direction(_) => EntryKeyRef::Direction,
-			Self::Propagate(_) => EntryKeyRef::Propagate,
-			Self::Protected(_) => EntryKeyRef::Protected,
-			Self::Type(_) => EntryKeyRef::Type,
-			Self::Version(_) => EntryKeyRef::Version,
-			Self::Vocab(_) => EntryKeyRef::Vocab,
-			Self::Definition(key, _) => EntryKeyRef::Definition(key),
+			Self::Base(_) => JsonLdContextEntryKeyRef::Base,
+			Self::Import(_) => JsonLdContextEntryKeyRef::Import,
+			Self::Language(_) => JsonLdContextEntryKeyRef::Language,
+			Self::Direction(_) => JsonLdContextEntryKeyRef::Direction,
+			Self::Propagate(_) => JsonLdContextEntryKeyRef::Propagate,
+			Self::Protected(_) => JsonLdContextEntryKeyRef::Protected,
+			Self::Type(_) => JsonLdContextEntryKeyRef::Type,
+			Self::Version(_) => JsonLdContextEntryKeyRef::Version,
+			Self::Vocab(_) => JsonLdContextEntryKeyRef::Vocab,
+			Self::Definition(key, _) => JsonLdContextEntryKeyRef::Definition(key),
 		}
 	}
 
-	pub fn into_value(self) -> EntryValueRef<'a> {
+	pub fn into_value(self) -> JsonLdContextEntryValueRef<'a> {
 		match self {
-			Self::Base(v) => EntryValueRef::Base(v),
-			Self::Import(v) => EntryValueRef::Import(v),
-			Self::Language(v) => EntryValueRef::Language(v),
-			Self::Direction(v) => EntryValueRef::Direction(v),
-			Self::Propagate(v) => EntryValueRef::Propagate(v),
-			Self::Protected(v) => EntryValueRef::Protected(v),
-			Self::Type(v) => EntryValueRef::Type(v),
-			Self::Version(v) => EntryValueRef::Version(v),
-			Self::Vocab(v) => EntryValueRef::Vocab(v),
-			Self::Definition(_, b) => EntryValueRef::Definition(b),
+			Self::Base(v) => JsonLdContextEntryValueRef::Base(v),
+			Self::Import(v) => JsonLdContextEntryValueRef::Import(v),
+			Self::Language(v) => JsonLdContextEntryValueRef::Language(v),
+			Self::Direction(v) => JsonLdContextEntryValueRef::Direction(v),
+			Self::Propagate(v) => JsonLdContextEntryValueRef::Propagate(v),
+			Self::Protected(v) => JsonLdContextEntryValueRef::Protected(v),
+			Self::Type(v) => JsonLdContextEntryValueRef::Type(v),
+			Self::Version(v) => JsonLdContextEntryValueRef::Version(v),
+			Self::Vocab(v) => JsonLdContextEntryValueRef::Vocab(v),
+			Self::Definition(_, b) => JsonLdContextEntryValueRef::Definition(b),
 		}
 	}
 
-	pub fn value(&self) -> EntryValueRef<'a> {
+	pub fn value(&self) -> JsonLdContextEntryValueRef<'a> {
 		match self {
-			Self::Base(v) => EntryValueRef::Base(*v),
-			Self::Import(v) => EntryValueRef::Import(v),
-			Self::Language(v) => EntryValueRef::Language(*v),
-			Self::Direction(v) => EntryValueRef::Direction(*v),
-			Self::Propagate(v) => EntryValueRef::Propagate(*v),
-			Self::Protected(v) => EntryValueRef::Protected(*v),
-			Self::Type(v) => EntryValueRef::Type(*v),
-			Self::Version(v) => EntryValueRef::Version(*v),
-			Self::Vocab(v) => EntryValueRef::Vocab(*v),
-			Self::Definition(_, b) => EntryValueRef::Definition(*b),
+			Self::Base(v) => JsonLdContextEntryValueRef::Base(*v),
+			Self::Import(v) => JsonLdContextEntryValueRef::Import(v),
+			Self::Language(v) => JsonLdContextEntryValueRef::Language(*v),
+			Self::Direction(v) => JsonLdContextEntryValueRef::Direction(*v),
+			Self::Propagate(v) => JsonLdContextEntryValueRef::Propagate(*v),
+			Self::Protected(v) => JsonLdContextEntryValueRef::Protected(*v),
+			Self::Type(v) => JsonLdContextEntryValueRef::Type(*v),
+			Self::Version(v) => JsonLdContextEntryValueRef::Version(*v),
+			Self::Vocab(v) => JsonLdContextEntryValueRef::Vocab(*v),
+			Self::Definition(_, b) => JsonLdContextEntryValueRef::Definition(*b),
 		}
 	}
 
-	pub fn into_key_value(self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
+	pub fn into_key_value(self) -> (JsonLdContextEntryKeyRef<'a>, JsonLdContextEntryValueRef<'a>) {
 		self.key_value()
 	}
 
-	pub fn key_value(&self) -> (EntryKeyRef<'a>, EntryValueRef<'a>) {
+	pub fn key_value(&self) -> (JsonLdContextEntryKeyRef<'a>, JsonLdContextEntryValueRef<'a>) {
 		match self {
-			Self::Base(v) => (EntryKeyRef::Base, EntryValueRef::Base(*v)),
-			Self::Import(v) => (EntryKeyRef::Import, EntryValueRef::Import(v)),
-			Self::Language(v) => (EntryKeyRef::Language, EntryValueRef::Language(*v)),
-			Self::Direction(v) => (EntryKeyRef::Direction, EntryValueRef::Direction(*v)),
-			Self::Propagate(v) => (EntryKeyRef::Propagate, EntryValueRef::Propagate(*v)),
-			Self::Protected(v) => (EntryKeyRef::Protected, EntryValueRef::Protected(*v)),
-			Self::Type(v) => (EntryKeyRef::Type, EntryValueRef::Type(*v)),
-			Self::Version(v) => (EntryKeyRef::Version, EntryValueRef::Version(*v)),
-			Self::Vocab(v) => (EntryKeyRef::Vocab, EntryValueRef::Vocab(*v)),
-			Self::Definition(key, b) => {
-				(EntryKeyRef::Definition(key), EntryValueRef::Definition(*b))
-			}
+			Self::Base(v) => (
+				JsonLdContextEntryKeyRef::Base,
+				JsonLdContextEntryValueRef::Base(*v),
+			),
+			Self::Import(v) => (
+				JsonLdContextEntryKeyRef::Import,
+				JsonLdContextEntryValueRef::Import(v),
+			),
+			Self::Language(v) => (
+				JsonLdContextEntryKeyRef::Language,
+				JsonLdContextEntryValueRef::Language(*v),
+			),
+			Self::Direction(v) => (
+				JsonLdContextEntryKeyRef::Direction,
+				JsonLdContextEntryValueRef::Direction(*v),
+			),
+			Self::Propagate(v) => (
+				JsonLdContextEntryKeyRef::Propagate,
+				JsonLdContextEntryValueRef::Propagate(*v),
+			),
+			Self::Protected(v) => (
+				JsonLdContextEntryKeyRef::Protected,
+				JsonLdContextEntryValueRef::Protected(*v),
+			),
+			Self::Type(v) => (
+				JsonLdContextEntryKeyRef::Type,
+				JsonLdContextEntryValueRef::Type(*v),
+			),
+			Self::Version(v) => (
+				JsonLdContextEntryKeyRef::Version,
+				JsonLdContextEntryValueRef::Version(*v),
+			),
+			Self::Vocab(v) => (
+				JsonLdContextEntryKeyRef::Vocab,
+				JsonLdContextEntryValueRef::Vocab(*v),
+			),
+			Self::Definition(key, b) => (
+				JsonLdContextEntryKeyRef::Definition(key),
+				JsonLdContextEntryValueRef::Definition(*b),
+			),
 		}
 	}
 }

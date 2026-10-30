@@ -4,8 +4,8 @@ use btree_indexmap::BTreeIndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
-	Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdLenient, JsonLdNode, JsonLdObject,
-	object::JsonLdList, syntax::Keyword,
+	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdIndexed, JsonLdLenient, JsonLdNode,
+	JsonLdObject, object::JsonLdList, syntax::Keyword,
 };
 
 use super::{NodeMap, NodeMapExtendError};
@@ -42,14 +42,14 @@ impl<G: Generator> NodeMapBuilder<G> {
 	/// `location` tracks the current position within the expanded document.
 	pub fn extend_node_map(
 		&mut self,
-		element: &IndexedObject,
+		element: &IndexedJsonLdObject,
 		active_graph: Option<&JsonLdLenient<Id>>,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<IndexedObject, NodeMapExtendError> {
+	) -> Result<IndexedJsonLdObject, NodeMapExtendError> {
 		match element.inner() {
 			JsonLdObject::Value(value) => {
 				let flat_value = value.clone();
-				Ok(Indexed::new(
+				Ok(JsonLdIndexed::new(
 					JsonLdObject::Value(flat_value),
 					element.index().map(ToOwned::to_owned),
 				))
@@ -66,7 +66,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 					)?);
 				}
 
-				Ok(Indexed::new(
+				Ok(JsonLdIndexed::new(
 					JsonLdObject::List(JsonLdList::new(flat_list)),
 					element.index().map(ToOwned::to_owned),
 				))
@@ -85,7 +85,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 		index: Option<&str>,
 		active_graph: Option<&JsonLdLenient<Id>>,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<Indexed<JsonLdNode>, NodeMapExtendError> {
+	) -> Result<JsonLdIndexed<JsonLdNode>, NodeMapExtendError> {
 		let id = self.substitution.assign_node_id(node.id.as_ref());
 
 		{
@@ -181,9 +181,9 @@ impl<G: Generator> NodeMapBuilder<G> {
 
 					flat_subject.properties_mut().insert_unique(
 						property.clone(),
-						Indexed::unindexed(JsonLdObject::node(JsonLdNode::new_with_id(Some(
-							id.clone(),
-						)))),
+						JsonLdIndexed::unindexed(JsonLdObject::node(JsonLdNode::new_with_id(
+							Some(id.clone()),
+						))),
 					)
 				}
 
@@ -209,7 +209,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 			}
 		}
 
-		Ok(Indexed::new(JsonLdNode::new_with_id(Some(id)), None))
+		Ok(JsonLdIndexed::new(JsonLdNode::new_with_id(Some(id)), None))
 	}
 }
 

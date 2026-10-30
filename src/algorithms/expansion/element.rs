@@ -6,8 +6,8 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdObject,
-	JsonLdTerm, Nullable, Warning,
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexed, JsonLdLenient, JsonLdLocatedError,
+	JsonLdNullable, JsonLdObject, JsonLdTerm, JsonLdWarning,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		context_processing::ContextProcessingOptions,
@@ -79,7 +79,7 @@ impl<'a> Expander<'a> {
 					match self.active_context.expand_iri(
 						// &mut env,
 						// active_context,
-						Nullable::Some(key.as_str().into()),
+						JsonLdNullable::Some(key.as_str().into()),
 						false,
 						true,
 					) {
@@ -168,8 +168,11 @@ impl<'a> Expander<'a> {
 
 				let mut type_entries: Vec<&Entry> = Vec::new();
 				for entry @ (key, _) in entries.iter() {
-					let expanded_key =
-						active_context.expand_iri(Nullable::Some(key.as_str().into()), false, true);
+					let expanded_key = active_context.expand_iri(
+						JsonLdNullable::Some(key.as_str().into()),
+						false,
+						true,
+					);
 
 					if let JsonLdTerm::Keyword(Keyword::Type) = expanded_key {
 						type_entries.push(entry);
@@ -233,7 +236,7 @@ impl<'a> Expander<'a> {
 							active_context.expand_iri(
 								// &mut env,
 								// active_context.as_ref(),
-								Nullable::Some(input_type_str.into()),
+								JsonLdNullable::Some(input_type_str.into()),
 								false,
 								true,
 							)
@@ -251,13 +254,13 @@ impl<'a> Expander<'a> {
 				let mut value_entry = None;
 				for (key, value) in entries.iter() {
 					if key.is_empty() {
-						env.warn(Warning::EmptyTerm);
+						env.warn(JsonLdWarning::EmptyTerm);
 					}
 
 					let expanded_key = active_context.expand_iri(
 						// &mut env,
 						// active_context.as_ref(),
-						Nullable::Some(key.as_str().into()),
+						JsonLdNullable::Some(key.as_str().into()),
 						false,
 						true,
 					);
@@ -273,7 +276,7 @@ impl<'a> Expander<'a> {
 							set_entry = Some((key.as_str(), value.clone()))
 						}
 						JsonLdTerm::Id(JsonLdLenient::Valid(Id::BlankId(id))) => {
-							env.warn(Warning::BlankNodeIdProperty(id.clone()));
+							env.warn(JsonLdWarning::BlankNodeIdProperty(id.clone()));
 						}
 						_ => (),
 					}
@@ -321,7 +324,7 @@ impl<'a> Expander<'a> {
 						result.extend(e)
 					}
 
-					Ok(Expanded::Object(Indexed::new(
+					Ok(Expanded::Object(JsonLdIndexed::new(
 						JsonLdObject::List(JsonLdList::new(result)),
 						index,
 					)))

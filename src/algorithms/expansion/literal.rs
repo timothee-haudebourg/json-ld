@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
-	IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError,
-	JsonLdNode, JsonLdObject, JsonLdType, JsonLdValue, LangString, Nullable, Warning,
+	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError,
+	JsonLdNode, JsonLdNullable, JsonLdObject, JsonLdType, JsonLdValue, JsonLdWarning, LangString,
 	object::{LiteralValue, value::LiteralType},
 };
 
@@ -49,10 +49,10 @@ impl<'a> Expander<'a> {
 	/// See <https://www.w3.org/TR/json-ld11-api/#value-expansion>.
 	pub fn expand_literal(
 		&self,
-		warn: impl FnOnce(Warning),
+		warn: impl FnOnce(JsonLdWarning),
 		value: ExpandableLiteralValue,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<IndexedObject, JsonLdLocatedError> {
+	) -> Result<IndexedJsonLdObject, JsonLdLocatedError> {
 		let active_property_definition = self.active_property_definition();
 		let active_property_type =
 			if let Some(active_property_definition) = active_property_definition {
@@ -69,7 +69,7 @@ impl<'a> Expander<'a> {
 			Some(JsonLdType::Id) if value.is_string() => {
 				let mut node = JsonLdNode::new();
 				let id = node_id_of_term(self.active_context.expand_iri_with(
-					Nullable::Some(value.as_str().unwrap().into()),
+					JsonLdNullable::Some(value.as_str().unwrap().into()),
 					true,
 					false,
 					warn,
@@ -86,7 +86,7 @@ impl<'a> Expander<'a> {
 			Some(JsonLdType::Vocab) if value.is_string() => {
 				let mut node = JsonLdNode::new();
 				let id = node_id_of_term(self.active_context.expand_iri_with(
-					Nullable::Some(value.as_str().unwrap().into()),
+					JsonLdNullable::Some(value.as_str().unwrap().into()),
 					true,
 					true,
 					warn,

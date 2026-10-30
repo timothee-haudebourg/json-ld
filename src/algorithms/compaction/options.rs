@@ -1,13 +1,13 @@
 use crate::{
-	ProcessingMode,
-	algorithms::{context_processing::ContextProcessingOptions, expansion::ExpansionOptions},
+	JsonLdProcessingMode,
+	algorithms::{context_processing::ContextProcessingOptions, expansion::JsonLdExpansionOptions},
 };
 
 /// Compaction options.
 #[derive(Clone, Copy)]
-pub struct CompactionOptions {
+pub struct JsonLdCompactionOptions {
 	/// JSON-LD processing mode.
-	pub processing_mode: ProcessingMode,
+	pub processing_mode: JsonLdProcessingMode,
 
 	/// Determines if IRIs are compacted relative to the provided base IRI or document location when compacting.
 	pub compact_to_relative: bool,
@@ -21,7 +21,7 @@ pub struct CompactionOptions {
 	pub ordered: bool,
 }
 
-impl CompactionOptions {
+impl JsonLdCompactionOptions {
 	pub fn unordered(self) -> Self {
 		Self {
 			ordered: false,
@@ -30,8 +30,8 @@ impl CompactionOptions {
 	}
 }
 
-impl From<CompactionOptions> for ContextProcessingOptions {
-	fn from(options: CompactionOptions) -> Self {
+impl From<JsonLdCompactionOptions> for ContextProcessingOptions {
+	fn from(options: JsonLdCompactionOptions) -> Self {
 		Self {
 			processing_mode: options.processing_mode,
 			..Self::default()
@@ -39,8 +39,8 @@ impl From<CompactionOptions> for ContextProcessingOptions {
 	}
 }
 
-impl From<ExpansionOptions> for CompactionOptions {
-	fn from(options: ExpansionOptions) -> Self {
+impl From<JsonLdExpansionOptions> for JsonLdCompactionOptions {
+	fn from(options: JsonLdExpansionOptions) -> Self {
 		Self {
 			processing_mode: options.processing_mode,
 			ordered: options.ordered,
@@ -49,10 +49,10 @@ impl From<ExpansionOptions> for CompactionOptions {
 	}
 }
 
-impl Default for CompactionOptions {
+impl Default for JsonLdCompactionOptions {
 	fn default() -> Self {
 		Self {
-			processing_mode: ProcessingMode::default(),
+			processing_mode: JsonLdProcessingMode::default(),
 			compact_to_relative: true,
 			compact_arrays: true,
 			ordered: false,

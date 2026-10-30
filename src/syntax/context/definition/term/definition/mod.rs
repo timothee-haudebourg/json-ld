@@ -1,8 +1,9 @@
 use crate::{
 	JsonLdLenient,
 	syntax::{
-		CompactIri, CompactIriBuf, ContainerValue, Direction, JsonLdContext, Keyword, Nullable,
-		context::{self, ContextTerm},
+		CompactIriBuf, JsonLdCompactIri, JsonLdContainerValue, JsonLdContext, JsonLdDirection,
+		JsonLdNullable, Keyword,
+		context::{self, JsonLdContextTerm},
 	},
 };
 use langtag::{LangTag, LangTagBuf};
@@ -40,7 +41,7 @@ impl TermDefinition {
 	pub fn as_expanded(&self) -> ExpandedTermDefinitionRef<'_> {
 		match self {
 			Self::Simple(term) => ExpandedTermDefinitionRef {
-				id: Some(Nullable::Some(term.as_str().into())),
+				id: Some(JsonLdNullable::Some(term.as_str().into())),
 				..Default::default()
 			},
 			Self::Expanded(e) => e.as_expanded_ref(),
@@ -61,8 +62,8 @@ impl SimpleTermDefinition {
 		Iri::new(&self.0).ok()
 	}
 
-	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-		CompactIri::new(&self.0).ok()
+	pub fn as_compact_iri(&self) -> Option<&JsonLdCompactIri> {
+		JsonLdCompactIri::new(&self.0).ok()
 	}
 
 	pub fn as_blank_id(&self) -> Option<&BlankId> {
@@ -105,22 +106,22 @@ pub struct ExpandedTermDefinition {
 		serde(
 			rename = "@id",
 			default,
-			deserialize_with = "Nullable::optional",
+			deserialize_with = "JsonLdNullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub id: Option<Nullable<TermId>>,
+	pub id: Option<JsonLdNullable<TermId>>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(
 			rename = "@type",
 			default,
-			deserialize_with = "Nullable::optional",
+			deserialize_with = "JsonLdNullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub type_: Option<Nullable<TermType>>,
+	pub type_: Option<JsonLdNullable<TermType>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -137,7 +138,7 @@ pub struct ExpandedTermDefinition {
 		feature = "serde",
 		serde(rename = "@reverse", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub reverse: Option<ContextTerm>,
+	pub reverse: Option<JsonLdContextTerm>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -150,22 +151,22 @@ pub struct ExpandedTermDefinition {
 		serde(
 			rename = "@language",
 			default,
-			deserialize_with = "Nullable::optional",
+			deserialize_with = "JsonLdNullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub language: Option<Nullable<JsonLdLenient<LangTagBuf>>>,
+	pub language: Option<JsonLdNullable<JsonLdLenient<LangTagBuf>>>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(
 			rename = "@direction",
 			default,
-			deserialize_with = "Nullable::optional",
+			deserialize_with = "JsonLdNullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub direction: Option<Nullable<Direction>>,
+	pub direction: Option<JsonLdNullable<JsonLdDirection>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -175,7 +176,7 @@ pub struct ExpandedTermDefinition {
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub container: Option<ContainerValue>,
+	pub container: Option<JsonLdContainerValue>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -216,7 +217,7 @@ impl ExpandedTermDefinition {
 	}
 
 	pub fn is_null(&self) -> bool {
-		matches!(&self.id, None | Some(Nullable::Null))
+		matches!(&self.id, None | Some(JsonLdNullable::Null))
 			&& self.type_.is_none()
 			&& self.context.is_none()
 			&& self.reverse.is_none()
@@ -231,7 +232,7 @@ impl ExpandedTermDefinition {
 	}
 
 	pub fn is_simple_definition(&self) -> bool {
-		matches!(&self.id, Some(Nullable::Some(_)))
+		matches!(&self.id, Some(JsonLdNullable::Some(_)))
 			&& self.type_.is_none()
 			&& self.context.is_none()
 			&& self.reverse.is_none()
@@ -245,26 +246,26 @@ impl ExpandedTermDefinition {
 			&& self.protected.is_none()
 	}
 
-	pub fn simplify(self) -> Nullable<TermDefinition> {
+	pub fn simplify(self) -> JsonLdNullable<TermDefinition> {
 		if self.is_null() {
-			Nullable::Null
+			JsonLdNullable::Null
 		} else if self.is_simple_definition() {
-			Nullable::Some(TermDefinition::Simple(SimpleTermDefinition(
+			JsonLdNullable::Some(TermDefinition::Simple(SimpleTermDefinition(
 				self.id.unwrap().unwrap().into_string(),
 			)))
 		} else {
-			Nullable::Some(TermDefinition::Expanded(Box::new(self)))
+			JsonLdNullable::Some(TermDefinition::Expanded(Box::new(self)))
 		}
 	}
 
 	pub fn iter(&self) -> TermDefinitionEntries<'_> {
 		TermDefinitionEntries {
-			id: self.id.as_ref().map(Nullable::as_ref),
-			type_: self.type_.as_ref().map(Nullable::as_ref),
+			id: self.id.as_ref().map(JsonLdNullable::as_ref),
+			type_: self.type_.as_ref().map(JsonLdNullable::as_ref),
 			context: self.context.as_deref(),
 			reverse: self.reverse.as_ref(),
 			index: self.index.as_ref(),
-			language: self.language.as_ref().map(Nullable::as_ref),
+			language: self.language.as_ref().map(JsonLdNullable::as_ref),
 			direction: self.direction,
 			container: self.container.as_ref(),
 			nest: self.nest.as_ref(),
@@ -280,7 +281,7 @@ impl ExpandedTermDefinition {
 				.id
 				.as_ref()
 				.map(|i| i.as_ref().map(|id| id.as_id_ref())),
-			type_: self.type_.as_ref().map(Nullable::as_ref),
+			type_: self.type_.as_ref().map(JsonLdNullable::as_ref),
 			context: self.context.as_deref(),
 			reverse: self.reverse.as_ref(),
 			index: self.index.as_ref(),
@@ -301,26 +302,26 @@ impl ExpandedTermDefinition {
 /// Expanded term definition.
 #[derive(Default, Debug)]
 pub struct ExpandedTermDefinitionRef<'a> {
-	pub id: Option<Nullable<IdRef<'a>>>,
-	pub type_: Option<Nullable<&'a TermType>>,
+	pub id: Option<JsonLdNullable<IdRef<'a>>>,
+	pub type_: Option<JsonLdNullable<&'a TermType>>,
 	pub context: Option<&'a JsonLdContext>,
-	pub reverse: Option<&'a ContextTerm>,
+	pub reverse: Option<&'a JsonLdContextTerm>,
 	pub index: Option<&'a Index>,
-	pub language: Option<Nullable<JsonLdLenient<&'a LangTag>>>,
-	pub direction: Option<Nullable<Direction>>,
-	pub container: Option<&'a ContainerValue>,
+	pub language: Option<JsonLdNullable<JsonLdLenient<&'a LangTag>>>,
+	pub direction: Option<JsonLdNullable<JsonLdDirection>>,
+	pub container: Option<&'a JsonLdContainerValue>,
 	pub nest: Option<&'a Nest>,
 	pub prefix: Option<bool>,
 	pub propagate: Option<bool>,
 	pub protected: Option<bool>,
 }
 
-impl<'a> From<Nullable<&'a TermDefinition>> for ExpandedTermDefinitionRef<'a> {
-	fn from(value: Nullable<&'a TermDefinition>) -> Self {
+impl<'a> From<JsonLdNullable<&'a TermDefinition>> for ExpandedTermDefinitionRef<'a> {
+	fn from(value: JsonLdNullable<&'a TermDefinition>) -> Self {
 		match value {
-			Nullable::Some(d) => d.as_expanded(),
-			Nullable::Null => Self {
-				id: Some(Nullable::Null),
+			JsonLdNullable::Some(d) => d.as_expanded(),
+			JsonLdNullable::Null => Self {
+				id: Some(JsonLdNullable::Null),
 				..Default::default()
 			},
 		}
@@ -329,14 +330,14 @@ impl<'a> From<Nullable<&'a TermDefinition>> for ExpandedTermDefinitionRef<'a> {
 
 /// Term definition entries.
 pub struct TermDefinitionEntries<'a> {
-	id: Option<Nullable<&'a TermId>>,
-	type_: Option<Nullable<&'a TermType>>,
+	id: Option<JsonLdNullable<&'a TermId>>,
+	type_: Option<JsonLdNullable<&'a TermType>>,
 	context: Option<&'a context::JsonLdContext>,
-	reverse: Option<&'a ContextTerm>,
+	reverse: Option<&'a JsonLdContextTerm>,
 	index: Option<&'a Index>,
-	language: Option<Nullable<&'a JsonLdLenient<LangTagBuf>>>,
-	direction: Option<Nullable<Direction>>,
-	container: Option<&'a ContainerValue>,
+	language: Option<JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>>,
+	direction: Option<JsonLdNullable<JsonLdDirection>>,
+	container: Option<&'a JsonLdContainerValue>,
 	nest: Option<&'a Nest>,
 	prefix: Option<bool>,
 	propagate: Option<bool>,
@@ -344,14 +345,14 @@ pub struct TermDefinitionEntries<'a> {
 }
 
 pub enum TermDefinitionEntryRef<'a> {
-	Id(Nullable<&'a TermId>),
-	Type(Nullable<&'a TermType>),
+	Id(JsonLdNullable<&'a TermId>),
+	Type(JsonLdNullable<&'a TermType>),
 	Context(&'a context::JsonLdContext),
-	Reverse(&'a ContextTerm),
+	Reverse(&'a JsonLdContextTerm),
 	Index(&'a Index),
-	Language(Nullable<&'a JsonLdLenient<LangTagBuf>>),
-	Direction(Nullable<Direction>),
-	Container(&'a ContainerValue),
+	Language(JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>),
+	Direction(JsonLdNullable<JsonLdDirection>),
+	Container(&'a JsonLdContainerValue),
 	Nest(&'a Nest),
 	Prefix(bool),
 	Propagate(bool),
@@ -511,14 +512,14 @@ impl TermDefinitionEntryKey {
 }
 
 pub enum TermDefinitionEntryValueRef<'a> {
-	Id(Nullable<&'a TermId>),
-	Type(Nullable<&'a TermType>),
+	Id(JsonLdNullable<&'a TermId>),
+	Type(JsonLdNullable<&'a TermType>),
 	Context(&'a context::JsonLdContext),
-	Reverse(&'a ContextTerm),
+	Reverse(&'a JsonLdContextTerm),
 	Index(&'a Index),
-	Language(Nullable<&'a JsonLdLenient<LangTagBuf>>),
-	Direction(Nullable<Direction>),
-	Container(&'a ContainerValue),
+	Language(JsonLdNullable<&'a JsonLdLenient<LangTagBuf>>),
+	Direction(JsonLdNullable<JsonLdDirection>),
+	Container(&'a JsonLdContainerValue),
 	Nest(&'a Nest),
 	Prefix(bool),
 	Propagate(bool),

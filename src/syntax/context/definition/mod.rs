@@ -1,19 +1,17 @@
 use crate::{
 	JsonLdLenient,
-	syntax::{Direction, Keyword, Nullable},
+	syntax::{JsonLdDirection, JsonLdNullable, Keyword},
 };
 use btree_indexmap::BTreeIndexMap;
 use langtag::LangTagBuf;
 use rdf_syntax::IriRefBuf;
 
-mod import;
 mod reference;
 mod term;
 mod type_;
 mod version;
 mod vocab;
 
-pub use import::*;
 pub use reference::*;
 pub use term::*;
 pub use type_::*;
@@ -29,11 +27,11 @@ pub struct JsonLdContextDefinition {
 		serde(
 			rename = "@base",
 			default,
-			deserialize_with = "Nullable::optional",
+			deserialize_with = "JsonLdNullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub base: Option<Nullable<IriRefBuf>>,
+	pub base: Option<JsonLdNullable<IriRefBuf>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -46,22 +44,22 @@ pub struct JsonLdContextDefinition {
 		serde(
 			rename = "@language",
 			default,
-			deserialize_with = "Nullable::optional",
+			deserialize_with = "JsonLdNullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub language: Option<Nullable<JsonLdLenient<LangTagBuf>>>,
+	pub language: Option<JsonLdNullable<JsonLdLenient<LangTagBuf>>>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(
 			rename = "@direction",
 			default,
-			deserialize_with = "Nullable::optional",
+			deserialize_with = "JsonLdNullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub direction: Option<Nullable<Direction>>,
+	pub direction: Option<JsonLdNullable<JsonLdDirection>>,
 
 	#[cfg_attr(
 		feature = "serde",
@@ -87,24 +85,24 @@ pub struct JsonLdContextDefinition {
 		feature = "serde",
 		serde(rename = "@type", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub type_: Option<ContextType>,
+	pub type_: Option<JsonLdContextType>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(rename = "@version", default, skip_serializing_if = "Option::is_none")
 	)]
-	pub version: Option<Version>,
+	pub version: Option<JsonLdVersion>,
 
 	#[cfg_attr(
 		feature = "serde",
 		serde(
 			rename = "@vocab",
 			default,
-			deserialize_with = "Nullable::optional",
+			deserialize_with = "JsonLdNullable::optional",
 			skip_serializing_if = "Option::is_none"
 		)
 	)]
-	pub vocab: Option<Nullable<Vocab>>,
+	pub vocab: Option<JsonLdNullable<JsonLdVocab>>,
 
 	#[cfg_attr(feature = "serde", serde(flatten))]
 	pub bindings: Bindings,
@@ -115,37 +113,43 @@ impl JsonLdContextDefinition {
 		Self::default()
 	}
 
-	pub fn get(&self, key: &KeyOrKeyword) -> Option<EntryValueRef<'_>> {
+	pub fn get(&self, key: &JsonLdKeyOrKeyword) -> Option<JsonLdContextEntryValueRef<'_>> {
 		match key {
-			KeyOrKeyword::Keyword(k) => match k {
+			JsonLdKeyOrKeyword::Keyword(k) => match k {
 				Keyword::Base => self
 					.base
 					.as_ref()
-					.map(Nullable::as_deref)
-					.map(EntryValueRef::Base),
-				Keyword::Import => self.import.as_deref().map(EntryValueRef::Import),
+					.map(JsonLdNullable::as_deref)
+					.map(JsonLdContextEntryValueRef::Base),
+				Keyword::Import => self
+					.import
+					.as_deref()
+					.map(JsonLdContextEntryValueRef::Import),
 				Keyword::Language => self
 					.language
 					.as_ref()
-					.map(Nullable::as_ref)
-					.map(EntryValueRef::Language),
-				Keyword::Direction => self.direction.map(EntryValueRef::Direction),
-				Keyword::Propagate => self.propagate.map(EntryValueRef::Propagate),
-				Keyword::Protected => self.protected.map(EntryValueRef::Protected),
-				Keyword::Type => self.type_.map(EntryValueRef::Type),
-				Keyword::Version => self.version.map(EntryValueRef::Version),
+					.map(JsonLdNullable::as_ref)
+					.map(JsonLdContextEntryValueRef::Language),
+				Keyword::Direction => self.direction.map(JsonLdContextEntryValueRef::Direction),
+				Keyword::Propagate => self.propagate.map(JsonLdContextEntryValueRef::Propagate),
+				Keyword::Protected => self.protected.map(JsonLdContextEntryValueRef::Protected),
+				Keyword::Type => self.type_.map(JsonLdContextEntryValueRef::Type),
+				Keyword::Version => self.version.map(JsonLdContextEntryValueRef::Version),
 				Keyword::Vocab => self
 					.vocab
 					.as_ref()
-					.map(Nullable::as_ref)
-					.map(EntryValueRef::Vocab),
+					.map(JsonLdNullable::as_ref)
+					.map(JsonLdContextEntryValueRef::Vocab),
 				_ => None,
 			},
-			KeyOrKeyword::Key(k) => self.bindings.get(k).map(EntryValueRef::Definition),
+			JsonLdKeyOrKeyword::Key(k) => self
+				.bindings
+				.get(k)
+				.map(JsonLdContextEntryValueRef::Definition),
 		}
 	}
 
-	pub fn get_binding(&self, key: &ContextTerm) -> Option<Nullable<&TermDefinition>> {
+	pub fn get_binding(&self, key: &JsonLdContextTerm) -> Option<JsonLdNullable<&TermDefinition>> {
 		self.bindings.get(key)
 	}
 }
@@ -154,32 +158,34 @@ impl JsonLdContextDefinition {
 #[derive(Default, PartialEq, Eq, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct Bindings(BTreeIndexMap<ContextTerm, Nullable<TermDefinition>>);
+pub struct Bindings(BTreeIndexMap<JsonLdContextTerm, JsonLdNullable<TermDefinition>>);
 
-pub struct BindingsIter<'a>(btree_indexmap::map::Iter<'a, ContextTerm, Nullable<TermDefinition>>);
+pub struct JsonLdContextBindingsIter<'a>(
+	btree_indexmap::map::Iter<'a, JsonLdContextTerm, JsonLdNullable<TermDefinition>>,
+);
 
-impl<'a> Iterator for BindingsIter<'a> {
-	type Item = (&'a ContextTerm, Nullable<&'a TermDefinition>);
+impl<'a> Iterator for JsonLdContextBindingsIter<'a> {
+	type Item = (&'a JsonLdContextTerm, JsonLdNullable<&'a TermDefinition>);
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.0.next().map(|(k, d)| (k, d.as_ref()))
 	}
 }
 
-impl<'a> DoubleEndedIterator for BindingsIter<'a> {
+impl<'a> DoubleEndedIterator for JsonLdContextBindingsIter<'a> {
 	fn next_back(&mut self) -> Option<Self::Item> {
 		self.0.next_back().map(|(k, d)| (k, d.as_ref()))
 	}
 }
 
-impl<'a> ExactSizeIterator for BindingsIter<'a> {}
+impl<'a> ExactSizeIterator for JsonLdContextBindingsIter<'a> {}
 
 impl Bindings {
 	pub fn insert(
 		&mut self,
-		key: ContextTerm,
-		def: Nullable<TermDefinition>,
-	) -> Option<Nullable<TermDefinition>> {
+		key: JsonLdContextTerm,
+		def: JsonLdNullable<TermDefinition>,
+	) -> Option<JsonLdNullable<TermDefinition>> {
 		self.0.insert(key, def)
 	}
 }
@@ -197,41 +203,47 @@ impl Bindings {
 		self.0.is_empty()
 	}
 
-	pub fn get(&self, key: &ContextTerm) -> Option<Nullable<&TermDefinition>> {
-		self.0.get(key).map(Nullable::as_ref)
+	pub fn get(&self, key: &JsonLdContextTerm) -> Option<JsonLdNullable<&TermDefinition>> {
+		self.0.get(key).map(JsonLdNullable::as_ref)
 	}
 
-	pub fn get_entry(&self, i: usize) -> Option<(&ContextTerm, Nullable<&TermDefinition>)> {
+	pub fn get_entry(
+		&self,
+		i: usize,
+	) -> Option<(&JsonLdContextTerm, JsonLdNullable<&TermDefinition>)> {
 		self.0
 			.as_entries()
 			.get(i)
 			.map(|(key, value)| (key, value.as_ref()))
 	}
 
-	pub fn iter(&self) -> BindingsIter<'_> {
-		BindingsIter(self.0.iter())
+	pub fn iter(&self) -> JsonLdContextBindingsIter<'_> {
+		JsonLdContextBindingsIter(self.0.iter())
 	}
 
 	pub fn insert_with(
 		&mut self,
-		key: ContextTerm,
-		def: Nullable<TermDefinition>,
-	) -> Option<Nullable<TermDefinition>> {
+		key: JsonLdContextTerm,
+		def: JsonLdNullable<TermDefinition>,
+	) -> Option<JsonLdNullable<TermDefinition>> {
 		self.0.insert(key, def)
 	}
 }
 
 impl IntoIterator for Bindings {
-	type Item = (ContextTerm, Nullable<TermDefinition>);
-	type IntoIter = btree_indexmap::map::IntoIter<ContextTerm, Nullable<TermDefinition>>;
+	type Item = (JsonLdContextTerm, JsonLdNullable<TermDefinition>);
+	type IntoIter =
+		btree_indexmap::map::IntoIter<JsonLdContextTerm, JsonLdNullable<TermDefinition>>;
 
 	fn into_iter(self) -> Self::IntoIter {
 		self.0.into_iter()
 	}
 }
 
-impl FromIterator<(ContextTerm, Nullable<TermDefinition>)> for Bindings {
-	fn from_iter<T: IntoIterator<Item = (ContextTerm, Nullable<TermDefinition>)>>(iter: T) -> Self {
+impl FromIterator<(JsonLdContextTerm, JsonLdNullable<TermDefinition>)> for Bindings {
+	fn from_iter<T: IntoIterator<Item = (JsonLdContextTerm, JsonLdNullable<TermDefinition>)>>(
+		iter: T,
+	) -> Self {
 		let mut result = Self::new();
 
 		for (key, binding) in iter {

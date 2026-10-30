@@ -1,4 +1,4 @@
-use crate::syntax::{CompactIri, Keyword};
+use crate::syntax::{JsonLdCompactIri, Keyword};
 use rdf_syntax::BlankId;
 use rdf_syntax::Iri;
 use std::borrow::Borrow;
@@ -13,15 +13,15 @@ pub use definition::*;
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
-pub struct ContextTerm(String);
+pub struct JsonLdContextTerm(String);
 
-impl ContextTerm {
+impl JsonLdContextTerm {
 	pub fn as_iri(&self) -> Option<&Iri> {
 		Iri::new(&self.0).ok()
 	}
 
-	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
-		CompactIri::new(&self.0).ok()
+	pub fn as_compact_iri(&self) -> Option<&JsonLdCompactIri> {
+		JsonLdCompactIri::new(&self.0).ok()
 	}
 
 	pub fn as_blank_id(&self) -> Option<&BlankId> {
@@ -49,38 +49,38 @@ impl ContextTerm {
 	}
 }
 
-impl From<json_syntax::object::Key> for ContextTerm {
+impl From<json_syntax::object::Key> for JsonLdContextTerm {
 	fn from(k: json_syntax::object::Key) -> Self {
 		Self::from(k.into_string())
 	}
 }
 
 #[allow(clippy::derived_hash_with_manual_eq)]
-impl Hash for ContextTerm {
+impl Hash for JsonLdContextTerm {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)
 	}
 }
 
-impl From<String> for ContextTerm {
+impl From<String> for JsonLdContextTerm {
 	fn from(k: String) -> Self {
 		Self(k)
 	}
 }
 
-impl<'a> From<&'a str> for ContextTerm {
+impl<'a> From<&'a str> for JsonLdContextTerm {
 	fn from(value: &'a str) -> Self {
 		Self(value.to_owned())
 	}
 }
 
-impl fmt::Display for ContextTerm {
+impl fmt::Display for JsonLdContextTerm {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		self.0.fmt(f)
 	}
 }
 
-impl Borrow<str> for ContextTerm {
+impl Borrow<str> for JsonLdContextTerm {
 	fn borrow(&self) -> &str {
 		self.as_str()
 	}
@@ -102,8 +102,8 @@ impl<'a> KeyRef<'a> {
 		self.0
 	}
 
-	pub fn to_owned(self) -> ContextTerm {
-		ContextTerm(self.0.to_owned())
+	pub fn to_owned(self) -> JsonLdContextTerm {
+		JsonLdContextTerm(self.0.to_owned())
 	}
 }
 
@@ -113,8 +113,8 @@ impl<'a> From<&'a str> for KeyRef<'a> {
 	}
 }
 
-impl<'a> From<&'a ContextTerm> for KeyRef<'a> {
-	fn from(k: &'a ContextTerm) -> Self {
+impl<'a> From<&'a JsonLdContextTerm> for KeyRef<'a> {
+	fn from(k: &'a JsonLdContextTerm) -> Self {
 		Self(&k.0)
 	}
 }
@@ -126,12 +126,12 @@ impl<'a> fmt::Display for KeyRef<'a> {
 }
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum KeyOrKeyword {
+pub enum JsonLdKeyOrKeyword {
 	Keyword(Keyword),
-	Key(ContextTerm),
+	Key(JsonLdContextTerm),
 }
 
-impl KeyOrKeyword {
+impl JsonLdKeyOrKeyword {
 	pub fn is_empty(&self) -> bool {
 		match self {
 			Self::Keyword(_) => false,
@@ -146,7 +146,7 @@ impl KeyOrKeyword {
 		}
 	}
 
-	pub fn into_key(self) -> Option<ContextTerm> {
+	pub fn into_key(self) -> Option<JsonLdContextTerm> {
 		match self {
 			Self::Keyword(_) => None,
 			Self::Key(k) => Some(k),
@@ -160,7 +160,7 @@ impl KeyOrKeyword {
 		}
 	}
 
-	pub fn as_key(&self) -> Option<&ContextTerm> {
+	pub fn as_key(&self) -> Option<&JsonLdContextTerm> {
 		match self {
 			Self::Keyword(_) => None,
 			Self::Key(k) => Some(k),
@@ -176,13 +176,13 @@ impl KeyOrKeyword {
 }
 
 #[allow(clippy::derived_hash_with_manual_eq)]
-impl Hash for KeyOrKeyword {
+impl Hash for JsonLdKeyOrKeyword {
 	fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
 		self.as_str().hash(state)
 	}
 }
 
-impl fmt::Display for KeyOrKeyword {
+impl fmt::Display for JsonLdKeyOrKeyword {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Self::Key(k) => k.fmt(f),
@@ -192,16 +192,16 @@ impl fmt::Display for KeyOrKeyword {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum KeyOrKeywordRef<'a> {
+pub enum JsonLdKeyOrKeywordRef<'a> {
 	Keyword(Keyword),
 	Key(KeyRef<'a>),
 }
 
-impl<'a> KeyOrKeywordRef<'a> {
-	pub fn to_owned(self) -> KeyOrKeyword {
+impl<'a> JsonLdKeyOrKeywordRef<'a> {
+	pub fn to_owned(self) -> JsonLdKeyOrKeyword {
 		match self {
-			Self::Keyword(k) => KeyOrKeyword::Keyword(k),
-			Self::Key(k) => KeyOrKeyword::Key(k.to_owned()),
+			Self::Keyword(k) => JsonLdKeyOrKeyword::Keyword(k),
+			Self::Key(k) => JsonLdKeyOrKeyword::Key(k.to_owned()),
 		}
 	}
 
@@ -213,7 +213,7 @@ impl<'a> KeyOrKeywordRef<'a> {
 	}
 }
 
-impl<'a> From<&'a str> for KeyOrKeywordRef<'a> {
+impl<'a> From<&'a str> for JsonLdKeyOrKeywordRef<'a> {
 	fn from(s: &'a str) -> Self {
 		match Keyword::try_from(s) {
 			Ok(k) => Self::Keyword(k),
@@ -222,29 +222,29 @@ impl<'a> From<&'a str> for KeyOrKeywordRef<'a> {
 	}
 }
 
-impl<'a> From<&'a KeyOrKeyword> for KeyOrKeywordRef<'a> {
-	fn from(k: &'a KeyOrKeyword) -> Self {
+impl<'a> From<&'a JsonLdKeyOrKeyword> for JsonLdKeyOrKeywordRef<'a> {
+	fn from(k: &'a JsonLdKeyOrKeyword) -> Self {
 		match k {
-			KeyOrKeyword::Keyword(k) => Self::Keyword(*k),
-			KeyOrKeyword::Key(k) => Self::Key(k.into()),
+			JsonLdKeyOrKeyword::Keyword(k) => Self::Keyword(*k),
+			JsonLdKeyOrKeyword::Key(k) => Self::Key(k.into()),
 		}
 	}
 }
 
-impl<'a> From<KeyRef<'a>> for KeyOrKeywordRef<'a> {
+impl<'a> From<KeyRef<'a>> for JsonLdKeyOrKeywordRef<'a> {
 	fn from(k: KeyRef<'a>) -> Self {
 		Self::Key(k)
 	}
 }
 
-impl<'a> From<&'a ContextTerm> for KeyOrKeywordRef<'a> {
-	fn from(k: &'a ContextTerm) -> Self {
+impl<'a> From<&'a JsonLdContextTerm> for JsonLdKeyOrKeywordRef<'a> {
+	fn from(k: &'a JsonLdContextTerm) -> Self {
 		Self::Key(k.into())
 	}
 }
 
 pub enum KeyOrType {
-	Key(ContextTerm),
+	Key(JsonLdContextTerm),
 	Type,
 }
 

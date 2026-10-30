@@ -1,7 +1,7 @@
 use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::{RDF_FIRST, RDF_NIL, RDF_REST, Term};
 
-use crate::{IndexedObject, object::JsonLdList};
+use crate::{IndexedJsonLdObject, object::JsonLdList};
 
 use super::super::RdfSerializationOptions;
 
@@ -28,7 +28,7 @@ impl SerializeLinkedData for JsonLdList {
 	}
 }
 
-struct RestWith<'a>(&'a [IndexedObject], RdfSerializationOptions);
+struct RestWith<'a>(&'a [IndexedJsonLdObject], RdfSerializationOptions);
 
 impl SerializeLinkedData for RestWith<'_> {
 	fn serialize_rdf<S>(&self, mut serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>

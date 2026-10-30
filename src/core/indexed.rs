@@ -1,8 +1,8 @@
 use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
 
-use crate::VisitJsonLd;
-use crate::object::{JsonLdObjectRef, ObjectMut};
+use crate::JsonLdVisit;
+use crate::object::{JsonLdObjectMut, JsonLdObjectRef};
 
 /// Indexed objects.
 ///
@@ -12,7 +12,7 @@ use crate::object::{JsonLdObjectRef, ObjectMut};
 /// It is a pointer type that `Deref` into the underlying value.
 #[derive(Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Indexed<T> {
+pub struct JsonLdIndexed<T> {
 	/// Index.
 	#[cfg_attr(
 		feature = "serde",
@@ -25,7 +25,7 @@ pub struct Indexed<T> {
 	value: T,
 }
 
-impl<T> Indexed<T> {
+impl<T> JsonLdIndexed<T> {
 	/// Creates a non-indexed value, without metadata.
 	pub fn unindexed(value: T) -> Self {
 		Self::new(value, None)
@@ -34,7 +34,7 @@ impl<T> Indexed<T> {
 	/// Create a new (maybe) indexed value.
 	#[inline(always)]
 	pub fn new(value: T, index: Option<String>) -> Self {
-		Indexed { value, index }
+		JsonLdIndexed { value, index }
 	}
 
 	/// Get a reference to the inner value.
@@ -76,47 +76,47 @@ impl<T> Indexed<T> {
 
 	/// Cast the inner value.
 	#[inline(always)]
-	pub fn map_inner<U, F>(self, f: F) -> Indexed<U>
+	pub fn map_inner<U, F>(self, f: F) -> JsonLdIndexed<U>
 	where
 		F: FnOnce(T) -> U,
 	{
-		Indexed::new(f(self.value), self.index)
+		JsonLdIndexed::new(f(self.value), self.index)
 	}
 
 	/// Cast the inner value.
 	#[inline(always)]
-	pub fn cast<U: From<T>>(self) -> Indexed<U> {
-		Indexed::new(self.value.into(), self.index)
+	pub fn cast<U: From<T>>(self) -> JsonLdIndexed<U> {
+		JsonLdIndexed::new(self.value.into(), self.index)
 	}
 
 	/// Try to cast the inner value.
 	#[inline(always)]
-	pub fn try_cast<U: TryFrom<T>>(self) -> Result<Indexed<U>, Indexed<U::Error>> {
+	pub fn try_cast<U: TryFrom<T>>(self) -> Result<JsonLdIndexed<U>, JsonLdIndexed<U::Error>> {
 		match self.value.try_into() {
-			Ok(value) => Ok(Indexed::new(value, self.index)),
-			Err(e) => Err(Indexed::new(e, self.index)),
+			Ok(value) => Ok(JsonLdIndexed::new(value, self.index)),
+			Err(e) => Err(JsonLdIndexed::new(e, self.index)),
 		}
 	}
 }
 
-impl<T: VisitJsonLd> VisitJsonLd for Indexed<T> {
+impl<T: JsonLdVisit> JsonLdVisit for JsonLdIndexed<T> {
 	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		self.value.visit_with(f);
 	}
 
-	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
+	fn visit_mut_with(&mut self, f: &mut impl FnMut(JsonLdObjectMut)) {
 		self.value.visit_mut_with(f);
 	}
 }
 
-impl<T> From<T> for Indexed<T> {
+impl<T> From<T> for JsonLdIndexed<T> {
 	#[inline(always)]
-	fn from(value: T) -> Indexed<T> {
-		Indexed::new(value, None)
+	fn from(value: T) -> JsonLdIndexed<T> {
+		JsonLdIndexed::new(value, None)
 	}
 }
 
-impl<T> Deref for Indexed<T> {
+impl<T> Deref for JsonLdIndexed<T> {
 	type Target = T;
 
 	#[inline(always)]
@@ -125,21 +125,21 @@ impl<T> Deref for Indexed<T> {
 	}
 }
 
-impl<T> DerefMut for Indexed<T> {
+impl<T> DerefMut for JsonLdIndexed<T> {
 	#[inline(always)]
 	fn deref_mut(&mut self) -> &mut T {
 		&mut self.value
 	}
 }
 
-impl<T> AsRef<T> for Indexed<T> {
+impl<T> AsRef<T> for JsonLdIndexed<T> {
 	#[inline(always)]
 	fn as_ref(&self) -> &T {
 		&self.value
 	}
 }
 
-impl<T> AsMut<T> for Indexed<T> {
+impl<T> AsMut<T> for JsonLdIndexed<T> {
 	#[inline(always)]
 	fn as_mut(&mut self) -> &mut T {
 		&mut self.value

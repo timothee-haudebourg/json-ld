@@ -99,12 +99,12 @@ impl JsonLdContext {
 	}
 }
 
-pub enum IntoIter {
+pub enum JsonLdContextIntoIter {
 	One(Option<JsonLdContextEntry>),
 	Many(std::vec::IntoIter<JsonLdContextEntry>),
 }
 
-impl Iterator for IntoIter {
+impl Iterator for JsonLdContextIntoIter {
 	type Item = JsonLdContextEntry;
 
 	fn next(&mut self) -> Option<Self::Item> {
@@ -117,12 +117,12 @@ impl Iterator for IntoIter {
 
 impl IntoIterator for JsonLdContext {
 	type Item = JsonLdContextEntry;
-	type IntoIter = IntoIter;
+	type IntoIter = JsonLdContextIntoIter;
 
 	fn into_iter(self) -> Self::IntoIter {
 		match self {
-			Self::One(t) => IntoIter::One(Some(t)),
-			Self::Many(t) => IntoIter::Many(t.into_iter()),
+			Self::One(t) => JsonLdContextIntoIter::One(Some(t)),
+			Self::Many(t) => JsonLdContextIntoIter::Many(t.into_iter()),
 		}
 	}
 }

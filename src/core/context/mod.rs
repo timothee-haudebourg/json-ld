@@ -3,12 +3,12 @@ mod container;
 mod definition;
 pub mod inverse;
 
-pub use container::Container;
+pub use container::JsonLdContainer;
 use langtag::{LangTag, LangTagBuf};
 
-use crate::syntax::context::ContextTerm;
+use crate::syntax::context::JsonLdContextTerm;
 use crate::syntax::{JsonLdContext, KeywordType};
-use crate::{Direction, JsonLdLenient, JsonLdTerm};
+use crate::{JsonLdDirection, JsonLdLenient, JsonLdTerm};
 use rdf_syntax::{Iri, IriBuf};
 use std::borrow::{Borrow, Cow};
 use std::hash::Hash;
@@ -27,11 +27,11 @@ pub use inverse::InverseJsonLdContext;
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
 pub struct ProcessedJsonLdContext<'a> {
 	unprocessed: Cow<'a, JsonLdContext>,
-	raw: RawProcessedContext,
+	raw: RawJsonLdProcessedContext,
 }
 
 impl<'a> ProcessedJsonLdContext<'a> {
-	pub fn new(unprocessed: Cow<'a, JsonLdContext>, raw: RawProcessedContext) -> Self {
+	pub fn new(unprocessed: Cow<'a, JsonLdContext>, raw: RawJsonLdProcessedContext) -> Self {
 		Self { unprocessed, raw }
 	}
 
@@ -39,11 +39,11 @@ impl<'a> ProcessedJsonLdContext<'a> {
 		&self.unprocessed
 	}
 
-	pub fn as_raw(&self) -> &RawProcessedContext {
+	pub fn as_raw(&self) -> &RawJsonLdProcessedContext {
 		&self.raw
 	}
 
-	pub fn into_raw(self) -> RawProcessedContext {
+	pub fn into_raw(self) -> RawJsonLdProcessedContext {
 		self.raw
 	}
 
@@ -56,7 +56,7 @@ impl<'a> ProcessedJsonLdContext<'a> {
 }
 
 impl Deref for ProcessedJsonLdContext<'_> {
-	type Target = RawProcessedContext;
+	type Target = RawJsonLdProcessedContext;
 
 	fn deref(&self) -> &Self::Target {
 		&self.raw
@@ -77,20 +77,20 @@ impl DerefMut for ProcessedJsonLdContext<'_> {
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
 #[derive(Default)]
-pub struct RawProcessedContext {
+pub struct RawJsonLdProcessedContext {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
 	vocabulary: Option<JsonLdTerm>,
 	default_language: Option<JsonLdLenient<LangTagBuf>>,
-	default_base_direction: Option<Direction>,
+	default_base_direction: Option<JsonLdDirection>,
 	previous_context: Option<Box<Self>>,
 	definitions: Definitions,
 	inverse: OnceLock<InverseJsonLdContext>,
 }
 
-pub type DefinitionEntryRef<'a> = (&'a ContextTerm, &'a TermDefinition);
+pub type DefinitionEntryRef<'a> = (&'a JsonLdContextTerm, &'a TermDefinition);
 
-impl RawProcessedContext {
+impl RawJsonLdProcessedContext {
 	/// Create a new context with the given base IRI.
 	pub fn new(base_iri: Option<IriBuf>) -> Self {
 		Self {
@@ -108,7 +108,7 @@ impl RawProcessedContext {
 	/// Returns a reference to the given `term` definition, if any.
 	pub fn get<Q>(&self, term: &Q) -> Option<TermDefinitionRef<'_>>
 	where
-		ContextTerm: Borrow<Q>,
+		JsonLdContextTerm: Borrow<Q>,
 		KeywordType: Borrow<Q>,
 		Q: ?Sized + Hash + Eq,
 	{
@@ -116,23 +116,23 @@ impl RawProcessedContext {
 	}
 
 	/// Returns a reference to the given `term` normal definition, if any.
-	pub fn get_normal<Q>(&self, term: &Q) -> Option<&NormalTermDefinition>
+	pub fn get_normal<Q>(&self, term: &Q) -> Option<&JsonLdNormalTermDefinition>
 	where
-		ContextTerm: Borrow<Q>,
+		JsonLdContextTerm: Borrow<Q>,
 		Q: ?Sized + Hash + Eq,
 	{
 		self.definitions.get_normal(term)
 	}
 
 	/// Returns a reference to the `@type` definition, if any.
-	pub fn get_type(&self) -> Option<&TypeTermDefinition> {
+	pub fn get_type(&self) -> Option<&JsonLdTypeTermDefinition> {
 		self.definitions.get_type()
 	}
 
 	/// Checks if the given `term` is defined.
 	pub fn contains_term<Q>(&self, term: &Q) -> bool
 	where
-		ContextTerm: Borrow<Q>,
+		JsonLdContextTerm: Borrow<Q>,
 		KeywordType: Borrow<Q>,
 		Q: ?Sized + Hash + Eq,
 	{
@@ -163,7 +163,7 @@ impl RawProcessedContext {
 	}
 
 	/// Returns the default `@direction` value.
-	pub fn default_base_direction(&self) -> Option<Direction> {
+	pub fn default_base_direction(&self) -> Option<JsonLdDirection> {
 		self.default_base_direction
 	}
 
@@ -209,15 +209,18 @@ impl RawProcessedContext {
 	/// Sets the normal definition for the given term `key`.
 	pub fn set_normal(
 		&mut self,
-		key: ContextTerm,
-		definition: Option<NormalTermDefinition>,
-	) -> Option<NormalTermDefinition> {
+		key: JsonLdContextTerm,
+		definition: Option<JsonLdNormalTermDefinition>,
+	) -> Option<JsonLdNormalTermDefinition> {
 		self.inverse.take();
 		self.definitions.set_normal(key, definition)
 	}
 
 	/// Sets the `@type` definition.
-	pub fn set_type(&mut self, type_: Option<TypeTermDefinition>) -> Option<TypeTermDefinition> {
+	pub fn set_type(
+		&mut self,
+		type_: Option<JsonLdTypeTermDefinition>,
+	) -> Option<JsonLdTypeTermDefinition> {
 		self.definitions.set_type(type_)
 	}
 
@@ -240,7 +243,7 @@ impl RawProcessedContext {
 	}
 
 	/// Sets the default `@direction` value.
-	pub fn set_default_base_direction(&mut self, dir: Option<Direction>) {
+	pub fn set_default_base_direction(&mut self, dir: Option<JsonLdDirection>) {
 		self.inverse.take();
 		self.default_base_direction = dir;
 	}
@@ -282,7 +285,7 @@ impl RawProcessedContext {
 	// }
 }
 
-impl Clone for RawProcessedContext {
+impl Clone for RawJsonLdProcessedContext {
 	fn clone(&self) -> Self {
 		Self {
 			original_base_url: self.original_base_url.clone(),
@@ -297,7 +300,7 @@ impl Clone for RawProcessedContext {
 	}
 }
 
-impl PartialEq for RawProcessedContext {
+impl PartialEq for RawJsonLdProcessedContext {
 	fn eq(&self, other: &Self) -> bool {
 		self.original_base_url == other.original_base_url
 			&& self.base_iri == other.base_iri

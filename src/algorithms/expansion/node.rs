@@ -1,13 +1,13 @@
 use crate::algorithms::AsyncProcessingEnvironment;
 use crate::algorithms::context_processing::ContextProcessingOptions;
 use crate::algorithms::expansion::{Expander, ExpansionPolicy};
-use crate::context::Container;
-use crate::context::RawProcessedContext;
-use crate::syntax::{ContainerItem, Keyword, Nullable};
+use crate::context::JsonLdContainer;
+use crate::context::RawJsonLdProcessedContext;
+use crate::syntax::{JsonLdContainerItem, JsonLdNullable, Keyword};
 use crate::{
-	Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdNode,
-	JsonLdObject, JsonLdTerm, JsonLdType, LangString, ProcessingMode, Warning, object,
-	object::value::LiteralValue,
+	IndexedJsonLdObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdIndexed, JsonLdLocatedError,
+	JsonLdNode, JsonLdObject, JsonLdProcessingMode, JsonLdTerm, JsonLdType, JsonLdWarning,
+	LangString, object, object::value::LiteralValue,
 };
 use crate::{JsonLdLenient, JsonLdValue};
 use btree_indexmap::BTreeIndexSet;
@@ -33,10 +33,10 @@ impl<'a> Expander<'a> {
 	pub async fn expand_node(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		type_scoped_context: &RawProcessedContext,
+		type_scoped_context: &RawJsonLdProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<Option<Indexed<JsonLdNode>>, JsonLdLocatedError> {
+	) -> Result<Option<JsonLdIndexed<JsonLdNode>>, JsonLdLocatedError> {
 		// Initialize two empty maps, `result` and `nests`.
 		// let mut result = Indexed::new(Node::new(), None);
 		// let mut has_value_object_entries = false;
@@ -44,7 +44,7 @@ impl<'a> Expander<'a> {
 		let (result, has_value_object_entries) = self
 			.expand_node_entries(
 				env,
-				Indexed::new(JsonLdNode::new(), None),
+				JsonLdIndexed::new(JsonLdNode::new(), None),
 				false,
 				type_scoped_context,
 				expanded_entries,
@@ -90,9 +90,9 @@ impl<'a> Expander<'a> {
 	async fn expand_node_entries(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		mut result: Indexed<JsonLdNode>,
+		mut result: JsonLdIndexed<JsonLdNode>,
 		mut has_value_object_entries: bool,
-		type_scoped_context: &RawProcessedContext,
+		type_scoped_context: &RawJsonLdProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> NodeEntriesExpensionResult {
@@ -128,7 +128,7 @@ impl<'a> Expander<'a> {
 					// `@included` or `@type` (unless processing mode is json-ld-1.0), a
 					// colliding keywords error has been detected and processing is
 					// aborted.
-					if (self.options.processing_mode == ProcessingMode::JsonLd1_0
+					if (self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0
 						|| (expanded_property != Keyword::Included
 							&& expanded_property != Keyword::Type))
 						&& result.has_key(&JsonLdTerm::Keyword(expanded_property))
@@ -148,7 +148,7 @@ impl<'a> Expander<'a> {
 								result.id = node_id_of_term(self.active_context.expand_iri(
 									// &mut env,
 									// active_context,
-									Nullable::Some(str_value.into()),
+									JsonLdNullable::Some(str_value.into()),
 									true,
 									false,
 								))
@@ -172,7 +172,7 @@ impl<'a> Expander<'a> {
 										.expand_iri(
 											// &mut env,
 											// type_scoped_context,
-											Nullable::Some(str_ty.into()),
+											JsonLdNullable::Some(str_ty.into()),
 											true,
 											true,
 										)
@@ -211,7 +211,7 @@ impl<'a> Expander<'a> {
 						Keyword::Included => {
 							// If processing mode is json-ld-1.0, continue with the next
 							// key from element.
-							if self.options.processing_mode == ProcessingMode::JsonLd1_0 {
+							if self.options.processing_mode == JsonLdProcessingMode::JsonLd1_0 {
 								continue;
 							}
 
@@ -269,7 +269,7 @@ impl<'a> Expander<'a> {
 									let rev_entry_loc =
 										entry_loc.object_value(reverse_key.as_str());
 									match self.active_context.expand_iri(
-										Nullable::Some(reverse_key.as_str().into()),
+										JsonLdNullable::Some(reverse_key.as_str().into()),
 										false,
 										true,
 									) {
@@ -416,7 +416,7 @@ impl<'a> Expander<'a> {
 											let expanded_key = active_context.expand_iri(
 												// &mut env,
 												// active_context.as_ref(),
-												Nullable::Some(key.as_str().into()),
+												JsonLdNullable::Some(key.as_str().into()),
 												false,
 												true,
 											);
@@ -463,7 +463,7 @@ impl<'a> Expander<'a> {
 					if prop.as_str().contains(':')
 						|| self.options.policy == ExpansionPolicy::Relaxed =>
 				{
-					let mut container_mapping = Container::new();
+					let mut container_mapping = JsonLdContainer::new();
 
 					let key_definition = self.active_context.get(key);
 					let mut is_reverse_property = false;
@@ -492,7 +492,9 @@ impl<'a> Expander<'a> {
 						)
 					} else {
 						match value.as_object() {
-							Some(value) if container_mapping.contains(ContainerItem::Language) => {
+							Some(value)
+								if container_mapping.contains(JsonLdContainerItem::Language) =>
+							{
 								// Otherwise, if container mapping includes @language and value is a map then
 								// value is expanded from a language map as follows:
 								// Initialize expanded value to an empty array.
@@ -542,7 +544,7 @@ impl<'a> Expander<'a> {
 												let language = if self.active_context.expand_iri(
 													// &mut env,
 													// active_context,
-													Nullable::Some(language.as_str().into()),
+													JsonLdNullable::Some(language.as_str().into()),
 													false,
 													true,
 												) == JsonLdTerm::Keyword(
@@ -556,10 +558,12 @@ impl<'a> Expander<'a> {
 														);
 
 													if let Some(error) = error {
-														env.warn(Warning::MalformedLanguageTag(
-															language.to_string().clone(),
-															error,
-														))
+														env.warn(
+															JsonLdWarning::MalformedLanguageTag(
+																language.to_string().clone(),
+																error,
+															),
+														)
 													}
 
 													Some(language)
@@ -611,15 +615,15 @@ impl<'a> Expander<'a> {
 								Expanded::Array(expanded_value)
 							}
 							Some(value)
-								if container_mapping.contains(ContainerItem::Index)
-									|| container_mapping.contains(ContainerItem::Type)
-									|| container_mapping.contains(ContainerItem::Id) =>
+								if container_mapping.contains(JsonLdContainerItem::Index)
+									|| container_mapping.contains(JsonLdContainerItem::Type)
+									|| container_mapping.contains(JsonLdContainerItem::Id) =>
 							{
 								// Otherwise, if container mapping includes @index, @type, or @id and value
 								// is a map then value is expanded from a map as follows:
 
 								// Initialize expanded value to an empty array.
-								let mut expanded_value: Vec<IndexedObject> = Vec::new();
+								let mut expanded_value: Vec<IndexedJsonLdObject> = Vec::new();
 
 								// Initialize `index_key` to the key's index mapping in
 								// `active_context`, or @index, if it does not exist.
@@ -651,8 +655,8 @@ impl<'a> Expander<'a> {
 									// from `active_context` if it exists, otherwise, set
 									// `map_context` to `active_context`.
 									let mut map_context = Mown::Borrowed(self.active_context);
-									if (container_mapping.contains(ContainerItem::Type)
-										|| container_mapping.contains(ContainerItem::Id))
+									if (container_mapping.contains(JsonLdContainerItem::Type)
+										|| container_mapping.contains(JsonLdContainerItem::Id))
 										&& let Some(previous_context) =
 											self.active_context.previous_context()
 									{
@@ -666,7 +670,7 @@ impl<'a> Expander<'a> {
 									// map context as active context the value of the
 									// index's local context as local context and base URL
 									// from the term definition for index in map context.
-									if container_mapping.contains(ContainerItem::Type)
+									if container_mapping.contains(JsonLdContainerItem::Type)
 										&& let Some(index_definition) =
 											map_context.get(index.as_str())
 										&& let Some(local_context) = index_definition.context()
@@ -693,7 +697,7 @@ impl<'a> Expander<'a> {
 									let expanded_index = match self.active_context.expand_iri(
 										// &mut env,
 										// active_context,
-										Nullable::Some(index.as_str().into()),
+										JsonLdNullable::Some(index.as_str().into()),
 										false,
 										true,
 									) {
@@ -733,7 +737,7 @@ impl<'a> Expander<'a> {
 										// a new map containing the key-value pair
 										// @graph-item, ensuring that the value is
 										// represented using an array.
-										if container_mapping.contains(ContainerItem::Graph)
+										if container_mapping.contains(JsonLdContainerItem::Graph)
 											&& !item.is_graph()
 										{
 											let mut node = JsonLdNode::new();
@@ -748,7 +752,8 @@ impl<'a> Expander<'a> {
 											// index key is not @index, and expanded index is
 											// not @none:
 											// TODO the @none part.
-											if container_mapping.contains(ContainerItem::Index)
+											if container_mapping
+												.contains(JsonLdContainerItem::Index)
 												&& index_key != "@index"
 											{
 												// Initialize re-expanded index to the result
@@ -769,7 +774,7 @@ impl<'a> Expander<'a> {
 													match self.active_context.expand_iri(
 														// &mut env,
 														// active_context,
-														Nullable::Some(index_key.into()),
+														JsonLdNullable::Some(index_key.into()),
 														false,
 														true,
 													) {
@@ -793,17 +798,18 @@ impl<'a> Expander<'a> {
 														.at(index_entry_loc));
 												}
 											} else if container_mapping
-												.contains(ContainerItem::Index) && item
-												.index()
-												.is_none()
+												.contains(JsonLdContainerItem::Index)
+												&& item.index().is_none()
 											{
 												// Otherwise, if container mapping includes
 												// @index, item does not have an entry @index,
 												// and expanded index is not @none, add the
 												// key-value pair (@index-index) to item.
 												item.set_index(Some((*index).to_string()))
-											} else if container_mapping.contains(ContainerItem::Id)
-												&& item.id().is_none()
+											} else if container_mapping
+												.contains(JsonLdContainerItem::Id) && item
+												.id()
+												.is_none()
 											{
 												// Otherwise, if container mapping includes
 												// @id item does not have the entry @id,
@@ -817,14 +823,16 @@ impl<'a> Expander<'a> {
 														self.active_context.expand_iri(
 															// &mut env,
 															// active_context,
-															Nullable::Some(index.as_str().into()),
+															JsonLdNullable::Some(
+																index.as_str().into(),
+															),
 															true,
 															false,
 														),
 													)
 												}
 											} else if container_mapping
-												.contains(ContainerItem::Type)
+												.contains(JsonLdContainerItem::Type)
 											{
 												// Otherwise, if container mapping includes
 												// @type and expanded index is not @none,
@@ -874,7 +882,8 @@ impl<'a> Expander<'a> {
 					// expanded value if it is not already an array, and then by
 					// setting it to a map containing the key-value pair
 					// @list-expanded value.
-					if container_mapping.contains(ContainerItem::List) && !expanded_value.is_list()
+					if container_mapping.contains(JsonLdContainerItem::List)
+						&& !expanded_value.is_list()
 					{
 						expanded_value = Expanded::Object(
 							JsonLdObject::List(object::JsonLdList::new(
@@ -888,9 +897,9 @@ impl<'a> Expander<'a> {
 					// @id nor @index, convert expanded value into an array, if
 					// necessary, then convert each value ev in expanded value
 					// into a graph object:
-					if container_mapping.contains(ContainerItem::Graph)
-						&& !container_mapping.contains(ContainerItem::Id)
-						&& !container_mapping.contains(ContainerItem::Index)
+					if container_mapping.contains(JsonLdContainerItem::Graph)
+						&& !container_mapping.contains(JsonLdContainerItem::Id)
+						&& !container_mapping.contains(JsonLdContainerItem::Index)
 					{
 						expanded_value = Expanded::Array(
 							expanded_value
@@ -953,7 +962,7 @@ impl<'a> Expander<'a> {
 /// It is a tuple containing both the node being expanded
 /// and a boolean flag set to `true` if the node contains
 /// value object entries (in practice, if it has a `@language` entry).
-type ExpandedNode = (Indexed<JsonLdNode>, bool);
+type ExpandedNode = (JsonLdIndexed<JsonLdNode>, bool);
 
 /// Result of the `expand_node_entries` function.
 type NodeEntriesExpensionResult = Result<ExpandedNode, JsonLdLocatedError>;

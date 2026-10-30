@@ -2,91 +2,91 @@ use langtag::LangTag;
 use langtag::LangTagBuf;
 
 use super::BindingRef;
-use super::Container;
-use super::ContextTerm;
-use super::RawProcessedContext;
+use super::JsonLdContainer;
+use super::JsonLdContextTerm;
+use super::RawJsonLdProcessedContext;
 use crate::JsonLdLenient;
-use crate::{Direction, JsonLdTerm, JsonLdType, Nullable};
+use crate::{JsonLdDirection, JsonLdNullable, JsonLdTerm, JsonLdType};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TypeSelection {
+pub enum JsonLdTypeSelection {
 	Reverse,
 	Any,
 	Type(JsonLdType),
 }
 
 struct InverseType {
-	reverse: Option<ContextTerm>,
-	any: Option<ContextTerm>,
-	map: HashMap<JsonLdType, ContextTerm>,
+	reverse: Option<JsonLdContextTerm>,
+	any: Option<JsonLdContextTerm>,
+	map: HashMap<JsonLdType, JsonLdContextTerm>,
 }
 
 impl InverseType {
-	fn select(&self, selection: TypeSelection) -> Option<&ContextTerm> {
+	fn select(&self, selection: JsonLdTypeSelection) -> Option<&JsonLdContextTerm> {
 		match selection {
-			TypeSelection::Reverse => self.reverse.as_ref(),
-			TypeSelection::Any => self.any.as_ref(),
-			TypeSelection::Type(ty) => self.map.get(&ty),
+			JsonLdTypeSelection::Reverse => self.reverse.as_ref(),
+			JsonLdTypeSelection::Any => self.any.as_ref(),
+			JsonLdTypeSelection::Type(ty) => self.map.get(&ty),
 		}
 	}
 
-	fn set_any(&mut self, term: &ContextTerm) {
+	fn set_any(&mut self, term: &JsonLdContextTerm) {
 		if self.any.is_none() {
 			self.any = Some(term.clone())
 		}
 	}
 
-	fn set_none(&mut self, term: &ContextTerm) {
+	fn set_none(&mut self, term: &JsonLdContextTerm) {
 		self.set(&JsonLdType::None, term)
 	}
 
-	fn set(&mut self, ty: &JsonLdType, term: &ContextTerm) {
+	fn set(&mut self, ty: &JsonLdType, term: &JsonLdContextTerm) {
 		if !self.map.contains_key(ty) {
 			self.map.insert(ty.clone(), term.clone());
 		}
 	}
 }
 
-type LangDir = Nullable<(Option<JsonLdLenient<LangTagBuf>>, Option<Direction>)>;
+type LangDir = JsonLdNullable<(Option<JsonLdLenient<LangTagBuf>>, Option<JsonLdDirection>)>;
 
 struct InverseLang {
-	any: Option<ContextTerm>,
-	map: HashMap<LangDir, ContextTerm>,
+	any: Option<JsonLdContextTerm>,
+	map: HashMap<LangDir, JsonLdContextTerm>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum LangSelection<'a> {
+pub enum JsonLdLangSelection<'a> {
 	Any,
-	Lang(Nullable<(Option<JsonLdLenient<&'a LangTag>>, Option<Direction>)>),
+	Lang(JsonLdNullable<(Option<JsonLdLenient<&'a LangTag>>, Option<JsonLdDirection>)>),
 }
 
 impl InverseLang {
-	fn select(&self, selection: LangSelection) -> Option<&ContextTerm> {
+	fn select(&self, selection: JsonLdLangSelection) -> Option<&JsonLdContextTerm> {
 		match selection {
-			LangSelection::Any => self.any.as_ref(),
-			LangSelection::Lang(lang_dir) => {
+			JsonLdLangSelection::Any => self.any.as_ref(),
+			JsonLdLangSelection::Lang(lang_dir) => {
 				let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.into_owned()), d));
 				self.map.get(&lang_dir)
 			}
 		}
 	}
 
-	fn set_any(&mut self, term: &ContextTerm) {
+	fn set_any(&mut self, term: &JsonLdContextTerm) {
 		if self.any.is_none() {
 			self.any = Some(term.clone())
 		}
 	}
 
-	fn set_none(&mut self, term: &ContextTerm) {
-		self.set(Nullable::Some((None, None)), term)
+	fn set_none(&mut self, term: &JsonLdContextTerm) {
+		self.set(JsonLdNullable::Some((None, None)), term)
 	}
 
 	fn set(
 		&mut self,
-		lang_dir: Nullable<(Option<JsonLdLenient<&LangTag>>, Option<Direction>)>,
-		term: &ContextTerm,
+		lang_dir: JsonLdNullable<(Option<JsonLdLenient<&LangTag>>, Option<JsonLdDirection>)>,
+		term: &JsonLdContextTerm,
 	) {
 		let lang_dir = lang_dir.map(|(l, d)| (l.map(|l| l.into_owned()), d));
 		self.map.entry(lang_dir).or_insert_with(|| term.clone());
@@ -100,11 +100,11 @@ struct InverseContainer {
 }
 
 struct Any {
-	none: ContextTerm,
+	none: JsonLdContextTerm,
 }
 
 impl InverseContainer {
-	pub fn new(term: &ContextTerm) -> InverseContainer {
+	pub fn new(term: &JsonLdContextTerm) -> InverseContainer {
 		InverseContainer {
 			language: InverseLang {
 				any: None,
@@ -121,7 +121,7 @@ impl InverseContainer {
 }
 
 pub struct InverseDefinition {
-	map: HashMap<Container, InverseContainer>,
+	map: HashMap<JsonLdContainer, InverseContainer>,
 }
 
 impl InverseDefinition {
@@ -131,17 +131,17 @@ impl InverseDefinition {
 		}
 	}
 
-	fn get(&self, container: &Container) -> Option<&InverseContainer> {
+	fn get(&self, container: &JsonLdContainer) -> Option<&InverseContainer> {
 		self.map.get(container)
 	}
 
-	fn contains(&self, container: &Container) -> bool {
+	fn contains(&self, container: &JsonLdContainer) -> bool {
 		self.map.contains_key(container)
 	}
 
 	fn reference_mut<F: FnOnce() -> InverseContainer>(
 		&mut self,
-		container: &Container,
+		container: &JsonLdContainer,
 		insert: F,
 	) -> &mut InverseContainer {
 		if !self.contains(container) {
@@ -150,19 +150,23 @@ impl InverseDefinition {
 		self.map.get_mut(container).unwrap()
 	}
 
-	pub fn select(&self, containers: &[Container], selection: &Selection) -> Option<&ContextTerm> {
+	pub fn select(
+		&self,
+		containers: &[JsonLdContainer],
+		selection: &JsonLdSelection,
+	) -> Option<&JsonLdContextTerm> {
 		for container in containers {
 			if let Some(type_lang_map) = self.get(container) {
 				match selection {
-					Selection::Any => return Some(&type_lang_map.any.none),
-					Selection::Type(preferred_values) => {
+					JsonLdSelection::Any => return Some(&type_lang_map.any.none),
+					JsonLdSelection::Type(preferred_values) => {
 						for item in preferred_values {
 							if let Some(term) = type_lang_map.typ.select(item.clone()) {
 								return Some(term);
 							}
 						}
 					}
-					Selection::Lang(preferred_values) => {
+					JsonLdSelection::Lang(preferred_values) => {
 						for item in preferred_values {
 							if let Some(term) = type_lang_map.language.select(*item) {
 								return Some(term);
@@ -183,10 +187,10 @@ pub struct InverseJsonLdContext {
 }
 
 #[derive(Debug)]
-pub enum Selection<'a> {
+pub enum JsonLdSelection<'a> {
 	Any,
-	Type(Vec<TypeSelection>),
-	Lang(Vec<LangSelection<'a>>),
+	Type(Vec<JsonLdTypeSelection>),
+	Lang(Vec<JsonLdLangSelection<'a>>),
 }
 
 impl InverseJsonLdContext {
@@ -226,9 +230,9 @@ impl InverseJsonLdContext {
 	pub fn select(
 		&self,
 		var: &JsonLdTerm,
-		containers: &[Container],
-		selection: &Selection,
-	) -> Option<&ContextTerm> {
+		containers: &[JsonLdContainer],
+		selection: &JsonLdSelection,
+	) -> Option<&JsonLdContextTerm> {
 		match self.get(var) {
 			Some(container_map) => container_map.select(containers, selection),
 			None => None,
@@ -242,8 +246,8 @@ impl Default for InverseJsonLdContext {
 	}
 }
 
-impl<'a> From<&'a RawProcessedContext> for InverseJsonLdContext {
-	fn from(context: &'a RawProcessedContext) -> Self {
+impl<'a> From<&'a RawJsonLdProcessedContext> for InverseJsonLdContext {
+	fn from(context: &'a RawJsonLdProcessedContext) -> Self {
 		let mut result = InverseJsonLdContext::new();
 
 		let mut definitions: Vec<_> = context.definitions().iter().collect();
@@ -292,23 +296,33 @@ impl<'a> From<&'a RawProcessedContext> for InverseJsonLdContext {
 									// Otherwise, if term definition has both a language mapping
 									// and a direction mapping:
 									match (language, direction) {
-										(Nullable::Some(language), Nullable::Some(direction)) => {
+										(
+											JsonLdNullable::Some(language),
+											JsonLdNullable::Some(direction),
+										) => lang_map.set(
+											JsonLdNullable::Some((
+												Some(language.as_deref()),
+												Some(*direction),
+											)),
+											term,
+										),
+										(JsonLdNullable::Some(language), JsonLdNullable::Null) => {
 											lang_map.set(
-												Nullable::Some((
+												JsonLdNullable::Some((
 													Some(language.as_deref()),
-													Some(*direction),
+													None,
 												)),
 												term,
 											)
 										}
-										(Nullable::Some(language), Nullable::Null) => lang_map.set(
-											Nullable::Some((Some(language.as_deref()), None)),
-											term,
-										),
-										(Nullable::Null, Nullable::Some(direction)) => lang_map
-											.set(Nullable::Some((None, Some(*direction))), term),
-										(Nullable::Null, Nullable::Null) => {
-											lang_map.set(Nullable::Null, term)
+										(JsonLdNullable::Null, JsonLdNullable::Some(direction)) => {
+											lang_map.set(
+												JsonLdNullable::Some((None, Some(*direction))),
+												term,
+											)
+										}
+										(JsonLdNullable::Null, JsonLdNullable::Null) => {
+											lang_map.set(JsonLdNullable::Null, term)
 										}
 									}
 								}
@@ -316,27 +330,31 @@ impl<'a> From<&'a RawProcessedContext> for InverseJsonLdContext {
 									// Otherwise, if term definition has a language mapping (might
 									// be null):
 									match language {
-										Nullable::Some(language) => lang_map.set(
-											Nullable::Some((Some(language.as_deref()), None)),
+										JsonLdNullable::Some(language) => lang_map.set(
+											JsonLdNullable::Some((Some(language.as_deref()), None)),
 											term,
 										),
-										Nullable::Null => lang_map.set(Nullable::Null, term),
+										JsonLdNullable::Null => {
+											lang_map.set(JsonLdNullable::Null, term)
+										}
 									}
 								}
 								(None, Some(direction)) => {
 									// Otherwise, if term definition has a direction mapping (might
 									// be null):
 									match direction {
-										Nullable::Some(direction) => lang_map
-											.set(Nullable::Some((None, Some(*direction))), term),
-										Nullable::Null => {
-											lang_map.set(Nullable::Some((None, None)), term)
+										JsonLdNullable::Some(direction) => lang_map.set(
+											JsonLdNullable::Some((None, Some(*direction))),
+											term,
+										),
+										JsonLdNullable::Null => {
+											lang_map.set(JsonLdNullable::Some((None, None)), term)
 										}
 									}
 								}
 								(None, None) => {
 									lang_map.set(
-										Nullable::Some((
+										JsonLdNullable::Some((
 											context.default_language(),
 											context.default_base_direction(),
 										)),

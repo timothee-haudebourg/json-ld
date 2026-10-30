@@ -11,24 +11,24 @@ use json_syntax::{JsonObject, JsonValue};
 pub use options::*;
 
 use crate::{
-	Indexed, JsonLdBacktraceBuilder, JsonLdLocatedError, JsonLdTerm, ProcessedJsonLdContext,
+	JsonLdBacktraceBuilder, JsonLdIndexed, JsonLdLocatedError, JsonLdTerm, ProcessedJsonLdContext,
 	algorithms::AsyncProcessingEnvironment,
 	context::{
-		RawProcessedContext,
-		inverse::{LangSelection, TypeSelection},
+		RawJsonLdProcessedContext,
+		inverse::{JsonLdLangSelection, JsonLdTypeSelection},
 	},
 	syntax::Keyword,
 };
 
 /// Document that can be compacted.
-pub trait Compact {
+pub trait JsonLdCompact {
 	/// Compacts the input document with the given options.
 	#[allow(async_fn_in_trait)]
 	async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedJsonLdContext<'_>,
-		options: CompactionOptions,
+		options: JsonLdCompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
 
@@ -40,17 +40,17 @@ pub trait Compact {
 		context: &ProcessedJsonLdContext<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
-		self.compact_with(env, context, CompactionOptions::default(), location)
+		self.compact_with(env, context, JsonLdCompactionOptions::default(), location)
 			.await
 	}
 }
 
-impl<T: Compact> Compact for std::sync::Arc<T> {
+impl<T: JsonLdCompact> JsonLdCompact for std::sync::Arc<T> {
 	async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		context: &ProcessedJsonLdContext<'_>,
-		options: CompactionOptions,
+		options: JsonLdCompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		T::compact_with(self, env, context, options, location).await
@@ -68,14 +68,17 @@ impl<T: Compact> Compact for std::sync::Arc<T> {
 
 /// Compactor.
 struct Compactor<'a> {
-	pub options: CompactionOptions,
-	pub active_context: &'a RawProcessedContext,
-	pub type_scoped_context: &'a RawProcessedContext,
+	pub options: JsonLdCompactionOptions,
+	pub active_context: &'a RawJsonLdProcessedContext,
+	pub type_scoped_context: &'a RawJsonLdProcessedContext,
 	pub active_property: Option<&'a str>,
 }
 
 impl<'a> Compactor<'a> {
-	pub fn new(active_context: &'a RawProcessedContext, options: CompactionOptions) -> Self {
+	pub fn new(
+		active_context: &'a RawJsonLdProcessedContext,
+		options: JsonLdCompactionOptions,
+	) -> Self {
 		Self {
 			options,
 			active_context,
@@ -86,7 +89,7 @@ impl<'a> Compactor<'a> {
 
 	pub fn with_active_context<'b>(
 		&'b self,
-		active_context: &'b RawProcessedContext,
+		active_context: &'b RawJsonLdProcessedContext,
 	) -> Compactor<'b> {
 		Compactor {
 			options: self.options,
@@ -98,7 +101,7 @@ impl<'a> Compactor<'a> {
 
 	pub fn with_type_scoped_context<'b>(
 		&'b self,
-		type_scoped_context: &'b RawProcessedContext,
+		type_scoped_context: &'b RawJsonLdProcessedContext,
 	) -> Compactor<'b> {
 		Compactor {
 			options: self.options,
@@ -129,8 +132,8 @@ trait CompactFragment {
 }
 
 enum TypeLangValue<'a> {
-	Type(TypeSelection),
-	Lang(LangSelection<'a>),
+	Type(JsonLdTypeSelection),
+	Lang(JsonLdLangSelection<'a>),
 }
 
 /// Type that can be compacted with an index.
@@ -146,7 +149,7 @@ trait CompactIndexedFragment {
 	) -> Result<JsonValue, JsonLdLocatedError>;
 }
 
-impl<T: CompactIndexedFragment> CompactFragment for Indexed<T> {
+impl<T: CompactIndexedFragment> CompactFragment for JsonLdIndexed<T> {
 	async fn compact_fragment(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
@@ -170,7 +173,7 @@ pub trait EmbedContext {
 	fn embed_context(
 		&mut self,
 		context: &ProcessedJsonLdContext,
-		options: CompactionOptions,
+		options: JsonLdCompactionOptions,
 	) -> Result<(), JsonLdLocatedError>;
 }
 
@@ -178,7 +181,7 @@ impl EmbedContext for JsonValue {
 	fn embed_context(
 		&mut self,
 		context: &ProcessedJsonLdContext,
-		options: CompactionOptions,
+		options: JsonLdCompactionOptions,
 	) -> Result<(), JsonLdLocatedError> {
 		let value = self.take();
 

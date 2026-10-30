@@ -1,5 +1,5 @@
-use crate::syntax::context::definition::KeyOrKeywordRef;
-use crate::syntax::{CompactIri, ExpandableRef, Keyword};
+use crate::syntax::context::definition::JsonLdKeyOrKeywordRef;
+use crate::syntax::{JsonLdCompactIri, JsonLdExpandableRef, Keyword};
 use rdf_syntax::BlankId;
 use rdf_syntax::Iri;
 use std::fmt;
@@ -28,9 +28,9 @@ impl TermId {
 		}
 	}
 
-	pub fn as_compact_iri(&self) -> Option<&CompactIri> {
+	pub fn as_compact_iri(&self) -> Option<&JsonLdCompactIri> {
 		match self {
-			Self::Term(t) => CompactIri::new(t).ok(),
+			Self::Term(t) => JsonLdCompactIri::new(t).ok(),
 			Self::Keyword(_) => None,
 		}
 	}
@@ -99,7 +99,7 @@ impl From<String> for TermId {
 	}
 }
 
-impl<'a> From<&'a TermId> for ExpandableRef<'a> {
+impl<'a> From<&'a TermId> for JsonLdExpandableRef<'a> {
 	fn from(i: &'a TermId) -> Self {
 		match i {
 			TermId::Term(t) => Self::String(t),
@@ -149,7 +149,7 @@ impl<'a> From<&'a str> for IdRef<'a> {
 	}
 }
 
-impl<'a> From<IdRef<'a>> for ExpandableRef<'a> {
+impl<'a> From<IdRef<'a>> for JsonLdExpandableRef<'a> {
 	fn from(i: IdRef<'a>) -> Self {
 		match i {
 			IdRef::Term(t) => Self::String(t),
@@ -164,7 +164,7 @@ impl<'a> fmt::Display for IdRef<'a> {
 	}
 }
 
-impl<'a> From<IdRef<'a>> for KeyOrKeywordRef<'a> {
+impl<'a> From<IdRef<'a>> for JsonLdKeyOrKeywordRef<'a> {
 	fn from(i: IdRef<'a>) -> Self {
 		match i {
 			IdRef::Term(t) => Self::Key(t.into()),
