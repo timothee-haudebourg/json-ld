@@ -4,8 +4,8 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdNode, JsonLdTerm,
-	ProcessingMode, Type,
+	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdNode, JsonLdTerm, JsonLdType,
+	ProcessingMode,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		compaction::{Compactor, object::value::add_value},
@@ -154,7 +154,7 @@ impl Compactor<'_> {
 					None => None,
 				};
 
-				if type_mapping == Some(&Type::Id) {
+				if type_mapping == Some(&JsonLdType::Id) {
 					let compacted_value = self
 						.with_active_context(&active_context)
 						.compact_iri(&id, false, false, id_loc)?;
@@ -163,7 +163,7 @@ impl Compactor<'_> {
 
 				// Otherwise, if the type mapping of active property is set to @vocab,
 				// set result to the result of IRI compacting the value associated with the @id entry.
-				if type_mapping == Some(&Type::Vocab) {
+				if type_mapping == Some(&JsonLdType::Vocab) {
 					let compacted_value = self
 						.with_active_context(&active_context)
 						.compact_iri(&id, true, false, id_loc)?;

@@ -1,6 +1,6 @@
 use crate::object::{JsonLdObjectRef, ObjectMut};
 use crate::syntax::Keyword;
-use crate::{Direction, JsonLdLenient, LangString, Type, VisitJsonLd, object};
+use crate::{Direction, JsonLdLenient, JsonLdType, LangString, VisitJsonLd, object};
 use educe::Educe;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue, ryu_js};
 use langtag::LangTag;
@@ -33,10 +33,10 @@ pub enum ValueTypeRef<'a> {
 }
 
 impl<'a> ValueTypeRef<'a> {
-	pub fn into_object_type(self) -> Type {
+	pub fn into_object_type(self) -> JsonLdType {
 		match self {
-			Self::Json => Type::Json,
-			Self::Id(id) => Type::Iri(id.to_owned()),
+			Self::Json => JsonLdType::Json,
+			Self::Id(id) => JsonLdType::Iri(id.to_owned()),
 		}
 	}
 

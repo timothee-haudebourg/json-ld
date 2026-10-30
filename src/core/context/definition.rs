@@ -1,5 +1,5 @@
 use super::Container;
-use crate::{Direction, JsonLdBacktrace, JsonLdBacktraceBuf, JsonLdTerm, Nullable, Type};
+use crate::{Direction, JsonLdBacktrace, JsonLdBacktraceBuf, JsonLdTerm, JsonLdType, Nullable};
 use crate::{
 	JsonLdLenient,
 	syntax::{
@@ -398,7 +398,7 @@ impl TermDefinition {
 		}
 	}
 
-	pub fn typ(&self) -> Option<&Type> {
+	pub fn typ(&self) -> Option<&JsonLdType> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.typ.as_ref(),
@@ -507,7 +507,7 @@ impl<'a> TermDefinitionRef<'a> {
 		}
 	}
 
-	pub fn typ(&self) -> Option<&'a Type> {
+	pub fn typ(&self) -> Option<&'a JsonLdType> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.typ.as_ref(),
@@ -563,7 +563,7 @@ pub struct NormalTermDefinition {
 	pub nest: Option<Nest>,
 
 	// Optional type mapping.
-	pub typ: Option<Type>,
+	pub typ: Option<JsonLdType>,
 }
 
 impl NormalTermDefinition {

@@ -6,7 +6,7 @@ use super::Container;
 use super::ContextTerm;
 use super::RawProcessedContext;
 use crate::JsonLdLenient;
-use crate::{Direction, JsonLdTerm, Nullable, Type};
+use crate::{Direction, JsonLdTerm, JsonLdType, Nullable};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -14,13 +14,13 @@ use std::collections::HashMap;
 pub enum TypeSelection {
 	Reverse,
 	Any,
-	Type(Type),
+	Type(JsonLdType),
 }
 
 struct InverseType {
 	reverse: Option<ContextTerm>,
 	any: Option<ContextTerm>,
-	map: HashMap<Type, ContextTerm>,
+	map: HashMap<JsonLdType, ContextTerm>,
 }
 
 impl InverseType {
@@ -39,10 +39,10 @@ impl InverseType {
 	}
 
 	fn set_none(&mut self, term: &ContextTerm) {
-		self.set(&Type::None, term)
+		self.set(&JsonLdType::None, term)
 	}
 
-	fn set(&mut self, ty: &Type, term: &ContextTerm) {
+	fn set(&mut self, ty: &JsonLdType, term: &ContextTerm) {
 		if !self.map.contains_key(ty) {
 			self.map.insert(ty.clone(), term.clone());
 		}
@@ -277,7 +277,7 @@ impl<'a> From<&'a RawProcessedContext> for InverseJsonLdContext {
 					}
 				} else {
 					match &term_definition.typ {
-						Some(Type::None) => {
+						Some(JsonLdType::None) => {
 							// Otherwise, if term definition has a type mapping which is @none:
 							type_map.set_any(term);
 							lang_map.set_any(term);

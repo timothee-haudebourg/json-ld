@@ -4,8 +4,8 @@ use rdf_syntax::{BlankId, Id};
 use rdf_syntax::{Iri, IriRef};
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, Nullable,
-	ProcessingMode, Type, Warning,
+	JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, JsonLdType,
+	Nullable, ProcessingMode, Warning,
 	algorithms::{
 		AsyncProcessingEnvironment,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
@@ -573,7 +573,7 @@ impl<'a> ContextProcessor<'a> {
 									// an invalid type mapping error has been detected and processing
 									// is aborted.
 									match typ {
-										Type::Id | Type::Vocab => (),
+										JsonLdType::Id | JsonLdType::Vocab => (),
 										_ => {
 											return Err(
 												JsonLdError::InvalidTypeMapping.at(term_loc)
@@ -582,7 +582,7 @@ impl<'a> ContextProcessor<'a> {
 									}
 								} else {
 									// If type mapping in definition is undefined, set it to @id.
-									definition.typ = Some(Type::Id)
+									definition.typ = Some(JsonLdType::Id)
 								}
 							}
 						}

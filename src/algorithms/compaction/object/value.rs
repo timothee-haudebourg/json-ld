@@ -2,7 +2,7 @@ use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
-	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, JsonLdValue, Type,
+	JsonLdBacktraceBuilder, JsonLdLenient, JsonLdLocatedError, JsonLdTerm, JsonLdType, JsonLdValue,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef,
 		context_processing::ContextProcessingOptions,
@@ -95,7 +95,7 @@ impl<'a> Compactor<'a> {
 
 		// Otherwise, if value has an @type entry whose value matches the type mapping of
 		// active property, set result to the value associated with the @value entry of value.
-		let type_mapping: Option<Type> = match active_property_definition {
+		let type_mapping: Option<JsonLdType> = match active_property_definition {
 			Some(def) => def.typ().cloned(),
 			None => None,
 		};
@@ -112,7 +112,7 @@ impl<'a> Compactor<'a> {
 			JsonLdValue::Literal(lit) => {
 				if lit.is_json() {
 					// JSON literal
-					if type_mapping == Some(Type::Json) && remove_index {
+					if type_mapping == Some(JsonLdType::Json) && remove_index {
 						return Ok(lit.value.clone());
 					} else {
 						let compact_key = self.with_active_context(&active_context).compact_key(
@@ -150,7 +150,7 @@ impl<'a> Compactor<'a> {
 						_ => None,
 					};
 
-					if ty.cloned().map(Type::Iri) == type_mapping && remove_index {
+					if ty.cloned().map(JsonLdType::Iri) == type_mapping && remove_index {
 						match &lit.value {
 							JsonValue::Null => return Ok(JsonValue::Null),
 							JsonValue::Boolean(b) => return Ok(JsonValue::Boolean(*b)),

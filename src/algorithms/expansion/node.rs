@@ -6,7 +6,7 @@ use crate::context::RawProcessedContext;
 use crate::syntax::{ContainerItem, Keyword, Nullable};
 use crate::{
 	Indexed, IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdNode,
-	JsonLdObject, JsonLdTerm, LangString, ProcessingMode, Type, Warning, object,
+	JsonLdObject, JsonLdTerm, JsonLdType, LangString, ProcessingMode, Warning, object,
 	object::value::LiteralValue,
 };
 use crate::{JsonLdLenient, JsonLdValue};
@@ -478,7 +478,7 @@ impl<'a> Expander<'a> {
 						// If key's term definition in `active_context` has a type mapping of `@json`,
 						// set expanded value to a new map,
 						// set the entry `@value` to `value`, and set the entry `@type` to `@json`.
-						if key_definition.typ() == Some(&Type::Json) {
+						if key_definition.typ() == Some(&JsonLdType::Json) {
 							is_json = true;
 						}
 					}

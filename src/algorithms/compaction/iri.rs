@@ -2,7 +2,7 @@ use json_syntax::object::Key;
 
 use crate::{
 	Indexed, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, JsonLdObject, JsonLdTerm,
-	JsonLdValue, Nullable, ProcessingMode, Type,
+	JsonLdType, JsonLdValue, Nullable, ProcessingMode,
 	context::{
 		Container,
 		inverse::{LangSelection, Selection, TypeSelection},
@@ -117,16 +117,17 @@ impl<'a> Compactor<'a> {
 												}
 												JsonLdValue::Literal(lit) => match &lit.type_ {
 													Some(object::value::LiteralType::Json) => {
-														item_type = Some(Type::Json)
+														item_type = Some(JsonLdType::Json)
 													}
 													Some(object::value::LiteralType::Iri(ty)) => {
-														item_type = Some(Type::Iri(ty.clone()))
+														item_type =
+															Some(JsonLdType::Iri(ty.clone()))
 													}
 													None => item_lang_dir = Some(Nullable::Null),
 												},
 											}
 										}
-										_ => item_type = Some(Type::Id),
+										_ => item_type = Some(JsonLdType::Id),
 									}
 
 									if common_lang_dir.is_none() {
@@ -208,7 +209,7 @@ impl<'a> Compactor<'a> {
 							containers.push(Container::IndexSet);
 
 							type_lang_value =
-								Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
+								Some(TypeLangValue::Type(TypeSelection::Type(JsonLdType::Id)))
 						}
 						Some(object::JsonLdObjectRef::Value(v)) => {
 							// If value is a value object:
@@ -233,7 +234,7 @@ impl<'a> Compactor<'a> {
 							// Otherwise, set type/language to @type and set type/language value
 							// to @id, and append @id, @id@set, @type, and @set@type, to containers.
 							type_lang_value =
-								Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)));
+								Some(TypeLangValue::Type(TypeSelection::Type(JsonLdType::Id)));
 							containers.push(Container::Id);
 							containers.push(Container::IdSet);
 							containers.push(Container::Type);
@@ -279,7 +280,7 @@ impl<'a> Compactor<'a> {
 							let mut has_id_type = false;
 							if let Some(value) = value
 								&& let Some(id) = value.id()
-								&& (type_value == TypeSelection::Type(Type::Id)
+								&& (type_value == TypeSelection::Type(JsonLdType::Id)
 									|| type_value == TypeSelection::Reverse)
 							{
 								has_id_type = true;
@@ -294,19 +295,19 @@ impl<'a> Compactor<'a> {
 								}
 
 								if vocab {
-									selection.push(TypeSelection::Type(Type::Vocab));
-									selection.push(TypeSelection::Type(Type::Id));
+									selection.push(TypeSelection::Type(JsonLdType::Vocab));
+									selection.push(TypeSelection::Type(JsonLdType::Id));
 								} else {
-									selection.push(TypeSelection::Type(Type::Id));
-									selection.push(TypeSelection::Type(Type::Vocab));
+									selection.push(TypeSelection::Type(JsonLdType::Id));
+									selection.push(TypeSelection::Type(JsonLdType::Vocab));
 								}
 
-								selection.push(TypeSelection::Type(Type::None));
+								selection.push(TypeSelection::Type(JsonLdType::None));
 							}
 
 							if !has_id_type {
 								selection.push(type_value);
-								selection.push(TypeSelection::Type(Type::None));
+								selection.push(TypeSelection::Type(JsonLdType::None));
 							}
 
 							selection.push(TypeSelection::Any);

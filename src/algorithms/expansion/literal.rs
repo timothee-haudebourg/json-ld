@@ -4,7 +4,7 @@ use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
 	IndexedObject, JsonLdBacktraceBuilder, JsonLdError, JsonLdLenient, JsonLdLocatedError,
-	JsonLdNode, JsonLdObject, JsonLdValue, LangString, Nullable, Type, Warning,
+	JsonLdNode, JsonLdObject, JsonLdType, JsonLdValue, LangString, Nullable, Warning,
 	object::{LiteralValue, value::LiteralType},
 };
 
@@ -66,7 +66,7 @@ impl<'a> Expander<'a> {
 			// `value` is a string, return a new map containing a single entry where the key is `@id` and
 			// the value is the result of IRI expanding `value` using `true` for `document_relative` and
 			// `false` for vocab.
-			Some(Type::Id) if value.is_string() => {
+			Some(JsonLdType::Id) if value.is_string() => {
 				let mut node = JsonLdNode::new();
 				let id = node_id_of_term(self.active_context.expand_iri_with(
 					Nullable::Some(value.as_str().unwrap().into()),
@@ -83,7 +83,7 @@ impl<'a> Expander<'a> {
 			// value is a string, return a new map containing a single entry where the key is
 			// `@id` and the value is the result of IRI expanding `value` using `true` for
 			// document relative.
-			Some(Type::Vocab) if value.is_string() => {
+			Some(JsonLdType::Vocab) if value.is_string() => {
 				let mut node = JsonLdNode::new();
 				let id = node_id_of_term(self.active_context.expand_iri_with(
 					Nullable::Some(value.as_str().unwrap().into()),
@@ -112,7 +112,10 @@ impl<'a> Expander<'a> {
 				// associated with the type mapping.
 				let mut ty = None;
 				match active_property_type {
-					None | Some(Type::Id) | Some(Type::Vocab) | Some(Type::None) => {
+					None
+					| Some(JsonLdType::Id)
+					| Some(JsonLdType::Vocab)
+					| Some(JsonLdType::None) => {
 						// Otherwise, if value is a string:
 						if let JsonValue::String(s) = result_value {
 							// Initialize `language` to the language mapping for
