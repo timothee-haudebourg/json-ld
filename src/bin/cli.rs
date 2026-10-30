@@ -70,7 +70,7 @@ impl Command {
 					.map_err_async(|e| JsonLdDiagnostic::new_async(loader, &doc, e))
 					.await?;
 
-				println!("{}", expanded_to_json(expanded).pretty_print());
+				println!("{}", expanded.to_json().pretty_print());
 				Ok(())
 			}
 			Self::Compact { context } => {
@@ -123,7 +123,7 @@ impl Command {
 						message: e.to_string(),
 					})?;
 
-				println!("{}", expanded_to_json(expanded).pretty_print());
+				println!("{}", expanded.to_json().pretty_print());
 				Ok(())
 			}
 		}
@@ -172,11 +172,6 @@ fn parse_document(content: &str, base: Option<&Iri>) -> miette::Result<JsonLdDoc
 		Some(JsonLdSourceCode::new(content.to_owned(), code_map)),
 		value,
 	))
-}
-
-/// Serialize an [`ExpandedDocument`] to a pretty-printed JSON value.
-fn expanded_to_json(doc: JsonLdExpandedDocument) -> JsonValue {
-	json_ld::syntax::to_value(doc.into_objects()).unwrap()
 }
 
 #[derive(Debug, Error, Diagnostic)]

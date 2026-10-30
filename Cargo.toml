@@ -35,7 +35,7 @@ reqwest = ["dep:reqwest", "dep:reqwest-middleware"]
 tokio = ["dep:tokio"]
 
 # Enables the `locspan/miette` feature.
-miette = ["dep:miette", "json-syntax/miette"]
+miette = ["serde", "dep:miette", "json-syntax/miette"]
 
 # Dependencies needed to build the `json-ld` CLI binary.
 cli = ["dep:clap", "dep:miette", "dep:nquads-syntax", "miette", "miette/fancy", "tokio/macros", "tokio/rt-multi-thread"]

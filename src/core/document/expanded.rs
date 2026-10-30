@@ -43,92 +43,6 @@ impl JsonLdExpandedDocument {
 		self.0.iter()
 	}
 
-	// /// Give an identifier (`@id`) to every nodes and canonicalize every
-	// /// literals using the given generator to generate fresh identifiers for
-	// /// anonymous nodes.
-	// #[inline(always)]
-	// pub fn relabel_and_canonicalize_with<V: Vocabulary<Iri = T, BlankId = B>, G: Generator<V>>(
-	// 	&mut self,
-	// 	vocabulary: &mut V,
-	// 	generator: &mut G,
-	// ) where
-	// 	T: Clone + Eq + Hash,
-	// 	B: Clone + Eq + Hash,
-	// {
-	// 	let objects = std::mem::take(&mut self.0);
-	// 	let mut relabeling = HashMap::new();
-	// 	let mut buffer = ryu_js::Buffer::new();
-	// 	for mut object in objects {
-	// 		object.relabel_with(vocabulary, generator, &mut relabeling);
-	// 		object.canonicalize_with(&mut buffer);
-	// 		self.0.insert(object);
-	// 	}
-	// }
-
-	// /// Give an identifier (`@id`) to every nodes and canonicalize every
-	// /// literals using the given generator to generate fresh identifiers for
-	// /// anonymous nodes.
-	// #[inline(always)]
-	// pub fn relabel_and_canonicalize<G: Generator>(&mut self, generator: &mut G)
-	// where
-	// 	T: Clone + Eq + Hash,
-	// 	B: Clone + Eq + Hash,
-	// 	(): Vocabulary<Iri = T, BlankId = B>,
-	// {
-	// 	self.relabel_and_canonicalize_with(&mut (), generator)
-	// }
-
-	// /// Puts this document literals into canonical form using the given
-	// /// `buffer`.
-	// ///
-	// /// The buffer is used to compute the canonical form of numbers.
-	// pub fn canonicalize_with(&mut self, buffer: &mut ryu_js::Buffer)
-	// where
-	// 	T: Eq + Hash,
-	// 	B: Eq + Hash,
-	// {
-	// 	let objects = std::mem::take(&mut self.0);
-	// 	for mut object in objects {
-	// 		object.canonicalize_with(buffer);
-	// 		self.0.insert(object);
-	// 	}
-	// }
-
-	// /// Puts this document literals into canonical form.
-	// pub fn canonicalize(&mut self)
-	// where
-	// 	T: Eq + Hash,
-	// 	B: Eq + Hash,
-	// {
-	// 	let mut buffer = ryu_js::Buffer::new();
-	// 	self.canonicalize_with(&mut buffer)
-	// }
-
-	// /// Map the identifiers present in this expanded document (recursively).
-	// pub fn map_ids(
-	// 	self,
-	// 	mut map_iri: impl FnMut(IriBuf) -> IriBuf,
-	// 	mut map_id: impl FnMut(Id) -> Id<U, C>,
-	// ) -> ExpandedDocument<U, C>
-	// where
-	// 	U: Eq + Hash,
-	// 	C: Eq + Hash,
-	// {
-	// 	ExpandedDocument(
-	// 		self.0
-	// 			.into_iter()
-	// 			.map(|i| i.map_inner(|o| o.map_ids(&mut map_iri, &mut map_id)))
-	// 			.collect(),
-	// 	)
-	// }
-
-	// /// Returns the set of all blank identifiers in the given document.
-	// pub fn blank_ids(&self) -> HashSet<&BlankId> {
-	// 	self.traverse()
-	// 		.filter_map(|f| f.into_id().and_then(Id::into_blank))
-	// 		.collect()
-	// }
-
 	/// Returns the main node object of the document, if any.
 	///
 	/// The main node is the unique top level (root) node object. If multiple
@@ -172,6 +86,26 @@ impl JsonLdExpandedDocument {
 	#[inline(always)]
 	pub fn insert(&mut self, object: IndexedObject) -> bool {
 		self.0.insert(object)
+	}
+}
+
+#[cfg(feature = "serde")]
+impl JsonLdExpandedDocument {
+	/// Returns the JSON representation of this expanded document, that is a
+	/// JSON array of its expanded objects.
+	pub fn to_json(&self) -> json_syntax::JsonValue {
+		// An expanded document is, by definition, a valid JSON value: it only
+		// contains JSON-LD objects, which are made of strings, numbers,
+		// booleans, arrays and objects with string keys. Serializing it to a
+		// JSON value therefore cannot fail.
+		json_syntax::to_value(self).expect("an expanded document is a valid JSON value")
+	}
+}
+
+#[cfg(feature = "serde")]
+impl From<JsonLdExpandedDocument> for json_syntax::JsonValue {
+	fn from(document: JsonLdExpandedDocument) -> Self {
+		document.to_json()
 	}
 }
 
@@ -239,5 +173,37 @@ impl Extend<IndexedObject> for JsonLdExpandedDocument {
 impl From<BTreeIndexSet<IndexedObject>> for JsonLdExpandedDocument {
 	fn from(set: BTreeIndexSet<IndexedObject>) -> Self {
 		Self(set)
+	}
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod tests {
+	use json_syntax::JsonValue;
+	use rdf_syntax::{Id, iri};
+
+	use super::*;
+	use crate::Lenient;
+
+	#[test]
+	fn empty_document_to_json() {
+		assert_eq!(
+			JsonLdExpandedDocument::new().to_json(),
+			JsonValue::Array(Vec::new())
+		);
+	}
+
+	#[test]
+	fn node_document_to_json() {
+		let id = Lenient::Valid(Id::Iri(iri!("https://example.org/a").to_owned()));
+		let document =
+			JsonLdExpandedDocument::from(Indexed::new(JsonLdNode::new_with_id(Some(id)), None));
+
+		let json = document.to_json();
+		let JsonValue::Array(objects) = &json else {
+			panic!("an expanded document must be a JSON array")
+		};
+		assert_eq!(objects.len(), 1);
+
+		assert_eq!(JsonValue::from(document), json);
 	}
 }

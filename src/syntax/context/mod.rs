@@ -1,4 +1,3 @@
-use json_syntax::JsonValue;
 use rdf_syntax::{Iri, IriBuf, IriRef, IriRefBuf};
 
 mod definition;
@@ -56,7 +55,8 @@ impl JsonLdContext {
 		<Self as serde::Deserialize>::deserialize(deserializer).map(|c| Some(Box::new(c)))
 	}
 
-	pub fn to_json(&self) -> JsonValue {
+	#[cfg(feature = "serde")]
+	pub fn to_json(&self) -> json_syntax::JsonValue {
 		json_syntax::to_value(self).unwrap()
 	}
 }
@@ -267,8 +267,9 @@ pub struct JsonLdContextDocumentValue {
 	pub context: JsonLdContext,
 }
 
+#[cfg(feature = "serde")]
 impl JsonLdContextDocumentValue {
-	pub fn to_json(&self) -> JsonValue {
+	pub fn to_json(&self) -> json_syntax::JsonValue {
 		json_syntax::to_value(self).unwrap()
 	}
 }
