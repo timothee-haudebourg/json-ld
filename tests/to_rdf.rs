@@ -1,17 +1,22 @@
 use json_ld::{
-	FsLoader, JsonLdProcessor, Loader,
+	JsonLdFsLoader, JsonLdLoader, JsonLdProcessor,
 	rdf_syntax::{self, IndexedBTreeDataset, Term},
 };
-use json_ld_testing::{ManifestEntry, TestKind};
 use nquads_syntax::grdf_document_from_str;
 
 mod common;
 
-#[json_ld_testing::test_suite("toRdf-manifest.jsonld")]
-#[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
-#[ignore_test("#te122", see = "https://github.com/w3c/json-ld-api/issues/480")]
-#[ignore_test("#tli12", see = "https://github.com/w3c/json-ld-api/issues/533")]
-fn to_rdf(loader: &FsLoader, entry: &ManifestEntry) {
+use common::{ManifestEntry, TestKind};
+
+#[json_ld_testing::test_suite("tests/toRdf-manifest.jsonld")]
+#[base = "https://w3c.github.io/json-ld-api/"]
+#[mount("tests/json-ld-api")]
+#[prefix("test" = "tests/vocab#")]
+#[ignore_if("test:option"."test:normative" == false, note = "non-normative test")]
+#[ignore_if("test:option"."test:specVersion" == "json-ld-1.0", note = "unsupported spec version (json-ld-1.0)")]
+#[ignore_test("#te122", note = "https://github.com/w3c/json-ld-api/issues/480")]
+#[ignore_test("#tli12", note = "https://github.com/w3c/json-ld-api/issues/533")]
+fn to_rdf(loader: &JsonLdFsLoader, entry: &ManifestEntry) {
 	let options = common::build_options(entry);
 
 	match &entry.kind {

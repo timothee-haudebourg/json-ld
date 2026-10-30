@@ -1,19 +1,28 @@
-use json_ld::{FsLoader, JsonLdDocument, JsonLdProcessor, Loader, RemoteDocument};
-use json_ld_testing::{ManifestEntry, TestKind};
+use json_ld::{
+	JsonLdDocument, JsonLdFsLoader, JsonLdLoader, JsonLdProcessor, RemoteJsonLdDocument,
+};
 use json_syntax::JsonPrint;
 
 mod common;
 
-#[json_ld_testing::test_suite("flatten-manifest.jsonld")]
-#[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
-fn flatten(loader: &FsLoader, entry: &ManifestEntry) {
+use common::{ManifestEntry, TestKind};
+
+#[json_ld_testing::test_suite("tests/flatten-manifest.jsonld")]
+#[base = "https://w3c.github.io/json-ld-api/"]
+#[mount("tests/json-ld-api")]
+#[prefix("test" = "tests/vocab#")]
+#[ignore_if("test:option"."test:normative" == false, note = "non-normative test")]
+#[ignore_if("test:option"."test:specVersion" == "json-ld-1.0", note = "unsupported spec version (json-ld-1.0)")]
+fn flatten(loader: &JsonLdFsLoader, entry: &ManifestEntry) {
 	let options = common::build_options(entry);
 
 	match &entry.kind {
 		TestKind::Positive {
 			expect, context, ..
 		} => {
-			let context = context.as_ref().map(|c| RemoteDocument::iri(c.clone()));
+			let context = context
+				.as_ref()
+				.map(|c| RemoteJsonLdDocument::iri(c.clone()));
 
 			let input = loader.load(&entry.input).unwrap();
 			let flattened = input

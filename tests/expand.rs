@@ -1,11 +1,18 @@
-use json_ld::{FsLoader, IndexedObject, JsonLdExpandedDocument, JsonLdProcessor, Loader};
-use json_ld_testing::{ManifestEntry, TestKind};
+use json_ld::{
+	IndexedObject, JsonLdExpandedDocument, JsonLdFsLoader, JsonLdLoader, JsonLdProcessor,
+};
 
 mod common;
 
-#[json_ld_testing::test_suite("expand-manifest.jsonld")]
-#[mount("https://w3c.github.io/json-ld-api", "tests/json-ld-api")]
-fn expand(loader: &FsLoader, entry: &ManifestEntry) {
+use common::{ManifestEntry, TestKind};
+
+#[json_ld_testing::test_suite("tests/expand-manifest.jsonld")]
+#[base = "https://w3c.github.io/json-ld-api/"]
+#[mount("tests/json-ld-api")]
+#[prefix("test" = "tests/vocab#")]
+#[ignore_if("test:option"."test:normative" == false, note = "non-normative test")]
+#[ignore_if("test:option"."test:specVersion" == "json-ld-1.0", note = "unsupported spec version (json-ld-1.0)")]
+fn expand(loader: &JsonLdFsLoader, entry: &ManifestEntry) {
 	let options = common::build_options(entry);
 
 	match &entry.kind {

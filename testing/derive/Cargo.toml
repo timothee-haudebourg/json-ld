@@ -12,4 +12,5 @@ syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
 json-ld = { path = "../.." }
-json-ld-testing-core = { path = "../core", features = ["proc_macro2"] }
+linked-data.workspace = true
+# json-ld-testing-core = { path = "../core", features = ["proc_macro2"] }

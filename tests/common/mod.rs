@@ -1,5 +1,8 @@
-use json_ld::{JsonLdOptions, RemoteDocument};
-use json_ld_testing::ManifestEntry;
+use json_ld::{JsonLdOptions, RemoteJsonLdDocument};
+
+mod model;
+
+pub use model::*;
 
 pub fn build_options(entry: &ManifestEntry) -> JsonLdOptions {
 	let mut options = JsonLdOptions::default();
@@ -9,7 +12,7 @@ pub fn build_options(entry: &ManifestEntry) -> JsonLdOptions {
 		}
 		options.base = opts.base.clone();
 		if let Some(ref ctx) = opts.expand_context {
-			options.expand_context = Some(RemoteDocument::iri(ctx.clone()));
+			options.expand_context = Some(RemoteJsonLdDocument::iri(ctx.clone()));
 		}
 		if let Some(compact_to_relative) = opts.compact_to_relative {
 			options.compact_to_relative = compact_to_relative;
