@@ -96,7 +96,7 @@ tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 # Path-only on purpose: Cargo drops such dev-dependencies when publishing, which
 # breaks the dependency cycle json-ld -> json-ld-testing -> json-ld.
 json-ld-testing = { path = "testing" }
-tokio = { version = "*", features = ["macros", "rt", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }
 linked-data = { workspace = true, features = ["derive"] }
 nquads-syntax = "0.21"
 
