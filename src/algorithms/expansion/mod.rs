@@ -12,7 +12,6 @@ mod document;
 mod element;
 mod environment;
 mod expanded;
-mod iri;
 mod literal;
 mod node;
 mod options;
