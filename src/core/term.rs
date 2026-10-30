@@ -12,7 +12,7 @@ pub enum JsonLdTerm {
 	/// Node identifier.
 	Id(JsonLdLenient<Id>),
 
-	/// Keyword.
+	/// [`JsonLdKeyword`].
 	Keyword(JsonLdKeyword),
 }
 

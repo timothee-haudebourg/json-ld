@@ -177,8 +177,8 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for JsonLdNullable
 	}
 }
 
-/// Deserializes an `Option<Nullable<T>>` field, distinguishing between
-/// a missing field (`None`) and an explicit `null` (`Some(Nullable::Null)`).
+/// Deserializes an `Option<JsonLdNullable<T>>` field, distinguishing between
+/// a missing field (`None`) and an explicit `null` (`Some(JsonLdNullable::Null)`).
 ///
 /// Use with `#[serde(default, deserialize_with = "JsonLdNullable::optional")]`.
 #[cfg(feature = "serde")]

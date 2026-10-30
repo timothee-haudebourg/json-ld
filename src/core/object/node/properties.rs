@@ -280,12 +280,12 @@ impl<'a> IntoIterator for &'a mut JsonLdProperties {
 
 /// Iterator over the properties of a node.
 ///
-/// It is created by the [`Properties::into_iter`] function.
+/// It is created by the [`JsonLdProperties::into_iter`] function.
 pub type JsonLdPropertiesIntoIter = std::vec::IntoIter<(JsonLdLenient<Id>, PropertyObjects)>;
 
 /// Iterator over the properties of a node.
 ///
-/// It is created by the [`Properties::iter`] function.
+/// It is created by the [`JsonLdProperties::iter`] function.
 #[derive(Educe)]
 #[educe(Clone)]
 pub struct JsonLdPropertiesIter<'a> {
@@ -315,6 +315,6 @@ impl<'a> std::iter::FusedIterator for JsonLdPropertiesIter<'a> {}
 /// Iterator over the properties of a node, giving a mutable reference
 /// to the associated objects.
 ///
-/// It is created by the [`Properties::iter_mut`] function.
+/// It is created by the [`JsonLdProperties::iter_mut`] function.
 pub type JsonLdPropertiesIterMut<'a> =
 	btree_indexmap::map::IterMut<'a, JsonLdLenient<Id>, PropertyObjects>;

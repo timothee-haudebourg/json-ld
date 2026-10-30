@@ -26,131 +26,66 @@ help Web applications to inter-operate at a large scale.
 
 ## Usage
 
-The entry point for this library is the `JsonLdProcessor` trait
+The entry point for this library is the [`JsonLdProcessor`] trait
 that provides an access to all the JSON-LD transformation algorithms
 (context processing, expansion, compaction, etc.).
-If you want to explore and/or transform `ExpandedDocument`s, you may also
-want to check out the [`Object`] type representing a JSON object.
+If you want to explore and/or transform [`JsonLdExpandedDocument`]s, you may
+also want to check out the [`JsonLdObject`](https://docs.rs/json-ld/latest/json_ld/core/object/enum.JsonLdObject.html) type representing a JSON object.
 
+[`JsonLdProcessor`]: https://docs.rs/json-ld/latest/json_ld/processor/trait.JsonLdProcessor.html
 
 ### Expansion
 
 If you want to expand a JSON-LD document, first describe the document to
-be expanded using either `RemoteDocument` or `RemoteDocumentReference`:
-  - `RemoteDocument` wraps the JSON representation of the document
+be expanded using either [`JsonLdDocument`] or [`RemoteJsonLdDocument`]:
+  - [`JsonLdDocument`] wraps the JSON representation of the document
     alongside its remote URL.
-  - `RemoteDocumentReference` may represent only an URL, letting
+  - [`RemoteJsonLdDocument`] may represent only an URL, letting
     some loader fetching the remote document by dereferencing the URL.
 
 After that, you can simply use the [`JsonLdProcessor::expand`] function on
 the remote document.
 
-[`JsonLdProcessor::expand`]: JsonLdProcessor::expand
+[`JsonLdDocument`]: https://docs.rs/json-ld/latest/json_ld/core/document/struct.JsonLdDocument.html
+[`RemoteJsonLdDocument`]: https://docs.rs/json-ld/latest/json_ld/core/loader/enum.RemoteJsonLdDocument.html
+[`JsonLdProcessor::expand`]: https://docs.rs/json-ld/latest/json_ld/processor/trait.JsonLdProcessor.html#tymethod.expand
 
 #### Example
 
 ```rust
-use iref::IriBuf;
-use static_iref::iri;
-use json_ld::{JsonLdProcessor, Options, RemoteDocument, syntax::{Value, Parse}};
+use rdf_syntax::iri;
+use json_ld::{JsonLdProcessor, JsonLdDocument, json_syntax::{JsonValue, JsonParse}};
 
-// Create a "remote" document by parsing a file manually.
-let input = RemoteDocument::new(
-  // We use `IriBuf` as IRI type.
+// Parse a JSON-LD document.
+let (value, _) = JsonValue::parse_str(r#"{
+  "@context": { "name": "http://xmlns.com/foaf/0.1/name" },
+  "@id": "https://www.rust-lang.org",
+  "name": "Rust Programming Language"
+}"#).expect("unable to parse file");
+
+let input = JsonLdDocument::new(
   Some(iri!("https://example.com/sample.jsonld").to_owned()),
-
-  // Optional content type.
-  Some("application/ld+json".parse().unwrap()),
-  
-  // Parse the file.
-  Value::parse_str(r#"
-    {
-      "@context": {
-        "name": "http://xmlns.com/foaf/0.1/name"
-      },
-      "@id": "https://www.rust-lang.org",
-      "name": "Rust Programming Language"
-    }"#).expect("unable to parse file").0
+  None,
+  value,
 );
 
-// Use `NoLoader` as we won't need to load any remote document.
-let mut loader = json_ld::NoLoader;
+// Use `NoJsonLdLoader` as we won't need to load any remote document.
+let expanded = input.expand(json_ld::NoJsonLdLoader).expect("expansion failed");
 
-// Expand the "remote" document.
-let expanded = input
-  .expand(&mut loader)
-  .await
-  .expect("expansion failed");
-
-for object in expanded {
-  if let Some(id) = object.id() {
-    let name = object.as_node().unwrap()
-      .get_any(&iri!("http://xmlns.com/foaf/0.1/name")).unwrap()
-      .as_str().unwrap();
-
-    println!("id: {id}");
-    println!("name: {name}");
-  }
-}
+assert!(!expanded.is_empty());
 ```
 
-Here is another example using `RemoteDocumentReference`.
+Here is another example using a file-system loader.
 
 ```rust
-use static_iref::iri;
-use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference};
+use rdf_syntax::iri;
+use json_ld::{JsonLdProcessor, JsonLdLoader};
 
-let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
-
-// Use `FsLoader` to redirect any URL starting with `https://example.com/` to
-// the local `example` directory. No HTTP query.
-let mut loader = json_ld::FsLoader::default();
+let mut loader = json_ld::JsonLdFsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
-let expanded = input.expand(&mut loader)
-  .await
-  .expect("expansion failed");
-```
-
-Lastly, the same example replacing [`IriBuf`] with the lightweight
-[`rdf_syntax::vocabulary::Index`] type.
-
-[`IriBuf`]: https://docs.rs/iref/latest/iref/struct.IriBuf.html
-
-```rust
-use rdf_syntax::{Subject, vocabulary::{IriVocabularyMut, IndexVocabulary}};
-use contextual::WithContext;
-// Creates the vocabulary that will map each `rdf_syntax::vocabulary::Index`
-// to an actual `IriBuf`.
-let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-
-let iri_index = vocabulary.insert(iri!("https://example.com/sample.jsonld"));
-let input = RemoteDocumentReference::iri(iri_index);
-
-// Use `FsLoader` to redirect any URL starting with `https://example.com/` to
-// the local `example` directory. No HTTP query.
-let mut loader = json_ld::FsLoader::default();
-loader.mount(iri!("https://example.com/").to_owned(), "examples");
-
-let expanded = input
-  .expand_with(&mut vocabulary, &mut loader)
-  .await
-  .expect("expansion failed");
-
-// `foaf:name` property identifier.
-let name_id = Subject::Iri(vocabulary.insert(iri!("http://xmlns.com/foaf/0.1/name")));
-
-for object in expanded {
-  if let Some(id) = object.id() {
-    let name = object.as_node().unwrap()
-      .get_any(&name_id).unwrap()
-      .as_value().unwrap()
-      .as_str().unwrap();
-
-    println!("id: {}", id.with(&vocabulary));
-    println!("name: {name}");
-  }
-}
+let input = loader.load(iri!("https://example.com/sample.jsonld")).expect("loading failed");
+let expanded = input.expand(&loader).expect("expansion failed");
 ```
 
 ### Compaction
@@ -160,34 +95,31 @@ context to a given JSON-LD document reducing its size.
 There are two ways to get a compact JSON-LD document with this library
 depending on your starting point:
   - If you want to get a compact representation for an arbitrary remote
-    document, simply use the `JsonLdProcessor::compact`
-    (or `JsonLdProcessor::compact_with`) method.
-  - Otherwise to compact an `ExpandedDocument` you can use the
-    `Compact::compact` method.
+    document, simply use the [`JsonLdProcessor::compact`]
+    (or [`JsonLdProcessor::compact_with`]) method.
+  - Otherwise to compact a [`JsonLdExpandedDocument`] you can use the
+    [`JsonLdExpandedDocument::compact`] method.
 
+[`JsonLdProcessor::compact`]: https://docs.rs/json-ld/latest/json_ld/processor/trait.JsonLdProcessor.html#tymethod.compact
+[`JsonLdProcessor::compact_with`]: https://docs.rs/json-ld/latest/json_ld/processor/trait.JsonLdProcessor.html#tymethod.compact_with
+[`JsonLdExpandedDocument`]: https://docs.rs/json-ld/latest/json_ld/core/document/expanded/struct.JsonLdExpandedDocument.html
+[`JsonLdExpandedDocument::compact`]: https://docs.rs/json-ld/latest/json_ld/core/document/expanded/struct.JsonLdExpandedDocument.html#method.compact
 
 #### Example
 
-Here is an example compaction an arbitrary `RemoteDocumentReference`
-using `JsonLdProcessor::compact`.
+Here is an example compacting an arbitrary document using [`JsonLdProcessor::compact`].
 
 ```rust
-use static_iref::iri;
-use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, RemoteContextReference, syntax::Print};
+use rdf_syntax::iri;
+use json_ld::{JsonLdProcessor, JsonLdLoader, RemoteJsonLdContext, json_syntax::JsonPrint};
 
-let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
-
-let context = RemoteContextReference::iri(iri!("https://example.com/context.jsonld").to_owned());
-
-// Use `FsLoader` to redirect any URL starting with `https://example.com/` to
-// the local `example` directory. No HTTP query.
-let mut loader = json_ld::FsLoader::default();
+let mut loader = json_ld::JsonLdFsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
-let compact = input
-  .compact(context, &mut loader)
-  .await
-  .expect("compaction failed");
+let input = loader.load(iri!("https://example.com/sample.jsonld")).expect("loading failed");
+let context = RemoteJsonLdContext::iri(iri!("https://example.com/context.jsonld").to_owned());
+
+let compact = input.compact(context, &loader).expect("compaction failed");
 
 println!("output: {}", compact.pretty_print());
 ```
@@ -198,92 +130,36 @@ The JSON-LD Flattening is a transformation that consists in moving nested
 nodes out. The result is a list of all the nodes declared in the document.
 There are two ways to flatten JSON-LD document with this library
 depending on your starting point:
-  - If you want to get a compact representation for an arbitrary remote
-    document, simply use the `JsonLdProcessor::flatten`
-    (or `JsonLdProcessor::flatten_with`) method.
-    This will return a JSON-LD document.
-  - Otherwise to compact an `ExpandedDocument` you can use the
-    `Flatten::flatten` (or `Flatten::flatten_with`) method.
-    This will return the list of nodes as a `FlattenedDocument`.
+  - If you want to flatten an arbitrary remote document, use
+    [`JsonLdProcessor::flatten`] (or [`JsonLdProcessor::flatten_with`]).
+    This returns a compacted JSON-LD document.
+  - To flatten an already-expanded [`JsonLdExpandedDocument`], use the
+    [`JsonLdExpandedDocument::flatten`] (or
+    [`JsonLdExpandedDocument::flatten_unordered`]) method, which returns a
+    [`JsonLdFlattenedDocument`].
 
-Flattening requires assigning an identifier to nested anonymous nodes,
-which is why the flattening functions take an [`rdf_syntax::MetaGenerator`]
-as parameter. This generator is in charge of creating new fresh identifiers
-(with their metadata). The most common generator is
-[`rdf_syntax::generator::Blank`] that creates blank node identifiers.
-
-[`rdf_syntax::MetaGenerator`]: https://docs.rs/rdf-types/latest/rdf_types/generator/trait.MetaGenerator.html
-[`rdf_syntax::generator::Blank`]: https://docs.rs/rdf-types/latest/rdf_types/generator/struct.Blank.html
+[`JsonLdProcessor::flatten`]: https://docs.rs/json-ld/latest/json_ld/processor/trait.JsonLdProcessor.html#tymethod.flatten
+[`JsonLdProcessor::flatten_with`]: https://docs.rs/json-ld/latest/json_ld/processor/trait.JsonLdProcessor.html#tymethod.flatten_with
+[`JsonLdExpandedDocument::flatten`]: https://docs.rs/json-ld/latest/json_ld/core/document/expanded/struct.JsonLdExpandedDocument.html#method.flatten
+[`JsonLdExpandedDocument::flatten_unordered`]: https://docs.rs/json-ld/latest/json_ld/core/document/expanded/struct.JsonLdExpandedDocument.html#method.flatten_unordered
+[`JsonLdFlattenedDocument`]: https://docs.rs/json-ld/latest/json_ld/core/document/flattened/type.JsonLdFlattenedDocument.html
 
 #### Example
 
-Here is an example compaction an arbitrary `RemoteDocumentReference`
-using `JsonLdProcessor::flatten`.
+Here is an example flattening an arbitrary document using [`JsonLdProcessor::flatten`].
 
 ```rust
-use static_iref::iri;
-use json_ld::{JsonLdProcessor, Options, RemoteDocumentReference, syntax::Print};
+use rdf_syntax::iri;
+use json_ld::{JsonLdProcessor, JsonLdLoader, json_syntax::JsonPrint};
 
-let input = RemoteDocumentReference::iri(iri!("https://example.com/sample.jsonld").to_owned());
-
-// Use `FsLoader` to redirect any URL starting with `https://example.com/` to
-// the local `example` directory. No HTTP query.
-let mut loader = json_ld::FsLoader::default();
+let mut loader = json_ld::JsonLdFsLoader::default();
 loader.mount(iri!("https://example.com/").to_owned(), "examples");
 
-let mut generator = rdf_syntax::generator::Blank::new();
+let input = loader.load(iri!("https://example.com/sample.jsonld")).expect("loading failed");
+let flattened = input.flatten(None, &loader).expect("flattening failed");
 
-let nodes = input
-  .flatten(&mut generator, &mut loader)
-  .await
-  .expect("flattening failed");
-
-println!("output: {}", nodes.pretty_print());
+println!("output: {}", flattened.pretty_print());
 ```
-
-## Fast IRIs and Blank Node Identifiers
-
-This library gives you the opportunity to use any datatype you want to
-represent IRIs an Blank Node Identifiers. Most types have them
-parameterized.
-To avoid unnecessary allocations and expensive comparisons, it is highly
-recommended to use a cheap, lightweight datatype such as
-[`rdf_syntax::vocabulary::Index`]. This type will represent each distinct
-IRI/blank node identifier with a unique index. In this case a
-[`rdf_syntax::IndexVocabulary`] that maps each index back/to its
-original IRI/Blank identifier representation can be passed to every
-function.
-
-You can also use your own index type, with your own
-[`rdf_syntax::Vocabulary`] implementation.
-
-[`rdf_syntax::vocabulary::Index`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.Index.html
-[`rdf_syntax::IndexVocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/struct.IndexVocabulary.html
-[`rdf_syntax::Vocabulary`]: https://docs.rs/rdf-types/latest/rdf_types/vocabulary/trait.Vocabulary.html
-
-### Displaying vocabulary-dependent values
-
-Since using vocabularies separates IRIs and Blank ids from their textual
-representation, it complicates displaying data using them.
-Fortunately many types defined by `json-ld` implement the
-[`contextual::DisplayWithContext`] trait that allow displaying value with
-a "context", which here would be the vocabulary.
-By importing the [`contextual::WithContext`] which provides the `with`
-method you can display such value like this:
-```rust
-use static_iref::iri;
-use rdf_syntax::vocabulary::{IriVocabularyMut, IndexVocabulary};
-use contextual::WithContext;
-
-let mut vocabulary: IndexVocabulary = IndexVocabulary::new();
-let i = vocabulary.insert(iri!("https://docs.rs/contextual"));
-let value = rdf_syntax::Subject::Iri(i);
-
-println!("{}", value.with(&vocabulary))
-```
-
-[`contextual::DisplayWithContext`]: https://docs.rs/contextual/latest/contextual/trait.DisplayWithContext.html
-[`contextual::WithContext`]: https://docs.rs/contextual/latest/contextual/trait.WithContext.html
 
 <!-- cargo-rdme end -->
 

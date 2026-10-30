@@ -276,7 +276,7 @@ impl IntoIterator for JsonLdDefinitions {
 
 /// `@type` term definition.
 ///
-/// Such definition compared to a [`NormalTermDefinition`] can only contain
+/// Such definition compared to a [`JsonLdProcessedNormalTermDefinition`] can only contain
 /// a `@container` and `@protected` value.
 #[derive(PartialEq, Eq, Clone)]
 pub struct JsonLdProcessedTypeTermDefinition {

@@ -6,7 +6,7 @@
 //! #[json_ld_testing::test_suite("expand-manifest.jsonld")]
 //! #[mount("https://w3c.github.io/json-ld-api", "json-ld-api")]
 //! #[ignore_test("#t0042", note = "https://github.com/...")]
-//! async fn my_test(loader: &FsLoader, entry: &ManifestEntry) {
+//! async fn my_test(loader: &JsonLdFsLoader, entry: &ManifestEntry) {
 //!   // test body.
 //! }
 //! ```

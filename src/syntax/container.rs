@@ -146,7 +146,7 @@ impl JsonLdContainerValue {
 		matches!(self, Self::Array(_))
 	}
 
-	/// Process this syntax value into a [`Container`].
+	/// Process this syntax value into a [`JsonLdContainer`].
 	pub fn to_container(&self) -> Result<JsonLdContainer, UnexpectedJsonLdContainerItem> {
 		match self {
 			Self::Null => Ok(JsonLdContainer::Null),

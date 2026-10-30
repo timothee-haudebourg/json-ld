@@ -209,7 +209,7 @@ pub struct ToAsyncJsonLdLoader<T: ?Sized>(pub T);
 impl<T: ?Sized> ToAsyncJsonLdLoader<T> {
 	pub fn from_ref(loader: &T) -> &Self {
 		unsafe {
-			// SAFETY: `ToAsyncLoader` uses the `transparent` repr.
+			// SAFETY: `ToAsyncJsonLdLoader` uses the `transparent` repr.
 			std::mem::transmute(loader)
 		}
 	}

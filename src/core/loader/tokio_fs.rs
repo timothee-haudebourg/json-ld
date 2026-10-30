@@ -10,7 +10,7 @@ pub use super::fs::Error;
 
 /// Async file-system loader backed by Tokio.
 ///
-/// This is an async counterpart to [`FsLoader`] that performs file I/O using
+/// This is an async counterpart to [`JsonLdFsLoader`] that performs file I/O using
 /// [`tokio::fs`] rather than blocking the thread.
 ///
 /// Loaded documents are not cached: a new file system read is made each time

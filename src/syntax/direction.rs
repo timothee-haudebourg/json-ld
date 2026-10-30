@@ -47,7 +47,7 @@ impl FromStr for JsonLdDirection {
 impl<'a> TryFrom<&'a str> for JsonLdDirection {
 	type Error = InvalidJsonLdDirection<&'a str>;
 
-	/// Convert the strings `"rtl"` and `"ltr"` into a `Direction`.
+	/// Convert the strings `"rtl"` and `"ltr"` into a `JsonLdDirection`.
 	#[inline(always)]
 	fn try_from(name: &'a str) -> Result<JsonLdDirection, InvalidJsonLdDirection<&'a str>> {
 		match name {

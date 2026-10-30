@@ -107,7 +107,7 @@ impl JsonLdLangString {
 	/// Sets the associated language tag.
 	///
 	/// If `None` is given, the direction must be set,
-	/// otherwise this function will fail with an [`InvalidLangString`] error.
+	/// otherwise this function will fail with an [`InvalidJsonLdLangString`] error.
 	pub fn set_language(
 		&mut self,
 		language: Option<JsonLdLenient<LangTagBuf>>,
@@ -129,7 +129,7 @@ impl JsonLdLangString {
 	/// Sets the associated direction.
 	///
 	/// If `None` is given, a language tag must be set,
-	/// otherwise this function will fail with an [`InvalidLangString`] error.
+	/// otherwise this function will fail with an [`InvalidJsonLdLangString`] error.
 	pub fn set_direction(
 		&mut self,
 		direction: Option<JsonLdDirection>,
@@ -145,7 +145,7 @@ impl JsonLdLangString {
 	/// Set both the language tag and direction.
 	///
 	/// If both `language` and `direction` are `None`,
-	/// this function will fail with an [`InvalidLangString`] error.
+	/// this function will fail with an [`InvalidJsonLdLangString`] error.
 	pub fn set(
 		&mut self,
 		language: Option<JsonLdLenient<LangTagBuf>>,
@@ -160,7 +160,7 @@ impl JsonLdLangString {
 		}
 	}
 
-	/// Returns a reference to this lang string as a [`LangStr`].
+	/// Returns a reference to this lang string as a [`JsonLdLangStr`].
 	pub fn as_lang_str(&self) -> JsonLdLangStr<'_> {
 		JsonLdLangStr {
 			data: &self.data,

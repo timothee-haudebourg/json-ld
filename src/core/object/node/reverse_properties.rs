@@ -257,13 +257,13 @@ impl<'a> IntoIterator for &'a mut JsonLdReverseProperties {
 
 /// Iterator over the reverse properties of a node.
 ///
-/// It is created by the [`ReverseProperties::into_iter`] function.
+/// It is created by the [`JsonLdReverseProperties::into_iter`] function.
 pub type JsonLdReversePropertiesIntoIter =
 	btree_indexmap::map::IntoIter<JsonLdLenient<Id>, JsonLdReversePropertyNodes>;
 
 /// Iterator over the reverse properties of a node.
 ///
-/// It is created by the [`ReverseProperties::iter`] function.
+/// It is created by the [`JsonLdReverseProperties::iter`] function.
 #[derive(Educe)]
 #[educe(Clone)]
 pub struct JsonLdReversePropertiesIter<'a> {
@@ -293,6 +293,6 @@ impl<'a> std::iter::FusedIterator for JsonLdReversePropertiesIter<'a> {}
 /// Iterator over the reverse properties of a node, giving a mutable reference
 /// to the associated nodes.
 ///
-/// It is created by the [`ReverseProperties::iter_mut`] function.
+/// It is created by the [`JsonLdReverseProperties::iter_mut`] function.
 pub type JsonLdReversePropertiesIterMut<'a> =
 	btree_indexmap::map::IterMut<'a, JsonLdLenient<Id>, JsonLdReversePropertyNodes>;

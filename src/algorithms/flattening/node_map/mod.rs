@@ -88,7 +88,7 @@ impl JsonLdNodeMap {
 		}
 	}
 
-	/// Merge all the graphs into a single `NodeMapGraph`.
+	/// Merge all the graphs into a single `JsonLdNodeMapGraph`.
 	///
 	/// The order in which graphs are merged is not defined.
 	pub fn merge(self) -> JsonLdNodeMapGraph {
@@ -212,7 +212,7 @@ impl IntoIterator for JsonLdNodeMap {
 	}
 }
 
-/// Entry in a [`NodeMapGraph`], pairing an indexed node with the optional
+/// Entry in a [`JsonLdNodeMapGraph`], pairing an indexed node with the optional
 /// source location of its `@index` value.
 pub struct JsonLdNodeMapGraphEntry {
 	pub node: JsonLdIndexedNode,

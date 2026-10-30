@@ -37,7 +37,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 	// 	self.generator.next(self.vocabulary)
 	// }
 
-	/// Extends the `NodeMap` with the given `element` of an expanded JSON-LD document.
+	/// Extends the `JsonLdNodeMap` with the given `element` of an expanded JSON-LD document.
 	///
 	/// `location` tracks the current position within the expanded document.
 	pub fn extend_node_map(

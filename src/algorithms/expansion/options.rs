@@ -8,7 +8,7 @@ pub struct JsonLdExpansionOptions {
 
 	/// Term expansion policy.
 	///
-	/// Default is `ExpansionPolicy::Standard`.
+	/// Default is `JsonLdExpansionPolicy::Standard`.
 	pub policy: JsonLdExpansionPolicy,
 
 	/// If set to true, input document entries are processed lexicographically.
@@ -47,13 +47,13 @@ impl From<JsonLdExpansionOptions> for JsonLdContextProcessingOptions {
 /// Sometimes, it is preferable to keep undefined keys in the
 /// expanded document, or to forbid them completely by raising an error.
 /// You can define your preferred policy using one of this type variant
-/// with the [`ExpansionOptions::policy`] field.
+/// with the [`JsonLdExpansionOptions::policy`] field.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum JsonLdExpansionPolicy {
 	/// Relaxed policy.
 	///
 	/// Undefined keys are always kept in the expanded document
-	/// using the [`Lenient::Invalid`](crate::Lenient::Invalid) variant.
+	/// using the [`JsonLdLenient::Invalid`](crate::JsonLdLenient::Invalid) variant.
 	Relaxed,
 
 	/// Standard policy.

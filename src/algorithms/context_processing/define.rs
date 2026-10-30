@@ -59,8 +59,8 @@ impl DefinedTerms {
 		Self::default()
 	}
 
-	/// `location` is `key`'s own entry location, used for the `CyclicIriMapping`
-	/// error if `key` is found to be currently being defined.
+	/// `location` is `key`'s own entry location, used for the
+	/// [`JsonLdError::CyclicIriMapping`] error if `key` is found to be currently being defined.
 	pub fn begin(
 		&mut self,
 		location: JsonLdBacktraceBuilder<'_>,

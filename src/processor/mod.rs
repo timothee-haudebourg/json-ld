@@ -4,7 +4,7 @@ use rdf_syntax::{GenInterpretation, IriBuf};
 use rdf_syntax::{Generator, Quad, Term};
 
 /// Drives a future that is expected to complete synchronously on the first
-/// poll (i.e., backed by a sync [`ProcessingEnvironment`]).
+/// poll (i.e., backed by a sync [`JsonLdEnvironment`]).
 ///
 /// Uses a no-op waker so no thread is ever parked. Panics if the future
 /// returns [`Poll::Pending`], which would indicate a bug in the caller.
@@ -66,7 +66,7 @@ pub struct JsonLdOptions {
 
 	/// Sets the processing mode.
 	///
-	/// Defaults to `ProcessingMode::JsonLd1_1`.
+	/// Defaults to `JsonLdProcessingMode::JsonLd1_1`.
 	pub processing_mode: JsonLdProcessingMode,
 
 	/// Determines how value objects containing a base direction are transformed

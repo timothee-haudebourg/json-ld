@@ -90,7 +90,7 @@ pub struct ToAsyncJsonLdEnvironment<T: ?Sized>(pub T);
 impl<T: ?Sized> ToAsyncJsonLdEnvironment<T> {
 	pub fn from_ref(env: &T) -> &Self {
 		unsafe {
-			// SAFETY: `ToAsyncProcessingEnvironment` uses the `transparent` repr.
+			// SAFETY: `ToAsyncJsonLdEnvironment` uses the `transparent` repr.
 			std::mem::transmute(env)
 		}
 	}

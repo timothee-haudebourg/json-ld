@@ -58,7 +58,7 @@
 //!   value,
 //! );
 //!
-//! // Use `NoLoader` as we won't need to load any remote document.
+//! // Use `NoJsonLdLoader` as we won't need to load any remote document.
 //! let expanded = input.expand(json_ld::NoJsonLdLoader).expect("expansion failed");
 //!
 //! assert!(!expanded.is_empty());

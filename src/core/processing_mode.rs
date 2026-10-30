@@ -5,7 +5,7 @@ use std::fmt;
 /// Processing mode.
 ///
 /// This is a property of the context processing and compaction options.
-/// New features defined in JSON-LD 1.1 are available unless the processing mode is set to [`ProcessingMode::JsonLd1_0`].
+/// New features defined in JSON-LD 1.1 are available unless the processing mode is set to [`JsonLdProcessingMode::JsonLd1_0`].
 #[derive(
 	Default, Clone, Copy, PartialEq, Eq, Hash, Debug, SerializeLinkedData, DeserializeLinkedData,
 )]

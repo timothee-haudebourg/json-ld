@@ -9,7 +9,8 @@ use super::{AsyncJsonLdLoader, JsonLdLoader};
 /// A dummy loader that does not load anything.
 /// Can be useful when you know that you will never need to load remote resource.
 ///
-/// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
+/// Raises a [`JsonLdLoadError`] caused by [`CannotLoad`] at every attempt to
+/// load a resource.
 #[derive(Debug, Default)]
 pub struct NoJsonLdLoader;
 

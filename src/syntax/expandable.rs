@@ -10,7 +10,7 @@ pub enum JsonLdExpandable {
 }
 
 pub enum JsonLdExpandableRef<'a> {
-	/// Keyword.
+	/// [`JsonLdKeyword`].
 	Keyword(JsonLdKeyword),
 
 	/// Other term.
