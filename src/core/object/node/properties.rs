@@ -1,7 +1,7 @@
 use super::Objects;
 use crate::{
 	IndexedObject, Lenient, VisitJsonLd,
-	object::{ObjectMut, ObjectRef},
+	object::{JsonLdObjectRef, ObjectMut},
 };
 use btree_indexmap::{BTreeIndexMap, BTreeIndexMultiSet, Comparable};
 use educe::Educe;
@@ -139,7 +139,7 @@ impl Properties {
 
 	/// Associate all the given objects to the node through the given property, unless it is already.
 	///
-	/// The [equivalence operator](crate::Object::equivalent) is used to remove equivalent objects.
+	/// The [equivalence operator](crate::JsonLdObject::equivalent) is used to remove equivalent objects.
 	#[inline(always)]
 	pub fn insert_all_unique<Objects: IntoIterator<Item = IndexedObject>>(
 		&mut self,
@@ -192,7 +192,7 @@ impl Properties {
 }
 
 impl VisitJsonLd for Properties {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for (_, t) in self {
 			t.visit_with(&mut *f);
 		}

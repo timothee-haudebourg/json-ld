@@ -4,11 +4,11 @@ use linked_data::{
 };
 use rdf_syntax::{RDF_TYPE, Term};
 
-use crate::{Lenient, NodeObject};
+use crate::{JsonLdNode, Lenient};
 
 use super::super::RdfSerializationOptions;
 
-impl SerializeLinkedDataWith<RdfSerializationOptions> for NodeObject {
+impl SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdNode {
 	fn serialize_rdf_with<S>(
 		&self,
 		opts: RdfSerializationOptions,
@@ -83,7 +83,7 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for NodeObject {
 	}
 }
 
-impl SerializeLinkedData for NodeObject {
+impl SerializeLinkedData for JsonLdNode {
 	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,

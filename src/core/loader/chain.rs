@@ -1,38 +1,40 @@
 use core::fmt;
 
-use crate::{JsonLdDocument, LoadError};
+use crate::{JsonLdDocument, JsonLdLoadError};
 use rdf_syntax::Iri;
 
-use super::AsyncLoader;
+use super::AsyncJsonLdLoader;
 
-/// * [`ChainLoader`]: loads document from the first loader, otherwise falls back to the second one.
+/// * [`JsonLdChainLoader`]: loads document from the first loader, otherwise falls back to the second one.
 ///
 /// This can be useful for combining, for example,
-/// an [`FsLoader`](super::FsLoader) for loading some contexts from a local cache,
-/// and a [`ReqwestLoader`](super::ReqwestLoader) for loading any other context from the web.
+/// a [`JsonLdFsLoader`](super::JsonLdFsLoader) for loading some contexts from a local cache,
+/// and a [`JsonLdReqwestLoader`](super::JsonLdReqwestLoader) for loading any other context from the web.
 ///
-/// Note that it is also possible to nest several [`ChainLoader`]s,
+/// Note that it is also possible to nest several [`JsonLdChainLoader`]s,
 /// to combine more than two loaders.
-pub struct ChainLoader<L1, L2>(L1, L2);
+pub struct JsonLdChainLoader<L1, L2>(L1, L2);
 
-impl<L1, L2> ChainLoader<L1, L2> {
+impl<L1, L2> JsonLdChainLoader<L1, L2> {
 	/// Build a new chain loader
 	pub fn new(l1: L1, l2: L2) -> Self {
-		ChainLoader(l1, l2)
+		JsonLdChainLoader(l1, l2)
 	}
 }
 
-impl<L1, L2> AsyncLoader for ChainLoader<L1, L2>
+impl<L1, L2> AsyncJsonLdLoader for JsonLdChainLoader<L1, L2>
 where
-	L1: AsyncLoader,
-	L2: AsyncLoader,
+	L1: AsyncJsonLdLoader,
+	L2: AsyncJsonLdLoader,
 {
-	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		match self.0.async_load(url).await {
 			Ok(doc) => Ok(doc),
-			Err(LoadError { cause: e1, .. }) => match self.1.async_load(url).await {
+			Err(JsonLdLoadError { cause: e1, .. }) => match self.1.async_load(url).await {
 				Ok(doc) => Ok(doc),
-				Err(LoadError { target, cause: e2 }) => Err(LoadError::new(target, Error(e1, e2))),
+				Err(JsonLdLoadError { target, cause: e2 }) => {
+					Err(JsonLdLoadError::new(target, Error(e1, e2)))
+				}
 			},
 		}
 	}

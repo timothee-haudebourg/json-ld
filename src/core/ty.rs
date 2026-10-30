@@ -3,7 +3,7 @@ use std::fmt;
 
 use rdf_syntax::{Id, Iri, IriBuf};
 
-use super::Term;
+use super::JsonLdTerm;
 use crate::{Lenient, syntax::Keyword};
 
 /// Object type.
@@ -60,28 +60,28 @@ impl Type {
 	}
 }
 
-impl From<Type> for Term {
-	fn from(t: Type) -> Term {
+impl From<Type> for JsonLdTerm {
+	fn from(t: Type) -> JsonLdTerm {
 		match t {
-			Type::Id => Term::Keyword(Keyword::Id),
-			Type::Json => Term::Keyword(Keyword::Json),
-			Type::None => Term::Keyword(Keyword::None),
-			Type::Vocab => Term::Keyword(Keyword::Vocab),
-			Type::Iri(id) => Term::Id(Lenient::Valid(Id::Iri(id))),
+			Type::Id => JsonLdTerm::Keyword(Keyword::Id),
+			Type::Json => JsonLdTerm::Keyword(Keyword::Json),
+			Type::None => JsonLdTerm::Keyword(Keyword::None),
+			Type::Vocab => JsonLdTerm::Keyword(Keyword::Vocab),
+			Type::Iri(id) => JsonLdTerm::Id(Lenient::Valid(Id::Iri(id))),
 		}
 	}
 }
 
-impl TryFrom<Term> for Type {
-	type Error = Term;
+impl TryFrom<JsonLdTerm> for Type {
+	type Error = JsonLdTerm;
 
-	fn try_from(term: Term) -> Result<Type, Term> {
+	fn try_from(term: JsonLdTerm) -> Result<Type, JsonLdTerm> {
 		match term {
-			Term::Keyword(Keyword::Id) => Ok(Type::Id),
-			Term::Keyword(Keyword::Json) => Ok(Type::Json),
-			Term::Keyword(Keyword::None) => Ok(Type::None),
-			Term::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
-			Term::Id(Lenient::Valid(Id::Iri(id))) => Ok(Type::Iri(id)),
+			JsonLdTerm::Keyword(Keyword::Id) => Ok(Type::Id),
+			JsonLdTerm::Keyword(Keyword::Json) => Ok(Type::Json),
+			JsonLdTerm::Keyword(Keyword::None) => Ok(Type::None),
+			JsonLdTerm::Keyword(Keyword::Vocab) => Ok(Type::Vocab),
+			JsonLdTerm::Id(Lenient::Valid(Id::Iri(id))) => Ok(Type::Iri(id)),
 			term => Err(term),
 		}
 	}

@@ -15,13 +15,15 @@ mod ty;
 pub mod utils;
 mod visit;
 
-pub use context::ProcessedContext;
+pub use context::ProcessedJsonLdContext;
 pub use document::*;
 pub use indexed::*;
 pub use lang_string::*;
 pub use lenient::*;
 pub use loader::*;
-pub use object::{IndexedNode, IndexedObject, NodeObject, Nodes, Object, Objects, ValueObject};
+pub use object::{
+	IndexedJsonLdNode, IndexedObject, JsonLdNode, JsonLdObject, JsonLdValue, Nodes, Objects,
+};
 pub use processing_mode::*;
 pub use term::*;
 pub use ty::*;

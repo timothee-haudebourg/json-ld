@@ -2,7 +2,8 @@ use json_syntax::JsonValue;
 use rdf_syntax::Id;
 
 use crate::{
-	Direction, Indexed, IndexedObject, LangString, Lenient, Nullable, Object, Term, ValueObject,
+	Direction, Indexed, IndexedObject, JsonLdObject, JsonLdTerm, JsonLdValue, LangString, Lenient,
+	Nullable,
 	algorithms::{JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError, Warning},
 	context::RawProcessedContext,
 	object::{LiteralValue, value::LiteralType},
@@ -18,7 +19,7 @@ impl<'a> Expander<'a> {
 	pub fn expand_value(
 		&self,
 		mut warn: impl FnMut(Warning),
-		input_type: Option<Term>,
+		input_type: Option<JsonLdTerm>,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry>,
 		value_entry: &JsonValue,
@@ -26,7 +27,7 @@ impl<'a> Expander<'a> {
 	) -> ValueExpansionResult {
 		let mut is_json = input_type
 			.as_ref()
-			.map(|t| *t == Term::Keyword(Keyword::Json))
+			.map(|t| *t == JsonLdTerm::Keyword(Keyword::Json))
 			.unwrap_or(false);
 		let mut ty = None;
 		let mut index = None;
@@ -46,7 +47,7 @@ impl<'a> Expander<'a> {
 
 			match expanded_key {
 				// If expanded property is @language:
-				Term::Keyword(Keyword::Language) => {
+				JsonLdTerm::Keyword(Keyword::Language) => {
 					// If value is not a string, an invalid language-tagged string
 					// error has been detected and processing is aborted.
 					if let Some(value) = value.as_str() {
@@ -63,7 +64,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 				// If expanded property is @direction:
-				Term::Keyword(Keyword::Direction) => {
+				JsonLdTerm::Keyword(Keyword::Direction) => {
 					// If processing mode is json-ld-1.0, continue with the next key
 					// from element.
 					// TODO processing mode.
@@ -81,7 +82,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 				// If expanded property is @index:
-				Term::Keyword(Keyword::Index) => {
+				JsonLdTerm::Keyword(Keyword::Index) => {
 					// If value is not a string, an invalid @index value error has
 					// been detected and processing is aborted.
 					if let Some(value) = value.as_str() {
@@ -91,7 +92,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 				// If expanded ...
-				Term::Keyword(Keyword::Type) => {
+				JsonLdTerm::Keyword(Keyword::Type) => {
 					if let Some(ty_value) = value.as_str() {
 						let expanded_ty = type_scoped_context.expand_iri(
 							// env,
@@ -102,10 +103,10 @@ impl<'a> Expander<'a> {
 						);
 
 						match expanded_ty {
-							Term::Keyword(Keyword::Json) => {
+							JsonLdTerm::Keyword(Keyword::Json) => {
 								is_json = true;
 							}
-							Term::Id(Lenient::Valid(Id::Iri(expanded_ty))) => {
+							JsonLdTerm::Id(Lenient::Valid(Id::Iri(expanded_ty))) => {
 								is_json = false;
 								ty = Some(expanded_ty)
 							}
@@ -115,7 +116,7 @@ impl<'a> Expander<'a> {
 						return Err(JsonLdError::InvalidTypedValue.at(entry_loc));
 					}
 				}
-				Term::Keyword(Keyword::Value) => (),
+				JsonLdTerm::Keyword(Keyword::Value) => (),
 				_ => {
 					return Err(JsonLdError::InvalidValueObject.at(entry_loc));
 				}
@@ -130,7 +131,7 @@ impl<'a> Expander<'a> {
 				return Err(JsonLdError::InvalidValueObject.at(location));
 			}
 			return Ok(Some(Indexed::new(
-				Object::Value(ValueObject::Literal(LiteralValue::json(
+				JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::json(
 					value_entry.clone(),
 				))),
 				index,
@@ -184,7 +185,7 @@ impl<'a> Expander<'a> {
 
 				return match LangString::new(s, lang, direction) {
 					Ok(result) => Ok(Some(Indexed::new(
-						Object::Value(ValueObject::LangString(result)),
+						JsonLdObject::Value(JsonLdValue::LangString(result)),
 						index,
 					))),
 					Err(_) => Err(JsonLdError::InvalidLanguageTaggedValue.at(location)),
@@ -200,7 +201,7 @@ impl<'a> Expander<'a> {
 		// TODO
 
 		Ok(Some(Indexed::new(
-			Object::Value(ValueObject::Literal(LiteralValue::new(
+			JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::new(
 				result_value,
 				ty.map(LiteralType::Iri),
 			))),

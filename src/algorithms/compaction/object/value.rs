@@ -2,7 +2,7 @@ use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
-	Lenient, Term, Type, ValueObject,
+	JsonLdTerm, JsonLdValue, Lenient, Type,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
 		JsonLdLocatedError, context_processing::ContextProcessingOptions,
@@ -19,7 +19,7 @@ impl<'a> Compactor<'a> {
 	pub async fn compact_indexed_value_with(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		value: &ValueObject,
+		value: &JsonLdValue,
 		index: Option<&str>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -109,14 +109,14 @@ impl<'a> Compactor<'a> {
 			|| index.is_none();
 
 		match value {
-			ValueObject::Literal(lit) => {
+			JsonLdValue::Literal(lit) => {
 				if lit.is_json() {
 					// JSON literal
 					if type_mapping == Some(Type::Json) && remove_index {
 						return Ok(lit.value.clone());
 					} else {
 						let compact_key = self.with_active_context(&active_context).compact_key(
-							&Term::Keyword(Keyword::Value),
+							&JsonLdTerm::Keyword(Keyword::Value),
 							true,
 							false,
 							location,
@@ -124,14 +124,14 @@ impl<'a> Compactor<'a> {
 						result.insert(compact_key.unwrap(), lit.value.clone());
 
 						let compact_key = self.with_active_context(&active_context).compact_key(
-							&Term::Keyword(Keyword::Type),
+							&JsonLdTerm::Keyword(Keyword::Type),
 							true,
 							false,
 							location,
 						)?;
 
 						let compact_ty = self.with_active_context(&active_context).compact_iri(
-							&Term::Keyword(Keyword::Json),
+							&JsonLdTerm::Keyword(Keyword::Json),
 							true,
 							false,
 							location,
@@ -161,7 +161,7 @@ impl<'a> Compactor<'a> {
 								} else {
 									let compact_key =
 										self.with_active_context(&active_context).compact_key(
-											&Term::Keyword(Keyword::Value),
+											&JsonLdTerm::Keyword(Keyword::Value),
 											true,
 											false,
 											location,
@@ -175,7 +175,7 @@ impl<'a> Compactor<'a> {
 							_ => {
 								let compact_key =
 									self.with_active_context(&active_context).compact_key(
-										&Term::Keyword(Keyword::Value),
+										&JsonLdTerm::Keyword(Keyword::Value),
 										true,
 										false,
 										location,
@@ -185,7 +185,7 @@ impl<'a> Compactor<'a> {
 						}
 					} else {
 						let compact_key = self.with_active_context(&active_context).compact_key(
-							&Term::Keyword(Keyword::Value),
+							&JsonLdTerm::Keyword(Keyword::Value),
 							true,
 							false,
 							location,
@@ -195,14 +195,14 @@ impl<'a> Compactor<'a> {
 						if let Some(ty) = ty {
 							let compact_key =
 								self.with_active_context(&active_context).compact_key(
-									&Term::Keyword(Keyword::Type),
+									&JsonLdTerm::Keyword(Keyword::Type),
 									true,
 									false,
 									location,
 								)?;
 							let compact_ty =
 								self.with_active_context(&active_context).compact_iri(
-									&Term::Id(Lenient::iri(ty.clone())),
+									&JsonLdTerm::Id(Lenient::iri(ty.clone())),
 									true,
 									false,
 									location,
@@ -218,7 +218,7 @@ impl<'a> Compactor<'a> {
 					}
 				}
 			}
-			ValueObject::LangString(ls) => {
+			JsonLdValue::LangString(ls) => {
 				let ls_language = ls.language(); //.map(|l| Nullable::Some(l));
 				let ls_direction = ls.direction(); //.map(|d| Nullable::Some(d));
 
@@ -230,7 +230,7 @@ impl<'a> Compactor<'a> {
 					return Ok(JsonValue::String(ls.as_str().into()));
 				} else {
 					let compact_key = self.with_active_context(&active_context).compact_key(
-						&Term::Keyword(Keyword::Value),
+						&JsonLdTerm::Keyword(Keyword::Value),
 						true,
 						false,
 						location,
@@ -239,7 +239,7 @@ impl<'a> Compactor<'a> {
 
 					if let Some(language) = ls.language() {
 						let compact_key = self.with_active_context(&active_context).compact_key(
-							&Term::Keyword(Keyword::Language),
+							&JsonLdTerm::Keyword(Keyword::Language),
 							true,
 							false,
 							location,
@@ -252,7 +252,7 @@ impl<'a> Compactor<'a> {
 
 					if let Some(direction) = ls.direction() {
 						let compact_key = self.with_active_context(&active_context).compact_key(
-							&Term::Keyword(Keyword::Direction),
+							&JsonLdTerm::Keyword(Keyword::Direction),
 							true,
 							false,
 							location,
@@ -268,7 +268,7 @@ impl<'a> Compactor<'a> {
 
 		if !remove_index && let Some(index) = index {
 			let compact_key = self.with_active_context(&active_context).compact_key(
-				&Term::Keyword(Keyword::Index),
+				&JsonLdTerm::Keyword(Keyword::Index),
 				true,
 				false,
 				location,
@@ -316,9 +316,9 @@ pub fn add_value(map: &mut JsonObject, key: &str, value: JsonValue, as_array: bo
 }
 
 /// Get the `@value` field of a value object.
-pub fn value_value(value: &ValueObject) -> JsonValue {
+pub fn value_value(value: &JsonLdValue) -> JsonValue {
 	match value {
-		ValueObject::Literal(lit) => lit.value.clone(),
-		ValueObject::LangString(s) => JsonValue::String(s.as_str().into()),
+		JsonLdValue::Literal(lit) => lit.value.clone(),
+		JsonLdValue::LangString(s) => JsonValue::String(s.as_str().into()),
 	}
 }

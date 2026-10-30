@@ -1,7 +1,7 @@
 use json_syntax::{JsonObject, JsonValue};
 
 use crate::{
-	Indexed, Lenient, NodeObject, Object, Term,
+	Indexed, JsonLdNode, JsonLdObject, JsonLdTerm, Lenient,
 	algorithms::{
 		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
 		compaction::{
@@ -10,7 +10,7 @@ use crate::{
 		},
 	},
 	context::Container,
-	object::{AnyObject, ListObject, ObjectRef},
+	object::{AnyJsonLdObject, JsonLdList, JsonLdObjectRef},
 	syntax::{ContainerItem, Keyword, context::Nest},
 };
 
@@ -19,7 +19,7 @@ impl Compactor<'_> {
 	async fn compact_property_list(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		list: &ListObject,
+		list: &JsonLdList,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
 		container: Container,
@@ -48,7 +48,8 @@ impl Compactor<'_> {
 			// a map containing an entry where the key is the result of
 			// IRI compacting @list and the value is the original
 			// compacted item.
-			let key = self.compact_key(&Term::Keyword(Keyword::List), true, false, location)?;
+			let key =
+				self.compact_key(&JsonLdTerm::Keyword(Keyword::List), true, false, location)?;
 			let mut compacted_item_list_object = JsonObject::default();
 			compacted_item_list_object.insert(key.unwrap(), compacted_item);
 
@@ -57,7 +58,7 @@ impl Compactor<'_> {
 			// the result of IRI compacting @index and value is value.
 			if let Some(index) = expanded_index {
 				let key =
-					self.compact_key(&Term::Keyword(Keyword::Index), true, false, location)?;
+					self.compact_key(&JsonLdTerm::Keyword(Keyword::Index), true, false, location)?;
 
 				compacted_item_list_object.insert(key.unwrap(), JsonValue::String(index.into()));
 			}
@@ -79,7 +80,7 @@ impl Compactor<'_> {
 	async fn compact_property_graph(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		node: &NodeObject,
+		node: &JsonLdNode,
 		expanded_index: Option<&str>,
 		nest_result: &mut JsonObject,
 		container: Container,
@@ -126,7 +127,7 @@ impl Compactor<'_> {
 			// `expanded_item`.
 			let (id_value, vocab) = match &node.id {
 				Some(entry) => (entry.clone().into_term(), false),
-				None => (Term::Keyword(Keyword::None), true),
+				None => (JsonLdTerm::Keyword(Keyword::None), true),
 			};
 
 			let map_key = self
@@ -180,7 +181,12 @@ impl Compactor<'_> {
 			compacted_item = match compacted_item {
 				JsonValue::Array(items) if items.len() > 1 => {
 					let key = self
-						.compact_iri(&Term::Keyword(Keyword::Included), true, false, location)?
+						.compact_iri(
+							&JsonLdTerm::Keyword(Keyword::Included),
+							true,
+							false,
+							location,
+						)?
 						.unwrap();
 					let mut map = JsonObject::default();
 					map.insert(key, JsonValue::Array(items));
@@ -199,7 +205,7 @@ impl Compactor<'_> {
 			// Set `compacted_item` to a new map containing the key from
 			// IRI compacting @graph using the original `compacted_item` as a value.
 			let key = self
-				.compact_iri(&Term::Keyword(Keyword::Graph), true, false, location)?
+				.compact_iri(&JsonLdTerm::Keyword(Keyword::Graph), true, false, location)?
 				.unwrap();
 			let mut map = JsonObject::default();
 			map.insert(key, compacted_item);
@@ -211,9 +217,9 @@ impl Compactor<'_> {
 			// false for vocab.
 			if let Some(id_entry) = &node.id {
 				let key = self
-					.compact_iri(&Term::Keyword(Keyword::Id), false, false, location)?
+					.compact_iri(&JsonLdTerm::Keyword(Keyword::Id), false, false, location)?
 					.unwrap();
-				let id: Term = id_entry.clone().into();
+				let id: JsonLdTerm = id_entry.clone().into();
 				let value = self.compact_iri(&id, false, false, location)?;
 				map.insert(
 					key,
@@ -229,7 +235,7 @@ impl Compactor<'_> {
 			// IRI compacting @index and the value of @index in `expanded_item`.
 			if let Some(index_entry) = expanded_index {
 				let key = self
-					.compact_iri(&Term::Keyword(Keyword::Index), true, false, location)?
+					.compact_iri(&JsonLdTerm::Keyword(Keyword::Index), true, false, location)?
 					.unwrap();
 				map.insert(key, index_entry.into());
 			}
@@ -261,7 +267,8 @@ impl Compactor<'_> {
 						if *nest_term != Nest::Nest {
 							match self.active_context.get(nest_term.as_str()) {
 								Some(term_def)
-									if term_def.value() == Some(&Term::Keyword(Keyword::Nest)) => {}
+									if term_def.value()
+										== Some(&JsonLdTerm::Keyword(Keyword::Nest)) => {}
 								_ => {
 									return Err(JsonLdError::InvalidNestValue.at(location));
 								}
@@ -325,14 +332,14 @@ impl Compactor<'_> {
 		&self,
 		env: &impl AsyncProcessingEnvironment,
 		result: &mut JsonObject,
-		expanded_property: Term,
+		expanded_property: JsonLdTerm,
 		expanded_value: O,
 		inside_reverse: bool,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<(), JsonLdLocatedError>
 	where
 		O: IntoIterator<Item = &'a Indexed<T>>,
-		T: 'a + AnyObject,
+		T: 'a + AnyJsonLdObject,
 	{
 		let mut is_empty = true;
 
@@ -369,7 +376,7 @@ impl Compactor<'_> {
 				// use the value of the @list or @graph entries, respectively,
 				// for `element` instead of `expanded_item`.
 				match expanded_item.inner().as_ref() {
-					ObjectRef::List(list) => {
+					JsonLdObjectRef::List(list) => {
 						self.compact_property_list(
 							env,
 							list,
@@ -382,7 +389,7 @@ impl Compactor<'_> {
 						)
 						.await?
 					}
-					ObjectRef::Node(node) if node.is_graph() => {
+					JsonLdObjectRef::Node(node) if node.is_graph() => {
 						self.compact_property_graph(
 							env,
 							node,
@@ -450,7 +457,7 @@ impl Compactor<'_> {
 							};
 
 							let mut container_key = self.compact_iri(
-								&Term::Keyword(container_type.into()),
+								&JsonLdTerm::Keyword(container_type.into()),
 								true,
 								false,
 								item_loc,
@@ -473,7 +480,9 @@ impl Compactor<'_> {
 							let map_key = if container_type == ContainerItem::Language
 								&& expanded_item.is_value()
 							{
-								if let ObjectRef::Value(value) = expanded_item.inner().as_ref() {
+								if let JsonLdObjectRef::Value(value) =
+									expanded_item.inner().as_ref()
+								{
 									compacted_item = value_value(value)
 								}
 
@@ -487,7 +496,9 @@ impl Compactor<'_> {
 										// Reinitialize `container_key` by
 										// IRI compacting `index_key`.
 										container_key = self.compact_iri(
-											&Term::Id(Lenient::Invalid(index_key.to_string())),
+											&JsonLdTerm::Id(Lenient::Invalid(
+												index_key.to_string(),
+											)),
 											true,
 											false,
 											item_loc,
@@ -639,7 +650,7 @@ impl Compactor<'_> {
 									.unwrap()
 									.is_some()
 								{
-									let obj = Object::node(NodeObject::new_with_id(Some(
+									let obj = JsonLdObject::node(JsonLdNode::new_with_id(Some(
 										expanded_item.id().unwrap().clone(),
 									)));
 									compacted_item = Box::pin(
@@ -664,7 +675,7 @@ impl Compactor<'_> {
 								Some(key) => key,
 								None => {
 									let key = self.compact_iri(
-										&Term::Keyword(Keyword::None),
+										&JsonLdTerm::Keyword(Keyword::None),
 										true,
 										false,
 										item_loc,
@@ -695,7 +706,7 @@ impl Compactor<'_> {
 				&expanded_property,
 				true,
 				inside_reverse,
-				Some(&Indexed::new(Object::node(NodeObject::new()), None)),
+				Some(&Indexed::new(JsonLdObject::node(JsonLdNode::new()), None)),
 				location,
 			)?;
 

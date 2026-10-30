@@ -12,7 +12,7 @@ use miette::{Diagnostic, NamedSource, SourceSpan};
 use rdf_syntax::Iri;
 
 use crate::{
-	AsyncLoader, JsonLdDocument, JsonLdError, JsonLdSourceCode,
+	AsyncJsonLdLoader, JsonLdDocument, JsonLdError, JsonLdSourceCode,
 	algorithms::{JsonLdLocatedError, JsonLdSourceFile},
 };
 
@@ -29,7 +29,7 @@ pub struct JsonLdDiagnostic {
 
 impl JsonLdDiagnostic {
 	pub async fn new_async(
-		loader: &impl AsyncLoader,
+		loader: &impl AsyncJsonLdLoader,
 		input: &JsonLdDocument,
 		error: JsonLdLocatedError,
 	) -> Self {
@@ -111,7 +111,7 @@ fn named_source_from_document(
 
 async fn get_named_source(
 	map: &mut HashMap<JsonLdSourceFile, NamedSource<Arc<JsonLdDiagnosticSourceCode>>>,
-	loader: &impl AsyncLoader,
+	loader: &impl AsyncJsonLdLoader,
 	file: &JsonLdSourceFile,
 ) -> NamedSource<Arc<JsonLdDiagnosticSourceCode>> {
 	match map.entry(file.clone()) {
@@ -146,7 +146,7 @@ async fn get_named_source(
 
 async fn locate_error(
 	map: &mut HashMap<JsonLdSourceFile, NamedSource<Arc<JsonLdDiagnosticSourceCode>>>,
-	loader: &impl AsyncLoader,
+	loader: &impl AsyncJsonLdLoader,
 	location: &JsonBacktraceFrame<JsonLdSourceFile>,
 ) -> (NamedSource<Arc<JsonLdDiagnosticSourceCode>>, SourceSpan) {
 	let named_source = get_named_source(map, loader, &location.file).await;

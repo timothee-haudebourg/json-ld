@@ -1,6 +1,6 @@
-use crate::object::{ObjectMut, ObjectRef};
+use crate::object::{JsonLdObjectRef, ObjectMut, Objects};
 use crate::syntax::Keyword;
-use crate::{Indexed, IndexedObject, Lenient, Object, Objects, Term, VisitJsonLd, object};
+use crate::{Indexed, IndexedObject, JsonLdObject, JsonLdTerm, Lenient, VisitJsonLd, object};
 use btree_indexmap::{BTreeIndexMultiSet, BTreeIndexSet, Comparable};
 use educe::Educe;
 use rdf_syntax::Id;
@@ -16,9 +16,9 @@ pub use reverse_properties::ReverseProperties;
 
 pub type Graph = BTreeIndexSet<IndexedObject>;
 
-pub type Included = BTreeIndexSet<IndexedNode>;
+pub type Included = BTreeIndexSet<IndexedJsonLdNode>;
 
-pub type IndexedNode = Indexed<NodeObject>;
+pub type IndexedJsonLdNode = Indexed<JsonLdNode>;
 
 /// Node object.
 ///
@@ -30,7 +30,7 @@ pub type IndexedNode = Indexed<NodeObject>;
 //      in which case the Json bound should be lifted.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct NodeObject {
+pub struct JsonLdNode {
 	/// Identifier.
 	///
 	/// This is the `@id` field.
@@ -83,14 +83,14 @@ pub struct NodeObject {
 	pub reverse_properties: Option<ReverseProperties>,
 }
 
-impl Default for NodeObject {
+impl Default for JsonLdNode {
 	#[inline(always)]
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl NodeObject {
+impl JsonLdNode {
 	/// Creates a new empty node.
 	#[inline(always)]
 	pub fn new() -> Self {
@@ -440,25 +440,25 @@ impl NodeObject {
 	///
 	/// # Example
 	/// ```
-	/// use json_ld::{NodeObject, Term};
+	/// use json_ld::{JsonLdNode, JsonLdTerm};
 	/// use json_ld::syntax::Keyword;
 	///
-	/// let node = NodeObject::new();
+	/// let node = JsonLdNode::new();
 	///
 	/// // Checks if the JSON object representation of the node has an `@id` key.
-	/// if node.has_key(&Term::Keyword(Keyword::Id)) {
+	/// if node.has_key(&JsonLdTerm::Keyword(Keyword::Id)) {
 	///   // ...
 	/// }
 	/// ```
 	#[inline(always)]
-	pub fn has_key(&self, key: &Term) -> bool {
+	pub fn has_key(&self, key: &JsonLdTerm) -> bool {
 		match key {
-			Term::Keyword(Keyword::Id) => self.id.is_some(),
-			Term::Keyword(Keyword::Type) => self.types.is_some(),
-			Term::Keyword(Keyword::Graph) => self.graph.is_some(),
-			Term::Keyword(Keyword::Included) => self.included.is_some(),
-			Term::Keyword(Keyword::Reverse) => self.reverse_properties.is_some(),
-			Term::Id(prop) => self.properties.contains(prop),
+			JsonLdTerm::Keyword(Keyword::Id) => self.id.is_some(),
+			JsonLdTerm::Keyword(Keyword::Type) => self.types.is_some(),
+			JsonLdTerm::Keyword(Keyword::Graph) => self.graph.is_some(),
+			JsonLdTerm::Keyword(Keyword::Included) => self.included.is_some(),
+			JsonLdTerm::Keyword(Keyword::Reverse) => self.reverse_properties.is_some(),
+			JsonLdTerm::Id(prop) => self.properties.contains(prop),
 			_ => false,
 		}
 	}
@@ -535,9 +535,9 @@ impl NodeObject {
 	}
 }
 
-impl VisitJsonLd for NodeObject {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
-		f(ObjectRef::Node(self));
+impl VisitJsonLd for JsonLdNode {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
+		f(JsonLdObjectRef::Node(self));
 		self.graph.visit_with(f);
 		self.included.visit_with(f);
 		self.properties.visit_with(f);
@@ -553,7 +553,7 @@ impl VisitJsonLd for NodeObject {
 	}
 }
 
-impl Indexed<NodeObject> {
+impl Indexed<JsonLdNode> {
 	pub fn entries(&self) -> IndexedEntries<'_> {
 		IndexedEntries {
 			index: self.index(),
@@ -562,7 +562,7 @@ impl Indexed<NodeObject> {
 	}
 }
 
-impl Indexed<NodeObject> {
+impl Indexed<JsonLdNode> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
@@ -617,7 +617,7 @@ pub enum EntryValueRef<'a> {
 	Id(&'a Lenient<Id>),
 	Type(&'a BTreeIndexMultiSet<Lenient<Id>>),
 	Graph(&'a BTreeIndexSet<IndexedObject>),
-	Included(&'a BTreeIndexSet<IndexedNode>),
+	Included(&'a BTreeIndexSet<IndexedJsonLdNode>),
 	Reverse(&'a ReverseProperties),
 	Property(&'a [IndexedObject]),
 }
@@ -867,40 +867,40 @@ impl<'a> IndexedEntryRef<'a> {
 	}
 }
 
-impl object::AnyObject for NodeObject {
+impl object::AnyJsonLdObject for JsonLdNode {
 	#[inline(always)]
-	fn as_ref(&self) -> object::ObjectRef<'_> {
-		object::ObjectRef::Node(self)
+	fn as_ref(&self) -> object::JsonLdObjectRef<'_> {
+		object::JsonLdObjectRef::Node(self)
 	}
 }
 
-impl TryFrom<Object> for NodeObject {
-	type Error = Object;
+impl TryFrom<JsonLdObject> for JsonLdNode {
+	type Error = JsonLdObject;
 
 	#[inline(always)]
-	fn try_from(obj: Object) -> Result<NodeObject, Object> {
+	fn try_from(obj: JsonLdObject) -> Result<JsonLdNode, JsonLdObject> {
 		match obj {
-			Object::Node(node) => Ok(*node),
+			JsonLdObject::Node(node) => Ok(*node),
 			obj => Err(obj),
 		}
 	}
 }
 
 /// Iterator through indexed nodes.
-pub struct Nodes<'a>(Option<std::slice::Iter<'a, IndexedNode>>);
+pub struct Nodes<'a>(Option<std::slice::Iter<'a, IndexedJsonLdNode>>);
 
 impl<'a> Nodes<'a> {
 	#[inline(always)]
-	pub(crate) fn new(inner: Option<std::slice::Iter<'a, IndexedNode>>) -> Self {
+	pub(crate) fn new(inner: Option<std::slice::Iter<'a, IndexedJsonLdNode>>) -> Self {
 		Self(inner)
 	}
 }
 
 impl<'a> Iterator for Nodes<'a> {
-	type Item = &'a IndexedNode;
+	type Item = &'a IndexedJsonLdNode;
 
 	#[inline(always)]
-	fn next(&mut self) -> Option<&'a IndexedNode> {
+	fn next(&mut self) -> Option<&'a IndexedJsonLdNode> {
 		match &mut self.0 {
 			None => None,
 			Some(it) => it.next(),

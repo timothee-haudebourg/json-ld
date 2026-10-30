@@ -6,13 +6,13 @@ use rdf_syntax::{BlankIdBuf, Generator, Id};
 
 use crate::{
 	Lenient,
-	object::{ObjectMut, ObjectRef},
+	object::{JsonLdObjectRef, ObjectMut},
 };
 
 pub trait VisitJsonLd {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef));
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef));
 
-	fn visit(&self, mut f: impl FnMut(ObjectRef)) {
+	fn visit(&self, mut f: impl FnMut(JsonLdObjectRef)) {
 		self.visit_with(&mut f);
 	}
 
@@ -89,7 +89,7 @@ impl<T> VisitJsonLd for [T]
 where
 	T: VisitJsonLd,
 {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for t in self {
 			t.visit_with(f);
 		}
@@ -106,7 +106,7 @@ impl<T> VisitJsonLd for BTreeIndexSet<T>
 where
 	T: VisitJsonLd + Ord,
 {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for t in self {
 			t.visit_with(f);
 		}
@@ -124,7 +124,7 @@ impl<T> VisitJsonLd for BTreeIndexMultiSet<T>
 where
 	T: VisitJsonLd + Ord,
 {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for t in self {
 			t.visit_with(f);
 		}
@@ -142,7 +142,7 @@ impl<T> VisitJsonLd for Option<T>
 where
 	T: VisitJsonLd,
 {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		if let Some(t) = self {
 			t.visit_with(f);
 		}

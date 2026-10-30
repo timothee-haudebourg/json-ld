@@ -1,8 +1,8 @@
 use btree_indexmap::BTreeIndexSet;
 
 use crate::{
-	Indexed, IndexedObject, NodeObject, Object, VisitJsonLd,
-	object::{ObjectMut, ObjectRef},
+	Indexed, IndexedObject, JsonLdNode, JsonLdObject, VisitJsonLd,
+	object::{JsonLdObjectRef, ObjectMut},
 };
 
 /// Result of the document expansion algorithm.
@@ -133,11 +133,11 @@ impl JsonLdExpandedDocument {
 	///
 	/// The main node is the unique top level (root) node object. If multiple
 	/// node objects are on the root, `None` is returned.
-	pub fn main_node(&self) -> Option<&NodeObject> {
+	pub fn main_node(&self) -> Option<&JsonLdNode> {
 		let mut result = None;
 
 		for object in self {
-			if let Object::Node(node) = object.inner() {
+			if let JsonLdObject::Node(node) = object.inner() {
 				if result.is_some() {
 					return None;
 				}
@@ -153,11 +153,11 @@ impl JsonLdExpandedDocument {
 	///
 	/// The main node is the unique top level (root) node object. If multiple
 	/// node objects are on the root, `None` is returned.
-	pub fn into_main_node(self) -> Option<NodeObject> {
+	pub fn into_main_node(self) -> Option<JsonLdNode> {
 		let mut result = None;
 
 		for object in self {
-			if let Object::Node(node) = object.into_inner() {
+			if let JsonLdObject::Node(node) = object.into_inner() {
 				if result.is_some() {
 					return None;
 				}
@@ -176,7 +176,7 @@ impl JsonLdExpandedDocument {
 }
 
 impl VisitJsonLd for JsonLdExpandedDocument {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		self.0.visit_with(f);
 	}
 
@@ -185,11 +185,11 @@ impl VisitJsonLd for JsonLdExpandedDocument {
 	}
 }
 
-impl From<Indexed<NodeObject>> for JsonLdExpandedDocument {
-	fn from(value: Indexed<NodeObject>) -> Self {
+impl From<Indexed<JsonLdNode>> for JsonLdExpandedDocument {
+	fn from(value: Indexed<JsonLdNode>) -> Self {
 		let mut result = Self::default();
 
-		result.insert(value.map_inner(Object::node));
+		result.insert(value.map_inner(JsonLdObject::node));
 
 		result
 	}

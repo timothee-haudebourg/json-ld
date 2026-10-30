@@ -1,6 +1,6 @@
 use json_syntax::JsonValue;
 use rdf_syntax::{Iri, IriBuf};
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::LazyLock};
 
 use crate::{JsonLdDocument, syntax::JsonLdContextDocumentValue};
 
@@ -14,20 +14,22 @@ pub mod reqwest;
 pub mod tokio_fs;
 
 #[cfg(feature = "reqwest")]
-pub use self::reqwest::ReqwestLoader;
-pub use chain::ChainLoader;
-pub use fs::FsLoader;
-pub use none::NoLoader;
+pub use self::reqwest::JsonLdReqwestLoader;
+pub use chain::JsonLdChainLoader;
+pub use fs::JsonLdFsLoader;
+pub use map::StaticJsonLdLoader;
+pub use none::NoJsonLdLoader;
 #[cfg(feature = "tokio")]
-pub use tokio_fs::TokioFsLoader;
+pub use tokio_fs::JsonLdTokioFsLoader;
 
-pub type RemoteContext = RemoteDocument<JsonLdContextDocumentValue>;
+/// Remote JSON-LD context.
+pub type RemoteJsonLdContext = RemoteJsonLdDocument<JsonLdContextDocumentValue>;
 
 /// Remote document, loaded or not.
 ///
 /// Either an IRI or the actual document content.
 #[derive(Clone)]
-pub enum RemoteDocument<T = JsonValue> {
+pub enum RemoteJsonLdDocument<T = JsonValue> {
 	/// IRI to the remote document.
 	Iri(IriBuf),
 
@@ -35,17 +37,17 @@ pub enum RemoteDocument<T = JsonValue> {
 	Loaded(JsonLdDocument<T>),
 }
 
-impl<T> RemoteDocument<T> {
+impl<T> RemoteJsonLdDocument<T> {
 	/// Creates an IRI to a `JsonValue` JSON document.
 	///
-	/// This method can replace `RemoteDocumentReference::Iri` to help the type
+	/// This method can replace `RemoteJsonLdDocument::Iri` to help the type
 	/// inference in the case where `T = JsonValue`.
 	pub fn iri(iri: IriBuf) -> Self {
 		Self::Iri(iri)
 	}
 }
 
-impl<T> RemoteDocument<T> {
+impl<T> RemoteJsonLdDocument<T> {
 	pub fn url(&self) -> Option<&Iri> {
 		match self {
 			Self::Iri(iri) => Some(iri),
@@ -54,7 +56,7 @@ impl<T> RemoteDocument<T> {
 	}
 }
 
-impl<T> RemoteDocument<T>
+impl<T> RemoteJsonLdDocument<T>
 where
 	T: TryFrom<JsonValue>,
 	T::Error: Into<anyhow::Error>,
@@ -62,28 +64,31 @@ where
 	/// Loads the remote document with the given `loader`.
 	///
 	/// If the document is already [`Self::Loaded`], simply returns the inner
-	/// [`RemoteDocument`].
-	pub async fn load(self, loader: &impl AsyncLoader) -> Result<JsonLdDocument<T>, LoadError> {
+	/// [`JsonLdDocument`].
+	pub async fn load(
+		self,
+		loader: &impl AsyncJsonLdLoader,
+	) -> Result<JsonLdDocument<T>, JsonLdLoadError> {
 		match self {
 			Self::Iri(r) => loader
 				.async_load(&r)
 				.await?
 				.try_map(TryInto::try_into)
-				.map_err(|e| LoadError::new(r, e)),
+				.map_err(|e| JsonLdLoadError::new(r, e)),
 			Self::Loaded(doc) => Ok(doc),
 		}
 	}
 
 	/// Loads the remote document with the given `loader`.
 	///
-	/// For [`Self::Iri`] returns an owned [`RemoteDocument`] with
+	/// For [`Self::Iri`] returns an owned [`JsonLdDocument`] with
 	/// [`Cow::Owned`].
-	/// For [`Self::Loaded`] returns a reference to the inner [`RemoteDocument`]
+	/// For [`Self::Loaded`] returns a reference to the inner [`JsonLdDocument`]
 	/// with [`Cow::Borrowed`].
 	pub async fn loaded(
 		&self,
-		loader: &impl AsyncLoader,
-	) -> Result<Cow<'_, JsonLdDocument<T>>, LoadError>
+		loader: &impl AsyncJsonLdLoader,
+	) -> Result<Cow<'_, JsonLdDocument<T>>, JsonLdLoadError>
 	where
 		T: Clone,
 	{
@@ -92,7 +97,7 @@ where
 				.async_load(r)
 				.await?
 				.try_map(TryInto::try_into)
-				.map_err(|e| LoadError::new(r.clone(), e))
+				.map_err(|e| JsonLdLoadError::new(r.clone(), e))
 				.map(Cow::Owned),
 			Self::Loaded(doc) => Ok(Cow::Borrowed(doc)),
 		}
@@ -102,12 +107,12 @@ where
 /// Loading error.
 #[derive(Debug, thiserror::Error)]
 #[error("loading document `{target}` failed: {cause}")]
-pub struct LoadError {
+pub struct JsonLdLoadError {
 	pub target: IriBuf,
 	pub cause: anyhow::Error,
 }
 
-impl LoadError {
+impl JsonLdLoadError {
 	pub fn new(target: IriBuf, cause: impl Into<anyhow::Error>) -> Self {
 		Self {
 			target,
@@ -123,71 +128,85 @@ impl LoadError {
 /// fetching all the remote contexts imported in a `@context` entry.
 ///
 /// This library provides a few default loader implementations:
-///   - [`NoLoader`] dummy loader that always fail. Perfect if you are certain
-///     that the processing will not require any loading.
-///   - Standard [`HashMap`](std::collection::HashMap) and
-///     [`BTreeMap`](std::collection::BTreeMap) mapping IRIs to pre-loaded
+///   - [`NoJsonLdLoader`] dummy loader that always fail. Perfect if you are
+///     certain that the processing will not require any loading.
+///   - Standard [`HashMap`](std::collections::HashMap) and
+///     [`BTreeMap`](std::collections::BTreeMap) mapping IRIs to pre-loaded
 ///     documents. This way no network calls are performed and the loaded
 ///     content can be trusted.
-///   - [`FsLoader`] that redirecting registered IRI prefixes to a local
+///   - [`JsonLdFsLoader`] that redirecting registered IRI prefixes to a local
 ///     directory on the file system. This also avoids network calls. The loaded
 ///     content can be trusted as long as the file system is trusted.
-///   - `ReqwestLoader` actually downloading the remote documents using the
+///   - `JsonLdReqwestLoader` actually downloading the remote documents using the
 ///     [`reqwest`](https://crates.io/crates/reqwest) library.
 ///     This requires the `reqwest` feature to be enabled.
-pub trait AsyncLoader {
+pub trait AsyncJsonLdLoader {
 	/// Loads the document behind the given IRI.
 	#[allow(async_fn_in_trait)]
-	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError>;
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError>;
 }
 
-impl<L: AsyncLoader> AsyncLoader for &L {
-	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
+impl<L: AsyncJsonLdLoader> AsyncJsonLdLoader for &L {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		L::async_load(self, url).await
 	}
 }
 
-impl<L: AsyncLoader> AsyncLoader for &mut L {
-	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
+impl<L: AsyncJsonLdLoader> AsyncJsonLdLoader for &mut L {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		L::async_load(self, url).await
 	}
 }
 
-pub trait Loader {
+/// Lazily initialized loader, e.g. a `static` map of pre-loaded documents.
+impl<L: AsyncJsonLdLoader, F: FnOnce() -> L> AsyncJsonLdLoader for LazyLock<L, F> {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
+		L::async_load(self, url).await
+	}
+}
+
+pub trait JsonLdLoader {
 	/// Loads the document behind the given IRI.
-	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError>;
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError>;
 
-	/// Returns this loader as an [`AsyncLoader`].
-	fn as_async_loader(&self) -> &ToAsyncLoader<Self> {
-		ToAsyncLoader::from_ref(self)
+	/// Returns this loader as an [`AsyncJsonLdLoader`].
+	fn as_async_loader(&self) -> &ToAsyncJsonLdLoader<Self> {
+		ToAsyncJsonLdLoader::from_ref(self)
 	}
 
 	/// Turns this loader into an async loader.
-	fn into_async_loader(self) -> ToAsyncLoader<Self>
+	fn into_async_loader(self) -> ToAsyncJsonLdLoader<Self>
 	where
 		Self: Sized,
 	{
-		ToAsyncLoader(self)
+		ToAsyncJsonLdLoader(self)
 	}
 }
 
-impl<L: Loader> Loader for &L {
-	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
+impl<L: JsonLdLoader> JsonLdLoader for &L {
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		L::load(self, url)
 	}
 }
 
-impl<L: Loader> Loader for &mut L {
-	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
+impl<L: JsonLdLoader> JsonLdLoader for &mut L {
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
+		L::load(self, url)
+	}
+}
+
+/// Lazily initialized loader, e.g. a `static` map of pre-loaded documents.
+impl<L: JsonLdLoader, F: FnOnce() -> L> JsonLdLoader for LazyLock<L, F> {
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		L::load(self, url)
 	}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
-pub struct ToAsyncLoader<T: ?Sized>(pub T);
+pub struct ToAsyncJsonLdLoader<T: ?Sized>(pub T);
 
-impl<T: ?Sized> ToAsyncLoader<T> {
+impl<T: ?Sized> ToAsyncJsonLdLoader<T> {
 	pub fn from_ref(loader: &T) -> &Self {
 		unsafe {
 			// SAFETY: `ToAsyncLoader` uses the `transparent` repr.
@@ -196,8 +215,8 @@ impl<T: ?Sized> ToAsyncLoader<T> {
 	}
 }
 
-impl<T: Loader> AsyncLoader for ToAsyncLoader<T> {
-	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
+impl<T: JsonLdLoader> AsyncJsonLdLoader for ToAsyncJsonLdLoader<T> {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		self.0.load(url)
 	}
 }

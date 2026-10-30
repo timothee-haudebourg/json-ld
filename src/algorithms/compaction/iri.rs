@@ -1,13 +1,13 @@
 use json_syntax::object::Key;
 
 use crate::{
-	Indexed, JsonLdError, Nullable, Object, ProcessingMode, Term, Type, ValueObject,
+	Indexed, JsonLdError, JsonLdObject, JsonLdTerm, JsonLdValue, Nullable, ProcessingMode, Type,
 	algorithms::{JsonLdBacktraceBuilder, JsonLdLocatedError},
 	context::{
 		Container,
 		inverse::{LangSelection, Selection, TypeSelection},
 	},
-	object::{self, AnyObject},
+	object::{self, AnyJsonLdObject},
 	syntax::{is_keyword, is_keyword_like},
 };
 
@@ -16,7 +16,7 @@ use super::{Compactor, TypeLangValue};
 impl<'a> Compactor<'a> {
 	pub fn compact_key(
 		&self,
-		var: &Term,
+		var: &JsonLdTerm,
 		vocab: bool,
 		reverse: bool,
 		location: JsonLdBacktraceBuilder<'_>,
@@ -31,12 +31,12 @@ impl<'a> Compactor<'a> {
 	/// Calls [`compact_iri_with`] with `None` for `value`.
 	pub fn compact_iri(
 		&self,
-		var: &Term,
+		var: &JsonLdTerm,
 		vocab: bool,
 		reverse: bool,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Option<String>, JsonLdLocatedError> {
-		self.compact_iri_with::<Object>(var, vocab, reverse, None, location)
+		self.compact_iri_with::<JsonLdObject>(var, vocab, reverse, None, location)
 	}
 
 	/// Compact the given term considering the given value object.
@@ -44,14 +44,14 @@ impl<'a> Compactor<'a> {
 	/// Default value for `value` is `None` and `false` for `vocab` and `reverse`.
 	pub fn compact_iri_with<O>(
 		&self,
-		var: &Term,
+		var: &JsonLdTerm,
 		vocab: bool,
 		reverse: bool,
 		value: Option<&Indexed<O>>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<Option<String>, JsonLdLocatedError>
 	where
-		O: AnyObject,
+		O: AnyJsonLdObject,
 	{
 		if var.is_null() {
 			return Ok(None);
@@ -86,7 +86,7 @@ impl<'a> Compactor<'a> {
 					});
 
 					match value_ref {
-						Some(object::ObjectRef::List(list)) => {
+						Some(object::JsonLdObjectRef::List(list)) => {
 							if !has_index {
 								containers.push(Container::List);
 							}
@@ -106,16 +106,16 @@ impl<'a> Compactor<'a> {
 									let mut is_value = false;
 
 									match item.inner() {
-										Object::Value(value) => {
+										JsonLdObject::Value(value) => {
 											is_value = true;
 											match value {
-												ValueObject::LangString(lang_str) => {
+												JsonLdValue::LangString(lang_str) => {
 													item_lang_dir = Some(Nullable::Some((
 														lang_str.language(),
 														lang_str.direction(),
 													)))
 												}
-												ValueObject::Literal(lit) => match &lit.type_ {
+												JsonLdValue::Literal(lit) => match &lit.type_ {
 													Some(object::value::LiteralType::Json) => {
 														item_type = Some(Type::Json)
 													}
@@ -167,7 +167,7 @@ impl<'a> Compactor<'a> {
 									Some(TypeLangValue::Lang(LangSelection::Lang(common_lang_dir)))
 							}
 						}
-						Some(object::ObjectRef::Node(node)) if node.is_graph() => {
+						Some(object::JsonLdObjectRef::Node(node)) if node.is_graph() => {
 							// Otherwise, if value is a graph object, prefer a mapping most
 							// appropriate for the particular value.
 							if has_index {
@@ -210,7 +210,7 @@ impl<'a> Compactor<'a> {
 							type_lang_value =
 								Some(TypeLangValue::Type(TypeSelection::Type(Type::Id)))
 						}
-						Some(object::ObjectRef::Value(v)) => {
+						Some(object::JsonLdObjectRef::Value(v)) => {
 							// If value is a value object:
 							if (v.direction().is_some() || v.language().is_some()) && !has_index {
 								type_lang_value = Some(TypeLangValue::Lang(LangSelection::Lang(
@@ -258,7 +258,7 @@ impl<'a> Compactor<'a> {
 
 				let mut is_empty_list = false;
 				if let Some(value) = value
-					&& let object::ObjectRef::List(list) = value.inner().as_ref()
+					&& let object::JsonLdObjectRef::List(list) = value.inner().as_ref()
 					&& list.is_empty()
 				{
 					is_empty_list = true;

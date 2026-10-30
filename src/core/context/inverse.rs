@@ -6,7 +6,7 @@ use super::Container;
 use super::ContextTerm;
 use super::RawProcessedContext;
 use crate::Lenient;
-use crate::{Direction, Nullable, Term, Type};
+use crate::{Direction, JsonLdTerm, Nullable, Type};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
@@ -178,8 +178,8 @@ impl InverseDefinition {
 }
 
 /// Inverse context.
-pub struct InverseContext {
-	map: HashMap<Term, InverseDefinition>,
+pub struct InverseJsonLdContext {
+	map: HashMap<JsonLdTerm, InverseDefinition>,
 }
 
 #[derive(Debug)]
@@ -189,32 +189,32 @@ pub enum Selection<'a> {
 	Lang(Vec<LangSelection<'a>>),
 }
 
-impl InverseContext {
+impl InverseJsonLdContext {
 	pub fn new() -> Self {
-		InverseContext {
+		InverseJsonLdContext {
 			map: HashMap::new(),
 		}
 	}
 
-	pub fn contains(&self, term: &Term) -> bool {
+	pub fn contains(&self, term: &JsonLdTerm) -> bool {
 		self.map.contains_key(term)
 	}
 
-	pub fn insert(&mut self, term: Term, value: InverseDefinition) {
+	pub fn insert(&mut self, term: JsonLdTerm, value: InverseDefinition) {
 		self.map.insert(term, value);
 	}
 
-	pub fn get(&self, term: &Term) -> Option<&InverseDefinition> {
+	pub fn get(&self, term: &JsonLdTerm) -> Option<&InverseDefinition> {
 		self.map.get(term)
 	}
 
-	pub fn get_mut(&mut self, term: &Term) -> Option<&mut InverseDefinition> {
+	pub fn get_mut(&mut self, term: &JsonLdTerm) -> Option<&mut InverseDefinition> {
 		self.map.get_mut(term)
 	}
 
 	fn reference_mut<F: FnOnce() -> InverseDefinition>(
 		&mut self,
-		term: &Term,
+		term: &JsonLdTerm,
 		insert: F,
 	) -> &mut InverseDefinition {
 		if !self.contains(term) {
@@ -225,7 +225,7 @@ impl InverseContext {
 
 	pub fn select(
 		&self,
-		var: &Term,
+		var: &JsonLdTerm,
 		containers: &[Container],
 		selection: &Selection,
 	) -> Option<&ContextTerm> {
@@ -236,15 +236,15 @@ impl InverseContext {
 	}
 }
 
-impl Default for InverseContext {
+impl Default for InverseJsonLdContext {
 	fn default() -> Self {
 		Self::new()
 	}
 }
 
-impl<'a> From<&'a RawProcessedContext> for InverseContext {
+impl<'a> From<&'a RawProcessedContext> for InverseJsonLdContext {
 	fn from(context: &'a RawProcessedContext) -> Self {
-		let mut result = InverseContext::new();
+		let mut result = InverseJsonLdContext::new();
 
 		let mut definitions: Vec<_> = context.definitions().iter().collect();
 		definitions.sort_by(|a, b| {

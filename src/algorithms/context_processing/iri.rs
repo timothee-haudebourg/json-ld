@@ -4,7 +4,7 @@ use rdf_syntax::{Iri, IriBuf, IriRef};
 use crate::Lenient;
 use crate::algorithms::JsonLdLocatedError;
 use crate::{
-	Nullable, Term,
+	JsonLdTerm, Nullable,
 	algorithms::{
 		AsyncProcessingEnvironment, JsonLdBacktraceBuilder,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
@@ -27,7 +27,7 @@ pub fn resolve_iri(iri_ref: &IriRef, base_iri: Option<&Iri>) -> Option<IriBuf> {
 }
 
 /// Result of the [`expand_iri_with`] function.
-pub type ExpandIriResult = Result<Term, JsonLdLocatedError>;
+pub type ExpandIriResult = Result<JsonLdTerm, JsonLdLocatedError>;
 
 impl<'a> ContextProcessor<'a> {
 	/// `context_loc` has the same meaning as in `define` and is only ever
@@ -41,11 +41,11 @@ impl<'a> ContextProcessor<'a> {
 		context_loc: JsonLdBacktraceBuilder<'_>,
 	) -> ExpandIriResult {
 		match value {
-			Nullable::Null => Ok(Term::Null),
-			Nullable::Some(ExpandableRef::Keyword(k)) => Ok(Term::Keyword(k)),
+			Nullable::Null => Ok(JsonLdTerm::Null),
+			Nullable::Some(ExpandableRef::Keyword(k)) => Ok(JsonLdTerm::Keyword(k)),
 			Nullable::Some(ExpandableRef::String(value)) => {
 				if is_keyword_like(value) {
-					return Ok(Term::Null);
+					return Ok(JsonLdTerm::Null);
 				}
 
 				// If `local_context` is not null, it contains an entry with a key that equals value, and the
@@ -75,17 +75,17 @@ impl<'a> ContextProcessor<'a> {
 					// Return the associated IRI mapping.
 					return match term_definition.value() {
 						Some(value) => Ok(value.clone()),
-						None => Ok(Term::Null),
+						None => Ok(JsonLdTerm::Null),
 					};
 				}
 
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
-						return Ok(Term::Id(Lenient::blank(blank_id.to_owned())));
+						return Ok(JsonLdTerm::Id(Lenient::blank(blank_id.to_owned())));
 					}
 
 					if value == "_:" {
-						return Ok(Term::Id(Lenient::Invalid("_:".to_string())));
+						return Ok(JsonLdTerm::Id(Lenient::Invalid("_:".to_string())));
 					}
 
 					if let Ok(compact_iri) = CompactIri::new(value) {
@@ -115,23 +115,23 @@ impl<'a> ContextProcessor<'a> {
 							let mut result = mapping.as_str().to_owned();
 							result.push_str(compact_iri.suffix());
 
-							return Ok(Term::Id(Lenient::from_string(result).0));
+							return Ok(JsonLdTerm::Id(Lenient::from_string(result).0));
 						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Ok(Term::Id(Lenient::iri(iri.to_owned())));
+						return Ok(JsonLdTerm::Id(Lenient::iri(iri.to_owned())));
 					}
 				}
 
 				// If active context has a vocabulary mapping, return the result of
 				// concatenating the vocabulary mapping with value.
 				match result.value.vocabulary() {
-					Some(Term::Id(mapping)) => {
+					Some(JsonLdTerm::Id(mapping)) => {
 						let mut result = mapping.as_str().to_owned();
 						result.push_str(value);
 
-						return Ok(Term::Id(Lenient::from_string(result).0));
+						return Ok(JsonLdTerm::Id(Lenient::from_string(result).0));
 					}
 					Some(_) => return Ok(invalid_iri(value.to_owned(), |w| env.warn(w))),
 					None => (),
@@ -150,7 +150,7 @@ impl RawProcessedContext {
 		value: Nullable<ExpandableRef<'_>>,
 		document_relative: bool,
 		vocab: bool,
-	) -> Term {
+	) -> JsonLdTerm {
 		self.expand_iri_with(value, document_relative, vocab, |_| {})
 	}
 
@@ -160,13 +160,13 @@ impl RawProcessedContext {
 		document_relative: bool,
 		vocab: bool,
 		on_warning: impl FnOnce(Warning),
-	) -> Term {
+	) -> JsonLdTerm {
 		match value {
-			Nullable::Null => Term::Null,
-			Nullable::Some(ExpandableRef::Keyword(k)) => Term::Keyword(k),
+			Nullable::Null => JsonLdTerm::Null,
+			Nullable::Some(ExpandableRef::Keyword(k)) => JsonLdTerm::Keyword(k),
 			Nullable::Some(ExpandableRef::String(value)) => {
 				if is_keyword_like(value) {
-					return Term::Null;
+					return JsonLdTerm::Null;
 				}
 
 				if let Some(term_definition) = self.get(value) {
@@ -183,18 +183,18 @@ impl RawProcessedContext {
 					if vocab {
 						return match term_definition.value() {
 							Some(value) => value.clone(),
-							None => Term::Null,
+							None => JsonLdTerm::Null,
 						};
 					}
 				}
 
 				if value.find(':').map(|i| i > 0).unwrap_or(false) {
 					if let Ok(blank_id) = BlankId::new(value) {
-						return Term::Id(Lenient::blank(blank_id.to_owned()));
+						return JsonLdTerm::Id(Lenient::blank(blank_id.to_owned()));
 					}
 
 					if value == "_:" {
-						return Term::Id(Lenient::Invalid("_:".to_string()));
+						return JsonLdTerm::Id(Lenient::Invalid("_:".to_string()));
 					}
 
 					if let Ok(compact_iri) = CompactIri::new(value) {
@@ -208,12 +208,12 @@ impl RawProcessedContext {
 						{
 							let mut result = mapping.as_str().to_owned();
 							result.push_str(compact_iri.suffix());
-							return Term::Id(Lenient::from_string(result).0);
+							return JsonLdTerm::Id(Lenient::from_string(result).0);
 						}
 					}
 
 					if let Ok(iri) = Iri::new(value) {
-						return Term::Id(Lenient::iri(iri.to_owned()));
+						return JsonLdTerm::Id(Lenient::iri(iri.to_owned()));
 					}
 				}
 
@@ -221,11 +221,11 @@ impl RawProcessedContext {
 				// concatenating the vocabulary mapping with value.
 				if vocab {
 					match self.vocabulary() {
-						Some(Term::Id(mapping)) => {
+						Some(JsonLdTerm::Id(mapping)) => {
 							let mut result = mapping.as_str().to_owned();
 							result.push_str(value);
 
-							return Term::Id(Lenient::from_string(result).0);
+							return JsonLdTerm::Id(Lenient::from_string(result).0);
 						}
 						Some(_) => return invalid_iri(value.to_string(), on_warning),
 						None => (),
@@ -242,7 +242,7 @@ impl RawProcessedContext {
 					&& let Ok(iri_ref) = IriRef::new(value)
 					&& let Some(iri) = resolve_iri(iri_ref, self.base_iri())
 				{
-					return Term::from(iri);
+					return JsonLdTerm::from(iri);
 				}
 
 				// Return value as is.
@@ -252,7 +252,7 @@ impl RawProcessedContext {
 	}
 }
 
-fn invalid_iri(value: String, on_warning: impl FnOnce(Warning)) -> Term {
+fn invalid_iri(value: String, on_warning: impl FnOnce(Warning)) -> JsonLdTerm {
 	(on_warning)(Warning::MalformedIri(value.clone()));
-	Term::Id(Lenient::Invalid(value))
+	JsonLdTerm::Id(Lenient::Invalid(value))
 }

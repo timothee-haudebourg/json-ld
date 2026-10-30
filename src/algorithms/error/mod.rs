@@ -1,4 +1,4 @@
-use crate::LoadError;
+use crate::JsonLdLoadError;
 use crate::algorithms::flattening::ConflictingIndexes;
 use crate::algorithms::{JsonLdBacktraceBuilder, JsonLdLocated};
 
@@ -74,7 +74,7 @@ pub enum JsonLdError {
 	ProtectedTermRedefinition,
 
 	#[error(transparent)]
-	ContextLoadingFailed(#[from] LoadError),
+	ContextLoadingFailed(#[from] JsonLdLoadError),
 
 	#[error("Unable to parse JSON-LD context: {0}")]
 	RemoteContextSyntax(crate::syntax::serde::DeserializeError),

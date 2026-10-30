@@ -1,7 +1,7 @@
 use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::Term;
 
-use crate::{Indexed, Object};
+use crate::{Indexed, JsonLdObject};
 
 use super::RdfSerializationOptions;
 
@@ -9,7 +9,7 @@ mod list;
 mod node;
 mod value;
 
-impl SerializeLinkedDataWith<RdfSerializationOptions> for Object {
+impl SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdObject {
 	fn serialize_rdf_with<S>(
 		&self,
 		opts: RdfSerializationOptions,
@@ -27,7 +27,7 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for Object {
 	}
 }
 
-impl SerializeLinkedData for Object {
+impl SerializeLinkedData for JsonLdObject {
 	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,

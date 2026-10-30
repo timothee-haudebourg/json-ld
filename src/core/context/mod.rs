@@ -8,15 +8,15 @@ use langtag::{LangTag, LangTagBuf};
 
 use crate::syntax::context::ContextTerm;
 use crate::syntax::{JsonLdContext, KeywordType};
-use crate::{Direction, Lenient, Term};
+use crate::{Direction, JsonLdTerm, Lenient};
 use rdf_syntax::{Iri, IriBuf};
 use std::borrow::{Borrow, Cow};
-use std::cell::OnceCell;
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
+use std::sync::OnceLock;
 
 pub use definition::*;
-pub use inverse::InverseContext;
+pub use inverse::InverseJsonLdContext;
 
 /// Processed JSON-LD context.
 ///
@@ -25,12 +25,12 @@ pub use inverse::InverseContext;
 ///
 /// [1]: <https://www.w3.org/TR/json-ld11-api/#context-processing-algorithm>
 /// [`json-ld-context-processing`]: <https://crates.io/crates/json-ld-context-processing>
-pub struct ProcessedContext<'a> {
+pub struct ProcessedJsonLdContext<'a> {
 	unprocessed: Cow<'a, JsonLdContext>,
 	raw: RawProcessedContext,
 }
 
-impl<'a> ProcessedContext<'a> {
+impl<'a> ProcessedJsonLdContext<'a> {
 	pub fn new(unprocessed: Cow<'a, JsonLdContext>, raw: RawProcessedContext) -> Self {
 		Self { unprocessed, raw }
 	}
@@ -47,15 +47,15 @@ impl<'a> ProcessedContext<'a> {
 		self.raw
 	}
 
-	pub fn into_owned(self) -> ProcessedContext<'static> {
-		ProcessedContext {
+	pub fn into_owned(self) -> ProcessedJsonLdContext<'static> {
+		ProcessedJsonLdContext {
 			unprocessed: Cow::Owned(self.unprocessed.into_owned()),
 			raw: self.raw,
 		}
 	}
 }
 
-impl Deref for ProcessedContext<'_> {
+impl Deref for ProcessedJsonLdContext<'_> {
 	type Target = RawProcessedContext;
 
 	fn deref(&self) -> &Self::Target {
@@ -63,7 +63,7 @@ impl Deref for ProcessedContext<'_> {
 	}
 }
 
-impl DerefMut for ProcessedContext<'_> {
+impl DerefMut for ProcessedJsonLdContext<'_> {
 	fn deref_mut(&mut self) -> &mut Self::Target {
 		&mut self.raw
 	}
@@ -80,12 +80,12 @@ impl DerefMut for ProcessedContext<'_> {
 pub struct RawProcessedContext {
 	original_base_url: Option<IriBuf>,
 	base_iri: Option<IriBuf>,
-	vocabulary: Option<Term>,
+	vocabulary: Option<JsonLdTerm>,
 	default_language: Option<Lenient<LangTagBuf>>,
 	default_base_direction: Option<Direction>,
 	previous_context: Option<Box<Self>>,
 	definitions: Definitions,
-	inverse: OnceCell<InverseContext>,
+	inverse: OnceLock<InverseJsonLdContext>,
 }
 
 pub type DefinitionEntryRef<'a> = (&'a ContextTerm, &'a TermDefinition);
@@ -101,7 +101,7 @@ impl RawProcessedContext {
 			default_base_direction: None,
 			previous_context: None,
 			definitions: Definitions::default(),
-			inverse: OnceCell::default(),
+			inverse: OnceLock::default(),
 		}
 	}
 
@@ -150,7 +150,7 @@ impl RawProcessedContext {
 	}
 
 	/// Returns the `@vocab` value, if any.
-	pub fn vocabulary(&self) -> Option<&Term> {
+	pub fn vocabulary(&self) -> Option<&JsonLdTerm> {
 		match &self.vocabulary {
 			Some(v) => Some(v),
 			None => None,
@@ -202,7 +202,7 @@ impl RawProcessedContext {
 	}
 
 	/// Returns the inverse of this context.
-	pub fn inverse(&self) -> &InverseContext {
+	pub fn inverse(&self) -> &InverseJsonLdContext {
 		self.inverse.get_or_init(|| self.into())
 	}
 
@@ -228,7 +228,7 @@ impl RawProcessedContext {
 	}
 
 	/// Sets the `@vocab` value.
-	pub fn set_vocabulary(&mut self, vocab: Option<Term>) {
+	pub fn set_vocabulary(&mut self, vocab: Option<JsonLdTerm>) {
 		self.inverse.take();
 		self.vocabulary = vocab;
 	}
@@ -292,7 +292,7 @@ impl Clone for RawProcessedContext {
 			default_base_direction: self.default_base_direction,
 			previous_context: self.previous_context.clone(),
 			definitions: self.definitions.clone(),
-			inverse: OnceCell::default(),
+			inverse: OnceLock::default(),
 		}
 	}
 }

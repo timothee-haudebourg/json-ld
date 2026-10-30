@@ -1,7 +1,7 @@
 use linked_data::LinkedDataDeserializer;
 use rdf_syntax::{Quad, RDF_TYPE};
 
-use crate::{Indexed, NodeObject};
+use crate::{Indexed, JsonLdNode};
 
 use super::{deserialize_object, deserialize_object_ref};
 
@@ -9,12 +9,12 @@ pub fn deserialize_node_object<R, D>(
 	deserializer: &mut D,
 	subject: &R,
 	graph: Option<&R>,
-) -> Result<NodeObject, D::Error>
+) -> Result<JsonLdNode, D::Error>
 where
 	R: Clone + PartialEq,
 	D: LinkedDataDeserializer<R>,
 {
-	let mut result = NodeObject::new_with_id(
+	let mut result = JsonLdNode::new_with_id(
 		deserialize_resource_id_opt(deserializer, subject)?.map(Into::into),
 	);
 
@@ -61,12 +61,12 @@ where
 pub fn deserialize_node_object_ref<R, D>(
 	deserializer: &mut D,
 	subject: &R,
-) -> Result<NodeObject, D::Error>
+) -> Result<JsonLdNode, D::Error>
 where
 	R: ToOwned,
 	D: LinkedDataDeserializer<R>,
 {
-	Ok(NodeObject::new_with_id(
+	Ok(JsonLdNode::new_with_id(
 		deserialize_resource_id_opt(deserializer, subject)?.map(Into::into),
 	))
 }

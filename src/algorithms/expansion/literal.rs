@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use json_syntax::{JsonNumber, JsonNumberBuf, JsonValue};
 
 use crate::{
-	IndexedObject, JsonLdError, LangString, Lenient, NodeObject, Nullable, Object, Type,
-	ValueObject,
+	IndexedObject, JsonLdError, JsonLdNode, JsonLdObject, JsonLdValue, LangString, Lenient,
+	Nullable, Type,
 	algorithms::{JsonLdBacktraceBuilder, JsonLdLocatedError, Warning},
 	object::{LiteralValue, value::LiteralType},
 };
@@ -68,7 +68,7 @@ impl<'a> Expander<'a> {
 			// the value is the result of IRI expanding `value` using `true` for `document_relative` and
 			// `false` for vocab.
 			Some(Type::Id) if value.is_string() => {
-				let mut node = NodeObject::new();
+				let mut node = JsonLdNode::new();
 				let id = node_id_of_term(self.active_context.expand_iri_with(
 					Nullable::Some(value.as_str().unwrap().into()),
 					true,
@@ -77,7 +77,7 @@ impl<'a> Expander<'a> {
 				));
 
 				node.id = id;
-				Ok(Object::node(node).into())
+				Ok(JsonLdObject::node(node).into())
 			}
 
 			// If `active_property` has a type mapping in active context that is `@vocab`, and the
@@ -85,7 +85,7 @@ impl<'a> Expander<'a> {
 			// `@id` and the value is the result of IRI expanding `value` using `true` for
 			// document relative.
 			Some(Type::Vocab) if value.is_string() => {
-				let mut node = NodeObject::new();
+				let mut node = JsonLdNode::new();
 				let id = node_id_of_term(self.active_context.expand_iri_with(
 					Nullable::Some(value.as_str().unwrap().into()),
 					true,
@@ -94,7 +94,7 @@ impl<'a> Expander<'a> {
 				));
 
 				node.id = id;
-				Ok(Object::node(node).into())
+				Ok(JsonLdObject::node(node).into())
 			}
 
 			_ => {
@@ -156,9 +156,10 @@ impl<'a> Expander<'a> {
 							// value `direction`.
 							return match LangString::new(s, language, direction) {
 								Ok(lang_str) => {
-									Ok(Object::Value(ValueObject::LangString(lang_str)).into())
+									Ok(JsonLdObject::Value(JsonLdValue::LangString(lang_str))
+										.into())
 								}
-								Err(s) => Ok(Object::Value(ValueObject::Literal(
+								Err(s) => Ok(JsonLdObject::Value(JsonLdValue::Literal(
 									LiteralValue::new(JsonValue::String(s), None),
 								))
 								.into()),
@@ -175,7 +176,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				Ok(Object::Value(ValueObject::Literal(LiteralValue::new(
+				Ok(JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::new(
 					result_value,
 					ty.map(LiteralType::Iri),
 				)))

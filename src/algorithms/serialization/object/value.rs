@@ -1,12 +1,12 @@
 use linked_data::LinkedDataDeserializer;
 use rdf_syntax::{CowGroundTerm, CowTerm};
 
-use crate::ValueObject;
+use crate::JsonLdValue;
 
 pub fn try_deserialize_value_object<R, D>(
 	deserializer: &mut D,
 	subject: &R,
-) -> Result<Option<ValueObject>, D::Error>
+) -> Result<Option<JsonLdValue>, D::Error>
 where
 	R: ToOwned,
 	D: LinkedDataDeserializer<R>,

@@ -1,6 +1,6 @@
 use super::Container;
 use crate::algorithms::{JsonLdBacktrace, JsonLdBacktraceBuf};
-use crate::{Direction, Nullable, Term, Type};
+use crate::{Direction, JsonLdTerm, Nullable, Type};
 use crate::{
 	Lenient,
 	syntax::{
@@ -322,7 +322,7 @@ impl TermDefinition {
 		ModuloProtected(self.as_ref())
 	}
 
-	pub fn value(&self) -> Option<&Term> {
+	pub fn value(&self) -> Option<&JsonLdTerm> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.value.as_ref(),
@@ -422,7 +422,7 @@ impl<'a> TermDefinitionRef<'a> {
 		ModuloProtected(*self)
 	}
 
-	pub fn value(&self) -> Option<&'a Term> {
+	pub fn value(&self) -> Option<&'a JsonLdTerm> {
 		match self {
 			Self::Type(_) => None,
 			Self::Normal(d) => d.value.as_ref(),
@@ -531,7 +531,7 @@ pub struct NormalTermDefinition {
 	pub location: JsonLdBacktraceBuf,
 
 	// IRI mapping.
-	pub value: Option<Term>,
+	pub value: Option<JsonLdTerm>,
 
 	// Prefix flag.
 	pub prefix: bool,

@@ -2,14 +2,16 @@ use json_syntax::{JsonNumberBuf, JsonPrint, JsonValue};
 use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::Iri;
 use rdf_syntax::{Literal, RDF_JSON, Term};
-use xsd_types::{Double, ParseXsd, XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING};
+use xsd_types::{
+	XSD_BOOLEAN, XSD_DOUBLE, XSD_INTEGER, XSD_STRING, XsdBoolean, XsdDouble, XsdFromStr,
+};
 
 use crate::Lenient;
-use crate::{ValueObject, object::value::LiteralType};
+use crate::{JsonLdValue, object::value::LiteralType};
 
 use super::super::RdfSerializationOptions;
 
-impl SerializeLinkedDataWith<RdfSerializationOptions> for ValueObject {
+impl SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdValue {
 	fn serialize_rdf_with<S>(
 		&self,
 		_opts: RdfSerializationOptions,
@@ -47,9 +49,7 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for ValueObject {
 
 					match &lit.value {
 						JsonValue::Null => Literal::new("null", ty),
-						JsonValue::Boolean(b) => {
-							Literal::new(xsd_types::Boolean(*b).to_string(), ty)
-						}
+						JsonValue::Boolean(b) => Literal::new(XsdBoolean(*b).to_string(), ty),
 						JsonValue::Number(n) => Literal::new(canonical_number(n, ty), ty),
 						JsonValue::String(s) => Literal::new(s.as_str(), ty),
 						other => {
@@ -72,7 +72,7 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for ValueObject {
 	}
 }
 
-impl SerializeLinkedData for ValueObject {
+impl SerializeLinkedData for JsonLdValue {
 	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,
@@ -85,7 +85,7 @@ fn canonical_number(n: &JsonNumberBuf, ty: &Iri) -> String {
 	let n = n.trimmed();
 
 	if (ty == XSD_DOUBLE || n.has_decimal_point() || n.has_exponent())
-		&& let Ok(d) = Double::parse_xsd(n)
+		&& let Ok(d) = XsdDouble::xsd_from_str(n)
 	{
 		return d.to_string();
 	}

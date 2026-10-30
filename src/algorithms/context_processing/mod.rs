@@ -16,7 +16,8 @@ pub use options::ContextProcessingOptions;
 use stack::ProcessingStack;
 
 use crate::{
-	AsyncLoader, JsonLdContextDocument, Nullable, ProcessedContext, ProcessingMode, Term,
+	AsyncJsonLdLoader, JsonLdContextDocument, JsonLdTerm, Nullable, ProcessedJsonLdContext,
+	ProcessingMode,
 	algorithms::{
 		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError, JsonLdLocatedError,
 		JsonLdSourceFileRef,
@@ -69,7 +70,7 @@ impl JsonLdContextDocument {
 	pub async fn process(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-	) -> Result<ProcessedContext<'_>, JsonLdLocatedError> {
+	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
 		let loc = JsonLdBacktraceBuilder::new().file(JsonLdSourceFileRef::Context(self.url()));
 		self.document
 			.context
@@ -92,7 +93,7 @@ impl JsonLdContext {
 		&self,
 		env: impl AsyncProcessingEnvironment,
 		base_url: Option<&Iri>,
-	) -> Result<ProcessedContext<'_>, JsonLdLocatedError> {
+	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
 		let active_context = RawProcessedContext::new(None);
 		self.process_with(
 			env,
@@ -116,7 +117,7 @@ impl JsonLdContext {
 		active_context: &RawProcessedContext,
 		options: ContextProcessingOptions,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<ProcessedContext<'_>, JsonLdLocatedError> {
+	) -> Result<ProcessedJsonLdContext<'_>, JsonLdLocatedError> {
 		ContextProcessor {
 			options,
 			remote_contexts: ProcessingStack::new(),
@@ -125,7 +126,7 @@ impl JsonLdContext {
 		}
 		.process(&env, self, location)
 		.await
-		.map(|raw| ProcessedContext::new(Cow::Borrowed(self), raw))
+		.map(|raw| ProcessedJsonLdContext::new(Cow::Borrowed(self), raw))
 	}
 }
 
@@ -370,7 +371,9 @@ impl<'a> ContextProcessor<'a> {
 									true,
 									|w| env.warn(w),
 								) {
-									Term::Id(vocab) => result.set_vocabulary(Some(Term::Id(vocab))),
+									JsonLdTerm::Id(vocab) => {
+										result.set_vocabulary(Some(JsonLdTerm::Id(vocab)))
+									}
 									_ => {
 										return Err(JsonLdError::InvalidVocabMapping
 											.at(entry_loc.object_value(Keyword::Vocab)));

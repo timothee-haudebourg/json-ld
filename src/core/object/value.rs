@@ -1,4 +1,4 @@
-use crate::object::{ObjectMut, ObjectRef};
+use crate::object::{JsonLdObjectRef, ObjectMut};
 use crate::syntax::Keyword;
 use crate::{Direction, LangString, Lenient, Type, VisitJsonLd, object};
 use educe::Educe;
@@ -191,7 +191,7 @@ impl LiteralValue {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-pub enum ValueObject {
+pub enum JsonLdValue {
 	/// Language tagged string.
 	LangString(LangString),
 
@@ -199,7 +199,7 @@ pub enum ValueObject {
 	Literal(LiteralValue),
 }
 
-impl ValueObject {
+impl JsonLdValue {
 	/// Creates a `null` value object.
 	#[inline(always)]
 	pub fn null() -> Self {
@@ -209,8 +209,8 @@ impl ValueObject {
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
-			ValueObject::Literal(lit) => lit.as_str(),
-			ValueObject::LangString(s) => Some(s.as_str()),
+			JsonLdValue::Literal(lit) => lit.as_str(),
+			JsonLdValue::LangString(s) => Some(s.as_str()),
 		}
 	}
 
@@ -249,7 +249,7 @@ impl ValueObject {
 	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
-			ValueObject::Literal(lit) => lit.as_bool(),
+			JsonLdValue::Literal(lit) => lit.as_bool(),
 			_ => None,
 		}
 	}
@@ -257,7 +257,7 @@ impl ValueObject {
 	#[inline(always)]
 	pub fn as_number(&self) -> Option<&JsonNumber> {
 		match self {
-			ValueObject::Literal(lit) => lit.as_number(),
+			JsonLdValue::Literal(lit) => lit.as_number(),
 			_ => None,
 		}
 	}
@@ -265,7 +265,7 @@ impl ValueObject {
 	/// Return the type of the value if any.
 	pub fn typ(&self) -> Option<ValueTypeRef<'_>> {
 		match self {
-			ValueObject::Literal(lit) => match &lit.type_ {
+			JsonLdValue::Literal(lit) => match &lit.type_ {
 				Some(LiteralType::Json) => Some(ValueTypeRef::Json),
 				Some(LiteralType::Iri(iri)) => Some(ValueTypeRef::Id(iri)),
 				None => None,
@@ -280,7 +280,7 @@ impl ValueObject {
 	#[inline(always)]
 	pub fn language(&self) -> Option<Lenient<&LangTag>> {
 		match self {
-			ValueObject::LangString(tag) => tag.language(),
+			JsonLdValue::LangString(tag) => tag.language(),
 			_ => None,
 		}
 	}
@@ -291,7 +291,7 @@ impl ValueObject {
 	#[inline(always)]
 	pub fn direction(&self) -> Option<Direction> {
 		match self {
-			ValueObject::LangString(s) => s.direction(),
+			JsonLdValue::LangString(s) => s.direction(),
 			_ => None,
 		}
 	}
@@ -349,9 +349,9 @@ impl ValueObject {
 	}
 }
 
-impl VisitJsonLd for ValueObject {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
-		f(ObjectRef::Value(self))
+impl VisitJsonLd for JsonLdValue {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
+		f(JsonLdObjectRef::Value(self))
 	}
 
 	fn visit_mut_with(&mut self, f: &mut impl FnMut(ObjectMut)) {
@@ -359,14 +359,14 @@ impl VisitJsonLd for ValueObject {
 	}
 }
 
-impl object::AnyObject for ValueObject {
+impl object::AnyJsonLdObject for JsonLdValue {
 	#[inline(always)]
-	fn as_ref(&self) -> object::ObjectRef<'_> {
-		object::ObjectRef::Value(self)
+	fn as_ref(&self) -> object::JsonLdObjectRef<'_> {
+		object::JsonLdObjectRef::Value(self)
 	}
 }
 
-impl From<Literal> for ValueObject {
+impl From<Literal> for JsonLdValue {
 	fn from(literal: Literal) -> Self {
 		match literal.r#type {
 			rdf_syntax::LiteralType::Any(ty) => {
@@ -405,7 +405,7 @@ impl From<Literal> for ValueObject {
 				))
 			}
 			rdf_syntax::LiteralType::LangString(langtag) => {
-				Self::LangString(LangString::new_with_language(literal.value, langtag))
+				Self::LangString(LangString::from_language(literal.value, langtag))
 			}
 		}
 	}

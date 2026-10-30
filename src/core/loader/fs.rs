@@ -5,9 +5,9 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
-use crate::{JsonLdDocument, JsonLdSourceCode, LoadError};
+use crate::{JsonLdDocument, JsonLdLoadError, JsonLdSourceCode};
 
-use super::Loader;
+use super::JsonLdLoader;
 
 /// Loading error.
 #[derive(Debug, thiserror::Error)]
@@ -33,11 +33,11 @@ pub enum Error {
 /// Loaded documents are not cached: a new file system read is made each time
 /// an URL is loaded even if it has already been queried before.
 #[derive(Default)]
-pub struct FsLoader {
+pub struct JsonLdFsLoader {
 	mount_points: Vec<(PathBuf, IriBuf)>,
 }
 
-impl FsLoader {
+impl JsonLdFsLoader {
 	/// Creates a new file system loader with the given content `parser`.
 	pub fn new() -> Self {
 		Self::default()
@@ -55,33 +55,42 @@ impl FsLoader {
 	/// Returns the local file path associated to the given `url` if any.
 	pub fn filepath(&self, url: &Iri) -> Option<PathBuf> {
 		for (path, target_url) in &self.mount_points {
-			if let Some((suffix, _, _)) = url.as_iri_ref().suffix(target_url) {
+			let relative = url.as_iri_ref().relative_to(target_url);
+			if relative.as_iri().is_none() {
 				let mut filepath = path.clone();
-				for seg in suffix.as_path().segments() {
+				for seg in relative.path().segments() {
 					filepath.push(seg.as_str())
 				}
 
 				return Some(filepath);
 			}
+			// 			if let Some(relative) = url.as_iri_ref().relative_to(target_url) {
+			// 				let mut filepath = path.clone();
+			// 				for seg in suffix.as_path().segments() {
+			// 					filepath.push(seg.as_str())
+			// 				}
+			//
+			// 				return Some(filepath);
+			// 			}
 		}
 
 		None
 	}
 }
 
-impl Loader for FsLoader {
-	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
+impl JsonLdLoader for JsonLdFsLoader {
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		match self.filepath(url) {
 			Some(filepath) => {
 				let file = File::open(filepath)
-					.map_err(|e| LoadError::new(url.to_owned(), Error::IO(e)))?;
+					.map_err(|e| JsonLdLoadError::new(url.to_owned(), Error::IO(e)))?;
 				let mut buf_reader = BufReader::new(file);
 				let mut contents = String::new();
 				buf_reader
 					.read_to_string(&mut contents)
-					.map_err(|e| LoadError::new(url.to_owned(), Error::IO(e)))?;
+					.map_err(|e| JsonLdLoadError::new(url.to_owned(), Error::IO(e)))?;
 				let (doc, code_map) = JsonValue::parse_str(&contents)
-					.map_err(|e| LoadError::new(url.to_owned(), Error::Parse(e)))?;
+					.map_err(|e| JsonLdLoadError::new(url.to_owned(), Error::Parse(e)))?;
 				Ok(JsonLdDocument::new_full(
 					Some(url.to_owned()),
 					Some("application/ld+json".parse().unwrap()),
@@ -91,7 +100,7 @@ impl Loader for FsLoader {
 					doc,
 				))
 			}
-			None => Err(LoadError::new(url.to_owned(), Error::NoMountPoint)),
+			None => Err(JsonLdLoadError::new(url.to_owned(), Error::NoMountPoint)),
 		}
 	}
 }

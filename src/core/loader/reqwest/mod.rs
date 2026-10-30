@@ -8,9 +8,9 @@ use reqwest::{
 };
 use reqwest_middleware::ClientWithMiddleware;
 
-use crate::{JsonLdDocument, JsonLdProfile, JsonLdSourceCode, LoadError};
+use crate::{JsonLdDocument, JsonLdLoadError, JsonLdProfile, JsonLdSourceCode};
 
-use super::AsyncLoader;
+use super::AsyncJsonLdLoader;
 
 mod content_type;
 mod link;
@@ -19,7 +19,7 @@ use content_type::*;
 use link::*;
 
 /// Loader options.
-pub struct Options {
+pub struct JsonLdReqwestOptions {
 	/// One or more IRIs to use in the request as a profile parameter.
 	///
 	/// (See [IANA Considerations](https://www.w3.org/TR/json-ld11/#iana-considerations)).
@@ -40,7 +40,7 @@ pub struct Options {
 	pub client: ClientWithMiddleware,
 }
 
-impl Default for Options {
+impl Default for JsonLdReqwestOptions {
 	fn default() -> Self {
 		Self {
 			request_profile: Vec::new(),
@@ -80,25 +80,25 @@ pub enum Error {
 ///
 /// Loaded documents are not cached: a new network query is made each time
 /// an URL is loaded even if it has already been queried before.
-pub struct ReqwestLoader {
-	options: Options,
+pub struct JsonLdReqwestLoader {
+	options: JsonLdReqwestOptions,
 	accept_header: String,
 }
 
-impl Default for ReqwestLoader {
+impl Default for JsonLdReqwestLoader {
 	fn default() -> Self {
-		Self::new_using(Options::default())
+		Self::new_using(JsonLdReqwestOptions::default())
 	}
 }
 
-impl ReqwestLoader {
+impl JsonLdReqwestLoader {
 	/// Creates a new loader with the given parsing function.
 	pub fn new() -> Self {
 		Self::default()
 	}
 
 	/// Creates a new leader with the given options.
-	pub fn new_using(options: Options) -> Self {
+	pub fn new_using(options: JsonLdReqwestOptions) -> Self {
 		let mut json_ld_params = String::new();
 
 		if !options.request_profile.is_empty() {
@@ -128,13 +128,16 @@ impl ReqwestLoader {
 	}
 }
 
-impl AsyncLoader for ReqwestLoader {
-	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
+impl AsyncJsonLdLoader for JsonLdReqwestLoader {
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		let mut redirection_number = 0;
 		let mut url = url.to_owned();
 		'next_url: loop {
 			if redirection_number > self.options.max_redirections {
-				return Err(LoadError::new(url.clone(), Error::TooManyRedirections));
+				return Err(JsonLdLoadError::new(
+					url.clone(),
+					Error::TooManyRedirections,
+				));
 			}
 
 			log::debug!("downloading: {}", url);
@@ -147,7 +150,7 @@ impl AsyncLoader for ReqwestLoader {
 			let response = request
 				.send()
 				.await
-				.map_err(|e| LoadError::new(url.clone(), e))?;
+				.map_err(|e| JsonLdLoadError::new(url.clone(), e))?;
 
 			match response.status() {
 				StatusCode::OK => {
@@ -167,7 +170,7 @@ impl AsyncLoader for ReqwestLoader {
 											== Some(b"http://www.w3.org/ns/json-ld#context")
 									{
 										if context_url.is_some() {
-											return Err(LoadError::new(
+											return Err(JsonLdLoadError::new(
 												url,
 												Error::MultipleContextLinkHeaders,
 											));
@@ -192,12 +195,12 @@ impl AsyncLoader for ReqwestLoader {
 							}
 
 							let bytes = response.bytes().await.map_err(|e| {
-								LoadError::new(url.clone(), Error::Reqwest(e.into()))
+								JsonLdLoadError::new(url.clone(), Error::Reqwest(e.into()))
 							})?;
 
 							// let decoder = utf8_decode::Decoder::new(bytes.iter().copied());
 							let (document, code_map) = JsonValue::parse_slice(&bytes)
-								.map_err(|e| LoadError::new(url.clone(), e))?;
+								.map_err(|e| JsonLdLoadError::new(url.clone(), e))?;
 
 							break Ok(JsonLdDocument::new_full(
 								Some(url),
@@ -225,11 +228,11 @@ impl AsyncLoader for ReqwestLoader {
 								}
 							}
 
-							break Err(LoadError::new(url, Error::InvalidContentType));
+							break Err(JsonLdLoadError::new(url, Error::InvalidContentType));
 						}
 					}
 				}
-				code => break Err(LoadError::new(url, Error::QueryFailed(code))),
+				code => break Err(JsonLdLoadError::new(url, Error::QueryFailed(code))),
 			}
 		}
 	}

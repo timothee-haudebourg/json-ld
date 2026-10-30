@@ -11,7 +11,7 @@ use json_syntax::{JsonObject, JsonValue};
 pub use options::*;
 
 use crate::{
-	Indexed, ProcessedContext, Term,
+	Indexed, JsonLdTerm, ProcessedJsonLdContext,
 	algorithms::{AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError},
 	context::{
 		RawProcessedContext,
@@ -27,7 +27,7 @@ pub trait Compact {
 	async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedContext<'_>,
+		context: &ProcessedJsonLdContext<'_>,
 		options: CompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError>;
@@ -37,7 +37,7 @@ pub trait Compact {
 	async fn compact(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedContext<'_>,
+		context: &ProcessedJsonLdContext<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.compact_with(env, context, CompactionOptions::default(), location)
@@ -49,7 +49,7 @@ impl<T: Compact> Compact for std::sync::Arc<T> {
 	async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedContext<'_>,
+		context: &ProcessedJsonLdContext<'_>,
 		options: CompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -59,7 +59,7 @@ impl<T: Compact> Compact for std::sync::Arc<T> {
 	async fn compact(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedContext<'_>,
+		context: &ProcessedJsonLdContext<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		T::compact(self, env, context, location).await
@@ -169,7 +169,7 @@ pub trait EmbedContext {
 	/// Embeds the given context into the document.
 	fn embed_context(
 		&mut self,
-		context: &ProcessedContext,
+		context: &ProcessedJsonLdContext,
 		options: CompactionOptions,
 	) -> Result<(), JsonLdLocatedError>;
 }
@@ -177,7 +177,7 @@ pub trait EmbedContext {
 impl EmbedContext for JsonValue {
 	fn embed_context(
 		&mut self,
-		context: &ProcessedContext,
+		context: &ProcessedJsonLdContext,
 		options: CompactionOptions,
 	) -> Result<(), JsonLdLocatedError> {
 		let value = self.take();
@@ -196,7 +196,7 @@ impl EmbedContext for JsonValue {
 
 					// No meaningful source location available at this post-processing step.
 					let key = compactor.compact_iri(
-						&Term::Keyword(Keyword::Graph),
+						&JsonLdTerm::Keyword(Keyword::Graph),
 						true,
 						false,
 						JsonLdBacktraceBuilder::Root,

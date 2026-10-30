@@ -1,13 +1,13 @@
 use linked_data::LinkedDataDeserializer;
 use rdf_syntax::{CowGroundTerm, CowTerm, Quad, RDF_FIRST, RDF_LIST, RDF_NIL, RDF_REST, RDF_TYPE};
 
-use crate::{Indexed, algorithms::serialization::object::deserialize_object, object::ListObject};
+use crate::{Indexed, algorithms::serialization::object::deserialize_object, object::JsonLdList};
 
 pub fn try_deserialize_list_object<R, D>(
 	deserializer: &mut D,
 	subject: &R,
 	graph: Option<&R>,
-) -> Result<Option<ListObject>, D::Error>
+) -> Result<Option<JsonLdList>, D::Error>
 where
 	R: Clone + PartialEq,
 	D: LinkedDataDeserializer<R>,
@@ -50,7 +50,7 @@ where
 		head = rest.unwrap();
 	}
 
-	Ok(Some(ListObject::new(items)))
+	Ok(Some(JsonLdList::new(items)))
 }
 
 fn is_list_object<R, D>(deserializer: &D, head: &R, graph: Option<&R>) -> Result<bool, D::Error>

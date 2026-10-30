@@ -1,4 +1,4 @@
-use crate::{AsyncLoader, Loader, ToAsyncLoader};
+use crate::{AsyncJsonLdLoader, JsonLdLoader, ToAsyncJsonLdLoader};
 
 mod compaction;
 mod context_processing;
@@ -19,7 +19,7 @@ pub use tracing::*;
 pub use warning::*;
 
 pub trait AsyncProcessingEnvironment {
-	type Loader: AsyncLoader;
+	type Loader: AsyncJsonLdLoader;
 
 	fn loader(&self) -> &Self::Loader;
 
@@ -30,7 +30,7 @@ pub trait AsyncProcessingEnvironment {
 	}
 }
 
-impl<L: AsyncLoader> AsyncProcessingEnvironment for L {
+impl<L: AsyncJsonLdLoader> AsyncProcessingEnvironment for L {
 	type Loader = Self;
 
 	fn loader(&self) -> &Self::Loader {
@@ -59,7 +59,7 @@ impl<'a, T: ?Sized + AsyncProcessingEnvironment> AsyncProcessingEnvironment
 }
 
 pub trait ProcessingEnvironment {
-	type Loader: Loader;
+	type Loader: JsonLdLoader;
 
 	fn loader(&self) -> &Self::Loader;
 
@@ -77,7 +77,7 @@ pub trait ProcessingEnvironment {
 	}
 }
 
-impl<L: Loader> ProcessingEnvironment for L {
+impl<L: JsonLdLoader> ProcessingEnvironment for L {
 	type Loader = Self;
 
 	fn loader(&self) -> &Self::Loader {
@@ -103,7 +103,7 @@ impl<T: ?Sized> ToAsyncProcessingEnvironment<T> {
 }
 
 impl<T: ProcessingEnvironment> AsyncProcessingEnvironment for ToAsyncProcessingEnvironment<T> {
-	type Loader = ToAsyncLoader<T::Loader>;
+	type Loader = ToAsyncJsonLdLoader<T::Loader>;
 
 	fn loader(&self) -> &Self::Loader {
 		self.0.loader().as_async_loader()

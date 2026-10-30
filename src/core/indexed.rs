@@ -2,7 +2,7 @@ use std::convert::{TryFrom, TryInto};
 use std::ops::{Deref, DerefMut};
 
 use crate::VisitJsonLd;
-use crate::object::{ObjectMut, ObjectRef};
+use crate::object::{JsonLdObjectRef, ObjectMut};
 
 /// Indexed objects.
 ///
@@ -100,7 +100,7 @@ impl<T> Indexed<T> {
 }
 
 impl<T: VisitJsonLd> VisitJsonLd for Indexed<T> {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		self.value.visit_with(f);
 	}
 

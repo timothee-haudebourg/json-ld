@@ -10,7 +10,7 @@ pub const PROFILE_FRAMED_IRI: &Iri = iri!("http://www.w3.org/ns/json-ld#framed")
 ///
 /// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum StandardProfile {
+pub enum JsonLdStandardProfile {
 	/// To request or specify expanded JSON-LD document form.
 	Expanded,
 
@@ -29,7 +29,7 @@ pub enum StandardProfile {
 	Framed,
 }
 
-impl StandardProfile {
+impl JsonLdStandardProfile {
 	pub fn from_iri(iri: &Iri) -> Option<Self> {
 		if iri == PROFILE_EXPANDED_IRI {
 			Some(Self::Expanded)
@@ -60,7 +60,7 @@ impl StandardProfile {
 /// Value for the `profile` parameter defined for the `application/ld+json`.
 ///
 /// Standard values defined by the JSON-LD specification are defined by the
-/// [`StandardProfile`] type.
+/// [`JsonLdStandardProfile`] type.
 ///
 /// See: <https://www.w3.org/TR/json-ld11/#iana-considerations>
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -68,19 +68,19 @@ pub struct JsonLdProfile(Inner);
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 enum Inner {
-	Standard(StandardProfile),
+	Standard(JsonLdStandardProfile),
 	Custom(IriBuf),
 }
 
 impl JsonLdProfile {
-	pub const EXPANDED: Self = Self(Inner::Standard(StandardProfile::Expanded));
-	pub const COMPACTED: Self = Self(Inner::Standard(StandardProfile::Compacted));
-	pub const CONTEXT: Self = Self(Inner::Standard(StandardProfile::Context));
-	pub const FLATTENED: Self = Self(Inner::Standard(StandardProfile::Flattened));
-	pub const FRAMED: Self = Self(Inner::Standard(StandardProfile::Framed));
+	pub const EXPANDED: Self = Self(Inner::Standard(JsonLdStandardProfile::Expanded));
+	pub const COMPACTED: Self = Self(Inner::Standard(JsonLdStandardProfile::Compacted));
+	pub const CONTEXT: Self = Self(Inner::Standard(JsonLdStandardProfile::Context));
+	pub const FLATTENED: Self = Self(Inner::Standard(JsonLdStandardProfile::Flattened));
+	pub const FRAMED: Self = Self(Inner::Standard(JsonLdStandardProfile::Framed));
 
 	pub fn new(iri: &Iri) -> Self {
-		match StandardProfile::from_iri(iri) {
+		match JsonLdStandardProfile::from_iri(iri) {
 			Some(p) => Self(Inner::Standard(p)),
 			None => Self(Inner::Custom(iri.to_owned())),
 		}
@@ -93,14 +93,14 @@ impl JsonLdProfile {
 		}
 	}
 
-	pub fn as_standard(&self) -> Option<StandardProfile> {
+	pub fn as_standard(&self) -> Option<JsonLdStandardProfile> {
 		match &self.0 {
 			Inner::Standard(s) => Some(*s),
 			Inner::Custom(_) => None,
 		}
 	}
 
-	pub fn into_standard(self) -> Result<StandardProfile, IriBuf> {
+	pub fn into_standard(self) -> Result<JsonLdStandardProfile, IriBuf> {
 		match self.0 {
 			Inner::Standard(s) => Ok(s),
 			Inner::Custom(e) => Err(e),

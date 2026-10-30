@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use json_ld::{
-	AsyncLoader, Iri, IriBuf, JsonLdDocument, JsonLdExpandedDocument, JsonLdOptions,
-	JsonLdProcessor, JsonLdSourceCode, RemoteDocument, TokioFsLoader,
+	AsyncJsonLdLoader, Iri, IriBuf, JsonLdDocument, JsonLdExpandedDocument, JsonLdOptions,
+	JsonLdProcessor, JsonLdSourceCode, JsonLdTokioFsLoader, RemoteJsonLdDocument,
 	ext::miette::JsonLdDiagnostic,
 };
 use json_syntax::{JsonParse, JsonPrint, JsonValue};
@@ -56,7 +56,7 @@ enum Command {
 impl Command {
 	async fn run(
 		self,
-		loader: &impl AsyncLoader,
+		loader: &impl AsyncJsonLdLoader,
 		input: &str,
 		options: JsonLdOptions,
 	) -> miette::Result<()> {
@@ -77,7 +77,7 @@ impl Command {
 				let doc = parse_document(input, options.base.as_deref())?;
 
 				let compacted = doc
-					.async_compact_with(RemoteDocument::Iri(context), loader, options)
+					.async_compact_with(RemoteJsonLdDocument::Iri(context), loader, options)
 					.await
 					.map_err_async(|e| JsonLdDiagnostic::new_async(loader, &doc, e))
 					.await?;
@@ -89,7 +89,7 @@ impl Command {
 				let doc = parse_document(input, options.base.as_deref())?;
 
 				let flattened = doc
-					.async_flatten_with(context.map(RemoteDocument::Iri), loader, options)
+					.async_flatten_with(context.map(RemoteJsonLdDocument::Iri), loader, options)
 					.await
 					.map_err_async(|e| JsonLdDiagnostic::new_async(loader, &doc, e))
 					.await?;
@@ -134,7 +134,7 @@ impl Command {
 async fn main() -> miette::Result<()> {
 	let cli = Cli::parse();
 
-	let loader = TokioFsLoader::new();
+	let loader = JsonLdTokioFsLoader::new();
 	let input = read_stdin()?;
 
 	let mut options = JsonLdOptions::default();

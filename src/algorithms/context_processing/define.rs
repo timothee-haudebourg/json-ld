@@ -6,7 +6,7 @@ use rdf_syntax::{Iri, IriRef};
 use crate::Lenient;
 use crate::algorithms::JsonLdLocatedError;
 use crate::{
-	Nullable, ProcessingMode, Term, Type,
+	JsonLdTerm, Nullable, ProcessingMode, Type,
 	algorithms::{
 		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdError,
 		context_processing::{ContextProcessor, TargetProcessedContext, merged::Merged},
@@ -25,10 +25,10 @@ fn is_gen_delim(c: char) -> bool {
 }
 
 // Checks if the input term is an IRI ending with a gen-delim character, or a blank node identifier.
-fn is_gen_delim_or_blank(t: &Term) -> bool {
+fn is_gen_delim_or_blank(t: &JsonLdTerm) -> bool {
 	match t {
-		Term::Id(Lenient::Valid(Id::BlankId(_))) => true,
-		Term::Id(Lenient::Valid(Id::Iri(iri))) => {
+		JsonLdTerm::Id(Lenient::Valid(Id::BlankId(_))) => true,
+		JsonLdTerm::Id(Lenient::Valid(Id::Iri(iri))) => {
 			if let Some(c) = iri.chars().last() {
 				is_gen_delim(c)
 			} else {
@@ -220,8 +220,8 @@ impl<'a> ContextProcessor<'a> {
 							// json-ld-1.0, an invalid type mapping error has been detected and
 							// processing is aborted.
 							if self.options.processing_mode == ProcessingMode::JsonLd1_0
-								&& (typ == Term::Keyword(Keyword::Json)
-									|| typ == Term::Keyword(Keyword::None))
+								&& (typ == JsonLdTerm::Keyword(Keyword::Json)
+									|| typ == JsonLdTerm::Keyword(Keyword::None))
 							{
 								return Err(JsonLdError::InvalidTypeMapping.at(term_loc));
 							}
@@ -265,8 +265,8 @@ impl<'a> ContextProcessor<'a> {
 								)
 								.await?
 							{
-								Term::Id(mapping) if mapping.is_valid() => {
-									definition.value = Some(Term::Id(mapping))
+								JsonLdTerm::Id(mapping) if mapping.is_valid() => {
+									definition.value = Some(JsonLdTerm::Id(mapping))
 								}
 								_ => return Err(JsonLdError::InvalidIriMapping.at(term_loc)),
 							}
@@ -330,14 +330,14 @@ impl<'a> ContextProcessor<'a> {
 											)
 											.await?
 										{
-											Term::Keyword(Keyword::Context) => {
+											JsonLdTerm::Keyword(Keyword::Context) => {
 												// if it equals `@context`, an invalid keyword alias error has
 												// been detected and processing is aborted.
 												return Err(
 													JsonLdError::InvalidKeywordAlias.at(term_loc)
 												);
 											}
-											Term::Id(prop) if !prop.is_valid() => {
+											JsonLdTerm::Id(prop) if !prop.is_valid() => {
 												// If the resulting IRI mapping is neither a keyword,
 												// nor an IRI, nor a blank node identifier, an
 												// invalid IRI mapping error has been detected and processing
@@ -397,7 +397,7 @@ impl<'a> ContextProcessor<'a> {
 							Some(Nullable::Some(IdRef::Keyword(Keyword::Type))) => {
 								// Otherwise, if `term` is ``@type`, set the IRI mapping of definition to
 								// `@type`.
-								definition.value = Some(Term::Keyword(Keyword::Type))
+								definition.value = Some(JsonLdTerm::Keyword(Keyword::Type))
 							}
 							_ => {
 								// Otherwise if the `term` contains a colon (:) anywhere after the first
@@ -435,8 +435,9 @@ impl<'a> ContextProcessor<'a> {
 											result.push_str(compact_iri.suffix());
 
 											if let Ok(iri) = Iri::new(result.as_str()) {
-												definition.value =
-													Some(Term::Id(Lenient::iri(iri.to_owned())))
+												definition.value = Some(JsonLdTerm::Id(
+													Lenient::iri(iri.to_owned()),
+												))
 											} else {
 												return Err(
 													JsonLdError::InvalidIriMapping.at(term_loc)
@@ -448,13 +449,15 @@ impl<'a> ContextProcessor<'a> {
 									// not a compact IRI
 									if definition.value.is_none() {
 										if let Ok(blank_id) = BlankId::new(term.as_str()) {
-											definition.value =
-												Some(Term::Id(Lenient::blank(blank_id.to_owned())))
+											definition.value = Some(JsonLdTerm::Id(Lenient::blank(
+												blank_id.to_owned(),
+											)))
 										} else if let Ok(iri_ref) = IriRef::new(term.as_str()) {
 											match iri_ref.as_iri() {
 												Some(iri) => {
-													definition.value =
-														Some(Term::Id(Lenient::iri(iri.to_owned())))
+													definition.value = Some(JsonLdTerm::Id(
+														Lenient::iri(iri.to_owned()),
+													))
 												}
 												None => {
 													if iri_ref.as_str().contains('/') {
@@ -469,9 +472,9 @@ impl<'a> ContextProcessor<'a> {
 															true,
 															|w| env.warn(w),
 														) {
-															Term::Id(Lenient::Valid(Id::Iri(
-																id,
-															))) => definition.value = Some(id.into()),
+															JsonLdTerm::Id(Lenient::Valid(
+																Id::Iri(id),
+															)) => definition.value = Some(id.into()),
 															// If the resulting IRI mapping is not an IRI, an invalid IRI mapping
 															// error has been detected and processing is aborted.
 															_ => {
@@ -504,7 +507,7 @@ impl<'a> ContextProcessor<'a> {
 													result.push_str(key.as_str());
 													if let Ok(iri) = Iri::new(result.as_str()) {
 														definition.value =
-															Some(Term::from(iri.to_owned()))
+															Some(JsonLdTerm::from(iri.to_owned()))
 													} else {
 														return Err(JsonLdError::InvalidIriMapping
 															.at(term_loc));
@@ -607,7 +610,7 @@ impl<'a> ContextProcessor<'a> {
 								true,
 								|w| env.warn(w),
 							) {
-								Term::Id(Lenient::Valid(Id::Iri(_))) => (),
+								JsonLdTerm::Id(Lenient::Valid(Id::Iri(_))) => (),
 								_ => return Err(JsonLdError::InvalidTermDefinition.at(term_loc)),
 							}
 

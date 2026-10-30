@@ -1,10 +1,10 @@
 use json_syntax::JsonArray;
 
 use crate::{
-	Object,
+	JsonLdObject,
 	algorithms::{AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError},
 	context::TermDefinitionRef,
-	object::ListObject,
+	object::JsonLdList,
 	syntax::ContainerItem,
 };
 
@@ -44,7 +44,7 @@ impl<'a> Expander<'a> {
 
 		if is_list {
 			return Ok(Expanded::Object(
-				Object::List(ListObject::new(result)).into(),
+				JsonLdObject::List(JsonLdList::new(result)).into(),
 			));
 		}
 

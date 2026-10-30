@@ -2,13 +2,13 @@ use json_syntax::{JsonObject, JsonValue};
 use mown::Mown;
 
 use crate::{
-	Term,
+	JsonLdTerm,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
 		JsonLdLocatedError, compaction::CompactIndexedFragment,
 		context_processing::ContextProcessingOptions,
 	},
-	object::{AnyObject, ObjectRef},
+	object::{AnyJsonLdObject, JsonLdObjectRef},
 	syntax::{ContainerItem, Keyword},
 };
 
@@ -21,20 +21,20 @@ impl Compactor<'_> {
 	pub async fn compact_any_indexed_object(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		object: &impl AnyObject,
+		object: &impl AnyJsonLdObject,
 		index: Option<&str>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		match object.as_ref() {
-			ObjectRef::Value(value) => {
+			JsonLdObjectRef::Value(value) => {
 				self.compact_indexed_value_with(env, value, index, location)
 					.await
 			}
-			ObjectRef::Node(node) => {
+			JsonLdObjectRef::Node(node) => {
 				self.compact_indexed_node_with(env, node, index, location)
 					.await
 			}
-			ObjectRef::List(list) => {
+			JsonLdObjectRef::List(list) => {
 				let mut active_context = self.active_context;
 				// If active context has a previous context, the active context is not propagated.
 				// If element does not contain an @value entry, and element does not consist of
@@ -93,7 +93,7 @@ impl Compactor<'_> {
 						.compact_property(
 							env,
 							&mut result,
-							Term::Keyword(Keyword::List),
+							JsonLdTerm::Keyword(Keyword::List),
 							list,
 							// active_context.as_ref(),
 							// loader,
@@ -122,7 +122,7 @@ impl Compactor<'_> {
 						if !index_container {
 							// Initialize alias by IRI compacting expanded property.
 							let alias = self.with_active_context(&active_context).compact_key(
-								&Term::Keyword(Keyword::Index),
+								&JsonLdTerm::Keyword(Keyword::Index),
 								true,
 								false,
 								location,
@@ -140,7 +140,7 @@ impl Compactor<'_> {
 	}
 }
 
-impl<T: AnyObject> CompactIndexedFragment for T {
+impl<T: AnyJsonLdObject> CompactIndexedFragment for T {
 	async fn compact_indexed_fragment(
 		&self,
 		env: &impl AsyncProcessingEnvironment,

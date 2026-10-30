@@ -16,19 +16,19 @@ pub mod node;
 mod typ;
 pub mod value;
 
-pub use list::ListObject;
+pub use list::JsonLdList;
 // pub use mapped_eq::MappedEq;
-pub use node::{Graph, IndexedNode, NodeObject, Nodes};
-pub use value::{LiteralValue, ValueObject};
+pub use node::{Graph, IndexedJsonLdNode, JsonLdNode, Nodes};
+pub use value::{JsonLdValue, LiteralValue};
 
 /// Abstract object.
-pub trait AnyObject {
-	fn as_ref(&self) -> ObjectRef<'_>;
+pub trait AnyJsonLdObject {
+	fn as_ref(&self) -> JsonLdObjectRef<'_>;
 
 	#[inline]
 	fn id(&self) -> Option<&Lenient<Id>> {
 		match self.as_ref() {
-			ObjectRef::Node(n) => n.id.as_ref(),
+			JsonLdObjectRef::Node(n) => n.id.as_ref(),
 			_ => None,
 		}
 	}
@@ -36,53 +36,53 @@ pub trait AnyObject {
 	#[inline]
 	fn language(&self) -> Option<Lenient<&LangTag>> {
 		match self.as_ref() {
-			ObjectRef::Value(value) => value.language(),
+			JsonLdObjectRef::Value(value) => value.language(),
 			_ => None,
 		}
 	}
 
 	#[inline]
 	fn is_value(&self) -> bool {
-		matches!(self.as_ref(), ObjectRef::Value(_))
+		matches!(self.as_ref(), JsonLdObjectRef::Value(_))
 	}
 
 	#[inline]
 	fn is_node(&self) -> bool {
-		matches!(self.as_ref(), ObjectRef::Node(_))
+		matches!(self.as_ref(), JsonLdObjectRef::Node(_))
 	}
 
 	#[inline]
 	fn is_graph(&self) -> bool {
 		match self.as_ref() {
-			ObjectRef::Node(n) => n.is_graph(),
+			JsonLdObjectRef::Node(n) => n.is_graph(),
 			_ => false,
 		}
 	}
 
 	#[inline]
 	fn is_list(&self) -> bool {
-		matches!(self.as_ref(), ObjectRef::List(_))
+		matches!(self.as_ref(), JsonLdObjectRef::List(_))
 	}
 }
 
 /// Object reference.
-pub enum ObjectRef<'a> {
+pub enum JsonLdObjectRef<'a> {
 	/// Value object.
-	Value(&'a ValueObject),
+	Value(&'a JsonLdValue),
 
 	/// Node object.
-	Node(&'a NodeObject),
+	Node(&'a JsonLdNode),
 
 	/// List object.
-	List(&'a ListObject),
+	List(&'a JsonLdList),
 }
 
 pub enum ObjectMut<'a> {
-	Value(&'a mut ValueObject),
+	Value(&'a mut JsonLdValue),
 
-	Node(&'a mut NodeObject),
+	Node(&'a mut JsonLdNode),
 
-	List(&'a mut ListObject),
+	List(&'a mut JsonLdList),
 }
 
 impl<'a> ObjectMut<'a> {
@@ -96,40 +96,39 @@ impl<'a> ObjectMut<'a> {
 }
 
 /// Indexed object.
-pub type IndexedObject = Indexed<Object>;
+pub type IndexedObject = Indexed<JsonLdObject>;
 
 /// Object.
 ///
 /// JSON-LD connects together multiple kinds of data objects.
 /// Objects may be nodes, values or lists of objects.
 ///
-/// You can get an `Object` by expanding a JSON-LD document using the
-/// expansion algorithm or by converting an already expanded JSON document
-/// using [`TryFromJson`].
+/// You can get a `JsonLdObject` by expanding a JSON-LD document using the
+/// expansion algorithm.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(untagged))]
-pub enum Object {
+pub enum JsonLdObject {
 	/// Value object.
-	Value(ValueObject),
+	Value(JsonLdValue),
 
 	/// List object.
-	List(ListObject),
+	List(JsonLdList),
 
 	/// Node object.
-	Node(Box<NodeObject>),
+	Node(Box<JsonLdNode>),
 }
 
-impl Object {
+impl JsonLdObject {
 	/// Creates a `null` value object.
 	#[inline(always)]
 	pub fn null() -> Self {
-		Self::Value(ValueObject::null())
+		Self::Value(JsonLdValue::null())
 	}
 
 	/// Creates a new node object from a node.
 	#[inline(always)]
-	pub fn node(n: NodeObject) -> Self {
+	pub fn node(n: JsonLdNode) -> Self {
 		Self::Node(Box::new(n))
 	}
 
@@ -137,7 +136,7 @@ impl Object {
 	#[inline(always)]
 	pub fn id(&self) -> Option<&Lenient<Id>> {
 		match self {
-			Object::Node(n) => n.id.as_ref(),
+			JsonLdObject::Node(n) => n.id.as_ref(),
 			_ => None,
 		}
 	}
@@ -190,7 +189,7 @@ impl Object {
 	#[inline(always)]
 	pub fn as_iri(&self) -> Option<&Iri> {
 		match self {
-			Object::Node(node) => node.as_iri(),
+			JsonLdObject::Node(node) => node.as_iri(),
 			_ => None,
 		}
 	}
@@ -198,12 +197,12 @@ impl Object {
 	/// Tests if the object is a value.
 	#[inline(always)]
 	pub fn is_value(&self) -> bool {
-		matches!(self, Object::Value(_))
+		matches!(self, JsonLdObject::Value(_))
 	}
 
 	/// Returns this object as a value, if it is one.
 	#[inline(always)]
-	pub fn as_value(&self) -> Option<&ValueObject> {
+	pub fn as_value(&self) -> Option<&JsonLdValue> {
 		match self {
 			Self::Value(v) => Some(v),
 			_ => None,
@@ -212,7 +211,7 @@ impl Object {
 
 	/// Returns this object as a mutable value, if it is one.
 	#[inline(always)]
-	pub fn as_value_mut(&mut self) -> Option<&mut ValueObject> {
+	pub fn as_value_mut(&mut self) -> Option<&mut JsonLdValue> {
 		match self {
 			Self::Value(v) => Some(v),
 			_ => None,
@@ -221,7 +220,7 @@ impl Object {
 
 	/// Converts this object as a value, if it is one.
 	#[inline(always)]
-	pub fn into_value(self) -> Option<ValueObject> {
+	pub fn into_value(self) -> Option<JsonLdValue> {
 		match self {
 			Self::Value(v) => Some(v),
 			_ => None,
@@ -231,12 +230,12 @@ impl Object {
 	/// Tests if the object is a node.
 	#[inline(always)]
 	pub fn is_node(&self) -> bool {
-		matches!(self, Object::Node(_))
+		matches!(self, JsonLdObject::Node(_))
 	}
 
 	/// Returns this object as a node, if it is one.
 	#[inline(always)]
-	pub fn as_node(&self) -> Option<&NodeObject> {
+	pub fn as_node(&self) -> Option<&JsonLdNode> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -245,7 +244,7 @@ impl Object {
 
 	/// Returns this object as a mutable node, if it is one.
 	#[inline(always)]
-	pub fn as_node_mut(&mut self) -> Option<&mut NodeObject> {
+	pub fn as_node_mut(&mut self) -> Option<&mut JsonLdNode> {
 		match self {
 			Self::Node(n) => Some(n),
 			_ => None,
@@ -254,7 +253,7 @@ impl Object {
 
 	/// Converts this object into a node, if it is one.
 	#[inline(always)]
-	pub fn into_node(self) -> Option<NodeObject> {
+	pub fn into_node(self) -> Option<JsonLdNode> {
 		match self {
 			Self::Node(n) => Some(*n),
 			_ => None,
@@ -265,7 +264,7 @@ impl Object {
 	#[inline(always)]
 	pub fn is_graph(&self) -> bool {
 		match self {
-			Object::Node(n) => n.is_graph(),
+			JsonLdObject::Node(n) => n.is_graph(),
 			_ => false,
 		}
 	}
@@ -273,12 +272,12 @@ impl Object {
 	/// Tests if the object is a list.
 	#[inline(always)]
 	pub fn is_list(&self) -> bool {
-		matches!(self, Object::List(_))
+		matches!(self, JsonLdObject::List(_))
 	}
 
 	/// Returns this object as a list, if it is one.
 	#[inline(always)]
-	pub fn as_list(&self) -> Option<&ListObject> {
+	pub fn as_list(&self) -> Option<&JsonLdList> {
 		match self {
 			Self::List(l) => Some(l),
 			_ => None,
@@ -287,7 +286,7 @@ impl Object {
 
 	/// Returns this object as a mutable list, if it is one.
 	#[inline(always)]
-	pub fn as_list_mut(&mut self) -> Option<&mut ListObject> {
+	pub fn as_list_mut(&mut self) -> Option<&mut JsonLdList> {
 		match self {
 			Self::List(l) => Some(l),
 			_ => None,
@@ -296,7 +295,7 @@ impl Object {
 
 	/// Converts this object into a list, if it is one.
 	#[inline(always)]
-	pub fn into_list(self) -> Option<ListObject> {
+	pub fn into_list(self) -> Option<JsonLdList> {
 		match self {
 			Self::List(l) => Some(l),
 			_ => None,
@@ -311,8 +310,8 @@ impl Object {
 	#[inline(always)]
 	pub fn as_str(&self) -> Option<&str> {
 		match self {
-			Object::Value(value) => value.as_str(),
-			Object::Node(node) => node.as_str(),
+			JsonLdObject::Value(value) => value.as_str(),
+			JsonLdObject::Node(node) => node.as_str(),
 			_ => None,
 		}
 	}
@@ -321,7 +320,7 @@ impl Object {
 	#[inline(always)]
 	pub fn as_bool(&self) -> Option<bool> {
 		match self {
-			Object::Value(value) => value.as_bool(),
+			JsonLdObject::Value(value) => value.as_bool(),
 			_ => None,
 		}
 	}
@@ -330,7 +329,7 @@ impl Object {
 	#[inline(always)]
 	pub fn as_number(&self) -> Option<&JsonNumber> {
 		match self {
-			Object::Value(value) => value.as_number(),
+			JsonLdObject::Value(value) => value.as_number(),
 			_ => None,
 		}
 	}
@@ -340,7 +339,7 @@ impl Object {
 	#[inline(always)]
 	pub fn language(&self) -> Option<Lenient<&LangTag>> {
 		match self {
-			Object::Value(value) => value.language(),
+			JsonLdObject::Value(value) => value.language(),
 			_ => None,
 		}
 	}
@@ -368,8 +367,8 @@ impl Object {
 	}
 }
 
-impl VisitJsonLd for Object {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+impl VisitJsonLd for JsonLdObject {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		match self {
 			Self::Value(v) => v.visit_with(f),
 			Self::List(l) => l.visit_with(f),
@@ -386,28 +385,28 @@ impl VisitJsonLd for Object {
 	}
 }
 
-impl Indexed<Object> {
+impl Indexed<JsonLdObject> {
 	pub fn equivalent(&self, other: &Self) -> bool {
 		self.index() == other.index() && self.inner().equivalent(other.inner())
 	}
 
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_node(self) -> Option<Indexed<NodeObject>> {
+	pub fn into_indexed_node(self) -> Option<Indexed<JsonLdNode>> {
 		let (object, index) = self.into_parts();
 		object.into_node().map(|node| Indexed::new(node, index))
 	}
 
 	/// Converts this indexed object into an indexed node, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_value(self) -> Option<Indexed<ValueObject>> {
+	pub fn into_indexed_value(self) -> Option<Indexed<JsonLdValue>> {
 		let (object, index) = self.into_parts();
 		object.into_value().map(|value| Indexed::new(value, index))
 	}
 
 	/// Converts this indexed object into an indexed list, if it is one.
 	#[inline(always)]
-	pub fn into_indexed_list(self) -> Option<Indexed<ListObject>> {
+	pub fn into_indexed_list(self) -> Option<Indexed<JsonLdList>> {
 		let (object, index) = self.into_parts();
 		object.into_list().map(|list| Indexed::new(list, index))
 	}
@@ -416,9 +415,9 @@ impl Indexed<Object> {
 	pub fn into_unnamed_graph(self) -> Result<Graph, Self> {
 		let (obj, index) = self.into_parts();
 		match obj {
-			Object::Node(n) => match n.into_unnamed_graph() {
+			JsonLdObject::Node(n) => match n.into_unnamed_graph() {
 				Ok(g) => Ok(g),
-				Err(n) => Err(Indexed::new(Object::node(n), index)),
+				Err(n) => Err(Indexed::new(JsonLdObject::node(n), index)),
 			},
 			obj => Err(Indexed::new(obj, index)),
 		}
@@ -696,27 +695,27 @@ impl<'a> IndexedEntryRef<'a> {
 // 	}
 // }
 
-impl AnyObject for Object {
+impl AnyJsonLdObject for JsonLdObject {
 	#[inline(always)]
-	fn as_ref(&self) -> ObjectRef<'_> {
+	fn as_ref(&self) -> JsonLdObjectRef<'_> {
 		match self {
-			Object::Value(value) => ObjectRef::Value(value),
-			Object::Node(node) => ObjectRef::Node(node),
-			Object::List(list) => ObjectRef::List(list),
+			JsonLdObject::Value(value) => JsonLdObjectRef::Value(value),
+			JsonLdObject::Node(node) => JsonLdObjectRef::Node(node),
+			JsonLdObject::List(list) => JsonLdObjectRef::List(list),
 		}
 	}
 }
 
-impl From<ValueObject> for Object {
+impl From<JsonLdValue> for JsonLdObject {
 	#[inline(always)]
-	fn from(value: ValueObject) -> Self {
+	fn from(value: JsonLdValue) -> Self {
 		Self::Value(value)
 	}
 }
 
-impl From<NodeObject> for Object {
+impl From<JsonLdNode> for JsonLdObject {
 	#[inline(always)]
-	fn from(node: NodeObject) -> Self {
+	fn from(node: JsonLdNode) -> Self {
 		Self::node(node)
 	}
 }

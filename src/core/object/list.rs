@@ -2,20 +2,20 @@ use std::hash::Hash;
 
 use crate::{
 	IndexedObject, VisitJsonLd,
-	object::{ObjectMut, ObjectRef},
+	object::{JsonLdObjectRef, ObjectMut},
 };
 
-use super::AnyObject;
+use super::AnyJsonLdObject;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// List object.
-pub struct ListObject {
+pub struct JsonLdList {
 	#[cfg_attr(feature = "serde", serde(rename = "@list"))]
 	entry: Vec<IndexedObject>,
 }
 
-impl ListObject {
+impl JsonLdList {
 	/// Creates a new list object.
 	pub fn new(objects: Vec<IndexedObject>) -> Self {
 		Self { entry: objects }
@@ -85,9 +85,9 @@ impl ListObject {
 	// }
 }
 
-impl VisitJsonLd for ListObject {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
-		f(ObjectRef::List(self));
+impl VisitJsonLd for JsonLdList {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
+		f(JsonLdObjectRef::List(self));
 		for t in self {
 			t.visit_with(f);
 		}
@@ -101,13 +101,13 @@ impl VisitJsonLd for ListObject {
 	}
 }
 
-impl AnyObject for ListObject {
-	fn as_ref(&self) -> super::ObjectRef<'_> {
-		super::ObjectRef::List(self)
+impl AnyJsonLdObject for JsonLdList {
+	fn as_ref(&self) -> super::JsonLdObjectRef<'_> {
+		super::JsonLdObjectRef::List(self)
 	}
 }
 
-impl<'a> IntoIterator for &'a ListObject {
+impl<'a> IntoIterator for &'a JsonLdList {
 	type Item = &'a IndexedObject;
 	type IntoIter = core::slice::Iter<'a, IndexedObject>;
 
@@ -116,7 +116,7 @@ impl<'a> IntoIterator for &'a ListObject {
 	}
 }
 
-impl<'a> IntoIterator for &'a mut ListObject {
+impl<'a> IntoIterator for &'a mut JsonLdList {
 	type Item = &'a mut IndexedObject;
 	type IntoIter = core::slice::IterMut<'a, IndexedObject>;
 
@@ -125,7 +125,7 @@ impl<'a> IntoIterator for &'a mut ListObject {
 	}
 }
 
-impl IntoIterator for ListObject {
+impl IntoIterator for JsonLdList {
 	type Item = IndexedObject;
 	type IntoIter = std::vec::IntoIter<IndexedObject>;
 

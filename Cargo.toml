@@ -1,3 +1,10 @@
+[workspace]
+members = ["testing", "testing/derive"]
+resolver = "2"
+
+[workspace.dependencies]
+linked-data = "0.2"
+
 [package]
 name = "json-ld"
 authors = ["Timothée Haudebourg <timothee@haudebourg.net>"]
@@ -44,7 +51,7 @@ json-syntax = { version = "0.13.1", features = [
 	"canonicalize",
 ] }
 langtag = "1.1"
-rdf-syntax = "1.0"
+rdf-syntax = "2.0"
 educe = "0.4.23"
 futures = "0.3"
 mown = "0.2.2"
@@ -57,21 +64,17 @@ anyhow = "1.0.98"
 btree-indexmap = { version = "1.4", features = ["serde"] }
 into-owned-trait = "1.2"
 
+# Serialization/deserialization with `serde`.
 serde = { version = "1.0", features = ["derive"], optional = true }
 
 miette = { version = "7", optional = true }
 
 # CLI dependencies (see the `cli` feature).
 clap = { version = "4", features = ["derive"], optional = true }
-nquads-syntax = { version = "0.20", optional = true }
+nquads-syntax = { version = "0.21", optional = true }
 
-# Serialization/deserialization with `serde`.
-# linked-data = "0.1"
-linked-data = { path = "/home/work/Documents/Spruce/Core_Tooling/linked-data", features = [
-    "btree-indexmap",
-	"derive"
-] }
-xsd-types.path = "/home/work/Documents/Community/RDF/xsd-types"
+linked-data = { workspace = true, features = ["btree-indexmap", "derive"] }
+xsd-types = "0.12"
 
 # Loader implementation based on `reqwest`.
 reqwest = { version = "0.12.22", optional = true }
@@ -81,12 +84,8 @@ tokio = { version = "1", features = ["fs", "io-util"], optional = true }
 [dev-dependencies]
 json-ld-testing = { path = "testing" }
 tokio = { version = "*", features = ["macros", "rt", "rt-multi-thread"] }
-nquads-syntax = "0.20"
+linked-data = { workspace = true, features = ["derive"] }
+nquads-syntax = "0.21"
 
 [package.metadata.docs.rs]
 all-features = true
-
-[workspace]
-members = ["testing", "testing/core", "testing/derive"]
-
-resolver = "2"

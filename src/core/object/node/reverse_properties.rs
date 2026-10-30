@@ -1,14 +1,14 @@
 use super::Nodes;
 use crate::{
-	IndexedNode, Lenient, VisitJsonLd,
-	object::{ObjectMut, ObjectRef},
+	IndexedJsonLdNode, Lenient, VisitJsonLd,
+	object::{JsonLdObjectRef, ObjectMut},
 };
 use btree_indexmap::{BTreeIndexMap, BTreeIndexMultiSet, Comparable};
 use educe::Educe;
 use rdf_syntax::Id;
 use std::hash::Hash;
 
-pub type ReversePropertyNodes = BTreeIndexMultiSet<IndexedNode>;
+pub type ReversePropertyNodes = BTreeIndexMultiSet<IndexedJsonLdNode>;
 
 /// Reverse properties of a node object, and their associated nodes.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -82,7 +82,7 @@ impl ReverseProperties {
 	pub fn get_any<Q: ?Sized + Hash + Comparable<Lenient<Id>>>(
 		&self,
 		prop: &Q,
-	) -> Option<&IndexedNode> {
+	) -> Option<&IndexedJsonLdNode> {
 		match self.0.get(prop) {
 			Some(values) => values.iter().next(),
 			None => None,
@@ -91,7 +91,7 @@ impl ReverseProperties {
 
 	/// Associate the given node to the given reverse property.
 	#[inline(always)]
-	pub fn insert(&mut self, prop: Lenient<Id>, value: IndexedNode) {
+	pub fn insert(&mut self, prop: Lenient<Id>, value: IndexedJsonLdNode) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			node_values.insert(value);
 		} else {
@@ -101,7 +101,7 @@ impl ReverseProperties {
 
 	/// Associate the given node to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_unique(&mut self, prop: Lenient<Id>, value: IndexedNode) {
+	pub fn insert_unique(&mut self, prop: Lenient<Id>, value: IndexedJsonLdNode) {
 		if let Some(node_values) = self.0.get_mut(&prop) {
 			if node_values.iter().all(|v| !v.equivalent(&value)) {
 				node_values.insert(value);
@@ -113,7 +113,7 @@ impl ReverseProperties {
 
 	/// Associate all the given nodes to the given reverse property.
 	#[inline(always)]
-	pub fn insert_all<Objects: IntoIterator<Item = IndexedNode>>(
+	pub fn insert_all<Objects: IntoIterator<Item = IndexedJsonLdNode>>(
 		&mut self,
 		prop: Lenient<Id>,
 		values: Objects,
@@ -127,7 +127,7 @@ impl ReverseProperties {
 
 	/// Associate all the given nodes to the given reverse property, unless it is already.
 	#[inline(always)]
-	pub fn insert_all_unique<Nodes: IntoIterator<Item = IndexedNode>>(
+	pub fn insert_all_unique<Nodes: IntoIterator<Item = IndexedJsonLdNode>>(
 		&mut self,
 		prop: Lenient<Id>,
 		values: Nodes,
@@ -158,7 +158,7 @@ impl ReverseProperties {
 
 	pub fn extend_unique<N>(&mut self, iter: impl IntoIterator<Item = (Lenient<Id>, N)>)
 	where
-		N: IntoIterator<Item = IndexedNode>,
+		N: IntoIterator<Item = IndexedJsonLdNode>,
 	{
 		for (prop, values) in iter {
 			self.insert_all_unique(prop, values)
@@ -173,7 +173,7 @@ impl ReverseProperties {
 }
 
 impl VisitJsonLd for ReverseProperties {
-	fn visit_with(&self, f: &mut impl FnMut(ObjectRef)) {
+	fn visit_with(&self, f: &mut impl FnMut(JsonLdObjectRef)) {
 		for (_, t) in self {
 			t.visit_with(f);
 		}
@@ -188,7 +188,7 @@ impl VisitJsonLd for ReverseProperties {
 
 impl<N> FromIterator<(Lenient<Id>, N)> for ReverseProperties
 where
-	N: IntoIterator<Item = IndexedNode>,
+	N: IntoIterator<Item = IndexedJsonLdNode>,
 {
 	fn from_iter<I: IntoIterator<Item = (Lenient<Id>, N)>>(iter: I) -> Self {
 		let mut result = Self::default();
@@ -199,10 +199,10 @@ where
 	}
 }
 
-impl Extend<(Lenient<Id>, Vec<IndexedNode>)> for ReverseProperties {
+impl Extend<(Lenient<Id>, Vec<IndexedJsonLdNode>)> for ReverseProperties {
 	fn extend<I>(&mut self, iter: I)
 	where
-		I: IntoIterator<Item = (Lenient<Id>, Vec<IndexedNode>)>,
+		I: IntoIterator<Item = (Lenient<Id>, Vec<IndexedJsonLdNode>)>,
 	{
 		for (prop, values) in iter {
 			self.insert_all(prop, values)
@@ -216,7 +216,7 @@ pub type ReverseBinding = (Lenient<Id>, ReversePropertyNodes);
 
 /// Tuple type representing a reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes.
-pub type ReverseBindingRef<'a> = (&'a Lenient<Id>, &'a [IndexedNode]);
+pub type ReverseBindingRef<'a> = (&'a Lenient<Id>, &'a [IndexedJsonLdNode]);
 
 /// Tuple type representing a mutable reference to a reverse binding in a node object,
 /// associating a reverse property to some nodes, with a mutable access to the nodes.

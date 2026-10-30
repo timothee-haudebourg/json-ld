@@ -1,11 +1,11 @@
 use linked_data::{LinkedDataSerializer, SerializeLinkedData, ser::SerializeLinkedDataWith};
 use rdf_syntax::{RDF_FIRST, RDF_NIL, RDF_REST, Term};
 
-use crate::{IndexedObject, object::ListObject};
+use crate::{IndexedObject, object::JsonLdList};
 
 use super::super::RdfSerializationOptions;
 
-impl SerializeLinkedDataWith<RdfSerializationOptions> for ListObject {
+impl SerializeLinkedDataWith<RdfSerializationOptions> for JsonLdList {
 	fn serialize_rdf_with<S>(
 		&self,
 		opts: RdfSerializationOptions,
@@ -19,7 +19,7 @@ impl SerializeLinkedDataWith<RdfSerializationOptions> for ListObject {
 	}
 }
 
-impl SerializeLinkedData for ListObject {
+impl SerializeLinkedData for JsonLdList {
 	fn serialize_rdf<S>(&self, serializer: S, graph: Option<&Term>) -> Result<S::Ok, S::Error>
 	where
 		S: LinkedDataSerializer<Term>,

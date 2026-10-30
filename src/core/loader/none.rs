@@ -1,8 +1,8 @@
 use rdf_syntax::Iri;
 
-use crate::{JsonLdDocument, LoadError};
+use crate::{JsonLdDocument, JsonLdLoadError};
 
-use super::{AsyncLoader, Loader};
+use super::{AsyncJsonLdLoader, JsonLdLoader};
 
 /// Dummy loader.
 ///
@@ -11,22 +11,22 @@ use super::{AsyncLoader, Loader};
 ///
 /// Raises an `LoadingDocumentFailed` at every attempt to load a resource.
 #[derive(Debug, Default)]
-pub struct NoLoader;
+pub struct NoJsonLdLoader;
 
 #[derive(Debug, thiserror::Error)]
 #[error("no loader")]
 pub struct CannotLoad;
 
-impl Loader for NoLoader {
+impl JsonLdLoader for NoJsonLdLoader {
 	#[inline(always)]
-	fn load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
-		Err(LoadError::new(url.to_owned(), CannotLoad))
+	fn load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
+		Err(JsonLdLoadError::new(url.to_owned(), CannotLoad))
 	}
 }
 
-impl AsyncLoader for NoLoader {
+impl AsyncJsonLdLoader for NoJsonLdLoader {
 	#[inline(always)]
-	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, LoadError> {
-		Err(LoadError::new(url.to_owned(), CannotLoad))
+	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
+		Err(JsonLdLoadError::new(url.to_owned(), CannotLoad))
 	}
 }

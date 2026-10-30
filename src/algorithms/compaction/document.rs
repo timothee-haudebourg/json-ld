@@ -1,7 +1,7 @@
 use json_syntax::JsonValue;
 
 use crate::{
-	JsonLdExpandedDocument, JsonLdFlattenedDocument, ProcessedContext,
+	JsonLdExpandedDocument, JsonLdFlattenedDocument, ProcessedJsonLdContext,
 	algorithms::{
 		AsyncProcessingEnvironment, JsonLdBacktraceBuilder, JsonLdLocatedError,
 		compaction::CompactFragment,
@@ -16,7 +16,7 @@ impl JsonLdExpandedDocument {
 	pub async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedContext<'_>,
+		context: &ProcessedJsonLdContext<'_>,
 		options: CompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -37,7 +37,7 @@ impl JsonLdExpandedDocument {
 	pub async fn compact(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedContext<'_>,
+		context: &ProcessedJsonLdContext<'_>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
 		self.compact_with(env, context, CompactionOptions::default(), location)
@@ -49,7 +49,7 @@ impl Compact for JsonLdExpandedDocument {
 	async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedContext<'_>,
+		context: &ProcessedJsonLdContext<'_>,
 		options: CompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -61,7 +61,7 @@ impl Compact for JsonLdFlattenedDocument {
 	async fn compact_with(
 		&self,
 		env: impl AsyncProcessingEnvironment,
-		context: &ProcessedContext<'_>,
+		context: &ProcessedJsonLdContext<'_>,
 		options: CompactionOptions,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {

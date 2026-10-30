@@ -6,12 +6,12 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	Indexed, Lenient, Nullable, Object, Term,
+	Indexed, JsonLdObject, JsonLdTerm, Lenient, Nullable,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
 		JsonLdError, JsonLdLocatedError, Warning, context_processing::ContextProcessingOptions,
 	},
-	object::ListObject,
+	object::JsonLdList,
 	syntax::{JsonLdContext, Keyword},
 };
 
@@ -24,7 +24,7 @@ pub struct ExpandedEntry<'a> {
 	pub key: &'a str,
 
 	/// The result of IRI-expanding `key`.
-	pub expanded_key: Term,
+	pub expanded_key: JsonLdTerm,
 
 	/// The entry's value.
 	pub value: &'a JsonValue,
@@ -82,10 +82,12 @@ impl<'a> Expander<'a> {
 						false,
 						true,
 					) {
-						Term::Keyword(Keyword::Value) => {
+						JsonLdTerm::Keyword(Keyword::Value) => {
 							preliminary_value_entry = Some(value.clone())
 						}
-						Term::Keyword(Keyword::Id) => preliminary_id_entry = Some(value.clone()),
+						JsonLdTerm::Keyword(Keyword::Id) => {
+							preliminary_id_entry = Some(value.clone())
+						}
 						_ => (),
 					}
 				}
@@ -168,7 +170,7 @@ impl<'a> Expander<'a> {
 					let expanded_key =
 						active_context.expand_iri(Nullable::Some(key.as_str().into()), false, true);
 
-					if let Term::Keyword(Keyword::Type) = expanded_key {
+					if let JsonLdTerm::Keyword(Keyword::Type) = expanded_key {
 						type_entries.push(entry);
 					}
 				}
@@ -260,16 +262,16 @@ impl<'a> Expander<'a> {
 					);
 
 					match &expanded_key {
-						Term::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
-						Term::Keyword(Keyword::List) => {
+						JsonLdTerm::Keyword(Keyword::Value) => value_entry = Some(value.clone()),
+						JsonLdTerm::Keyword(Keyword::List) => {
 							if self.active_property.is_some_and(|p| p != Keyword::Graph) {
 								list_entry = Some((key.as_str(), value.clone()))
 							}
 						}
-						Term::Keyword(Keyword::Set) => {
+						JsonLdTerm::Keyword(Keyword::Set) => {
 							set_entry = Some((key.as_str(), value.clone()))
 						}
-						Term::Id(Lenient::Valid(Id::BlankId(id))) => {
+						JsonLdTerm::Id(Lenient::Valid(Id::BlankId(id))) => {
 							env.warn(Warning::BlankNodeIdProperty(id.clone()));
 						}
 						_ => (),
@@ -292,11 +294,11 @@ impl<'a> Expander<'a> {
 					} in expanded_entries
 					{
 						match expanded_key {
-							Term::Keyword(Keyword::Index) => match value.as_string() {
+							JsonLdTerm::Keyword(Keyword::Index) => match value.as_string() {
 								Some(value) => index = Some(value.to_string()),
 								None => return Err(JsonLdError::InvalidIndexValue.at(location)),
 							},
-							Term::Keyword(Keyword::List) => (),
+							JsonLdTerm::Keyword(Keyword::List) => (),
 							_ => return Err(JsonLdError::InvalidSetOrListObject.at(location)),
 						}
 					}
@@ -319,18 +321,18 @@ impl<'a> Expander<'a> {
 					}
 
 					Ok(Expanded::Object(Indexed::new(
-						Object::List(ListObject::new(result)),
+						JsonLdObject::List(JsonLdList::new(result)),
 						index,
 					)))
 				} else if let Some((set_key, set_value)) = set_entry {
 					// Set objects.
 					for ExpandedEntry { expanded_key, .. } in expanded_entries {
 						match expanded_key {
-							Term::Keyword(Keyword::Index) => {
+							JsonLdTerm::Keyword(Keyword::Index) => {
 								// having an `@index` here is tolerated,
 								// but is ignored.
 							}
-							Term::Keyword(Keyword::Set) => (),
+							JsonLdTerm::Keyword(Keyword::Set) => (),
 							_ => return Err(JsonLdError::InvalidSetOrListObject.at(location)),
 						}
 					}
@@ -367,7 +369,7 @@ impl<'a> Expander<'a> {
 						.expand_node(env, type_scoped_context, expanded_entries, location)
 						.await?;
 					if let Some(result) = e {
-						Ok(Expanded::Object(result.cast::<Object>()))
+						Ok(Expanded::Object(result.cast::<JsonLdObject>()))
 					} else {
 						Ok(Expanded::Null)
 					}

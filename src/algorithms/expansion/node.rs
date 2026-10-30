@@ -7,10 +7,10 @@ use crate::context::Container;
 use crate::context::RawProcessedContext;
 use crate::syntax::{ContainerItem, Keyword, Nullable};
 use crate::{
-	Indexed, IndexedObject, LangString, NodeObject, Object, ProcessingMode, Term, Type, object,
-	object::value::LiteralValue,
+	Indexed, IndexedObject, JsonLdNode, JsonLdObject, JsonLdTerm, LangString, ProcessingMode, Type,
+	object, object::value::LiteralValue,
 };
-use crate::{Lenient, ValueObject};
+use crate::{JsonLdValue, Lenient};
 use btree_indexmap::BTreeIndexSet;
 use json_syntax::JsonValue;
 use json_syntax::object::EntryRef;
@@ -21,11 +21,11 @@ use super::{Expanded, ExpandedEntry, filter_top_level_item};
 
 /// Convert a term to a node id, if possible.
 /// Return `None` if the term is `null`.
-pub fn node_id_of_term(term: Term) -> Option<Lenient<Id>> {
+pub fn node_id_of_term(term: JsonLdTerm) -> Option<Lenient<Id>> {
 	match term {
-		Term::Null => None,
-		Term::Id(prop) => Some(prop),
-		Term::Keyword(kw) => Some(Lenient::Invalid(kw.into_str().to_string())),
+		JsonLdTerm::Null => None,
+		JsonLdTerm::Id(prop) => Some(prop),
+		JsonLdTerm::Keyword(kw) => Some(Lenient::Invalid(kw.into_str().to_string())),
 	}
 }
 
@@ -37,7 +37,7 @@ impl<'a> Expander<'a> {
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<Option<Indexed<NodeObject>>, JsonLdLocatedError> {
+	) -> Result<Option<Indexed<JsonLdNode>>, JsonLdLocatedError> {
 		// Initialize two empty maps, `result` and `nests`.
 		// let mut result = Indexed::new(Node::new(), None);
 		// let mut has_value_object_entries = false;
@@ -45,7 +45,7 @@ impl<'a> Expander<'a> {
 		let (result, has_value_object_entries) = self
 			.expand_node_entries(
 				env,
-				Indexed::new(NodeObject::new(), None),
+				Indexed::new(JsonLdNode::new(), None),
 				false,
 				type_scoped_context,
 				expanded_entries,
@@ -91,7 +91,7 @@ impl<'a> Expander<'a> {
 	async fn expand_node_entries(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		mut result: Indexed<NodeObject>,
+		mut result: Indexed<JsonLdNode>,
 		mut has_value_object_entries: bool,
 		type_scoped_context: &RawProcessedContext,
 		expanded_entries: Vec<ExpandedEntry<'_>>,
@@ -107,10 +107,10 @@ impl<'a> Expander<'a> {
 		{
 			let entry_loc = location.object_value(key);
 			match expanded_key {
-				Term::Null => (),
+				JsonLdTerm::Null => (),
 
 				// If key is @context, continue to the next key.
-				Term::Keyword(Keyword::Context) => (),
+				JsonLdTerm::Keyword(Keyword::Context) => (),
 				// Initialize `expanded_property` to the result of IRI expanding `key`.
 
 				// If `expanded_property` is `null` or it neither contains a colon (:)
@@ -118,7 +118,7 @@ impl<'a> Expander<'a> {
 				// (already done)
 
 				// If `expanded_property` is a keyword:
-				Term::Keyword(expanded_property) => {
+				JsonLdTerm::Keyword(expanded_property) => {
 					// If `active_property` equals `@reverse`, an invalid reverse property
 					// map error has been detected and processing is aborted.
 					if self.active_property.is_some_and(|p| p == Keyword::Reverse) {
@@ -132,7 +132,7 @@ impl<'a> Expander<'a> {
 					if (self.options.processing_mode == ProcessingMode::JsonLd1_0
 						|| (expanded_property != Keyword::Included
 							&& expanded_property != Keyword::Type))
-						&& result.has_key(&Term::Keyword(expanded_property))
+						&& result.has_key(&JsonLdTerm::Keyword(expanded_property))
 					{
 						return Err(JsonLdError::CollidingKeywords.at(entry_loc));
 					}
@@ -227,7 +227,7 @@ impl<'a> Expander<'a> {
 							.await?;
 							let mut expanded_nodes = Vec::new();
 							for obj in expanded_value.into_iter() {
-								match obj.try_cast::<NodeObject>() {
+								match obj.try_cast::<JsonLdNode>() {
 									Ok(node) => expanded_nodes.push(node),
 									Err(_) => {
 										return Err(JsonLdError::InvalidIncludedValue.at(entry_loc));
@@ -274,11 +274,11 @@ impl<'a> Expander<'a> {
 										false,
 										true,
 									) {
-										Term::Keyword(_) => {
+										JsonLdTerm::Keyword(_) => {
 											return Err(JsonLdError::InvalidReversePropertyMap
 												.at(rev_entry_loc));
 										}
-										Term::Id(Lenient::Invalid(_))
+										JsonLdTerm::Id(Lenient::Invalid(_))
 											if self.options.policy
 												== ExpansionPolicy::Strictest =>
 										{
@@ -287,7 +287,7 @@ impl<'a> Expander<'a> {
 											)
 											.at(rev_entry_loc));
 										}
-										Term::Id(reverse_prop)
+										JsonLdTerm::Id(reverse_prop)
 											if reverse_prop.as_str().contains(':')
 												|| self.options.policy
 													== ExpansionPolicy::Relaxed =>
@@ -322,7 +322,7 @@ impl<'a> Expander<'a> {
 											} else {
 												let mut reverse_expanded_nodes = Vec::new();
 												for object in reverse_expanded_value {
-													match object.try_cast::<NodeObject>() {
+													match object.try_cast::<JsonLdNode>() {
 														Ok(node) => {
 															reverse_expanded_nodes.push(node)
 														}
@@ -454,13 +454,13 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				Term::Id(Lenient::Invalid(name))
+				JsonLdTerm::Id(Lenient::Invalid(name))
 					if self.options.policy == ExpansionPolicy::Strictest =>
 				{
 					return Err(JsonLdError::KeyExpansionFailed(name).at(entry_loc));
 				}
 
-				Term::Id(prop)
+				JsonLdTerm::Id(prop)
 					if prop.as_str().contains(':')
 						|| self.options.policy == ExpansionPolicy::Relaxed =>
 				{
@@ -486,8 +486,10 @@ impl<'a> Expander<'a> {
 
 					let mut expanded_value = if is_json {
 						Expanded::Object(
-							Object::Value(ValueObject::Literal(LiteralValue::json(value.clone())))
-								.into(),
+							JsonLdObject::Value(JsonLdValue::Literal(LiteralValue::json(
+								value.clone(),
+							)))
+							.into(),
 						)
 					} else {
 						match value.as_object() {
@@ -544,8 +546,9 @@ impl<'a> Expander<'a> {
 													Nullable::Some(language.as_str().into()),
 													false,
 													true,
-												) == Term::Keyword(Keyword::None)
-												{
+												) == JsonLdTerm::Keyword(
+													Keyword::None,
+												) {
 													None
 												} else {
 													let (language, error) =
@@ -576,12 +579,14 @@ impl<'a> Expander<'a> {
 
 													// Append v to expanded value.
 													expanded_value.push(
-														Object::Value(ValueObject::LangString(v))
-															.into(),
+														JsonLdObject::Value(
+															JsonLdValue::LangString(v),
+														)
+														.into(),
 													)
 												} else {
 													expanded_value.push(
-														Object::Value(ValueObject::Literal(
+														JsonLdObject::Value(JsonLdValue::Literal(
 															LiteralValue::new(
 																JsonValue::String(item.clone()),
 																None,
@@ -691,7 +696,9 @@ impl<'a> Expander<'a> {
 										false,
 										true,
 									) {
-										Term::Null | Term::Keyword(Keyword::None) => None,
+										JsonLdTerm::Null | JsonLdTerm::Keyword(Keyword::None) => {
+											None
+										}
 										key => Some(key),
 									};
 
@@ -728,11 +735,11 @@ impl<'a> Expander<'a> {
 										if container_mapping.contains(ContainerItem::Graph)
 											&& !item.is_graph()
 										{
-											let mut node = NodeObject::new();
+											let mut node = JsonLdNode::new();
 											let mut graph = BTreeIndexSet::new();
 											graph.insert(item);
 											node.set_graph_entry(Some(graph));
-											item = Object::node(node).into();
+											item = JsonLdObject::node(node).into();
 										}
 
 										if expanded_index.is_some() {
@@ -765,13 +772,13 @@ impl<'a> Expander<'a> {
 														false,
 														true,
 													) {
-														Term::Id(prop) => prop,
+														JsonLdTerm::Id(prop) => prop,
 														_ => continue,
 													};
 
 												// Add the key-value pair (expanded index
 												// key-index property values) to item.
-												if let Object::Node(node) = item.inner_mut() {
+												if let JsonLdObject::Node(node) = item.inner_mut() {
 													node.insert(
 														expanded_index_key,
 														re_expanded_index,
@@ -804,7 +811,7 @@ impl<'a> Expander<'a> {
 												// item, where expanded index is set to the
 												// result of IRI expanding index using true for
 												// document relative and false for vocab.
-												if let Object::Node(ref mut node) = *item {
+												if let JsonLdObject::Node(ref mut node) = *item {
 													node.id = node_id_of_term(
 														self.active_context.expand_iri(
 															// &mut env,
@@ -827,7 +834,8 @@ impl<'a> Expander<'a> {
 												if let Ok(typ) =
 													expanded_index.clone().unwrap().try_into()
 												{
-													if let Object::Node(ref mut node) = *item {
+													if let JsonLdObject::Node(ref mut node) = *item
+													{
 														node.types
 															.get_or_insert_default()
 															.push_front(typ);
@@ -868,7 +876,7 @@ impl<'a> Expander<'a> {
 					if container_mapping.contains(ContainerItem::List) && !expanded_value.is_list()
 					{
 						expanded_value = Expanded::Object(
-							Object::List(object::ListObject::new(
+							JsonLdObject::List(object::JsonLdList::new(
 								expanded_value.into_iter().collect(),
 							))
 							.into(),
@@ -887,11 +895,11 @@ impl<'a> Expander<'a> {
 							expanded_value
 								.into_iter()
 								.map(|ev| {
-									let mut node = NodeObject::new();
+									let mut node = JsonLdNode::new();
 									let mut graph = BTreeIndexSet::new();
 									graph.insert(ev);
 									node.set_graph_entry(Some(graph));
-									Object::node(node).into()
+									JsonLdObject::node(node).into()
 								})
 								.collect(),
 						);
@@ -904,7 +912,7 @@ impl<'a> Expander<'a> {
 							// We must filter out anything that is not an object.
 							let mut reverse_expanded_nodes = Vec::new();
 							for object in expanded_value {
-								match object.try_cast::<NodeObject>() {
+								match object.try_cast::<JsonLdNode>() {
 									Ok(node) => reverse_expanded_nodes.push(node),
 									Err(_) => {
 										return Err(
@@ -926,7 +934,7 @@ impl<'a> Expander<'a> {
 					}
 				}
 
-				Term::Id(prop) => {
+				JsonLdTerm::Id(prop) => {
 					if self.options.policy.is_strict() {
 						return Err(JsonLdError::KeyExpansionFailed(prop.to_string()).at(entry_loc));
 					}
@@ -944,7 +952,7 @@ impl<'a> Expander<'a> {
 /// It is a tuple containing both the node being expanded
 /// and a boolean flag set to `true` if the node contains
 /// value object entries (in practice, if it has a `@language` entry).
-type ExpandedNode = (Indexed<NodeObject>, bool);
+type ExpandedNode = (Indexed<JsonLdNode>, bool);
 
 /// Result of the `expand_node_entries` function.
 type NodeEntriesExpensionResult = Result<ExpandedNode, JsonLdLocatedError>;

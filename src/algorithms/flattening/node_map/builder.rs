@@ -4,8 +4,8 @@ use btree_indexmap::BTreeIndexSet;
 use rdf_syntax::{BlankId, BlankIdBuf, Generator, Id};
 
 use crate::{
-	Indexed, IndexedObject, Lenient, NodeObject, Object, algorithms::JsonLdBacktraceBuilder,
-	object::ListObject, syntax::Keyword,
+	Indexed, IndexedObject, JsonLdNode, JsonLdObject, Lenient, algorithms::JsonLdBacktraceBuilder,
+	object::JsonLdList, syntax::Keyword,
 };
 
 use super::{NodeMap, NodeMapExtendError};
@@ -47,14 +47,14 @@ impl<G: Generator> NodeMapBuilder<G> {
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<IndexedObject, NodeMapExtendError> {
 		match element.inner() {
-			Object::Value(value) => {
+			JsonLdObject::Value(value) => {
 				let flat_value = value.clone();
 				Ok(Indexed::new(
-					Object::Value(flat_value),
+					JsonLdObject::Value(flat_value),
 					element.index().map(ToOwned::to_owned),
 				))
 			}
-			Object::List(list) => {
+			JsonLdObject::List(list) => {
 				let mut flat_list = Vec::new();
 				let list_loc = location.object_value(Keyword::List);
 
@@ -67,25 +67,25 @@ impl<G: Generator> NodeMapBuilder<G> {
 				}
 
 				Ok(Indexed::new(
-					Object::List(ListObject::new(flat_list)),
+					JsonLdObject::List(JsonLdList::new(flat_list)),
 					element.index().map(ToOwned::to_owned),
 				))
 			}
-			Object::Node(node) => {
+			JsonLdObject::Node(node) => {
 				let flat_node =
 					self.extend_node_map_from_node(node, element.index(), active_graph, location)?;
-				Ok(flat_node.map_inner(Object::node))
+				Ok(flat_node.map_inner(JsonLdObject::node))
 			}
 		}
 	}
 
 	pub fn extend_node_map_from_node(
 		&mut self,
-		node: &NodeObject,
+		node: &JsonLdNode,
 		index: Option<&str>,
 		active_graph: Option<&Lenient<Id>>,
 		location: JsonLdBacktraceBuilder<'_>,
-	) -> Result<Indexed<NodeObject>, NodeMapExtendError> {
+	) -> Result<Indexed<JsonLdNode>, NodeMapExtendError> {
 		let id = self.substitution.assign_node_id(node.id.as_ref());
 
 		{
@@ -181,7 +181,9 @@ impl<G: Generator> NodeMapBuilder<G> {
 
 					flat_subject.properties_mut().insert_unique(
 						property.clone(),
-						Indexed::unindexed(Object::node(NodeObject::new_with_id(Some(id.clone())))),
+						Indexed::unindexed(JsonLdObject::node(JsonLdNode::new_with_id(Some(
+							id.clone(),
+						)))),
 					)
 				}
 
@@ -207,7 +209,7 @@ impl<G: Generator> NodeMapBuilder<G> {
 			}
 		}
 
-		Ok(Indexed::new(NodeObject::new_with_id(Some(id)), None))
+		Ok(Indexed::new(JsonLdNode::new_with_id(Some(id)), None))
 	}
 }
 

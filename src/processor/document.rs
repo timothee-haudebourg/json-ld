@@ -7,7 +7,7 @@ use super::{
 	CompactResult, CompareResult, ExpandResult, FlattenResult, JsonLdOptions, JsonLdProcessor,
 };
 use crate::{
-	JsonLdDocument, RemoteContext,
+	JsonLdDocument, RemoteJsonLdContext,
 	algorithms::{
 		AsyncProcessingEnvironment, Compact, Expand, JsonLdBacktraceBuilder, JsonLdLocatedError,
 		JsonLdSourceFileRef,
@@ -67,7 +67,7 @@ impl JsonLdProcessor for JsonLdDocument {
 
 		// Process context URL from the loaded document, if any.
 		if let Some(context_url) = self.context_url() {
-			active_context = RemoteContext::iri(context_url.to_owned())
+			active_context = RemoteJsonLdContext::iri(context_url.to_owned())
 				.load(env.loader())
 				.await
 				.map_err(Into::into)
@@ -92,7 +92,7 @@ impl JsonLdProcessor for JsonLdDocument {
 
 	async fn async_compact_with(
 		&self,
-		context: RemoteContext,
+		context: RemoteJsonLdContext,
 		env: impl AsyncProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> CompactResult {
@@ -117,7 +117,7 @@ impl JsonLdProcessor for JsonLdDocument {
 
 	async fn async_flatten_with(
 		&self,
-		context: Option<RemoteContext>,
+		context: Option<RemoteJsonLdContext>,
 		env: impl AsyncProcessingEnvironment,
 		options: JsonLdOptions,
 	) -> FlattenResult {
@@ -162,7 +162,7 @@ async fn compact_expanded(
 	expanded_input: &impl Compact,
 	url: Option<&Iri>,
 	env: impl AsyncProcessingEnvironment,
-	context: RemoteContext,
+	context: RemoteJsonLdContext,
 	options: JsonLdOptions,
 	location: JsonLdBacktraceBuilder<'_>,
 ) -> Result<JsonValue, JsonLdLocatedError> {

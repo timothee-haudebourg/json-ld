@@ -4,7 +4,7 @@ use mown::Mown;
 use rdf_syntax::Id;
 
 use crate::{
-	Lenient, NodeObject, ProcessingMode, Term, Type,
+	JsonLdNode, JsonLdTerm, Lenient, ProcessingMode, Type,
 	algorithms::{
 		AsyncProcessingEnvironment, AsyncProcessingEnvironmentRef, JsonLdBacktraceBuilder,
 		JsonLdLocatedError,
@@ -27,7 +27,7 @@ impl Compactor<'_> {
 	pub async fn compact_indexed_node_with(
 		&self,
 		env: &impl AsyncProcessingEnvironment,
-		node: &NodeObject,
+		node: &JsonLdNode,
 		index: Option<&str>,
 		location: JsonLdBacktraceBuilder<'_>,
 	) -> Result<JsonValue, JsonLdLocatedError> {
@@ -179,7 +179,7 @@ impl Compactor<'_> {
 
 			// Initialize alias by IRI compacting expanded property.
 			let alias = self.with_active_context(&active_context).compact_iri(
-				&Term::Keyword(Keyword::Id),
+				&JsonLdTerm::Keyword(Keyword::Id),
 				true,
 				false,
 				id_loc,
@@ -270,7 +270,7 @@ impl Compactor<'_> {
 			if !reverse_map.is_empty() {
 				// Initialize alias by IRI compacting @reverse.
 				let alias = self.with_active_context(&active_context).compact_iri(
-					&Term::Keyword(Keyword::Reverse),
+					&JsonLdTerm::Keyword(Keyword::Reverse),
 					true,
 					false,
 					rev_loc,
@@ -300,7 +300,7 @@ impl Compactor<'_> {
 			if !index_container {
 				// Initialize alias by IRI compacting expanded property.
 				let alias = self.with_active_context(&active_context).compact_iri(
-					&Term::Keyword(Keyword::Index),
+					&JsonLdTerm::Keyword(Keyword::Index),
 					true,
 					false,
 					index_loc,
@@ -317,7 +317,7 @@ impl Compactor<'_> {
 				.compact_property(
 					env,
 					&mut result,
-					Term::Keyword(Keyword::Graph),
+					JsonLdTerm::Keyword(Keyword::Graph),
 					graph_entry.iter(),
 					false,
 					graph_loc,
@@ -345,7 +345,7 @@ impl Compactor<'_> {
 				.compact_property(
 					env,
 					&mut result,
-					Term::Keyword(Keyword::Included),
+					JsonLdTerm::Keyword(Keyword::Included),
 					included_entry.iter(),
 					false,
 					included_loc,
@@ -404,7 +404,7 @@ impl Compactor<'_> {
 
 			// Initialize alias by IRI compacting expanded property.
 			let alias = self
-				.compact_iri(&Term::Keyword(Keyword::Type), true, false, type_loc)?
+				.compact_iri(&JsonLdTerm::Keyword(Keyword::Type), true, false, type_loc)?
 				.unwrap();
 
 			// Initialize as array to true if processing mode is json-ld-1.1 and the

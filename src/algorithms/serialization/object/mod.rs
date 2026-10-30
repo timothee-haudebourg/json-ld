@@ -1,7 +1,7 @@
 use linked_data::{DeserializeLinkedData, LinkedDataDeserializer};
 use rdf_syntax::Term;
 
-use crate::Object;
+use crate::JsonLdObject;
 
 mod list;
 mod node;
@@ -11,7 +11,7 @@ use list::*;
 use node::*;
 use value::*;
 
-impl DeserializeLinkedData for Object {
+impl DeserializeLinkedData for JsonLdObject {
 	fn deserialize_rdf<D>(mut deserializer: D, graph: Option<&Term>) -> Result<Self, D::Error>
 	where
 		D: LinkedDataDeserializer,
@@ -35,38 +35,38 @@ pub fn deserialize_object<R, D>(
 	deserializer: &mut D,
 	subject: &R,
 	graph: Option<&R>,
-) -> Result<Object, D::Error>
+) -> Result<JsonLdObject, D::Error>
 where
 	R: Clone + PartialEq,
 	D: LinkedDataDeserializer<R>,
 {
 	if let Some(value) = try_deserialize_value_object(deserializer, subject)? {
-		return Ok(Object::Value(value));
+		return Ok(JsonLdObject::Value(value));
 	}
 
 	if let Some(list) = try_deserialize_list_object(deserializer, subject, graph)? {
-		return Ok(Object::List(list));
+		return Ok(JsonLdObject::List(list));
 	}
 
-	deserialize_node_object(deserializer, subject, graph).map(Object::node)
+	deserialize_node_object(deserializer, subject, graph).map(JsonLdObject::node)
 }
 
 fn deserialize_object_ref<R, D>(
 	deserializer: &mut D,
 	subject: &R,
 	graph: Option<&R>,
-) -> Result<Object, D::Error>
+) -> Result<JsonLdObject, D::Error>
 where
 	R: Clone + PartialEq,
 	D: LinkedDataDeserializer<R>,
 {
 	if let Some(value) = try_deserialize_value_object(deserializer, subject)? {
-		return Ok(Object::Value(value));
+		return Ok(JsonLdObject::Value(value));
 	}
 
 	if let Some(list) = try_deserialize_list_object(deserializer, subject, graph)? {
-		return Ok(Object::List(list));
+		return Ok(JsonLdObject::List(list));
 	}
 
-	deserialize_node_object_ref(deserializer, subject).map(Object::node)
+	deserialize_node_object_ref(deserializer, subject).map(JsonLdObject::node)
 }

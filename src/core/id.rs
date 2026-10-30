@@ -4,7 +4,7 @@ use rdf_syntax::{Iri, IriBuf};
 use std::cmp::Ordering;
 use std::convert::TryFrom;
 
-use crate::{Lenient, Term, Validate};
+use crate::{JsonLdTerm, Lenient, Validate};
 
 impl Validate for Id {
 	type Invalid = String;
@@ -53,8 +53,8 @@ impl Lenient<Id> {
 	}
 
 	#[inline(always)]
-	pub fn into_term(self) -> Term {
-		Term::Id(self)
+	pub fn into_term(self) -> JsonLdTerm {
+		JsonLdTerm::Id(self)
 	}
 }
 
@@ -165,33 +165,33 @@ impl PartialEq<Iri> for Lenient<Id> {
 	}
 }
 
-impl PartialEq<Term> for Id {
+impl PartialEq<JsonLdTerm> for Id {
 	#[inline]
-	fn eq(&self, term: &Term) -> bool {
+	fn eq(&self, term: &JsonLdTerm) -> bool {
 		match term {
-			Term::Id(Lenient::Valid(prop)) => self == prop,
+			JsonLdTerm::Id(Lenient::Valid(prop)) => self == prop,
 			_ => false,
 		}
 	}
 }
 
-impl PartialEq<Lenient<Id>> for Term {
+impl PartialEq<Lenient<Id>> for JsonLdTerm {
 	#[inline]
 	fn eq(&self, r: &Lenient<Id>) -> bool {
 		match self {
-			Term::Id(prop) => prop == r,
+			JsonLdTerm::Id(prop) => prop == r,
 			_ => false,
 		}
 	}
 }
 
-impl TryFrom<Term> for Lenient<Id> {
-	type Error = Term;
+impl TryFrom<JsonLdTerm> for Lenient<Id> {
+	type Error = JsonLdTerm;
 
 	#[inline]
-	fn try_from(term: Term) -> Result<Self, Term> {
+	fn try_from(term: JsonLdTerm) -> Result<Self, JsonLdTerm> {
 		match term {
-			Term::Id(prop) => Ok(prop),
+			JsonLdTerm::Id(prop) => Ok(prop),
 			term => Err(term),
 		}
 	}
