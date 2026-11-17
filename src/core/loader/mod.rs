@@ -1,6 +1,6 @@
 use json_syntax::JsonValue;
 use rdf_syntax::{Iri, IriBuf};
-use std::{borrow::Cow, sync::LazyLock};
+use std::{borrow::Cow, future::Future, sync::LazyLock};
 
 use crate::{JsonLdDocument, syntax::JsonLdContextDocumentValue};
 
@@ -140,10 +140,15 @@ impl JsonLdLoadError {
 ///   - `JsonLdReqwestLoader` actually downloading the remote documents using the
 ///     [`reqwest`](https://crates.io/crates/reqwest) library.
 ///     This requires the `reqwest` feature to be enabled.
-pub trait AsyncJsonLdLoader {
+pub trait AsyncJsonLdLoader: Send + Sync {
 	/// Loads the document behind the given IRI.
-	#[allow(async_fn_in_trait)]
-	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError>;
+	///
+	/// The returned future is [`Send`], so the loader can be used from a
+	/// multi-threaded async runtime.
+	fn async_load(
+		&self,
+		url: &Iri,
+	) -> impl Send + Future<Output = Result<JsonLdDocument, JsonLdLoadError>>;
 }
 
 impl<L: AsyncJsonLdLoader> AsyncJsonLdLoader for &L {
@@ -159,13 +164,13 @@ impl<L: AsyncJsonLdLoader> AsyncJsonLdLoader for &mut L {
 }
 
 /// Lazily initialized loader, e.g. a `static` map of pre-loaded documents.
-impl<L: AsyncJsonLdLoader, F: FnOnce() -> L> AsyncJsonLdLoader for LazyLock<L, F> {
+impl<L: AsyncJsonLdLoader, F: Send + FnOnce() -> L> AsyncJsonLdLoader for LazyLock<L, F> {
 	async fn async_load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		L::async_load(self, url).await
 	}
 }
 
-pub trait JsonLdLoader {
+pub trait JsonLdLoader: Send + Sync {
 	/// Loads the document behind the given IRI.
 	fn load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError>;
 
@@ -196,7 +201,7 @@ impl<L: JsonLdLoader> JsonLdLoader for &mut L {
 }
 
 /// Lazily initialized loader, e.g. a `static` map of pre-loaded documents.
-impl<L: JsonLdLoader, F: FnOnce() -> L> JsonLdLoader for LazyLock<L, F> {
+impl<L: JsonLdLoader, F: Send + FnOnce() -> L> JsonLdLoader for LazyLock<L, F> {
 	fn load(&self, url: &Iri) -> Result<JsonLdDocument, JsonLdLoadError> {
 		L::load(self, url)
 	}
