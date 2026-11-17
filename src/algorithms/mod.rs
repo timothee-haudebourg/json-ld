@@ -12,7 +12,7 @@ pub use context_processing::*;
 pub use deserialization::RdfSerializationOptions;
 pub use expansion::*;
 
-pub trait AsyncJsonLdEnvironment {
+pub trait AsyncJsonLdEnvironment: Send + Sync {
 	type Loader: AsyncJsonLdLoader;
 
 	fn loader(&self) -> &Self::Loader;
@@ -52,7 +52,7 @@ impl<'a, T: ?Sized + AsyncJsonLdEnvironment> AsyncJsonLdEnvironment
 	}
 }
 
-pub trait JsonLdEnvironment {
+pub trait JsonLdEnvironment: Send + Sync {
 	type Loader: JsonLdLoader;
 
 	fn loader(&self) -> &Self::Loader;
